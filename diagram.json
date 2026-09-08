@@ -4,13 +4,19 @@
   "editor": "wokwi",
   "parts": [
     { "type": "board-pi-pico", "id": "pico", "top": 0, "left": 0, "attrs": { "env": "circuitpython" } },
-    { "type": "wokwi-led-matrix", "id": "matrix", "top": -80, "left": 180, "attrs": { "rows": "32", "cols": "256", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
+    { "type": "wokwi-led-matrix", "id": "matrix1", "top": -80, "left": 180, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
+    { "type": "wokwi-led-matrix", "id": "matrix2", "top": -80, "left": 520, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
+    { "type": "wokwi-led-matrix", "id": "matrix3", "top": -80, "left": 860, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
+    { "type": "wokwi-led-matrix", "id": "matrix4", "top": -80, "left": 1200, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
     { "type": "wokwi-text", "id": "note", "top": -140, "left": 0, "attrs": { "text": "256x32 visual surrogate for four HUB75 panels" } }
   ],
   "connections": [
-    [ "pico:GP0", "matrix:DIN", "green", [ "h0" ] ],
-    [ "pico:GND.1", "matrix:VSS", "black", [ "h0" ] ],
-    [ "pico:3V3", "matrix:VDD", "red", [ "h0" ] ]
+    [ "pico:GP0", "matrix1:DIN", "green", [ "h0" ] ],
+    [ "matrix1:DOUT", "matrix2:DIN", "green", [ "h0" ] ],
+    [ "matrix2:DOUT", "matrix3:DIN", "green", [ "h0" ] ],
+    [ "matrix3:DOUT", "matrix4:DIN", "green", [ "h0" ] ],
+    [ "pico:GND.1", "matrix1:VSS", "black", [ "h0" ] ],
+    [ "pico:3V3", "matrix1:VDD", "red", [ "h0" ] ]
   ],
   "serialMonitor": { "display": "always" }
 }
