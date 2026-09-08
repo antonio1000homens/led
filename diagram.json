@@ -3,7 +3,7 @@
   "author": "antonio1000homens",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-pi-pico", "id": "pico", "top": 0, "left": 0, "attrs": { "env": "circuitpython" } },
+    { "type": "wokwi-pi-pico", "id": "pico", "top": 0, "left": 0, "attrs": { "env": "circuitpython-8.0.2" } },
     { "type": "wokwi-led-matrix", "id": "matrix1", "top": -80, "left": 180, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
     { "type": "wokwi-led-matrix", "id": "matrix2", "top": -80, "left": 520, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
     { "type": "wokwi-led-matrix", "id": "matrix3", "top": -80, "left": 860, "attrs": { "rows": "32", "cols": "64", "layout": "serpentine", "pixelShape": "square", "pixelSize": "2020" } },
