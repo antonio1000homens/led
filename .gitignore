@@ -1,0 +1,7 @@
+settings_local.py
+secrets.py
+__pycache__/
+.pytest_cache/
+.DS_Store
+wokwi.vcd
+

@@ -1,0 +1,13 @@
+# Copy to settings_local.py and fill in values for MatrixPortal S3 use.
+DISPLAY_BACKEND = "matrix"
+DATA_SOURCE = "national_rail"
+STATION_CRS = "NEM"
+FILTER_CRS = None
+POLL_SECONDS = 30
+MAX_ROWS = 3
+
+WIFI_SSID = "your-wifi-name"
+WIFI_PASSWORD = "your-wifi-password"
+NATIONAL_RAIL_USERNAME = "your-ldbws-username"
+NATIONAL_RAIL_PASSWORD = "your-ldbws-password-or-token"
+
