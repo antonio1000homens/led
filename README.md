@@ -1,10 +1,10 @@
 # LED departures board
 
-CircuitPython prototype for four 64×32 HUB75 RGB panels arranged as one 256×32 board. The intended physical controller is an Adafruit MatrixPortal S3. The first feed is National Rail LDBWS JSON for New Malden (`NEM`), showing three departures.
+CircuitPython prototype for four 64×32 HUB75 RGB panels arranged as one 256×32 board. The intended physical controller is an Adafruit MatrixPortal S3. The default mode is an animated dummy feed for visual development; the live feed is National Rail LDBWS JSON for New Malden (`NEM`).
 
 ## Modes
 
-The checked-in defaults run a deterministic fixture mode so the Wokwi project contains no credentials. Copy `settings_local.py.example` to the ignored `settings_local.py`, add Wi-Fi and National Rail Basic Authentication values, and select the `matrix`/`national_rail` backends for hardware.
+The checked-in defaults run a deterministic animated fixture mode so the Wokwi project contains no credentials. Pages rotate every eight seconds, rows slide in, and cancelled services pulse. Copy `settings_local.py.example` to the ignored `settings_local.py`, add Wi-Fi and National Rail Basic Authentication values, and select the `matrix`/`national_rail` backends for hardware.
 
 Wokwi uses four chained WS2812 matrix parts as a visual surrogate because its documented CircuitPython target and built-in matrix part do not reproduce a MatrixPortal S3 HUB75 panel. It also prints the board to the serial monitor. The provider and formatter are hardware-independent, so the same departure handling is exercised in host tests.
 
