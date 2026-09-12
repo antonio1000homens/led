@@ -1,7 +1,8 @@
 settings_local.py
 secrets.py
+.env
+.venv/
 __pycache__/
 .pytest_cache/
 .DS_Store
 wokwi.vcd
-

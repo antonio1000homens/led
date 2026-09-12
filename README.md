@@ -25,3 +25,78 @@ The four panels must have an appropriate HUB75 data chain and a separate, correc
 ```sh
 python3 -m unittest discover -s tests
 ```
+
+## Local visual simulator
+
+For rapid look-and-feel work without a MatrixPortal, run the local server. It
+serves the browser preview and a normalized departures API from the same
+origin. Fixture mode needs no packages or credentials:
+
+
+```sh
+python3 server.py
+```
+
+Then visit `http://127.0.0.1:8000`. The preview polls the API every 30 seconds,
+shows three services per page, and retains the board's 8-second rotation,
+slide-in transition, cancellation pulse, stale-data state, and four 64×32 panel
+boundaries.
+
+### Live National Rail data
+
+The live provider talks directly to National Rail's Darwin LDBWS service. Home
+Assistant is not part of the runtime path. Install the CPython-only dependency
+in an isolated environment:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-server.txt
+```
+
+Copy `.env.example` to `.env` and set only the Bitwarden Secrets Manager UUID:
+
+```text
+LED_DATA_SOURCE=national_rail
+BWS_NATIONAL_RAIL_TOKEN_SECRET_ID=<bitwarden-secret-uuid>
+```
+
+The process requires an authenticated `bws` CLI (normally through
+`BWS_ACCESS_TOKEN`). It resolves the token at startup and never sends it to the
+browser. Command-line options can override the environment, for example:
+
+```sh
+python server.py --source national_rail --station NEM
+```
+
+The server binds to `127.0.0.1:8000` by default. Do not bind it to a public
+interface; a later CircuitPython LAN test should use an explicitly chosen host
+and a trusted network.
+
+### Departures API
+
+`GET /api/departures` returns a stable, display-oriented response:
+
+```json
+{
+  "station": "NEM",
+  "source": "fixture",
+  "fetched_at": "2026-09-12T12:00:00Z",
+  "stale": false,
+  "services": [
+    {
+      "time": "12:04",
+      "destination": "Waterloo",
+      "platform": "1",
+      "status": "On time",
+      "cancelled": false,
+      "delay_reason": ""
+    }
+  ]
+}
+```
+
+Responses are cached for 60 seconds. If a refresh fails, the last successful
+payload is returned with `stale: true`; without cached data the API returns a
+safe `503 {"error":"departures_unavailable"}` response. This contract is kept
+independent of the HTML so a future CircuitPython client can consume it.
