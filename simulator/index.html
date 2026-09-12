@@ -27,9 +27,9 @@
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels fed by independent screens, including rail departures and optional Thorpe Park ride queues. The current time remains fixed at the top-right across every screen.</p>
+    <p>Four 64 × 32 panels fed by independent screens. The current time remains fixed at the top-right and current temperature plus a compact weather icon remain fixed at the bottom-right.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
-    <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>.</p>
+    <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
       <button id="pause" type="button" aria-pressed="false">Pause</button>
       <button id="previous" type="button">Previous screen</button>
@@ -58,6 +58,51 @@
     let screenDataKey = '';
     let pausedAt = 0;
     let pauseStarted = 0;
+
+    const weatherIcons = {
+      clear_day: [
+        '..#.#..', '...#...', '.#####.', '..###..', '.#####.', '...#...', '..#.#..'
+      ],
+      clear_night: [
+        '...###.', '..###..', '.###...', '.###...', '.####..', '..####.', '...###.'
+      ],
+      partly_cloudy_day: [
+        '.#.#...', '..#....', '.###...', '...##..', '..#####', '.######', '.......'
+      ],
+      partly_cloudy_night: [
+        '..##...', '.##....', '.###...', '...##..', '..#####', '.######', '.......'
+      ],
+      cloudy: [
+        '.......', '...##..', '..####.', '.######', '#######', '.......', '.......'
+      ],
+      fog: [
+        '.......', '.#####.', '.......', '#######', '.......', '.#####.', '.......'
+      ],
+      rain: [
+        '...##..', '..####.', '.######', '#######', '..#.#..', '.#.#...', '#.#....'
+      ],
+      snow: [
+        '...##..', '..####.', '.######', '#######', '.#.#.#.', '..#.#..', '.#.#.#.'
+      ],
+      storm: [
+        '...##..', '..####.', '.######', '#######', '...##..', '..##...', '...#...'
+      ],
+      unknown: [
+        '.#####.', '##...##', '....##.', '...##..', '..##...', '.......', '..##...'
+      ]
+    };
+    const weatherColors = {
+      clear_day: '#ffaa00',
+      clear_night: '#aaccff',
+      partly_cloudy_day: '#ffcc55',
+      partly_cloudy_night: '#aaccff',
+      cloudy: '#bbbbbb',
+      fog: '#888888',
+      rain: '#55aaff',
+      snow: '#ffffff',
+      storm: '#ffcc00',
+      unknown: '#888888'
+    };
 
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
     function row(service) {
@@ -114,6 +159,24 @@
       context.fillRect(x - 8, 0, width + 16, 31);
       context.fillStyle = '#ffaa00';
       context.fillText(text, x, 4);
+    }
+    function drawWeather(weather) {
+      if (!weather || typeof weather !== 'object') return;
+      const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
+      const pattern = weatherIcons[iconName];
+      const stale = Boolean(weather.stale);
+      const temperature = Number(weather.temperature_c);
+      const temperatureText = Number.isFinite(temperature) ? Math.round(temperature) + '°C' : '--°C';
+      context.fillStyle = '#000';
+      context.fillRect(856, 92, 168, 36);
+      context.fillStyle = stale ? '#777777' : weatherColors[iconName];
+      pattern.forEach((line, y) => {
+        [...line].forEach((pixel, x) => {
+          if (pixel === '#') context.fillRect(864 + x * 4, 96 + y * 4, 4, 4);
+        });
+      });
+      context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
+      context.fillText(temperatureText, 904, 94);
     }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
@@ -179,6 +242,7 @@
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
       drawClock();
+      drawWeather(screen.weather);
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
       status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);
@@ -209,7 +273,11 @@
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
         const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
-        const nextKey = JSON.stringify(nextScreens);
+        const nextKey = JSON.stringify(nextScreens.map(screen => {
+          const copy = { ...screen };
+          delete copy.weather;
+          return copy;
+        }));
         if (nextKey !== screenDataKey) {
           feedAnimationStarted = performance.now();
           screenDataKey = nextKey;
