@@ -1,8 +1,8 @@
 """Local departures API and browser simulator server.
 
-This is deliberately CPython-only. It keeps the National Rail credential on
-the development computer and exposes a small JSON contract that a browser or a
-future CircuitPython client can consume.
+This is deliberately CPython-only. It keeps external feed integration on the
+backend and exposes a small JSON contract that a browser or a future
+CircuitPython client can consume.
 """
 
 from __future__ import annotations
@@ -22,12 +22,14 @@ import time
 from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
+from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
 
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
 SECRET_ID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
 PROJECT_ROOT = Path(__file__).resolve().parent
 SIMULATOR_ROOT = PROJECT_ROOT / "simulator"
+DEFAULT_THORPE_PARK_RIDES = ("Hyperia", "Stealth", "The Swarm")
 
 
 class ConfigurationError(RuntimeError):
@@ -267,12 +269,32 @@ class DepartureFeed:
             return copy.deepcopy(self._payload)
 
 
+def _select_rides(rides, names):
+    """Keep a stable configured ride order, ignoring unavailable ride names."""
+    by_name = {ride.get("name", "").casefold(): ride for ride in rides}
+    selected = []
+    for name in names:
+        ride = by_name.get(name.casefold())
+        if ride is not None:
+            selected.append(ride)
+    return selected
+
+
 class ScreenFeed:
     """Compose independent feed payloads into renderer-neutral screens."""
 
-    def __init__(self, departure_feed, calendar_provider=None, utcnow=None):
+    def __init__(
+        self,
+        departure_feed,
+        calendar_provider=None,
+        queue_feed=None,
+        queue_ride_names=None,
+        utcnow=None,
+    ):
         self.departure_feed = departure_feed
         self.calendar_provider = calendar_provider
+        self.queue_feed = queue_feed
+        self.queue_ride_names = tuple(queue_ride_names or DEFAULT_THORPE_PARK_RIDES)
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
 
     def get(self):
@@ -298,6 +320,32 @@ class ScreenFeed:
                 "stale": True,
                 "services": [],
             })
+
+        if self.queue_feed is not None:
+            try:
+                queues = self.queue_feed.get()
+                rides = _select_rides(queues["rides"], self.queue_ride_names)
+                screens.append({
+                    "id": "thorpe-park",
+                    "kind": "theme_park_queues",
+                    "duration_seconds": 8,
+                    "title": "THORPE PARK · Powered by Queue-Times.com",
+                    "source": queues["source"],
+                    "stale": queues["stale"],
+                    "rides": rides[:3],
+                    "attribution": "Powered by Queue-Times.com",
+                })
+            except QueueFeedUnavailable:
+                screens.append({
+                    "id": "thorpe-park",
+                    "kind": "theme_park_queues",
+                    "duration_seconds": 8,
+                    "title": "THORPE PARK · queues unavailable",
+                    "source": "unavailable",
+                    "stale": True,
+                    "rides": [],
+                    "attribution": "Powered by Queue-Times.com",
+                })
 
         if self.calendar_provider is not None:
             try:
@@ -394,6 +442,9 @@ def main():
     parser.add_argument("--max-rows", type=int, default=int(os.getenv("LED_MAX_ROWS", "10")))
     parser.add_argument("--cache-seconds", type=int, default=int(os.getenv("LED_CACHE_SECONDS", "60")))
     parser.add_argument("--calendar-source", choices=("off", "fixture"), default=os.getenv("LED_CALENDAR_SOURCE", "off"))
+    parser.add_argument("--thorpe-park-source", choices=("off", "queue_times"), default=os.getenv("LED_THORPE_PARK_SOURCE", "off"))
+    parser.add_argument("--thorpe-park-cache-seconds", type=int, default=int(os.getenv("LED_THORPE_PARK_CACHE_SECONDS", "300")))
+    parser.add_argument("--thorpe-park-rides", default=os.getenv("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)))
     parser.add_argument("--host", default=os.getenv("LED_SERVER_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("LED_SERVER_PORT", "8000")))
     args = parser.parse_args()
@@ -405,11 +456,26 @@ def main():
         raise ConfigurationError("max-rows must be between 1 and 50")
     if args.cache_seconds < 1:
         raise ConfigurationError("cache-seconds must be positive")
+    if args.thorpe_park_cache_seconds < 1:
+        raise ConfigurationError("thorpe-park-cache-seconds must be positive")
+
+    ride_names = tuple(name.strip() for name in args.thorpe_park_rides.split(",") if name.strip())
+    if args.thorpe_park_source != "off" and not ride_names:
+        raise ConfigurationError("thorpe-park-rides must contain at least one ride")
 
     feed = build_feed(args.source, station, args.max_rows, args.cache_seconds)
     calendar_provider = FixtureCalendarProvider() if args.calendar_source == "fixture" else None
-    server = create_server(feed, args.host, args.port, ScreenFeed(feed, calendar_provider))
-    print("LED simulator: http://{}:{} (source={}, station={})".format(args.host, args.port, args.source, station))
+    queue_feed = None
+    if args.thorpe_park_source == "queue_times":
+        queue_feed = ThorpeParkFeed(QueueTimesProvider(), args.thorpe_park_cache_seconds)
+
+    screen_feed = ScreenFeed(feed, calendar_provider, queue_feed, ride_names)
+    server = create_server(feed, args.host, args.port, screen_feed)
+    print(
+        "LED simulator: http://{}:{} (source={}, station={}, thorpe_park={})".format(
+            args.host, args.port, args.source, station, args.thorpe_park_source
+        )
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
