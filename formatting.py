@@ -7,12 +7,14 @@ def _clip(value, width):
 
 
 def format_row(service, width=32):
-    # Fits a 256px board with the standard 6px terminal font.
-    destination = _clip(service.get("destination", "Unknown"), 12)
+    # Keep platform and status intact, using all remaining room for a station.
     time = _clip(service.get("time", "--:--"), 5)
-    platform = _clip("P" + str(service.get("platform", "-")), 3)
+    platform = ("P" + str(service.get("platform", "-")))[:3]
     status = "CANCELLED" if service.get("cancelled") else str(service.get("status", ""))
-    return (time + " " + destination + " " + platform + " " + status)[:width].ljust(width)
+    prefix = time + " "
+    suffix = " " + platform + " " + status
+    destination = _clip(service.get("destination", "Unknown"), max(1, width - len(prefix) - len(suffix)))
+    return (prefix + destination + suffix)[:width].ljust(width)
 
 
 def header(station, stale=False):
