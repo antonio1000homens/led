@@ -5,16 +5,13 @@ display/provider/network values there. Never commit credentials.
 """
 
 DISPLAY_BACKEND = "fixture"  # fixture or matrix
-DATA_SOURCE = "fixture"  # fixture or national_rail
-STATION_CRS = "NEM"
-FILTER_CRS = None
+SCREEN_SOURCE = "fixture"  # fixture or api
+SCREEN_API_URL = "http://127.0.0.1:8000"
+STATION_CRS = "NEM"  # used only by the local fixture screen
 POLL_SECONDS = 30
-MAX_ROWS = 3
 ANIMATE = True
 ANIMATION_SECONDS = 8
 FRAME_SECONDS = 0.2
 
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
-NATIONAL_RAIL_USERNAME = ""
-NATIONAL_RAIL_PASSWORD = ""
