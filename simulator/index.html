@@ -108,7 +108,7 @@
       const x = -Math.round((1 - slide) * 220) * 4;
       context.fillStyle = '#000';
       context.fillRect(0, 0, 1024, 128);
-      context.font = '20px monospace';
+      context.font = '24px monospace';
       context.textBaseline = 'top';
       context.fillStyle = '#ffaa00';
       if (screen.kind === 'rail_combined') {
@@ -119,11 +119,11 @@
         context.fillStyle = next.cancelled && nextPulse ? '#ff3300' : '#ffffff';
         const primaryPhase = Math.max(0, Math.min(1, entryPhase / 1.2));
         context.fillText(row(next), -Math.round((1 - primaryPhase) * 220) * 4, 4);
-        marquee(callingText(next), 32, phase, '#ffaa00');
+        marquee(callingText(next), 34, phase, '#ffaa00');
         railServices.slice(1, 3).forEach((service, index) => {
           context.fillStyle = service.cancelled ? '#ff3300' : '#ffffff';
           const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1) * 1.0) / 1.2));
-          context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 60 + index * 28);
+          context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 64 + index * 30);
         });
         if (screen.stale || feedStale || forceStale) {
           context.fillStyle = '#ff3300';
@@ -136,7 +136,7 @@
         events.slice(0, 3).forEach((event, index) => {
           const text = clip(event.start, 12) + ' ' + (index === 0 ? event.title : event.location || event.title);
           context.fillStyle = '#ffffff';
-          context.fillText(text.slice(0, 42), x, 32 + index * 28);
+          context.fillText(text.slice(0, 42), x, 34 + index * 30);
         });
         status.dataset.detail = 'Calendar';
       }
