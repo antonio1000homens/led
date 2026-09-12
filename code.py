@@ -1,4 +1,4 @@
-"""Live departures board entrypoint."""
+"""MatrixPortal / Wokwi information-board entrypoint."""
 
 import time
 
@@ -16,45 +16,55 @@ if local:
 
 from display import create
 from fixtures import animated_services
+from screen_client import ClockState, ScreenClient, ScreenRotation
 
 
-def fetch_services(now):
-    if settings.DATA_SOURCE == "fixture":
-        return animated_services(now, settings.ANIMATION_SECONDS)
-    from rail_client import NationalRailClient
-    return NationalRailClient(settings).fetch()
+def fixture_payload(now):
+    services = animated_services(now, settings.ANIMATION_SECONDS)
+    return {
+        "fetched_at": "2026-09-12T12:00:00Z",
+        "screens": [
+            {
+                "id": "departures",
+                "kind": "rail_combined",
+                "duration_seconds": 8,
+                "title": "{} departures".format(settings.STATION_CRS),
+                "source": "fixture",
+                "stale": False,
+                "services": services[:3],
+            }
+        ],
+    }
 
 
 display = create(settings)
-services = []
-stale = False
+rotation = ScreenRotation()
+clock = ClockState()
+client = ScreenClient(settings) if settings.SCREEN_SOURCE == "api" else None
 next_fetch = 0
-animation_started = 0
-feed_signature = None
+transport_stale = False
+fixture_clock_synced = False
 
 while True:
     now = time.monotonic()
-    if settings.DATA_SOURCE == "fixture" or now >= next_fetch:
+    should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
+    if should_fetch:
         try:
-            fresh = fetch_services(now)
-            if fresh:
-                fresh_stale = False
-                signature = repr((fresh, fresh_stale))
-                if signature != feed_signature:
-                    animation_started = now
-                    feed_signature = signature
-                services = fresh
-                stale = fresh_stale
+            payload = fixture_payload(now) if client is None else client.fetch()
+            rotation.update(payload.get("screens"), now)
+            fetched_at = payload.get("fetched_at")
+            if fetched_at and (client is not None or not fixture_clock_synced):
+                clock.sync(fetched_at, now)
+                fixture_clock_synced = True
+            transport_stale = False
         except Exception as error:
-            print("Fetch failed:", error)
-            fresh_stale = bool(services)
-            if fresh_stale != stale:
-                animation_started = now
-                feed_signature = repr((services, fresh_stale))
-            stale = fresh_stale
+            print("Screen fetch failed:", error)
+            transport_stale = bool(rotation.screens)
         next_fetch = now + settings.POLL_SECONDS
-    if not services:
-        services = [{"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting", "cancelled": False}]
-    phase = now - animation_started if settings.ANIMATE else 2
-    display.show(settings.STATION_CRS, services, stale, phase=phase)
+
+    screen, phase = rotation.current(now)
+    if transport_stale:
+        screen = dict(screen)
+        screen["stale"] = True
+    display.show(screen, clock.text(now), phase=phase if settings.ANIMATE else 2)
     time.sleep(settings.FRAME_SECONDS if settings.ANIMATE else settings.POLL_SECONDS)
