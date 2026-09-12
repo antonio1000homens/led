@@ -1,6 +1,6 @@
 import unittest
 
-from formatting import format_row, header
+from formatting import format_row, header, row_slide_phase
 
 
 class FormattingTests(unittest.TestCase):
@@ -12,3 +12,12 @@ class FormattingTests(unittest.TestCase):
 
     def test_stale_header(self):
         self.assertIn("STALE", header("NEM", stale=True))
+
+    def test_header_is_new_departures(self):
+        self.assertEqual(header("NEM"), "NEW DEPARTURES")
+
+    def test_rows_slide_in_one_at_a_time(self):
+        self.assertEqual(row_slide_phase(0, 0), 0)
+        self.assertEqual(row_slide_phase(0, 1), 0)
+        self.assertGreater(row_slide_phase(1.1, 0), row_slide_phase(1.1, 1))
+        self.assertEqual(row_slide_phase(4, 2), 1)
