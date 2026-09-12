@@ -8,7 +8,9 @@ from server import (
     ConfigurationError,
     DepartureFeed,
     FeedUnavailable,
+    FixtureCalendarProvider,
     FixtureProvider,
+    ScreenFeed,
     create_server,
     normalize_darwin_board,
     resolve_bitwarden_secret,
@@ -128,6 +130,23 @@ class CacheTests(unittest.TestCase):
             feed.get()
 
 
+class ScreenFeedTests(unittest.TestCase):
+    def test_keeps_departure_list_and_adds_calling_points_screen(self):
+        feed = DepartureFeed(FixtureProvider(10), "NEM", 60)
+        payload = ScreenFeed(feed).get()
+        self.assertEqual([screen["kind"] for screen in payload["screens"]], ["rail_departure_list", "rail_calling_points"])
+        self.assertEqual(payload["screens"][0]["duration_seconds"], 24)
+        self.assertEqual(payload["screens"][1]["services"][0]["stops"][0]["station"], "Clapham Junction")
+
+    def test_calendar_is_optional_and_independent(self):
+        feed = DepartureFeed(FakeProvider([RuntimeError("rail down")]), "NEM", 60)
+        payload = ScreenFeed(feed, FixtureCalendarProvider()).get()
+        self.assertEqual(len(payload["screens"]), 2)
+        self.assertEqual(payload["screens"][0]["source"], "unavailable")
+        self.assertEqual(payload["screens"][1]["kind"], "calendar_agenda")
+        self.assertTrue(payload["screens"][1]["events"])
+
+
 class HttpTests(unittest.TestCase):
     def _run_server(self, provider):
         feed = DepartureFeed(provider, "NEM", 60)
@@ -160,6 +179,13 @@ class HttpTests(unittest.TestCase):
         body = error.read().decode("utf-8")
         self.assertEqual(json.loads(body), {"error": "departures_unavailable"})
         self.assertNotIn("sensitive", body)
+
+    def test_screens_endpoint_has_two_rail_layouts_by_default(self):
+        base = self._run_server(FixtureProvider(10))
+        with urlopen(base + "/api/screens") as response:
+            payload = json.load(response)
+        self.assertEqual(response.status, 200)
+        self.assertEqual([screen["id"] for screen in payload["screens"]], ["departures", "calling-points"])
 
 
 if __name__ == "__main__":
