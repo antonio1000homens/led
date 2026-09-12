@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LED departures board simulator</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #11151b; color: #e9edf2; }
+    main { width: min(100%, 1120px); padding: 28px; }
+    h1 { margin: 0 0 8px; font-size: 1.15rem; }
+    p { margin: 0 0 24px; color: #a8b1bd; font: 0.9rem/1.45 system-ui, sans-serif; }
+    .board-shell { overflow: auto; padding: 18px; border: 1px solid #303944; border-radius: 14px; background: #07090c; box-shadow: 0 20px 60px #0008; }
+    canvas { display: block; width: 100%; min-width: 720px; image-rendering: pixelated; background: #000; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 18px; }
+    button, label { font: inherit; }
+    button { cursor: pointer; border: 1px solid #425064; border-radius: 7px; padding: 8px 12px; background: #1c2531; color: inherit; }
+    button:hover { background: #283648; }
+    button[aria-pressed="true"] { border-color: #ffa91f; color: #ffc869; }
+    .status { margin-left: auto; color: #a8b1bd; font-size: .82rem; }
+    @media (max-width: 720px) { main { padding: 14px; } .status { width: 100%; margin-left: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>256 × 32 departures board</h1>
+    <p>Four 64 × 32 panels fed by the standalone departures API, with an 8-second page rotation.</p>
+    <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED departures board preview"></canvas></div>
+    <div class="controls" aria-label="Simulator controls">
+      <button id="pause" type="button" aria-pressed="false">Pause</button>
+      <button id="previous" type="button">Previous page</button>
+      <button id="next" type="button">Next page</button>
+      <button id="stale" type="button" aria-pressed="false">Force stale</button>
+      <span class="status" id="status"></span>
+    </div>
+  </main>
+  <script>
+    const canvas = document.getElementById('board');
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    const pauseButton = document.getElementById('pause');
+    const staleButton = document.getElementById('stale');
+    const status = document.getElementById('status');
+    let services = [];
+    let station = 'NEM';
+    let source = 'loading';
+    let fetchedAt = '';
+    let feedStale = false;
+    let feedError = false;
+    let paused = false;
+    let forceStale = false;
+    let pageOffset = 0;
+    let pausedAt = 0;
+    let pauseStarted = 0;
+
+    function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
+    function row(service) {
+      const state = service.cancelled ? 'CANCELLED' : service.status;
+      return (clip(service.time, 5) + ' ' + clip(service.destination, 12) + ' ' + clip('P' + service.platform, 3) + ' ' + state).slice(0, 32);
+    }
+    function pageServices(pageIndex) {
+      if (!services.length) return [{ time: '--:--', destination: 'No services', platform: '-', status: feedError ? 'Feed error' : 'Waiting' }];
+      return services.slice(pageIndex * 3, pageIndex * 3 + 3);
+    }
+    function draw(now) {
+      const elapsed = paused ? pausedAt : now - pauseStarted;
+      const pageLength = 8000;
+      const pageCount = Math.max(1, Math.ceil(services.length / 3));
+      const pageIndex = (Math.floor(elapsed / pageLength) + pageOffset + pageCount * 1000) % pageCount;
+      const phase = (elapsed % pageLength) / 1000;
+      const slide = Math.min(1, phase / 1.2);
+      const x = -Math.round((1 - slide) * 220) * 4;
+      context.fillStyle = '#000';
+      context.fillRect(0, 0, 1024, 128);
+      context.font = '20px monospace';
+      context.textBaseline = 'top';
+      context.fillStyle = '#ffaa00';
+      context.fillText((station + ' DEPARTURES' + (feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
+      pageServices(pageIndex).forEach((service, index) => {
+        const pulseOn = !service.cancelled || Math.floor(phase * 2) % 2 === 0;
+        context.fillStyle = service.cancelled && pulseOn ? '#ff3300' : '#ffffff';
+        context.fillText(row(service), x, 44 + index * 28);
+      });
+      context.strokeStyle = '#26303c';
+      context.lineWidth = 2;
+      for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
+      const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+      status.textContent = 'Page ' + (pageIndex + 1) + ' of ' + pageCount + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
+      requestAnimationFrame(draw);
+    }
+    pauseButton.addEventListener('click', () => {
+      paused = !paused;
+      if (paused) pausedAt = performance.now() - pauseStarted;
+      else pauseStarted = performance.now() - pausedAt;
+      pauseButton.textContent = paused ? 'Resume' : 'Pause';
+      pauseButton.setAttribute('aria-pressed', String(paused));
+    });
+    staleButton.addEventListener('click', () => {
+      forceStale = !forceStale;
+      staleButton.setAttribute('aria-pressed', String(forceStale));
+    });
+    function changePage(direction) {
+      pageOffset += direction;
+      // A manual step should be inspectable immediately, even while paused.
+      pausedAt = 1200;
+      pauseStarted = performance.now() - pausedAt;
+    }
+    document.getElementById('previous').addEventListener('click', () => changePage(-1));
+    document.getElementById('next').addEventListener('click', () => changePage(1));
+
+    async function refreshDepartures() {
+      try {
+        const response = await fetch('/api/departures', { cache: 'no-store' });
+        if (!response.ok) throw new Error('feed unavailable');
+        const payload = await response.json();
+        services = Array.isArray(payload.services) ? payload.services : [];
+        station = payload.station || station;
+        source = payload.source || 'unknown';
+        fetchedAt = payload.fetched_at || '';
+        feedStale = Boolean(payload.stale);
+        feedError = false;
+      } catch (error) {
+        feedStale = services.length > 0;
+        feedError = true;
+      }
+    }
+    refreshDepartures();
+    setInterval(refreshDepartures, 30000);
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>
