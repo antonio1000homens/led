@@ -2,7 +2,7 @@
 
 import board
 
-from formatting import format_row, header, row_slide_phase
+from formatting import calling_text, format_row, row_slide_phase
 
 
 class MatrixDisplay:
@@ -31,12 +31,18 @@ class MatrixDisplay:
         palette = displayio.Palette(4)
         palette[0], palette[1], palette[2], palette[3] = 0x000000, 0xFFFFFF, 0xFFAA00, 0xFF3300
         group = displayio.Group()
-        group.append(self.label_type(self.font, text=header(station, stale), color=0xFFAA00, x=0, y=3))
-        for index, service in enumerate(services[:3]):
+        primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+        primary_slide = row_slide_phase(phase, 0)
+        group.append(self.label_type(self.font, text=format_row(primary), color=0xFFFFFF, x=-int((1 - primary_slide) * 220), y=3))
+        calling = calling_text(primary)
+        calling_width = len(calling) * 6
+        calling_x = 0 if calling_width <= 256 else -int((phase * 45) % (calling_width + 40))
+        group.append(self.label_type(self.font, text=calling, color=0xFFAA00, x=calling_x, y=10))
+        for index, service in enumerate(services[1:3], start=1):
             slide = row_slide_phase(phase, index)
             x = -int((1 - slide) * 220)
             color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-            group.append(self.label_type(self.font, text=format_row(service), color=color, x=x, y=11 + index * 7))
+            group.append(self.label_type(self.font, text=format_row(service), color=color, x=x, y=17 + (index - 1) * 8))
         self.display.root_group = group
 
 
@@ -79,15 +85,23 @@ class FixtureDisplay:
     def show(self, station, services, stale=False, phase=2):
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
-            self._text(header(station, stale), 0, 0, (255, 100, 0))
-            for index, service in enumerate(services[:3]):
+            primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+            primary_slide = row_slide_phase(phase, 0)
+            self._text(format_row(primary), -int((1 - primary_slide) * 220), 0, (255, 255, 255))
+            text = calling_text(primary)
+            text_width = len(text) * 6
+            calling_x = 0 if text_width <= 256 else -int((phase * 45) % (text_width + 40))
+            self._text(text, calling_x, 8, (255, 100, 0))
+            for index, service in enumerate(services[1:3], start=1):
                 slide = row_slide_phase(phase, index)
                 x = -int((1 - slide) * 220)
                 color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-                self._text(format_row(service), x, 8 + index * 8, color)
+                self._text(format_row(service), x, 16 + (index - 1) * 8, color)
             self.pixels.show()
-        print("\n" + header(station, stale))
-        for service in services[:3]:
+        primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+        print("\n" + format_row(primary).rstrip())
+        print(calling_text(primary))
+        for service in services[1:3]:
             print(format_row(service).rstrip())
 
 

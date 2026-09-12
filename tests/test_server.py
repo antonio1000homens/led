@@ -131,12 +131,13 @@ class CacheTests(unittest.TestCase):
 
 
 class ScreenFeedTests(unittest.TestCase):
-    def test_keeps_departure_list_and_adds_calling_points_screen(self):
+    def test_combines_departures_and_calling_points_screen(self):
         feed = DepartureFeed(FixtureProvider(10), "NEM", 60)
         payload = ScreenFeed(feed).get()
-        self.assertEqual([screen["kind"] for screen in payload["screens"]], ["rail_departure_list", "rail_calling_points"])
-        self.assertEqual(payload["screens"][0]["duration_seconds"], 24)
-        self.assertEqual(payload["screens"][1]["services"][0]["stops"][0]["station"], "Clapham Junction")
+        self.assertEqual([screen["kind"] for screen in payload["screens"]], ["rail_combined"])
+        self.assertEqual(payload["screens"][0]["duration_seconds"], 8)
+        self.assertEqual(len(payload["screens"][0]["services"]), 3)
+        self.assertEqual(payload["screens"][0]["services"][0]["stops"][0]["station"], "Clapham Junction")
 
     def test_calendar_is_optional_and_independent(self):
         feed = DepartureFeed(FakeProvider([RuntimeError("rail down")]), "NEM", 60)
@@ -180,12 +181,12 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(json.loads(body), {"error": "departures_unavailable"})
         self.assertNotIn("sensitive", body)
 
-    def test_screens_endpoint_has_two_rail_layouts_by_default(self):
+    def test_screens_endpoint_has_combined_rail_layout_by_default(self):
         base = self._run_server(FixtureProvider(10))
         with urlopen(base + "/api/screens") as response:
             payload = json.load(response)
         self.assertEqual(response.status, 200)
-        self.assertEqual([screen["id"] for screen in payload["screens"]], ["departures", "calling-points"])
+        self.assertEqual([screen["id"] for screen in payload["screens"]], ["departures"])
 
 
 if __name__ == "__main__":

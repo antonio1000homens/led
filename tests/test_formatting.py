@@ -1,6 +1,6 @@
 import unittest
 
-from formatting import format_row, header, row_slide_phase
+from formatting import calling_text, format_row, header, row_slide_phase
 
 
 class FormattingTests(unittest.TestCase):
@@ -21,3 +21,7 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(row_slide_phase(0, 1), 0)
         self.assertGreater(row_slide_phase(1.1, 0), row_slide_phase(1.1, 1))
         self.assertEqual(row_slide_phase(4, 2), 1)
+
+    def test_calling_text_includes_station_times(self):
+        text = calling_text({"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19", "status": "On time"}]})
+        self.assertEqual(text, "CALLING AT: Wimbledon 12:19")

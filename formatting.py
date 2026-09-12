@@ -23,3 +23,19 @@ def header(station, stale=False):
 def row_slide_phase(phase, index, stagger=1.0):
     """Return the 0..1 slide progress for one staggered departure row."""
     return max(0.0, min(1.0, (phase - index * stagger) / 1.2))
+
+
+def calling_text(service):
+    """Format calling stations and times for the scrolling second line."""
+    stops = service.get("stops") or []
+    if not stops:
+        return "CALLING AT: {} only".format(service.get("destination", "destination"))
+    parts = []
+    for stop in stops:
+        value = "{} {}".format(stop.get("station", "Unknown"), stop.get("time", "--:--"))
+        if stop.get("cancelled"):
+            value += " CANCELLED"
+        elif stop.get("status") not in (None, "", "On time"):
+            value += " ({})".format(stop.get("status"))
+        parts.append(value)
+    return "CALLING AT: " + "  -  ".join(parts)
