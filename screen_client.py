@@ -128,19 +128,24 @@ class ScreenClient:
     def __init__(self, settings, session=None):
         self.settings = settings
         self.session = session
+        self._managed_session = session is None
 
     def _ensure_session(self):
-        if self.session is not None:
+        if not self._managed_session:
             return
-        import ssl
-        import adafruit_requests
-        import socketpool
+
         import wifi
 
         if not wifi.radio.connected:
             wifi.radio.connect(self.settings.WIFI_SSID, self.settings.WIFI_PASSWORD)
-        pool = socketpool.SocketPool(wifi.radio)
-        self.session = adafruit_requests.Session(pool, ssl.create_default_context())
+
+        if self.session is None:
+            import ssl
+            import adafruit_requests
+            import socketpool
+
+            pool = socketpool.SocketPool(wifi.radio)
+            self.session = adafruit_requests.Session(pool, ssl.create_default_context())
 
     def fetch(self):
         self._ensure_session()
