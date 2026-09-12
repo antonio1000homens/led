@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
+from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable
 
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
@@ -30,6 +31,8 @@ SECRET_ID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
 PROJECT_ROOT = Path(__file__).resolve().parent
 SIMULATOR_ROOT = PROJECT_ROOT / "simulator"
 DEFAULT_THORPE_PARK_RIDES = ("Hyperia", "Stealth", "The Swarm")
+DEFAULT_WEATHER_LATITUDE = 51.4039
+DEFAULT_WEATHER_LONGITUDE = -0.256
 
 
 class ConfigurationError(RuntimeError):
@@ -289,12 +292,14 @@ class ScreenFeed:
         calendar_provider=None,
         queue_feed=None,
         queue_ride_names=None,
+        weather_feed=None,
         utcnow=None,
     ):
         self.departure_feed = departure_feed
         self.calendar_provider = calendar_provider
         self.queue_feed = queue_feed
         self.queue_ride_names = tuple(queue_ride_names or DEFAULT_THORPE_PARK_RIDES)
+        self.weather_feed = weather_feed
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
 
     def get(self):
@@ -369,6 +374,20 @@ class ScreenFeed:
                     "stale": True,
                     "events": [],
                 })
+
+        if self.weather_feed is not None:
+            try:
+                weather = self.weather_feed.get()
+            except WeatherFeedUnavailable:
+                weather = {
+                    "source": "unavailable",
+                    "stale": True,
+                    "temperature_c": None,
+                    "weather_code": None,
+                    "icon": "unknown",
+                }
+            for screen in screens:
+                screen["weather"] = copy.deepcopy(weather)
 
         return {
             "fetched_at": self.utcnow().isoformat().replace("+00:00", "Z"),
@@ -445,6 +464,10 @@ def main():
     parser.add_argument("--thorpe-park-source", choices=("off", "queue_times"), default=os.getenv("LED_THORPE_PARK_SOURCE", "off"))
     parser.add_argument("--thorpe-park-cache-seconds", type=int, default=int(os.getenv("LED_THORPE_PARK_CACHE_SECONDS", "300")))
     parser.add_argument("--thorpe-park-rides", default=os.getenv("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)))
+    parser.add_argument("--weather-source", choices=("off", "open_meteo"), default=os.getenv("LED_WEATHER_SOURCE", "open_meteo"))
+    parser.add_argument("--weather-cache-seconds", type=int, default=int(os.getenv("LED_WEATHER_CACHE_SECONDS", "600")))
+    parser.add_argument("--weather-latitude", type=float, default=float(os.getenv("LED_WEATHER_LATITUDE", str(DEFAULT_WEATHER_LATITUDE))))
+    parser.add_argument("--weather-longitude", type=float, default=float(os.getenv("LED_WEATHER_LONGITUDE", str(DEFAULT_WEATHER_LONGITUDE))))
     parser.add_argument("--host", default=os.getenv("LED_SERVER_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("LED_SERVER_PORT", "8000")))
     args = parser.parse_args()
@@ -458,6 +481,12 @@ def main():
         raise ConfigurationError("cache-seconds must be positive")
     if args.thorpe_park_cache_seconds < 1:
         raise ConfigurationError("thorpe-park-cache-seconds must be positive")
+    if args.weather_cache_seconds < 1:
+        raise ConfigurationError("weather-cache-seconds must be positive")
+    if not -90 <= args.weather_latitude <= 90:
+        raise ConfigurationError("weather-latitude must be between -90 and 90")
+    if not -180 <= args.weather_longitude <= 180:
+        raise ConfigurationError("weather-longitude must be between -180 and 180")
 
     ride_names = tuple(name.strip() for name in args.thorpe_park_rides.split(",") if name.strip())
     if args.thorpe_park_source != "off" and not ride_names:
@@ -469,11 +498,23 @@ def main():
     if args.thorpe_park_source == "queue_times":
         queue_feed = ThorpeParkFeed(QueueTimesProvider(), args.thorpe_park_cache_seconds)
 
-    screen_feed = ScreenFeed(feed, calendar_provider, queue_feed, ride_names)
+    weather_feed = None
+    if args.weather_source == "open_meteo":
+        weather_feed = WeatherFeed(
+            OpenMeteoProvider(args.weather_latitude, args.weather_longitude),
+            args.weather_cache_seconds,
+        )
+
+    screen_feed = ScreenFeed(feed, calendar_provider, queue_feed, ride_names, weather_feed)
     server = create_server(feed, args.host, args.port, screen_feed)
     print(
-        "LED simulator: http://{}:{} (source={}, station={}, thorpe_park={})".format(
-            args.host, args.port, args.source, station, args.thorpe_park_source
+        "LED simulator: http://{}:{} (source={}, station={}, thorpe_park={}, weather={})".format(
+            args.host,
+            args.port,
+            args.source,
+            station,
+            args.thorpe_park_source,
+            args.weather_source,
         )
     )
     try:
