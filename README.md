@@ -6,15 +6,14 @@ CircuitPython prototype for four 64×32 HUB75 RGB panels arranged as one 256×32
 
 ```text
 National Rail ───┐
-                 │
 Queue-Times ─────┼──> server.py ──> GET /api/screens ──> MatrixPortal S3
-                 │                         │                    │
+Open-Meteo ──────┤                         │                    │
 Future feeds ────┘                         └──> browser          └──> 256×32 HUB75
 ```
 
-The MatrixPortal does not hold National Rail or Queue-Times credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.
+The MatrixPortal does not hold National Rail, Queue-Times or weather-provider credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.
 
-The checked-in defaults run a deterministic fixture mode for Wokwi, with no credentials or LAN backend required. Screens rotate using each screen's `duration_seconds`. The top-right `HH:MM` clock is a renderer-level overlay and therefore remains visible on every screen.
+The checked-in defaults run a deterministic fixture mode for Wokwi, with no credentials or LAN backend required. Screens rotate using each screen's `duration_seconds`. The top-right `HH:MM` clock and bottom-right weather status are renderer-level overlays and therefore remain visible on every screen.
 
 ## Hardware notes
 
@@ -73,9 +72,28 @@ Configured rides are matched case-insensitively and kept in a stable order. A fa
 
 Queue data is displayed with `Powered by Queue-Times.com` attribution.
 
+### Current weather overlay
+
+The backend uses Open-Meteo for current temperature plus the WMO weather code. The free non-commercial endpoint needs no API key. Weather is cached independently for 600 seconds, so multiple MatrixPortal/browser polls do not multiply upstream weather requests.
+
+The default coordinates are New Malden railway station, matching the default `NEM` departure board:
+
+```text
+LED_WEATHER_SOURCE=open_meteo
+LED_WEATHER_CACHE_SECONDS=600
+LED_WEATHER_LATITUDE=51.4039
+LED_WEATHER_LONGITUDE=-0.256
+```
+
+Set `LED_WEATHER_SOURCE=off` to remove the overlay, or change latitude/longitude for another location.
+
+The backend maps Open-Meteo WMO weather codes into a small renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). Both the browser and MatrixPortal draw compact 7×7 pixel icons, with the rounded Celsius temperature beside the icon on the bottom-right row. The physical display uses `17C`-style ASCII text because the built-in CircuitPython terminal font does not provide a reliable degree glyph.
+
+If a weather refresh fails after at least one successful response, the previous value remains visible and is dimmed as stale. A cold weather failure shows an unavailable weather marker without affecting departures, queues or calendar screens. Browser attribution links to Open-Meteo are included as required by the provider's licence.
+
 ### Screen contract
 
-`GET /api/screens` is the renderer-neutral contract. A response contains `fetched_at` plus one or more screens:
+`GET /api/screens` is the renderer-neutral contract. A response contains `fetched_at` plus one or more screens. Weather is attached to every screen so it remains available as a fixed overlay while the board rotates:
 
 ```json
 {
@@ -88,6 +106,16 @@ Queue data is displayed with `Powered by Queue-Times.com` attribution.
       "title": "NEM departures",
       "source": "national_rail",
       "stale": false,
+      "weather": {
+        "source": "open_meteo",
+        "stale": false,
+        "temperature_c": 17.4,
+        "weather_code": 2,
+        "icon": "partly_cloudy_day",
+        "is_day": true,
+        "attribution": "Weather data by Open-Meteo.com",
+        "attribution_url": "https://open-meteo.com/"
+      },
       "services": []
     },
     {
@@ -97,13 +125,21 @@ Queue data is displayed with `Powered by Queue-Times.com` attribution.
       "title": "THORPE PARK · Powered by Queue-Times.com",
       "source": "queue_times",
       "stale": false,
+      "weather": {
+        "source": "open_meteo",
+        "stale": false,
+        "temperature_c": 17.4,
+        "weather_code": 2,
+        "icon": "partly_cloudy_day",
+        "is_day": true
+      },
       "rides": []
     }
   ]
 }
 ```
 
-The MatrixPortal rotates these screens locally and does not reset the active screen every time fresh data is polled. If the backend becomes temporarily unreachable it keeps the last screens and marks the active screen stale.
+The MatrixPortal rotates these screens locally and does not reset the active screen every time fresh data is polled. If the backend becomes temporarily unreachable it keeps the last screens, marks the active screen stale, and dims the retained weather value.
 
 The board clock is derived from the backend's UTC `fetched_at` timestamp and advanced locally between polls. The CircuitPython client converts UTC to Europe/London time itself, including the GMT/BST transitions, so no separate NTP or clock API is needed.
 
@@ -129,7 +165,7 @@ WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
 ```
 
-The MatrixPortal no longer needs National Rail credentials or a direct National Rail client.
+The MatrixPortal no longer needs National Rail credentials or a direct National Rail client. Weather also remains server-side, so the MatrixPortal makes only the same `/api/screens` request it already used.
 
 For a physical board to reach the backend, `server.py` must listen on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
 

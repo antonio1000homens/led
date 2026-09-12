@@ -7,6 +7,118 @@ from formatting import calling_text, format_row, row_slide_phase
 
 CLOCK_X = 226
 STALE_X = 190
+WEATHER_X = 214
+WEATHER_ICON_X = 216
+WEATHER_TEMP_X = 224
+WEATHER_Y = 24
+WEATHER_LABEL_Y = 27
+WEATHER_WIDTH = 42
+
+WEATHER_ICONS = {
+    "clear_day": (
+        "..#.#..",
+        "...#...",
+        ".#####.",
+        "..###..",
+        ".#####.",
+        "...#...",
+        "..#.#..",
+    ),
+    "clear_night": (
+        "...###.",
+        "..###..",
+        ".###...",
+        ".###...",
+        ".####..",
+        "..####.",
+        "...###.",
+    ),
+    "partly_cloudy_day": (
+        ".#.#...",
+        "..#....",
+        ".###...",
+        "...##..",
+        "..#####",
+        ".######",
+        ".......",
+    ),
+    "partly_cloudy_night": (
+        "..##...",
+        ".##....",
+        ".###...",
+        "...##..",
+        "..#####",
+        ".######",
+        ".......",
+    ),
+    "cloudy": (
+        ".......",
+        "...##..",
+        "..####.",
+        ".######",
+        "#######",
+        ".......",
+        ".......",
+    ),
+    "fog": (
+        ".......",
+        ".#####.",
+        ".......",
+        "#######",
+        ".......",
+        ".#####.",
+        ".......",
+    ),
+    "rain": (
+        "...##..",
+        "..####.",
+        ".######",
+        "#######",
+        "..#.#..",
+        ".#.#...",
+        "#.#....",
+    ),
+    "snow": (
+        "...##..",
+        "..####.",
+        ".######",
+        "#######",
+        ".#.#.#.",
+        "..#.#..",
+        ".#.#.#.",
+    ),
+    "storm": (
+        "...##..",
+        "..####.",
+        ".######",
+        "#######",
+        "...##..",
+        "..##...",
+        "...#...",
+    ),
+    "unknown": (
+        ".#####.",
+        "##...##",
+        "....##.",
+        "...##..",
+        "..##...",
+        ".......",
+        "..##...",
+    ),
+}
+
+WEATHER_COLORS = {
+    "clear_day": 0xFFAA00,
+    "clear_night": 0xAACCFF,
+    "partly_cloudy_day": 0xFFCC55,
+    "partly_cloudy_night": 0xAACCFF,
+    "cloudy": 0xBBBBBB,
+    "fog": 0x888888,
+    "rain": 0x55AAFF,
+    "snow": 0xFFFFFF,
+    "storm": 0xFFCC00,
+    "unknown": 0x888888,
+}
 
 
 def _clip(value, width):
@@ -27,6 +139,36 @@ def _calendar_row(event):
         start = start[:5]
     title = event.get("title") or event.get("location") or "Event"
     return (start.ljust(6) + str(title))[:32]
+
+
+def _weather_text(weather):
+    if not isinstance(weather, dict):
+        return None
+    value = weather.get("temperature_c")
+    if value is None:
+        return "--C"
+    try:
+        return "{}C".format(int(round(float(value))))
+    except (TypeError, ValueError):
+        return "--C"
+
+
+def _weather_icon(weather):
+    if not isinstance(weather, dict):
+        return None, WEATHER_ICONS["unknown"]
+    name = str(weather.get("icon") or "unknown")
+    return name, WEATHER_ICONS.get(name, WEATHER_ICONS["unknown"])
+
+
+def _weather_rgb(icon_name, stale=False):
+    color = WEATHER_COLORS.get(icon_name, WEATHER_COLORS["unknown"])
+    if stale:
+        return 0x777777
+    return color
+
+
+def _rgb_tuple(color):
+    return ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
 
 
 class MatrixDisplay:
@@ -89,6 +231,26 @@ class MatrixDisplay:
         for index, event in enumerate(events[:3]):
             self._label(group, _calendar_row(event), 0xFFFFFF, 0, 11 + index * 8)
 
+    def _weather(self, group, weather):
+        text = _weather_text(weather)
+        if text is None:
+            return
+
+        import displayio
+
+        icon_name, rows = _weather_icon(weather)
+        stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
+        bitmap = displayio.Bitmap(WEATHER_WIDTH, 8, 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette[1] = _weather_rgb(icon_name, stale)
+        for y, row in enumerate(rows):
+            for x, pixel in enumerate(row):
+                if pixel == "#":
+                    bitmap[(WEATHER_ICON_X - WEATHER_X) + x, y] = 1
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=WEATHER_X, y=WEATHER_Y))
+        self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, WEATHER_TEMP_X, WEATHER_LABEL_Y)
+
     def show(self, screen, clock_time="--:--", phase=2):
         import displayio
 
@@ -106,6 +268,7 @@ class MatrixDisplay:
         if screen.get("stale"):
             self._label(group, "STALE", 0xFF3300, STALE_X, 3)
         self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
+        self._weather(group, screen.get("weather"))
         self.display.root_group = group
 
 
@@ -179,6 +342,22 @@ class FixtureDisplay:
         else:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
+    def _weather(self, weather):
+        text = _weather_text(weather)
+        if text is None or self.pixels is None:
+            return
+        for y in range(WEATHER_Y, 32):
+            for x in range(WEATHER_X, 256):
+                self._pixel(x, y, (0, 0, 0))
+        icon_name, rows = _weather_icon(weather)
+        stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
+        color = _rgb_tuple(_weather_rgb(icon_name, stale))
+        for y, row in enumerate(rows):
+            for x, pixel in enumerate(row):
+                if pixel == "#":
+                    self._pixel(WEATHER_ICON_X + x, WEATHER_Y + y, color)
+        self._text(text, WEATHER_TEMP_X, WEATHER_Y, (170, 170, 170) if stale else (255, 255, 255))
+
     def show(self, screen, clock_time="--:--", phase=2):
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
@@ -186,6 +365,7 @@ class FixtureDisplay:
             if screen.get("stale"):
                 self._text("STALE", STALE_X, 0, (255, 20, 0))
             self._text(clock_time, CLOCK_X, 0, (255, 100, 0))
+            self._weather(screen.get("weather"))
             self.pixels.show()
 
         print("\n[{}] {}".format(clock_time, screen.get("title") or screen.get("kind") or "screen"))
@@ -203,6 +383,9 @@ class FixtureDisplay:
         elif kind == "calendar_agenda":
             for event in (screen.get("events") or [])[:3]:
                 print(_calendar_row(event).rstrip())
+        weather = screen.get("weather")
+        if isinstance(weather, dict):
+            print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))
         if screen.get("stale"):
             print("STALE")
 
