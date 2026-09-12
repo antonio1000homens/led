@@ -7,6 +7,11 @@ class FormattingTests(unittest.TestCase):
     def test_row_is_fixed_width(self):
         self.assertEqual(len(format_row({"time": "12:04", "destination": "Waterloo", "platform": "1", "status": "On time"})), 32)
 
+    def test_long_destination_uses_available_row_space(self):
+        row = format_row({"time": "12:04", "destination": "London Waterloo", "platform": "1", "status": "On time"})
+        self.assertIn("London Waterloo", row)
+        self.assertIn("P1", row)
+
     def test_cancelled_status_is_visible(self):
         self.assertIn("CANCELLED", format_row({"time": "12:04", "destination": "Waterloo", "platform": "1", "cancelled": True}))
 

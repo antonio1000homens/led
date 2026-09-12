@@ -58,7 +58,10 @@
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
     function row(service) {
       const state = service.cancelled ? 'CANCELLED' : service.status;
-      return (clip(service.time, 5) + ' ' + clip(service.destination, 12) + ' ' + clip('P' + service.platform, 3) + ' ' + state).slice(0, 32);
+      const prefix = clip(service.time, 5) + ' ';
+      const suffix = ' ' + ('P' + String(service.platform || '-')).slice(0, 3) + ' ' + state;
+      const destinationWidth = Math.max(1, 32 - prefix.length - suffix.length);
+      return (prefix + clip(service.destination, destinationWidth) + suffix).slice(0, 32);
     }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
