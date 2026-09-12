@@ -2,7 +2,7 @@
 
 import board
 
-from formatting import format_row, header
+from formatting import format_row, header, row_slide_phase
 
 
 class MatrixDisplay:
@@ -31,10 +31,10 @@ class MatrixDisplay:
         palette = displayio.Palette(4)
         palette[0], palette[1], palette[2], palette[3] = 0x000000, 0xFFFFFF, 0xFFAA00, 0xFF3300
         group = displayio.Group()
-        slide = min(1, phase / 1.2)
-        x = -int((1 - slide) * 220)
-        group.append(self.label_type(self.font, text=header(station, stale), color=0xFFAA00, x=x, y=3))
+        group.append(self.label_type(self.font, text=header(station, stale), color=0xFFAA00, x=0, y=3))
         for index, service in enumerate(services[:3]):
+            slide = row_slide_phase(phase, index)
+            x = -int((1 - slide) * 220)
             color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
             group.append(self.label_type(self.font, text=format_row(service), color=color, x=x, y=11 + index * 7))
         self.display.root_group = group
@@ -79,10 +79,10 @@ class FixtureDisplay:
     def show(self, station, services, stale=False, phase=2):
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
-            slide = min(1, phase / 1.2)
-            x = -int((1 - slide) * 220)
-            self._text(header(station, stale), x, 0, (255, 100, 0))
+            self._text(header(station, stale), 0, 0, (255, 100, 0))
             for index, service in enumerate(services[:3]):
+                slide = row_slide_phase(phase, index)
+                x = -int((1 - slide) * 220)
                 color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
                 self._text(format_row(service), x, 8 + index * 8, color)
             self.pixels.show()

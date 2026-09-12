@@ -17,4 +17,9 @@ def format_row(service, width=32):
 
 def header(station, stale=False):
     suffix = "  STALE" if stale else ""
-    return (str(station) + " DEPARTURES" + suffix)[:42]
+    return ("NEW DEPARTURES" + suffix)[:42]
+
+
+def row_slide_phase(phase, index, stagger=1.0):
+    """Return the 0..1 slide progress for one staggered departure row."""
+    return max(0.0, min(1.0, (phase - index * stagger) / 1.2))

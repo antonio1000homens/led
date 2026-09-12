@@ -109,11 +109,13 @@
       context.fillStyle = '#ffaa00';
       if (screen.kind === 'rail_departure_list') {
         const page = listPage(screen, phase);
-        context.fillText((screen.title + (screen.stale || feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
+        context.fillText(('NEW DEPARTURES' + (screen.stale || feedStale || forceStale ? '  STALE' : '')).slice(0, 42), 0, 4);
         page.services.forEach((service, index) => {
           const pulseOn = !service.cancelled || Math.floor(phase * 2) % 2 === 0;
           context.fillStyle = service.cancelled && pulseOn ? '#ff3300' : '#ffffff';
-          context.fillText(row(service), x, 44 + index * 28);
+          const rowPhase = Math.max(0, Math.min(1, (phase - index * 1.0) / 1.2));
+          const rowX = -Math.round((1 - rowPhase) * 220) * 4;
+          context.fillText(row(service), rowX, 44 + index * 28);
         });
         status.dataset.detail = 'Page ' + (page.pageIndex + 1) + ' of ' + page.pageCount;
       } else if (screen.kind === 'rail_calling_points') {
