@@ -50,6 +50,8 @@
     let paused = false;
     let forceStale = false;
     let screenOffset = 0;
+    let feedAnimationStarted = 0;
+    let screenDataKey = '';
     let pausedAt = 0;
     let pauseStarted = 0;
 
@@ -98,7 +100,8 @@
       const active = screenAt(elapsed);
       const screen = active.screen;
       const phase = active.phase;
-      const slide = Math.min(1, phase / 1.2);
+      const entryPhase = feedAnimationStarted ? Math.max(0, (now - feedAnimationStarted) / 1000) : 0;
+      const slide = Math.min(1, entryPhase / 1.2);
       const x = -Math.round((1 - slide) * 220) * 4;
       context.fillStyle = '#000';
       context.fillRect(0, 0, 1024, 128);
@@ -111,12 +114,12 @@
         const next = railServices[0] || { time: '--:--', destination: 'No services', platform: '-', status: '' };
         const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
         context.fillStyle = next.cancelled && nextPulse ? '#ff3300' : '#ffffff';
-        const primaryPhase = Math.max(0, Math.min(1, phase / 1.2));
+        const primaryPhase = Math.max(0, Math.min(1, entryPhase / 1.2));
         context.fillText(row(next), -Math.round((1 - primaryPhase) * 220) * 4, 4);
         marquee(callingText(next), 32, phase, '#ffaa00');
         railServices.slice(1, 3).forEach((service, index) => {
           context.fillStyle = service.cancelled ? '#ff3300' : '#ffffff';
-          const rowPhase = Math.max(0, Math.min(1, (phase - (index + 1) * 1.0) / 1.2));
+          const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1) * 1.0) / 1.2));
           context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 60 + index * 28);
         });
         if (screen.stale || feedStale || forceStale) {
@@ -166,7 +169,13 @@
         const response = await fetch('/api/screens', { cache: 'no-store' });
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
-        screens = Array.isArray(payload.screens) ? payload.screens : [];
+        const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
+        const nextKey = JSON.stringify(nextScreens);
+        if (nextKey !== screenDataKey) {
+          feedAnimationStarted = performance.now();
+          screenDataKey = nextKey;
+        }
+        screens = nextScreens;
         source = screens.map(screen => screen.source).filter(Boolean).join(', ') || 'unknown';
         fetchedAt = payload.fetched_at || '';
         feedStale = screens.some(screen => screen.stale);

@@ -77,7 +77,9 @@ and a trusted network.
 ### Screen rotation and future feeds
 
 `GET /api/screens` is the simulator's renderer-neutral screen contract. By
-default it returns one combined National Rail layout. The departure data remains available at
+default it returns one combined National Rail layout. Rows animate only when
+the feed payload changes; polling an unchanged cached response does not replay
+the slide-in. The departure data remains available at
 `/api/departures` for future CircuitPython use.
 
 The server deliberately does not connect to a calendar yet: its provider,
