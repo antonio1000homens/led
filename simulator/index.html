@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LED departures board simulator</title>
+  <title>LED information board simulator</title>
   <style>
     :root { color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     * { box-sizing: border-box; }
@@ -11,6 +11,7 @@
     main { width: min(100%, 1120px); padding: 28px; }
     h1 { margin: 0 0 8px; font-size: 1.15rem; }
     p { margin: 0 0 24px; color: #a8b1bd; font: 0.9rem/1.45 system-ui, sans-serif; }
+    a { color: inherit; }
     .board-shell { overflow: auto; padding: 18px; border: 1px solid #303944; border-radius: 14px; background: #07090c; box-shadow: 0 20px 60px #0008; }
     canvas { display: block; width: 100%; min-width: 720px; image-rendering: pixelated; background: #000; }
     .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 18px; }
@@ -19,14 +20,16 @@
     button:hover { background: #283648; }
     button[aria-pressed="true"] { border-color: #ffa91f; color: #ffc869; }
     .status { margin-left: auto; color: #a8b1bd; font-size: .82rem; }
+    .credit { margin-top: 12px; margin-bottom: 0; font-size: .78rem; }
     @media (max-width: 720px) { main { padding: 14px; } .status { width: 100%; margin-left: 0; } }
   </style>
 </head>
 <body>
   <main>
-    <h1>256 × 32 departures board</h1>
-    <p>Four 64 × 32 panels fed by independent screen data: the next departure, a scrolling station/time line, and the following two trains.</p>
-    <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED departures board preview"></canvas></div>
+    <h1>256 × 32 information board</h1>
+    <p>Four 64 × 32 panels fed by independent screens, including rail departures and optional Thorpe Park ride queues.</p>
+    <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
+    <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
       <button id="pause" type="button" aria-pressed="false">Pause</button>
       <button id="previous" type="button">Previous screen</button>
@@ -62,6 +65,10 @@
       const suffix = ' ' + ('P' + String(service.platform || '-')).slice(0, 3) + ' ' + state;
       const destinationWidth = Math.max(1, 32 - prefix.length - suffix.length);
       return (prefix + clip(service.destination, destinationWidth) + suffix).slice(0, 32);
+    }
+    function queueRow(ride) {
+      const state = ride.open ? String(ride.wait_minutes) + 'm' : 'CLOSED';
+      return (clip(ride.name, 24) + state.padStart(8, ' ')).slice(0, 32);
     }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
@@ -125,11 +132,29 @@
           const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1) * 1.0) / 1.2));
           context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 64 + index * 30);
         });
-        if (screen.stale || feedStale || forceStale) {
+        if (screen.stale || forceStale) {
           context.fillStyle = '#ff3300';
           context.fillText('STALE', 900, 4);
         }
         status.dataset.detail = 'Combined departures';
+      } else if (screen.kind === 'theme_park_queues') {
+        const rides = Array.isArray(screen.rides) ? screen.rides : [];
+        context.fillStyle = '#ffaa00';
+        context.fillText(String(screen.title || 'THORPE PARK').slice(0, 42), x, 4);
+        if (!rides.length) {
+          context.fillStyle = '#ffffff';
+          context.fillText('Queue data unavailable', x, 34);
+        } else {
+          rides.slice(0, 3).forEach((ride, index) => {
+            context.fillStyle = ride.open ? '#ffffff' : '#ff3300';
+            context.fillText(queueRow(ride), x, 34 + index * 30);
+          });
+        }
+        if (screen.stale || forceStale) {
+          context.fillStyle = '#ff3300';
+          context.fillText('STALE', 900, 4);
+        }
+        status.dataset.detail = 'Thorpe Park queues';
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         context.fillText((screen.title + (screen.stale ? '  STALE' : '')).slice(0, 42), x, 4);
