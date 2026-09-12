@@ -279,29 +279,19 @@ class ScreenFeed:
         screens = []
         try:
             departures = self.departure_feed.get()
-            page_count = max(1, (len(departures["services"]) + 2) // 3)
             screens.append({
                 "id": "departures",
-                "kind": "rail_departure_list",
-                "duration_seconds": page_count * 8,
+                "kind": "rail_combined",
+                "duration_seconds": 8,
                 "title": "{} departures".format(departures["station"]),
                 "source": departures["source"],
                 "stale": departures["stale"],
-                "services": departures["services"],
-            })
-            screens.append({
-                "id": "calling-points",
-                "kind": "rail_calling_points",
-                "duration_seconds": 8,
-                "title": "Next departure",
-                "source": departures["source"],
-                "stale": departures["stale"],
-                "services": departures["services"][:1],
+                "services": departures["services"][:3],
             })
         except FeedUnavailable:
             screens.append({
                 "id": "departures",
-                "kind": "rail_departure_list",
+                "kind": "rail_combined",
                 "duration_seconds": 8,
                 "title": "Departures unavailable",
                 "source": "unavailable",

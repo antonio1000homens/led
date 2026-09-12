@@ -38,10 +38,10 @@ python3 server.py
 ```
 
 Then visit `http://127.0.0.1:8000`. The preview polls its screen API every 30
-seconds. It keeps the original three-service departure pages (eight seconds per
-page), then switches to a next-departure display whose `CALLING AT:` line scrolls
-through every subsequent stop. Slide-in transitions, cancellation pulse,
-stale-data state, and four 64×32 panel boundaries remain visible.
+seconds. The rail screen combines the next departure, a scrolling `CALLING AT:`
+station/time line, and only the following two departures. Slide-in transitions,
+cancellation pulse, stale-data state, and four 64×32 panel boundaries remain
+visible.
 
 ### Live National Rail data
 
@@ -77,8 +77,7 @@ and a trusted network.
 ### Screen rotation and future feeds
 
 `GET /api/screens` is the simulator's renderer-neutral screen contract. By
-default it returns two National Rail layouts: the unchanged departure list and
-the scrolling calling-points layout. The departure data remains available at
+default it returns one combined National Rail layout. The departure data remains available at
 `/api/departures` for future CircuitPython use.
 
 The server deliberately does not connect to a calendar yet: its provider,

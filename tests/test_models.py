@@ -12,3 +12,15 @@ class ModelTests(unittest.TestCase):
 
     def test_missing_services_is_empty(self):
         self.assertEqual(services_from_board({}), [])
+
+    def test_normalizes_calling_points(self):
+        item = {
+            "std": "12:04",
+            "destination": [{"locationName": "Waterloo"}],
+            "subsequentCallingPoints": {"callingPointList": [{"callingPoint": [
+                {"locationName": "Wimbledon", "crs": "WIM", "st": "12:19", "et": "On time"},
+            ]}]},
+        }
+        result = service_from_api(item)
+        self.assertEqual(result["stops"][0]["station"], "Wimbledon")
+        self.assertEqual(result["stops"][0]["time"], "12:19")
