@@ -19,6 +19,10 @@ from fixtures import animated_services
 from screen_client import ClockState, ScreenClient, ScreenRotation
 
 
+if settings.SCREEN_SOURCE not in ("fixture", "api"):
+    raise ValueError("SCREEN_SOURCE must be fixture or api")
+
+
 def fixture_payload(now):
     services = animated_services(now, settings.ANIMATION_SECONDS)
     return {
@@ -35,6 +39,14 @@ def fixture_payload(now):
             }
         ],
     }
+
+
+def hardware_safe_screen(screen):
+    """Avoid provider attribution punctuation that terminalio cannot render."""
+    if screen.get("kind") == "theme_park_queues":
+        screen = dict(screen)
+        screen["title"] = "THORPE PARK"
+    return screen
 
 
 display = create(settings)
@@ -63,6 +75,7 @@ while True:
         next_fetch = now + settings.POLL_SECONDS
 
     screen, phase = rotation.current(now)
+    screen = hardware_safe_screen(screen)
     if transport_stale:
         screen = dict(screen)
         screen["stale"] = True
