@@ -25,6 +25,14 @@ if settings.SCREEN_SOURCE not in ("fixture", "api"):
 
 def fixture_payload(now):
     services = animated_services(now, settings.ANIMATION_SECONDS)
+    weather = {
+        "source": "fixture",
+        "stale": False,
+        "temperature_c": 17,
+        "weather_code": 2,
+        "icon": "partly_cloudy_day",
+        "is_day": True,
+    }
     return {
         "fetched_at": "2026-09-12T12:00:00Z",
         "screens": [
@@ -36,6 +44,7 @@ def fixture_payload(now):
                 "source": "fixture",
                 "stale": False,
                 "services": services[:3],
+                "weather": weather,
             }
         ],
     }
@@ -79,5 +88,10 @@ while True:
     if transport_stale:
         screen = dict(screen)
         screen["stale"] = True
+        weather = screen.get("weather")
+        if isinstance(weather, dict):
+            weather = dict(weather)
+            weather["stale"] = True
+            screen["weather"] = weather
     display.show(screen, clock.text(now), phase=phase if settings.ANIMATE else 2)
     time.sleep(settings.FRAME_SECONDS if settings.ANIMATE else settings.POLL_SECONDS)
