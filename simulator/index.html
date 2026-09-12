@@ -132,7 +132,7 @@
           const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1) * 1.0) / 1.2));
           context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 64 + index * 30);
         });
-        if (screen.stale || feedStale || forceStale) {
+        if (screen.stale || forceStale) {
           context.fillStyle = '#ff3300';
           context.fillText('STALE', 900, 4);
         }
