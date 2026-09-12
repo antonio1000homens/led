@@ -5,6 +5,30 @@ import board
 from formatting import calling_text, format_row, row_slide_phase
 
 
+CLOCK_X = 226
+STALE_X = 190
+
+
+def _clip(value, width):
+    return str(value or "")[:width]
+
+
+def _queue_row(ride):
+    state = "{}m".format(ride.get("wait_minutes", 0)) if ride.get("open") else "CLOSED"
+    name = _clip(ride.get("name"), 24).ljust(24)
+    return (name + state.rjust(8))[:32]
+
+
+def _calendar_row(event):
+    start = str(event.get("start") or "")
+    if "T" in start:
+        start = start.split("T", 1)[1][:5]
+    else:
+        start = start[:5]
+    title = event.get("title") or event.get("location") or "Event"
+    return (start.ljust(6) + str(title))[:32]
+
+
 class MatrixDisplay:
     def __init__(self):
         import displayio
@@ -26,28 +50,68 @@ class MatrixDisplay:
         self.label_type = label.Label
         self.font = terminalio.FONT
 
-    def show(self, station, services, stale=False, phase=2):
-        import displayio
-        palette = displayio.Palette(4)
-        palette[0], palette[1], palette[2], palette[3] = 0x000000, 0xFFFFFF, 0xFFAA00, 0xFF3300
-        group = displayio.Group()
-        primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+    def _label(self, group, text, color, x, y):
+        group.append(self.label_type(self.font, text=str(text), color=color, x=x, y=y))
+
+    def _rail(self, group, screen, phase):
+        services = screen.get("services") or []
+        primary = services[0] if services else {
+            "time": "--:--",
+            "destination": "No data",
+            "platform": "-",
+            "status": "Waiting",
+        }
         primary_slide = row_slide_phase(phase, 0)
-        group.append(self.label_type(self.font, text=format_row(primary), color=0xFFFFFF, x=-int((1 - primary_slide) * 220), y=3))
+        self._label(group, format_row(primary), 0xFFFFFF, -int((1 - primary_slide) * 220), 3)
         calling = calling_text(primary)
         calling_width = len(calling) * 6
         calling_x = 0 if calling_width <= 256 else -int((phase * 45) % (calling_width + 40))
-        group.append(self.label_type(self.font, text=calling, color=0xFFAA00, x=calling_x, y=10))
+        self._label(group, calling, 0xFFAA00, calling_x, 10)
         for index, service in enumerate(services[1:3], start=1):
             slide = row_slide_phase(phase, index)
             x = -int((1 - slide) * 220)
             color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-            group.append(self.label_type(self.font, text=format_row(service), color=color, x=x, y=17 + (index - 1) * 8))
+            self._label(group, format_row(service), color, x, 17 + (index - 1) * 8)
+
+    def _queues(self, group, screen):
+        self._label(group, _clip(screen.get("title") or "THORPE PARK", 30), 0xFFAA00, 0, 3)
+        rides = screen.get("rides") or []
+        if not rides:
+            self._label(group, "Queue data unavailable", 0xFFFFFF, 0, 11)
+            return
+        for index, ride in enumerate(rides[:3]):
+            color = 0xFFFFFF if ride.get("open") else 0xFF3300
+            self._label(group, _queue_row(ride), color, 0, 11 + index * 8)
+
+    def _calendar(self, group, screen):
+        self._label(group, _clip(screen.get("title") or "Upcoming events", 30), 0xFFAA00, 0, 3)
+        events = screen.get("events") or []
+        for index, event in enumerate(events[:3]):
+            self._label(group, _calendar_row(event), 0xFFFFFF, 0, 11 + index * 8)
+
+    def show(self, screen, clock_time="--:--", phase=2):
+        import displayio
+
+        group = displayio.Group()
+        kind = screen.get("kind")
+        if kind == "rail_combined":
+            self._rail(group, screen, phase)
+        elif kind == "theme_park_queues":
+            self._queues(group, screen)
+        elif kind == "calendar_agenda":
+            self._calendar(group, screen)
+        else:
+            self._label(group, _clip(screen.get("title") or "Display unavailable", 30), 0xFFFFFF, 0, 3)
+
+        if screen.get("stale"):
+            self._label(group, "STALE", 0xFF3300, STALE_X, 3)
+        self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
         self.display.root_group = group
 
 
 class FixtureDisplay:
     """Wokwi's WS2812 matrix surrogate, with serial output as a fallback."""
+
     def __init__(self):
         try:
             import neopixel
@@ -70,7 +134,7 @@ class FixtureDisplay:
             "9": (1, 1, 1, 0, 1),
         }
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        for char in value.upper():
+        for char in str(value).upper():
             if char in alphabet:
                 n = alphabet.index(char) + 1
                 bits = tuple((n >> i) & 1 for i in range(5))
@@ -82,10 +146,13 @@ class FixtureDisplay:
                         self._pixel(x + column, y + row, color)
             x += 6
 
-    def show(self, station, services, stale=False, phase=2):
-        if self.pixels is not None:
-            self.pixels.fill((0, 0, 0))
-            primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+    def _draw_screen(self, screen, phase):
+        kind = screen.get("kind")
+        if kind == "rail_combined":
+            services = screen.get("services") or []
+            primary = services[0] if services else {
+                "time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"
+            }
             primary_slide = row_slide_phase(phase, 0)
             self._text(format_row(primary), -int((1 - primary_slide) * 220), 0, (255, 255, 255))
             text = calling_text(primary)
@@ -97,12 +164,47 @@ class FixtureDisplay:
                 x = -int((1 - slide) * 220)
                 color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
                 self._text(format_row(service), x, 16 + (index - 1) * 8, color)
+        elif kind == "theme_park_queues":
+            self._text(_clip(screen.get("title") or "THORPE PARK", 30), 0, 0, (255, 100, 0))
+            rides = screen.get("rides") or []
+            if not rides:
+                self._text("Queue data unavailable", 0, 8, (255, 255, 255))
+            for index, ride in enumerate(rides[:3]):
+                color = (255, 255, 255) if ride.get("open") else (255, 20, 0)
+                self._text(_queue_row(ride), 0, 8 + index * 8, color)
+        elif kind == "calendar_agenda":
+            self._text(_clip(screen.get("title") or "Upcoming events", 30), 0, 0, (255, 100, 0))
+            for index, event in enumerate((screen.get("events") or [])[:3]):
+                self._text(_calendar_row(event), 0, 8 + index * 8, (255, 255, 255))
+        else:
+            self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
+
+    def show(self, screen, clock_time="--:--", phase=2):
+        if self.pixels is not None:
+            self.pixels.fill((0, 0, 0))
+            self._draw_screen(screen, phase)
+            if screen.get("stale"):
+                self._text("STALE", STALE_X, 0, (255, 20, 0))
+            self._text(clock_time, CLOCK_X, 0, (255, 100, 0))
             self.pixels.show()
-        primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
-        print("\n" + format_row(primary).rstrip())
-        print(calling_text(primary))
-        for service in services[1:3]:
-            print(format_row(service).rstrip())
+
+        print("\n[{}] {}".format(clock_time, screen.get("title") or screen.get("kind") or "screen"))
+        kind = screen.get("kind")
+        if kind == "rail_combined":
+            services = screen.get("services") or []
+            if services:
+                print(format_row(services[0]).rstrip())
+                print(calling_text(services[0]))
+                for service in services[1:3]:
+                    print(format_row(service).rstrip())
+        elif kind == "theme_park_queues":
+            for ride in (screen.get("rides") or [])[:3]:
+                print(_queue_row(ride).rstrip())
+        elif kind == "calendar_agenda":
+            for event in (screen.get("events") or [])[:3]:
+                print(_calendar_row(event).rstrip())
+        if screen.get("stale"):
+            print("STALE")
 
 
 def create(settings):

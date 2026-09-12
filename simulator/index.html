@@ -27,7 +27,7 @@
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels fed by independent screens, including rail departures and optional Thorpe Park ride queues.</p>
+    <p>Four 64 × 32 panels fed by independent screens, including rail departures and optional Thorpe Park ride queues. The current time remains fixed at the top-right across every screen.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
     <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
@@ -45,6 +45,7 @@
     const pauseButton = document.getElementById('pause');
     const staleButton = document.getElementById('stale');
     const status = document.getElementById('status');
+    const clockFormatter = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     let screens = [];
     let source = 'loading';
     let fetchedAt = '';
@@ -105,6 +106,15 @@
       if (!services.length) return { services: [{ time: '--:--', destination: feedError ? 'Feed error' : 'No services', platform: '-', status: '' }] };
       return { services: services.slice(0, 3) };
     }
+    function drawClock() {
+      const text = clockFormatter.format(new Date());
+      const width = context.measureText(text).width;
+      const x = 1016 - width;
+      context.fillStyle = '#000';
+      context.fillRect(x - 8, 0, width + 16, 31);
+      context.fillStyle = '#ffaa00';
+      context.fillText(text, x, 4);
+    }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
       const active = screenAt(elapsed);
@@ -134,7 +144,7 @@
         });
         if (screen.stale || forceStale) {
           context.fillStyle = '#ff3300';
-          context.fillText('STALE', 900, 4);
+          context.fillText('STALE', 820, 4);
         }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
@@ -152,7 +162,7 @@
         }
         if (screen.stale || forceStale) {
           context.fillStyle = '#ff3300';
-          context.fillText('STALE', 900, 4);
+          context.fillText('STALE', 820, 4);
         }
         status.dataset.detail = 'Thorpe Park queues';
       } else if (screen.kind === 'calendar_agenda') {
@@ -168,6 +178,7 @@
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
+      drawClock();
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
       status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);
