@@ -79,6 +79,23 @@ class NormalizationTests(unittest.TestCase):
     def test_empty_board(self):
         self.assertEqual(normalize_darwin_board({"trainServices": None}), [])
 
+    def test_normalizes_subsequent_calling_points(self):
+        board = {
+            "trainServices": {"service": [{
+                "std": "12:04", "etd": "On time",
+                "destination": {"location": [{"locationName": "Waterloo"}]},
+                "subsequentCallingPoints": [{"callingPoint": [
+                    {"locationName": "Clapham Junction", "crs": "CLJ", "st": "12:12", "et": "On time"},
+                    {"locationName": "Wimbledon", "crs": "WIM", "st": "12:19", "et": "12:21"},
+                    {"locationName": "Surbiton", "crs": "SUR", "st": "12:31", "isCancelled": True},
+                ]}],
+            }]}
+        }
+        stops = normalize_darwin_board(board)[0]["stops"]
+        self.assertEqual(stops[0], {"station": "Clapham Junction", "crs": "CLJ", "time": "12:12", "status": "On time", "cancelled": False})
+        self.assertEqual(stops[1]["status"], "12:21")
+        self.assertTrue(stops[2]["cancelled"])
+
 
 class CacheTests(unittest.TestCase):
     def setUp(self):
@@ -131,6 +148,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(payload["source"], "fixture")
         self.assertFalse(payload["stale"])
         self.assertLessEqual(len(payload["services"]), 10)
+        self.assertTrue(payload["services"][0]["stops"])
 
     def test_cold_failure_is_safe_503(self):
         base = self._run_server(FakeProvider([RuntimeError("sensitive upstream response")]))

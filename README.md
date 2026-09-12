@@ -38,9 +38,10 @@ python3 server.py
 ```
 
 Then visit `http://127.0.0.1:8000`. The preview polls the API every 30 seconds,
-shows three services per page, and retains the board's 8-second rotation,
-slide-in transition, cancellation pulse, stale-data state, and four 64×32 panel
-boundaries.
+shows three services per page, and alternates every eight seconds between the
+departure pages and a next-departure view. The latter pages through the selected
+service's calling points, two at a time. Slide-in transitions, cancellation
+pulse, stale-data state, and four 64×32 panel boundaries remain visible.
 
 ### Live National Rail data
 
@@ -90,7 +91,10 @@ and a trusted network.
       "platform": "1",
       "status": "On time",
       "cancelled": false,
-      "delay_reason": ""
+      "delay_reason": "",
+      "stops": [
+        {"station": "Clapham Junction", "crs": "CLJ", "time": "12:12", "status": "On time", "cancelled": false}
+      ]
     }
   ]
 }
