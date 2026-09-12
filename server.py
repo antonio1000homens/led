@@ -21,7 +21,7 @@ import threading
 import time
 from urllib.parse import urlparse
 
-from fixtures import PAGES
+from fixtures import CALENDAR_EVENTS, PAGES
 
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
@@ -169,6 +169,15 @@ class FixtureProvider:
         return [copy.deepcopy(service) for page in PAGES for service in page][: self.max_rows]
 
 
+class FixtureCalendarProvider:
+    """Credential-free stand-in for a future calendar adapter."""
+
+    source = "calendar_fixture"
+
+    def fetch(self):
+        return copy.deepcopy(CALENDAR_EVENTS)
+
+
 class NationalRailProvider:
     source = "national_rail"
 
@@ -258,12 +267,87 @@ class DepartureFeed:
             return copy.deepcopy(self._payload)
 
 
+class ScreenFeed:
+    """Compose independent feed payloads into renderer-neutral screens."""
+
+    def __init__(self, departure_feed, calendar_provider=None, utcnow=None):
+        self.departure_feed = departure_feed
+        self.calendar_provider = calendar_provider
+        self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
+
+    def get(self):
+        screens = []
+        try:
+            departures = self.departure_feed.get()
+            page_count = max(1, (len(departures["services"]) + 2) // 3)
+            screens.append({
+                "id": "departures",
+                "kind": "rail_departure_list",
+                "duration_seconds": page_count * 8,
+                "title": "{} departures".format(departures["station"]),
+                "source": departures["source"],
+                "stale": departures["stale"],
+                "services": departures["services"],
+            })
+            screens.append({
+                "id": "calling-points",
+                "kind": "rail_calling_points",
+                "duration_seconds": 8,
+                "title": "Next departure",
+                "source": departures["source"],
+                "stale": departures["stale"],
+                "services": departures["services"][:1],
+            })
+        except FeedUnavailable:
+            screens.append({
+                "id": "departures",
+                "kind": "rail_departure_list",
+                "duration_seconds": 8,
+                "title": "Departures unavailable",
+                "source": "unavailable",
+                "stale": True,
+                "services": [],
+            })
+
+        if self.calendar_provider is not None:
+            try:
+                events = self.calendar_provider.fetch()
+                screens.append({
+                    "id": "calendar",
+                    "kind": "calendar_agenda",
+                    "duration_seconds": 8,
+                    "title": "Upcoming events",
+                    "source": self.calendar_provider.source,
+                    "stale": False,
+                    "events": events,
+                })
+            except Exception:
+                screens.append({
+                    "id": "calendar",
+                    "kind": "calendar_agenda",
+                    "duration_seconds": 8,
+                    "title": "Calendar unavailable",
+                    "source": "unavailable",
+                    "stale": True,
+                    "events": [],
+                })
+
+        return {
+            "fetched_at": self.utcnow().isoformat().replace("+00:00", "Z"),
+            "screens": screens,
+        }
+
+
 class SimulatorHandler(SimpleHTTPRequestHandler):
     feed = None
+    screen_feed = None
 
     def do_GET(self):
         if urlparse(self.path).path == "/api/departures":
             self._serve_departures()
+            return
+        if urlparse(self.path).path == "/api/screens":
+            self._serve_screens()
             return
         super().do_GET()
 
@@ -282,9 +366,22 @@ class SimulatorHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _serve_screens(self):
+        body = json.dumps(self.screen_feed.get(), separators=(",", ":")).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
-def create_server(feed, host="127.0.0.1", port=8000):
-    handler = type("ConfiguredSimulatorHandler", (SimulatorHandler,), {"feed": feed})
+
+def create_server(feed, host="127.0.0.1", port=8000, screen_feed=None):
+    handler = type(
+        "ConfiguredSimulatorHandler",
+        (SimulatorHandler,),
+        {"feed": feed, "screen_feed": screen_feed or ScreenFeed(feed)},
+    )
     return ThreadingHTTPServer((host, port), partial(handler, directory=str(SIMULATOR_ROOT)))
 
 
@@ -306,6 +403,7 @@ def main():
     parser.add_argument("--station", default=os.getenv("LED_STATION_CRS", "NEM"))
     parser.add_argument("--max-rows", type=int, default=int(os.getenv("LED_MAX_ROWS", "10")))
     parser.add_argument("--cache-seconds", type=int, default=int(os.getenv("LED_CACHE_SECONDS", "60")))
+    parser.add_argument("--calendar-source", choices=("off", "fixture"), default=os.getenv("LED_CALENDAR_SOURCE", "off"))
     parser.add_argument("--host", default=os.getenv("LED_SERVER_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("LED_SERVER_PORT", "8000")))
     args = parser.parse_args()
@@ -319,7 +417,8 @@ def main():
         raise ConfigurationError("cache-seconds must be positive")
 
     feed = build_feed(args.source, station, args.max_rows, args.cache_seconds)
-    server = create_server(feed, args.host, args.port)
+    calendar_provider = FixtureCalendarProvider() if args.calendar_source == "fixture" else None
+    server = create_server(feed, args.host, args.port, ScreenFeed(feed, calendar_provider))
     print("LED simulator: http://{}:{} (source={}, station={})".format(args.host, args.port, args.source, station))
     try:
         server.serve_forever()

@@ -25,12 +25,12 @@
 <body>
   <main>
     <h1>256 × 32 departures board</h1>
-    <p>Four 64 × 32 panels fed by the standalone departures API, cycling between departures and the next train's calling points.</p>
+    <p>Four 64 × 32 panels fed by independent screen data, cycling between the departures list and a scrolling next-train display.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED departures board preview"></canvas></div>
     <div class="controls" aria-label="Simulator controls">
       <button id="pause" type="button" aria-pressed="false">Pause</button>
-      <button id="previous" type="button">Previous page</button>
-      <button id="next" type="button">Next page</button>
+      <button id="previous" type="button">Previous screen</button>
+      <button id="next" type="button">Next screen</button>
       <button id="stale" type="button" aria-pressed="false">Force stale</button>
       <span class="status" id="status"></span>
     </div>
@@ -42,15 +42,14 @@
     const pauseButton = document.getElementById('pause');
     const staleButton = document.getElementById('stale');
     const status = document.getElementById('status');
-    let services = [];
-    let station = 'NEM';
+    let screens = [];
     let source = 'loading';
     let fetchedAt = '';
     let feedStale = false;
     let feedError = false;
     let paused = false;
     let forceStale = false;
-    let pageOffset = 0;
+    let screenOffset = 0;
     let pausedAt = 0;
     let pauseStarted = 0;
 
@@ -59,22 +58,48 @@
       const state = service.cancelled ? 'CANCELLED' : service.status;
       return (clip(service.time, 5) + ' ' + clip(service.destination, 12) + ' ' + clip('P' + service.platform, 3) + ' ' + state).slice(0, 32);
     }
-    function stopRow(stop) {
-      const state = stop.cancelled ? 'CANCELLED' : stop.status;
-      return ('CALLING ' + clip(stop.station, 18) + ' ' + clip(stop.time, 5) + ' ' + state).slice(0, 32);
+    function screenAt(elapsed) {
+      if (!screens.length) return { screen: { id: 'loading', kind: 'rail_departure_list', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
+      const total = screens.reduce((sum, screen) => sum + Math.max(1, Number(screen.duration_seconds) || 8), 0) * 1000;
+      let remaining = elapsed % total;
+      for (let index = 0; index < screens.length; index += 1) {
+        const screen = screens[(index + screenOffset + screens.length * 1000) % screens.length];
+        const duration = Math.max(1, Number(screen.duration_seconds) || 8) * 1000;
+        if (remaining < duration) return { screen, phase: remaining / 1000, index: (index + screenOffset + screens.length * 1000) % screens.length };
+        remaining -= duration;
+      }
+      return { screen: screens[0], phase: 0, index: 0 };
     }
-    function pageServices(pageIndex) {
-      if (!services.length) return [{ time: '--:--', destination: 'No services', platform: '-', status: feedError ? 'Feed error' : 'Waiting' }];
-      return services.slice(pageIndex * 3, pageIndex * 3 + 3);
+    function marquee(value, y, phase, color = '#ffffff') {
+      const text = String(value || '');
+      const width = context.measureText(text).width;
+      context.fillStyle = color;
+      if (width <= 1024) {
+        context.fillText(text, 0, y);
+        return;
+      }
+      const gap = 80;
+      const offset = (phase * 45) % (width + gap);
+      context.fillText(text, -offset, y);
+      context.fillText(text, width + gap - offset, y);
+    }
+    function callingText(service) {
+      const stops = Array.isArray(service.stops) ? service.stops : [];
+      if (!stops.length) return 'CALLING AT: ' + (service.destination || 'destination') + ' only';
+      return 'CALLING AT: ' + stops.map(stop => stop.station + (stop.status !== 'On time' ? ' (' + stop.status + ')' : '')).join('  ·  ');
+    }
+    function listPage(screen, phase) {
+      const services = Array.isArray(screen.services) ? screen.services : [];
+      const pageCount = Math.max(1, Math.ceil(services.length / 3));
+      const pageIndex = Math.min(pageCount - 1, Math.floor(phase / 8));
+      if (!services.length) return { services: [{ time: '--:--', destination: feedError ? 'Feed error' : 'No services', platform: '-', status: '' }], pageIndex, pageCount };
+      return { services: services.slice(pageIndex * 3, pageIndex * 3 + 3), pageIndex, pageCount };
     }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
-      const modeLength = 8000;
-      const pageCount = Math.max(1, Math.ceil(services.length / 3));
-      const cycle = Math.floor(elapsed / modeLength);
-      const showingNext = cycle % 2 === 1;
-      const pageIndex = (Math.floor(cycle / 2) + pageOffset + pageCount * 1000) % pageCount;
-      const phase = (elapsed % modeLength) / 1000;
+      const active = screenAt(elapsed);
+      const screen = active.screen;
+      const phase = active.phase;
       const slide = Math.min(1, phase / 1.2);
       const x = -Math.round((1 - slide) * 220) * 4;
       context.fillStyle = '#000';
@@ -82,37 +107,46 @@
       context.font = '20px monospace';
       context.textBaseline = 'top';
       context.fillStyle = '#ffaa00';
-      const page = pageServices(pageIndex);
-      if (!showingNext) {
-        context.fillText((station + ' DEPARTURES' + (feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
-        page.forEach((service, index) => {
+      if (screen.kind === 'rail_departure_list') {
+        const page = listPage(screen, phase);
+        context.fillText((screen.title + (screen.stale || feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
+        page.services.forEach((service, index) => {
           const pulseOn = !service.cancelled || Math.floor(phase * 2) % 2 === 0;
           context.fillStyle = service.cancelled && pulseOn ? '#ff3300' : '#ffffff';
           context.fillText(row(service), x, 44 + index * 28);
         });
-      } else {
-        const next = page[0];
-        context.fillText(('NEXT DEPARTURE' + (feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
+        status.dataset.detail = 'Page ' + (page.pageIndex + 1) + ' of ' + page.pageCount;
+      } else if (screen.kind === 'rail_calling_points') {
+        const railServices = Array.isArray(screen.services) ? screen.services : [];
+        const next = railServices[0] || { time: '--:--', destination: 'No services', platform: '-', status: '' };
         const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
         context.fillStyle = next.cancelled && nextPulse ? '#ff3300' : '#ffffff';
-        context.fillText(row(next), x, 32);
-        const stops = Array.isArray(next.stops) ? next.stops : [];
-        if (!stops.length) {
-          context.fillStyle = '#a8b1bd';
-          context.fillText('NO CALLING POINTS', x, 60);
-        } else {
-          const stopOffset = Math.floor(phase / 2) * 2 % stops.length;
-          stops.slice(stopOffset, stopOffset + 2).forEach((stop, index) => {
-            context.fillStyle = stop.cancelled ? '#ff3300' : '#ffffff';
-            context.fillText(stopRow(stop), x, 60 + index * 28);
-          });
+        context.fillText(row(next), x, 4);
+        marquee(callingText(next), 32, phase, '#ffaa00');
+        railServices.slice(1, 3).forEach((service, index) => {
+          context.fillStyle = service.cancelled ? '#ff3300' : '#ffffff';
+          context.fillText(row(service), x, 60 + index * 28);
+        });
+        if (screen.stale || feedStale || forceStale) {
+          context.fillStyle = '#ff3300';
+          context.fillText('STALE', 900, 4);
         }
+        status.dataset.detail = 'Calling points';
+      } else if (screen.kind === 'calendar_agenda') {
+        const events = Array.isArray(screen.events) ? screen.events : [];
+        context.fillText((screen.title + (screen.stale ? '  STALE' : '')).slice(0, 42), x, 4);
+        events.slice(0, 3).forEach((event, index) => {
+          const text = clip(event.start, 12) + ' ' + (index === 0 ? event.title : event.location || event.title);
+          context.fillStyle = '#ffffff';
+          context.fillText(text.slice(0, 42), x, 32 + index * 28);
+        });
+        status.dataset.detail = 'Calendar';
       }
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-      status.textContent = (showingNext ? 'Next departure' : 'Page ' + (pageIndex + 1) + ' of ' + pageCount) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
+      status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);
     }
     pauseButton.addEventListener('click', () => {
@@ -126,33 +160,32 @@
       forceStale = !forceStale;
       staleButton.setAttribute('aria-pressed', String(forceStale));
     });
-    function changePage(direction) {
-      pageOffset += direction;
+    function changeScreen(direction) {
+      screenOffset += direction;
       // A manual step should be inspectable immediately, even while paused.
       pausedAt = 1200;
       pauseStarted = performance.now() - pausedAt;
     }
-    document.getElementById('previous').addEventListener('click', () => changePage(-1));
-    document.getElementById('next').addEventListener('click', () => changePage(1));
+    document.getElementById('previous').addEventListener('click', () => changeScreen(-1));
+    document.getElementById('next').addEventListener('click', () => changeScreen(1));
 
-    async function refreshDepartures() {
+    async function refreshScreens() {
       try {
-        const response = await fetch('/api/departures', { cache: 'no-store' });
+        const response = await fetch('/api/screens', { cache: 'no-store' });
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
-        services = Array.isArray(payload.services) ? payload.services : [];
-        station = payload.station || station;
-        source = payload.source || 'unknown';
+        screens = Array.isArray(payload.screens) ? payload.screens : [];
+        source = screens.map(screen => screen.source).filter(Boolean).join(', ') || 'unknown';
         fetchedAt = payload.fetched_at || '';
-        feedStale = Boolean(payload.stale);
+        feedStale = screens.some(screen => screen.stale);
         feedError = false;
       } catch (error) {
-        feedStale = services.length > 0;
+        feedStale = screens.length > 0;
         feedError = true;
       }
     }
-    refreshDepartures();
-    setInterval(refreshDepartures, 30000);
+    refreshScreens();
+    setInterval(refreshScreens, 30000);
     requestAnimationFrame(draw);
   </script>
 </body>

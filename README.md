@@ -37,11 +37,11 @@ origin. Fixture mode needs no packages or credentials:
 python3 server.py
 ```
 
-Then visit `http://127.0.0.1:8000`. The preview polls the API every 30 seconds,
-shows three services per page, and alternates every eight seconds between the
-departure pages and a next-departure view. The latter pages through the selected
-service's calling points, two at a time. Slide-in transitions, cancellation
-pulse, stale-data state, and four 64×32 panel boundaries remain visible.
+Then visit `http://127.0.0.1:8000`. The preview polls its screen API every 30
+seconds. It keeps the original three-service departure pages (eight seconds per
+page), then switches to a next-departure display whose `CALLING AT:` line scrolls
+through every subsequent stop. Slide-in transitions, cancellation pulse,
+stale-data state, and four 64×32 panel boundaries remain visible.
 
 ### Live National Rail data
 
@@ -73,6 +73,25 @@ python server.py --source national_rail --station NEM
 The server binds to `127.0.0.1:8000` by default. Do not bind it to a public
 interface; a later CircuitPython LAN test should use an explicitly chosen host
 and a trusted network.
+
+### Screen rotation and future feeds
+
+`GET /api/screens` is the simulator's renderer-neutral screen contract. By
+default it returns two National Rail layouts: the unchanged departure list and
+the scrolling calling-points layout. The departure data remains available at
+`/api/departures` for future CircuitPython use.
+
+The server deliberately does not connect to a calendar yet: its provider,
+authentication method, and privacy boundary need to be chosen first. A
+credential-free calendar fixture exists solely to test the rotation seam:
+
+```sh
+python3 server.py --calendar-source fixture
+```
+
+That appends an `calendar_agenda` screen to `/api/screens`; it does not read a
+real calendar. A real adapter should normalize to `start`, `title`, and
+`location` fields and remain separate from the renderer.
 
 ### Departures API
 

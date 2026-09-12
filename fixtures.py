@@ -38,5 +38,15 @@ PAGES = [
 ]
 
 
+# This is deliberately a credential-free visual fixture. A future calendar
+# adapter must normalize its provider data to this shape before it reaches a
+# display layout.
+CALENDAR_EVENTS = [
+    {"start": "18:30", "title": "Scout meeting and programme planning", "location": "Scout HQ"},
+    {"start": "Tomorrow 09:00", "title": "Team stand-up", "location": "Online"},
+    {"start": "Sat 10:00", "title": "District activity day", "location": "Kingston"},
+]
+
+
 def animated_services(seconds, interval):
     return PAGES[int(seconds // interval) % len(PAGES)]
