@@ -93,6 +93,40 @@ def _reason_text(value):
     return ""
 
 
+def _calling_points(value):
+    """Flatten Darwin's destination-grouped calling-point structure."""
+    groups = value or []
+    if isinstance(groups, dict):
+        groups = groups.get("callingPointList") or [groups]
+    points = []
+    for group in groups:
+        if not isinstance(group, dict):
+            continue
+        raw_points = group.get("callingPoint") or group.get("callingPoints") or []
+        if isinstance(raw_points, dict):
+            raw_points = [raw_points]
+        for point in raw_points:
+            if not isinstance(point, dict):
+                continue
+            scheduled = str(point.get("st") or point.get("sta") or "--:--")
+            expected = str(point.get("et") or point.get("at") or scheduled)
+            cancelled = bool(point.get("isCancelled")) or expected.lower() == "cancelled"
+            if cancelled:
+                status = "Cancelled"
+            elif expected.lower() == "on time" or expected == scheduled:
+                status = "On time"
+            else:
+                status = expected
+            points.append({
+                "station": str(point.get("locationName") or "Unknown"),
+                "crs": str(point.get("crs") or ""),
+                "time": scheduled,
+                "status": status,
+                "cancelled": cancelled,
+            })
+    return points
+
+
 def normalize_darwin_board(board, max_rows=10):
     """Convert a serialized Darwin departure board to the stable LED model."""
     container = (board or {}).get("trainServices") or {}
@@ -119,6 +153,7 @@ def normalize_darwin_board(board, max_rows=10):
                 "status": status,
                 "cancelled": cancelled,
                 "delay_reason": _reason_text(item.get("delayReason") or item.get("cancelReason")),
+                "stops": _calling_points(item.get("subsequentCallingPoints")),
             }
         )
     return services

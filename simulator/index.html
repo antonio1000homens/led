@@ -25,7 +25,7 @@
 <body>
   <main>
     <h1>256 × 32 departures board</h1>
-    <p>Four 64 × 32 panels fed by the standalone departures API, with an 8-second page rotation.</p>
+    <p>Four 64 × 32 panels fed by the standalone departures API, cycling between departures and the next train's calling points.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED departures board preview"></canvas></div>
     <div class="controls" aria-label="Simulator controls">
       <button id="pause" type="button" aria-pressed="false">Pause</button>
@@ -59,16 +59,22 @@
       const state = service.cancelled ? 'CANCELLED' : service.status;
       return (clip(service.time, 5) + ' ' + clip(service.destination, 12) + ' ' + clip('P' + service.platform, 3) + ' ' + state).slice(0, 32);
     }
+    function stopRow(stop) {
+      const state = stop.cancelled ? 'CANCELLED' : stop.status;
+      return ('CALLING ' + clip(stop.station, 18) + ' ' + clip(stop.time, 5) + ' ' + state).slice(0, 32);
+    }
     function pageServices(pageIndex) {
       if (!services.length) return [{ time: '--:--', destination: 'No services', platform: '-', status: feedError ? 'Feed error' : 'Waiting' }];
       return services.slice(pageIndex * 3, pageIndex * 3 + 3);
     }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
-      const pageLength = 8000;
+      const modeLength = 8000;
       const pageCount = Math.max(1, Math.ceil(services.length / 3));
-      const pageIndex = (Math.floor(elapsed / pageLength) + pageOffset + pageCount * 1000) % pageCount;
-      const phase = (elapsed % pageLength) / 1000;
+      const cycle = Math.floor(elapsed / modeLength);
+      const showingNext = cycle % 2 === 1;
+      const pageIndex = (Math.floor(cycle / 2) + pageOffset + pageCount * 1000) % pageCount;
+      const phase = (elapsed % modeLength) / 1000;
       const slide = Math.min(1, phase / 1.2);
       const x = -Math.round((1 - slide) * 220) * 4;
       context.fillStyle = '#000';
@@ -76,17 +82,37 @@
       context.font = '20px monospace';
       context.textBaseline = 'top';
       context.fillStyle = '#ffaa00';
-      context.fillText((station + ' DEPARTURES' + (feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
-      pageServices(pageIndex).forEach((service, index) => {
-        const pulseOn = !service.cancelled || Math.floor(phase * 2) % 2 === 0;
-        context.fillStyle = service.cancelled && pulseOn ? '#ff3300' : '#ffffff';
-        context.fillText(row(service), x, 44 + index * 28);
-      });
+      const page = pageServices(pageIndex);
+      if (!showingNext) {
+        context.fillText((station + ' DEPARTURES' + (feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
+        page.forEach((service, index) => {
+          const pulseOn = !service.cancelled || Math.floor(phase * 2) % 2 === 0;
+          context.fillStyle = service.cancelled && pulseOn ? '#ff3300' : '#ffffff';
+          context.fillText(row(service), x, 44 + index * 28);
+        });
+      } else {
+        const next = page[0];
+        context.fillText(('NEXT DEPARTURE' + (feedStale || forceStale ? '  STALE' : '')).slice(0, 42), x, 4);
+        const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
+        context.fillStyle = next.cancelled && nextPulse ? '#ff3300' : '#ffffff';
+        context.fillText(row(next), x, 32);
+        const stops = Array.isArray(next.stops) ? next.stops : [];
+        if (!stops.length) {
+          context.fillStyle = '#a8b1bd';
+          context.fillText('NO CALLING POINTS', x, 60);
+        } else {
+          const stopOffset = Math.floor(phase / 2) * 2 % stops.length;
+          stops.slice(stopOffset, stopOffset + 2).forEach((stop, index) => {
+            context.fillStyle = stop.cancelled ? '#ff3300' : '#ffffff';
+            context.fillText(stopRow(stop), x, 60 + index * 28);
+          });
+        }
+      }
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-      status.textContent = 'Page ' + (pageIndex + 1) + ' of ' + pageCount + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
+      status.textContent = (showingNext ? 'Next departure' : 'Page ' + (pageIndex + 1) + ' of ' + pageCount) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);
     }
     pauseButton.addEventListener('click', () => {
