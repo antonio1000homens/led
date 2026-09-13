@@ -16,7 +16,7 @@ env:
   STACK_NAME: led-serverless
   DOMAIN_NAME: ${{ vars.LED_DOMAIN_NAME || 'led.alf-broadcast.co.uk' }}
   ZONE_NAME: ${{ vars.LED_CF_ZONE_NAME || 'alf-broadcast.co.uk' }}
-  CODE_BUCKET: ${{ vars.CODE_BUCKET || 'aws2022-lambda-code-eu-west-2-553490163883' }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
   CLOUDFORMATION_ROLE_ARN: ${{ vars.CLOUDFORMATION_ROLE_ARN }}
 
@@ -61,6 +61,9 @@ jobs:
               raise SystemExit("AWS_ROLE_TO_ASSUME is required")
           if not os.environ.get("CLOUDFORMATION_ROLE_ARN", "").strip():
               raise SystemExit("CLOUDFORMATION_ROLE_ARN is required")
+          account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
+          if not re.fullmatch(r"[0-9a-fA-F]{32}", account_id):
+              raise SystemExit("CLOUDFLARE_ACCOUNT_ID must be the 32-character Windsor Cloudflare account ID")
           uuid = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
           for name in ("BW_NATIONAL_RAIL_TOKEN", "BW_SECRET_ID_CF_DEPLOY_API_TOKEN"):
               value = os.environ.get(name, "").strip()
@@ -94,8 +97,14 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           role-session-name: github-actions-led-deploy
 
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity --query Account --output text
+      - name: Verify AWS identity and select dedicated code bucket
+        run: |
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          CODE_BUCKET="led-code-${AWS_REGION}-${ACCOUNT_ID}"
+          aws s3api head-bucket --bucket "${CODE_BUCKET}"
+          echo "CODE_BUCKET=${CODE_BUCKET}" >> "${GITHUB_ENV}"
+          echo "AWS account: ${ACCOUNT_ID}"
+          echo "Using dedicated LED code bucket: ${CODE_BUCKET}"
 
       - name: Request or reuse ACM certificate
         id: certificate
@@ -103,7 +112,7 @@ jobs:
           CERTIFICATE_ARN="$(bash scripts/request-acm-certificate.sh)"
           echo "certificate_arn=${CERTIFICATE_ARN}" >> "${GITHUB_OUTPUT}"
 
-      - name: Configure ACM validation in Cloudflare
+      - name: Configure ACM validation in Windsor Cloudflare
         env:
           CERTIFICATE_ARN: ${{ steps.certificate.outputs.certificate_arn }}
         run: bash scripts/configure-cloudflare-dns.sh
@@ -157,7 +166,7 @@ jobs:
           print('Initial LED screen snapshot published')
           PY
 
-      - name: Configure LED hostname in Cloudflare
+      - name: Configure LED hostname in Windsor Cloudflare
         env:
           CLOUDFRONT_DOMAIN: ${{ steps.stack.outputs.distribution_domain }}
         run: bash scripts/configure-cloudflare-dns.sh
