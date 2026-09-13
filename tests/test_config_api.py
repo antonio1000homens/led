@@ -30,7 +30,7 @@ class ConfigApiTests(unittest.TestCase):
         self.assertEqual(store.save(value),value); self.assertEqual(store.load(),value); self.assertIn("state/config.json",client.objects)
     def test_api_requires_bearer_token_and_persists_put(self):
         client=FakeS3(); fake_store=config_api.ConfigStore("bucket",client)
-        with patch.dict(os.environ,{"ADMIN_TOKEN":"secret-token"}), patch.object(config_api,"ConfigStore",return_value=fake_store):
+        with patch.dict(os.environ,{"ADMIN_TOKEN":"secret-token","STATE_BUCKET":"bucket"}), patch.object(config_api,"ConfigStore",return_value=fake_store):
             unauthorized=config_api.lambda_handler({"requestContext":{"http":{"method":"GET"}},"headers":{}},None)
             self.assertEqual(unauthorized["statusCode"],401)
             event={"requestContext":{"http":{"method":"PUT"}},"headers":{"authorization":"Bearer secret-token"},"body":json.dumps(config_api.DEFAULT_DISPLAY_CONFIG)}
