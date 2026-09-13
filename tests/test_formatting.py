@@ -1,15 +1,20 @@
 import unittest
 
 from formatting import (
+    AGENDA_TITLE_X,
     agenda_marquee_x,
     agenda_scroll_state,
+    agenda_title_marquee_x,
     calendar_due_text,
     calendar_row,
+    calendar_row_parts,
     calendar_row_text,
+    calling_marquee_x,
     calling_text,
     format_row,
     header,
     queue_scroll_state,
+    rail_row_parts,
     row_slide_phase,
 )
 
@@ -22,6 +27,15 @@ class FormattingTests(unittest.TestCase):
         row = format_row({"time": "12:04", "destination": "London Waterloo", "platform": "1", "status": "On time"})
         self.assertIn("London Waterloo", row)
         self.assertIn("P1", row)
+
+    def test_on_time_status_is_at_right_edge_of_formatted_row(self):
+        row = format_row({"time": "12:04", "destination": "Waterloo", "platform": "1", "status": "On time"})
+        self.assertTrue(row.endswith("On time"))
+
+    def test_rail_row_parts_keep_status_independent_for_right_alignment(self):
+        left, status = rail_row_parts({"time": "12:04", "destination": "Waterloo", "platform": "1", "status": "On time"})
+        self.assertEqual(status, "On time")
+        self.assertEqual(left, "12:04 Waterloo P1")
 
     def test_cancelled_status_is_visible(self):
         self.assertIn("CANCELLED", format_row({"time": "12:04", "destination": "Waterloo", "platform": "1", "cancelled": True}))
@@ -37,6 +51,12 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(row_slide_phase(0, 1), 0)
         self.assertGreater(row_slide_phase(1.1, 0), row_slide_phase(1.1, 1))
         self.assertEqual(row_slide_phase(4, 2), 1)
+
+    def test_calling_marquee_waits_for_primary_row_then_scrolls(self):
+        text = "x" * 50
+        self.assertIsNone(calling_marquee_x(text, 1.19))
+        self.assertEqual(calling_marquee_x(text, 1.2), 0)
+        self.assertEqual(calling_marquee_x(text, 2.2), -55)
 
     def test_queue_scroll_holds_then_slides_up(self):
         self.assertEqual(queue_scroll_state(0.9, 6), (0, 0.0))
@@ -63,6 +83,18 @@ class FormattingTests(unittest.TestCase):
         text = calendar_row_text({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting with a deliberately long title for scrolling"})
         self.assertGreater(len(text), 42)
         self.assertTrue(text.endswith("for scrolling"))
+
+    def test_calendar_parts_keep_date_time_fixed_and_title_separate(self):
+        when, title = calendar_row_parts({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting"})
+        self.assertEqual(when, "14/09 18:30")
+        self.assertEqual(title, "Scout meeting")
+
+    def test_agenda_title_marquee_never_changes_fixed_prefix_origin(self):
+        title = "x" * 40
+        self.assertEqual(agenda_title_marquee_x(title, 0), AGENDA_TITLE_X)
+        self.assertEqual(agenda_title_marquee_x(title, 1), AGENDA_TITLE_X - 30)
+        self.assertEqual(agenda_title_marquee_x(title, 2), AGENDA_TITLE_X - 60)
+        self.assertEqual(agenda_title_marquee_x(title, 3.25), AGENDA_TITLE_X)
 
     def test_agenda_marquee_keeps_42_characters_static(self):
         self.assertEqual(agenda_marquee_x("x" * 42, 99), 0)

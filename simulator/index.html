@@ -64,9 +64,11 @@
     const QUEUE_HOLD_SECONDS = 1.0;
     const QUEUE_SLIDE_SECONDS = 0.3;
     const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
+    const RAIL_MARQUEE_DELAY_SECONDS = 1.2;
+    const RAIL_MARQUEE_SPEED = 220;
+    const RAIL_MARQUEE_GAP = 160;
     const AGENDA_VISIBLE_ROWS = 3;
     const AGENDA_SLIDE_SECONDS = 0.4;
-    const AGENDA_ROW_WIDTH = 42;
     const AGENDA_MARQUEE_SPEED = 120;
     const AGENDA_MARQUEE_PAUSE_SECONDS = 1.25;
 
@@ -89,34 +91,44 @@
     };
 
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
+    function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
+    function railLeft(service) {
+      return clip(service.time || '--:--', 5) + ' ' + String(service.destination || 'Unknown') + ' ' + ('P' + String(service.platform || '-')).slice(0, 3);
+    }
     function row(service) {
-      const state = service.cancelled ? 'CANCELLED' : service.status;
+      const state = serviceStatus(service);
       const prefix = clip(service.time, 5) + ' ';
       const suffix = ' ' + ('P' + String(service.platform || '-')).slice(0, 3) + ' ' + state;
       const destinationWidth = Math.max(1, 32 - prefix.length - suffix.length);
       return (prefix + clip(service.destination, destinationWidth) + suffix).slice(0, 32);
     }
+    function queueState(ride) { return ride.open ? String(ride.wait_minutes) + 'm' : 'CLOSED'; }
     function queueRow(ride) {
-      const state = ride.open ? String(ride.wait_minutes) + 'm' : 'CLOSED';
+      const state = queueState(ride);
       return (clip(ride.name, 24) + state.padStart(8, ' ')).slice(0, 32);
     }
-    function calendarRow(event) {
+    function calendarParts(event) {
       const dateText = String(event.date_text || '').trim();
       const rawTimeText = String(event.time_text || '').trim();
       const timeText = event.all_day || rawTimeText.toUpperCase() === 'ALL' ? '' : rawTimeText;
       const when = (dateText + (timeText ? ' ' + timeText : '')).trim().slice(0, 11).padEnd(11, ' ');
-      return when + ' ' + String(event.title || event.location || 'Event');
+      return { when, title: String(event.title || event.location || 'Event') };
     }
-    function agendaMarqueeX(text, phase) {
-      const value = String(text || '');
-      if (value.length <= AGENDA_ROW_WIDTH) return 0;
-      const overflow = context.measureText(value.slice(0, value.length - AGENDA_ROW_WIDTH)).width;
-      if (overflow <= 0) return 0;
+    function calendarRow(event) {
+      const parts = calendarParts(event);
+      return parts.when + ' ' + parts.title;
+    }
+    function agendaTitleX(title, phase, startX) {
+      const value = String(title || '');
+      const availableWidth = Math.max(0, 1024 - startX);
+      const titleWidth = context.measureText(value).width;
+      const overflow = Math.max(0, titleWidth - availableWidth);
+      if (overflow <= 0) return startX;
       const scrollSeconds = overflow / AGENDA_MARQUEE_SPEED;
       const cycleSeconds = scrollSeconds + AGENDA_MARQUEE_PAUSE_SECONDS;
       const withinCycle = Math.max(0, Number(phase) || 0) % cycleSeconds;
-      if (withinCycle >= scrollSeconds) return -overflow;
-      return -Math.min(overflow, withinCycle * AGENDA_MARQUEE_SPEED);
+      if (withinCycle >= scrollSeconds) return startX - overflow;
+      return startX - Math.min(overflow, withinCycle * AGENDA_MARQUEE_SPEED);
     }
     function londonDateParts(value) {
       const result = {};
@@ -181,15 +193,15 @@
       }
       return { screen: screens[0], phase: 0, index: 0 };
     }
-    function marquee(value, y, phase, color = '#ffffff') {
+    function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0) {
+      if (phase < delaySeconds) return;
       const text = String(value || '');
       const width = context.measureText(text).width;
       context.fillStyle = color;
       if (width <= 1024) { context.fillText(text, 0, y); return; }
-      const gap = 80;
-      const offset = (phase * 45) % (width + gap);
+      const offset = ((phase - delaySeconds) * speed) % (width + RAIL_MARQUEE_GAP);
       context.fillText(text, -offset, y);
-      context.fillText(text, width + gap - offset, y);
+      context.fillText(text, width + RAIL_MARQUEE_GAP - offset, y);
     }
     function callingText(service) {
       const stops = Array.isArray(service.stops) ? service.stops : [];
@@ -199,7 +211,7 @@
     function listPage(screen) {
       const services = Array.isArray(screen.services) ? screen.services : [];
       if (!services.length) return { services: [{ time: '--:--', destination: feedError ? 'Feed error' : 'No services', platform: '-', status: '' }] };
-      return { services: services.slice(0, 3) };
+      return { services: services.slice(0, 2) };
     }
     function clockLayout(now = new Date()) {
       const text = clockFormatter.format(now);
@@ -222,8 +234,8 @@
       context.fillStyle = '#ffffff';
       context.fillText(text, x, 4);
     }
-    function drawWeather(weather) {
-      if (!weather || typeof weather !== 'object') return;
+    function weatherLayout(weather) {
+      if (!weather || typeof weather !== 'object') return null;
       const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
       const pattern = weatherIcons[iconName];
       const stale = Boolean(weather.stale);
@@ -236,12 +248,46 @@
       const temperatureX = rightEdge - temperatureWidth;
       const iconX = Math.max(0, temperatureX - gap - iconWidth);
       const clearX = Math.max(0, iconX - 8);
+      return { iconName, pattern, stale, temperatureText, temperatureX, iconX, clearX };
+    }
+    function weatherContentRight(weather) {
+      const layout = weatherLayout(weather);
+      return layout ? Math.max(0, layout.iconX - 16) : 1024;
+    }
+    function drawWeather(weather) {
+      const layout = weatherLayout(weather);
+      if (!layout) return;
       context.fillStyle = '#000';
-      context.fillRect(clearX, 92, 1024 - clearX, 36);
-      context.fillStyle = stale ? '#777777' : weatherColors[iconName];
-      pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(iconX + x * 4, 96 + y * 4, 4, 4); }));
-      context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
-      context.fillText(temperatureText, temperatureX, 94);
+      context.fillRect(layout.clearX, 92, 1024 - layout.clearX, 36);
+      context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
+      layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, 96 + y * 4, 4, 4); }));
+      context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
+      context.fillText(layout.temperatureText, layout.temperatureX, 94);
+    }
+    function fitLeftText(value, maxWidth) {
+      const text = String(value || '');
+      if (maxWidth <= 0) return '';
+      let end = text.length;
+      while (end > 0 && context.measureText(text.slice(0, end)).width > maxWidth) end -= 1;
+      return text.slice(0, end);
+    }
+    function drawRailService(service, y, xOffset, rightEdge, color) {
+      const state = serviceStatus(service);
+      const stateX = state ? Math.max(0, rightEdge - context.measureText(state).width) : rightEdge;
+      const leftMax = Math.max(0, stateX - 16);
+      context.fillStyle = color;
+      context.save(); context.beginPath(); context.rect(0, y, leftMax, 28); context.clip();
+      context.fillText(railLeft(service), xOffset, y);
+      context.restore();
+      if (state) context.fillText(state, stateX + xOffset, y);
+    }
+    function drawQueueRide(ride, y, rightEdge) {
+      const state = queueState(ride);
+      const stateX = Math.max(0, rightEdge - context.measureText(state).width);
+      const leftMax = Math.max(0, stateX - 16);
+      context.fillStyle = ride.open ? '#ffffff' : '#ff3300';
+      context.fillText(fitLeftText(ride.name, leftMax), 0, y);
+      context.fillText(state, stateX, y);
     }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
@@ -250,9 +296,6 @@
       const phase = active.phase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
-      const entryPhase = feedAnimationStarted ? Math.max(0, (now - feedAnimationStarted) / 1000) : 0;
-      const slide = Math.min(1, entryPhase / 1.2);
-      const x = -Math.round((1 - slide) * 220) * 4;
       context.fillStyle = '#000';
       context.fillRect(0, 0, 1024, 128);
       context.font = '24px monospace';
@@ -262,15 +305,22 @@
         const railServices = listPage(screen).services;
         const next = railServices[0] || { time: '--:--', destination: 'No services', platform: '-', status: '' };
         const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
-        context.fillStyle = next.cancelled && nextPulse ? '#ff3300' : '#ffffff';
-        const primaryPhase = Math.max(0, Math.min(1, entryPhase / 1.2));
-        context.fillText(row(next), -Math.round((1 - primaryPhase) * 220) * 4, 4);
-        marquee(callingText(next), 34, phase, '#ffaa00');
-        railServices.slice(1, 3).forEach((service, index) => {
-          context.fillStyle = service.cancelled ? '#ff3300' : '#ffffff';
-          const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1)) / 1.2));
-          context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 64 + index * 30);
-        });
+        const primaryPhase = Math.max(0, Math.min(1, phase / 1.2));
+        const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
+        const headerRight = (screen.stale || forceStale) ? 800 : clock.x - 16;
+        drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff');
+        marquee(callingText(next), 34, phase, '#ffaa00', RAIL_MARQUEE_SPEED, RAIL_MARQUEE_DELAY_SECONDS);
+        context.fillStyle = '#ffaa00';
+        context.fillText('UPCOMING', 0, 64);
+        const upcoming = railServices[1];
+        if (upcoming) {
+          const upcomingPhase = Math.max(0, Math.min(1, (phase - 1) / 1.2));
+          const upcomingX = -Math.round((1 - upcomingPhase) * 220) * 4;
+          drawRailService(upcoming, 94, upcomingX, weatherContentRight(screen.weather), upcoming.cancelled ? '#ff3300' : '#ffffff');
+        } else {
+          context.fillStyle = '#ffffff';
+          context.fillText('No upcoming services', 0, 94);
+        }
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
@@ -282,19 +332,19 @@
           const queueScroll = queueScrollState(phase, rides.length);
           const rowCount = QUEUE_VISIBLE_ROWS + (queueScroll.progress > 0 ? 1 : 0);
           const yOffset = queueScroll.progress * 30;
+          const queueRight = weatherContentRight(screen.weather);
           context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
           for (let slot = 0; slot < rowCount; slot += 1) {
             const ride = rides[queueScroll.start + slot];
             if (!ride) break;
-            context.fillStyle = ride.open ? '#ffffff' : '#ff3300';
-            context.fillText(queueRow(ride), 0, 34 + slot * 30 - yOffset);
+            drawQueueRide(ride, 34 + slot * 30 - yOffset, queueRight);
           }
           context.restore();
         }
         context.fillStyle = '#ffaa00';
         context.fillText(String(screen.title || 'THORPE PARK').slice(0, 42), 0, 4);
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
-        status.dataset.detail = 'Thorpe Park queues';
+        status.dataset.detail = String(screen.title || 'Theme park queues').split(' · ')[0] + ' queues';
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {
@@ -308,9 +358,14 @@
           for (let slot = 0; slot < rowCount; slot += 1) {
             const event = events[agenda.start + slot];
             if (!event) break;
-            const text = calendarRow(event);
+            const parts = calendarParts(event);
+            const y = 34 + slot * 30 - yOffset;
+            const titleStart = context.measureText(parts.when + ' ').width;
             context.fillStyle = '#ffffff';
-            context.fillText(text, agendaMarqueeX(text, phase), 34 + slot * 30 - yOffset);
+            context.save(); context.beginPath(); context.rect(titleStart, 32, 1024 - titleStart, 96); context.clip();
+            context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);
+            context.restore();
+            context.fillText(parts.when, 0, y);
           }
           context.restore();
         }

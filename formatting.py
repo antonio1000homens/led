@@ -5,11 +5,18 @@ QUEUE_VISIBLE_ROWS = 3
 QUEUE_HOLD_SECONDS = 1.0
 QUEUE_SLIDE_SECONDS = 0.3
 QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS
+RAIL_MARQUEE_SPEED = 55.0
+RAIL_MARQUEE_DELAY_SECONDS = 1.2
+RAIL_MARQUEE_GAP = 40
 AGENDA_VISIBLE_ROWS = 3
 AGENDA_SLIDE_SECONDS = 0.4
 AGENDA_PAGE_SECONDS = 5.0
 AGENDA_ROW_WIDTH = 42
 AGENDA_FONT_WIDTH = 6
+AGENDA_WHEN_WIDTH = 11
+AGENDA_TITLE_GAP = 1
+AGENDA_TITLE_X = (AGENDA_WHEN_WIDTH + AGENDA_TITLE_GAP) * AGENDA_FONT_WIDTH
+AGENDA_TITLE_VISIBLE_CHARS = AGENDA_ROW_WIDTH - AGENDA_WHEN_WIDTH - AGENDA_TITLE_GAP
 AGENDA_MARQUEE_SPEED = 30.0
 AGENDA_MARQUEE_PAUSE_SECONDS = 1.25
 
@@ -19,19 +26,32 @@ def _clip(value, width):
     return value[:width].ljust(width)
 
 
+def service_status_text(service):
+    """Return the normalized status text shown at the right of a rail row."""
+    return "CANCELLED" if service.get("cancelled") else str(service.get("status", ""))
+
+
+def rail_row_parts(service):
+    """Return the left rail content and independently rendered status text."""
+    time = _clip(service.get("time", "--:--"), 5)
+    destination = str(service.get("destination") or "Unknown")
+    platform = ("P" + str(service.get("platform", "-")))[:3]
+    return "{} {} {}".format(time, destination, platform), service_status_text(service)
+
+
 def format_row(service, width=32):
     # Keep platform and status intact, using all remaining room for a station.
     time = _clip(service.get("time", "--:--"), 5)
     platform = ("P" + str(service.get("platform", "-")))[:3]
-    status = "CANCELLED" if service.get("cancelled") else str(service.get("status", ""))
+    status = service_status_text(service)
     prefix = time + " "
     suffix = " " + platform + " " + status
     destination = _clip(service.get("destination", "Unknown"), max(1, width - len(prefix) - len(suffix)))
     return (prefix + destination + suffix)[:width].ljust(width)
 
 
-def calendar_row_text(event):
-    """Format one normalized agenda event without clipping its title."""
+def calendar_row_parts(event):
+    """Return the fixed date/time prefix and independently scrollable title."""
     date_text = str(event.get("date_text") or "").strip()
     time_text = str(event.get("time_text") or "").strip()
     if event.get("all_day") or time_text.upper() == "ALL":
@@ -45,8 +65,13 @@ def calendar_row_text(event):
             date_text = start[:10]
     when = (date_text + (" " + time_text if time_text else "")).strip()
     title = str(event.get("title") or event.get("location") or "Event")
-    prefix = when[:11].ljust(11) + " "
-    return prefix + title
+    return when[:AGENDA_WHEN_WIDTH].ljust(AGENDA_WHEN_WIDTH), title
+
+
+def calendar_row_text(event):
+    """Format one normalized agenda event without clipping its title."""
+    when, title = calendar_row_parts(event)
+    return when + " " + title
 
 
 def calendar_row(event, width=AGENDA_ROW_WIDTH):
@@ -88,6 +113,47 @@ def agenda_marquee_x(
     if within_cycle >= scroll_seconds:
         return -overflow
     return -min(overflow, int(within_cycle * speed))
+
+
+def agenda_title_marquee_x(title, phase):
+    """Return the title x position while keeping the agenda date/time fixed."""
+    return AGENDA_TITLE_X + agenda_marquee_x(
+        title,
+        phase,
+        visible_chars=AGENDA_TITLE_VISIBLE_CHARS,
+    )
+
+
+def calling_marquee_x(
+    text,
+    phase,
+    display_width=256,
+    font_width=6,
+    speed=RAIL_MARQUEE_SPEED,
+    delay_seconds=RAIL_MARQUEE_DELAY_SECONDS,
+    gap=RAIL_MARQUEE_GAP,
+):
+    """Return the calling-points marquee x position after the primary row lands.
+
+    ``None`` means the calling row must remain hidden. Once visible, long text
+    scrolls right-to-left at the configured speed and short text stays fixed.
+    """
+    try:
+        phase = max(0.0, float(phase or 0))
+        delay_seconds = max(0.0, float(delay_seconds or 0))
+        speed = max(1.0, float(speed or RAIL_MARQUEE_SPEED))
+    except (TypeError, ValueError):
+        phase = 0.0
+        delay_seconds = RAIL_MARQUEE_DELAY_SECONDS
+        speed = RAIL_MARQUEE_SPEED
+    if phase < delay_seconds:
+        return None
+    text_width = len(str(text or "")) * int(font_width)
+    if text_width <= int(display_width):
+        return 0
+    elapsed = phase - delay_seconds
+    cycle_width = text_width + max(0, int(gap or 0))
+    return -int((elapsed * speed) % cycle_width)
 
 
 def _iso_date_parts(value):
