@@ -1,6 +1,6 @@
 import unittest
 
-from formatting import calling_text, format_row, header, row_slide_phase
+from formatting import calling_text, format_row, header, queue_scroll_state, row_slide_phase
 
 
 class FormattingTests(unittest.TestCase):
@@ -26,6 +26,17 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(row_slide_phase(0, 1), 0)
         self.assertGreater(row_slide_phase(1.1, 0), row_slide_phase(1.1, 1))
         self.assertEqual(row_slide_phase(4, 2), 1)
+
+    def test_queue_scroll_holds_then_slides_up(self):
+        self.assertEqual(queue_scroll_state(0.9, 6), (0, 0.0))
+        start, progress = queue_scroll_state(1.15, 6)
+        self.assertEqual(start, 0)
+        self.assertAlmostEqual(progress, 0.5)
+        self.assertEqual(queue_scroll_state(1.3, 6), (1, 0.0))
+
+    def test_queue_scroll_stops_on_last_three_rides(self):
+        self.assertEqual(queue_scroll_state(99, 7), (4, 0.0))
+        self.assertEqual(queue_scroll_state(99, 3), (0, 0.0))
 
     def test_calling_text_includes_station_times(self):
         text = calling_text({"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19", "status": "On time"}]})
