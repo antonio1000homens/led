@@ -160,6 +160,18 @@ Resources:
                   - apigateway:TagResource
                   - apigateway:UntagResource
                 Resource: '*'
+              - Sid: RuntimeConfigTableManage
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:UpdateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:ListTagsOfResource
+                  - dynamodb:DescribeContinuousBackups
+                Resource: !Sub arn:aws:dynamodb:eu-west-2:${AWS::AccountId}:table/led-runtime-config
               - Sid: SchedulerManage
                 Effect: Allow
                 Action:
@@ -281,14 +293,9 @@ Resources:
                   - s3:DeleteObject
                 Resource:
                   - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/index.html
+                  - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/admin
                   - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/admin.html
                   - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/api/screens
-              - Sid: AdminTokenParameter
-                Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:PutParameter
-                Resource: !Sub arn:aws:ssm:eu-west-2:${AWS::AccountId}:parameter/led/admin/token
               - Sid: InvokePublisher
                 Effect: Allow
                 Action: lambda:InvokeFunction
