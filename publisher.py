@@ -235,6 +235,8 @@ class Publisher:
             rides = _select_rides(all_rides, selected_names) if selected_names else all_rides
             source = data.get("source", "queue_times")
             stale = bool(feed.get("stale"))
+            if rides and not any(bool(ride.get("open")) for ride in rides):
+                return None
         page_count = max(1, (len(rides) + entries - 1) // entries)
         return {
             "id": screen_id,
@@ -258,13 +260,17 @@ class Publisher:
                         "title": f"{rail_data['station']} departures" if rail_data else "Departures unavailable",
                         "source": rail_data.get("source", "national_rail") if rail_data else "unavailable",
                         "stale": bool(rail.get("stale")) if rail_data else True,
-                        "services": copy.deepcopy((rail_data.get("services") or [])[:3]) if rail_data else []})
+                        "services": copy.deepcopy((rail_data.get("services") or [])[:2]) if rail_data else []})
         parks = display_config["themeParks"]
         if self.config.thorpe_park_source != "off" and parks["thorpePark"]["enabled"]:
-            screens.append(self._park_screen("thorpe-park", "THORPE PARK", feeds.get("thorpePark") or {},
-                                             parks["thorpePark"], self.config.thorpe_park_rides))
+            park_screen = self._park_screen("thorpe-park", "THORPE PARK", feeds.get("thorpePark") or {},
+                                            parks["thorpePark"], self.config.thorpe_park_rides)
+            if park_screen is not None:
+                screens.append(park_screen)
         if self.config.thorpe_park_source != "off" and parks["chessington"]["enabled"]:
-            screens.append(self._park_screen("chessington", "CHESSINGTON", feeds.get("chessington") or {}, parks["chessington"]))
+            park_screen = self._park_screen("chessington", "CHESSINGTON", feeds.get("chessington") or {}, parks["chessington"])
+            if park_screen is not None:
+                screens.append(park_screen)
         if self.config.calendar_source != "off":
             calendar = feeds.get("calendar") or {}; data = calendar.get("data")
             screens.append({"id": "calendar", "kind": "calendar_agenda", "duration_seconds": self.config.calendar_duration,

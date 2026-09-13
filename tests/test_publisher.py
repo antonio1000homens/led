@@ -34,6 +34,14 @@ class PublisherTests(unittest.TestCase):
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
         payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=payload["screens"][0]
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])
+    def test_departures_contract_only_publishes_current_and_next_service(self):
+        rail=FakeProvider([[
+            {"time":"08:01","destination":"Waterloo"},
+            {"time":"08:11","destination":"Waterloo"},
+            {"time":"08:21","destination":"Waterloo"},
+        ]])
+        screen=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()["screens"][0]
+        self.assertEqual([service["time"] for service in screen["services"]],["08:01","08:11"])
     def test_queue_and_weather_ttls_are_independent_and_contract_is_preserved(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",rail_ttl=60,thorpe_park_ttl=300,weather_ttl=600,thorpe_park_rides=("Hyperia","Stealth","The Swarm","Colossus"))
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])
@@ -47,6 +55,20 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual([r["name"] for r in second["screens"][1]["rides"]],["Hyperia","Stealth","The Swarm","Colossus"])
         self.assertEqual(second["screens"][1]["entries_per_page"],3); self.assertEqual(second["screens"][2]["rides"][0]["name"],"Mandrill Mayhem")
         for screen in second["screens"]: self.assertEqual(screen["weather"]["temperature_c"],17.4)
+    def test_all_closed_queue_pages_are_omitted_per_park(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
+        rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
+        queues=FakeProvider([[{"name":"Hyperia","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
+        chessington=FakeProvider([[{"name":"Mandrill Mayhem","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
+        payload=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,utcnow=self.utcnow,chessington_provider=chessington).run()
+        self.assertEqual([screen["id"] for screen in payload["screens"]],["departures"])
+    def test_closed_park_is_skipped_without_hiding_open_park(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
+        rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
+        queues=FakeProvider([[{"name":"Hyperia","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
+        chessington=FakeProvider([[{"name":"Mandrill Mayhem","open":True,"wait_minutes":15,"last_updated":"","land":""}]])
+        payload=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,utcnow=self.utcnow,chessington_provider=chessington).run()
+        self.assertEqual([screen["id"] for screen in payload["screens"]],["departures","chessington"])
     def test_calendar_has_independent_ttl_and_six_event_contract(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300,calendar_max_events=6,calendar_duration=10,calendar_page_seconds=5)
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])

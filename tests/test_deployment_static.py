@@ -40,16 +40,38 @@ class DeploymentStaticTests(unittest.TestCase):
 
     def test_simulator_does_not_pretruncate_agenda_rows(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("return when + ' ' + String(event.title || event.location || 'Event');", simulator)
+        self.assertIn("return parts.when + ' ' + parts.title;", simulator)
         self.assertNotIn("String(event.title || event.location || 'Event')).slice(0, 32)", simulator)
 
-    def test_simulator_scrolls_agenda_rows_longer_than_42_characters(self):
+    def test_simulator_keeps_agenda_date_time_fixed_while_title_scrolls(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("const AGENDA_ROW_WIDTH = 42;", simulator)
-        self.assertIn("function agendaMarqueeX(text, phase)", simulator)
-        self.assertIn("if (value.length <= AGENDA_ROW_WIDTH) return 0;", simulator)
-        self.assertIn("const cycleSeconds = scrollSeconds + AGENDA_MARQUEE_PAUSE_SECONDS;", simulator)
-        self.assertIn("context.fillText(text, agendaMarqueeX(text, phase)", simulator)
+        self.assertIn("function agendaTitleX(title, phase, startX)", simulator)
+        self.assertIn("const titleStart = context.measureText(parts.when + ' ').width;", simulator)
+        self.assertIn("context.rect(titleStart, 32, 1024 - titleStart, 96);", simulator)
+        self.assertIn("context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
+        self.assertIn("context.fillText(parts.when, 0, y);", simulator)
+
+    def test_simulator_rail_has_upcoming_header_and_delayed_faster_calling_marquee(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("const RAIL_MARQUEE_DELAY_SECONDS = 1.2;", simulator)
+        self.assertIn("const RAIL_MARQUEE_SPEED = 220;", simulator)
+        self.assertIn("return { services: services.slice(0, 2) };", simulator)
+        self.assertIn("context.fillText('UPCOMING', 0, 64);", simulator)
+        self.assertIn("RAIL_MARQUEE_SPEED, RAIL_MARQUEE_DELAY_SECONDS", simulator)
+
+    def test_simulator_right_aligns_rail_and_queue_state_to_available_edge(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("function drawRailService(service, y, xOffset, rightEdge, color)", simulator)
+        self.assertIn("rightEdge - context.measureText(state).width", simulator)
+        self.assertIn("function drawQueueRide(ride, y, rightEdge)", simulator)
+        self.assertIn("const queueRight = weatherContentRight(screen.weather);", simulator)
+
+    def test_physical_renderer_uses_four_rail_rows_and_clips_agenda_title(self):
+        display = (ROOT / "display.py").read_text(encoding="utf-8")
+        self.assertIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', display)
+        self.assertIn('self._rail_service(group, service, color, x, 25, _weather_content_right(screen))', display)
+        self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
+        self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
 
 
 if __name__ == "__main__":
