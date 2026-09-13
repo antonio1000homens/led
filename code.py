@@ -93,5 +93,10 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
-    display.show(screen, clock.text(now), phase=phase if settings.ANIMATE else 2)
+    display.show(
+        screen,
+        clock.text(now),
+        clock_date=clock.date_text(now),
+        phase=phase if settings.ANIMATE else 2,
+    )
     time.sleep(settings.FRAME_SECONDS if settings.ANIMATE else settings.POLL_SECONDS)
