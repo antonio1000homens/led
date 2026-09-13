@@ -23,23 +23,23 @@ class TodoistFeedUnavailable(RuntimeError):
     """Todoist could not provide usable upcoming-event data."""
 
 
-class SecretsManagerOAuthStore:
-    """Persist Todoist OAuth credentials and rotating tokens in AWS Secrets Manager."""
+class SSMParameterOAuthStore:
+    """Persist Todoist OAuth credentials in one SSM Standard SecureString parameter."""
 
-    def __init__(self, secret_id, client=None):
-        self.secret_id = str(secret_id or "").strip()
-        if not self.secret_id:
-            raise ValueError("Todoist OAuth secret ARN is required")
+    def __init__(self, parameter_name, client=None):
+        self.parameter_name = str(parameter_name or "").strip()
+        if not self.parameter_name:
+            raise ValueError("Todoist OAuth SSM parameter name is required")
         if client is None:
             import boto3
 
-            client = boto3.client("secretsmanager")
+            client = boto3.client("ssm")
         self.client = client
 
     def load(self):
         try:
-            response = self.client.get_secret_value(SecretId=self.secret_id)
-            payload = json.loads(response.get("SecretString") or "{}")
+            response = self.client.get_parameter(Name=self.parameter_name, WithDecryption=True)
+            payload = json.loads((response.get("Parameter") or {}).get("Value") or "{}")
         except Exception as error:
             raise TodoistFeedUnavailable("Todoist OAuth credentials are unavailable") from error
         if not isinstance(payload, dict):
@@ -48,12 +48,20 @@ class SecretsManagerOAuthStore:
 
     def save(self, payload):
         try:
-            self.client.put_secret_value(
-                SecretId=self.secret_id,
-                SecretString=json.dumps(payload, separators=(",", ":")),
+            self.client.put_parameter(
+                Name=self.parameter_name,
+                Value=json.dumps(payload, separators=(",", ":")),
+                Type="SecureString",
+                Tier="Standard",
+                Overwrite=True,
             )
         except Exception as error:
             raise TodoistFeedUnavailable("Todoist OAuth token rotation could not be persisted") from error
+
+
+# Compatibility alias while the publisher configuration name is migrated from the
+# original Secrets Manager implementation. The implementation above uses SSM only.
+SecretsManagerOAuthStore = SSMParameterOAuthStore
 
 
 class TodoistOAuthSession:
