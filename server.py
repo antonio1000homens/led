@@ -30,7 +30,18 @@ WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=202
 SECRET_ID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
 PROJECT_ROOT = Path(__file__).resolve().parent
 SIMULATOR_ROOT = PROJECT_ROOT / "simulator"
-DEFAULT_THORPE_PARK_RIDES = ("Hyperia", "Stealth", "The Swarm")
+DEFAULT_THORPE_PARK_RIDES = (
+    "Hyperia",
+    "Stealth",
+    "The Swarm",
+    "SAW - The Ride",
+    "Nemesis Inferno",
+    "Colossus",
+    "Ghost Train",
+    "Rush",
+    "Detonator",
+    "Tidal Wave",
+)
 DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
 
@@ -283,6 +294,11 @@ def _select_rides(rides, names):
     return selected
 
 
+def _queue_screen_duration(ride_count):
+    """Leave enough screen time for every configured ride to enter the viewport."""
+    return max(8, int(ride_count or 0) + 2)
+
+
 class ScreenFeed:
     """Compose independent feed payloads into renderer-neutral screens."""
 
@@ -333,11 +349,11 @@ class ScreenFeed:
                 screens.append({
                     "id": "thorpe-park",
                     "kind": "theme_park_queues",
-                    "duration_seconds": 8,
+                    "duration_seconds": _queue_screen_duration(len(rides)),
                     "title": "THORPE PARK · Powered by Queue-Times.com",
                     "source": queues["source"],
                     "stale": queues["stale"],
-                    "rides": rides[:3],
+                    "rides": rides,
                     "attribution": "Powered by Queue-Times.com",
                 })
             except QueueFeedUnavailable:
