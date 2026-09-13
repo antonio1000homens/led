@@ -5,7 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 AWS_PROFILE_NAME="${AWS_PROFILE_NAME:-${AWS_PROFILE:-}}"
 STACK_NAME="${STACK_NAME:-led-bootstrap}"
-CODE_BUCKET="${CODE_BUCKET:-aws2022-lambda-code-eu-west-2-553490163883}"
 
 aws_cmd=(aws)
 if [[ -n "${AWS_PROFILE_NAME}" ]]; then
@@ -34,9 +33,7 @@ fi
   --stack-name "${STACK_NAME}" \
   --template-file "${ROOT_DIR}/infrastructure/bootstrap.yaml" \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    GitHubOidcProviderArn="${OIDC_ARN}" \
-    ArtifactBucketName="${CODE_BUCKET}"
+  --parameter-overrides GitHubOidcProviderArn="${OIDC_ARN}"
 
 "${aws_cmd[@]}" cloudformation describe-stacks \
   --region "${AWS_REGION}" \
@@ -45,3 +42,4 @@ fi
   --output table
 
 echo "Set GitHub variables AWS_ROLE_TO_ASSUME and CLOUDFORMATION_ROLE_ARN from the stack outputs above." >&2
+echo "The dedicated Lambda artifact bucket is created by this stack as led-code-${AWS_REGION}-<aws-account-id>." >&2
