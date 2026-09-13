@@ -138,6 +138,9 @@ Resources:
                   - lambda:GetFunction
                   - lambda:GetFunctionConfiguration
                   - lambda:GetFunctionConcurrency
+                  - lambda:GetPolicy
+                  - lambda:AddPermission
+                  - lambda:RemovePermission
                   - lambda:ListTags
                   - lambda:TagResource
                   - lambda:UntagResource
@@ -146,6 +149,15 @@ Resources:
                   - lambda:PutFunctionConcurrency
                   - lambda:DeleteFunctionConcurrency
                 Resource: !Sub arn:aws:lambda:eu-west-2:${AWS::AccountId}:function:led-*
+              - Sid: ApiGatewayV2Manage
+                Effect: Allow
+                Action:
+                  - apigateway:GET
+                  - apigateway:POST
+                  - apigateway:PUT
+                  - apigateway:PATCH
+                  - apigateway:DELETE
+                Resource: '*'
               - Sid: SchedulerManage
                 Effect: Allow
                 Action:
@@ -267,7 +279,14 @@ Resources:
                   - s3:DeleteObject
                 Resource:
                   - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/index.html
+                  - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/admin.html
                   - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/api/screens
+              - Sid: AdminTokenParameter
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:eu-west-2:${AWS::AccountId}:parameter/led/admin/token
               - Sid: InvokePublisher
                 Effect: Allow
                 Action: lambda:InvokeFunction
