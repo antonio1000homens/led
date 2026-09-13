@@ -136,7 +136,7 @@ Resources:
     Properties: {Name: led-config-api, ProtocolType: HTTP}
   ConfigApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
-    Properties: {ApiId: !Ref ConfigApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt ConfigFunction.Arn, PayloadFormatVersion: '2.0'}
+    Properties: {ApiId: !Ref ConfigApi, IntegrationType: AWS_PROXY, IntegrationMethod: POST, IntegrationUri: !GetAtt ConfigFunction.Arn, PayloadFormatVersion: '2.0'}
   ConfigGetRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties: {ApiId: !Ref ConfigApi, RouteKey: 'GET /api/config', Target: !Sub 'integrations/${ConfigApiIntegration}'}
