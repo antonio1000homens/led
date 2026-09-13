@@ -15,6 +15,23 @@ The MatrixPortal does not hold National Rail, Queue-Times or weather-provider cr
 
 The checked-in defaults run a deterministic fixture mode for Wokwi, with no credentials or LAN backend required. Screens rotate using each screen's `duration_seconds`. The top-right `HH:MM` clock and bottom-right weather status are renderer-level overlays and therefore remain visible on every screen.
 
+## Production AWS deployment
+
+Production does **not** run `server.py` as an always-on webserver. EventBridge Scheduler invokes `led-publisher` once per minute; the Lambda refreshes only feeds whose independent TTL has elapsed, persists the last successful feed state to private S3, and atomically publishes the existing `/api/screens` contract as an S3 object. CloudFront serves the simulator and screen snapshot through a private S3 Origin Access Control (OAC).
+
+The production endpoint is:
+
+```text
+https://led.alf-broadcast.co.uk
+https://led.alf-broadcast.co.uk/api/screens
+```
+
+Cloudflare remains the authoritative DNS provider and points the DNS-only `led.alf-broadcast.co.uk` CNAME at CloudFront. The S3 `state/*` prefix is not exposed through CloudFront.
+
+Deployment follows the same operational model as the private Scouts repository: GitHub Actions uses AWS OIDC, `BW_ACCESS_TOKEN` is the Bitwarden machine-account GitHub secret, and GitHub variables hold non-secret configuration or Bitwarden secret UIDs only. The National Rail token is resolved at deployment and passed through a `NoEcho` CloudFormation parameter; the Cloudflare API token remains CI-only.
+
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, Bitwarden/GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
+
 ## Hardware notes
 
 The four panels must have an appropriate HUB75 data chain and a separate, correctly sized 5 V power supply. Do not attempt to power four panels from the MatrixPortal or USB alone. Confirm the panel scan/pin wiring against the actual panel before purchase; the software assumes the MatrixPortal S3 `MTX_*` pin definitions and 1/32-scan 64×32 panels.
@@ -151,12 +168,12 @@ python3 server.py --calendar-source fixture
 
 ## Physical MatrixPortal configuration
 
-Copy `settings_local.py.example` to the ignored `settings_local.py` on the MatrixPortal filesystem and configure the LAN backend:
+For the deployed service, configure the board to use the CloudFront/custom-domain endpoint:
 
 ```python
 DISPLAY_BACKEND = "matrix"
 SCREEN_SOURCE = "api"
-SCREEN_API_URL = "http://192.168.1.123:8000"
+SCREEN_API_URL = "https://led.alf-broadcast.co.uk"
 POLL_SECONDS = 30
 ANIMATE = True
 FRAME_SECONDS = 0.2
@@ -165,16 +182,18 @@ WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
 ```
 
+For local development instead, copy `settings_local.py.example` to the ignored `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `server.py`, for example `http://192.168.1.123:8000`.
+
 The MatrixPortal no longer needs National Rail credentials or a direct National Rail client. Weather also remains server-side, so the MatrixPortal makes only the same `/api/screens` request it already used.
 
-For a physical board to reach the backend, `server.py` must listen on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
+For a physical board to reach a local backend, `server.py` must listen on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
 
 ```text
 LED_SERVER_HOST=0.0.0.0
 ```
 
-Set `SCREEN_API_URL` to that host's LAN address. Do not expose this development server directly to the public Internet.
+Do not expose the local development server directly to the public Internet.
 
 ## Legacy departures endpoint
 
-`GET /api/departures` remains available for diagnostics and compatibility. It returns the normalized departure feed independently of the renderer-neutral `/api/screens` contract. New display functionality should be added through `/api/screens` rather than by adding upstream API clients to CircuitPython.
+`GET /api/departures` remains available from the local development server for diagnostics and compatibility. It returns the normalized departure feed independently of the renderer-neutral `/api/screens` contract. New display functionality should be added through `/api/screens` rather than by adding upstream API clients to CircuitPython.

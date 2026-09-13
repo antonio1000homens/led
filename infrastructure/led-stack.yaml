@@ -1,0 +1,273 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Serverless LED screen publisher, private S3 origin, and CloudFront distribution.
+
+Parameters:
+  CodeBucket:
+    Type: String
+    Description: S3 bucket containing the packaged publisher Lambda zip.
+  CodeKey:
+    Type: String
+    Description: S3 key containing the packaged publisher Lambda zip.
+  NationalRailToken:
+    Type: String
+    NoEcho: true
+    Description: National Rail Darwin token resolved from Bitwarden during deployment.
+  DomainName:
+    Type: String
+    Default: led.alf-broadcast.co.uk
+  CertificateArn:
+    Type: String
+    Description: ISSUED ACM certificate ARN in us-east-1 for DomainName.
+  StationCrs:
+    Type: String
+    Default: NEM
+    AllowedPattern: '^[A-Z]{3}$'
+  MaxRows:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 50
+  RailCacheSeconds:
+    Type: Number
+    Default: 60
+    MinValue: 1
+  ThorpeParkSource:
+    Type: String
+    Default: queue_times
+    AllowedValues: [off, queue_times]
+  ThorpeParkCacheSeconds:
+    Type: Number
+    Default: 300
+    MinValue: 1
+  ThorpeParkRides:
+    Type: String
+    Default: Hyperia,Stealth,The Swarm
+  WeatherSource:
+    Type: String
+    Default: open_meteo
+    AllowedValues: [off, open_meteo]
+  WeatherCacheSeconds:
+    Type: Number
+    Default: 600
+    MinValue: 1
+  WeatherLatitude:
+    Type: String
+    Default: '51.4039'
+  WeatherLongitude:
+    Type: String
+    Default: '-0.256'
+
+Resources:
+  HostingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub led-alf-broadcast-prod-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  PublisherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-publisher-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: led-publisher-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadStateBucket
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt HostingBucket.Arn
+              - Sid: ReadWritePublisherObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Sub ${HostingBucket.Arn}/state/feed-cache.json
+                  - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: WriteLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub ${PublisherLogGroup.Arn}:*
+
+  PublisherLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/led-publisher
+      RetentionInDays: 14
+
+  PublisherFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: PublisherLogGroup
+    Properties:
+      FunctionName: led-publisher
+      Runtime: python3.12
+      Handler: publisher.lambda_handler
+      Role: !GetAtt PublisherRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      ReservedConcurrentExecutions: 1
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Environment:
+        Variables:
+          STATE_BUCKET: !Ref HostingBucket
+          NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
+          LED_STATION_CRS: !Ref StationCrs
+          LED_MAX_ROWS: !Ref MaxRows
+          LED_CACHE_SECONDS: !Ref RailCacheSeconds
+          LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
+          LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
+          LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_WEATHER_SOURCE: !Ref WeatherSource
+          LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
+          LED_WEATHER_LATITUDE: !Ref WeatherLatitude
+          LED_WEATHER_LONGITUDE: !Ref WeatherLongitude
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invoke-led-publisher
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt PublisherFunction.Arn
+
+  PublisherSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: led-publisher-minute
+      Description: Refresh and publish LED screen data every minute.
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Target:
+        Arn: !GetAtt PublisherFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 60
+          MaximumRetryAttempts: 1
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: led-private-s3-oac
+        Description: CloudFront access to public LED objects in the private bucket.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: LED information board
+        Aliases:
+          - !Ref DomainName
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: led-s3-origin
+            DomainName: !GetAtt HostingBucket.RegionalDomainName
+            OriginAccessControlId: !Ref OriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: led-s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CacheBehaviors:
+          - PathPattern: api/screens
+            TargetOriginId: led-s3-origin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+  HostingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref HostingBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt HostingBucket.Arn
+              - !Sub ${HostingBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+          - Sid: AllowCloudFrontPublicObjectsOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource:
+              - !Sub ${HostingBucket.Arn}/index.html
+              - !Sub ${HostingBucket.Arn}/api/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+
+Outputs:
+  HostingBucketName:
+    Value: !Ref HostingBucket
+  PublisherFunctionName:
+    Value: !Ref PublisherFunction
+  PublisherFunctionArn:
+    Value: !GetAtt PublisherFunction.Arn
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+  PublicUrl:
+    Value: !Sub https://${DomainName}
+  ScreensUrl:
+    Value: !Sub https://${DomainName}/api/screens
