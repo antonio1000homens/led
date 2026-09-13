@@ -37,8 +37,7 @@ Resources:
             Statement:
               - Sid: RuntimeRoleCreate
                 Effect: Allow
-                Action:
-                  - iam:CreateRole
+                Action: iam:CreateRole
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/led-*
               - Sid: RuntimeRoleManage
                 Effect: Allow
@@ -51,6 +50,8 @@ Resources:
                   - iam:PutRolePolicy
                   - iam:GetRolePolicy
                   - iam:DeleteRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/led-*
               - Sid: RuntimeRolePass
                 Effect: Allow
@@ -113,15 +114,22 @@ Resources:
                   - scheduler:DeleteSchedule
                   - scheduler:GetSchedule
                   - scheduler:UpdateSchedule
+                  - scheduler:GetScheduleGroup
+                  - scheduler:ListTagsForResource
                   - scheduler:TagResource
                   - scheduler:UntagResource
-                Resource: !Sub arn:aws:scheduler:eu-west-2:${AWS::AccountId}:schedule/default/led-*
+                Resource:
+                  - !Sub arn:aws:scheduler:eu-west-2:${AWS::AccountId}:schedule/default/led-*
+                  - !Sub arn:aws:scheduler:eu-west-2:${AWS::AccountId}:schedule-group/default
+              - Sid: LogsList
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
               - Sid: LogsManage
                 Effect: Allow
                 Action:
                   - logs:CreateLogGroup
                   - logs:DeleteLogGroup
-                  - logs:DescribeLogGroups
                   - logs:PutRetentionPolicy
                   - logs:DeleteRetentionPolicy
                   - logs:TagResource
@@ -144,6 +152,7 @@ Resources:
                   - cloudfront:UpdateDistribution
                   - cloudfront:TagResource
                   - cloudfront:UntagResource
+                  - cloudfront:ListTagsForResource
                   - cloudfront:DeleteOriginAccessControl
                   - cloudfront:GetOriginAccessControl
                   - cloudfront:GetOriginAccessControlConfig
@@ -203,8 +212,7 @@ Resources:
                 Resource: !Sub arn:aws:s3:::${ArtifactBucketName}/led/*
               - Sid: PublishStaticContent
                 Effect: Allow
-                Action:
-                  - s3:ListBucket
+                Action: s3:ListBucket
                 Resource: !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}
               - Sid: PublishStaticObjects
                 Effect: Allow
