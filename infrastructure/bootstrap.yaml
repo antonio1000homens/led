@@ -1,13 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Bootstrap GitHub OIDC deployment roles for the LED repository.
+Description: Bootstrap GitHub OIDC deployment roles and dedicated Lambda artifact storage for LED.
 
 Parameters:
   GitHubOidcProviderArn:
     Type: String
     Description: Existing IAM OIDC provider ARN for token.actions.githubusercontent.com.
-  ArtifactBucketName:
-    Type: String
-    Default: aws2022-lambda-code-eu-west-2-553490163883
   RepoOwner:
     Type: String
     Default: antonio1000homens
@@ -19,6 +16,40 @@ Parameters:
     Default: main
 
 Resources:
+  CodeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub led-code-${AWS::Region}-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  CodeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CodeBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt CodeBucket.Arn
+              - !Sub ${CodeBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
   CloudFormationExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -62,7 +93,7 @@ Resources:
                 Action:
                   - s3:GetObject
                   - s3:GetObjectVersion
-                Resource: !Sub arn:aws:s3:::${ArtifactBucketName}/led/*
+                Resource: !Sub ${CodeBucket.Arn}/led/*
               - Sid: HostingBucketCreate
                 Effect: Allow
                 Action: s3:CreateBucket
@@ -204,12 +235,18 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: CodeBucketMetadata
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource: !GetAtt CodeBucket.Arn
               - Sid: UploadLambdaArtifact
                 Effect: Allow
                 Action:
                   - s3:GetObject
                   - s3:PutObject
-                Resource: !Sub arn:aws:s3:::${ArtifactBucketName}/led/*
+                Resource: !Sub ${CodeBucket.Arn}/led/*
               - Sid: PublishStaticContent
                 Effect: Allow
                 Action: s3:ListBucket
@@ -251,3 +288,5 @@ Outputs:
     Value: !GetAtt GitHubActionsDeployRole.Arn
   CloudFormationRoleArn:
     Value: !GetAtt CloudFormationExecutionRole.Arn
+  CodeBucketName:
+    Value: !Ref CodeBucket
