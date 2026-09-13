@@ -42,11 +42,21 @@ class InfrastructureContractTests(unittest.TestCase):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
         package = (ROOT / "scripts" / "package-lambda.sh").read_text(encoding="utf-8")
         deploy = (ROOT / "scripts" / "deploy-stack.sh").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         calendar = template.split("CalendarSource:", 1)[1].split("TodoistCacheSeconds:", 1)[0]
         self.assertIn("Default: off", calendar)
         self.assertIn('"${ROOT_DIR}/todoist.py"', package)
         self.assertIn('"TodoistToken=${TODOIST_TOKEN}"', deploy)
         self.assertIn('"CalendarSource=${CALENDAR_SOURCE}"', deploy)
+        self.assertIn('"TodoistCacheSeconds=${TODOIST_CACHE_SECONDS}"', deploy)
+        self.assertIn('"TodoistMaxEvents=${TODOIST_MAX_EVENTS}"', deploy)
+        self.assertIn('"TodoistFilterQuery=${TODOIST_FILTER_QUERY}"', deploy)
+        self.assertIn('"TodoistTimezone=${TODOIST_TIMEZONE}"', deploy)
+        self.assertIn('"CalendarDurationSeconds=${CALENDAR_DURATION_SECONDS}"', deploy)
+        self.assertIn('"CalendarPageSeconds=${CALENDAR_PAGE_SECONDS}"', deploy)
+        self.assertIn("vars.LED_CALENDAR_SOURCE", workflow)
+        self.assertIn("vars.LED_TODOIST_FILTER_QUERY", workflow)
+        self.assertIn("BW_TODOIST_TOKEN is required when LED_CALENDAR_SOURCE=todoist", workflow)
 
     def test_hostname_defaults_to_led_subdomain(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
