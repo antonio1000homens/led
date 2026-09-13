@@ -1,9 +1,11 @@
 import unittest
 
 from formatting import (
+    agenda_marquee_x,
     agenda_scroll_state,
     calendar_due_text,
     calendar_row,
+    calendar_row_text,
     calling_text,
     format_row,
     header,
@@ -56,6 +58,22 @@ class FormattingTests(unittest.TestCase):
         row = calendar_row({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting with a deliberately long title"})
         self.assertEqual(len(row), 42)
         self.assertTrue(row[32:].strip())
+
+    def test_calendar_row_text_retains_marquee_overflow(self):
+        text = calendar_row_text({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting with a deliberately long title for scrolling"})
+        self.assertGreater(len(text), 42)
+        self.assertTrue(text.endswith("for scrolling"))
+
+    def test_agenda_marquee_keeps_42_characters_static(self):
+        self.assertEqual(agenda_marquee_x("x" * 42, 99), 0)
+
+    def test_agenda_marquee_scrolls_pauses_and_resets(self):
+        text = "x" * 52
+        self.assertEqual(agenda_marquee_x(text, 0), 0)
+        self.assertEqual(agenda_marquee_x(text, 1), -30)
+        self.assertEqual(agenda_marquee_x(text, 2), -60)
+        self.assertEqual(agenda_marquee_x(text, 3), -60)
+        self.assertEqual(agenda_marquee_x(text, 3.25), 0)
 
     def test_calendar_row_hides_all_day_time(self):
         row = calendar_row({"start": "2026-09-14", "all_day": True, "date_text": "14/09", "time_text": "ALL", "title": "Inset day"})
