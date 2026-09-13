@@ -30,6 +30,8 @@ def calendar_row(event, width=32):
     """Format one normalized agenda event as date/time then title."""
     date_text = str(event.get("date_text") or "").strip()
     time_text = str(event.get("time_text") or "").strip()
+    if event.get("all_day") or time_text.upper() == "ALL":
+        time_text = ""
     if not date_text:
         start = str(event.get("start") or "")
         if "T" in start:
@@ -41,6 +43,85 @@ def calendar_row(event, width=32):
     title = str(event.get("title") or event.get("location") or "Event")
     prefix = when[:11].ljust(11) + " "
     return (prefix + title)[:width].ljust(width)
+
+
+def _iso_date_parts(value):
+    text = str(value or "")
+    if len(text) < 10:
+        return None
+    try:
+        year = int(text[0:4])
+        month = int(text[5:7])
+        day = int(text[8:10])
+    except (TypeError, ValueError):
+        return None
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        return None
+    return year, month, day
+
+
+def _date_ordinal(year, month, day):
+    """Return a Gregorian day ordinal using only integer arithmetic."""
+    previous_year = year - 1
+    days = 365 * previous_year + previous_year // 4 - previous_year // 100 + previous_year // 400
+    month_lengths = (31, 28 + (1 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 0), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    days += sum(month_lengths[:month - 1])
+    return days + day
+
+
+def _time_minutes(value):
+    text = str(value or "")
+    if len(text) < 5:
+        return None
+    try:
+        hour = int(text[0:2])
+        minute = int(text[3:5])
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return hour * 60 + minute
+
+
+def calendar_due_text(event, current_date, current_time):
+    """Return a compact countdown for the next agenda event.
+
+    ``current_date`` is ``YYYY-MM-DD`` in the board display timezone and
+    ``current_time`` is ``HH:MM``. Future-day events deliberately use calendar
+    day difference rather than a rolling 24-hour duration.
+    """
+    if not isinstance(event, dict):
+        return ""
+    event_date = _iso_date_parts(event.get("start"))
+    now_date = _iso_date_parts(current_date)
+    if event_date is None or now_date is None:
+        return ""
+
+    day_delta = _date_ordinal(*event_date) - _date_ordinal(*now_date)
+    if day_delta < 0:
+        return ""
+    if day_delta > 0:
+        return "DUE IN {}d".format(day_delta)
+    if event.get("all_day"):
+        return "DUE TODAY"
+
+    event_minutes = _time_minutes(event.get("time_text"))
+    if event_minutes is None:
+        start = str(event.get("start") or "")
+        event_minutes = _time_minutes(start[11:16] if "T" in start else "")
+    now_minutes = _time_minutes(current_time)
+    if event_minutes is None or now_minutes is None:
+        return ""
+
+    remaining = event_minutes - now_minutes
+    if remaining <= 0:
+        return "DUE NOW"
+    hours, minutes = divmod(remaining, 60)
+    if hours and minutes:
+        return "DUE IN {}h {}m".format(hours, minutes)
+    if hours:
+        return "DUE IN {}h".format(hours)
+    return "DUE IN {}m".format(minutes)
 
 
 def header(station, stale=False):
