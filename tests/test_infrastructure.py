@@ -42,6 +42,31 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn("Default: led.alf-broadcast.co.uk", template)
         self.assertIn("led.alf-broadcast.co.uk", workflow)
 
+    def test_cloudflare_dns_is_pinned_to_windsor_account(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        helper = (ROOT / "scripts" / "cloudflare_dns.py").read_text(encoding="utf-8")
+        shell = (ROOT / "scripts" / "configure-cloudflare-dns.sh").read_text(encoding="utf-8")
+        self.assertIn("vars.CLOUDFLARE_ACCOUNT_ID", workflow)
+        self.assertIn("Windsor Cloudflare account ID", workflow)
+        self.assertIn('"account.id": account_id', helper)
+        self.assertIn('default="Windsor"', helper)
+        self.assertIn("not in the Windsor account", helper)
+        self.assertIn('CLOUDFLARE_ACCOUNT_NAME="Windsor"', shell)
+        self.assertNotIn("9a5523112f1460d0f77c9ba239d00029", workflow + helper + shell)
+
+    def test_bootstrap_creates_dedicated_private_code_bucket(self):
+        bootstrap = (ROOT / "infrastructure" / "bootstrap.yaml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        self.assertIn("CodeBucket:\n    Type: AWS::S3::Bucket", bootstrap)
+        self.assertIn("BucketName: !Sub led-code-${AWS::Region}-${AWS::AccountId}", bootstrap)
+        self.assertIn("BlockPublicAcls: true", bootstrap)
+        self.assertIn("BlockPublicPolicy: true", bootstrap)
+        self.assertIn("aws:SecureTransport: false", bootstrap)
+        self.assertIn("CodeBucketName:", bootstrap)
+        self.assertIn('CODE_BUCKET="led-code-${AWS_REGION}-${ACCOUNT_ID}"', workflow)
+        self.assertNotIn("aws2022-lambda-code", bootstrap + workflow)
+        self.assertNotIn("vars.CODE_BUCKET", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
