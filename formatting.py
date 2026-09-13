@@ -5,6 +5,9 @@ QUEUE_VISIBLE_ROWS = 3
 QUEUE_HOLD_SECONDS = 1.0
 QUEUE_SLIDE_SECONDS = 0.3
 QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS
+AGENDA_VISIBLE_ROWS = 3
+AGENDA_SLIDE_SECONDS = 0.4
+AGENDA_PAGE_SECONDS = 5.0
 
 
 def _clip(value, width):
@@ -21,6 +24,23 @@ def format_row(service, width=32):
     suffix = " " + platform + " " + status
     destination = _clip(service.get("destination", "Unknown"), max(1, width - len(prefix) - len(suffix)))
     return (prefix + destination + suffix)[:width].ljust(width)
+
+
+def calendar_row(event, width=32):
+    """Format one normalized agenda event as date/time then title."""
+    date_text = str(event.get("date_text") or "").strip()
+    time_text = str(event.get("time_text") or "").strip()
+    if not date_text:
+        start = str(event.get("start") or "")
+        if "T" in start:
+            date_text = start[:10]
+            time_text = time_text or start.split("T", 1)[1][:5]
+        else:
+            date_text = start[:10]
+    when = (date_text + (" " + time_text if time_text else "")).strip()
+    title = str(event.get("title") or event.get("location") or "Event")
+    prefix = when[:11].ljust(11) + " "
+    return (prefix + title)[:width].ljust(width)
 
 
 def header(station, stale=False):
@@ -61,6 +81,36 @@ def queue_scroll_state(phase, ride_count, visible_rows=QUEUE_VISIBLE_ROWS):
     else:
         progress = min(1.0, (within_step - QUEUE_HOLD_SECONDS) / QUEUE_SLIDE_SECONDS)
     return step, progress
+
+
+def agenda_scroll_state(
+    phase,
+    event_count,
+    page_seconds=AGENDA_PAGE_SECONDS,
+    visible_rows=AGENDA_VISIBLE_ROWS,
+):
+    """Return page start and 0..1 progress for a two-page agenda.
+
+    Up to three events remain static. Four to six events show the first three
+    until ``page_seconds`` and then slide the full viewport upward once so the
+    remaining events settle in the same three display rows.
+    """
+    event_count = max(0, int(event_count or 0))
+    visible_rows = max(1, int(visible_rows or 1))
+    if event_count <= visible_rows:
+        return 0, 0.0
+    try:
+        phase = max(0.0, float(phase or 0))
+        page_seconds = max(0.0, float(page_seconds or AGENDA_PAGE_SECONDS))
+    except (TypeError, ValueError):
+        phase = 0.0
+        page_seconds = AGENDA_PAGE_SECONDS
+    if phase <= page_seconds:
+        return 0, 0.0
+    progress = min(1.0, (phase - page_seconds) / AGENDA_SLIDE_SECONDS)
+    if progress >= 1.0:
+        return visible_rows, 0.0
+    return 0, progress
 
 
 def calling_text(service):

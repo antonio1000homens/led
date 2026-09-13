@@ -123,6 +123,95 @@ class PublisherTests(unittest.TestCase):
             self.assertIn("weather", screen)
             self.assertEqual(screen["weather"]["temperature_c"], 17.4)
 
+    def test_calendar_has_independent_ttl_and_six_event_contract(self):
+        config = PublisherConfig(
+            bucket="test-bucket",
+            national_rail_token="test-token",
+            thorpe_park_source="off",
+            weather_source="off",
+            calendar_source="todoist",
+            todoist_oauth_secret_arn="arn:test:todoist",
+            calendar_ttl=300,
+            calendar_max_events=6,
+            calendar_duration=10,
+            calendar_page_seconds=5,
+        )
+        rail = FakeProvider([[{"time": "08:01", "destination": "Waterloo"}], [{"time": "08:02"}]])
+        events = [
+            {"start": f"2026-09-{13 + index:02d}T18:00:00+01:00", "date_text": f"{13 + index:02d}/09", "time_text": "18:00", "title": f"Event {index + 1}"}
+            for index in range(6)
+        ]
+        calendar = FakeProvider([events])
+
+        first = Publisher(config, self.store, rail_provider=rail, utcnow=self.utcnow, calendar_provider=calendar).run()
+        self.now += timedelta(seconds=61)
+        second = Publisher(config, self.store, rail_provider=rail, utcnow=self.utcnow, calendar_provider=calendar).run()
+
+        self.assertEqual(calendar.calls, 1)
+        self.assertEqual(rail.calls, 2)
+        screen = first["screens"][1]
+        self.assertEqual(screen["id"], "calendar")
+        self.assertEqual(screen["kind"], "calendar_agenda")
+        self.assertEqual(screen["duration_seconds"], 10)
+        self.assertEqual(screen["page_seconds"], 5)
+        self.assertEqual(screen["viewport_size"], 3)
+        self.assertEqual(len(screen["events"]), 6)
+        self.assertFalse(second["screens"][1]["stale"])
+
+    def test_calendar_keeps_cached_data_stale_after_failure(self):
+        config = PublisherConfig(
+            bucket="test-bucket",
+            national_rail_token="test-token",
+            thorpe_park_source="off",
+            weather_source="off",
+            calendar_source="todoist",
+            todoist_oauth_secret_arn="arn:test:todoist",
+            calendar_ttl=60,
+        )
+        rail = FakeProvider([[{"time": "08:01"}], [{"time": "08:02"}]])
+        calendar = FakeProvider([[{"date_text": "13/09", "time_text": "18:00", "title": "Keep me"}], RuntimeError("private upstream error")])
+        Publisher(config, self.store, rail_provider=rail, utcnow=self.utcnow, calendar_provider=calendar).run()
+        self.now += timedelta(seconds=61)
+        payload = Publisher(config, self.store, rail_provider=rail, utcnow=self.utcnow, calendar_provider=calendar).run()
+
+        calendar_screen = payload["screens"][1]
+        self.assertTrue(calendar_screen["stale"])
+        self.assertEqual(calendar_screen["events"][0]["title"], "Keep me")
+
+    def test_cold_calendar_failure_does_not_break_departures(self):
+        config = PublisherConfig(
+            bucket="test-bucket",
+            national_rail_token="test-token",
+            thorpe_park_source="off",
+            weather_source="off",
+            calendar_source="todoist",
+            todoist_oauth_secret_arn="arn:test:todoist",
+        )
+        rail = FakeProvider([[{"time": "08:01", "destination": "Waterloo"}]])
+        calendar = FakeProvider([RuntimeError("private upstream error")])
+        payload = Publisher(config, self.store, rail_provider=rail, utcnow=self.utcnow, calendar_provider=calendar).run()
+
+        self.assertEqual(payload["screens"][0]["source"], "national_rail")
+        self.assertEqual(payload["screens"][1]["source"], "unavailable")
+        self.assertTrue(payload["screens"][1]["stale"])
+
+    def test_empty_calendar_is_successful_not_stale(self):
+        config = PublisherConfig(
+            bucket="test-bucket",
+            national_rail_token="test-token",
+            thorpe_park_source="off",
+            weather_source="off",
+            calendar_source="todoist",
+            todoist_oauth_secret_arn="arn:test:todoist",
+        )
+        rail = FakeProvider([[{"time": "08:01"}]])
+        calendar = FakeProvider([[]])
+        payload = Publisher(config, self.store, rail_provider=rail, utcnow=self.utcnow, calendar_provider=calendar).run()
+        screen = payload["screens"][1]
+        self.assertEqual(screen["events"], [])
+        self.assertFalse(screen["stale"])
+        self.assertEqual(screen["title"], "UPCOMING")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,10 @@
 import board
 
 from formatting import (
+    AGENDA_VISIBLE_ROWS,
     QUEUE_VISIBLE_ROWS,
+    agenda_scroll_state,
+    calendar_row,
     calling_text,
     format_row,
     queue_scroll_state,
@@ -16,6 +19,8 @@ CLOCK_X = 226
 STALE_X = 190
 QUEUE_FIRST_Y = 11
 QUEUE_ROW_HEIGHT = 8
+AGENDA_FIRST_Y = 11
+AGENDA_ROW_HEIGHT = 8
 WEATHER_Y = 24
 WEATHER_LABEL_Y = 27
 WEATHER_ICON_WIDTH = 7
@@ -23,96 +28,16 @@ WEATHER_GAP = 1
 WEATHER_FONT_WIDTH = 6
 
 WEATHER_ICONS = {
-    "clear_day": (
-        "..#.#..",
-        "...#...",
-        ".#####.",
-        "..###..",
-        ".#####.",
-        "...#...",
-        "..#.#..",
-    ),
-    "clear_night": (
-        "...###.",
-        "..###..",
-        ".###...",
-        ".###...",
-        ".####..",
-        "..####.",
-        "...###.",
-    ),
-    "partly_cloudy_day": (
-        ".#.#...",
-        "..#....",
-        ".###...",
-        "...##..",
-        "..#####",
-        ".######",
-        ".......",
-    ),
-    "partly_cloudy_night": (
-        "..##...",
-        ".##....",
-        ".###...",
-        "...##..",
-        "..#####",
-        ".######",
-        ".......",
-    ),
-    "cloudy": (
-        ".......",
-        "...##..",
-        "..####.",
-        ".######",
-        "#######",
-        ".......",
-        ".......",
-    ),
-    "fog": (
-        ".......",
-        ".#####.",
-        ".......",
-        "#######",
-        ".......",
-        ".#####.",
-        ".......",
-    ),
-    "rain": (
-        "...##..",
-        "..####.",
-        ".######",
-        "#######",
-        "..#.#..",
-        ".#.#...",
-        "#.#....",
-    ),
-    "snow": (
-        "...##..",
-        "..####.",
-        ".######",
-        "#######",
-        ".#.#.#.",
-        "..#.#..",
-        ".#.#.#.",
-    ),
-    "storm": (
-        "...##..",
-        "..####.",
-        ".######",
-        "#######",
-        "...##..",
-        "..##...",
-        "...#...",
-    ),
-    "unknown": (
-        ".#####.",
-        "##...##",
-        "....##.",
-        "...##..",
-        "..##...",
-        ".......",
-        "..##...",
-    ),
+    "clear_day": ("..#.#..", "...#...", ".#####.", "..###..", ".#####.", "...#...", "..#.#.."),
+    "clear_night": ("...###.", "..###..", ".###...", ".###...", ".####..", "..####.", "...###."),
+    "partly_cloudy_day": (".#.#...", "..#....", ".###...", "...##..", "..#####", ".######", "......."),
+    "partly_cloudy_night": ("..##...", ".##....", ".###...", "...##..", "..#####", ".######", "......."),
+    "cloudy": (".......", "...##..", "..####.", ".######", "#######", ".......", "......."),
+    "fog": (".......", ".#####.", ".......", "#######", ".......", ".#####.", "......."),
+    "rain": ("...##..", "..####.", ".######", "#######", "..#.#..", ".#.#...", "#.#...."),
+    "snow": ("...##..", "..####.", ".######", "#######", ".#.#.#.", "..#.#..", ".#.#.#."),
+    "storm": ("...##..", "..####.", ".######", "#######", "...##..", "..##...", "...#..."),
+    "unknown": (".#####.", "##...##", "....##.", "...##..", "..##...", ".......", "..##..."),
 }
 
 WEATHER_COLORS = {
@@ -139,16 +64,6 @@ def _queue_row(ride):
     return (name + state.rjust(8))[:32]
 
 
-def _calendar_row(event):
-    start = str(event.get("start") or "")
-    if "T" in start:
-        start = start.split("T", 1)[1][:5]
-    else:
-        start = start[:5]
-    title = event.get("title") or event.get("location") or "Event"
-    return (start.ljust(6) + str(title))[:32]
-
-
 def _weather_text(weather):
     if not isinstance(weather, dict):
         return None
@@ -170,20 +85,25 @@ def _weather_icon(weather):
 
 def _weather_rgb(icon_name, stale=False):
     color = WEATHER_COLORS.get(icon_name, WEATHER_COLORS["unknown"])
-    if stale:
-        return 0x777777
-    return color
+    return 0x777777 if stale else color
 
 
 def _weather_layout(text):
     text_width = len(str(text)) * WEATHER_FONT_WIDTH
     icon_x = max(0, DISPLAY_WIDTH - (WEATHER_ICON_WIDTH + WEATHER_GAP + text_width))
-    text_x = icon_x + WEATHER_ICON_WIDTH + WEATHER_GAP
-    return icon_x, text_x
+    return icon_x, icon_x + WEATHER_ICON_WIDTH + WEATHER_GAP
 
 
 def _rgb_tuple(color):
     return ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
+
+
+def _agenda_state(screen, phase):
+    events = screen.get("events") or []
+    visible = max(1, int(screen.get("viewport_size") or AGENDA_VISIBLE_ROWS))
+    page_seconds = screen.get("page_seconds") or 5
+    start, progress = agenda_scroll_state(phase, len(events), page_seconds, visible)
+    return events, visible, start, progress
 
 
 class MatrixDisplay:
@@ -211,7 +131,6 @@ class MatrixDisplay:
         group.append(self.label_type(self.font, text=str(text), color=color, x=x, y=y))
 
     def _header_mask(self, group):
-        """Mask queue rows as they slide behind the fixed heading."""
         import displayio
 
         bitmap = displayio.Bitmap(DISPLAY_WIDTH, 8, 2)
@@ -222,12 +141,7 @@ class MatrixDisplay:
 
     def _rail(self, group, screen, phase):
         services = screen.get("services") or []
-        primary = services[0] if services else {
-            "time": "--:--",
-            "destination": "No data",
-            "platform": "-",
-            "status": "Waiting",
-        }
+        primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
         primary_slide = row_slide_phase(phase, 0)
         self._label(group, format_row(primary), 0xFFFFFF, -int((1 - primary_slide) * 220), 3)
         calling = calling_text(primary)
@@ -253,29 +167,29 @@ class MatrixDisplay:
                 if ride_index >= len(rides):
                     break
                 ride = rides[ride_index]
-                color = 0xFFFFFF if ride.get("open") else 0xFF3300
-                self._label(
-                    group,
-                    _queue_row(ride),
-                    color,
-                    0,
-                    QUEUE_FIRST_Y + slot * QUEUE_ROW_HEIGHT - y_offset,
-                )
-
+                self._label(group, _queue_row(ride), 0xFFFFFF if ride.get("open") else 0xFF3300, 0, QUEUE_FIRST_Y + slot * QUEUE_ROW_HEIGHT - y_offset)
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "THORPE PARK", 30), 0xFFAA00, 0, 3)
 
-    def _calendar(self, group, screen):
-        self._label(group, _clip(screen.get("title") or "Upcoming events", 30), 0xFFAA00, 0, 3)
-        events = screen.get("events") or []
-        for index, event in enumerate(events[:3]):
-            self._label(group, _calendar_row(event), 0xFFFFFF, 0, 11 + index * 8)
+    def _calendar(self, group, screen, phase):
+        events, visible, start, progress = _agenda_state(screen, phase)
+        if not events:
+            self._label(group, "No upcoming events", 0xFFFFFF, 0, AGENDA_FIRST_Y)
+        else:
+            row_count = min(len(events) - start, visible * 2 if progress > 0 else visible)
+            y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
+            for slot in range(max(0, row_count)):
+                event_index = start + slot
+                if event_index >= len(events):
+                    break
+                self._label(group, calendar_row(events[event_index]), 0xFFFFFF, 0, AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset)
+        self._header_mask(group)
+        self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
     def _weather(self, group, weather):
         text = _weather_text(weather)
         if text is None:
             return
-
         import displayio
 
         icon_x, text_x = _weather_layout(text)
@@ -302,10 +216,9 @@ class MatrixDisplay:
         elif kind == "theme_park_queues":
             self._queues(group, screen, phase)
         elif kind == "calendar_agenda":
-            self._calendar(group, screen)
+            self._calendar(group, screen, phase)
         else:
             self._label(group, _clip(screen.get("title") or "Display unavailable", 30), 0xFFFFFF, 0, 3)
-
         if screen.get("stale"):
             self._label(group, "STALE", 0xFF3300, STALE_X, 3)
         self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
@@ -334,8 +247,7 @@ class FixtureDisplay:
             " ": (0, 0, 0, 0, 0), "-": (0, 0, 1, 0, 0), ":": (0, 1, 0, 0, 1),
             "0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0), "2": (1, 0, 1, 1, 1),
             "3": (1, 0, 1, 0, 1), "4": (1, 1, 1, 0, 0), "5": (1, 1, 0, 0, 1),
-            "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0), "8": (1, 1, 1, 1, 1),
-            "9": (1, 1, 1, 0, 1),
+            "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0), "8": (1, 1, 1, 1, 1), "9": (1, 1, 1, 0, 1),
         }
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         for char in str(value).upper():
@@ -361,9 +273,7 @@ class FixtureDisplay:
         kind = screen.get("kind")
         if kind == "rail_combined":
             services = screen.get("services") or []
-            primary = services[0] if services else {
-                "time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"
-            }
+            primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
             primary_slide = row_slide_phase(phase, 0)
             self._text(format_row(primary), -int((1 - primary_slide) * 220), 0, (255, 255, 255))
             text = calling_text(primary)
@@ -388,14 +298,23 @@ class FixtureDisplay:
                     if ride_index >= len(rides):
                         break
                     ride = rides[ride_index]
-                    color = (255, 255, 255) if ride.get("open") else (255, 20, 0)
-                    self._text(_queue_row(ride), 0, 8 + slot * QUEUE_ROW_HEIGHT - y_offset, color)
+                    self._text(_queue_row(ride), 0, 8 + slot * QUEUE_ROW_HEIGHT - y_offset, (255, 255, 255) if ride.get("open") else (255, 20, 0))
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "THORPE PARK", 30), 0, 0, (255, 100, 0))
         elif kind == "calendar_agenda":
-            self._text(_clip(screen.get("title") or "Upcoming events", 30), 0, 0, (255, 100, 0))
-            for index, event in enumerate((screen.get("events") or [])[:3]):
-                self._text(_calendar_row(event), 0, 8 + index * 8, (255, 255, 255))
+            events, visible, start, progress = _agenda_state(screen, phase)
+            if not events:
+                self._text("No upcoming events", 0, 8, (255, 255, 255))
+            else:
+                row_count = min(len(events) - start, visible * 2 if progress > 0 else visible)
+                y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
+                for slot in range(max(0, row_count)):
+                    event_index = start + slot
+                    if event_index >= len(events):
+                        break
+                    self._text(calendar_row(events[event_index]), 0, 8 + slot * AGENDA_ROW_HEIGHT - y_offset, (255, 255, 255))
+            self._clear_rows(0, 8)
+            self._text(_clip(screen.get("title") or "UPCOMING", 30), 0, 0, (255, 100, 0))
         else:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
@@ -441,8 +360,11 @@ class FixtureDisplay:
             for ride in rides[start:start + QUEUE_VISIBLE_ROWS]:
                 print(_queue_row(ride).rstrip())
         elif kind == "calendar_agenda":
-            for event in (screen.get("events") or [])[:3]:
-                print(_calendar_row(event).rstrip())
+            events, visible, start, _ = _agenda_state(screen, phase)
+            if not events:
+                print("No upcoming events")
+            for event in events[start:start + visible]:
+                print(calendar_row(event).rstrip())
         weather = screen.get("weather")
         if isinstance(weather, dict):
             print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))

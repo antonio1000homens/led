@@ -42,6 +42,33 @@ Parameters:
   ThorpeParkRides:
     Type: String
     Default: Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave
+  CalendarSource:
+    Type: String
+    Default: off
+    AllowedValues: [off, todoist]
+  TodoistCacheSeconds:
+    Type: Number
+    Default: 300
+    MinValue: 1
+  TodoistMaxEvents:
+    Type: Number
+    Default: 6
+    MinValue: 1
+    MaxValue: 20
+  TodoistFilterQuery:
+    Type: String
+    Default: 'date after: yesterday'
+  TodoistTimezone:
+    Type: String
+    Default: Europe/London
+  CalendarDurationSeconds:
+    Type: Number
+    Default: 10
+    MinValue: 2
+  CalendarPageSeconds:
+    Type: Number
+    Default: 5
+    MinValue: 1
   WeatherSource:
     Type: String
     Default: open_meteo
@@ -72,6 +99,14 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
+  TodoistOAuthSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: led/todoist/oauth
+      Description: Todoist OAuth client credentials and rotating access/refresh tokens for the LED publisher.
+
   PublisherRole:
     Type: AWS::IAM::Role
     Properties:
@@ -101,6 +136,12 @@ Resources:
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
                   - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: ReadWriteTodoistOAuthSecret
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:PutSecretValue
+                Resource: !Ref TodoistOAuthSecret
               - Sid: WriteLogs
                 Effect: Allow
                 Action:
@@ -132,12 +173,20 @@ Resources:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
+          TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthSecret
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
           LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
           LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
           LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_CALENDAR_SOURCE: !Ref CalendarSource
+          LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_TODOIST_MAX_EVENTS: !Ref TodoistMaxEvents
+          LED_TODOIST_FILTER_QUERY: !Ref TodoistFilterQuery
+          LED_TODOIST_TIMEZONE: !Ref TodoistTimezone
+          LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_CALENDAR_PAGE_SECONDS: !Ref CalendarPageSeconds
           LED_WEATHER_SOURCE: !Ref WeatherSource
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
           LED_WEATHER_LATITUDE: !Ref WeatherLatitude
@@ -263,6 +312,8 @@ Outputs:
     Value: !Ref PublisherFunction
   PublisherFunctionArn:
     Value: !GetAtt PublisherFunction.Arn
+  TodoistOAuthSecretArn:
+    Value: !Ref TodoistOAuthSecret
   DistributionId:
     Value: !Ref Distribution
   DistributionDomainName:

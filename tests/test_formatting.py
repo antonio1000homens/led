@@ -1,6 +1,14 @@
 import unittest
 
-from formatting import calling_text, format_row, header, queue_scroll_state, row_slide_phase
+from formatting import (
+    agenda_scroll_state,
+    calendar_row,
+    calling_text,
+    format_row,
+    header,
+    queue_scroll_state,
+    row_slide_phase,
+)
 
 
 class FormattingTests(unittest.TestCase):
@@ -37,6 +45,25 @@ class FormattingTests(unittest.TestCase):
     def test_queue_scroll_stops_on_last_three_rides(self):
         self.assertEqual(queue_scroll_state(99, 7), (4, 0.0))
         self.assertEqual(queue_scroll_state(99, 3), (0, 0.0))
+
+    def test_calendar_row_starts_with_date_and_time(self):
+        row = calendar_row({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting"})
+        self.assertEqual(len(row), 32)
+        self.assertTrue(row.startswith("14/09 18:30 Scout meeting"))
+
+    def test_calendar_row_supports_all_day_marker(self):
+        row = calendar_row({"date_text": "14/09", "time_text": "ALL", "title": "Inset day"})
+        self.assertTrue(row.startswith("14/09 ALL"))
+
+    def test_agenda_page_holds_then_slides_to_second_three(self):
+        self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))
+        start, progress = agenda_scroll_state(5.2, 6, 5)
+        self.assertEqual(start, 0)
+        self.assertAlmostEqual(progress, 0.5)
+        self.assertEqual(agenda_scroll_state(5.5, 6, 5), (3, 0.0))
+
+    def test_agenda_does_not_page_three_or_fewer_events(self):
+        self.assertEqual(agenda_scroll_state(99, 3, 5), (0, 0.0))
 
     def test_calling_text_includes_station_times(self):
         text = calling_text({"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19", "status": "On time"}]})

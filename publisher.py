@@ -10,6 +10,13 @@ from typing import Any
 
 from queue_times import QueueTimesProvider
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider, _queue_screen_duration, _select_rides
+from todoist import (
+    DEFAULT_FILTER_QUERY,
+    DEFAULT_TIMEZONE,
+    SecretsManagerOAuthStore,
+    TodoistOAuthSession,
+    TodoistProvider,
+)
 from weather import OpenMeteoProvider
 
 
@@ -61,6 +68,14 @@ class PublisherConfig:
         weather_ttl: int = 600,
         weather_latitude: float = DEFAULT_WEATHER_LATITUDE,
         weather_longitude: float = DEFAULT_WEATHER_LONGITUDE,
+        calendar_source: str = "off",
+        todoist_oauth_secret_arn: str = "",
+        calendar_ttl: int = 300,
+        calendar_max_events: int = 6,
+        calendar_filter_query: str = DEFAULT_FILTER_QUERY,
+        calendar_timezone: str = DEFAULT_TIMEZONE,
+        calendar_duration: int = 10,
+        calendar_page_seconds: int = 5,
     ):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
@@ -74,6 +89,14 @@ class PublisherConfig:
         self.weather_ttl = weather_ttl
         self.weather_latitude = weather_latitude
         self.weather_longitude = weather_longitude
+        self.calendar_source = calendar_source
+        self.todoist_oauth_secret_arn = todoist_oauth_secret_arn
+        self.calendar_ttl = calendar_ttl
+        self.calendar_max_events = calendar_max_events
+        self.calendar_filter_query = calendar_filter_query
+        self.calendar_timezone = calendar_timezone
+        self.calendar_duration = calendar_duration
+        self.calendar_page_seconds = calendar_page_seconds
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None):
@@ -96,6 +119,12 @@ class PublisherConfig:
         weather_source = env.get("LED_WEATHER_SOURCE", "open_meteo").strip()
         if weather_source not in ("off", "open_meteo"):
             raise ValueError("LED_WEATHER_SOURCE must be off or open_meteo")
+        calendar_source = env.get("LED_CALENDAR_SOURCE", "off").strip()
+        if calendar_source not in ("off", "todoist"):
+            raise ValueError("LED_CALENDAR_SOURCE must be off or todoist")
+        todoist_secret = env.get("TODOIST_OAUTH_SECRET_ARN", "").strip()
+        if calendar_source == "todoist" and not todoist_secret:
+            raise ValueError("TODOIST_OAUTH_SECRET_ARN is required when LED_CALENDAR_SOURCE=todoist")
         rides = tuple(
             item.strip()
             for item in env.get("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)).split(",")
@@ -103,6 +132,13 @@ class PublisherConfig:
         )
         if thorpe_source != "off" and not rides:
             raise ValueError("LED_THORPE_PARK_RIDES must contain at least one ride")
+        calendar_max_events = _env_int(env, "LED_TODOIST_MAX_EVENTS", 6)
+        if calendar_max_events > 20:
+            raise ValueError("LED_TODOIST_MAX_EVENTS must be <= 20")
+        calendar_duration = _env_int(env, "LED_CALENDAR_DURATION_SECONDS", 10)
+        calendar_page_seconds = _env_int(env, "LED_CALENDAR_PAGE_SECONDS", 5)
+        if calendar_page_seconds >= calendar_duration:
+            raise ValueError("LED_CALENDAR_PAGE_SECONDS must be less than LED_CALENDAR_DURATION_SECONDS")
         return cls(
             bucket=bucket,
             national_rail_token=token,
@@ -116,6 +152,14 @@ class PublisherConfig:
             weather_ttl=_env_int(env, "LED_WEATHER_CACHE_SECONDS", 600),
             weather_latitude=_env_float(env, "LED_WEATHER_LATITUDE", DEFAULT_WEATHER_LATITUDE, -90, 90),
             weather_longitude=_env_float(env, "LED_WEATHER_LONGITUDE", DEFAULT_WEATHER_LONGITUDE, -180, 180),
+            calendar_source=calendar_source,
+            todoist_oauth_secret_arn=todoist_secret,
+            calendar_ttl=_env_int(env, "LED_TODOIST_CACHE_SECONDS", 300),
+            calendar_max_events=calendar_max_events,
+            calendar_filter_query=env.get("LED_TODOIST_FILTER_QUERY", DEFAULT_FILTER_QUERY).strip() or DEFAULT_FILTER_QUERY,
+            calendar_timezone=env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
+            calendar_duration=calendar_duration,
+            calendar_page_seconds=calendar_page_seconds,
         )
 
 
@@ -155,8 +199,6 @@ class S3StateStore:
         )
 
     def publish(self, payload: dict[str, Any]) -> None:
-        # S3 object replacement is atomic: readers see either the old complete object
-        # or the new complete object, never a partially written JSON document.
         self.client.put_object(
             Bucket=self.bucket,
             Key=SCREENS_KEY,
@@ -176,6 +218,7 @@ class Publisher:
         queue_provider=None,
         weather_provider=None,
         utcnow=None,
+        calendar_provider=None,
     ):
         self.config = config
         self.store = store
@@ -191,6 +234,16 @@ class Publisher:
         self.weather_provider = weather_provider
         if self.weather_provider is None and config.weather_source == "open_meteo":
             self.weather_provider = OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
+        self.calendar_provider = calendar_provider
+        if self.calendar_provider is None and config.calendar_source == "todoist":
+            oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
+            self.calendar_provider = TodoistProvider(
+                oauth,
+                filter_query=config.calendar_filter_query,
+                timezone_name=config.calendar_timezone,
+                max_events=config.calendar_max_events,
+                utcnow=self.utcnow,
+            )
 
     def _due(self, previous: dict[str, Any] | None, ttl: int, now: datetime) -> bool:
         if not previous or previous.get("data") is None:
@@ -243,12 +296,16 @@ class Publisher:
             "rides": self.queue_provider.fetch(),
         }
 
+    def _fetch_calendar(self, now: datetime):
+        return {
+            "source": "todoist",
+            "fetched_at": _iso(now),
+            "events": self.calendar_provider.fetch(),
+        }
+
     def _fetch_weather(self, now: datetime):
         weather = self.weather_provider.fetch()
-        result = {
-            "source": "open_meteo",
-            "fetched_at": _iso(now),
-        }
+        result = {"source": "open_meteo", "fetched_at": _iso(now)}
         result.update(weather)
         return result
 
@@ -304,6 +361,34 @@ class Publisher:
                     "attribution": "Powered by Queue-Times.com",
                 })
 
+        if self.config.calendar_source != "off":
+            calendar = feeds.get("calendar") or {}
+            calendar_data = calendar.get("data")
+            if calendar_data is None:
+                screens.append({
+                    "id": "calendar",
+                    "kind": "calendar_agenda",
+                    "duration_seconds": self.config.calendar_duration,
+                    "title": "Calendar unavailable",
+                    "source": "unavailable",
+                    "stale": True,
+                    "viewport_size": 3,
+                    "page_seconds": self.config.calendar_page_seconds,
+                    "events": [],
+                })
+            else:
+                screens.append({
+                    "id": "calendar",
+                    "kind": "calendar_agenda",
+                    "duration_seconds": self.config.calendar_duration,
+                    "title": "UPCOMING",
+                    "source": calendar_data.get("source", "todoist"),
+                    "stale": bool(calendar.get("stale")),
+                    "viewport_size": 3,
+                    "page_seconds": self.config.calendar_page_seconds,
+                    "events": copy.deepcopy((calendar_data.get("events") or [])[: self.config.calendar_max_events]),
+                })
+
         if self.config.weather_source != "off":
             weather = feeds.get("weather") or {}
             weather_data = weather.get("data")
@@ -329,29 +414,23 @@ class Publisher:
         feeds = copy.deepcopy(state.get("feeds") or {})
 
         feeds["rail"] = self._refresh(
-            "rail",
-            feeds.get("rail"),
-            self.config.rail_ttl,
-            lambda: self._fetch_rail(now),
-            now,
+            "rail", feeds.get("rail"), self.config.rail_ttl, lambda: self._fetch_rail(now), now
         )
         if self.config.thorpe_park_source != "off":
             feeds["queues"] = self._refresh(
-                "queues",
-                feeds.get("queues"),
-                self.config.thorpe_park_ttl,
-                lambda: self._fetch_queues(now),
-                now,
+                "queues", feeds.get("queues"), self.config.thorpe_park_ttl, lambda: self._fetch_queues(now), now
             )
         else:
             feeds.pop("queues", None)
+        if self.config.calendar_source != "off":
+            feeds["calendar"] = self._refresh(
+                "calendar", feeds.get("calendar"), self.config.calendar_ttl, lambda: self._fetch_calendar(now), now
+            )
+        else:
+            feeds.pop("calendar", None)
         if self.config.weather_source != "off":
             feeds["weather"] = self._refresh(
-                "weather",
-                feeds.get("weather"),
-                self.config.weather_ttl,
-                lambda: self._fetch_weather(now),
-                now,
+                "weather", feeds.get("weather"), self.config.weather_ttl, lambda: self._fetch_weather(now), now
             )
         else:
             feeds.pop("weather", None)
