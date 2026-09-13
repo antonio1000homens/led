@@ -46,6 +46,10 @@ Parameters:
     Type: String
     Default: 'off'
     AllowedValues: ['off', todoist]
+  TodoistOAuthParameterName:
+    Type: String
+    Default: /led/todoist/oauth
+    Description: Existing SSM Parameter Store Standard SecureString containing Todoist OAuth credentials and rotating tokens.
   TodoistCacheSeconds:
     Type: Number
     Default: 300
@@ -99,14 +103,6 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  TodoistOAuthSecret:
-    Type: AWS::SecretsManager::Secret
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      Name: led/todoist/oauth
-      Description: Todoist OAuth client credentials and rotating access/refresh tokens for the LED publisher.
-
   PublisherRole:
     Type: AWS::IAM::Role
     Properties:
@@ -136,12 +132,12 @@ Resources:
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
                   - !Sub ${HostingBucket.Arn}/api/screens
-              - Sid: ReadWriteTodoistOAuthSecret
+              - Sid: ReadWriteTodoistOAuthParameter
                 Effect: Allow
                 Action:
-                  - secretsmanager:GetSecretValue
-                  - secretsmanager:PutSecretValue
-                Resource: !Ref TodoistOAuthSecret
+                  - ssm:GetParameter
+                  - ssm:PutParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
               - Sid: WriteLogs
                 Effect: Allow
                 Action:
@@ -173,7 +169,8 @@ Resources:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
-          TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthSecret
+          # Compatibility variable name: its value is now an SSM parameter path, not a Secrets Manager ARN.
+          TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
@@ -312,8 +309,8 @@ Outputs:
     Value: !Ref PublisherFunction
   PublisherFunctionArn:
     Value: !GetAtt PublisherFunction.Arn
-  TodoistOAuthSecretArn:
-    Value: !Ref TodoistOAuthSecret
+  TodoistOAuthParameterName:
+    Value: !Ref TodoistOAuthParameterName
   DistributionId:
     Value: !Ref Distribution
   DistributionDomainName:
