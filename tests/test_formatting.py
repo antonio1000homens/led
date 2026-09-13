@@ -49,8 +49,13 @@ class FormattingTests(unittest.TestCase):
 
     def test_calendar_row_starts_with_date_and_time(self):
         row = calendar_row({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting"})
-        self.assertEqual(len(row), 32)
+        self.assertEqual(len(row), 42)
         self.assertTrue(row.startswith("14/09 18:30 Scout meeting"))
+
+    def test_calendar_row_uses_full_board_width(self):
+        row = calendar_row({"date_text": "14/09", "time_text": "18:30", "title": "Scout meeting with a deliberately long title"})
+        self.assertEqual(len(row), 42)
+        self.assertTrue(row[32:].strip())
 
     def test_calendar_row_hides_all_day_time(self):
         row = calendar_row({"start": "2026-09-14", "all_day": True, "date_text": "14/09", "time_text": "ALL", "title": "Inset day"})

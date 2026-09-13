@@ -8,6 +8,7 @@ QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS
 AGENDA_VISIBLE_ROWS = 3
 AGENDA_SLIDE_SECONDS = 0.4
 AGENDA_PAGE_SECONDS = 5.0
+AGENDA_ROW_WIDTH = 42
 
 
 def _clip(value, width):
@@ -26,7 +27,7 @@ def format_row(service, width=32):
     return (prefix + destination + suffix)[:width].ljust(width)
 
 
-def calendar_row(event, width=32):
+def calendar_row(event, width=AGENDA_ROW_WIDTH):
     """Format one normalized agenda event as date/time then title."""
     date_text = str(event.get("date_text") or "").strip()
     time_text = str(event.get("time_text") or "").strip()

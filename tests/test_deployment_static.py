@@ -38,6 +38,11 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("drawCalendarDue(events, wallClock", simulator)
         self.assertIn("timeZone: 'Europe/London'", simulator)
 
+    def test_simulator_does_not_pretruncate_agenda_rows(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("return when + ' ' + String(event.title || event.location || 'Event');", simulator)
+        self.assertNotIn("String(event.title || event.location || 'Event')).slice(0, 32)", simulator)
+
 
 if __name__ == "__main__":
     unittest.main()
