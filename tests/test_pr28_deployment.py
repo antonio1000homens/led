@@ -22,7 +22,15 @@ class Pr28DeploymentContractTests(unittest.TestCase):
     def test_cloudformation_role_can_manage_config_api_resources(self):
         bootstrap = (ROOT / "infrastructure" / "bootstrap.yaml").read_text(encoding="utf-8")
         self.assertIn("Sid: ApiGatewayV2Manage", bootstrap)
-        for action in ("apigateway:GET", "apigateway:POST", "apigateway:PUT", "apigateway:PATCH", "apigateway:DELETE"):
+        for action in (
+            "apigateway:GET",
+            "apigateway:POST",
+            "apigateway:PUT",
+            "apigateway:PATCH",
+            "apigateway:DELETE",
+            "apigateway:TagResource",
+            "apigateway:UntagResource",
+        ):
             self.assertIn(action, bootstrap)
         self.assertIn("lambda:GetPolicy", bootstrap)
         self.assertIn("lambda:AddPermission", bootstrap)
