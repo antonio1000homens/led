@@ -10,7 +10,13 @@ from typing import Any
 
 from queue_times import QueueTimesProvider
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider, _queue_screen_duration, _select_rides
-from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, TodoistProvider
+from todoist import (
+    DEFAULT_FILTER_QUERY,
+    DEFAULT_TIMEZONE,
+    SecretsManagerOAuthStore,
+    TodoistOAuthSession,
+    TodoistProvider,
+)
 from weather import OpenMeteoProvider
 
 
@@ -63,7 +69,7 @@ class PublisherConfig:
         weather_latitude: float = DEFAULT_WEATHER_LATITUDE,
         weather_longitude: float = DEFAULT_WEATHER_LONGITUDE,
         calendar_source: str = "off",
-        todoist_token: str = "",
+        todoist_oauth_secret_arn: str = "",
         calendar_ttl: int = 300,
         calendar_max_events: int = 6,
         calendar_filter_query: str = DEFAULT_FILTER_QUERY,
@@ -84,7 +90,7 @@ class PublisherConfig:
         self.weather_latitude = weather_latitude
         self.weather_longitude = weather_longitude
         self.calendar_source = calendar_source
-        self.todoist_token = todoist_token
+        self.todoist_oauth_secret_arn = todoist_oauth_secret_arn
         self.calendar_ttl = calendar_ttl
         self.calendar_max_events = calendar_max_events
         self.calendar_filter_query = calendar_filter_query
@@ -116,9 +122,9 @@ class PublisherConfig:
         calendar_source = env.get("LED_CALENDAR_SOURCE", "off").strip()
         if calendar_source not in ("off", "todoist"):
             raise ValueError("LED_CALENDAR_SOURCE must be off or todoist")
-        todoist_token = env.get("TODOIST_TOKEN", "").strip()
-        if calendar_source == "todoist" and not todoist_token:
-            raise ValueError("TODOIST_TOKEN is required when LED_CALENDAR_SOURCE=todoist")
+        todoist_secret = env.get("TODOIST_OAUTH_SECRET_ARN", "").strip()
+        if calendar_source == "todoist" and not todoist_secret:
+            raise ValueError("TODOIST_OAUTH_SECRET_ARN is required when LED_CALENDAR_SOURCE=todoist")
         rides = tuple(
             item.strip()
             for item in env.get("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)).split(",")
@@ -147,7 +153,7 @@ class PublisherConfig:
             weather_latitude=_env_float(env, "LED_WEATHER_LATITUDE", DEFAULT_WEATHER_LATITUDE, -90, 90),
             weather_longitude=_env_float(env, "LED_WEATHER_LONGITUDE", DEFAULT_WEATHER_LONGITUDE, -180, 180),
             calendar_source=calendar_source,
-            todoist_token=todoist_token,
+            todoist_oauth_secret_arn=todoist_secret,
             calendar_ttl=_env_int(env, "LED_TODOIST_CACHE_SECONDS", 300),
             calendar_max_events=calendar_max_events,
             calendar_filter_query=env.get("LED_TODOIST_FILTER_QUERY", DEFAULT_FILTER_QUERY).strip() or DEFAULT_FILTER_QUERY,
@@ -230,8 +236,9 @@ class Publisher:
             self.weather_provider = OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.calendar_source == "todoist":
+            oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
             self.calendar_provider = TodoistProvider(
-                config.todoist_token,
+                oauth,
                 filter_query=config.calendar_filter_query,
                 timezone_name=config.calendar_timezone,
                 max_events=config.calendar_max_events,
