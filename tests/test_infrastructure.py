@@ -26,27 +26,38 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn("Type: AWS::Scheduler::Schedule", template)
         self.assertIn("ScheduleExpression: rate(1 minute)", template)
 
-    def test_runtime_secrets_are_noecho_and_github_uses_bitwarden_uid_variables(self):
+    def test_deployment_secrets_keep_todoist_out_of_github_and_lambda_environment(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         self.assertRegex(template, r"NationalRailToken:\n\s+Type: String\n\s+NoEcho: true")
-        self.assertRegex(template, r"TodoistToken:\n\s+Type: String\n\s+NoEcho: true")
+        self.assertIn("Type: AWS::SecretsManager::Secret", template)
+        self.assertIn("Name: led/todoist/oauth", template)
+        self.assertIn("TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthSecret", template)
+        self.assertNotIn("TODOIST_TOKEN:", template)
+        self.assertNotIn("TodoistToken:", template)
         self.assertIn("secrets.BW_ACCESS_TOKEN", workflow)
         self.assertIn("vars.BW_NATIONAL_RAIL_TOKEN", workflow)
-        self.assertIn("vars.BW_TODOIST_TOKEN", workflow)
         self.assertIn("vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN", workflow)
-        self.assertIn("must contain a Bitwarden secret UID", workflow)
+        self.assertNotIn("BW_TODOIST_TOKEN", workflow)
         self.assertNotIn("BWS_ACCESS_TOKEN", workflow)
 
-    def test_todoist_feed_is_off_by_default_and_packaged(self):
+    def test_todoist_feed_is_off_by_default_and_oauth_secret_is_rotatable(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
+        bootstrap = (ROOT / "infrastructure" / "bootstrap.yaml").read_text(encoding="utf-8")
         package = (ROOT / "scripts" / "package-lambda.sh").read_text(encoding="utf-8")
         deploy = (ROOT / "scripts" / "deploy-stack.sh").read_text(encoding="utf-8")
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        oauth_bootstrap = (ROOT / "scripts" / "bootstrap-todoist-oauth.py").read_text(encoding="utf-8")
         calendar = template.split("CalendarSource:", 1)[1].split("TodoistCacheSeconds:", 1)[0]
         self.assertIn("Default: off", calendar)
+        self.assertIn("DeletionPolicy: Retain", template)
+        self.assertIn("secretsmanager:GetSecretValue", template)
+        self.assertIn("secretsmanager:PutSecretValue", template)
+        self.assertIn("TodoistOAuthSecretArn:", template)
+        self.assertIn("secretsmanager:CreateSecret", bootstrap)
+        self.assertIn("secret:led/todoist/oauth-*", bootstrap)
         self.assertIn('"${ROOT_DIR}/todoist.py"', package)
-        self.assertIn('"TodoistToken=${TODOIST_TOKEN}"', deploy)
+        self.assertNotIn("TodoistToken=", deploy)
         self.assertIn('"CalendarSource=${CALENDAR_SOURCE}"', deploy)
         self.assertIn('"TodoistCacheSeconds=${TODOIST_CACHE_SECONDS}"', deploy)
         self.assertIn('"TodoistMaxEvents=${TODOIST_MAX_EVENTS}"', deploy)
@@ -56,7 +67,11 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn('"CalendarPageSeconds=${CALENDAR_PAGE_SECONDS}"', deploy)
         self.assertIn("vars.LED_CALENDAR_SOURCE", workflow)
         self.assertIn("vars.LED_TODOIST_FILTER_QUERY", workflow)
-        self.assertIn("BW_TODOIST_TOKEN is required when LED_CALENDAR_SOURCE=todoist", workflow)
+        self.assertIn("https://app.todoist.com/oauth/authorize", oauth_bootstrap)
+        self.assertIn("https://api.todoist.com/oauth/access_token", oauth_bootstrap)
+        self.assertIn('DEFAULT_SCOPE = "data:read"', oauth_bootstrap)
+        self.assertIn("put-secret-value", oauth_bootstrap)
+        self.assertIn("token_urlsafe", oauth_bootstrap)
 
     def test_hostname_defaults_to_led_subdomain(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
