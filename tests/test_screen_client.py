@@ -24,6 +24,19 @@ class ClockTests(unittest.TestCase):
         self.assertEqual(clock.text(100), "20:59")
         self.assertEqual(clock.text(115), "21:00")
 
+    def test_clock_tracks_london_date_across_midnight(self):
+        clock = ClockState()
+        clock.sync("2026-09-30T22:59:50Z", 100)
+        self.assertEqual(clock.date_text(100), "2026-09-30")
+        self.assertEqual(clock.date_text(115), "2026-10-01")
+        self.assertEqual(clock.text(115), "00:00")
+
+    def test_clock_tracks_year_rollover(self):
+        clock = ClockState()
+        clock.sync("2026-12-31T23:59:50Z", 100)
+        self.assertEqual(clock.date_text(115), "2027-01-01")
+        self.assertEqual(clock.text(115), "00:00")
+
 
 class RotationTests(unittest.TestCase):
     def test_rotates_using_each_screen_duration(self):

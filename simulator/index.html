@@ -45,7 +45,8 @@
     const pauseButton = document.getElementById('pause');
     const staleButton = document.getElementById('stale');
     const status = document.getElementById('status');
-    const clockFormatter = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const clockFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const londonDateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
     let screens = [];
     let source = 'loading';
     let fetchedAt = '';
@@ -98,9 +99,41 @@
     }
     function calendarRow(event) {
       const dateText = String(event.date_text || '').trim();
-      const timeText = String(event.time_text || '').trim();
+      const rawTimeText = String(event.time_text || '').trim();
+      const timeText = event.all_day || rawTimeText.toUpperCase() === 'ALL' ? '' : rawTimeText;
       const when = (dateText + (timeText ? ' ' + timeText : '')).trim().slice(0, 11).padEnd(11, ' ');
       return (when + ' ' + String(event.title || event.location || 'Event')).slice(0, 32);
+    }
+    function londonDateParts(value) {
+      const result = {};
+      londonDateFormatter.formatToParts(value).forEach(part => {
+        if (part.type === 'year' || part.type === 'month' || part.type === 'day') result[part.type] = Number(part.value);
+      });
+      return result;
+    }
+    function calendarDayNumber(parts) {
+      return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000);
+    }
+    function calendarDueText(event, now = new Date()) {
+      if (!event || typeof event !== 'object') return '';
+      const start = String(event.start || '');
+      if (start.length < 10) return '';
+      const eventDate = { year: Number(start.slice(0, 4)), month: Number(start.slice(5, 7)), day: Number(start.slice(8, 10)) };
+      if (!eventDate.year || !eventDate.month || !eventDate.day) return '';
+      const today = londonDateParts(now);
+      const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
+      if (dayDelta < 0) return '';
+      if (dayDelta > 0) return `DUE IN ${dayDelta}d`;
+      if (event.all_day) return 'DUE TODAY';
+      const dueAt = new Date(start);
+      if (Number.isNaN(dueAt.getTime())) return '';
+      const remaining = Math.ceil((dueAt.getTime() - now.getTime()) / 60000);
+      if (remaining <= 0) return 'DUE NOW';
+      const hours = Math.floor(remaining / 60);
+      const minutes = remaining % 60;
+      if (hours && minutes) return `DUE IN ${hours}h ${minutes}m`;
+      if (hours) return `DUE IN ${hours}h`;
+      return `DUE IN ${minutes}m`;
     }
     function queueScrollState(phase, rideCount) {
       const maxStart = Math.max(0, Number(rideCount || 0) - QUEUE_VISIBLE_ROWS);
@@ -154,13 +187,25 @@
       if (!services.length) return { services: [{ time: '--:--', destination: feedError ? 'Feed error' : 'No services', platform: '-', status: '' }] };
       return { services: services.slice(0, 3) };
     }
-    function drawClock() {
-      const text = clockFormatter.format(new Date());
+    function clockLayout(now = new Date()) {
+      const text = clockFormatter.format(now);
       const width = context.measureText(text).width;
-      const x = 1016 - width;
+      return { text, width, x: 1016 - width };
+    }
+    function drawClock(layout) {
+      const current = layout || clockLayout();
       context.fillStyle = '#000';
-      context.fillRect(x - 8, 0, width + 16, 31);
+      context.fillRect(current.x - 8, 0, current.width + 16, 31);
       context.fillStyle = '#ffaa00';
+      context.fillText(current.text, current.x, 4);
+    }
+    function drawCalendarDue(events, now, stale, clockX) {
+      if (!events.length) return;
+      const text = calendarDueText(events[0], now);
+      if (!text) return;
+      const rightEdge = stale ? 800 : clockX - 16;
+      const x = Math.max(0, rightEdge - context.measureText(text).width);
+      context.fillStyle = '#ffffff';
       context.fillText(text, x, 4);
     }
     function drawWeather(weather) {
@@ -189,6 +234,8 @@
       const active = screenAt(elapsed);
       const screen = active.screen;
       const phase = active.phase;
+      const wallClock = new Date();
+      const clock = clockLayout(wallClock);
       const entryPhase = feedAnimationStarted ? Math.max(0, (now - feedAnimationStarted) / 1000) : 0;
       const slide = Math.min(1, entryPhase / 1.2);
       const x = -Math.round((1 - slide) * 220) * 4;
@@ -254,13 +301,14 @@
         }
         context.fillStyle = '#ffaa00';
         context.fillText(String(screen.title || 'UPCOMING').slice(0, 30), 0, 4);
+        drawCalendarDue(events, wallClock, Boolean(screen.stale || forceStale), clock.x);
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Upcoming events';
       }
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
-      drawClock();
+      drawClock(clock);
       drawWeather(screen.weather);
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
       status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');

@@ -2,6 +2,7 @@ import unittest
 
 from formatting import (
     agenda_scroll_state,
+    calendar_due_text,
     calendar_row,
     calling_text,
     format_row,
@@ -51,9 +52,34 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(len(row), 32)
         self.assertTrue(row.startswith("14/09 18:30 Scout meeting"))
 
-    def test_calendar_row_supports_all_day_marker(self):
-        row = calendar_row({"date_text": "14/09", "time_text": "ALL", "title": "Inset day"})
-        self.assertTrue(row.startswith("14/09 ALL"))
+    def test_calendar_row_hides_all_day_time(self):
+        row = calendar_row({"start": "2026-09-14", "all_day": True, "date_text": "14/09", "time_text": "ALL", "title": "Inset day"})
+        self.assertTrue(row.startswith("14/09       Inset day"))
+        self.assertNotIn("ALL", row)
+
+    def test_calendar_row_hides_legacy_all_day_marker(self):
+        row = calendar_row({"start": "2026-09-14", "date_text": "14/09", "time_text": "ALL", "title": "Inset day"})
+        self.assertNotIn("ALL", row)
+
+    def test_calendar_due_text_same_day_hours_and_minutes(self):
+        event = {"start": "2026-09-13T15:45:00+01:00", "time_text": "15:45", "all_day": False}
+        self.assertEqual(calendar_due_text(event, "2026-09-13", "13:30"), "DUE IN 2h 15m")
+
+    def test_calendar_due_text_same_day_minutes(self):
+        event = {"start": "2026-09-13T14:00:00+01:00", "time_text": "14:00", "all_day": False}
+        self.assertEqual(calendar_due_text(event, "2026-09-13", "13:30"), "DUE IN 30m")
+
+    def test_calendar_due_text_due_now(self):
+        event = {"start": "2026-09-13T13:30:00+01:00", "time_text": "13:30", "all_day": False}
+        self.assertEqual(calendar_due_text(event, "2026-09-13", "13:30"), "DUE NOW")
+
+    def test_calendar_due_text_all_day_today(self):
+        event = {"start": "2026-09-13", "all_day": True}
+        self.assertEqual(calendar_due_text(event, "2026-09-13", "13:30"), "DUE TODAY")
+
+    def test_calendar_due_text_future_day_uses_calendar_days(self):
+        event = {"start": "2026-09-15T09:00:00+01:00", "time_text": "09:00", "all_day": False}
+        self.assertEqual(calendar_due_text(event, "2026-09-13", "23:59"), "DUE IN 2d")
 
     def test_agenda_page_holds_then_slides_to_second_three(self):
         self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))
@@ -68,3 +94,7 @@ class FormattingTests(unittest.TestCase):
     def test_calling_text_includes_station_times(self):
         text = calling_text({"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19", "status": "On time"}]})
         self.assertEqual(text, "CALLING AT: Wimbledon 12:19")
+
+
+if __name__ == "__main__":
+    unittest.main()

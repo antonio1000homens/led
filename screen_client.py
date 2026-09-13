@@ -36,8 +36,39 @@ def _is_london_bst(year, month, day, hour):
     return day < boundary or (day == boundary and hour < 1)
 
 
-def london_seconds_from_utc(value):
-    """Convert an ISO UTC timestamp to London seconds since local midnight."""
+def _is_leap_year(year):
+    return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+
+
+def _days_in_month(year, month):
+    return (31, 29 if _is_leap_year(year) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)[month - 1]
+
+
+def _shift_date(year, month, day, delta_days):
+    """Shift a Gregorian date by a small integer number of days."""
+    delta_days = int(delta_days or 0)
+    while delta_days > 0:
+        day += 1
+        if day > _days_in_month(year, month):
+            day = 1
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+        delta_days -= 1
+    while delta_days < 0:
+        day -= 1
+        if day < 1:
+            month -= 1
+            if month < 1:
+                month = 12
+                year -= 1
+            day = _days_in_month(year, month)
+        delta_days += 1
+    return year, month, day
+
+
+def _parse_utc_timestamp(value):
     if not isinstance(value, str) or len(value) < 19:
         raise ValueError("fetched_at must be an ISO UTC timestamp")
     try:
@@ -49,28 +80,60 @@ def london_seconds_from_utc(value):
         second = int(value[17:19])
     except (TypeError, ValueError):
         raise ValueError("fetched_at must be an ISO UTC timestamp")
+    return year, month, day, hour, minute, second
+
+
+def london_date_and_seconds_from_utc(value):
+    """Convert an ISO UTC timestamp to London local date and seconds."""
+    year, month, day, hour, minute, second = _parse_utc_timestamp(value)
     offset = 3600 if _is_london_bst(year, month, day, hour) else 0
-    return (hour * 3600 + minute * 60 + second + offset) % 86400
+    total = hour * 3600 + minute * 60 + second + offset
+    day_delta, seconds = divmod(total, 86400)
+    year, month, day = _shift_date(year, month, day, day_delta)
+    return year, month, day, seconds
+
+
+def london_seconds_from_utc(value):
+    """Convert an ISO UTC timestamp to London seconds since local midnight."""
+    return london_date_and_seconds_from_utc(value)[3]
 
 
 class ClockState:
-    """Advance backend-provided UTC time locally between API polls."""
+    """Advance backend-provided London date/time locally between API polls."""
 
     def __init__(self):
+        self._date = None
         self._seconds = None
         self._synced_at = None
 
     def sync(self, fetched_at, now):
-        self._seconds = london_seconds_from_utc(fetched_at)
+        year, month, day, seconds = london_date_and_seconds_from_utc(fetched_at)
+        self._date = (year, month, day)
+        self._seconds = seconds
         self._synced_at = now
 
+    def _parts(self, now):
+        if self._date is None or self._seconds is None or self._synced_at is None:
+            return None
+        total = self._seconds + max(0, int(now - self._synced_at))
+        day_delta, seconds = divmod(total, 86400)
+        year, month, day = _shift_date(self._date[0], self._date[1], self._date[2], day_delta)
+        return year, month, day, seconds
+
     def text(self, now):
-        if self._seconds is None or self._synced_at is None:
+        parts = self._parts(now)
+        if parts is None:
             return "--:--"
-        seconds = (self._seconds + max(0, int(now - self._synced_at))) % 86400
+        seconds = parts[3]
         hour = seconds // 3600
         minute = (seconds % 3600) // 60
         return "{:02d}:{:02d}".format(hour, minute)
+
+    def date_text(self, now):
+        parts = self._parts(now)
+        if parts is None:
+            return ""
+        return "{:04d}-{:02d}-{:02d}".format(parts[0], parts[1], parts[2])
 
 
 class ScreenRotation:
