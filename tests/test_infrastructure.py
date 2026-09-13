@@ -68,7 +68,7 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn('"TodoistTimezone=${TODOIST_TIMEZONE}"', deploy)
         self.assertIn('"CalendarDurationSeconds=${CALENDAR_DURATION_SECONDS}"', deploy)
         self.assertIn('"CalendarPageSeconds=${CALENDAR_PAGE_SECONDS}"', deploy)
-        self.assertIn("vars.LED_CALENDAR_SOURCE", workflow)
+        self.assertIn('LED_CALENDAR_SOURCE: "todoist"', workflow)
         self.assertIn("vars.LED_TODOIST_FILTER_QUERY", workflow)
         self.assertIn("https://app.todoist.com/oauth/authorize", oauth_bootstrap)
         self.assertIn("https://api.todoist.com/oauth/access_token", oauth_bootstrap)

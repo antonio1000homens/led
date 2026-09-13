@@ -19,7 +19,7 @@ env:
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
   CLOUDFORMATION_ROLE_ARN: ${{ vars.CLOUDFORMATION_ROLE_ARN }}
-  LED_CALENDAR_SOURCE: "${{ vars.LED_CALENDAR_SOURCE || 'off' }}"
+  LED_CALENDAR_SOURCE: "todoist"
   LED_TODOIST_CACHE_SECONDS: "${{ vars.LED_TODOIST_CACHE_SECONDS || '300' }}"
   LED_TODOIST_MAX_EVENTS: "${{ vars.LED_TODOIST_MAX_EVENTS || '6' }}"
   LED_TODOIST_FILTER_QUERY: "${{ vars.LED_TODOIST_FILTER_QUERY || 'date after: yesterday' }}"
@@ -158,6 +158,7 @@ jobs:
               --output text
           }
           echo "publisher=$(output PublisherFunctionName)" >> "${GITHUB_OUTPUT}"
+          echo "hosting_bucket=$(output HostingBucketName)" >> "${GITHUB_OUTPUT}"
           echo "distribution_domain=$(output DistributionDomainName)" >> "${GITHUB_OUTPUT}"
           echo "distribution_id=$(output DistributionId)" >> "${GITHUB_OUTPUT}"
 
@@ -190,6 +191,24 @@ jobs:
           if not result.get('published'):
               raise SystemExit('Initial publisher invocation did not report success')
           print('Initial LED screen snapshot published')
+          PY
+
+      - name: Verify Todoist screen is live
+        if: env.LED_CALENDAR_SOURCE == 'todoist'
+        run: |
+          aws s3 cp "s3://${{ steps.stack.outputs.hosting_bucket }}/api/screens" /tmp/led-screens.json --only-show-errors
+          python - <<'PY'
+          import json
+          with open('/tmp/led-screens.json', encoding='utf-8') as handle:
+              payload = json.load(handle)
+          calendar = next((screen for screen in payload.get('screens', []) if screen.get('id') == 'calendar'), None)
+          if calendar is None:
+              raise SystemExit('Todoist calendar screen was not published')
+          if calendar.get('source') != 'todoist':
+              raise SystemExit('Todoist calendar source is unavailable; verify /led/todoist/oauth in SSM Parameter Store')
+          if calendar.get('stale'):
+              raise SystemExit('Todoist calendar was published stale; check Lambda logs and OAuth state')
+          print(f"Todoist calendar live with {len(calendar.get('events') or [])} upcoming event(s)")
           PY
 
       - name: Configure LED hostname in Windsor Cloudflare
