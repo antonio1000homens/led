@@ -130,7 +130,7 @@ class PublisherTests(unittest.TestCase):
             thorpe_park_source="off",
             weather_source="off",
             calendar_source="todoist",
-            todoist_token="secret",
+            todoist_oauth_secret_arn="arn:test:todoist",
             calendar_ttl=300,
             calendar_max_events=6,
             calendar_duration=10,
@@ -165,7 +165,7 @@ class PublisherTests(unittest.TestCase):
             thorpe_park_source="off",
             weather_source="off",
             calendar_source="todoist",
-            todoist_token="secret",
+            todoist_oauth_secret_arn="arn:test:todoist",
             calendar_ttl=60,
         )
         rail = FakeProvider([[{"time": "08:01"}], [{"time": "08:02"}]])
@@ -185,7 +185,7 @@ class PublisherTests(unittest.TestCase):
             thorpe_park_source="off",
             weather_source="off",
             calendar_source="todoist",
-            todoist_token="secret",
+            todoist_oauth_secret_arn="arn:test:todoist",
         )
         rail = FakeProvider([[{"time": "08:01", "destination": "Waterloo"}]])
         calendar = FakeProvider([RuntimeError("private upstream error")])
@@ -202,7 +202,7 @@ class PublisherTests(unittest.TestCase):
             thorpe_park_source="off",
             weather_source="off",
             calendar_source="todoist",
-            todoist_token="secret",
+            todoist_oauth_secret_arn="arn:test:todoist",
         )
         rail = FakeProvider([[{"time": "08:01"}]])
         calendar = FakeProvider([[]])
