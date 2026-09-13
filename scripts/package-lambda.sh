@@ -11,7 +11,6 @@ CODE_KEY="${CODE_KEY:-led/publisher-${REVISION}.zip}"
 
 rm -rf "${PACKAGE_DIR}" "${ZIP_FILE}"
 mkdir -p "${PACKAGE_DIR}"
-# Build for the Lambda runtime even when this script is executed from macOS.
 python3 -m pip install --disable-pip-version-check --no-compile \
   --platform manylinux2014_x86_64 \
   --implementation cp \
@@ -25,6 +24,7 @@ cp \
   "${ROOT_DIR}/server.py" \
   "${ROOT_DIR}/queue_times.py" \
   "${ROOT_DIR}/weather.py" \
+  "${ROOT_DIR}/todoist.py" \
   "${ROOT_DIR}/fixtures.py" \
   "${PACKAGE_DIR}/"
 
