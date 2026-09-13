@@ -1,33 +1,39 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Serverless LED screen publisher, admin configuration API, private S3 origin, and CloudFront distribution.
+Description: Serverless LED publisher and Cloudflare Access protected runtime control plane.
 Parameters:
   CodeBucket: {Type: String}
   CodeKey: {Type: String}
   NationalRailToken:
     Type: String
     NoEcho: true
-  AdminToken:
-    Type: String
-    NoEcho: true
-    MinLength: 20
   DomainName: {Type: String, Default: led.alf-broadcast.co.uk}
   CertificateArn: {Type: String}
+  CloudflareAccessTeamDomain:
+    Type: String
+    Description: Cloudflare Access team domain, including https://, used to validate origin JWTs.
+    AllowedPattern: '^https://[A-Za-z0-9.-]+\.cloudflareaccess\.com/?$'
+  CloudflareAccessAudience:
+    Type: String
+    Description: Audience tag of the existing Cloudflare Access application protecting the LED admin/control paths.
+    MinLength: 16
   StationCrs: {Type: String, Default: NEM, AllowedPattern: '^[A-Z]{3}$'}
   MaxRows: {Type: Number, Default: 10, MinValue: 1, MaxValue: 50}
-  RailCacheSeconds: {Type: Number, Default: 60, MinValue: 1}
+  RailCacheSeconds: {Type: Number, Default: 60, MinValue: 60}
   ThorpeParkSource: {Type: String, Default: queue_times, AllowedValues: ['off', queue_times]}
-  ThorpeParkCacheSeconds: {Type: Number, Default: 300, MinValue: 1}
+  ThorpeParkCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   ThorpeParkRides: {Type: String, Default: 'Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave'}
+  ChessingtonCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
+  ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
-  TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 1}
+  TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
   TodoistFilterQuery: {Type: String, Default: 'date after: yesterday'}
   TodoistTimezone: {Type: String, Default: Europe/London}
-  CalendarDurationSeconds: {Type: Number, Default: 10, MinValue: 2}
+  CalendarDurationSeconds: {Type: Number, Default: 10, MinValue: 2, MaxValue: 300}
   CalendarPageSeconds: {Type: Number, Default: 5, MinValue: 1}
   WeatherSource: {Type: String, Default: open_meteo, AllowedValues: ['off', open_meteo]}
-  WeatherCacheSeconds: {Type: Number, Default: 600, MinValue: 1}
+  WeatherCacheSeconds: {Type: Number, Default: 600, MinValue: 60}
   WeatherLatitude: {Type: String, Default: '51.4039'}
   WeatherLongitude: {Type: String, Default: '-0.256'}
 Resources:
@@ -39,6 +45,20 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
       PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+
+  RuntimeConfigTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: led-runtime-config
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: config_id, AttributeType: S}
+      KeySchema:
+        - {AttributeName: config_id, KeyType: HASH}
+      SSESpecification: {SSEEnabled: true}
+
   PublisherRole:
     Type: AWS::IAM::Role
     Properties:
@@ -57,8 +77,11 @@ Resources:
                 Action: ['s3:GetObject', 's3:PutObject']
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
-                  - !Sub ${HostingBucket.Arn}/state/config.json
                   - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: ReadRuntimeConfiguration
+                Effect: Allow
+                Action: ['dynamodb:GetItem']
+                Resource: !GetAtt RuntimeConfigTable.Arn
               - Sid: ReadWriteTodoistOAuthParameter
                 Effect: Allow
                 Action: ['ssm:GetParameter', 'ssm:PutParameter']
@@ -82,6 +105,7 @@ Resources:
       Environment:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
+          RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
           TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
           LED_STATION_CRS: !Ref StationCrs
@@ -90,6 +114,8 @@ Resources:
           LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
           LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
           LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_CHESSINGTON_CACHE_SECONDS: !Ref ChessingtonCacheSeconds
+          LED_CHESSINGTON_RIDES: !Ref ChessingtonRides
           LED_CALENDAR_SOURCE: !Ref CalendarSource
           LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
           LED_TODOIST_MAX_EVENTS: !Ref TodoistMaxEvents
@@ -101,58 +127,96 @@ Resources:
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
           LED_WEATHER_LATITUDE: !Ref WeatherLatitude
           LED_WEATHER_LONGITUDE: !Ref WeatherLongitude
-  ConfigRole:
+
+  ControlRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: led-config-api-role
+      RoleName: led-control-api-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
       Policies:
-        - PolicyName: led-config-api-runtime
+        - PolicyName: led-control-api-runtime
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - {Effect: Allow, Action: ['s3:GetObject', 's3:PutObject'], Resource: !Sub '${HostingBucket.Arn}/state/config.json'}
-              - {Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${ConfigLogGroup.Arn}:*'}
-  ConfigLogGroup:
+              - Sid: ReadWriteRuntimeConfiguration
+                Effect: Allow
+                Action: ['dynamodb:GetItem', 'dynamodb:PutItem']
+                Resource: !GetAtt RuntimeConfigTable.Arn
+              - Sid: ReadPublisherStatus
+                Effect: Allow
+                Action: ['s3:GetObject']
+                Resource:
+                  - !Sub ${HostingBucket.Arn}/state/feed-cache.json
+                  - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: TriggerPublisher
+                Effect: Allow
+                Action: ['lambda:InvokeFunction']
+                Resource: !GetAtt PublisherFunction.Arn
+              - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${ControlLogGroup.Arn}:*'}
+  ControlLogGroup:
     Type: AWS::Logs::LogGroup
-    Properties: {LogGroupName: /aws/lambda/led-config-api, RetentionInDays: 14}
-  ConfigFunction:
+    Properties: {LogGroupName: /aws/lambda/led-control-api, RetentionInDays: 14}
+  ControlFunction:
     Type: AWS::Lambda::Function
-    DependsOn: ConfigLogGroup
+    DependsOn: ControlLogGroup
     Properties:
-      FunctionName: led-config-api
+      FunctionName: led-control-api
       Runtime: python3.12
       Handler: config_api.lambda_handler
-      Role: !GetAtt ConfigRole.Arn
-      Timeout: 10
-      MemorySize: 128
+      Role: !GetAtt ControlRole.Arn
+      Timeout: 15
+      MemorySize: 256
       Code: {S3Bucket: !Ref CodeBucket, S3Key: !Ref CodeKey}
       Environment:
-        Variables: {STATE_BUCKET: !Ref HostingBucket, ADMIN_TOKEN: !Ref AdminToken}
-  ConfigApi:
+        Variables:
+          STATE_BUCKET: !Ref HostingBucket
+          RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
+          PUBLISHER_FUNCTION_NAME: !Ref PublisherFunction
+          CF_ACCESS_TEAM_DOMAIN: !Ref CloudflareAccessTeamDomain
+          CF_ACCESS_AUD: !Ref CloudflareAccessAudience
+          LED_CACHE_SECONDS: !Ref RailCacheSeconds
+          LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
+          LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
+          LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_CHESSINGTON_CACHE_SECONDS: !Ref ChessingtonCacheSeconds
+          LED_CHESSINGTON_RIDES: !Ref ChessingtonRides
+          LED_CALENDAR_SOURCE: !Ref CalendarSource
+          LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_WEATHER_SOURCE: !Ref WeatherSource
+          LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
+
+  ControlApi:
     Type: AWS::ApiGatewayV2::Api
-    Properties: {Name: led-config-api, ProtocolType: HTTP}
-  ConfigApiIntegration:
+    Properties: {Name: led-control-api, ProtocolType: HTTP}
+  ControlApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
-    Properties: {ApiId: !Ref ConfigApi, IntegrationType: AWS_PROXY, IntegrationMethod: POST, IntegrationUri: !GetAtt ConfigFunction.Arn, PayloadFormatVersion: '2.0'}
-  ConfigGetRoute:
+    Properties: {ApiId: !Ref ControlApi, IntegrationType: AWS_PROXY, IntegrationMethod: POST, IntegrationUri: !GetAtt ControlFunction.Arn, PayloadFormatVersion: '2.0'}
+  ControlConfigRoute:
     Type: AWS::ApiGatewayV2::Route
-    Properties: {ApiId: !Ref ConfigApi, RouteKey: 'GET /api/config', Target: !Sub 'integrations/${ConfigApiIntegration}'}
-  ConfigPutRoute:
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/config', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlStatusRoute:
     Type: AWS::ApiGatewayV2::Route
-    Properties: {ApiId: !Ref ConfigApi, RouteKey: 'PUT /api/config', Target: !Sub 'integrations/${ConfigApiIntegration}'}
-  ConfigApiStage:
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/status', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlOptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/feeds/{feed_id}/options', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'PATCH /api/control/v1/feeds/{feed_id}', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlApiStage:
     Type: AWS::ApiGatewayV2::Stage
-    Properties: {ApiId: !Ref ConfigApi, StageName: '$default', AutoDeploy: true}
-  ConfigInvokePermission:
+    Properties: {ApiId: !Ref ControlApi, StageName: '$default', AutoDeploy: true}
+  ControlInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref ConfigFunction
+      FunctionName: !Ref ControlFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ConfigApi}/*/*/api/config
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ControlApi}/*/*/api/control/v1/*
+
   SchedulerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -174,10 +238,11 @@ Resources:
       ScheduleExpression: rate(1 minute)
       State: ENABLED
       Target: {Arn: !GetAtt PublisherFunction.Arn, RoleArn: !GetAtt SchedulerRole.Arn, RetryPolicy: {MaximumEventAgeInSeconds: 60, MaximumRetryAttempts: 1}}
+
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      OriginAccessControlConfig: {Name: led-private-s3-oac, Description: CloudFront access to public LED objects in the private bucket., OriginAccessControlOriginType: s3, SigningBehavior: always, SigningProtocol: sigv4}
+      OriginAccessControlConfig: {Name: led-private-s3-oac, Description: CloudFront access to LED static/data objects in the private bucket., OriginAccessControlOriginType: s3, SigningBehavior: always, SigningProtocol: sigv4}
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -191,8 +256,8 @@ Resources:
         PriceClass: PriceClass_100
         Origins:
           - {Id: led-s3-origin, DomainName: !GetAtt HostingBucket.RegionalDomainName, OriginAccessControlId: !Ref OriginAccessControl, S3OriginConfig: {OriginAccessIdentity: ''}}
-          - Id: led-config-api-origin
-            DomainName: !Sub ${ConfigApi}.execute-api.${AWS::Region}.amazonaws.com
+          - Id: led-control-api-origin
+            DomainName: !Sub ${ControlApi}.execute-api.${AWS::Region}.amazonaws.com
             CustomOriginConfig: {HTTPSPort: 443, OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2]}
         DefaultCacheBehavior:
           TargetOriginId: led-s3-origin
@@ -202,8 +267,8 @@ Resources:
           CachedMethods: [GET, HEAD, OPTIONS]
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
         CacheBehaviors:
-          - PathPattern: api/config
-            TargetOriginId: led-config-api-origin
+          - PathPattern: api/control/v1/*
+            TargetOriginId: led-control-api-origin
             ViewerProtocolPolicy: redirect-to-https
             Compress: true
             AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
@@ -218,6 +283,7 @@ Resources:
             CachedMethods: [GET, HEAD, OPTIONS]
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
         ViewerCertificate: {AcmCertificateArn: !Ref CertificateArn, SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021}
+
   HostingBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -239,6 +305,7 @@ Resources:
             Action: s3:GetObject
             Resource:
               - !Sub ${HostingBucket.Arn}/index.html
+              - !Sub ${HostingBucket.Arn}/admin
               - !Sub ${HostingBucket.Arn}/admin.html
               - !Sub ${HostingBucket.Arn}/api/*
             Condition:
@@ -247,12 +314,16 @@ Resources:
 Outputs:
   HostingBucketName:
     Value: !Ref HostingBucket
+  RuntimeConfigTableName:
+    Value: !Ref RuntimeConfigTable
   PublisherFunctionName:
     Value: !Ref PublisherFunction
   PublisherFunctionArn:
     Value: !GetAtt PublisherFunction.Arn
-  ConfigFunctionName:
-    Value: !Ref ConfigFunction
+  ControlFunctionName:
+    Value: !Ref ControlFunction
+  ControlApiId:
+    Value: !Ref ControlApi
   TodoistOAuthParameterName:
     Value: !Ref TodoistOAuthParameterName
   DistributionId:
@@ -264,4 +335,4 @@ Outputs:
   ScreensUrl:
     Value: !Sub https://${DomainName}/api/screens
   AdminUrl:
-    Value: !Sub https://${DomainName}/admin.html
+    Value: !Sub https://${DomainName}/admin
