@@ -9,7 +9,9 @@ CODE_BUCKET="${CODE_BUCKET:?CODE_BUCKET is required}"
 CODE_KEY="${CODE_KEY:?CODE_KEY is required}"
 CERTIFICATE_ARN="${CERTIFICATE_ARN:?CERTIFICATE_ARN is required}"
 NATIONAL_RAIL_TOKEN="${NATIONAL_RAIL_TOKEN:?NATIONAL_RAIL_TOKEN is required}"
+TODOIST_TOKEN="${TODOIST_TOKEN:-}"
 THORPE_PARK_RIDES="${LED_THORPE_PARK_RIDES:-Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave}"
+CALENDAR_SOURCE="${LED_CALENDAR_SOURCE:-off}"
 
 args=(
   cloudformation deploy
@@ -21,9 +23,11 @@ args=(
   "CodeBucket=${CODE_BUCKET}"
   "CodeKey=${CODE_KEY}"
   "NationalRailToken=${NATIONAL_RAIL_TOKEN}"
+  "TodoistToken=${TODOIST_TOKEN}"
   "DomainName=${DOMAIN_NAME}"
   "CertificateArn=${CERTIFICATE_ARN}"
   "ThorpeParkRides=${THORPE_PARK_RIDES}"
+  "CalendarSource=${CALENDAR_SOURCE}"
 )
 if [[ -n "${CLOUDFORMATION_ROLE_ARN:-}" ]]; then
   args+=(--role-arn "${CLOUDFORMATION_ROLE_ARN}")
