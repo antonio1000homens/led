@@ -1,0 +1,178 @@
+name: Deploy LED
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: eu-west-2
+  STACK_NAME: led-serverless
+  DOMAIN_NAME: ${{ vars.LED_DOMAIN_NAME || 'led.alf-broadcast.co.uk' }}
+  ZONE_NAME: ${{ vars.LED_CF_ZONE_NAME || 'alf-broadcast.co.uk' }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+  CLOUDFORMATION_ROLE_ARN: ${{ vars.CLOUDFORMATION_ROLE_ARN }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements-server.txt
+      - run: python -m unittest discover -s tests -v
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: led-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Validate deployment configuration
+        env:
+          BW_NATIONAL_RAIL_TOKEN: ${{ vars.BW_NATIONAL_RAIL_TOKEN }}
+          BW_SECRET_ID_CF_DEPLOY_API_TOKEN: ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          if not os.environ.get("AWS_ROLE_TO_ASSUME", "").strip():
+              raise SystemExit("AWS_ROLE_TO_ASSUME is required")
+          if not os.environ.get("CLOUDFORMATION_ROLE_ARN", "").strip():
+              raise SystemExit("CLOUDFORMATION_ROLE_ARN is required")
+          account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
+          if not re.fullmatch(r"[0-9a-fA-F]{32}", account_id):
+              raise SystemExit("CLOUDFLARE_ACCOUNT_ID must be the 32-character Windsor Cloudflare account ID")
+          uuid = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+          for name in ("BW_NATIONAL_RAIL_TOKEN", "BW_SECRET_ID_CF_DEPLOY_API_TOKEN"):
+              value = os.environ.get(name, "").strip()
+              if not uuid.fullmatch(value):
+                  print(f"{name} must contain a Bitwarden secret UID, not a secret value.", file=sys.stderr)
+                  raise SystemExit(1)
+          PY
+
+      - name: Resolve deployment secrets from Bitwarden
+        id: bitwarden
+        continue-on-error: true
+        uses: bitwarden/sm-action@14f92f1d294ae3c2b6a3845d389cd2c318b0dfd8 # v2.2.0
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BW_NATIONAL_RAIL_TOKEN }} > NATIONAL_RAIL_TOKEN
+            ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }} > CF_DEPLOY_API_TOKEN
+
+      - name: Retry Bitwarden resolution
+        if: steps.bitwarden.outcome == 'failure'
+        uses: bitwarden/sm-action@14f92f1d294ae3c2b6a3845d389cd2c318b0dfd8 # v2.2.0
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BW_NATIONAL_RAIL_TOKEN }} > NATIONAL_RAIL_TOKEN
+            ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }} > CF_DEPLOY_API_TOKEN
+
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          role-session-name: github-actions-led-deploy
+
+      - name: Verify AWS identity and select dedicated code bucket
+        run: |
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          CODE_BUCKET="led-code-${AWS_REGION}-${ACCOUNT_ID}"
+          aws s3api head-bucket --bucket "${CODE_BUCKET}"
+          echo "CODE_BUCKET=${CODE_BUCKET}" >> "${GITHUB_ENV}"
+          echo "AWS account: ${ACCOUNT_ID}"
+          echo "Using dedicated LED code bucket: ${CODE_BUCKET}"
+
+      - name: Request or reuse ACM certificate
+        id: certificate
+        run: |
+          CERTIFICATE_ARN="$(bash scripts/request-acm-certificate.sh)"
+          echo "certificate_arn=${CERTIFICATE_ARN}" >> "${GITHUB_OUTPUT}"
+
+      - name: Configure ACM validation in Windsor Cloudflare
+        env:
+          CERTIFICATE_ARN: ${{ steps.certificate.outputs.certificate_arn }}
+        run: bash scripts/configure-cloudflare-dns.sh
+
+      - name: Wait for ACM validation
+        env:
+          CERTIFICATE_ARN: ${{ steps.certificate.outputs.certificate_arn }}
+        run: aws acm wait certificate-validated --region us-east-1 --certificate-arn "${CERTIFICATE_ARN}"
+
+      - name: Package and upload Lambda
+        id: package
+        run: |
+          CODE_KEY="$(bash scripts/package-lambda.sh)"
+          echo "code_key=${CODE_KEY}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy AWS stack
+        env:
+          CERTIFICATE_ARN: ${{ steps.certificate.outputs.certificate_arn }}
+          CODE_KEY: ${{ steps.package.outputs.code_key }}
+        run: bash scripts/deploy-stack.sh
+
+      - name: Deploy simulator static content
+        run: bash scripts/deploy-static.sh
+
+      - name: Read stack outputs
+        id: stack
+        run: |
+          output() {
+            aws cloudformation describe-stacks \
+              --region "${AWS_REGION}" \
+              --stack-name "${STACK_NAME}" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" \
+              --output text
+          }
+          echo "publisher=$(output PublisherFunctionName)" >> "${GITHUB_OUTPUT}"
+          echo "distribution_domain=$(output DistributionDomainName)" >> "${GITHUB_OUTPUT}"
+          echo "distribution_id=$(output DistributionId)" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish initial screen snapshot
+        run: |
+          aws lambda invoke \
+            --region "${AWS_REGION}" \
+            --function-name "${{ steps.stack.outputs.publisher }}" \
+            /tmp/led-publisher-response.json >/dev/null
+          python - <<'PY'
+          import json
+          with open('/tmp/led-publisher-response.json', encoding='utf-8') as handle:
+              result = json.load(handle)
+          if not result.get('published'):
+              raise SystemExit('Initial publisher invocation did not report success')
+          print('Initial LED screen snapshot published')
+          PY
+
+      - name: Configure LED hostname in Windsor Cloudflare
+        env:
+          CLOUDFRONT_DOMAIN: ${{ steps.stack.outputs.distribution_domain }}
+        run: bash scripts/configure-cloudflare-dns.sh
+
+      - name: Invalidate published paths
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.stack.outputs.distribution_id }}" \
+            --paths '/index.html' '/api/screens' >/dev/null
