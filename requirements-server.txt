@@ -1,1 +1,2 @@
 zeep==4.3.3
+PyJWT[crypto]==2.10.1
