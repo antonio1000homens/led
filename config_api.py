@@ -21,6 +21,8 @@ from runtime_config import (
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
 MAX_BODY_BYTES = 32768
+JWK_FETCH_TIMEOUT_SECONDS = 5
+RIDE_OPTIONS_FETCH_TIMEOUT_SECONDS = 5
 _JWK_CLIENTS: dict[str, Any] = {}
 
 
@@ -112,7 +114,12 @@ def _jwt_client(team_domain: str):
     certs_url = team_domain.rstrip("/") + "/cdn-cgi/access/certs"
     client = _JWK_CLIENTS.get(certs_url)
     if client is None:
-        client = jwt.PyJWKClient(certs_url, cache_keys=True, lifespan=3600)
+        client = jwt.PyJWKClient(
+            certs_url,
+            cache_keys=True,
+            lifespan=3600,
+            timeout=JWK_FETCH_TIMEOUT_SECONDS,
+        )
         _JWK_CLIENTS[certs_url] = client
     return client
 
@@ -181,18 +188,42 @@ def _known_rides_from_state(feed_id: str, status_store: StatusStore) -> list[str
     ]
 
 
-def ride_options(feed_id: str, config: dict[str, Any], status_store: StatusStore, provider_factory=QueueTimesProvider) -> list[str]:
+def _provider_ride_names(feed_id: str, provider_factory) -> list[str]:
+    definition = FEED_REGISTRY[feed_id]
+    if provider_factory is QueueTimesProvider:
+        provider = provider_factory(definition["park_id"], timeout=RIDE_OPTIONS_FETCH_TIMEOUT_SECONDS)
+    else:
+        provider = provider_factory(definition["park_id"])
+    return [
+        str(ride.get("name") or "").strip()
+        for ride in provider.fetch()
+        if isinstance(ride, dict) and str(ride.get("name") or "").strip()
+    ]
+
+
+def ride_options(
+    feed_id: str,
+    config: dict[str, Any],
+    status_store: StatusStore,
+    provider_factory=QueueTimesProvider,
+    *,
+    allow_live_lookup: bool = True,
+) -> list[str]:
     definition = FEED_REGISTRY.get(feed_id) or {}
     if not definition.get("rides"):
         raise RuntimeConfigValidationError(f"{feed_id} does not expose ride choices")
+
     choices = _known_rides_from_state(feed_id, status_store)
-    if not choices:
+    if allow_live_lookup and not choices:
         try:
-            choices = [ride["name"] for ride in provider_factory(definition["park_id"]).fetch()]
+            choices = _provider_ride_names(feed_id, provider_factory)
         except Exception:
-            # Keep the control plane usable during an upstream outage, but only
-            # allow already configured names until fresh choices are available.
-            choices = list(config["feeds"][feed_id].get("rides") or [])
+            choices = []
+
+    # Always retain currently configured names in the option/validation set.
+    # A ride disappearing upstream must not make an unrelated edit impossible.
+    choices.extend(list(config["feeds"][feed_id].get("rides") or []))
+
     seen = set()
     ordered = []
     for name in choices:
@@ -207,7 +238,22 @@ def _config_payload(config: dict[str, Any], status_store: StatusStore) -> dict[s
     metadata = schema_metadata()
     for feed_id, definition in FEED_REGISTRY.items():
         if definition.get("rides"):
-            metadata["feeds"][feed_id]["available_rides"] = ride_options(feed_id, config, status_store)
+            # Normal config reads must remain fast and deterministic. The
+            # dedicated options endpoint may perform one bounded live lookup.
+            metadata["feeds"][feed_id]["available_rides"] = ride_options(
+                feed_id,
+                config,
+                status_store,
+                allow_live_lookup=False,
+            )
+    return {**config, "schema": metadata}
+
+
+def _fallback_config_payload(config: dict[str, Any]) -> dict[str, Any]:
+    metadata = schema_metadata()
+    for feed_id, definition in FEED_REGISTRY.items():
+        if definition.get("rides"):
+            metadata["feeds"][feed_id]["available_rides"] = list(config["feeds"][feed_id].get("rides") or [])
     return {**config, "schema": metadata}
 
 
@@ -325,9 +371,35 @@ def lambda_handler(event, context):
                 updated_by=identity,
                 available_rides=choices,
             )
-            _audit(identity, feed_id, fields, expected, updated["config_version"], _request_id(event))
-            PublisherInvoker(publisher_name).invoke()
-            return _response(200, _config_payload(updated, status_store), version=updated["config_version"])
+            request_id = _request_id(event)
+            _audit(identity, feed_id, fields, expected, updated["config_version"], request_id)
+
+            rebuild_triggered = True
+            try:
+                PublisherInvoker(publisher_name).invoke()
+            except Exception:
+                # The configuration write is already durable. A trigger failure
+                # must not be reported as a failed mutation or cause a stale-ETag retry.
+                rebuild_triggered = False
+                print(
+                    json.dumps(
+                        {
+                            "event": "publisher_rebuild_trigger_failed",
+                            "request_id": request_id,
+                            "config_version": updated["config_version"],
+                        },
+                        separators=(",", ":"),
+                    )
+                )
+
+            try:
+                payload = _config_payload(updated, status_store)
+            except Exception:
+                # Preserve the successful mutation response even if the optional
+                # status projection is temporarily unavailable after the commit.
+                payload = _fallback_config_payload(updated)
+            payload["rebuild_triggered"] = rebuild_triggered
+            return _response(200, payload, version=updated["config_version"])
 
         return _response(404, {"error": "not found"})
     except RuntimeConfigConflict as error:
