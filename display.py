@@ -5,14 +5,14 @@ import board
 from formatting import calling_text, format_row, row_slide_phase
 
 
+DISPLAY_WIDTH = 256
 CLOCK_X = 226
 STALE_X = 190
-WEATHER_X = 214
-WEATHER_ICON_X = 216
-WEATHER_TEMP_X = 224
 WEATHER_Y = 24
 WEATHER_LABEL_Y = 27
-WEATHER_WIDTH = 42
+WEATHER_ICON_WIDTH = 7
+WEATHER_GAP = 1
+WEATHER_FONT_WIDTH = 6
 
 WEATHER_ICONS = {
     "clear_day": (
@@ -167,6 +167,13 @@ def _weather_rgb(icon_name, stale=False):
     return color
 
 
+def _weather_layout(text):
+    text_width = len(str(text)) * WEATHER_FONT_WIDTH
+    icon_x = max(0, DISPLAY_WIDTH - (WEATHER_ICON_WIDTH + WEATHER_GAP + text_width))
+    text_x = icon_x + WEATHER_ICON_WIDTH + WEATHER_GAP
+    return icon_x, text_x
+
+
 def _rgb_tuple(color):
     return ((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF)
 
@@ -181,7 +188,7 @@ class MatrixDisplay:
 
         displayio.release_displays()
         matrix = rgbmatrix.RGBMatrix(
-            width=256,
+            width=DISPLAY_WIDTH,
             height=32,
             bit_depth=4,
             addr_pins=board.MTX_ADDRESS[:4],
@@ -207,7 +214,7 @@ class MatrixDisplay:
         self._label(group, format_row(primary), 0xFFFFFF, -int((1 - primary_slide) * 220), 3)
         calling = calling_text(primary)
         calling_width = len(calling) * 6
-        calling_x = 0 if calling_width <= 256 else -int((phase * 45) % (calling_width + 40))
+        calling_x = 0 if calling_width <= DISPLAY_WIDTH else -int((phase * 45) % (calling_width + 40))
         self._label(group, calling, 0xFFAA00, calling_x, 10)
         for index, service in enumerate(services[1:3], start=1):
             slide = row_slide_phase(phase, index)
@@ -238,18 +245,19 @@ class MatrixDisplay:
 
         import displayio
 
+        icon_x, text_x = _weather_layout(text)
         icon_name, rows = _weather_icon(weather)
         stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
-        bitmap = displayio.Bitmap(WEATHER_WIDTH, 8, 2)
+        bitmap = displayio.Bitmap(DISPLAY_WIDTH - icon_x, 8, 2)
         palette = displayio.Palette(2)
         palette[0] = 0x000000
         palette[1] = _weather_rgb(icon_name, stale)
         for y, row in enumerate(rows):
             for x, pixel in enumerate(row):
                 if pixel == "#":
-                    bitmap[(WEATHER_ICON_X - WEATHER_X) + x, y] = 1
-        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=WEATHER_X, y=WEATHER_Y))
-        self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, WEATHER_TEMP_X, WEATHER_LABEL_Y)
+                    bitmap[x, y] = 1
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=icon_x, y=WEATHER_Y))
+        self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, text_x, WEATHER_LABEL_Y)
 
     def show(self, screen, clock_time="--:--", phase=2):
         import displayio
@@ -278,14 +286,14 @@ class FixtureDisplay:
     def __init__(self):
         try:
             import neopixel
-            self.pixels = neopixel.NeoPixel(board.GP0, 256 * 32, brightness=0.15, auto_write=False)
+            self.pixels = neopixel.NeoPixel(board.GP0, DISPLAY_WIDTH * 32, brightness=0.15, auto_write=False)
         except Exception:
             self.pixels = None
 
     def _pixel(self, x, y, color):
-        if self.pixels is None or not (0 <= x < 256 and 0 <= y < 32):
+        if self.pixels is None or not (0 <= x < DISPLAY_WIDTH and 0 <= y < 32):
             return
-        index = y * 256 + (x if y % 2 == 0 else 255 - x)
+        index = y * DISPLAY_WIDTH + (x if y % 2 == 0 else DISPLAY_WIDTH - 1 - x)
         self.pixels[index] = color
 
     def _text(self, value, x, y, color):
@@ -307,7 +315,7 @@ class FixtureDisplay:
                 if bit:
                     for row in range(5):
                         self._pixel(x + column, y + row, color)
-            x += 6
+            x += WEATHER_FONT_WIDTH
 
     def _draw_screen(self, screen, phase):
         kind = screen.get("kind")
@@ -319,8 +327,8 @@ class FixtureDisplay:
             primary_slide = row_slide_phase(phase, 0)
             self._text(format_row(primary), -int((1 - primary_slide) * 220), 0, (255, 255, 255))
             text = calling_text(primary)
-            text_width = len(text) * 6
-            calling_x = 0 if text_width <= 256 else -int((phase * 45) % (text_width + 40))
+            text_width = len(text) * WEATHER_FONT_WIDTH
+            calling_x = 0 if text_width <= DISPLAY_WIDTH else -int((phase * 45) % (text_width + 40))
             self._text(text, calling_x, 8, (255, 100, 0))
             for index, service in enumerate(services[1:3], start=1):
                 slide = row_slide_phase(phase, index)
@@ -346,8 +354,9 @@ class FixtureDisplay:
         text = _weather_text(weather)
         if text is None or self.pixels is None:
             return
+        icon_x, text_x = _weather_layout(text)
         for y in range(WEATHER_Y, 32):
-            for x in range(WEATHER_X, 256):
+            for x in range(icon_x, DISPLAY_WIDTH):
                 self._pixel(x, y, (0, 0, 0))
         icon_name, rows = _weather_icon(weather)
         stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
@@ -355,8 +364,8 @@ class FixtureDisplay:
         for y, row in enumerate(rows):
             for x, pixel in enumerate(row):
                 if pixel == "#":
-                    self._pixel(WEATHER_ICON_X + x, WEATHER_Y + y, color)
-        self._text(text, WEATHER_TEMP_X, WEATHER_Y, (170, 170, 170) if stale else (255, 255, 255))
+                    self._pixel(icon_x + x, WEATHER_Y + y, color)
+        self._text(text, text_x, WEATHER_Y, (170, 170, 170) if stale else (255, 255, 255))
 
     def show(self, screen, clock_time="--:--", phase=2):
         if self.pixels is not None:
