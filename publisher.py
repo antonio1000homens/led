@@ -8,7 +8,12 @@ import json
 import os
 
 from queue_times import QueueTimesProvider, select_rides
-from runtime_config import RuntimeConfigStore, default_runtime_config, validate_runtime_config
+from runtime_config import (
+    DEFAULT_CHESSINGTON_RIDES,
+    RuntimeConfigStore,
+    default_runtime_config,
+    validate_runtime_config,
+)
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from weather import OpenMeteoProvider
@@ -56,7 +61,8 @@ class PublisherConfig:
                  weather_longitude=DEFAULT_WEATHER_LONGITUDE, calendar_source="off",
                  todoist_oauth_secret_arn="", calendar_ttl=300, calendar_max_events=6,
                  calendar_filter_query=DEFAULT_FILTER_QUERY, calendar_timezone=DEFAULT_TIMEZONE,
-                 calendar_duration=10, calendar_page_seconds=5, runtime_config_table=""):
+                 calendar_duration=10, calendar_page_seconds=5, runtime_config_table="",
+                 chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
         self.station = station
@@ -78,6 +84,8 @@ class PublisherConfig:
         self.calendar_duration = calendar_duration
         self.calendar_page_seconds = calendar_page_seconds
         self.runtime_config_table = runtime_config_table
+        self.chessington_ttl = chessington_ttl
+        self.chessington_rides = tuple(chessington_rides)
 
     @classmethod
     def from_env(cls, env=None):
@@ -107,6 +115,7 @@ class PublisherConfig:
         if calendar_source == "todoist" and not todoist_secret:
             raise ValueError("TODOIST_OAUTH_SECRET_ARN is required when LED_CALENDAR_SOURCE=todoist")
         rides = tuple(x.strip() for x in env.get("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)).split(",") if x.strip())
+        chessington_rides = tuple(x.strip() for x in env.get("LED_CHESSINGTON_RIDES", ",".join(DEFAULT_CHESSINGTON_RIDES)).split(",") if x.strip())
         calendar_max_events = _env_int(env, "LED_TODOIST_MAX_EVENTS", 6)
         calendar_duration = _env_int(env, "LED_CALENDAR_DURATION_SECONDS", 10)
         calendar_page_seconds = _env_int(env, "LED_CALENDAR_PAGE_SECONDS", 5)
@@ -122,6 +131,7 @@ class PublisherConfig:
             calendar_max_events, env.get("LED_TODOIST_FILTER_QUERY", DEFAULT_FILTER_QUERY).strip() or DEFAULT_FILTER_QUERY,
             env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
             calendar_duration, calendar_page_seconds, env.get("RUNTIME_CONFIG_TABLE", "").strip(),
+            _env_int(env, "LED_CHESSINGTON_CACHE_SECONDS", 300), chessington_rides,
         )
 
 
@@ -131,6 +141,8 @@ def _runtime_defaults(config: PublisherConfig):
         "LED_THORPE_PARK_SOURCE": config.thorpe_park_source,
         "LED_THORPE_PARK_CACHE_SECONDS": str(config.thorpe_park_ttl),
         "LED_THORPE_PARK_RIDES": ",".join(config.thorpe_park_rides),
+        "LED_CHESSINGTON_CACHE_SECONDS": str(config.chessington_ttl),
+        "LED_CHESSINGTON_RIDES": ",".join(config.chessington_rides),
         "LED_WEATHER_SOURCE": config.weather_source,
         "LED_WEATHER_CACHE_SECONDS": str(config.weather_ttl),
         "LED_CALENDAR_SOURCE": config.calendar_source,
@@ -346,12 +358,21 @@ class Publisher:
         old_feeds = state.get("feeds") or {}
         feeds = copy.deepcopy(old_feeds)
 
-        # Migrate pre-control-plane cache keys in-place when present.
-        aliases = {"departures": "rail", "thorpe_park": "thorpePark"}
-        for current, legacy in aliases.items():
-            if current not in feeds and legacy in feeds:
-                feeds[current] = feeds.pop(legacy)
-        feeds.pop("queues", None)
+        # Migrate pre-control-plane cache keys in-place when present. Some older
+        # deployments used `queues` for Thorpe Park, so preserve that last-good
+        # data before removing the legacy aliases.
+        aliases = {
+            "departures": ("rail",),
+            "thorpe_park": ("thorpePark", "queues"),
+        }
+        for current, legacy_names in aliases.items():
+            if current not in feeds:
+                for legacy in legacy_names:
+                    if legacy in feeds:
+                        feeds[current] = copy.deepcopy(feeds[legacy])
+                        break
+            for legacy in legacy_names:
+                feeds.pop(legacy, None)
 
         if settings["departures"]["enabled"]:
             feeds["departures"] = self._refresh(
