@@ -63,50 +63,25 @@
     const QUEUE_HOLD_SECONDS = 1.0;
     const QUEUE_SLIDE_SECONDS = 0.3;
     const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
+    const AGENDA_VISIBLE_ROWS = 3;
+    const AGENDA_SLIDE_SECONDS = 0.4;
 
     const weatherIcons = {
-      clear_day: [
-        '..#.#..', '...#...', '.#####.', '..###..', '.#####.', '...#...', '..#.#..'
-      ],
-      clear_night: [
-        '...###.', '..###..', '.###...', '.###...', '.####..', '..####.', '...###.'
-      ],
-      partly_cloudy_day: [
-        '.#.#...', '..#....', '.###...', '...##..', '..#####', '.######', '.......'
-      ],
-      partly_cloudy_night: [
-        '..##...', '.##....', '.###...', '...##..', '..#####', '.######', '.......'
-      ],
-      cloudy: [
-        '.......', '...##..', '..####.', '.######', '#######', '.......', '.......'
-      ],
-      fog: [
-        '.......', '.#####.', '.......', '#######', '.......', '.#####.', '.......'
-      ],
-      rain: [
-        '...##..', '..####.', '.######', '#######', '..#.#..', '.#.#...', '#.#....'
-      ],
-      snow: [
-        '...##..', '..####.', '.######', '#######', '.#.#.#.', '..#.#..', '.#.#.#.'
-      ],
-      storm: [
-        '...##..', '..####.', '.######', '#######', '...##..', '..##...', '...#...'
-      ],
-      unknown: [
-        '.#####.', '##...##', '....##.', '...##..', '..##...', '.......', '..##...'
-      ]
+      clear_day: ['..#.#..', '...#...', '.#####.', '..###..', '.#####.', '...#...', '..#.#..'],
+      clear_night: ['...###.', '..###..', '.###...', '.###...', '.####..', '..####.', '...###.'],
+      partly_cloudy_day: ['.#.#...', '..#....', '.###...', '...##..', '..#####', '.######', '.......'],
+      partly_cloudy_night: ['..##...', '.##....', '.###...', '...##..', '..#####', '.######', '.......'],
+      cloudy: ['.......', '...##..', '..####.', '.######', '#######', '.......', '.......'],
+      fog: ['.......', '.#####.', '.......', '#######', '.......', '.#####.', '.......'],
+      rain: ['...##..', '..####.', '.######', '#######', '..#.#..', '.#.#...', '#.#....'],
+      snow: ['...##..', '..####.', '.######', '#######', '.#.#.#.', '..#.#..', '.#.#.#.'],
+      storm: ['...##..', '..####.', '.######', '#######', '...##..', '..##...', '...#...'],
+      unknown: ['.#####.', '##...##', '....##.', '...##..', '..##...', '.......', '..##...']
     };
     const weatherColors = {
-      clear_day: '#ffaa00',
-      clear_night: '#aaccff',
-      partly_cloudy_day: '#ffcc55',
-      partly_cloudy_night: '#aaccff',
-      cloudy: '#bbbbbb',
-      fog: '#888888',
-      rain: '#55aaff',
-      snow: '#ffffff',
-      storm: '#ffcc00',
-      unknown: '#888888'
+      clear_day: '#ffaa00', clear_night: '#aaccff', partly_cloudy_day: '#ffcc55',
+      partly_cloudy_night: '#aaccff', cloudy: '#bbbbbb', fog: '#888888',
+      rain: '#55aaff', snow: '#ffffff', storm: '#ffcc00', unknown: '#888888'
     };
 
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
@@ -121,6 +96,12 @@
       const state = ride.open ? String(ride.wait_minutes) + 'm' : 'CLOSED';
       return (clip(ride.name, 24) + state.padStart(8, ' ')).slice(0, 32);
     }
+    function calendarRow(event) {
+      const dateText = String(event.date_text || '').trim();
+      const timeText = String(event.time_text || '').trim();
+      const when = (dateText + (timeText ? ' ' + timeText : '')).trim().slice(0, 11).padEnd(11, ' ');
+      return (when + ' ' + String(event.title || event.location || 'Event')).slice(0, 32);
+    }
     function queueScrollState(phase, rideCount) {
       const maxStart = Math.max(0, Number(rideCount || 0) - QUEUE_VISIBLE_ROWS);
       if (maxStart === 0) return { start: 0, progress: 0 };
@@ -128,10 +109,18 @@
       const step = Math.floor(safePhase / QUEUE_STEP_SECONDS);
       if (step >= maxStart) return { start: maxStart, progress: 0 };
       const withinStep = safePhase - step * QUEUE_STEP_SECONDS;
-      const progress = withinStep <= QUEUE_HOLD_SECONDS
-        ? 0
-        : Math.min(1, (withinStep - QUEUE_HOLD_SECONDS) / QUEUE_SLIDE_SECONDS);
+      const progress = withinStep <= QUEUE_HOLD_SECONDS ? 0 : Math.min(1, (withinStep - QUEUE_HOLD_SECONDS) / QUEUE_SLIDE_SECONDS);
       return { start: step, progress };
+    }
+    function agendaScrollState(screen, phase, eventCount) {
+      const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
+      if (eventCount <= visible) return { start: 0, progress: 0, visible };
+      const pageSeconds = Math.max(0, Number(screen.page_seconds) || 5);
+      const safePhase = Math.max(0, Number(phase) || 0);
+      if (safePhase <= pageSeconds) return { start: 0, progress: 0, visible };
+      const progress = Math.min(1, (safePhase - pageSeconds) / AGENDA_SLIDE_SECONDS);
+      if (progress >= 1) return { start: visible, progress: 0, visible };
+      return { start: 0, progress, visible };
     }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
@@ -149,10 +138,7 @@
       const text = String(value || '');
       const width = context.measureText(text).width;
       context.fillStyle = color;
-      if (width <= 1024) {
-        context.fillText(text, 0, y);
-        return;
-      }
+      if (width <= 1024) { context.fillText(text, 0, y); return; }
       const gap = 80;
       const offset = (phase * 45) % (width + gap);
       context.fillText(text, -offset, y);
@@ -163,7 +149,7 @@
       if (!stops.length) return 'CALLING AT: ' + (service.destination || 'destination') + ' only';
       return 'CALLING AT: ' + stops.map(stop => stop.station + ' ' + stop.time + (stop.status !== 'On time' ? ' (' + stop.status + ')' : '')).join('  ·  ');
     }
-    function listPage(screen, phase) {
+    function listPage(screen) {
       const services = Array.isArray(screen.services) ? screen.services : [];
       if (!services.length) return { services: [{ time: '--:--', destination: feedError ? 'Feed error' : 'No services', platform: '-', status: '' }] };
       return { services: services.slice(0, 3) };
@@ -187,11 +173,7 @@
       context.fillStyle = '#000';
       context.fillRect(856, 92, 168, 36);
       context.fillStyle = stale ? '#777777' : weatherColors[iconName];
-      pattern.forEach((line, y) => {
-        [...line].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect(864 + x * 4, 96 + y * 4, 4, 4);
-        });
-      });
+      pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(864 + x * 4, 96 + y * 4, 4, 4); }));
       context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
       context.fillText(temperatureText, 904, 94);
     }
@@ -209,8 +191,7 @@
       context.textBaseline = 'top';
       context.fillStyle = '#ffaa00';
       if (screen.kind === 'rail_combined') {
-        const page = listPage(screen, phase);
-        const railServices = page.services;
+        const railServices = listPage(screen).services;
         const next = railServices[0] || { time: '--:--', destination: 'No services', platform: '-', status: '' };
         const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
         context.fillStyle = next.cancelled && nextPulse ? '#ff3300' : '#ffffff';
@@ -219,13 +200,10 @@
         marquee(callingText(next), 34, phase, '#ffaa00');
         railServices.slice(1, 3).forEach((service, index) => {
           context.fillStyle = service.cancelled ? '#ff3300' : '#ffffff';
-          const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1) * 1.0) / 1.2));
+          const rowPhase = Math.max(0, Math.min(1, (entryPhase - (index + 1)) / 1.2));
           context.fillText(row(service), -Math.round((1 - rowPhase) * 220) * 4, 64 + index * 30);
         });
-        if (screen.stale || forceStale) {
-          context.fillStyle = '#ff3300';
-          context.fillText('STALE', 820, 4);
-        }
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
         const rides = Array.isArray(screen.rides) ? screen.rides : [];
@@ -236,10 +214,7 @@
           const queueScroll = queueScrollState(phase, rides.length);
           const rowCount = QUEUE_VISIBLE_ROWS + (queueScroll.progress > 0 ? 1 : 0);
           const yOffset = queueScroll.progress * 30;
-          context.save();
-          context.beginPath();
-          context.rect(0, 32, 1024, 96);
-          context.clip();
+          context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
           for (let slot = 0; slot < rowCount; slot += 1) {
             const ride = rides[queueScroll.start + slot];
             if (!ride) break;
@@ -250,20 +225,30 @@
         }
         context.fillStyle = '#ffaa00';
         context.fillText(String(screen.title || 'THORPE PARK').slice(0, 42), 0, 4);
-        if (screen.stale || forceStale) {
-          context.fillStyle = '#ff3300';
-          context.fillText('STALE', 820, 4);
-        }
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Thorpe Park queues';
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
-        context.fillText((screen.title + (screen.stale ? '  STALE' : '')).slice(0, 42), x, 4);
-        events.slice(0, 3).forEach((event, index) => {
-          const text = clip(event.start, 12) + ' ' + (index === 0 ? event.title : event.location || event.title);
+        if (!events.length) {
           context.fillStyle = '#ffffff';
-          context.fillText(text.slice(0, 42), x, 34 + index * 30);
-        });
-        status.dataset.detail = 'Calendar';
+          context.fillText('No upcoming events', 0, 34);
+        } else {
+          const agenda = agendaScrollState(screen, phase, events.length);
+          const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible * 2 : agenda.visible);
+          const yOffset = agenda.progress * agenda.visible * 30;
+          context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
+          for (let slot = 0; slot < rowCount; slot += 1) {
+            const event = events[agenda.start + slot];
+            if (!event) break;
+            context.fillStyle = '#ffffff';
+            context.fillText(calendarRow(event), 0, 34 + slot * 30 - yOffset);
+          }
+          context.restore();
+        }
+        context.fillStyle = '#ffaa00';
+        context.fillText(String(screen.title || 'UPCOMING').slice(0, 30), 0, 4);
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
+        status.dataset.detail = 'Upcoming events';
       }
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
@@ -287,7 +272,6 @@
     });
     function changeScreen(direction) {
       screenOffset += direction;
-      // A manual step should be inspectable immediately, even while paused.
       pausedAt = 1200;
       pauseStarted = performance.now() - pausedAt;
     }
@@ -300,15 +284,8 @@
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
         const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
-        const nextKey = JSON.stringify(nextScreens.map(screen => {
-          const copy = { ...screen };
-          delete copy.weather;
-          return copy;
-        }));
-        if (nextKey !== screenDataKey) {
-          feedAnimationStarted = performance.now();
-          screenDataKey = nextKey;
-        }
+        const nextKey = JSON.stringify(nextScreens.map(screen => { const copy = { ...screen }; delete copy.weather; return copy; }));
+        if (nextKey !== screenDataKey) { feedAnimationStarted = performance.now(); screenDataKey = nextKey; }
         screens = nextScreens;
         source = screens.map(screen => screen.source).filter(Boolean).join(', ') || 'unknown';
         fetchedAt = payload.fetched_at || '';
