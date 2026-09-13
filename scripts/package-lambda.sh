@@ -11,7 +11,13 @@ CODE_KEY="${CODE_KEY:-led/publisher-${REVISION}.zip}"
 
 rm -rf "${PACKAGE_DIR}" "${ZIP_FILE}"
 mkdir -p "${PACKAGE_DIR}"
+# Build for the Lambda runtime even when this script is executed from macOS.
 python3 -m pip install --disable-pip-version-check --no-compile \
+  --platform manylinux2014_x86_64 \
+  --implementation cp \
+  --python-version 3.12 \
+  --abi cp312 \
+  --only-binary=:all: \
   -r "${ROOT_DIR}/requirements-server.txt" \
   -t "${PACKAGE_DIR}" >/dev/null
 cp \
