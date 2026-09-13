@@ -87,13 +87,17 @@ class PublisherTests(unittest.TestCase):
             rail_ttl=60,
             thorpe_park_ttl=300,
             weather_ttl=600,
-            thorpe_park_rides=("Hyperia", "Stealth"),
+            thorpe_park_rides=("Hyperia", "Stealth", "The Swarm", "Colossus"),
         )
         rail = FakeProvider([[{"time": "08:01", "destination": "Waterloo"}], [{"time": "08:02"}]])
         queues = FakeProvider([[{
             "name": "Hyperia", "open": True, "wait_minutes": 25, "last_updated": "", "land": ""
         }, {
             "name": "Stealth", "open": True, "wait_minutes": 10, "last_updated": "", "land": ""
+        }, {
+            "name": "The Swarm", "open": True, "wait_minutes": 15, "last_updated": "", "land": ""
+        }, {
+            "name": "Colossus", "open": True, "wait_minutes": 20, "last_updated": "", "land": ""
         }]])
         weather = FakeProvider([{
             "temperature_c": 17.4,
@@ -112,7 +116,9 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(queues.calls, 1)
         self.assertEqual(weather.calls, 1)
         self.assertEqual([screen["id"] for screen in first["screens"]], ["departures", "thorpe-park"])
-        self.assertEqual(second["screens"][1]["rides"][0]["name"], "Hyperia")
+        queue_screen = second["screens"][1]
+        self.assertEqual([ride["name"] for ride in queue_screen["rides"]], ["Hyperia", "Stealth", "The Swarm", "Colossus"])
+        self.assertEqual(queue_screen["duration_seconds"], 8)
         for screen in second["screens"]:
             self.assertIn("weather", screen)
             self.assertEqual(screen["weather"]["temperature_c"], 17.4)

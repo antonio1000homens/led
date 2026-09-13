@@ -42,6 +42,13 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn("Default: led.alf-broadcast.co.uk", template)
         self.assertIn("led.alf-broadcast.co.uk", workflow)
 
+    def test_deploy_updates_thorpe_park_rides_on_existing_stack(self):
+        template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
+        deploy = (ROOT / "scripts" / "deploy-stack.sh").read_text(encoding="utf-8")
+        self.assertIn("Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave", template)
+        self.assertIn("LED_THORPE_PARK_RIDES:-Hyperia,Stealth,The Swarm", deploy)
+        self.assertIn('"ThorpeParkRides=${THORPE_PARK_RIDES}"', deploy)
+
     def test_cloudflare_dns_is_pinned_to_windsor_account(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         helper = (ROOT / "scripts" / "cloudflare_dns.py").read_text(encoding="utf-8")

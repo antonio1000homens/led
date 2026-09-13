@@ -59,6 +59,11 @@
     let pausedAt = 0;
     let pauseStarted = 0;
 
+    const QUEUE_VISIBLE_ROWS = 3;
+    const QUEUE_HOLD_SECONDS = 1.0;
+    const QUEUE_SLIDE_SECONDS = 0.3;
+    const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
+
     const weatherIcons = {
       clear_day: [
         '..#.#..', '...#...', '.#####.', '..###..', '.#####.', '...#...', '..#.#..'
@@ -115,6 +120,18 @@
     function queueRow(ride) {
       const state = ride.open ? String(ride.wait_minutes) + 'm' : 'CLOSED';
       return (clip(ride.name, 24) + state.padStart(8, ' ')).slice(0, 32);
+    }
+    function queueScrollState(phase, rideCount) {
+      const maxStart = Math.max(0, Number(rideCount || 0) - QUEUE_VISIBLE_ROWS);
+      if (maxStart === 0) return { start: 0, progress: 0 };
+      const safePhase = Math.max(0, Number(phase) || 0);
+      const step = Math.floor(safePhase / QUEUE_STEP_SECONDS);
+      if (step >= maxStart) return { start: maxStart, progress: 0 };
+      const withinStep = safePhase - step * QUEUE_STEP_SECONDS;
+      const progress = withinStep <= QUEUE_HOLD_SECONDS
+        ? 0
+        : Math.min(1, (withinStep - QUEUE_HOLD_SECONDS) / QUEUE_SLIDE_SECONDS);
+      return { start: step, progress };
     }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
@@ -212,17 +229,27 @@
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
         const rides = Array.isArray(screen.rides) ? screen.rides : [];
-        context.fillStyle = '#ffaa00';
-        context.fillText(String(screen.title || 'THORPE PARK').slice(0, 42), x, 4);
         if (!rides.length) {
           context.fillStyle = '#ffffff';
-          context.fillText('Queue data unavailable', x, 34);
+          context.fillText('Queue data unavailable', 0, 34);
         } else {
-          rides.slice(0, 3).forEach((ride, index) => {
+          const queueScroll = queueScrollState(phase, rides.length);
+          const rowCount = QUEUE_VISIBLE_ROWS + (queueScroll.progress > 0 ? 1 : 0);
+          const yOffset = queueScroll.progress * 30;
+          context.save();
+          context.beginPath();
+          context.rect(0, 32, 1024, 96);
+          context.clip();
+          for (let slot = 0; slot < rowCount; slot += 1) {
+            const ride = rides[queueScroll.start + slot];
+            if (!ride) break;
             context.fillStyle = ride.open ? '#ffffff' : '#ff3300';
-            context.fillText(queueRow(ride), x, 34 + index * 30);
-          });
+            context.fillText(queueRow(ride), 0, 34 + slot * 30 - yOffset);
+          }
+          context.restore();
         }
+        context.fillStyle = '#ffaa00';
+        context.fillText(String(screen.title || 'THORPE PARK').slice(0, 42), 0, 4);
         if (screen.stale || forceStale) {
           context.fillStyle = '#ff3300';
           context.fillText('STALE', 820, 4);
