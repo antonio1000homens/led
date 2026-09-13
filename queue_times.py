@@ -1,4 +1,4 @@
-"""Queue-Times.com adapter and cache for Thorpe Park waits."""
+"""Queue-Times.com adapter and reusable theme-park queue feed."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 
 QUEUE_TIMES_PARK_URL = "https://queue-times.com/parks/{}/queue_times.json"
 DEFAULT_THORPE_PARK_ID = 2
+DEFAULT_CHESSINGTON_PARK_ID = 3
 
 
 class QueueFeedUnavailable(RuntimeError):
@@ -22,7 +23,6 @@ def normalize_queue_times(payload):
     """Flatten Queue-Times lands/top-level rides into a stable ride model."""
     rides = []
     seen = set()
-
     containers = []
     if isinstance(payload, dict):
         top_level = payload.get("rides") or []
@@ -62,6 +62,24 @@ def normalize_queue_times(payload):
     return rides
 
 
+def select_rides(rides, selected_names):
+    """Select configured rides case-insensitively while preserving configured order."""
+    by_name = {
+        str(ride.get("name") or "").casefold(): ride
+        for ride in rides
+        if isinstance(ride, dict) and ride.get("name")
+    }
+    selected = []
+    missing = []
+    for configured_name in selected_names or []:
+        ride = by_name.get(str(configured_name).casefold())
+        if ride is None:
+            missing.append(str(configured_name))
+        else:
+            selected.append(copy.deepcopy(ride))
+    return selected, missing
+
+
 class QueueTimesProvider:
     source = "queue_times"
 
@@ -86,11 +104,12 @@ class QueueTimesProvider:
         return rides
 
 
-class ThorpeParkFeed:
-    """Cache Thorpe Park waits and fall back to the last successful response."""
+class ThemeParkQueueFeed:
+    """Generic in-process cache used by the local server for any Queue-Times park."""
 
-    def __init__(self, provider, cache_seconds=300, monotonic=None, utcnow=None):
+    def __init__(self, provider, park_name, cache_seconds=300, monotonic=None, utcnow=None):
         self.provider = provider
+        self.park_name = park_name
         self.cache_seconds = cache_seconds
         self.monotonic = monotonic or time.monotonic
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -113,15 +132,22 @@ class ThorpeParkFeed:
                 rides = self.provider.fetch()
             except Exception as error:
                 if self._payload is None:
-                    raise QueueFeedUnavailable("Thorpe Park queue data is unavailable") from error
+                    raise QueueFeedUnavailable(f"{self.park_name} queue data is unavailable") from error
                 self._payload["stale"] = True
                 return copy.deepcopy(self._payload)
 
             self._payload = {
-                "park": "Thorpe Park",
+                "park": self.park_name,
                 "source": self.provider.source,
                 "fetched_at": self.utcnow().isoformat().replace("+00:00", "Z"),
                 "stale": False,
                 "rides": rides,
             }
             return copy.deepcopy(self._payload)
+
+
+class ThorpeParkFeed(ThemeParkQueueFeed):
+    """Backward-compatible local-server wrapper around the generic park feed."""
+
+    def __init__(self, provider, cache_seconds=300, monotonic=None, utcnow=None):
+        super().__init__(provider, "Thorpe Park", cache_seconds, monotonic, utcnow)
