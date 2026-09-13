@@ -3,7 +3,9 @@ Description: Serverless LED screen publisher, admin configuration API, private S
 Parameters:
   CodeBucket: {Type: String}
   CodeKey: {Type: String}
-  NationalRailToken: {Type: String, NoEcho: true}
+  NationalRailToken:
+    Type: String
+    NoEcho: true
   AdminToken:
     Type: String
     NoEcho: true
