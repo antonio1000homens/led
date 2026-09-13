@@ -34,7 +34,7 @@ Parameters:
   ThorpeParkSource:
     Type: String
     Default: queue_times
-    AllowedValues: [off, queue_times]
+    AllowedValues: ['off', queue_times]
   ThorpeParkCacheSeconds:
     Type: Number
     Default: 300
@@ -44,8 +44,8 @@ Parameters:
     Default: Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave
   CalendarSource:
     Type: String
-    Default: off
-    AllowedValues: [off, todoist]
+    Default: 'off'
+    AllowedValues: ['off', todoist]
   TodoistCacheSeconds:
     Type: Number
     Default: 300
@@ -72,7 +72,7 @@ Parameters:
   WeatherSource:
     Type: String
     Default: open_meteo
-    AllowedValues: [off, open_meteo]
+    AllowedValues: ['off', open_meteo]
   WeatherCacheSeconds:
     Type: Number
     Default: 600
