@@ -8,9 +8,17 @@ Parameters:
   RepoOwner:
     Type: String
     Default: antonio1000homens
+  RepoOwnerId:
+    Type: String
+    Default: '36929120'
+    Description: Immutable GitHub owner ID used in the OIDC subject claim.
   RepoName:
     Type: String
     Default: led
+  RepoId:
+    Type: String
+    Default: '1367515704'
+    Description: Immutable GitHub repository ID used in the OIDC subject claim.
   DeployBranch:
     Type: String
     Default: main
@@ -204,7 +212,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${RepoOwner}/${RepoName}:ref:refs/heads/${DeployBranch}
+                token.actions.githubusercontent.com:sub: !Sub repo:${RepoOwner}@${RepoOwnerId}/${RepoName}@${RepoId}:ref:refs/heads/${DeployBranch}
       Policies:
         - PolicyName: led-github-deploy
           PolicyDocument:
