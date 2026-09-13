@@ -43,6 +43,14 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("return when + ' ' + String(event.title || event.location || 'Event');", simulator)
         self.assertNotIn("String(event.title || event.location || 'Event')).slice(0, 32)", simulator)
 
+    def test_simulator_scrolls_agenda_rows_longer_than_42_characters(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("const AGENDA_ROW_WIDTH = 42;", simulator)
+        self.assertIn("function agendaMarqueeX(text, phase)", simulator)
+        self.assertIn("if (value.length <= AGENDA_ROW_WIDTH) return 0;", simulator)
+        self.assertIn("const cycleSeconds = scrollSeconds + AGENDA_MARQUEE_PAUSE_SECONDS;", simulator)
+        self.assertIn("context.fillText(text, agendaMarqueeX(text, phase)", simulator)
+
 
 if __name__ == "__main__":
     unittest.main()
