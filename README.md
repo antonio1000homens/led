@@ -6,12 +6,13 @@ CircuitPython prototype for four 64×32 HUB75 RGB panels arranged as one 256×32
 
 ```text
 National Rail ───┐
-Queue-Times ─────┼──> server.py ──> GET /api/screens ──> MatrixPortal S3
-Open-Meteo ──────┤                         │                    │
-Future feeds ────┘                         └──> browser          └──> 256×32 HUB75
+Queue-Times ─────┤
+Todoist ─────────┼──> publisher/server ──> GET /api/screens ──> MatrixPortal S3
+Open-Meteo ──────┤                              │                    │
+Future feeds ────┘                              └──> browser          └──> 256×32 HUB75
 ```
 
-The MatrixPortal does not hold National Rail, Queue-Times or weather-provider credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.
+The MatrixPortal does not hold National Rail, Todoist, Queue-Times or weather-provider credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.
 
 The checked-in defaults run a deterministic fixture mode for Wokwi, with no credentials or LAN backend required. Screens rotate using each screen's `duration_seconds`. The top-right `HH:MM` clock and bottom-right weather status are renderer-level overlays and therefore remain visible on every screen.
 
@@ -28,7 +29,7 @@ https://led.alf-broadcast.co.uk/api/screens
 
 Cloudflare remains the authoritative DNS provider and points the DNS-only `led.alf-broadcast.co.uk` CNAME at CloudFront. The S3 `state/*` prefix is not exposed through CloudFront.
 
-Deployment follows the same operational model as the private Scouts repository: GitHub Actions uses AWS OIDC, `BW_ACCESS_TOKEN` is the Bitwarden machine-account GitHub secret, and GitHub variables hold non-secret configuration or Bitwarden secret UIDs only. The National Rail token is resolved at deployment and passed through a `NoEcho` CloudFormation parameter; the Cloudflare API token remains CI-only.
+Deployment follows the same operational model as the private Scouts repository: GitHub Actions uses AWS OIDC, `BW_ACCESS_TOKEN` is the Bitwarden machine-account GitHub secret, and GitHub variables hold non-secret configuration or Bitwarden secret UIDs only. The National Rail token and optional Todoist token are resolved at deployment and passed through `NoEcho` CloudFormation parameters; the Cloudflare API token remains CI-only.
 
 See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, Bitwarden/GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
 
@@ -89,6 +90,50 @@ Configured rides are matched case-insensitively and kept in a stable order. The 
 
 Queue data is displayed with `Powered by Queue-Times.com` attribution.
 
+### Todoist upcoming events
+
+Production can append a `calendar_agenda` screen sourced from the Todoist API v1 `GET /api/v1/tasks/filter` endpoint. The publisher follows Todoist cursor pagination, normalizes scheduled items into Europe/London time, sorts them chronologically, removes undated and already-past timed tasks, and publishes at most the next six events.
+
+The display uses a departure-board-style two-column row:
+
+```text
+13/09 18:30 Event one
+14/09 ALL   All-day event
+14/09 09:00 Event three
+```
+
+Three rows are visible at once. With four to six events the first three remain visible for five seconds, then the rows slide upward together and events 4–6 settle into the same viewport. The heading, clock and weather overlay remain fixed. With three or fewer events no paging occurs.
+
+Default production settings are:
+
+```text
+LED_CALENDAR_SOURCE=off
+LED_TODOIST_CACHE_SECONDS=300
+LED_TODOIST_MAX_EVENTS=6
+LED_TODOIST_FILTER_QUERY=date after: yesterday
+LED_TODOIST_TIMEZONE=Europe/London
+LED_CALENDAR_DURATION_SECONDS=10
+LED_CALENDAR_PAGE_SECONDS=5
+```
+
+The feed is intentionally **off by default**. The current production `/api/screens` object is publicly retrievable through CloudFront, so enabling a personal Todoist feed makes the selected task names and dates/times publicly retrievable as part of that JSON response. Use a deliberately narrow Todoist filter/project/label if this exposure is acceptable, or protect/personalize the screen endpoint before enabling private task data.
+
+For production credentials, store the Todoist personal API token in Bitwarden Secrets Manager and create a GitHub Actions variable named `BW_TODOIST_TOKEN` containing only that Bitwarden secret UID. The workflow resolves it into the deploy job, passes it as the `TodoistToken` `NoEcho` CloudFormation parameter, and the publisher Lambda receives it as `TODOIST_TOKEN`. The token is never emitted in `/api/screens`, feed state, logs, simulator code or MatrixPortal configuration.
+
+To enable the production feed after the secret is configured, set the deployment environment override:
+
+```text
+LED_CALENDAR_SOURCE=todoist
+```
+
+A failed Todoist refresh preserves the last successful events and marks only the calendar screen stale. A cold Todoist failure publishes `Calendar unavailable` without affecting rail, queue or weather data. A successful response containing no qualifying tasks renders `No upcoming events` and is not stale.
+
+For credential-free visual testing, the local fixture contains six normalized events and exercises both agenda pages:
+
+```sh
+python3 server.py --calendar-source fixture
+```
+
 ### Current weather overlay
 
 The backend uses Open-Meteo for current temperature plus the WMO weather code. The free non-commercial endpoint needs no API key. Weather is cached independently for 600 seconds, so multiple MatrixPortal/browser polls do not multiply upstream weather requests.
@@ -114,7 +159,7 @@ If a weather refresh fails after at least one successful response, the previous 
 
 ```json
 {
-  "fetched_at": "2026-09-12T19:45:30Z",
+  "fetched_at": "2026-09-13T11:45:30Z",
   "screens": [
     {
       "id": "departures",
@@ -123,34 +168,20 @@ If a weather refresh fails after at least one successful response, the previous 
       "title": "NEM departures",
       "source": "national_rail",
       "stale": false,
-      "weather": {
-        "source": "open_meteo",
-        "stale": false,
-        "temperature_c": 17.4,
-        "weather_code": 2,
-        "icon": "partly_cloudy_day",
-        "is_day": true,
-        "attribution": "Weather data by Open-Meteo.com",
-        "attribution_url": "https://open-meteo.com/"
-      },
       "services": []
     },
     {
-      "id": "thorpe-park",
-      "kind": "theme_park_queues",
-      "duration_seconds": 12,
-      "title": "THORPE PARK · Powered by Queue-Times.com",
-      "source": "queue_times",
+      "id": "calendar",
+      "kind": "calendar_agenda",
+      "duration_seconds": 10,
+      "title": "UPCOMING",
+      "source": "todoist",
       "stale": false,
-      "weather": {
-        "source": "open_meteo",
-        "stale": false,
-        "temperature_c": 17.4,
-        "weather_code": 2,
-        "icon": "partly_cloudy_day",
-        "is_day": true
-      },
-      "rides": []
+      "viewport_size": 3,
+      "page_seconds": 5,
+      "events": [
+        {"start": "2026-09-13T18:30:00+01:00", "all_day": false, "date_text": "13/09", "time_text": "18:30", "title": "Event one"}
+      ]
     }
   ]
 }
@@ -159,12 +190,6 @@ If a weather refresh fails after at least one successful response, the previous 
 The MatrixPortal rotates these screens locally and does not reset the active screen every time fresh data is polled. If the backend becomes temporarily unreachable it keeps the last screens, marks the active screen stale, and dims the retained weather value.
 
 The board clock is derived from the backend's UTC `fetched_at` timestamp and advanced locally between polls. The CircuitPython client converts UTC to Europe/London time itself, including the GMT/BST transitions, so no separate NTP or clock API is needed.
-
-A credential-free `calendar_agenda` fixture is also available for testing the generic rotation seam:
-
-```sh
-python3 server.py --calendar-source fixture
-```
 
 ## Physical MatrixPortal configuration
 
@@ -184,7 +209,7 @@ WIFI_PASSWORD = "your-wifi-password"
 
 For local development instead, copy `settings_local.py.example` to the ignored `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `server.py`, for example `http://192.168.1.123:8000`.
 
-The MatrixPortal no longer needs National Rail credentials or a direct National Rail client. Weather also remains server-side, so the MatrixPortal makes only the same `/api/screens` request it already used.
+The MatrixPortal does not need provider credentials or direct upstream API clients. It makes only the same `/api/screens` request regardless of which server-side feeds are enabled.
 
 For a physical board to reach a local backend, `server.py` must listen on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
 
