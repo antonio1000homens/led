@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Bootstrap GitHub OIDC deployment roles for the LED repository.
+
+Parameters:
+  GitHubOidcProviderArn:
+    Type: String
+    Description: Existing IAM OIDC provider ARN for token.actions.githubusercontent.com.
+  ArtifactBucketName:
+    Type: String
+    Default: aws2022-lambda-code-eu-west-2-553490163883
+  RepoOwner:
+    Type: String
+    Default: antonio1000homens
+  RepoName:
+    Type: String
+    Default: led
+  DeployBranch:
+    Type: String
+    Default: main
+
+Resources:
+  CloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LedCloudFormationExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: led-cloudformation-execution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: RuntimeRoleCreate
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/led-*
+              - Sid: RuntimeRoleManage
+                Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:DeleteRolePolicy
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/led-*
+              - Sid: RuntimeRolePass
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/led-*
+              - Sid: ReadLambdaArtifact
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource: !Sub arn:aws:s3:::${ArtifactBucketName}/led/*
+              - Sid: HostingBucketCreate
+                Effect: Allow
+                Action: s3:CreateBucket
+                Resource: '*'
+              - Sid: HostingBucketManage
+                Effect: Allow
+                Action:
+                  - s3:DeleteBucket
+                  - s3:GetBucketLocation
+                  - s3:GetBucketPolicy
+                  - s3:PutBucketPolicy
+                  - s3:DeleteBucketPolicy
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetEncryptionConfiguration
+                  - s3:PutEncryptionConfiguration
+                  - s3:ListBucket
+                Resource: !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}
+              - Sid: HostingObjectsManage
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/*
+              - Sid: LambdaCreate
+                Effect: Allow
+                Action: lambda:CreateFunction
+                Resource: '*'
+              - Sid: LambdaManage
+                Effect: Allow
+                Action:
+                  - lambda:DeleteFunction
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:GetFunctionConcurrency
+                  - lambda:ListTags
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:UpdateFunctionCode
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:PutFunctionConcurrency
+                  - lambda:DeleteFunctionConcurrency
+                Resource: !Sub arn:aws:lambda:eu-west-2:${AWS::AccountId}:function:led-*
+              - Sid: SchedulerManage
+                Effect: Allow
+                Action:
+                  - scheduler:CreateSchedule
+                  - scheduler:DeleteSchedule
+                  - scheduler:GetSchedule
+                  - scheduler:UpdateSchedule
+                  - scheduler:TagResource
+                  - scheduler:UntagResource
+                Resource: !Sub arn:aws:scheduler:eu-west-2:${AWS::AccountId}:schedule/default/led-*
+              - Sid: LogsManage
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteRetentionPolicy
+                  - logs:TagResource
+                  - logs:UntagResource
+                Resource: !Sub arn:aws:logs:eu-west-2:${AWS::AccountId}:log-group:/aws/lambda/led-*
+              - Sid: CloudFrontCreate
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateDistribution
+                  - cloudfront:CreateOriginAccessControl
+                  - cloudfront:ListDistributions
+                  - cloudfront:ListOriginAccessControls
+                Resource: '*'
+              - Sid: CloudFrontManage
+                Effect: Allow
+                Action:
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:TagResource
+                  - cloudfront:UntagResource
+                  - cloudfront:DeleteOriginAccessControl
+                  - cloudfront:GetOriginAccessControl
+                  - cloudfront:GetOriginAccessControlConfig
+                  - cloudfront:UpdateOriginAccessControl
+                Resource: '*'
+
+  GitHubActionsDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActionsLedDeployRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${RepoOwner}/${RepoName}:ref:refs/heads/${DeployBranch}
+      Policies:
+        - PolicyName: led-github-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: CloudFormationDeploy
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStacks
+                  - cloudformation:ExecuteChangeSet
+                Resource:
+                  - !Sub arn:aws:cloudformation:eu-west-2:${AWS::AccountId}:stack/led-*/*
+                  - !Sub arn:aws:cloudformation:eu-west-2:${AWS::AccountId}:changeSet/*/*
+              - Sid: CloudFormationReadGlobal
+                Effect: Allow
+                Action:
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:ValidateTemplate
+                Resource: '*'
+              - Sid: PassCloudFormationRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt CloudFormationExecutionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: UploadLambdaArtifact
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${ArtifactBucketName}/led/*
+              - Sid: PublishStaticContent
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}
+              - Sid: PublishStaticObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/index.html
+                  - !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/api/screens
+              - Sid: InvokePublisher
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:eu-west-2:${AWS::AccountId}:function:led-publisher
+              - Sid: CloudFrontReadInvalidate
+                Effect: Allow
+                Action:
+                  - cloudfront:GetDistribution
+                  - cloudfront:CreateInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/*
+              - Sid: CertificateManagement
+                Effect: Allow
+                Action:
+                  - acm:AddTagsToCertificate
+                  - acm:DescribeCertificate
+                  - acm:ListCertificates
+                  - acm:RequestCertificate
+                Resource: '*'
+              - Sid: CallerIdentity
+                Effect: Allow
+                Action: sts:GetCallerIdentity
+                Resource: '*'
+
+Outputs:
+  AwsRoleToAssume:
+    Value: !GetAtt GitHubActionsDeployRole.Arn
+  CloudFormationRoleArn:
+    Value: !GetAtt CloudFormationExecutionRole.Arn
