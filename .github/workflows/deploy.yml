@@ -19,6 +19,13 @@ env:
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
   CLOUDFORMATION_ROLE_ARN: ${{ vars.CLOUDFORMATION_ROLE_ARN }}
+  LED_CALENDAR_SOURCE: "${{ vars.LED_CALENDAR_SOURCE || 'off' }}"
+  LED_TODOIST_CACHE_SECONDS: "${{ vars.LED_TODOIST_CACHE_SECONDS || '300' }}"
+  LED_TODOIST_MAX_EVENTS: "${{ vars.LED_TODOIST_MAX_EVENTS || '6' }}"
+  LED_TODOIST_FILTER_QUERY: "${{ vars.LED_TODOIST_FILTER_QUERY || 'date after: yesterday' }}"
+  LED_TODOIST_TIMEZONE: "${{ vars.LED_TODOIST_TIMEZONE || 'Europe/London' }}"
+  LED_CALENDAR_DURATION_SECONDS: "${{ vars.LED_CALENDAR_DURATION_SECONDS || '10' }}"
+  LED_CALENDAR_PAGE_SECONDS: "${{ vars.LED_CALENDAR_PAGE_SECONDS || '5' }}"
 
 jobs:
   test:
@@ -74,6 +81,11 @@ jobs:
           optional_todoist = os.environ.get("BW_TODOIST_TOKEN", "").strip()
           if optional_todoist and not uuid.fullmatch(optional_todoist):
               raise SystemExit("BW_TODOIST_TOKEN must contain a Bitwarden secret UID when configured")
+          calendar_source = os.environ.get("LED_CALENDAR_SOURCE", "off").strip()
+          if calendar_source not in ("off", "todoist"):
+              raise SystemExit("LED_CALENDAR_SOURCE must be off or todoist")
+          if calendar_source == "todoist" and not optional_todoist:
+              raise SystemExit("BW_TODOIST_TOKEN is required when LED_CALENDAR_SOURCE=todoist")
           PY
 
       - name: Resolve deployment secrets from Bitwarden
