@@ -6,8 +6,8 @@ The production LED backend is serverless and publishes a static renderer-neutral
 EventBridge Scheduler (1 minute)
         |
         v
-  led-publisher Lambda <----> AWS Secrets Manager
-   |      |       |             Todoist OAuth credentials/tokens
+  led-publisher Lambda <----> SSM Parameter Store
+   |      |       |             /led/todoist/oauth SecureString
  Darwin  Queue-  Todoist
          Times      |
    |                |
@@ -44,7 +44,7 @@ This repository follows the same deployment/secret conventions as `antonio1000ho
 - GitHub repository variables contain non-secret deployment configuration or Bitwarden secret UIDs only.
 - `bitwarden/sm-action` is pinned to a commit SHA and resolves the National Rail and Cloudflare secret values only at deploy time.
 - the National Rail token flows through a `NoEcho` CloudFormation parameter into the Lambda environment.
-- Todoist uses OAuth. Its client credentials plus current access/refresh tokens live in a retained AWS Secrets Manager secret named `led/todoist/oauth`; the Lambda receives only the secret ARN and has permission to read it and persist refresh-token rotations.
+- Todoist uses OAuth. Its client credentials plus current access/refresh tokens live in an SSM Parameter Store **Standard `SecureString`** named `/led/todoist/oauth`; Lambda can decrypt and update only that parameter so rotating refresh tokens persist without a Secrets Manager per-secret charge.
 - Cloudflare's API token is deployment-only and never reaches Lambda.
 - Cloudflare DNS is explicitly constrained to the **Windsor** Cloudflare account; deployment must not use the Scouts account.
 - the bootstrap stack owns a dedicated private LED Lambda artifact bucket and the CloudFormation execution role.
@@ -58,7 +58,7 @@ Create these in the LED Bitwarden project and allow the `led-github-actions` mac
 1. `NATIONAL_RAIL_TOKEN` — National Rail Darwin token.
 2. `CF_DEPLOY_API_TOKEN` — a Cloudflare API token with Zone Read and DNS Edit access to `alf-broadcast.co.uk` in the **Windsor Cloudflare account**.
 
-Todoist OAuth credentials are **not** stored in Bitwarden/GitHub for runtime use. They are seeded directly into AWS Secrets Manager by `scripts/bootstrap-todoist-oauth.py` and thereafter rotated by the publisher Lambda.
+Todoist OAuth credentials are **not** stored in Bitwarden/GitHub for runtime use. They are seeded directly into SSM Parameter Store by `scripts/bootstrap-todoist-oauth.py` and thereafter updated by the publisher Lambda when Todoist rotates refresh tokens.
 
 Do not put secret values in GitHub variables. If the existing `CF_DEPLOY_API_TOKEN` value was created for the Scouts account, replace it with a Windsor-scoped token before deployment; the GitHub variable continues to contain only its Bitwarden UID.
 
@@ -115,7 +115,7 @@ The `led-bootstrap` stack creates:
 - `LedCloudFormationExecutionRole`, used by CloudFormation for the LED infrastructure;
 - `led-code-eu-west-2-<aws-account-id>`, a dedicated encrypted/private Lambda artifact bucket with public access blocked and TLS-only access enforced.
 
-The CloudFormation role is also scoped to create/manage the single `led/todoist/oauth` Secrets Manager resource. Existing installations created before the Todoist OAuth work must rerun `scripts/bootstrap-deployment-role.sh` once **before** deploying the updated main stack, otherwise the existing CloudFormation execution role will not have permission to create that secret.
+The SSM Todoist parameter is intentionally **not** created by CloudFormation because `AWS::SSM::Parameter` does not support creating `SecureString` parameters. `scripts/bootstrap-todoist-oauth.py` creates or updates `/led/todoist/oauth` directly as a Standard `SecureString`; the main stack only grants the publisher narrowly-scoped `ssm:GetParameter`/`ssm:PutParameter` access to that path.
 
 The code bucket is retained if the bootstrap stack is deleted, preventing accidental loss of deployment artifacts.
 
@@ -133,13 +133,13 @@ A push to `master`, or a manual `workflow_dispatch`, performs the production dep
 6. request or reuse the `led.alf-broadcast.co.uk` ACM certificate in `us-east-1`;
 7. create/update the ACM validation CNAME in the Windsor Cloudflare account and wait for issuance;
 8. package the Lambda, including `zeep` and the Todoist OAuth/provider module, and upload it to the dedicated LED code bucket;
-9. deploy `infrastructure/led-stack.yaml` through `LedCloudFormationExecutionRole`, creating the retained Todoist OAuth secret if it does not exist;
+9. deploy `infrastructure/led-stack.yaml` through `LedCloudFormationExecutionRole`, configuring Lambda access to `/led/todoist/oauth`;
 10. upload `simulator/index.html` as S3 `index.html`;
 11. invoke the publisher once so `/api/screens` exists immediately;
 12. create/update the DNS-only `led.alf-broadcast.co.uk` CNAME in the Windsor Cloudflare account;
 13. invalidate `/index.html` and `/api/screens`.
 
-Subsequent deployments reuse the existing certificate, bucket, DNS records and Todoist OAuth secret.
+Subsequent deployments reuse the existing certificate, bucket and DNS records. Todoist OAuth state remains in SSM independently of stack deployments.
 
 ## Todoist production configuration
 
@@ -160,10 +160,8 @@ LED_CALENDAR_PAGE_SECONDS=5
 For a new Todoist integration with a Client ID and Client Secret:
 
 1. Keep `LED_CALENDAR_SOURCE=off` initially.
-2. If this environment predates Todoist OAuth support, rerun `AWS_PROFILE=<admin-profile> bash scripts/bootstrap-deployment-role.sh` so the CloudFormation execution role gains the narrowly-scoped Secrets Manager permissions.
-3. Deploy the updated LED stack once. It creates an empty retained secret named `led/todoist/oauth` and outputs `TodoistOAuthSecretArn`.
-4. In Todoist App Management, register `http://127.0.0.1:8765/callback` as an OAuth redirect URL, or choose another URI and pass it through `TODOIST_REDIRECT_URI`.
-5. Run:
+2. In Todoist App Management, register `http://127.0.0.1:8765/callback` as an OAuth redirect URL, or choose another URI and pass it through `TODOIST_REDIRECT_URI`.
+3. Run:
 
 ```bash
 TODOIST_CLIENT_ID='<client-id>' \
@@ -171,17 +169,40 @@ AWS_PROFILE='<aws-profile>' \
 python3 scripts/bootstrap-todoist-oauth.py
 ```
 
-The script prompts securely for the Client Secret, requests the read-only `data:read` scope, opens Todoist authorization in the browser, verifies the returned OAuth `state`, exchanges the code at `https://api.todoist.com/oauth/access_token`, discovers `TodoistOAuthSecretArn` from the stack, and writes the client credentials plus access/refresh tokens into AWS Secrets Manager. It never prints the Client Secret or tokens.
+The script prompts securely for the Client Secret, requests the read-only `data:read` scope, opens Todoist authorization in the browser, verifies the returned OAuth `state`, exchanges the code at `https://api.todoist.com/oauth/access_token`, and writes the client credentials plus access/refresh tokens into `/led/todoist/oauth` as an SSM Parameter Store Standard `SecureString`. It never prints the Client Secret or tokens.
 
 If a localhost callback is not suitable, run with `--manual` and paste the complete redirected callback URL. If the registered callback differs from the default, set `TODOIST_REDIRECT_URI` or pass `--redirect-uri`.
 
-6. Set GitHub repository variable `LED_CALENDAR_SOURCE=todoist` and run the deployment workflow. Optional Todoist filter/timing settings can be set through the other `LED_TODOIST_*`/`LED_CALENDAR_*` variables above.
+4. Set GitHub repository variable `LED_CALENDAR_SOURCE=todoist` and run the deployment workflow. Optional Todoist filter/timing settings can be set through the other `LED_TODOIST_*`/`LED_CALENDAR_*` variables above.
 
 No Todoist Client Secret, access token or refresh token is placed in GitHub Actions variables, CloudFormation parameters, `/api/screens`, S3 feed state, simulator code or MatrixPortal configuration.
 
+### Migrating the previous Secrets Manager OAuth secret
+
+If OAuth was already bootstrapped into the old Secrets Manager resource, do **not** authorize Todoist again. Before enabling/deploying the SSM-backed runtime, copy the existing JSON into the Standard `SecureString`:
+
+```bash
+AWS_PROFILE='<aws-profile>' \
+python3 scripts/bootstrap-todoist-oauth.py \
+  --migrate-secret-id '<existing-secrets-manager-arn>'
+```
+
+The migration reads the existing secret without printing it, validates that the Todoist client credentials and refresh token are present, then writes the same JSON to `/led/todoist/oauth` with `Type=SecureString`, `Tier=Standard`, and `Overwrite=true`.
+
+After the SSM-backed stack has deployed and the Todoist calendar is verified, schedule the old Secrets Manager secret for deletion:
+
+```bash
+AWS_PROFILE='<aws-profile>' aws secretsmanager delete-secret \
+  --region eu-west-2 \
+  --secret-id '<existing-secrets-manager-arn>' \
+  --recovery-window-in-days 7
+```
+
+AWS makes a secret inaccessible as soon as it is scheduled for deletion and does not charge for secrets marked for deletion during the recovery window. Keep the recovery window rather than forcing immediate deletion so the migration remains reversible for seven days.
+
 ### Runtime refresh-token rotation
 
-New Todoist applications issue short-lived access tokens and rotating refresh tokens. The publisher reads the AWS secret, reuses a still-valid access token, and refreshes shortly before expiry. Every successful refresh is persisted immediately because the returned refresh token replaces the consumed token.
+New Todoist applications issue short-lived access tokens and rotating refresh tokens. The publisher decrypts the SSM `SecureString`, reuses a still-valid access token, and refreshes shortly before expiry. Every successful refresh is persisted immediately because the returned refresh token replaces the consumed token.
 
 If Todoist returns `401` for an API request, the provider forces one refresh and retries the task request once. The code also treats a refresh response that omits the replacement refresh token as unrecoverable rather than persisting/replaying the consumed token. In that case the calendar becomes stale/unavailable and the OAuth bootstrap script must be run again.
 
@@ -208,7 +229,7 @@ export CLOUDFORMATION_ROLE_ARN='<bootstrap stack output>'
 bash scripts/deploy.sh
 ```
 
-For a Todoist-enabled deployment, OAuth must already have been bootstrapped into AWS Secrets Manager; then only set:
+For a Todoist-enabled deployment, OAuth must already have been bootstrapped into SSM Parameter Store; then only set:
 
 ```bash
 export LED_CALENDAR_SOURCE=todoist
@@ -258,4 +279,4 @@ The client continues to request `${SCREEN_API_URL}/api/screens`; no National Rai
 
 ## Cost characteristics
 
-There is no always-on EC2, ECS/Fargate, App Runner, API Gateway, or NAT Gateway component. The dedicated Lambda code bucket and one small Secrets Manager secret add minimal storage/runtime overhead at this project's scale. Lambda, Scheduler, S3, CloudFront and Secrets Manager usage remain small, subject to the account's aggregate usage and current AWS pricing.
+There is no always-on EC2, ECS/Fargate, App Runner, API Gateway, NAT Gateway, or Secrets Manager runtime dependency. Todoist OAuth state is stored in one SSM Parameter Store **Standard `SecureString`** using the default AWS-managed SSM key. The dedicated Lambda code bucket stores only deployment packages. Lambda, Scheduler, S3, CloudFront and standard Parameter Store usage should remain very small at this project's scale, subject to the account's aggregate usage and current AWS pricing.

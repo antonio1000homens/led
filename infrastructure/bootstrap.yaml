@@ -127,23 +127,6 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                 Resource: !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}/*
-              - Sid: TodoistSecretCreate
-                Effect: Allow
-                Action:
-                  - secretsmanager:CreateSecret
-                Resource: '*'
-              - Sid: TodoistSecretManage
-                Effect: Allow
-                Action:
-                  - secretsmanager:DeleteSecret
-                  - secretsmanager:DescribeSecret
-                  - secretsmanager:GetResourcePolicy
-                  - secretsmanager:PutResourcePolicy
-                  - secretsmanager:DeleteResourcePolicy
-                  - secretsmanager:TagResource
-                  - secretsmanager:UntagResource
-                  - secretsmanager:UpdateSecret
-                Resource: !Sub arn:aws:secretsmanager:eu-west-2:${AWS::AccountId}:secret:led/todoist/oauth-*
               - Sid: LambdaCreate
                 Effect: Allow
                 Action: lambda:CreateFunction
