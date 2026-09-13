@@ -29,9 +29,9 @@ https://led.alf-broadcast.co.uk/api/screens
 
 Cloudflare remains the authoritative DNS provider and points the DNS-only `led.alf-broadcast.co.uk` CNAME at CloudFront. The S3 `state/*` prefix is not exposed through CloudFront.
 
-Deployment follows the same operational model as the private Scouts repository: GitHub Actions uses AWS OIDC, `BW_ACCESS_TOKEN` is the Bitwarden machine-account GitHub secret, and GitHub variables hold non-secret configuration or Bitwarden secret UIDs only. The National Rail token and optional Todoist token are resolved at deployment and passed through `NoEcho` CloudFormation parameters; the Cloudflare API token remains CI-only.
+Deployment follows the same operational model as the private Scouts repository: GitHub Actions uses AWS OIDC, `BW_ACCESS_TOKEN` is the Bitwarden machine-account GitHub secret, and GitHub variables hold non-secret configuration or Bitwarden secret UIDs only. The National Rail token is resolved from Bitwarden at deployment. Todoist is different because its OAuth refresh token rotates at runtime: the Todoist client credentials plus access/refresh tokens live in a dedicated AWS Secrets Manager secret that the publisher Lambda can read and update.
 
-See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, Bitwarden/GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, Todoist OAuth bootstrap, Bitwarden/GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
 
 ## Hardware notes
 
@@ -118,13 +118,35 @@ LED_CALENDAR_PAGE_SECONDS=5
 
 The feed is intentionally **off by default**. The current production `/api/screens` object is publicly retrievable through CloudFront, so enabling a personal Todoist feed makes the selected task names and dates/times publicly retrievable as part of that JSON response. Use a deliberately narrow Todoist filter/project/label if this exposure is acceptable, or protect/personalize the screen endpoint before enabling private task data.
 
-For production credentials, store the Todoist personal API token in Bitwarden Secrets Manager and create a GitHub Actions variable named `BW_TODOIST_TOKEN` containing only that Bitwarden secret UID. The workflow resolves it into the deploy job, passes it as the `TodoistToken` `NoEcho` CloudFormation parameter, and the publisher Lambda receives it as `TODOIST_TOKEN`. The token is never emitted in `/api/screens`, feed state, logs, simulator code or MatrixPortal configuration.
+#### Todoist OAuth bootstrap
 
-To enable the production feed after the secret is configured, set the deployment environment override:
+Use the Client ID and Client Secret from the Todoist integration rather than a personal API token. The stack creates a retained Secrets Manager secret named `led/todoist/oauth`; only its ARN is exposed to the Lambda environment. The secret value contains the client credentials plus the current access and refresh tokens. The Lambda refreshes expiring access tokens itself and immediately persists the replacement refresh token returned by Todoist.
+
+For a newly-created Todoist integration, add this OAuth redirect URL in Todoist App Management unless you choose another URI:
+
+```text
+http://127.0.0.1:8765/callback
+```
+
+After the updated AWS stack has been deployed once, run the bootstrap script from a machine with AWS CLI access to the LED account:
+
+```sh
+TODOIST_CLIENT_ID='<client-id>' \
+AWS_PROFILE='<aws-profile>' \
+python3 scripts/bootstrap-todoist-oauth.py
+```
+
+The script prompts securely for the Client Secret, requests only the `data:read` Todoist scope, opens the authorization page in your browser, validates the OAuth `state`, receives the localhost callback, exchanges the authorization code, and writes the credentials/tokens to the stack-owned AWS secret. To use a different registered redirect URI, set `TODOIST_REDIRECT_URI`; `--manual` is also available when a localhost callback is unsuitable.
+
+Do not pass the Client Secret on a shell command line. For unattended use the script also accepts `TODOIST_CLIENT_SECRET` from the environment, but an interactive prompt is preferred.
+
+Once OAuth is bootstrapped, set the GitHub repository variable:
 
 ```text
 LED_CALENDAR_SOURCE=todoist
 ```
+
+and run the deployment workflow. There is no `BW_TODOIST_TOKEN` or Todoist token CloudFormation parameter: runtime token rotation is contained in AWS Secrets Manager.
 
 A failed Todoist refresh preserves the last successful events and marks only the calendar screen stale. A cold Todoist failure publishes `Calendar unavailable` without affecting rail, queue or weather data. A successful response containing no qualifying tasks renders `No upcoming events` and is not stale.
 
