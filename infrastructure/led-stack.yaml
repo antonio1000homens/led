@@ -1,93 +1,33 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Serverless LED screen publisher, private S3 origin, and CloudFront distribution.
-
+Description: Serverless LED screen publisher, admin configuration API, private S3 origin, and CloudFront distribution.
 Parameters:
-  CodeBucket:
-    Type: String
-    Description: S3 bucket containing the packaged publisher Lambda zip.
-  CodeKey:
-    Type: String
-    Description: S3 key containing the packaged publisher Lambda zip.
-  NationalRailToken:
+  CodeBucket: {Type: String}
+  CodeKey: {Type: String}
+  NationalRailToken: {Type: String, NoEcho: true}
+  AdminToken:
     Type: String
     NoEcho: true
-    Description: National Rail Darwin token resolved from Bitwarden during deployment.
-  DomainName:
-    Type: String
-    Default: led.alf-broadcast.co.uk
-  CertificateArn:
-    Type: String
-    Description: ISSUED ACM certificate ARN in us-east-1 for DomainName.
-  StationCrs:
-    Type: String
-    Default: NEM
-    AllowedPattern: '^[A-Z]{3}$'
-  MaxRows:
-    Type: Number
-    Default: 10
-    MinValue: 1
-    MaxValue: 50
-  RailCacheSeconds:
-    Type: Number
-    Default: 60
-    MinValue: 1
-  ThorpeParkSource:
-    Type: String
-    Default: queue_times
-    AllowedValues: ['off', queue_times]
-  ThorpeParkCacheSeconds:
-    Type: Number
-    Default: 300
-    MinValue: 1
-  ThorpeParkRides:
-    Type: String
-    Default: Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave
-  CalendarSource:
-    Type: String
-    Default: 'off'
-    AllowedValues: ['off', todoist]
-  TodoistOAuthParameterName:
-    Type: String
-    Default: /led/todoist/oauth
-    Description: Existing SSM Parameter Store Standard SecureString containing Todoist OAuth credentials and rotating tokens.
-  TodoistCacheSeconds:
-    Type: Number
-    Default: 300
-    MinValue: 1
-  TodoistMaxEvents:
-    Type: Number
-    Default: 6
-    MinValue: 1
-    MaxValue: 20
-  TodoistFilterQuery:
-    Type: String
-    Default: 'date after: yesterday'
-  TodoistTimezone:
-    Type: String
-    Default: Europe/London
-  CalendarDurationSeconds:
-    Type: Number
-    Default: 10
-    MinValue: 2
-  CalendarPageSeconds:
-    Type: Number
-    Default: 5
-    MinValue: 1
-  WeatherSource:
-    Type: String
-    Default: open_meteo
-    AllowedValues: ['off', open_meteo]
-  WeatherCacheSeconds:
-    Type: Number
-    Default: 600
-    MinValue: 1
-  WeatherLatitude:
-    Type: String
-    Default: '51.4039'
-  WeatherLongitude:
-    Type: String
-    Default: '-0.256'
-
+    MinLength: 20
+  DomainName: {Type: String, Default: led.alf-broadcast.co.uk}
+  CertificateArn: {Type: String}
+  StationCrs: {Type: String, Default: NEM, AllowedPattern: '^[A-Z]{3}$'}
+  MaxRows: {Type: Number, Default: 10, MinValue: 1, MaxValue: 50}
+  RailCacheSeconds: {Type: Number, Default: 60, MinValue: 1}
+  ThorpeParkSource: {Type: String, Default: queue_times, AllowedValues: ['off', queue_times]}
+  ThorpeParkCacheSeconds: {Type: Number, Default: 300, MinValue: 1}
+  ThorpeParkRides: {Type: String, Default: 'Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave'}
+  CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
+  TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
+  TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 1}
+  TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
+  TodoistFilterQuery: {Type: String, Default: 'date after: yesterday'}
+  TodoistTimezone: {Type: String, Default: Europe/London}
+  CalendarDurationSeconds: {Type: Number, Default: 10, MinValue: 2}
+  CalendarPageSeconds: {Type: Number, Default: 5, MinValue: 1}
+  WeatherSource: {Type: String, Default: open_meteo, AllowedValues: ['off', open_meteo]}
+  WeatherCacheSeconds: {Type: Number, Default: 600, MinValue: 1}
+  WeatherLatitude: {Type: String, Default: '51.4039'}
+  WeatherLongitude: {Type: String, Default: '-0.256'}
 Resources:
   HostingBucket:
     Type: AWS::S3::Bucket
@@ -95,62 +35,36 @@ Resources:
       BucketName: !Sub led-alf-broadcast-prod-${AWS::AccountId}
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
   PublisherRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: led-publisher-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
       Policies:
         - PolicyName: led-publisher-runtime
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Sid: ReadStateBucket
-                Effect: Allow
-                Action:
-                  - s3:ListBucket
-                Resource: !GetAtt HostingBucket.Arn
+              - {Sid: ReadStateBucket, Effect: Allow, Action: ['s3:ListBucket'], Resource: !GetAtt HostingBucket.Arn}
               - Sid: ReadWritePublisherObjects
                 Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
+                Action: ['s3:GetObject', 's3:PutObject']
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
+                  - !Sub ${HostingBucket.Arn}/state/config.json
                   - !Sub ${HostingBucket.Arn}/api/screens
               - Sid: ReadWriteTodoistOAuthParameter
                 Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - ssm:PutParameter
+                Action: ['ssm:GetParameter', 'ssm:PutParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
-              - Sid: WriteLogs
-                Effect: Allow
-                Action:
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: !Sub ${PublisherLogGroup.Arn}:*
-
+              - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${PublisherLogGroup.Arn}:*'}
   PublisherLogGroup:
     Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: /aws/lambda/led-publisher
-      RetentionInDays: 14
-
+    Properties: {LogGroupName: /aws/lambda/led-publisher, RetentionInDays: 14}
   PublisherFunction:
     Type: AWS::Lambda::Function
     DependsOn: PublisherLogGroup
@@ -162,14 +76,11 @@ Resources:
       Timeout: 60
       MemorySize: 256
       ReservedConcurrentExecutions: 1
-      Code:
-        S3Bucket: !Ref CodeBucket
-        S3Key: !Ref CodeKey
+      Code: {S3Bucket: !Ref CodeBucket, S3Key: !Ref CodeKey}
       Environment:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
-          # Compatibility variable name: its value is now an SSM parameter path, not a Secrets Manager ARN.
           TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
@@ -188,71 +99,99 @@ Resources:
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
           LED_WEATHER_LATITUDE: !Ref WeatherLatitude
           LED_WEATHER_LONGITUDE: !Ref WeatherLongitude
-
+  ConfigRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-config-api-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: led-config-api-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - {Effect: Allow, Action: ['s3:GetObject', 's3:PutObject'], Resource: !Sub '${HostingBucket.Arn}/state/config.json'}
+              - {Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${ConfigLogGroup.Arn}:*'}
+  ConfigLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: /aws/lambda/led-config-api, RetentionInDays: 14}
+  ConfigFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ConfigLogGroup
+    Properties:
+      FunctionName: led-config-api
+      Runtime: python3.12
+      Handler: config_api.lambda_handler
+      Role: !GetAtt ConfigRole.Arn
+      Timeout: 10
+      MemorySize: 128
+      Code: {S3Bucket: !Ref CodeBucket, S3Key: !Ref CodeKey}
+      Environment:
+        Variables: {STATE_BUCKET: !Ref HostingBucket, ADMIN_TOKEN: !Ref AdminToken}
+  ConfigApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties: {Name: led-config-api, ProtocolType: HTTP}
+  ConfigApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties: {ApiId: !Ref ConfigApi, IntegrationType: AWS_PROXY, IntegrationUri: !GetAtt ConfigFunction.Arn, PayloadFormatVersion: '2.0'}
+  ConfigGetRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ConfigApi, RouteKey: 'GET /api/config', Target: !Sub 'integrations/${ConfigApiIntegration}'}
+  ConfigPutRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ConfigApi, RouteKey: 'PUT /api/config', Target: !Sub 'integrations/${ConfigApiIntegration}'}
+  ConfigApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties: {ApiId: !Ref ConfigApi, StageName: '$default', AutoDeploy: true}
+  ConfigInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ConfigFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ConfigApi}/*/*/api/config
   SchedulerRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: led-scheduler-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: scheduler.amazonaws.com
-            Action: sts:AssumeRole
+        Statement: [{Effect: Allow, Principal: {Service: scheduler.amazonaws.com}, Action: 'sts:AssumeRole'}]
       Policies:
         - PolicyName: invoke-led-publisher
           PolicyDocument:
             Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !GetAtt PublisherFunction.Arn
-
+            Statement: [{Effect: Allow, Action: 'lambda:InvokeFunction', Resource: !GetAtt PublisherFunction.Arn}]
   PublisherSchedule:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: led-publisher-minute
       Description: Refresh and publish LED screen data every minute.
-      FlexibleTimeWindow:
-        Mode: 'OFF'
+      FlexibleTimeWindow: {Mode: 'OFF'}
       ScheduleExpression: rate(1 minute)
       State: ENABLED
-      Target:
-        Arn: !GetAtt PublisherFunction.Arn
-        RoleArn: !GetAtt SchedulerRole.Arn
-        RetryPolicy:
-          MaximumEventAgeInSeconds: 60
-          MaximumRetryAttempts: 1
-
+      Target: {Arn: !GetAtt PublisherFunction.Arn, RoleArn: !GetAtt SchedulerRole.Arn, RetryPolicy: {MaximumEventAgeInSeconds: 60, MaximumRetryAttempts: 1}}
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      OriginAccessControlConfig:
-        Name: led-private-s3-oac
-        Description: CloudFront access to public LED objects in the private bucket.
-        OriginAccessControlOriginType: s3
-        SigningBehavior: always
-        SigningProtocol: sigv4
-
+      OriginAccessControlConfig: {Name: led-private-s3-oac, Description: CloudFront access to public LED objects in the private bucket., OriginAccessControlOriginType: s3, SigningBehavior: always, SigningProtocol: sigv4}
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Enabled: true
         Comment: LED information board
-        Aliases:
-          - !Ref DomainName
+        Aliases: [!Ref DomainName]
         DefaultRootObject: index.html
         HttpVersion: http2
         IPV6Enabled: true
         PriceClass: PriceClass_100
         Origins:
-          - Id: led-s3-origin
-            DomainName: !GetAtt HostingBucket.RegionalDomainName
-            OriginAccessControlId: !Ref OriginAccessControl
-            S3OriginConfig:
-              OriginAccessIdentity: ''
+          - {Id: led-s3-origin, DomainName: !GetAtt HostingBucket.RegionalDomainName, OriginAccessControlId: !Ref OriginAccessControl, S3OriginConfig: {OriginAccessIdentity: ''}}
+          - Id: led-config-api-origin
+            DomainName: !Sub ${ConfigApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig: {HTTPSPort: 443, OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2]}
         DefaultCacheBehavior:
           TargetOriginId: led-s3-origin
           ViewerProtocolPolicy: redirect-to-https
@@ -261,6 +200,14 @@ Resources:
           CachedMethods: [GET, HEAD, OPTIONS]
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
         CacheBehaviors:
+          - PathPattern: api/config
+            TargetOriginId: led-config-api-origin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
           - PathPattern: api/screens
             TargetOriginId: led-s3-origin
             ViewerProtocolPolicy: redirect-to-https
@@ -268,11 +215,7 @@ Resources:
             AllowedMethods: [GET, HEAD, OPTIONS]
             CachedMethods: [GET, HEAD, OPTIONS]
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-        ViewerCertificate:
-          AcmCertificateArn: !Ref CertificateArn
-          SslSupportMethod: sni-only
-          MinimumProtocolVersion: TLSv1.2_2021
-
+        ViewerCertificate: {AcmCertificateArn: !Ref CertificateArn, SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021}
   HostingBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -283,25 +226,22 @@ Resources:
           - Sid: DenyInsecureTransport
             Effect: Deny
             Principal: '*'
-            Action: s3:*
+            Action: 's3:*'
             Resource:
               - !GetAtt HostingBucket.Arn
               - !Sub ${HostingBucket.Arn}/*
-            Condition:
-              Bool:
-                aws:SecureTransport: false
+            Condition: {Bool: {aws:SecureTransport: false}}
           - Sid: AllowCloudFrontPublicObjectsOnly
             Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
+            Principal: {Service: cloudfront.amazonaws.com}
             Action: s3:GetObject
             Resource:
               - !Sub ${HostingBucket.Arn}/index.html
+              - !Sub ${HostingBucket.Arn}/admin.html
               - !Sub ${HostingBucket.Arn}/api/*
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
-
 Outputs:
   HostingBucketName:
     Value: !Ref HostingBucket
@@ -309,6 +249,8 @@ Outputs:
     Value: !Ref PublisherFunction
   PublisherFunctionArn:
     Value: !GetAtt PublisherFunction.Arn
+  ConfigFunctionName:
+    Value: !Ref ConfigFunction
   TodoistOAuthParameterName:
     Value: !Ref TodoistOAuthParameterName
   DistributionId:
@@ -319,3 +261,5 @@ Outputs:
     Value: !Sub https://${DomainName}
   ScreensUrl:
     Value: !Sub https://${DomainName}/api/screens
+  AdminUrl:
+    Value: !Sub https://${DomainName}/admin.html

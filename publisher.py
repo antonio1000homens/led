@@ -8,29 +8,25 @@ import json
 import os
 from typing import Any
 
+from config_api import DEFAULT_DISPLAY_CONFIG, validate_config
 from queue_times import QueueTimesProvider
-from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider, _queue_screen_duration, _select_rides
-from todoist import (
-    DEFAULT_FILTER_QUERY,
-    DEFAULT_TIMEZONE,
-    SecretsManagerOAuthStore,
-    TodoistOAuthSession,
-    TodoistProvider,
-)
+from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider, _select_rides
+from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from weather import OpenMeteoProvider
 
-
 STATE_KEY = "state/feed-cache.json"
+CONFIG_KEY = "state/config.json"
 SCREENS_KEY = "api/screens"
 DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
+CHESSINGTON_PARK_ID = 3
 
 
-def _iso(value: datetime) -> str:
+def _iso(value):
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _parse_iso(value: str | None) -> datetime | None:
+def _parse_iso(value):
     if not value:
         return None
     try:
@@ -39,14 +35,14 @@ def _parse_iso(value: str | None) -> datetime | None:
         return None
 
 
-def _env_int(env: dict[str, str], name: str, default: int, minimum: int = 1) -> int:
+def _env_int(env, name, default, minimum=1):
     value = int(env.get(name, str(default)))
     if value < minimum:
         raise ValueError(f"{name} must be >= {minimum}")
     return value
 
 
-def _env_float(env: dict[str, str], name: str, default: float, low: float, high: float) -> float:
+def _env_float(env, name, default, low, high):
     value = float(env.get(name, str(default)))
     if not low <= value <= high:
         raise ValueError(f"{name} must be between {low} and {high}")
@@ -54,29 +50,14 @@ def _env_float(env: dict[str, str], name: str, default: float, low: float, high:
 
 
 class PublisherConfig:
-    def __init__(
-        self,
-        bucket: str,
-        national_rail_token: str,
-        station: str = "NEM",
-        max_rows: int = 10,
-        rail_ttl: int = 60,
-        thorpe_park_source: str = "queue_times",
-        thorpe_park_ttl: int = 300,
-        thorpe_park_rides: tuple[str, ...] = DEFAULT_THORPE_PARK_RIDES,
-        weather_source: str = "open_meteo",
-        weather_ttl: int = 600,
-        weather_latitude: float = DEFAULT_WEATHER_LATITUDE,
-        weather_longitude: float = DEFAULT_WEATHER_LONGITUDE,
-        calendar_source: str = "off",
-        todoist_oauth_secret_arn: str = "",
-        calendar_ttl: int = 300,
-        calendar_max_events: int = 6,
-        calendar_filter_query: str = DEFAULT_FILTER_QUERY,
-        calendar_timezone: str = DEFAULT_TIMEZONE,
-        calendar_duration: int = 10,
-        calendar_page_seconds: int = 5,
-    ):
+    def __init__(self, bucket, national_rail_token, station="NEM", max_rows=10, rail_ttl=60,
+                 thorpe_park_source="queue_times", thorpe_park_ttl=300,
+                 thorpe_park_rides=DEFAULT_THORPE_PARK_RIDES, weather_source="open_meteo",
+                 weather_ttl=600, weather_latitude=DEFAULT_WEATHER_LATITUDE,
+                 weather_longitude=DEFAULT_WEATHER_LONGITUDE, calendar_source="off",
+                 todoist_oauth_secret_arn="", calendar_ttl=300, calendar_max_events=6,
+                 calendar_filter_query=DEFAULT_FILTER_QUERY, calendar_timezone=DEFAULT_TIMEZONE,
+                 calendar_duration=10, calendar_page_seconds=5):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
         self.station = station
@@ -84,7 +65,7 @@ class PublisherConfig:
         self.rail_ttl = rail_ttl
         self.thorpe_park_source = thorpe_park_source
         self.thorpe_park_ttl = thorpe_park_ttl
-        self.thorpe_park_rides = thorpe_park_rides
+        self.thorpe_park_rides = tuple(thorpe_park_rides)
         self.weather_source = weather_source
         self.weather_ttl = weather_ttl
         self.weather_latitude = weather_latitude
@@ -99,7 +80,7 @@ class PublisherConfig:
         self.calendar_page_seconds = calendar_page_seconds
 
     @classmethod
-    def from_env(cls, env: dict[str, str] | None = None):
+    def from_env(cls, env=None):
         env = dict(os.environ if env is None else env)
         bucket = env.get("STATE_BUCKET", "").strip()
         token = env.get("NATIONAL_RAIL_TOKEN", "").strip()
@@ -125,318 +106,206 @@ class PublisherConfig:
         todoist_secret = env.get("TODOIST_OAUTH_SECRET_ARN", "").strip()
         if calendar_source == "todoist" and not todoist_secret:
             raise ValueError("TODOIST_OAUTH_SECRET_ARN is required when LED_CALENDAR_SOURCE=todoist")
-        rides = tuple(
-            item.strip()
-            for item in env.get("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)).split(",")
-            if item.strip()
-        )
-        if thorpe_source != "off" and not rides:
-            raise ValueError("LED_THORPE_PARK_RIDES must contain at least one ride")
+        rides = tuple(x.strip() for x in env.get("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)).split(",") if x.strip())
         calendar_max_events = _env_int(env, "LED_TODOIST_MAX_EVENTS", 6)
-        if calendar_max_events > 20:
-            raise ValueError("LED_TODOIST_MAX_EVENTS must be <= 20")
         calendar_duration = _env_int(env, "LED_CALENDAR_DURATION_SECONDS", 10)
         calendar_page_seconds = _env_int(env, "LED_CALENDAR_PAGE_SECONDS", 5)
         if calendar_page_seconds >= calendar_duration:
             raise ValueError("LED_CALENDAR_PAGE_SECONDS must be less than LED_CALENDAR_DURATION_SECONDS")
-        return cls(
-            bucket=bucket,
-            national_rail_token=token,
-            station=station,
-            max_rows=max_rows,
-            rail_ttl=_env_int(env, "LED_CACHE_SECONDS", 60),
-            thorpe_park_source=thorpe_source,
-            thorpe_park_ttl=_env_int(env, "LED_THORPE_PARK_CACHE_SECONDS", 300),
-            thorpe_park_rides=rides,
-            weather_source=weather_source,
-            weather_ttl=_env_int(env, "LED_WEATHER_CACHE_SECONDS", 600),
-            weather_latitude=_env_float(env, "LED_WEATHER_LATITUDE", DEFAULT_WEATHER_LATITUDE, -90, 90),
-            weather_longitude=_env_float(env, "LED_WEATHER_LONGITUDE", DEFAULT_WEATHER_LONGITUDE, -180, 180),
-            calendar_source=calendar_source,
-            todoist_oauth_secret_arn=todoist_secret,
-            calendar_ttl=_env_int(env, "LED_TODOIST_CACHE_SECONDS", 300),
-            calendar_max_events=calendar_max_events,
-            calendar_filter_query=env.get("LED_TODOIST_FILTER_QUERY", DEFAULT_FILTER_QUERY).strip() or DEFAULT_FILTER_QUERY,
-            calendar_timezone=env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
-            calendar_duration=calendar_duration,
-            calendar_page_seconds=calendar_page_seconds,
-        )
+        return cls(bucket, token, station, max_rows, _env_int(env, "LED_CACHE_SECONDS", 60),
+                   thorpe_source, _env_int(env, "LED_THORPE_PARK_CACHE_SECONDS", 300), rides,
+                   weather_source, _env_int(env, "LED_WEATHER_CACHE_SECONDS", 600),
+                   _env_float(env, "LED_WEATHER_LATITUDE", DEFAULT_WEATHER_LATITUDE, -90, 90),
+                   _env_float(env, "LED_WEATHER_LONGITUDE", DEFAULT_WEATHER_LONGITUDE, -180, 180),
+                   calendar_source, todoist_secret, _env_int(env, "LED_TODOIST_CACHE_SECONDS", 300),
+                   calendar_max_events, env.get("LED_TODOIST_FILTER_QUERY", DEFAULT_FILTER_QUERY).strip() or DEFAULT_FILTER_QUERY,
+                   env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
+                   calendar_duration, calendar_page_seconds)
 
 
 class S3StateStore:
-    """Persist feed state and publish the complete screen snapshot to S3."""
-
-    def __init__(self, bucket: str, client=None):
+    def __init__(self, bucket, client=None):
         self.bucket = bucket
         if client is None:
             import boto3
-
             client = boto3.client("s3")
         self.client = client
 
-    def load(self) -> dict[str, Any]:
+    def _get_json(self, key, default):
         try:
-            response = self.client.get_object(Bucket=self.bucket, Key=STATE_KEY)
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
         except Exception as error:
-            response_meta = getattr(error, "response", {}) or {}
-            code = str((response_meta.get("Error") or {}).get("Code") or "")
-            if code in ("NoSuchKey", "404", "NotFound"):
-                return {"version": 1, "feeds": {}}
+            meta = getattr(error, "response", {}) or {}
+            if str((meta.get("Error") or {}).get("Code") or "") in ("NoSuchKey", "404", "NotFound"):
+                return copy.deepcopy(default)
             raise
-        payload = json.loads(response["Body"].read().decode("utf-8"))
-        if not isinstance(payload, dict) or not isinstance(payload.get("feeds"), dict):
-            return {"version": 1, "feeds": {}}
-        return payload
+        return json.loads(response["Body"].read().decode("utf-8"))
 
-    def save(self, state: dict[str, Any]) -> None:
-        self.client.put_object(
-            Bucket=self.bucket,
-            Key=STATE_KEY,
-            Body=json.dumps(state, separators=(",", ":")).encode("utf-8"),
-            ContentType="application/json",
-            CacheControl="no-store",
-            ServerSideEncryption="AES256",
-        )
+    def load(self):
+        payload = self._get_json(STATE_KEY, {"version": 1, "feeds": {}})
+        return payload if isinstance(payload, dict) and isinstance(payload.get("feeds"), dict) else {"version": 1, "feeds": {}}
 
-    def publish(self, payload: dict[str, Any]) -> None:
-        self.client.put_object(
-            Bucket=self.bucket,
-            Key=SCREENS_KEY,
-            Body=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
-            ContentType="application/json",
-            CacheControl="no-store, max-age=0",
-            ServerSideEncryption="AES256",
-        )
+    def load_config(self):
+        try:
+            return validate_config(self._get_json(CONFIG_KEY, DEFAULT_DISPLAY_CONFIG))
+        except ValueError:
+            print(json.dumps({"event": "invalid_display_config", "fallback": "defaults"}))
+            return copy.deepcopy(DEFAULT_DISPLAY_CONFIG)
+
+    def save(self, state):
+        self.client.put_object(Bucket=self.bucket, Key=STATE_KEY, Body=json.dumps(state, separators=(",", ":")).encode(),
+                               ContentType="application/json", CacheControl="no-store", ServerSideEncryption="AES256")
+
+    def publish(self, payload):
+        self.client.put_object(Bucket=self.bucket, Key=SCREENS_KEY, Body=json.dumps(payload, separators=(",", ":")).encode(),
+                               ContentType="application/json", CacheControl="no-store, max-age=0", ServerSideEncryption="AES256")
 
 
 class Publisher:
-    def __init__(
-        self,
-        config: PublisherConfig,
-        store,
-        rail_provider=None,
-        queue_provider=None,
-        weather_provider=None,
-        utcnow=None,
-        calendar_provider=None,
-    ):
+    def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
+                 calendar_provider=None, chessington_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
-        self.rail_provider = rail_provider or NationalRailProvider(
-            config.national_rail_token,
-            config.station,
-            config.max_rows,
-        )
+        self.rail_provider = rail_provider or NationalRailProvider(config.national_rail_token, config.station, config.max_rows)
         self.queue_provider = queue_provider
         if self.queue_provider is None and config.thorpe_park_source == "queue_times":
-            self.queue_provider = QueueTimesProvider()
+            self.queue_provider = QueueTimesProvider(2)
+        self.chessington_provider = chessington_provider
+        if self.chessington_provider is None and config.thorpe_park_source == "queue_times":
+            self.chessington_provider = QueueTimesProvider(CHESSINGTON_PARK_ID)
         self.weather_provider = weather_provider
         if self.weather_provider is None and config.weather_source == "open_meteo":
             self.weather_provider = OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.calendar_source == "todoist":
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
-            self.calendar_provider = TodoistProvider(
-                oauth,
-                filter_query=config.calendar_filter_query,
-                timezone_name=config.calendar_timezone,
-                max_events=config.calendar_max_events,
-                utcnow=self.utcnow,
-            )
+            self.calendar_provider = TodoistProvider(oauth, filter_query=config.calendar_filter_query,
+                                                     timezone_name=config.calendar_timezone,
+                                                     max_events=config.calendar_max_events, utcnow=self.utcnow)
 
-    def _due(self, previous: dict[str, Any] | None, ttl: int, now: datetime) -> bool:
+    def _due(self, previous, ttl, now):
         if not previous or previous.get("data") is None:
             return True
-        last_attempt = _parse_iso(previous.get("last_attempt_at"))
-        if last_attempt is None:
-            return True
-        return (now - last_attempt).total_seconds() >= ttl
+        last = _parse_iso(previous.get("last_attempt_at"))
+        return last is None or (now - last).total_seconds() >= ttl
 
-    def _refresh(self, name: str, previous: dict[str, Any] | None, ttl: int, fetcher, now: datetime):
+    def _refresh(self, name, previous, ttl, fetcher, now):
         previous = copy.deepcopy(previous or {})
         if not self._due(previous, ttl, now):
             return previous
-        attempted_at = _iso(now)
+        attempted = _iso(now)
         try:
             data = fetcher()
         except Exception:
             had_cache = previous.get("data") is not None
             print(json.dumps({"event": "feed_refresh_failed", "feed": name, "had_cache": had_cache}))
             if had_cache:
-                previous["last_attempt_at"] = attempted_at
-                previous["stale"] = True
+                previous.update(last_attempt_at=attempted, stale=True)
                 return previous
-            return {
-                "last_attempt_at": attempted_at,
-                "last_success_at": None,
-                "stale": True,
-                "data": None,
-            }
-        return {
-            "last_attempt_at": attempted_at,
-            "last_success_at": attempted_at,
-            "stale": False,
-            "data": data,
-        }
+            return {"last_attempt_at": attempted, "last_success_at": None, "stale": True, "data": None}
+        return {"last_attempt_at": attempted, "last_success_at": attempted, "stale": False, "data": data}
 
-    def _fetch_rail(self, now: datetime):
-        return {
-            "station": self.config.station,
-            "source": "national_rail",
-            "fetched_at": _iso(now),
-            "services": self.rail_provider.fetch(),
-        }
+    def _fetch_rail(self, now):
+        return {"station": self.config.station, "source": "national_rail", "fetched_at": _iso(now), "services": self.rail_provider.fetch()}
 
-    def _fetch_queues(self, now: datetime):
-        return {
-            "park": "Thorpe Park",
-            "source": "queue_times",
-            "fetched_at": _iso(now),
-            "rides": self.queue_provider.fetch(),
-        }
+    def _fetch_queues(self, now, provider, park):
+        return {"park": park, "source": "queue_times", "fetched_at": _iso(now), "rides": provider.fetch()}
 
-    def _fetch_calendar(self, now: datetime):
-        return {
-            "source": "todoist",
-            "fetched_at": _iso(now),
-            "events": self.calendar_provider.fetch(),
-        }
+    def _fetch_calendar(self, now):
+        return {"source": "todoist", "fetched_at": _iso(now), "events": self.calendar_provider.fetch()}
 
-    def _fetch_weather(self, now: datetime):
-        weather = self.weather_provider.fetch()
+    def _fetch_weather(self, now):
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
-        result.update(weather)
+        result.update(self.weather_provider.fetch())
         return result
 
-    def _screens(self, feeds: dict[str, Any], now: datetime) -> dict[str, Any]:
+    @staticmethod
+    def _park_screen(screen_id, title, feed, park_config, selected_names=None):
+        data = feed.get("data") if feed else None
+        entries = park_config["entriesPerPage"]
+        page_seconds = park_config["pageDurationSeconds"]
+        iterations = park_config["iterations"]
+        if data is None:
+            rides = []
+            source = "unavailable"
+            stale = True
+        else:
+            all_rides = data.get("rides") or []
+            rides = _select_rides(all_rides, selected_names) if selected_names else all_rides
+            source = data.get("source", "queue_times")
+            stale = bool(feed.get("stale"))
+        page_count = max(1, (len(rides) + entries - 1) // entries)
+        return {
+            "id": screen_id,
+            "kind": "theme_park_queues",
+            "duration_seconds": page_count * page_seconds * iterations,
+            "title": title + " · Powered by Queue-Times.com",
+            "source": source,
+            "stale": stale,
+            "rides": copy.deepcopy(rides),
+            "entries_per_page": entries,
+            "page_seconds": page_seconds,
+            "iterations": iterations,
+            "attribution": "Powered by Queue-Times.com",
+        }
+
+    def _screens(self, feeds, now, display_config):
         screens = []
         rail = feeds.get("rail") or {}
         rail_data = rail.get("data")
-        if rail_data is None:
-            screens.append({
-                "id": "departures",
-                "kind": "rail_combined",
-                "duration_seconds": 8,
-                "title": "Departures unavailable",
-                "source": "unavailable",
-                "stale": True,
-                "services": [],
-            })
-        else:
-            screens.append({
-                "id": "departures",
-                "kind": "rail_combined",
-                "duration_seconds": 8,
-                "title": f"{rail_data['station']} departures",
-                "source": rail_data.get("source", "national_rail"),
-                "stale": bool(rail.get("stale")),
-                "services": copy.deepcopy((rail_data.get("services") or [])[:3]),
-            })
-
-        if self.config.thorpe_park_source != "off":
-            queues = feeds.get("queues") or {}
-            queue_data = queues.get("data")
-            if queue_data is None:
-                screens.append({
-                    "id": "thorpe-park",
-                    "kind": "theme_park_queues",
-                    "duration_seconds": 8,
-                    "title": "THORPE PARK · queues unavailable",
-                    "source": "unavailable",
-                    "stale": True,
-                    "rides": [],
-                    "attribution": "Powered by Queue-Times.com",
-                })
-            else:
-                rides = _select_rides(queue_data.get("rides") or [], self.config.thorpe_park_rides)
-                screens.append({
-                    "id": "thorpe-park",
-                    "kind": "theme_park_queues",
-                    "duration_seconds": _queue_screen_duration(len(rides)),
-                    "title": "THORPE PARK · Powered by Queue-Times.com",
-                    "source": queue_data.get("source", "queue_times"),
-                    "stale": bool(queues.get("stale")),
-                    "rides": copy.deepcopy(rides),
-                    "attribution": "Powered by Queue-Times.com",
-                })
-
+        screens.append({"id": "departures", "kind": "rail_combined", "duration_seconds": 8,
+                        "title": f"{rail_data['station']} departures" if rail_data else "Departures unavailable",
+                        "source": rail_data.get("source", "national_rail") if rail_data else "unavailable",
+                        "stale": bool(rail.get("stale")) if rail_data else True,
+                        "services": copy.deepcopy((rail_data.get("services") or [])[:3]) if rail_data else []})
+        parks = display_config["themeParks"]
+        if self.config.thorpe_park_source != "off" and parks["thorpePark"]["enabled"]:
+            screens.append(self._park_screen("thorpe-park", "THORPE PARK", feeds.get("thorpePark") or {},
+                                             parks["thorpePark"], self.config.thorpe_park_rides))
+        if self.config.thorpe_park_source != "off" and parks["chessington"]["enabled"]:
+            screens.append(self._park_screen("chessington", "CHESSINGTON", feeds.get("chessington") or {}, parks["chessington"]))
         if self.config.calendar_source != "off":
-            calendar = feeds.get("calendar") or {}
-            calendar_data = calendar.get("data")
-            if calendar_data is None:
-                screens.append({
-                    "id": "calendar",
-                    "kind": "calendar_agenda",
-                    "duration_seconds": self.config.calendar_duration,
-                    "title": "Calendar unavailable",
-                    "source": "unavailable",
-                    "stale": True,
-                    "viewport_size": 3,
-                    "page_seconds": self.config.calendar_page_seconds,
-                    "events": [],
-                })
-            else:
-                screens.append({
-                    "id": "calendar",
-                    "kind": "calendar_agenda",
-                    "duration_seconds": self.config.calendar_duration,
-                    "title": "UPCOMING",
-                    "source": calendar_data.get("source", "todoist"),
-                    "stale": bool(calendar.get("stale")),
-                    "viewport_size": 3,
-                    "page_seconds": self.config.calendar_page_seconds,
-                    "events": copy.deepcopy((calendar_data.get("events") or [])[: self.config.calendar_max_events]),
-                })
-
+            calendar = feeds.get("calendar") or {}; data = calendar.get("data")
+            screens.append({"id": "calendar", "kind": "calendar_agenda", "duration_seconds": self.config.calendar_duration,
+                            "title": "UPCOMING" if data is not None else "Calendar unavailable",
+                            "source": data.get("source", "todoist") if data is not None else "unavailable",
+                            "stale": bool(calendar.get("stale")) if data is not None else True,
+                            "viewport_size": 3, "page_seconds": self.config.calendar_page_seconds,
+                            "events": copy.deepcopy((data.get("events") or [])[:self.config.calendar_max_events]) if data is not None else []})
         if self.config.weather_source != "off":
-            weather = feeds.get("weather") or {}
-            weather_data = weather.get("data")
-            if weather_data is None:
-                overlay = {
-                    "source": "unavailable",
-                    "stale": True,
-                    "temperature_c": None,
-                    "weather_code": None,
-                    "icon": "unknown",
-                }
-            else:
-                overlay = copy.deepcopy(weather_data)
-                overlay["stale"] = bool(weather.get("stale"))
+            weather = feeds.get("weather") or {}; data = weather.get("data")
+            overlay = copy.deepcopy(data) if data is not None else {"source": "unavailable", "temperature_c": None, "weather_code": None, "icon": "unknown"}
+            overlay["stale"] = bool(weather.get("stale")) if data is not None else True
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
-
         return {"fetched_at": _iso(now), "screens": screens}
 
-    def run(self) -> dict[str, Any]:
+    def run(self):
         now = self.utcnow()
         state = self.store.load()
+        load_config = getattr(self.store, "load_config", None)
+        display_config = validate_config(load_config()) if load_config else copy.deepcopy(DEFAULT_DISPLAY_CONFIG)
         feeds = copy.deepcopy(state.get("feeds") or {})
-
-        feeds["rail"] = self._refresh(
-            "rail", feeds.get("rail"), self.config.rail_ttl, lambda: self._fetch_rail(now), now
-        )
-        if self.config.thorpe_park_source != "off":
-            feeds["queues"] = self._refresh(
-                "queues", feeds.get("queues"), self.config.thorpe_park_ttl, lambda: self._fetch_queues(now), now
-            )
-        else:
-            feeds.pop("queues", None)
+        feeds["rail"] = self._refresh("rail", feeds.get("rail"), self.config.rail_ttl, lambda: self._fetch_rail(now), now)
+        parks = display_config["themeParks"]
+        if self.config.thorpe_park_source != "off" and parks["thorpePark"]["enabled"]:
+            feeds["thorpePark"] = self._refresh("thorpePark", feeds.get("thorpePark") or feeds.get("queues"), self.config.thorpe_park_ttl,
+                                                lambda: self._fetch_queues(now, self.queue_provider, "Thorpe Park"), now)
+        if self.config.thorpe_park_source != "off" and parks["chessington"]["enabled"]:
+            feeds["chessington"] = self._refresh("chessington", feeds.get("chessington"), self.config.thorpe_park_ttl,
+                                                  lambda: self._fetch_queues(now, self.chessington_provider, "Chessington World of Adventures"), now)
+        feeds.pop("queues", None)
         if self.config.calendar_source != "off":
-            feeds["calendar"] = self._refresh(
-                "calendar", feeds.get("calendar"), self.config.calendar_ttl, lambda: self._fetch_calendar(now), now
-            )
+            feeds["calendar"] = self._refresh("calendar", feeds.get("calendar"), self.config.calendar_ttl, lambda: self._fetch_calendar(now), now)
         else:
             feeds.pop("calendar", None)
         if self.config.weather_source != "off":
-            feeds["weather"] = self._refresh(
-                "weather", feeds.get("weather"), self.config.weather_ttl, lambda: self._fetch_weather(now), now
-            )
+            feeds["weather"] = self._refresh("weather", feeds.get("weather"), self.config.weather_ttl, lambda: self._fetch_weather(now), now)
         else:
             feeds.pop("weather", None)
-
         next_state = {"version": 1, "updated_at": _iso(now), "feeds": feeds}
-        payload = self._screens(feeds, now)
+        payload = self._screens(feeds, now, display_config)
         self.store.save(next_state)
         self.store.publish(payload)
         print(json.dumps({"event": "screens_published", "screens": len(payload["screens"])}))
@@ -444,7 +313,6 @@ class Publisher:
 
 
 _PUBLISHER = None
-
 
 def lambda_handler(event, context):
     del event, context
