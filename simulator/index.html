@@ -170,12 +170,19 @@
       const stale = Boolean(weather.stale);
       const temperature = Number(weather.temperature_c);
       const temperatureText = Number.isFinite(temperature) ? Math.round(temperature) + '°C' : '--°C';
+      const rightEdge = 1020;
+      const iconWidth = 28;
+      const gap = 8;
+      const temperatureWidth = context.measureText(temperatureText).width;
+      const temperatureX = rightEdge - temperatureWidth;
+      const iconX = Math.max(0, temperatureX - gap - iconWidth);
+      const clearX = Math.max(0, iconX - 8);
       context.fillStyle = '#000';
-      context.fillRect(856, 92, 168, 36);
+      context.fillRect(clearX, 92, 1024 - clearX, 36);
       context.fillStyle = stale ? '#777777' : weatherColors[iconName];
-      pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(864 + x * 4, 96 + y * 4, 4, 4); }));
+      pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(iconX + x * 4, 96 + y * 4, 4, 4); }));
       context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
-      context.fillText(temperatureText, 904, 94);
+      context.fillText(temperatureText, temperatureX, 94);
     }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
