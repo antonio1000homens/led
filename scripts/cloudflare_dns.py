@@ -6,11 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 API = "https://api.cloudflare.com/client/v4"
+ACCOUNT_ID_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
 def request(token, method, path, payload=None):
@@ -34,6 +36,8 @@ def request(token, method, path, payload=None):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--account-id", required=True)
+    parser.add_argument("--account-name", default="Windsor")
     parser.add_argument("--zone", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--type", required=True)
@@ -45,15 +49,38 @@ def main():
     if not token:
         raise SystemExit("CF_DEPLOY_API_TOKEN is required")
 
+    account_id = args.account_id.strip()
+    expected_account_name = args.account_name.strip()
+    if not ACCOUNT_ID_RE.fullmatch(account_id):
+        raise SystemExit("Cloudflare account ID is invalid")
+
     zone_name = args.zone.rstrip(".")
     record_name = args.name.rstrip(".")
     content = args.content.rstrip(".")
 
-    zones = request(token, "GET", "/zones?" + urlencode({"name": zone_name, "status": "active"}))
-    if not zones:
-        raise SystemExit("Cloudflare zone was not found")
-    zone_id = zones[0]["id"]
+    zones = request(
+        token,
+        "GET",
+        "/zones?"
+        + urlencode(
+            {
+                "name": zone_name,
+                "status": "active",
+                "account.id": account_id,
+            }
+        ),
+    )
+    if len(zones or []) != 1:
+        raise SystemExit("Cloudflare zone was not found in the required account")
 
+    zone = zones[0]
+    account = zone.get("account") or {}
+    if account.get("id") != account_id:
+        raise SystemExit("Cloudflare zone account mismatch")
+    if expected_account_name and str(account.get("name") or "").casefold() != expected_account_name.casefold():
+        raise SystemExit("Cloudflare zone is not in the Windsor account")
+
+    zone_id = zone["id"]
     query = urlencode({"type": args.type.upper(), "name": record_name})
     records = request(token, "GET", f"/zones/{zone_id}/dns_records?{query}")
     payload = {
