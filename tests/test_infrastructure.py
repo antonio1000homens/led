@@ -67,6 +67,18 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertNotIn("aws2022-lambda-code", bootstrap + workflow)
         self.assertNotIn("vars.CODE_BUCKET", workflow)
 
+    def test_bootstrap_uses_immutable_github_oidc_subject(self):
+        bootstrap = (ROOT / "infrastructure" / "bootstrap.yaml").read_text(encoding="utf-8")
+        self.assertIn("RepoOwnerId:", bootstrap)
+        self.assertIn("Default: '36929120'", bootstrap)
+        self.assertIn("RepoId:", bootstrap)
+        self.assertIn("Default: '1367515704'", bootstrap)
+        self.assertIn(
+            "repo:${RepoOwner}@${RepoOwnerId}/${RepoName}@${RepoId}:ref:refs/heads/${DeployBranch}",
+            bootstrap,
+        )
+        self.assertNotIn("repo:${RepoOwner}/${RepoName}:ref:refs/heads/${DeployBranch}", bootstrap)
+
 
 if __name__ == "__main__":
     unittest.main()
