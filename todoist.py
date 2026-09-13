@@ -1,22 +1,150 @@
-"""Todoist adapter for the renderer-neutral upcoming-events feed."""
+"""Todoist OAuth and upcoming-events adapter."""
 
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
 import json
+import time as time_module
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 TODOIST_FILTER_URL = "https://api.todoist.com/api/v1/tasks/filter"
+TODOIST_TOKEN_URL = "https://api.todoist.com/oauth/access_token"
 DEFAULT_FILTER_QUERY = "date after: yesterday"
 DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_MAX_EVENTS = 6
+TOKEN_REFRESH_MARGIN_SECONDS = 60
 
 
 class TodoistFeedUnavailable(RuntimeError):
     """Todoist could not provide usable upcoming-event data."""
+
+
+class SecretsManagerOAuthStore:
+    """Persist Todoist OAuth credentials and rotating tokens in AWS Secrets Manager."""
+
+    def __init__(self, secret_id, client=None):
+        self.secret_id = str(secret_id or "").strip()
+        if not self.secret_id:
+            raise ValueError("Todoist OAuth secret ARN is required")
+        if client is None:
+            import boto3
+
+            client = boto3.client("secretsmanager")
+        self.client = client
+
+    def load(self):
+        try:
+            response = self.client.get_secret_value(SecretId=self.secret_id)
+            payload = json.loads(response.get("SecretString") or "{}")
+        except Exception as error:
+            raise TodoistFeedUnavailable("Todoist OAuth credentials are unavailable") from error
+        if not isinstance(payload, dict):
+            raise TodoistFeedUnavailable("Todoist OAuth credentials are invalid")
+        return payload
+
+    def save(self, payload):
+        try:
+            self.client.put_secret_value(
+                SecretId=self.secret_id,
+                SecretString=json.dumps(payload, separators=(",", ":")),
+            )
+        except Exception as error:
+            raise TodoistFeedUnavailable("Todoist OAuth token rotation could not be persisted") from error
+
+
+class TodoistOAuthSession:
+    """Supply valid access tokens and persist every refresh-token rotation."""
+
+    def __init__(self, store, opener=None, timeout=10, time_fn=None):
+        self.store = store
+        self.opener = opener or urlopen
+        self.timeout = timeout
+        self.time_fn = time_fn or time_module.time
+        self._credentials = None
+
+    def _load(self):
+        if self._credentials is None:
+            self._credentials = self.store.load()
+        return self._credentials
+
+    def _access_is_fresh(self, credentials):
+        token = str(credentials.get("access_token") or "").strip()
+        if not token:
+            return False
+        try:
+            expires_at = float(credentials.get("expires_at"))
+        except (TypeError, ValueError):
+            return False
+        return expires_at > float(self.time_fn()) + TOKEN_REFRESH_MARGIN_SECONDS
+
+    def _refresh(self, credentials):
+        client_id = str(credentials.get("client_id") or "").strip()
+        client_secret = str(credentials.get("client_secret") or "").strip()
+        refresh_token = str(credentials.get("refresh_token") or "").strip()
+        if not client_id or not client_secret or not refresh_token:
+            raise TodoistFeedUnavailable("Todoist OAuth authorization must be bootstrapped again")
+
+        body = urlencode(
+            {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            }
+        ).encode("utf-8")
+        request = Request(
+            TODOIST_TOKEN_URL,
+            data=body,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "led-information-board/1.0",
+            },
+            method="POST",
+        )
+        try:
+            with self.opener(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except Exception as error:
+            raise TodoistFeedUnavailable("Todoist OAuth refresh failed") from error
+
+        access_token = str(payload.get("access_token") or "").strip() if isinstance(payload, dict) else ""
+        replacement_refresh = str(payload.get("refresh_token") or "").strip() if isinstance(payload, dict) else ""
+        if not access_token:
+            raise TodoistFeedUnavailable("Todoist OAuth refresh returned no access token")
+        if not replacement_refresh:
+            # Todoist omits the replacement refresh token when an already-consumed
+            # token is retried inside its grace window. Persisting the old token here
+            # would make the next refresh unsafe and can trigger replay revocation.
+            raise TodoistFeedUnavailable("Todoist OAuth refresh token rotation was not recoverable")
+        try:
+            expires_in = max(1, int(payload.get("expires_in") or 3600))
+        except (TypeError, ValueError):
+            expires_in = 3600
+
+        updated = dict(credentials)
+        updated.update(
+            {
+                "access_token": access_token,
+                "refresh_token": replacement_refresh,
+                "token_type": str(payload.get("token_type") or "Bearer"),
+                "scope": str(payload.get("scope") or credentials.get("scope") or "data:read"),
+                "expires_at": int(float(self.time_fn())) + expires_in,
+            }
+        )
+        self.store.save(updated)
+        self._credentials = updated
+        return access_token
+
+    def access_token(self, force_refresh=False):
+        credentials = self._load()
+        if not force_refresh and self._access_is_fresh(credentials):
+            return str(credentials["access_token"])
+        return self._refresh(credentials)
 
 
 def _zone(name):
@@ -92,7 +220,7 @@ class TodoistProvider:
 
     def __init__(
         self,
-        token,
+        auth,
         filter_query=DEFAULT_FILTER_QUERY,
         timezone_name=DEFAULT_TIMEZONE,
         max_events=DEFAULT_MAX_EVENTS,
@@ -100,10 +228,9 @@ class TodoistProvider:
         opener=None,
         utcnow=None,
     ):
-        token = str(token or "").strip()
-        if not token:
-            raise ValueError("Todoist token is required")
-        self.token = token
+        if auth is None or not callable(getattr(auth, "access_token", None)):
+            raise ValueError("Todoist OAuth session is required")
+        self.auth = auth
         self.filter_query = str(filter_query or DEFAULT_FILTER_QUERY).strip()
         if not self.filter_query:
             raise ValueError("Todoist filter query is required")
@@ -114,14 +241,15 @@ class TodoistProvider:
         self.opener = opener or urlopen
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
 
-    def _page(self, cursor=None):
+    def _page(self, cursor=None, refreshed=False):
         params = {"query": self.filter_query, "limit": 200}
         if cursor:
             params["cursor"] = cursor
+        token = self.auth.access_token(force_refresh=refreshed)
         request = Request(
             TODOIST_FILTER_URL + "?" + urlencode(params),
             headers={
-                "Authorization": "Bearer " + self.token,
+                "Authorization": "Bearer " + token,
                 "Accept": "application/json",
                 "User-Agent": "led-information-board/1.0",
             },
@@ -129,6 +257,10 @@ class TodoistProvider:
         try:
             with self.opener(request, timeout=self.timeout) as response:
                 payload = json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            if error.code == 401 and not refreshed:
+                return self._page(cursor, refreshed=True)
+            raise TodoistFeedUnavailable("Todoist upcoming events are unavailable") from error
         except Exception as error:
             raise TodoistFeedUnavailable("Todoist upcoming events are unavailable") from error
         if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
