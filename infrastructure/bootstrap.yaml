@@ -21,7 +21,7 @@ Parameters:
     Description: Immutable GitHub repository ID used in the OIDC subject claim.
   DeployBranch:
     Type: String
-    Default: main
+    Default: master
 
 Resources:
   CodeBucket:
