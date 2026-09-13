@@ -82,10 +82,10 @@ Enable it in `.env`:
 ```text
 LED_THORPE_PARK_SOURCE=queue_times
 LED_THORPE_PARK_CACHE_SECONDS=300
-LED_THORPE_PARK_RIDES=Hyperia,Stealth,The Swarm
+LED_THORPE_PARK_RIDES=Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave
 ```
 
-Configured rides are matched case-insensitively and kept in a stable order. A failed refresh keeps the last successful data and marks only the Thorpe Park screen stale; a cold Queue-Times failure produces an unavailable Thorpe screen without removing rail departures.
+Configured rides are matched case-insensitively and kept in a stable order. The heading remains fixed while a three-row viewport cycles down the configured list: rows hold briefly, slide upward together, then settle on the next ride. When more rides are configured the Thorpe Park screen duration grows so the additional rows can be shown before the board rotates to the next screen. A failed refresh keeps the last successful data and marks only the Thorpe Park screen stale; a cold Queue-Times failure produces an unavailable Thorpe screen without removing rail departures.
 
 Queue data is displayed with `Powered by Queue-Times.com` attribution.
 
@@ -138,7 +138,7 @@ If a weather refresh fails after at least one successful response, the previous 
     {
       "id": "thorpe-park",
       "kind": "theme_park_queues",
-      "duration_seconds": 8,
+      "duration_seconds": 12,
       "title": "THORPE PARK · Powered by Queue-Times.com",
       "source": "queue_times",
       "stale": false,

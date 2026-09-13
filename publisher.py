@@ -9,13 +9,12 @@ import os
 from typing import Any
 
 from queue_times import QueueTimesProvider
-from server import NationalRailProvider, _select_rides
+from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider, _queue_screen_duration, _select_rides
 from weather import OpenMeteoProvider
 
 
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
-DEFAULT_THORPE_PARK_RIDES = ("Hyperia", "Stealth", "The Swarm")
 DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
 
@@ -297,11 +296,11 @@ class Publisher:
                 screens.append({
                     "id": "thorpe-park",
                     "kind": "theme_park_queues",
-                    "duration_seconds": 8,
+                    "duration_seconds": _queue_screen_duration(len(rides)),
                     "title": "THORPE PARK · Powered by Queue-Times.com",
                     "source": queue_data.get("source", "queue_times"),
                     "stale": bool(queues.get("stale")),
-                    "rides": copy.deepcopy(rides[:3]),
+                    "rides": copy.deepcopy(rides),
                     "attribution": "Powered by Queue-Times.com",
                 })
 
