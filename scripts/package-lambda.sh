@@ -17,6 +17,7 @@ python3 -m pip install --disable-pip-version-check --no-compile \
 cp \
   "${ROOT_DIR}/publisher.py" \
   "${ROOT_DIR}/config_api.py" \
+  "${ROOT_DIR}/runtime_config.py" \
   "${ROOT_DIR}/server.py" \
   "${ROOT_DIR}/queue_times.py" \
   "${ROOT_DIR}/weather.py" \
