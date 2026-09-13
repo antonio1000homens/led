@@ -2,11 +2,19 @@
 
 import board
 
-from formatting import calling_text, format_row, row_slide_phase
+from formatting import (
+    QUEUE_VISIBLE_ROWS,
+    calling_text,
+    format_row,
+    queue_scroll_state,
+    row_slide_phase,
+)
 
 
 CLOCK_X = 226
 STALE_X = 190
+QUEUE_FIRST_Y = 11
+QUEUE_ROW_HEIGHT = 8
 WEATHER_X = 214
 WEATHER_ICON_X = 216
 WEATHER_TEMP_X = 224
@@ -195,6 +203,16 @@ class MatrixDisplay:
     def _label(self, group, text, color, x, y):
         group.append(self.label_type(self.font, text=str(text), color=color, x=x, y=y))
 
+    def _header_mask(self, group):
+        """Mask queue rows as they slide behind the fixed heading."""
+        import displayio
+
+        bitmap = displayio.Bitmap(256, 8, 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette[1] = 0x000000
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=0))
+
     def _rail(self, group, screen, phase):
         services = screen.get("services") or []
         primary = services[0] if services else {
@@ -215,15 +233,30 @@ class MatrixDisplay:
             color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
             self._label(group, format_row(service), color, x, 17 + (index - 1) * 8)
 
-    def _queues(self, group, screen):
-        self._label(group, _clip(screen.get("title") or "THORPE PARK", 30), 0xFFAA00, 0, 3)
+    def _queues(self, group, screen, phase):
         rides = screen.get("rides") or []
         if not rides:
-            self._label(group, "Queue data unavailable", 0xFFFFFF, 0, 11)
-            return
-        for index, ride in enumerate(rides[:3]):
-            color = 0xFFFFFF if ride.get("open") else 0xFF3300
-            self._label(group, _queue_row(ride), color, 0, 11 + index * 8)
+            self._label(group, "Queue data unavailable", 0xFFFFFF, 0, QUEUE_FIRST_Y)
+        else:
+            start, progress = queue_scroll_state(phase, len(rides))
+            row_count = QUEUE_VISIBLE_ROWS + (1 if progress > 0 else 0)
+            y_offset = int(progress * QUEUE_ROW_HEIGHT)
+            for slot in range(row_count):
+                ride_index = start + slot
+                if ride_index >= len(rides):
+                    break
+                ride = rides[ride_index]
+                color = 0xFFFFFF if ride.get("open") else 0xFF3300
+                self._label(
+                    group,
+                    _queue_row(ride),
+                    color,
+                    0,
+                    QUEUE_FIRST_Y + slot * QUEUE_ROW_HEIGHT - y_offset,
+                )
+
+        self._header_mask(group)
+        self._label(group, _clip(screen.get("title") or "THORPE PARK", 30), 0xFFAA00, 0, 3)
 
     def _calendar(self, group, screen):
         self._label(group, _clip(screen.get("title") or "Upcoming events", 30), 0xFFAA00, 0, 3)
@@ -259,7 +292,7 @@ class MatrixDisplay:
         if kind == "rail_combined":
             self._rail(group, screen, phase)
         elif kind == "theme_park_queues":
-            self._queues(group, screen)
+            self._queues(group, screen, phase)
         elif kind == "calendar_agenda":
             self._calendar(group, screen)
         else:
@@ -309,6 +342,13 @@ class FixtureDisplay:
                         self._pixel(x + column, y + row, color)
             x += 6
 
+    def _clear_rows(self, start_y, end_y):
+        if self.pixels is None:
+            return
+        for y in range(start_y, end_y):
+            for x in range(256):
+                self._pixel(x, y, (0, 0, 0))
+
     def _draw_screen(self, screen, phase):
         kind = screen.get("kind")
         if kind == "rail_combined":
@@ -328,13 +368,22 @@ class FixtureDisplay:
                 color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
                 self._text(format_row(service), x, 16 + (index - 1) * 8, color)
         elif kind == "theme_park_queues":
-            self._text(_clip(screen.get("title") or "THORPE PARK", 30), 0, 0, (255, 100, 0))
             rides = screen.get("rides") or []
             if not rides:
                 self._text("Queue data unavailable", 0, 8, (255, 255, 255))
-            for index, ride in enumerate(rides[:3]):
-                color = (255, 255, 255) if ride.get("open") else (255, 20, 0)
-                self._text(_queue_row(ride), 0, 8 + index * 8, color)
+            else:
+                start, progress = queue_scroll_state(phase, len(rides))
+                row_count = QUEUE_VISIBLE_ROWS + (1 if progress > 0 else 0)
+                y_offset = int(progress * QUEUE_ROW_HEIGHT)
+                for slot in range(row_count):
+                    ride_index = start + slot
+                    if ride_index >= len(rides):
+                        break
+                    ride = rides[ride_index]
+                    color = (255, 255, 255) if ride.get("open") else (255, 20, 0)
+                    self._text(_queue_row(ride), 0, 8 + slot * QUEUE_ROW_HEIGHT - y_offset, color)
+            self._clear_rows(0, 8)
+            self._text(_clip(screen.get("title") or "THORPE PARK", 30), 0, 0, (255, 100, 0))
         elif kind == "calendar_agenda":
             self._text(_clip(screen.get("title") or "Upcoming events", 30), 0, 0, (255, 100, 0))
             for index, event in enumerate((screen.get("events") or [])[:3]):
@@ -378,7 +427,9 @@ class FixtureDisplay:
                 for service in services[1:3]:
                     print(format_row(service).rstrip())
         elif kind == "theme_park_queues":
-            for ride in (screen.get("rides") or [])[:3]:
+            rides = screen.get("rides") or []
+            start, _ = queue_scroll_state(phase, len(rides))
+            for ride in rides[start:start + QUEUE_VISIBLE_ROWS]:
                 print(_queue_row(ride).rstrip())
         elif kind == "calendar_agenda":
             for event in (screen.get("events") or [])[:3]:
