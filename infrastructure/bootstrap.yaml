@@ -157,6 +157,8 @@ Resources:
                   - apigateway:PUT
                   - apigateway:PATCH
                   - apigateway:DELETE
+                  - apigateway:TagResource
+                  - apigateway:UntagResource
                 Resource: '*'
               - Sid: SchedulerManage
                 Effect: Allow
