@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Authorize the LED Todoist integration and seed its AWS Secrets Manager secret.
+"""Authorize the LED Todoist integration and store OAuth state in SSM Parameter Store.
 
-Before running, add the redirect URI to the Todoist integration. The default is:
+The default parameter is a Standard SecureString:
+    /led/todoist/oauth
+
+For a new authorization, add this redirect URI to the Todoist integration:
     http://127.0.0.1:8765/callback
 
-The main LED stack must already exist so this script can discover its
-TodoistOAuthSecretArn output. Client secrets and tokens are never printed.
+For migrations from the previous Secrets Manager implementation, pass
+--migrate-secret-id with the existing secret ARN/name. Client secrets and
+OAuth tokens are never printed.
 """
 
 from __future__ import annotations
@@ -29,9 +33,9 @@ import webbrowser
 AUTHORIZE_URL = "https://app.todoist.com/oauth/authorize"
 TOKEN_URL = "https://api.todoist.com/oauth/access_token"
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:8765/callback"
-DEFAULT_STACK = "led-serverless"
 DEFAULT_REGION = "eu-west-2"
 DEFAULT_SCOPE = "data:read"
+DEFAULT_PARAMETER_NAME = "/led/todoist/oauth"
 
 
 class BootstrapError(RuntimeError):
@@ -58,28 +62,6 @@ def aws(args, region, profile=None, input_text=None):
         detail = (error.stderr or "AWS CLI command failed").strip().splitlines()[-1]
         raise BootstrapError(detail) from error
     return result.stdout.strip()
-
-
-def discover_secret_arn(stack_name, region, profile):
-    value = aws(
-        [
-            "cloudformation",
-            "describe-stacks",
-            "--stack-name",
-            stack_name,
-            "--query",
-            "Stacks[0].Outputs[?OutputKey=='TodoistOAuthSecretArn'].OutputValue | [0]",
-            "--output",
-            "text",
-        ],
-        region,
-        profile,
-    )
-    if not value or value in ("None", "null"):
-        raise BootstrapError(
-            "The stack has no TodoistOAuthSecretArn output. Deploy the updated LED stack first."
-        )
-    return value
 
 
 def exchange_code(client_id, client_secret, code, redirect_uri):
@@ -180,22 +162,59 @@ def wait_for_local_callback(redirect_uri, expected_state, authorize_url, timeout
     return result["code"]
 
 
-def persist_secret(secret_arn, payload, region, profile):
-    fd, path = tempfile.mkstemp(prefix="led-todoist-oauth-", suffix=".json")
+def validate_oauth_payload(payload):
+    if not isinstance(payload, dict):
+        raise BootstrapError("Todoist OAuth payload is not a JSON object")
+    required = ("client_id", "client_secret", "refresh_token")
+    if any(not str(payload.get(name) or "").strip() for name in required):
+        raise BootstrapError("Todoist OAuth payload is missing client_id, client_secret or refresh_token")
+    return payload
+
+
+def load_secrets_manager_secret(secret_id, region, profile):
+    value = aws(
+        [
+            "secretsmanager",
+            "get-secret-value",
+            "--secret-id",
+            secret_id,
+            "--query",
+            "SecretString",
+            "--output",
+            "text",
+        ],
+        region,
+        profile,
+    )
+    try:
+        return validate_oauth_payload(json.loads(value))
+    except json.JSONDecodeError as error:
+        raise BootstrapError("Existing Secrets Manager Todoist secret is not valid JSON") from error
+
+
+def persist_parameter(parameter_name, payload, region, profile):
+    validate_oauth_payload(payload)
+    request = {
+        "Name": parameter_name,
+        "Description": "Todoist OAuth client credentials and rotating tokens for the LED publisher.",
+        "Value": json.dumps(payload, separators=(",", ":")),
+        "Type": "SecureString",
+        "Tier": "Standard",
+        "Overwrite": True,
+    }
+    fd, path = tempfile.mkstemp(prefix="led-todoist-ssm-", suffix=".json")
     try:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, separators=(",", ":"))
+            json.dump(request, handle, separators=(",", ":"))
         aws(
             [
-                "secretsmanager",
-                "put-secret-value",
-                "--secret-id",
-                secret_arn,
-                "--secret-string",
+                "ssm",
+                "put-parameter",
+                "--cli-input-json",
                 "file://" + path,
                 "--query",
-                "ARN",
+                "Version",
                 "--output",
                 "text",
             ],
@@ -214,19 +233,39 @@ def main():
     parser.add_argument("--client-id", default=os.getenv("TODOIST_CLIENT_ID", ""))
     parser.add_argument("--redirect-uri", default=os.getenv("TODOIST_REDIRECT_URI", DEFAULT_REDIRECT_URI))
     parser.add_argument("--scope", default=DEFAULT_SCOPE)
-    parser.add_argument("--stack-name", default=os.getenv("STACK_NAME", DEFAULT_STACK))
     parser.add_argument("--region", default=os.getenv("AWS_REGION", DEFAULT_REGION))
     parser.add_argument("--profile", default=os.getenv("AWS_PROFILE", ""))
-    parser.add_argument("--secret-id", default="", help="Override stack output discovery with a Secrets Manager ARN/name")
+    parser.add_argument(
+        "--parameter-name",
+        default=os.getenv("TODOIST_OAUTH_PARAMETER_NAME", DEFAULT_PARAMETER_NAME),
+        help="SSM SecureString parameter name (default: /led/todoist/oauth)",
+    )
+    parser.add_argument(
+        "--migrate-secret-id",
+        default="",
+        help="Copy OAuth JSON from the previous Secrets Manager secret instead of authorizing again",
+    )
     parser.add_argument("--manual", action="store_true", help="Paste the final callback URL instead of starting a localhost listener")
     args = parser.parse_args()
+
+    parameter_name = args.parameter_name.strip()
+    if not parameter_name.startswith("/"):
+        raise BootstrapError("SSM parameter name must start with /")
+
+    if args.migrate_secret_id.strip():
+        payload = load_secrets_manager_secret(args.migrate_secret_id.strip(), args.region, args.profile or None)
+        persist_parameter(parameter_name, payload, args.region, args.profile or None)
+        print("Todoist OAuth migration completed successfully.")
+        print("Credentials and rotating tokens were copied to SSM Parameter Store Standard SecureString:")
+        print(parameter_name)
+        print("Deploy the SSM-backed LED stack, verify Todoist, then schedule the old Secrets Manager secret for deletion.")
+        return
 
     client_id = args.client_id.strip() or input("Todoist client ID: ").strip()
     client_secret = os.getenv("TODOIST_CLIENT_SECRET", "").strip() or getpass("Todoist client secret: ").strip()
     if not client_id or not client_secret:
         raise BootstrapError("Todoist client ID and client secret are required")
 
-    secret_arn = args.secret_id.strip() or discover_secret_arn(args.stack_name, args.region, args.profile or None)
     state = secrets.token_urlsafe(32)
     authorize_url = AUTHORIZE_URL + "?" + urlencode(
         {
@@ -253,7 +292,7 @@ def main():
     except (TypeError, ValueError):
         expires_in = 3600
     now = int(time.time())
-    secret_payload = {
+    parameter_payload = {
         "version": 1,
         "client_id": client_id,
         "client_secret": client_secret,
@@ -264,10 +303,10 @@ def main():
         "expires_at": now + expires_in,
         "authorized_at": now,
     }
-    persist_secret(secret_arn, secret_payload, args.region, args.profile or None)
+    persist_parameter(parameter_name, parameter_payload, args.region, args.profile or None)
     print("Todoist OAuth bootstrap completed successfully.")
-    print("Credentials and rotating tokens were stored in AWS Secrets Manager:")
-    print(secret_arn)
+    print("Credentials and rotating tokens were stored in SSM Parameter Store Standard SecureString:")
+    print(parameter_name)
     print("You can now set LED_CALENDAR_SOURCE=todoist and deploy the LED stack.")
 
 
