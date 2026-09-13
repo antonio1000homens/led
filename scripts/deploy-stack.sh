@@ -56,4 +56,17 @@ args=(
   "CalendarPageSeconds=${CALENDAR_PAGE_SECONDS}"
 )
 if [[ -n "${CLOUDFORMATION_ROLE_ARN:-}" ]]; then args+=(--role-arn "${CLOUDFORMATION_ROLE_ARN}"); fi
+
+set +e
 aws "${args[@]}"
+status=$?
+set -e
+if [[ ${status} -ne 0 ]]; then
+  echo "CloudFormation deployment failed; recent stack events:" >&2
+  aws cloudformation describe-stack-events \
+    --region "${AWS_REGION}" \
+    --stack-name "${STACK_NAME}" \
+    --query 'StackEvents[0:30].[Timestamp,LogicalResourceId,ResourceType,ResourceStatus,ResourceStatusReason]' \
+    --output table >&2 || true
+  exit "${status}"
+fi
