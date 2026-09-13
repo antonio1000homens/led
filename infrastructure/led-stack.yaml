@@ -12,6 +12,11 @@ Parameters:
     Type: String
     NoEcho: true
     Description: National Rail Darwin token resolved from Bitwarden during deployment.
+  TodoistToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Optional Todoist personal API token resolved from Bitwarden during deployment.
   DomainName:
     Type: String
     Default: led.alf-broadcast.co.uk
@@ -42,6 +47,33 @@ Parameters:
   ThorpeParkRides:
     Type: String
     Default: Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave
+  CalendarSource:
+    Type: String
+    Default: off
+    AllowedValues: [off, todoist]
+  TodoistCacheSeconds:
+    Type: Number
+    Default: 300
+    MinValue: 1
+  TodoistMaxEvents:
+    Type: Number
+    Default: 6
+    MinValue: 1
+    MaxValue: 20
+  TodoistFilterQuery:
+    Type: String
+    Default: 'date after: yesterday'
+  TodoistTimezone:
+    Type: String
+    Default: Europe/London
+  CalendarDurationSeconds:
+    Type: Number
+    Default: 10
+    MinValue: 2
+  CalendarPageSeconds:
+    Type: Number
+    Default: 5
+    MinValue: 1
   WeatherSource:
     Type: String
     Default: open_meteo
@@ -132,12 +164,20 @@ Resources:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
+          TODOIST_TOKEN: !Ref TodoistToken
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
           LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
           LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
           LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_CALENDAR_SOURCE: !Ref CalendarSource
+          LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_TODOIST_MAX_EVENTS: !Ref TodoistMaxEvents
+          LED_TODOIST_FILTER_QUERY: !Ref TodoistFilterQuery
+          LED_TODOIST_TIMEZONE: !Ref TodoistTimezone
+          LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_CALENDAR_PAGE_SECONDS: !Ref CalendarPageSeconds
           LED_WEATHER_SOURCE: !Ref WeatherSource
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
           LED_WEATHER_LATITUDE: !Ref WeatherLatitude
