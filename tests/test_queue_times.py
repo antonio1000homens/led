@@ -115,14 +115,34 @@ class ScreenFeedTests(unittest.TestCase):
         ]
         rail = DepartureFeed(FixtureProvider(10), "NEM", 60)
         queues = ThorpeParkFeed(FakeQueueProvider([queue_rides]), 300)
-        payload = ScreenFeed(rail, queue_feed=queues, queue_ride_names=("Hyperia", "Stealth", "The Swarm")).get()
+        payload = ScreenFeed(
+            rail,
+            queue_feed=queues,
+            queue_ride_names=("Hyperia", "Stealth", "The Swarm", "Colossus"),
+        ).get()
 
         self.assertEqual([screen["id"] for screen in payload["screens"]], ["departures", "thorpe-park"])
         screen = payload["screens"][1]
         self.assertEqual(screen["kind"], "theme_park_queues")
         self.assertEqual(screen["duration_seconds"], 8)
-        self.assertEqual([ride["name"] for ride in screen["rides"]], ["Hyperia", "Stealth", "The Swarm"])
+        self.assertEqual(
+            [ride["name"] for ride in screen["rides"]],
+            ["Hyperia", "Stealth", "The Swarm", "Colossus"],
+        )
         self.assertEqual(screen["attribution"], "Powered by Queue-Times.com")
+
+    def test_queue_screen_duration_grows_for_longer_ride_lists(self):
+        names = ("Hyperia", "Stealth", "The Swarm", "Colossus", "Nemesis Inferno", "Rush", "Detonator")
+        queue_rides = [
+            {"name": name, "open": True, "wait_minutes": index * 5}
+            for index, name in enumerate(names, start=1)
+        ]
+        rail = DepartureFeed(FixtureProvider(10), "NEM", 60)
+        queues = ThorpeParkFeed(FakeQueueProvider([queue_rides]), 300)
+        screen = ScreenFeed(rail, queue_feed=queues, queue_ride_names=names).get()["screens"][1]
+
+        self.assertEqual(len(screen["rides"]), 7)
+        self.assertEqual(screen["duration_seconds"], 9)
 
     def test_queue_failure_does_not_remove_departures(self):
         rail = DepartureFeed(FixtureProvider(10), "NEM", 60)
