@@ -87,12 +87,18 @@ def _iso_now(utcnow=None) -> str:
     return now.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _int_env(env: dict[str, str], name: str, default: int, minimum: int = MIN_POLL_SECONDS) -> int:
+def _int_env(
+    env: dict[str, str],
+    name: str,
+    default: int,
+    minimum: int = MIN_POLL_SECONDS,
+    maximum: int = MAX_POLL_SECONDS,
+) -> int:
     try:
         value = int(env.get(name, str(default)))
     except (TypeError, ValueError):
-        return default
-    return max(minimum, value)
+        value = default
+    return min(maximum, max(minimum, value))
 
 
 def _rides_env(env: dict[str, str], name: str, default: tuple[str, ...]) -> list[str]:
@@ -138,7 +144,11 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": calendar_enabled,
                 "poll_seconds": _int_env(env, "LED_TODOIST_CACHE_SECONDS", 300),
                 "screen_duration_seconds": _int_env(
-                    env, "LED_CALENDAR_DURATION_SECONDS", 10, minimum=MIN_SCREEN_DURATION_SECONDS
+                    env,
+                    "LED_CALENDAR_DURATION_SECONDS",
+                    10,
+                    minimum=MIN_SCREEN_DURATION_SECONDS,
+                    maximum=MAX_SCREEN_DURATION_SECONDS,
                 ),
             },
         },
