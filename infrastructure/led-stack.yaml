@@ -41,7 +41,7 @@ Parameters:
     MinValue: 1
   ThorpeParkRides:
     Type: String
-    Default: Hyperia,Stealth,The Swarm
+    Default: Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave
   WeatherSource:
     Type: String
     Default: open_meteo
