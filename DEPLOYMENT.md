@@ -7,9 +7,9 @@ EventBridge Scheduler (1 minute)
         |
         v
   led-publisher Lambda
-   |      |       |
- Darwin  Queue-  Open-
-         Times   Meteo
+   |      |       |       |
+ Darwin  Queue-  Todoist  Open-
+         Times             Meteo
         |
         v
  private S3 hosting/state bucket
@@ -31,6 +31,8 @@ Lambda deployment packages are stored separately in a dedicated private bucket n
 
 `state/feed-cache.json` is never exposed through CloudFront. The CloudFront origin policy permits only `index.html` and `api/*`, while Lambda has separate read/write access to the private state object.
 
+> **Privacy:** `/api/screens` is publicly retrievable through CloudFront. The Todoist feed is therefore `off` by default. Enabling it publishes the selected Todoist task names and scheduled dates/times into that public JSON object. Use a deliberately narrow filter/project/label if that exposure is acceptable, or protect/personalize the screen endpoint before enabling private task data.
+
 ## Deployment conventions
 
 This repository follows the same deployment/secret conventions as `antonio1000homens/scouts` while keeping LED resources isolated:
@@ -39,7 +41,7 @@ This repository follows the same deployment/secret conventions as `antonio1000ho
 - `BW_ACCESS_TOKEN` is the Bitwarden Secrets Manager machine-account token stored as a GitHub Actions secret.
 - GitHub repository variables contain non-secret deployment configuration or Bitwarden secret UIDs only.
 - `bitwarden/sm-action` is pinned to a commit SHA and resolves secret values only at deploy time.
-- the National Rail token flows through a `NoEcho` CloudFormation parameter into the Lambda environment.
+- the National Rail token and optional Todoist token flow through `NoEcho` CloudFormation parameters into the Lambda environment.
 - Cloudflare's API token is deployment-only and never reaches Lambda.
 - Cloudflare DNS is explicitly constrained to the **Windsor** Cloudflare account; deployment must not use the Scouts account.
 - the bootstrap stack owns a dedicated private LED Lambda artifact bucket.
@@ -52,8 +54,9 @@ Create these in the LED Bitwarden project and allow the `led-github-actions` mac
 
 1. `NATIONAL_RAIL_TOKEN` — National Rail Darwin token.
 2. `CF_DEPLOY_API_TOKEN` — a Cloudflare API token with Zone Read and DNS Edit access to `alf-broadcast.co.uk` in the **Windsor Cloudflare account**.
+3. `TODOIST_TOKEN` — optional Todoist personal API token; required only when `LED_CALENDAR_SOURCE=todoist` is enabled.
 
-Do not put either secret value in GitHub variables. If the existing `CF_DEPLOY_API_TOKEN` value was created for the Scouts account, replace it with a Windsor-scoped token before deployment; the GitHub variable continues to contain only its Bitwarden UID.
+Do not put secret values in GitHub variables. If the existing `CF_DEPLOY_API_TOKEN` value was created for the Scouts account, replace it with a Windsor-scoped token before deployment; the GitHub variable continues to contain only its Bitwarden UID.
 
 ## GitHub repository settings
 
@@ -73,14 +76,15 @@ Required:
 
 Optional:
 
+- `BW_TODOIST_TOKEN` — Bitwarden secret UID for the Todoist personal API token. Leave unset while the Todoist feed is disabled.
 - `LED_DOMAIN_NAME` — defaults to `led.alf-broadcast.co.uk`.
 - `LED_CF_ZONE_NAME` — defaults to `alf-broadcast.co.uk`.
 
-`CODE_BUCKET` is intentionally **not** a GitHub variable. CI derives `led-code-eu-west-2-<aws-account-id>` after assuming the LED AWS role and verifies that the bucket exists. If an old `CODE_BUCKET` repository variable was created while setting up this PR, it can be removed because the workflow no longer reads it.
+`CODE_BUCKET` is intentionally **not** a GitHub variable. CI derives `led-code-eu-west-2-<aws-account-id>` after assuming the LED AWS role and verifies that the bucket exists. If an old `CODE_BUCKET` repository variable was created during initial setup, it can be removed because the workflow no longer reads it.
 
 Unlike the current Scouts website workflow, LED does not store the CloudFront distribution ID in Bitwarden. It is non-secret stack output metadata and is read directly from CloudFormation during deployment.
 
-The deploy workflow validates the two `BW_*` secret-ID variables as UUID-shaped values before invoking Bitwarden Actions. It also validates `CLOUDFLARE_ACCOUNT_ID` as a Cloudflare-style 32-character account ID. These checks fail without echoing secret values.
+The deploy workflow validates the required `BW_*` secret-ID variables as UUID-shaped values before invoking Bitwarden Actions. `BW_TODOIST_TOKEN` is validated the same way when present. It also validates `CLOUDFLARE_ACCOUNT_ID` as a Cloudflare-style 32-character account ID. These checks fail without echoing secret values.
 
 The Cloudflare DNS helper then queries the zone using both the zone name and `account.id`, and verifies that the returned zone belongs to an account named `Windsor` before any create/update request. A Scouts account ID/token therefore fails closed instead of writing to the wrong account.
 
@@ -97,7 +101,7 @@ bash scripts/bootstrap-deployment-role.sh
 
 The `led-bootstrap` stack creates:
 
-- `GitHubActionsLedDeployRole`, trusted only for `antonio1000homens/led` on `main`;
+- `GitHubActionsLedDeployRole`, trusted only for `antonio1000homens/led` on `master`;
 - `LedCloudFormationExecutionRole`, used by CloudFormation for the LED infrastructure;
 - `led-code-eu-west-2-<aws-account-id>`, a dedicated encrypted/private Lambda artifact bucket with public access blocked and TLS-only access enforced.
 
@@ -107,23 +111,49 @@ Copy the two role output ARNs into `AWS_ROLE_TO_ASSUME` and `CLOUDFORMATION_ROLE
 
 ## Automated deployment
 
-A push to `main`, or a manual `workflow_dispatch`, performs the production deployment:
+A push to `master`, or a manual `workflow_dispatch`, performs the production deployment:
 
 1. run all Python unit/infrastructure tests;
 2. validate Bitwarden UID variables and the Windsor `CLOUDFLARE_ACCOUNT_ID`;
 3. resolve the National Rail and Windsor Cloudflare secrets through the LED Bitwarden machine account;
-4. assume the repo-scoped AWS role using GitHub OIDC;
-5. derive and verify the dedicated `led-code-eu-west-2-<aws-account-id>` bucket;
-6. request or reuse the `led.alf-broadcast.co.uk` ACM certificate in `us-east-1`;
-7. create/update the ACM validation CNAME in the Windsor Cloudflare account and wait for issuance;
-8. package the Lambda, including `zeep`, and upload it to the dedicated LED code bucket;
-9. deploy `infrastructure/led-stack.yaml` through `LedCloudFormationExecutionRole`;
-10. upload `simulator/index.html` as S3 `index.html`;
-11. invoke the publisher once so `/api/screens` exists immediately;
-12. create/update the DNS-only `led.alf-broadcast.co.uk` CNAME in the Windsor Cloudflare account;
-13. invalidate `/index.html` and `/api/screens`.
+4. if `BW_TODOIST_TOKEN` is configured, resolve the Todoist token through the same machine account;
+5. assume the repo-scoped AWS role using GitHub OIDC;
+6. derive and verify the dedicated `led-code-eu-west-2-<aws-account-id>` bucket;
+7. request or reuse the `led.alf-broadcast.co.uk` ACM certificate in `us-east-1`;
+8. create/update the ACM validation CNAME in the Windsor Cloudflare account and wait for issuance;
+9. package the Lambda, including `zeep` and the Todoist provider, and upload it to the dedicated LED code bucket;
+10. deploy `infrastructure/led-stack.yaml` through `LedCloudFormationExecutionRole`;
+11. upload `simulator/index.html` as S3 `index.html`;
+12. invoke the publisher once so `/api/screens` exists immediately;
+13. create/update the DNS-only `led.alf-broadcast.co.uk` CNAME in the Windsor Cloudflare account;
+14. invalidate `/index.html` and `/api/screens`.
 
 Subsequent deployments reuse the existing certificate, bucket, and DNS records.
+
+## Todoist production configuration
+
+The CloudFormation defaults keep Todoist disabled:
+
+```text
+LED_CALENDAR_SOURCE=off
+LED_TODOIST_CACHE_SECONDS=300
+LED_TODOIST_MAX_EVENTS=6
+LED_TODOIST_FILTER_QUERY=date after: yesterday
+LED_TODOIST_TIMEZONE=Europe/London
+LED_CALENDAR_DURATION_SECONDS=10
+LED_CALENDAR_PAGE_SECONDS=5
+```
+
+To enable the feed:
+
+1. create a Todoist personal API token;
+2. store it in Bitwarden Secrets Manager as `TODOIST_TOKEN`;
+3. set repository variable `BW_TODOIST_TOKEN` to the Bitwarden secret UID, not the token itself;
+4. set the deployment environment override `LED_CALENDAR_SOURCE=todoist` before running `scripts/deploy-stack.sh`/the deployment workflow.
+
+The token is passed only to the publisher Lambda. It is not present in the published screen contract, simulator, MatrixPortal settings, S3 state payloads or structured failure logs.
+
+The default filter means scheduled tasks from today onward are eligible. `LED_TODOIST_FILTER_QUERY` can be narrowed to a project/label/other Todoist filter without changing code. The provider independently sorts the returned tasks and retains only the next configured events, so API response order is not relied upon.
 
 ## Cloudflare account safety
 
@@ -135,7 +165,7 @@ The Scouts Cloudflare account ID must never be configured for LED.
 
 ## Manual deployment
 
-For diagnosis or a first deploy outside GitHub Actions, resolve the two secret values locally first and provide the Windsor account ID:
+For diagnosis or a first deploy outside GitHub Actions, resolve the required secret values locally first and provide the Windsor account ID:
 
 ```bash
 export NATIONAL_RAIL_TOKEN='<resolved value>'
@@ -144,6 +174,13 @@ export CLOUDFLARE_ACCOUNT_ID='<Windsor Cloudflare account id>'
 export CLOUDFORMATION_ROLE_ARN='<bootstrap stack output>'
 
 bash scripts/deploy.sh
+```
+
+For a Todoist-enabled deployment, also provide:
+
+```bash
+export TODOIST_TOKEN='<resolved Todoist token>'
+export LED_CALENDAR_SOURCE=todoist
 ```
 
 `deploy.sh` derives the dedicated code bucket from the active AWS account. `CODE_BUCKET` may still be supplied explicitly for diagnosis, but normal LED deployments should use the bootstrap-created bucket.
@@ -162,13 +199,14 @@ bash scripts/deploy-static.sh
 
 ## Runtime behaviour
 
-EventBridge Scheduler invokes `led-publisher` once per minute. The Lambda loads the previous state from S3 and independently applies the existing refresh intervals:
+EventBridge Scheduler invokes `led-publisher` once per minute. The Lambda loads the previous state from S3 and independently applies the configured refresh intervals:
 
 - National Rail: 60 seconds;
 - Thorpe Park / Queue-Times: 300 seconds;
+- Todoist calendar: 300 seconds when enabled;
 - Open-Meteo weather: 600 seconds.
 
-If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Because this cache lives in S3, it works across Lambda cold starts and separate invocations.
+If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Because this cache lives in S3, it works across Lambda cold starts and separate invocations. A cold Todoist failure affects only the calendar screen; rail/queue/weather screens continue to publish. A successful Todoist response with no qualifying tasks is not an error and renders `No upcoming events`.
 
 The Lambda replaces `api/screens` with one complete S3 `PutObject`; S3 object replacement is atomic, so readers never observe partially written JSON.
 
@@ -184,7 +222,7 @@ SCREEN_API_URL = "https://led.alf-broadcast.co.uk"
 POLL_SECONDS = 30
 ```
 
-The client continues to request `${SCREEN_API_URL}/api/screens`; no National Rail, Queue-Times, Open-Meteo, AWS, Cloudflare, or Bitwarden credentials are stored on the MatrixPortal.
+The client continues to request `${SCREEN_API_URL}/api/screens`; no National Rail, Todoist, Queue-Times, Open-Meteo, AWS, Cloudflare, or Bitwarden credentials are stored on the MatrixPortal.
 
 ## Cost characteristics
 
