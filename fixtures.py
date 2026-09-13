@@ -38,13 +38,15 @@ PAGES = [
 ]
 
 
-# This is deliberately a credential-free visual fixture. A future calendar
-# adapter must normalize its provider data to this shape before it reaches a
-# display layout.
+# Credential-free visual fixture matching the normalized Todoist event shape.
+# Six rows deliberately exercise both three-row agenda pages.
 CALENDAR_EVENTS = [
-    {"start": "18:30", "title": "Scout meeting and programme planning", "location": "Scout HQ"},
-    {"start": "Tomorrow 09:00", "title": "Team stand-up", "location": "Online"},
-    {"start": "Sat 10:00", "title": "District activity day", "location": "Kingston"},
+    {"start": "2026-09-13T18:30:00+01:00", "all_day": False, "date_text": "13/09", "time_text": "18:30", "title": "Scout meeting and programme planning"},
+    {"start": "2026-09-14", "all_day": True, "date_text": "14/09", "time_text": "ALL", "title": "School inset day"},
+    {"start": "2026-09-14T09:00:00+01:00", "all_day": False, "date_text": "14/09", "time_text": "09:00", "title": "Team stand-up"},
+    {"start": "2026-09-15T11:30:00+01:00", "all_day": False, "date_text": "15/09", "time_text": "11:30", "title": "Dentist appointment"},
+    {"start": "2026-09-16T17:15:00+01:00", "all_day": False, "date_text": "16/09", "time_text": "17:15", "title": "Pick up shopping"},
+    {"start": "2026-09-19T10:00:00+01:00", "all_day": False, "date_text": "19/09", "time_text": "10:00", "title": "District activity day"},
 ]
 
 
