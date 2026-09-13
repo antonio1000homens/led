@@ -12,6 +12,13 @@ class Pr28DeploymentContractTests(unittest.TestCase):
         self.assertIn("OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac", config_behavior)
         self.assertNotIn("OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3", config_behavior)
 
+    def test_config_api_lambda_proxy_uses_post_integration_method(self):
+        template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
+        integration = template.split("ConfigApiIntegration:", 1)[1].split("ConfigGetRoute:", 1)[0]
+        self.assertIn("IntegrationType: AWS_PROXY", integration)
+        self.assertIn("IntegrationMethod: POST", integration)
+        self.assertIn("PayloadFormatVersion: '2.0'", integration)
+
     def test_cloudformation_role_can_manage_config_api_resources(self):
         bootstrap = (ROOT / "infrastructure" / "bootstrap.yaml").read_text(encoding="utf-8")
         self.assertIn("Sid: ApiGatewayV2Manage", bootstrap)
@@ -33,6 +40,12 @@ class Pr28DeploymentContractTests(unittest.TestCase):
         self.assertIn("/admin.html", bootstrap)
         self.assertIn("simulator/admin.html", static)
         self.assertIn("'/api/config'", static)
+
+    def test_stack_deploy_prints_recent_events_when_cloudformation_fails(self):
+        deploy = (ROOT / "scripts" / "deploy-stack.sh").read_text(encoding="utf-8")
+        self.assertIn("CloudFormation deployment failed; recent stack events:", deploy)
+        self.assertIn("cloudformation describe-stack-events", deploy)
+        self.assertIn("StackEvents[0:30]", deploy)
 
 
 if __name__ == "__main__":
