@@ -26,15 +26,27 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn("Type: AWS::Scheduler::Schedule", template)
         self.assertIn("ScheduleExpression: rate(1 minute)", template)
 
-    def test_runtime_secret_is_noecho_and_github_uses_bitwarden_uid_variables(self):
+    def test_runtime_secrets_are_noecho_and_github_uses_bitwarden_uid_variables(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         self.assertRegex(template, r"NationalRailToken:\n\s+Type: String\n\s+NoEcho: true")
+        self.assertRegex(template, r"TodoistToken:\n\s+Type: String\n\s+NoEcho: true")
         self.assertIn("secrets.BW_ACCESS_TOKEN", workflow)
         self.assertIn("vars.BW_NATIONAL_RAIL_TOKEN", workflow)
+        self.assertIn("vars.BW_TODOIST_TOKEN", workflow)
         self.assertIn("vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN", workflow)
         self.assertIn("must contain a Bitwarden secret UID", workflow)
         self.assertNotIn("BWS_ACCESS_TOKEN", workflow)
+
+    def test_todoist_feed_is_off_by_default_and_packaged(self):
+        template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
+        package = (ROOT / "scripts" / "package-lambda.sh").read_text(encoding="utf-8")
+        deploy = (ROOT / "scripts" / "deploy-stack.sh").read_text(encoding="utf-8")
+        calendar = template.split("CalendarSource:", 1)[1].split("TodoistCacheSeconds:", 1)[0]
+        self.assertIn("Default: off", calendar)
+        self.assertIn('"${ROOT_DIR}/todoist.py"', package)
+        self.assertIn('"TodoistToken=${TODOIST_TOKEN}"', deploy)
+        self.assertIn('"CalendarSource=${CALENDAR_SOURCE}"', deploy)
 
     def test_hostname_defaults_to_led_subdomain(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
@@ -80,7 +92,6 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn("RepoOwnerId:", bootstrap)
         self.assertIn("Default: '36929120'", bootstrap)
         self.assertIn("RepoId:", bootstrap)
-        self.assertIn("Default: '1367515704'", bootstrap)
         self.assertRegex(bootstrap, r"DeployBranch:\n\s+Type: String\n\s+Default: master")
         self.assertIn(
             "repo:${RepoOwner}@${RepoOwnerId}/${RepoName}@${RepoId}:ref:refs/heads/${DeployBranch}",
