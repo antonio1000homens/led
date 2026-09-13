@@ -49,7 +49,10 @@ class InfrastructureContractTests(unittest.TestCase):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         oauth_bootstrap = (ROOT / "scripts" / "bootstrap-todoist-oauth.py").read_text(encoding="utf-8")
         calendar = template.split("CalendarSource:", 1)[1].split("TodoistCacheSeconds:", 1)[0]
-        self.assertIn("Default: off", calendar)
+        self.assertIn("Default: 'off'", calendar)
+        self.assertIn("AllowedValues: ['off', todoist]", calendar)
+        self.assertIn("AllowedValues: ['off', queue_times]", template)
+        self.assertIn("AllowedValues: ['off', open_meteo]", template)
         self.assertIn("DeletionPolicy: Retain", template)
         self.assertIn("secretsmanager:GetSecretValue", template)
         self.assertIn("secretsmanager:PutSecretValue", template)
