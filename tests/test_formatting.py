@@ -56,7 +56,7 @@ class FormattingTests(unittest.TestCase):
         text = "x" * 50
         self.assertIsNone(calling_marquee_x(text, 1.19))
         self.assertEqual(calling_marquee_x(text, 1.2), 0)
-        self.assertEqual(calling_marquee_x(text, 2.2), -55)
+        self.assertEqual(calling_marquee_x(text, 2.2), -48)
 
     def test_queue_scroll_holds_then_slides_up(self):
         self.assertEqual(queue_scroll_state(0.9, 6), (0, 0.0))

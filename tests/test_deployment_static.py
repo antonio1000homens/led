@@ -51,10 +51,10 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
         self.assertIn("context.fillText(parts.when, 0, y);", simulator)
 
-    def test_simulator_rail_has_upcoming_header_and_delayed_faster_calling_marquee(self):
+    def test_simulator_rail_has_upcoming_header_and_delayed_calling_marquee(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("const RAIL_MARQUEE_DELAY_SECONDS = 1.2;", simulator)
-        self.assertIn("const RAIL_MARQUEE_SPEED = 220;", simulator)
+        self.assertIn("const RAIL_MARQUEE_SPEED = 192;", simulator)
         self.assertIn("return { services: services.slice(0, 2) };", simulator)
         self.assertIn("context.fillText('UPCOMING', 0, 64);", simulator)
         self.assertIn("RAIL_MARQUEE_SPEED, RAIL_MARQUEE_DELAY_SECONDS", simulator)
