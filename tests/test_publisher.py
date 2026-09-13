@@ -1,10 +1,12 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import unittest
-from publisher import Publisher, PublisherConfig
+from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
+from runtime_config import default_runtime_config
+
 
 class MemoryStore:
-    def __init__(self): self.state={"version":1,"feeds":{}}; self.payload=None
+    def __init__(self): self.state={"version":2,"feeds":{}}; self.payload=None
     def load(self): return copy.deepcopy(self.state)
     def save(self,state): self.state=copy.deepcopy(state)
     def publish(self,payload): self.payload=copy.deepcopy(payload)
@@ -16,6 +18,7 @@ class FakeProvider:
         if isinstance(result,Exception): raise result
         return copy.deepcopy(result)
 
+
 class PublisherTests(unittest.TestCase):
     def setUp(self):
         self.now=datetime(2026,9,13,7,0,tzinfo=timezone.utc); self.utcnow=lambda:self.now; self.store=MemoryStore()
@@ -25,7 +28,7 @@ class PublisherTests(unittest.TestCase):
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run(); self.now+=timedelta(seconds=30)
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()
         self.assertEqual(rail.calls,1); self.assertEqual(self.store.payload["screens"][0]["services"][0]["time"],"08:01")
-        self.assertEqual(self.store.state["feeds"]["rail"]["last_success_at"],"2026-09-13T07:00:00Z")
+        self.assertEqual(self.store.state["feeds"]["departures"]["last_success_at"],"2026-09-13T07:00:00Z")
     def test_refreshes_after_ttl_and_keeps_last_good_data_stale_on_failure(self):
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],RuntimeError("upstream failure must not leak")])
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run(); self.now+=timedelta(seconds=61)
@@ -90,4 +93,41 @@ class PublisherTests(unittest.TestCase):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist")
         screen=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),utcnow=self.utcnow,calendar_provider=FakeProvider([[]])).run()["screens"][1]
         self.assertEqual(screen["events"],[]); self.assertFalse(screen["stale"]); self.assertEqual(screen["title"],"UPCOMING")
+
+    def test_disabled_feed_is_not_polled_and_is_omitted(self):
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        runtime["feeds"]["departures"]["enabled"]=False
+        rail=FakeProvider([])
+        payload=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
+        self.assertEqual(rail.calls,0); self.assertEqual(payload["screens"],[])
+
+    def test_runtime_screen_duration_and_ride_order_reach_screens(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",weather_source="off")
+        runtime=default_runtime_config({"LED_WEATHER_SOURCE":"off"}); runtime["config_version"]=9
+        runtime["feeds"]["departures"]["screen_duration_seconds"]=12
+        runtime["feeds"]["thorpe_park"]["rides"]=["Stealth","Hyperia"]
+        runtime["feeds"]["thorpe_park"]["screen_duration_seconds"]=14
+        runtime["feeds"]["chessington"]["rides"]=["Vampire"]
+        runtime["feeds"]["chessington"]["screen_duration_seconds"]=11
+        rides=[{"name":"Hyperia","open":True,"wait_minutes":20},{"name":"Stealth","open":True,"wait_minutes":5}]
+        chess=[{"name":"Vampire","open":True,"wait_minutes":30}]
+        payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),queue_provider=FakeProvider([rides]),chessington_provider=FakeProvider([chess]),utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
+        self.assertEqual(payload["config_version"],9)
+        self.assertEqual(payload["screens"][0]["duration_seconds"],12)
+        self.assertEqual(payload["screens"][1]["duration_seconds"],14)
+        self.assertEqual([ride["name"] for ride in payload["screens"][1]["rides"]],["Stealth","Hyperia"])
+        self.assertEqual(payload["screens"][2]["duration_seconds"],11)
+
+    def test_disappeared_ride_is_flagged_without_breaking_park(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",weather_source="off")
+        runtime=default_runtime_config({"LED_WEATHER_SOURCE":"off"})
+        runtime["feeds"]["thorpe_park"]["rides"]=["Hyperia","Renamed Ride"]
+        runtime["feeds"]["chessington"]["enabled"]=False
+        rides=[{"name":"Hyperia","open":True,"wait_minutes":20}]
+        payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),queue_provider=FakeProvider([rides]),utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
+        park=payload["screens"][1]
+        self.assertEqual([ride["name"] for ride in park["rides"]],["Hyperia"])
+        self.assertEqual(park["missing_configured_rides"],["Renamed Ride"])
+
+
 if __name__=="__main__": unittest.main()
