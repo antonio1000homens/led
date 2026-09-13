@@ -12,11 +12,6 @@ Parameters:
     Type: String
     NoEcho: true
     Description: National Rail Darwin token resolved from Bitwarden during deployment.
-  TodoistToken:
-    Type: String
-    NoEcho: true
-    Default: ''
-    Description: Optional Todoist personal API token resolved from Bitwarden during deployment.
   DomainName:
     Type: String
     Default: led.alf-broadcast.co.uk
@@ -104,6 +99,14 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
+  TodoistOAuthSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: led/todoist/oauth
+      Description: Todoist OAuth client credentials and rotating access/refresh tokens for the LED publisher.
+
   PublisherRole:
     Type: AWS::IAM::Role
     Properties:
@@ -133,6 +136,12 @@ Resources:
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
                   - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: ReadWriteTodoistOAuthSecret
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:PutSecretValue
+                Resource: !Ref TodoistOAuthSecret
               - Sid: WriteLogs
                 Effect: Allow
                 Action:
@@ -164,7 +173,7 @@ Resources:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
-          TODOIST_TOKEN: !Ref TodoistToken
+          TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthSecret
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
@@ -303,6 +312,8 @@ Outputs:
     Value: !Ref PublisherFunction
   PublisherFunctionArn:
     Value: !GetAtt PublisherFunction.Arn
+  TodoistOAuthSecretArn:
+    Value: !Ref TodoistOAuthSecret
   DistributionId:
     Value: !Ref Distribution
   DistributionDomainName:
