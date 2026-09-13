@@ -6,6 +6,7 @@ from formatting import (
     AGENDA_VISIBLE_ROWS,
     QUEUE_VISIBLE_ROWS,
     agenda_scroll_state,
+    calendar_due_text,
     calendar_row,
     calling_text,
     format_row,
@@ -26,6 +27,7 @@ WEATHER_LABEL_Y = 27
 WEATHER_ICON_WIDTH = 7
 WEATHER_GAP = 1
 WEATHER_FONT_WIDTH = 6
+HEADER_GAP = 4
 
 WEATHER_ICONS = {
     "clear_day": ("..#.#..", "...#...", ".#####.", "..###..", ".#####.", "...#...", "..#.#.."),
@@ -104,6 +106,20 @@ def _agenda_state(screen, phase):
     page_seconds = screen.get("page_seconds") or 5
     start, progress = agenda_scroll_state(phase, len(events), page_seconds, visible)
     return events, visible, start, progress
+
+
+def _calendar_due_layout(screen, clock_date, clock_time):
+    if screen.get("kind") != "calendar_agenda":
+        return "", 0
+    events = screen.get("events") or []
+    if not events:
+        return "", 0
+    text = calendar_due_text(events[0], clock_date, clock_time)
+    if not text:
+        return "", 0
+    right_edge = (STALE_X if screen.get("stale") else CLOCK_X) - HEADER_GAP
+    x = max(0, right_edge - len(text) * WEATHER_FONT_WIDTH)
+    return text, x
 
 
 class MatrixDisplay:
@@ -206,7 +222,7 @@ class MatrixDisplay:
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=icon_x, y=WEATHER_Y))
         self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, text_x, WEATHER_LABEL_Y)
 
-    def show(self, screen, clock_time="--:--", phase=2):
+    def show(self, screen, clock_time="--:--", clock_date="", phase=2):
         import displayio
 
         group = displayio.Group()
@@ -219,6 +235,9 @@ class MatrixDisplay:
             self._calendar(group, screen, phase)
         else:
             self._label(group, _clip(screen.get("title") or "Display unavailable", 30), 0xFFFFFF, 0, 3)
+        due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
+        if due_text:
+            self._label(group, due_text, 0xFFFFFF, due_x, 3)
         if screen.get("stale"):
             self._label(group, "STALE", 0xFF3300, STALE_X, 3)
         self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
@@ -335,10 +354,13 @@ class FixtureDisplay:
                     self._pixel(icon_x + x, WEATHER_Y + y, color)
         self._text(text, text_x, WEATHER_Y, (170, 170, 170) if stale else (255, 255, 255))
 
-    def show(self, screen, clock_time="--:--", phase=2):
+    def show(self, screen, clock_time="--:--", clock_date="", phase=2):
+        due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase)
+            if due_text:
+                self._text(due_text, due_x, 0, (255, 255, 255))
             if screen.get("stale"):
                 self._text("STALE", STALE_X, 0, (255, 20, 0))
             self._text(clock_time, CLOCK_X, 0, (255, 100, 0))
@@ -346,6 +368,8 @@ class FixtureDisplay:
             self.pixels.show()
 
         print("\n[{}] {}".format(clock_time, screen.get("title") or screen.get("kind") or "screen"))
+        if due_text:
+            print(due_text)
         kind = screen.get("kind")
         if kind == "rail_combined":
             services = screen.get("services") or []
