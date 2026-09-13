@@ -50,6 +50,7 @@ jobs:
       - name: Validate deployment configuration
         env:
           BW_NATIONAL_RAIL_TOKEN: ${{ vars.BW_NATIONAL_RAIL_TOKEN }}
+          BW_TODOIST_TOKEN: ${{ vars.BW_TODOIST_TOKEN }}
           BW_SECRET_ID_CF_DEPLOY_API_TOKEN: ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }}
         run: |
           python - <<'PY'
@@ -70,6 +71,9 @@ jobs:
               if not uuid.fullmatch(value):
                   print(f"{name} must contain a Bitwarden secret UID, not a secret value.", file=sys.stderr)
                   raise SystemExit(1)
+          optional_todoist = os.environ.get("BW_TODOIST_TOKEN", "").strip()
+          if optional_todoist and not uuid.fullmatch(optional_todoist):
+              raise SystemExit("BW_TODOIST_TOKEN must contain a Bitwarden secret UID when configured")
           PY
 
       - name: Resolve deployment secrets from Bitwarden
@@ -90,6 +94,14 @@ jobs:
           secrets: |
             ${{ vars.BW_NATIONAL_RAIL_TOKEN }} > NATIONAL_RAIL_TOKEN
             ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }} > CF_DEPLOY_API_TOKEN
+
+      - name: Resolve optional Todoist secret from Bitwarden
+        if: vars.BW_TODOIST_TOKEN != ''
+        uses: bitwarden/sm-action@14f92f1d294ae3c2b6a3845d389cd2c318b0dfd8 # v2.2.0
+        with:
+          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
+          secrets: |
+            ${{ vars.BW_TODOIST_TOKEN }} > TODOIST_TOKEN
 
       - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
         with:
