@@ -29,6 +29,15 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertNotIn("context.fillText(temperatureText, 904, 94);", simulator)
         self.assertNotIn("context.fillRect(864 + x * 4", simulator)
 
+    def test_simulator_hides_all_day_time_and_renders_due_countdown(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("event.all_day || rawTimeText.toUpperCase() === 'ALL'", simulator)
+        self.assertIn("function calendarDueText(event, now = new Date())", simulator)
+        self.assertIn("return 'DUE TODAY';", simulator)
+        self.assertIn("return `DUE IN ${dayDelta}d`;", simulator)
+        self.assertIn("drawCalendarDue(events, wallClock", simulator)
+        self.assertIn("timeZone: 'Europe/London'", simulator)
+
 
 if __name__ == "__main__":
     unittest.main()
