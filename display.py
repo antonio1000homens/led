@@ -5,9 +5,10 @@ import board
 from formatting import (
     AGENDA_VISIBLE_ROWS,
     QUEUE_VISIBLE_ROWS,
+    agenda_marquee_x,
     agenda_scroll_state,
     calendar_due_text,
-    calendar_row,
+    calendar_row_text,
     calling_text,
     format_row,
     queue_scroll_state,
@@ -198,7 +199,9 @@ class MatrixDisplay:
                 event_index = start + slot
                 if event_index >= len(events):
                     break
-                self._label(group, calendar_row(events[event_index]), 0xFFFFFF, 0, AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset)
+                text = calendar_row_text(events[event_index])
+                x = agenda_marquee_x(text, phase)
+                self._label(group, text, 0xFFFFFF, x, AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset)
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
@@ -331,7 +334,9 @@ class FixtureDisplay:
                     event_index = start + slot
                     if event_index >= len(events):
                         break
-                    self._text(calendar_row(events[event_index]), 0, 8 + slot * AGENDA_ROW_HEIGHT - y_offset, (255, 255, 255))
+                    text = calendar_row_text(events[event_index])
+                    x = agenda_marquee_x(text, phase)
+                    self._text(text, x, 8 + slot * AGENDA_ROW_HEIGHT - y_offset, (255, 255, 255))
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "UPCOMING", 30), 0, 0, (255, 100, 0))
         else:
@@ -388,7 +393,7 @@ class FixtureDisplay:
             if not events:
                 print("No upcoming events")
             for event in events[start:start + visible]:
-                print(calendar_row(event).rstrip())
+                print(calendar_row_text(event).rstrip())
         weather = screen.get("weather")
         if isinstance(weather, dict):
             print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))

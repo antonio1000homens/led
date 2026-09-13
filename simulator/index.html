@@ -66,6 +66,9 @@
     const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
     const AGENDA_VISIBLE_ROWS = 3;
     const AGENDA_SLIDE_SECONDS = 0.4;
+    const AGENDA_ROW_WIDTH = 42;
+    const AGENDA_MARQUEE_SPEED = 120;
+    const AGENDA_MARQUEE_PAUSE_SECONDS = 1.25;
 
     const weatherIcons = {
       clear_day: ['..#.#..', '...#...', '.#####.', '..###..', '.#####.', '...#...', '..#.#..'],
@@ -103,6 +106,17 @@
       const timeText = event.all_day || rawTimeText.toUpperCase() === 'ALL' ? '' : rawTimeText;
       const when = (dateText + (timeText ? ' ' + timeText : '')).trim().slice(0, 11).padEnd(11, ' ');
       return when + ' ' + String(event.title || event.location || 'Event');
+    }
+    function agendaMarqueeX(text, phase) {
+      const value = String(text || '');
+      if (value.length <= AGENDA_ROW_WIDTH) return 0;
+      const overflow = context.measureText(value.slice(0, value.length - AGENDA_ROW_WIDTH)).width;
+      if (overflow <= 0) return 0;
+      const scrollSeconds = overflow / AGENDA_MARQUEE_SPEED;
+      const cycleSeconds = scrollSeconds + AGENDA_MARQUEE_PAUSE_SECONDS;
+      const withinCycle = Math.max(0, Number(phase) || 0) % cycleSeconds;
+      if (withinCycle >= scrollSeconds) return -overflow;
+      return -Math.min(overflow, withinCycle * AGENDA_MARQUEE_SPEED);
     }
     function londonDateParts(value) {
       const result = {};
@@ -294,8 +308,9 @@
           for (let slot = 0; slot < rowCount; slot += 1) {
             const event = events[agenda.start + slot];
             if (!event) break;
+            const text = calendarRow(event);
             context.fillStyle = '#ffffff';
-            context.fillText(calendarRow(event), 0, 34 + slot * 30 - yOffset);
+            context.fillText(text, agendaMarqueeX(text, phase), 34 + slot * 30 - yOffset);
           }
           context.restore();
         }

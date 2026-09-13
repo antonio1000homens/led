@@ -9,6 +9,9 @@ AGENDA_VISIBLE_ROWS = 3
 AGENDA_SLIDE_SECONDS = 0.4
 AGENDA_PAGE_SECONDS = 5.0
 AGENDA_ROW_WIDTH = 42
+AGENDA_FONT_WIDTH = 6
+AGENDA_MARQUEE_SPEED = 30.0
+AGENDA_MARQUEE_PAUSE_SECONDS = 1.25
 
 
 def _clip(value, width):
@@ -27,8 +30,8 @@ def format_row(service, width=32):
     return (prefix + destination + suffix)[:width].ljust(width)
 
 
-def calendar_row(event, width=AGENDA_ROW_WIDTH):
-    """Format one normalized agenda event as date/time then title."""
+def calendar_row_text(event):
+    """Format one normalized agenda event without clipping its title."""
     date_text = str(event.get("date_text") or "").strip()
     time_text = str(event.get("time_text") or "").strip()
     if event.get("all_day") or time_text.upper() == "ALL":
@@ -43,7 +46,48 @@ def calendar_row(event, width=AGENDA_ROW_WIDTH):
     when = (date_text + (" " + time_text if time_text else "")).strip()
     title = str(event.get("title") or event.get("location") or "Event")
     prefix = when[:11].ljust(11) + " "
-    return (prefix + title)[:width].ljust(width)
+    return prefix + title
+
+
+def calendar_row(event, width=AGENDA_ROW_WIDTH):
+    """Format one normalized agenda event to a fixed-width static row."""
+    return calendar_row_text(event)[:width].ljust(width)
+
+
+def agenda_marquee_x(
+    text,
+    phase,
+    visible_chars=AGENDA_ROW_WIDTH,
+    font_width=AGENDA_FONT_WIDTH,
+    speed=AGENDA_MARQUEE_SPEED,
+    pause_seconds=AGENDA_MARQUEE_PAUSE_SECONDS,
+):
+    """Return the x offset for a long agenda row marquee.
+
+    Rows at or below ``visible_chars`` remain fixed at x=0. Longer rows move
+    right-to-left until their final character is visible, pause there, then
+    jump back to x=0 and repeat.
+    """
+    text = str(text or "")
+    if len(text) <= visible_chars:
+        return 0
+    try:
+        phase = max(0.0, float(phase or 0))
+        speed = max(1.0, float(speed or AGENDA_MARQUEE_SPEED))
+        pause_seconds = max(0.0, float(pause_seconds or 0))
+    except (TypeError, ValueError):
+        phase = 0.0
+        speed = AGENDA_MARQUEE_SPEED
+        pause_seconds = AGENDA_MARQUEE_PAUSE_SECONDS
+    overflow = max(0, (len(text) - int(visible_chars)) * int(font_width))
+    if overflow <= 0:
+        return 0
+    scroll_seconds = overflow / speed
+    cycle_seconds = scroll_seconds + pause_seconds
+    within_cycle = phase % cycle_seconds if cycle_seconds > 0 else 0
+    if within_cycle >= scroll_seconds:
+        return -overflow
+    return -min(overflow, int(within_cycle * speed))
 
 
 def _iso_date_parts(value):
