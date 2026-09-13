@@ -153,10 +153,26 @@ jobs:
 
       - name: Publish initial screen snapshot
         run: |
-          aws lambda invoke \
-            --region "${AWS_REGION}" \
-            --function-name "${{ steps.stack.outputs.publisher }}" \
-            /tmp/led-publisher-response.json >/dev/null
+          set +e
+          for attempt in 1 2 3 4 5; do
+            aws lambda invoke \
+              --region "${AWS_REGION}" \
+              --function-name "${{ steps.stack.outputs.publisher }}" \
+              /tmp/led-publisher-response.json >/tmp/led-publisher-invoke.log 2>&1
+            status=$?
+            if [ "$status" -eq 0 ]; then
+              break
+            fi
+            cat /tmp/led-publisher-invoke.log
+            if ! grep -Eq 'TooManyRequestsException|ReservedFunctionConcurrentInvocationLimitExceeded|Rate Exceeded' /tmp/led-publisher-invoke.log; then
+              exit "$status"
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              exit "$status"
+            fi
+            sleep $((attempt * 10))
+          done
+          set -e
           python - <<'PY'
           import json
           with open('/tmp/led-publisher-response.json', encoding='utf-8') as handle:
