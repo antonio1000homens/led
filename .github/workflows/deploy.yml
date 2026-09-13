@@ -17,6 +17,8 @@ env:
   DOMAIN_NAME: ${{ vars.LED_DOMAIN_NAME || 'led.alf-broadcast.co.uk' }}
   ZONE_NAME: ${{ vars.LED_CF_ZONE_NAME || 'alf-broadcast.co.uk' }}
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
+  CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
   AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
   CLOUDFORMATION_ROLE_ARN: ${{ vars.CLOUDFORMATION_ROLE_ARN }}
   LED_CALENDAR_SOURCE: "todoist"
@@ -26,6 +28,8 @@ env:
   LED_TODOIST_TIMEZONE: "${{ vars.LED_TODOIST_TIMEZONE || 'Europe/London' }}"
   LED_CALENDAR_DURATION_SECONDS: "${{ vars.LED_CALENDAR_DURATION_SECONDS || '10' }}"
   LED_CALENDAR_PAGE_SECONDS: "${{ vars.LED_CALENDAR_PAGE_SECONDS || '5' }}"
+  LED_CHESSINGTON_CACHE_SECONDS: "${{ vars.LED_CHESSINGTON_CACHE_SECONDS || '300' }}"
+  LED_CHESSINGTON_RIDES: "${{ vars.LED_CHESSINGTON_RIDES || 'Vampire,Dragon''s Fury,Mandrill Mayhem' }}"
 
 jobs:
   test:
@@ -71,6 +75,11 @@ jobs:
           account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
           if not re.fullmatch(r"[0-9a-fA-F]{32}", account_id):
               raise SystemExit("CLOUDFLARE_ACCOUNT_ID must be the 32-character Windsor Cloudflare account ID")
+          team_domain = os.environ.get("CF_ACCESS_TEAM_DOMAIN", "").strip()
+          if not re.fullmatch(r"https://[A-Za-z0-9.-]+\.cloudflareaccess\.com/?", team_domain):
+              raise SystemExit("CF_ACCESS_TEAM_DOMAIN must be the existing Cloudflare Access team domain")
+          if len(os.environ.get("CF_ACCESS_AUD", "").strip()) < 16:
+              raise SystemExit("CF_ACCESS_AUD must contain the existing Access application audience tag")
           uuid = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
           for name in ("BW_NATIONAL_RAIL_TOKEN", "BW_SECRET_ID_CF_DEPLOY_API_TOKEN"):
               value = os.environ.get(name, "").strip()
@@ -144,7 +153,7 @@ jobs:
           CODE_KEY: ${{ steps.package.outputs.code_key }}
         run: bash scripts/deploy-stack.sh
 
-      - name: Deploy simulator static content
+      - name: Deploy simulator and admin static content
         run: bash scripts/deploy-static.sh
 
       - name: Read stack outputs
@@ -159,6 +168,7 @@ jobs:
           }
           echo "publisher=$(output PublisherFunctionName)" >> "${GITHUB_OUTPUT}"
           echo "hosting_bucket=$(output HostingBucketName)" >> "${GITHUB_OUTPUT}"
+          echo "runtime_table=$(output RuntimeConfigTableName)" >> "${GITHUB_OUTPUT}"
           echo "distribution_domain=$(output DistributionDomainName)" >> "${GITHUB_OUTPUT}"
           echo "distribution_id=$(output DistributionId)" >> "${GITHUB_OUTPUT}"
 
@@ -220,4 +230,4 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.stack.outputs.distribution_id }}" \
-            --paths '/index.html' '/api/screens' >/dev/null
+            --paths '/index.html' '/api/screens' '/admin' '/api/control/v1/*' >/dev/null
