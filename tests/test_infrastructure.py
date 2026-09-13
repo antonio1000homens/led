@@ -104,6 +104,7 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn('default="Windsor"', helper)
         self.assertIn("not in the Windsor account", helper)
         self.assertIn('CLOUDFLARE_ACCOUNT_NAME="Windsor"', shell)
+        self.assertIn('--proxied', shell)
         self.assertNotIn("9a5523112f1460d0f77c9ba239d00029", workflow + helper + shell)
 
     def test_bootstrap_creates_dedicated_private_code_bucket(self):

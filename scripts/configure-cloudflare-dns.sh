@@ -43,7 +43,8 @@ if [[ -n "${CLOUDFRONT_DOMAIN:-}" ]]; then
   upsert_dns \
     --name "${DOMAIN_NAME}" \
     --type CNAME \
-    --content "${CLOUDFRONT_DOMAIN}"
+    --content "${CLOUDFRONT_DOMAIN}" \
+    --proxied
 fi
 
 if [[ -z "${CERTIFICATE_ARN:-}" && -z "${CLOUDFRONT_DOMAIN:-}" ]]; then

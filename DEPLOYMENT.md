@@ -22,7 +22,7 @@ EventBridge Scheduler (1 minute)
         v
  CloudFront + OAC
         |
- Windsor Cloudflare DNS (DNS-only)
+ Windsor Cloudflare DNS (proxied for Access)
         |
  led.alf-broadcast.co.uk
    /             \
@@ -136,7 +136,7 @@ A push to `master`, or a manual `workflow_dispatch`, performs the production dep
 9. deploy `infrastructure/led-stack.yaml` through `LedCloudFormationExecutionRole`, configuring Lambda access to `/led/todoist/oauth`;
 10. upload `simulator/index.html` as S3 `index.html`;
 11. invoke the publisher once so `/api/screens` exists immediately;
-12. create/update the DNS-only `led.alf-broadcast.co.uk` CNAME in the Windsor Cloudflare account;
+12. create/update the proxied `led.alf-broadcast.co.uk` CNAME in the Windsor Cloudflare account so Cloudflare Access can enforce the admin and control-API applications;
 13. invalidate `/index.html` and `/api/screens`.
 
 Subsequent deployments reuse the existing certificate, bucket and DNS records. Todoist OAuth state remains in SSM independently of stack deployments.
@@ -248,7 +248,7 @@ bash scripts/deploy-static.sh
 python3 scripts/bootstrap-todoist-oauth.py
 ```
 
-`configure-cloudflare-dns.sh` uses DNS-only records intentionally. Cloudflare remains the authoritative DNS provider, while CloudFront remains the HTTPS/CDN endpoint and presents the ACM certificate for `led.alf-broadcast.co.uk`.
+`configure-cloudflare-dns.sh` keeps ACM validation DNS-only but proxies the LED hostname through Cloudflare. CloudFront remains the HTTPS/CDN endpoint and presents the ACM certificate for `led.alf-broadcast.co.uk`; the proxy is required for Cloudflare Access to enforce the protected admin and control-API paths.
 
 ## Runtime behaviour
 
