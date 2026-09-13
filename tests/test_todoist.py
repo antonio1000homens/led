@@ -5,7 +5,7 @@ from urllib.parse import parse_qs, urlparse
 import unittest
 
 from todoist import (
-    SecretsManagerOAuthStore,
+    SSMParameterOAuthStore,
     TodoistFeedUnavailable,
     TodoistOAuthSession,
     TodoistProvider,
@@ -64,26 +64,37 @@ class FakeStore:
         self.saved.append(dict(payload))
 
 
-class FakeSecretsClient:
+class FakeSSMClient:
     def __init__(self, payload):
         self.payload = dict(payload)
+        self.get_calls = []
         self.put_calls = []
 
-    def get_secret_value(self, SecretId):
-        return {"SecretString": json.dumps(self.payload)}
+    def get_parameter(self, **kwargs):
+        self.get_calls.append(kwargs)
+        return {"Parameter": {"Value": json.dumps(self.payload)}}
 
-    def put_secret_value(self, **kwargs):
+    def put_parameter(self, **kwargs):
         self.put_calls.append(kwargs)
-        self.payload = json.loads(kwargs["SecretString"])
+        self.payload = json.loads(kwargs["Value"])
+        return {"Version": 2}
 
 
 class TodoistOAuthTests(unittest.TestCase):
-    def test_secrets_manager_store_loads_and_saves_without_exposing_fields(self):
-        client = FakeSecretsClient({"client_id": "id", "client_secret": "secret"})
-        store = SecretsManagerOAuthStore("arn:secret", client=client)
+    def test_ssm_store_loads_decrypted_securestring_and_saves_standard_tier(self):
+        client = FakeSSMClient({"client_id": "id", "client_secret": "secret"})
+        store = SSMParameterOAuthStore("/led/todoist/oauth", client=client)
         self.assertEqual(store.load()["client_id"], "id")
+        self.assertEqual(
+            client.get_calls[0],
+            {"Name": "/led/todoist/oauth", "WithDecryption": True},
+        )
         store.save({"client_id": "id", "refresh_token": "rotated"})
-        self.assertEqual(client.put_calls[0]["SecretId"], "arn:secret")
+        call = client.put_calls[0]
+        self.assertEqual(call["Name"], "/led/todoist/oauth")
+        self.assertEqual(call["Type"], "SecureString")
+        self.assertEqual(call["Tier"], "Standard")
+        self.assertTrue(call["Overwrite"])
         self.assertEqual(client.payload["refresh_token"], "rotated")
 
     def test_reuses_fresh_access_token_without_refresh(self):
