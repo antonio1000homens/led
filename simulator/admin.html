@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LED admin</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif}body{margin:0;background:#11151b;color:#e9edf2}main{max-width:760px;margin:auto;padding:28px}h1{margin-top:0}.card{border:1px solid #303944;border-radius:12px;padding:18px;margin:16px 0;background:#171d25}.grid{display:grid;grid-template-columns:1fr 120px;gap:12px;align-items:center}input[type=number],input[type=password]{width:100%;padding:8px;background:#0b0e12;color:inherit;border:1px solid #425064;border-radius:6px}button{padding:9px 14px;border:1px solid #425064;border-radius:7px;background:#1c2531;color:inherit;cursor:pointer}.actions{display:flex;gap:10px;align-items:center}.status{color:#a8b1bd}small{color:#a8b1bd}.error{color:#ff806e}.ok{color:#8de59b}
+</style>
+</head>
+<body><main>
+<h1>LED display admin</h1>
+<p>Configure theme-park queue screens. Changes are persisted in the backend and normally reach the display on the next publisher run.</p>
+<div class="card"><div class="grid"><label for="token">Admin token</label><input id="token" type="password" autocomplete="current-password" placeholder="Bearer token"></div><small>The token is kept only in this browser tab.</small></div>
+<form id="form">
+<div class="card" data-park="thorpePark"><h2>Thorpe Park</h2><div class="grid">
+<label>Enabled</label><input name="enabled" type="checkbox">
+<label>Entries per page</label><input name="entriesPerPage" type="number" min="1" max="10" required>
+<label>Page duration (seconds)</label><input name="pageDurationSeconds" type="number" min="1" max="60" required>
+<label>Iterations before cycling</label><input name="iterations" type="number" min="1" max="10" required>
+</div></div>
+<div class="card" data-park="chessington"><h2>Chessington</h2><div class="grid">
+<label>Enabled</label><input name="enabled" type="checkbox">
+<label>Entries per page</label><input name="entriesPerPage" type="number" min="1" max="10" required>
+<label>Page duration (seconds)</label><input name="pageDurationSeconds" type="number" min="1" max="60" required>
+<label>Iterations before cycling</label><input name="iterations" type="number" min="1" max="10" required>
+</div></div>
+<div class="actions"><button type="button" id="load">Load</button><button type="submit">Save</button><span id="status" class="status"></span></div>
+</form>
+<script>
+const token=document.getElementById('token'),status=document.getElementById('status'),form=document.getElementById('form');
+function auth(){const value=token.value.trim();if(!value)throw new Error('Enter the admin token');sessionStorage.setItem('ledAdminToken',value);return {'Authorization':'Bearer '+value};}
+function parkElement(key){return document.querySelector('[data-park="'+key+'"]');}
+function setPark(key,value){const root=parkElement(key);root.querySelector('[name=enabled]').checked=Boolean(value.enabled);for(const field of ['entriesPerPage','pageDurationSeconds','iterations'])root.querySelector('[name='+field+']').value=value[field];}
+function getPark(key){const root=parkElement(key);return {enabled:root.querySelector('[name=enabled]').checked,entriesPerPage:Number(root.querySelector('[name=entriesPerPage]').value),pageDurationSeconds:Number(root.querySelector('[name=pageDurationSeconds]').value),iterations:Number(root.querySelector('[name=iterations]').value)};}
+async function request(method,body){status.textContent=method==='GET'?'Loading…':'Saving…';status.className='status';const response=await fetch('/api/config',{method,headers:{...auth(),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});let data={};try{data=await response.json()}catch(e){}if(!response.ok)throw new Error(data.error||('Request failed ('+response.status+')'));return data;}
+async function load(){try{const data=await request('GET');setPark('thorpePark',data.themeParks.thorpePark);setPark('chessington',data.themeParks.chessington);status.textContent='Configuration loaded';status.className='status ok';}catch(e){status.textContent=e.message;status.className='status error';}}
+document.getElementById('load').addEventListener('click',load);form.addEventListener('submit',async e=>{e.preventDefault();try{const data=await request('PUT',{version:1,themeParks:{thorpePark:getPark('thorpePark'),chessington:getPark('chessington')}});setPark('thorpePark',data.themeParks.thorpePark);setPark('chessington',data.themeParks.chessington);status.textContent='Saved — display updates on the next publisher run';status.className='status ok';}catch(e){status.textContent=e.message;status.className='status error';}});
+token.value=sessionStorage.getItem('ledAdminToken')||'';if(token.value)load();
+</script>
+</main></body></html>
