@@ -141,8 +141,9 @@ if [[ "${SSM_PREFIX}" != /* ]]; then
   exit 2
 fi
 
-if [[ "${SSM_PREFIX%/}" != "/led/deploy" ]]; then
-  echo 'SSM_PREFIX must remain /led/deploy because the GitHub deploy role is scoped to that hierarchy.' >&2
+SSM_PREFIX="${SSM_PREFIX%/}"
+if [[ "${SSM_PREFIX}" != "/led/deploy" && "${SSM_PREFIX}" != /led/deploy/* ]]; then
+  echo 'SSM_PREFIX must remain within /led/deploy because the GitHub deploy role is scoped to that hierarchy.' >&2
   exit 2
 fi
 
@@ -266,7 +267,7 @@ trap 'rm -rf "${secret_request_dir}"' EXIT
 put_secret_parameter() {
   local relative_name="$1"
   local secret_id="$2"
-  local parameter_name="${SSM_PREFIX%/}/${relative_name}"
+  local parameter_name="${SSM_PREFIX}/${relative_name}"
   local value
   local request_file
 
@@ -298,7 +299,7 @@ put_secret_parameter cloudflare/api-token "${BW_CF_ID}"
 
 echo 'Validating SSM parameter names and types without decrypting values...'
 for relative_name in national-rail-token cloudflare/api-token; do
-  parameter_name="${SSM_PREFIX%/}/${relative_name}"
+  parameter_name="${SSM_PREFIX}/${relative_name}"
   read -r found_name found_type <<<"$(aws ssm get-parameter \
     --name "${parameter_name}" \
     --region "${AWS_REGION}" \
