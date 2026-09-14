@@ -91,6 +91,14 @@ def _response(status: int, payload: Any = None, *, version: int | None = None):
     return {"statusCode": status, "headers": headers, "body": body}
 
 
+def _redirect(location: str):
+    return {
+        "statusCode": 302,
+        "headers": {"location": location, "cache-control": "no-store"},
+        "body": "",
+    }
+
+
 def _request_method(event: dict[str, Any]) -> str:
     request_context = event.get("requestContext") or {}
     return str((request_context.get("http") or {}).get("method") or event.get("httpMethod") or "").upper()
@@ -318,6 +326,11 @@ def lambda_handler(event, context):
     except AuthenticationError as error:
         return _response(401, {"error": str(error)})
 
+    method = _request_method(event)
+    path = _request_path(event).rstrip("/") or "/"
+    if method == "GET" and path == "/api/control/v1/session":
+        return _redirect("/admin?access=1")
+
     table_name = os.environ.get("RUNTIME_CONFIG_TABLE", "").strip()
     bucket = os.environ.get("STATE_BUCKET", "").strip()
     publisher_name = os.environ.get("PUBLISHER_FUNCTION_NAME", "").strip()
@@ -326,8 +339,6 @@ def lambda_handler(event, context):
 
     store = RuntimeConfigStore(table_name, defaults=default_runtime_config())
     status_store = StatusStore(bucket)
-    method = _request_method(event)
-    path = _request_path(event).rstrip("/") or "/"
 
     try:
         if method == "GET" and path == "/api/control/v1/config":
