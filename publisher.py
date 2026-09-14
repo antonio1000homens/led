@@ -310,7 +310,7 @@ class Publisher:
                 "title": f"{rail_data['station']} departures" if rail_data else "Departures unavailable",
                 "source": rail_data.get("source", "national_rail") if rail_data else "unavailable",
                 "stale": bool(rail.get("stale")) if rail_data else True,
-                "services": copy.deepcopy((rail_data.get("services") or [])[:2]) if rail_data else [],
+                "services": copy.deepcopy((rail_data.get("services") or [])[:3]) if rail_data else [],
             })
         if config_feeds["thorpe_park"]["enabled"]:
             screen = self._park_screen("thorpe-park", "THORPE PARK", feeds.get("thorpe_park") or {}, config_feeds["thorpe_park"])
@@ -345,7 +345,8 @@ class Publisher:
 
     def _runtime(self):
         try:
-            return validate_runtime_config(self.runtime_config_store.load())
+            loader = getattr(self.runtime_config_store, "ensure", self.runtime_config_store.load)
+            return validate_runtime_config(loader())
         except Exception:
             print(json.dumps({"event": "runtime_config_invalid", "fallback": "deployment_defaults"}))
             return _runtime_defaults(self.config)
