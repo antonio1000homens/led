@@ -10,6 +10,7 @@ import os
 from queue_times import QueueTimesProvider, select_rides
 from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
+    LEGACY_DEFAULT_CHESSINGTON_RIDES,
     RuntimeConfigStore,
     default_runtime_config,
     validate_runtime_config,
@@ -345,8 +346,13 @@ class Publisher:
 
     def _runtime(self):
         try:
-            loader = getattr(self.runtime_config_store, "ensure", self.runtime_config_store.load)
-            return validate_runtime_config(loader())
+            runtime = validate_runtime_config(self.runtime_config_store.load())
+            if (
+                runtime.get("updated_by") == "system:defaults"
+                and runtime["feeds"]["chessington"].get("rides") == list(LEGACY_DEFAULT_CHESSINGTON_RIDES)
+            ):
+                runtime["feeds"]["chessington"]["rides"] = list(DEFAULT_CHESSINGTON_RIDES)
+            return runtime
         except Exception:
             print(json.dumps({"event": "runtime_config_invalid", "fallback": "deployment_defaults"}))
             return _runtime_defaults(self.config)
