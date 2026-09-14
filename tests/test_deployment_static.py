@@ -51,12 +51,14 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
         self.assertIn("context.fillText(parts.when, 0, y);", simulator)
 
-    def test_simulator_rail_has_upcoming_header_and_delayed_calling_marquee(self):
+    def test_simulator_rail_uses_spare_line_for_third_service(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("const RAIL_MARQUEE_DELAY_SECONDS = 1.2;", simulator)
         self.assertIn("const RAIL_MARQUEE_SPEED = 192;", simulator)
-        self.assertIn("return { services: services.slice(0, 2) };", simulator)
-        self.assertIn("context.fillText('UPCOMING', 0, 64);", simulator)
+        self.assertIn("return { services: services.slice(0, 3) };", simulator)
+        self.assertIn("const upcomingServices = railServices.slice(1, 3);", simulator)
+        self.assertIn("drawRailService(upcoming, 64 + index * 30", simulator)
+        self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
         self.assertIn("RAIL_MARQUEE_SPEED, RAIL_MARQUEE_DELAY_SECONDS", simulator)
 
     def test_simulator_right_aligns_rail_and_queue_state_to_available_edge(self):
@@ -66,12 +68,20 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("function drawQueueRide(ride, y, rightEdge)", simulator)
         self.assertIn("const queueRight = weatherContentRight(screen.weather);", simulator)
 
-    def test_physical_renderer_uses_four_rail_rows_and_clips_agenda_title(self):
+    def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
         display = (ROOT / "display.py").read_text(encoding="utf-8")
-        self.assertIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', display)
-        self.assertIn('self._rail_service(group, service, color, x, 25, _weather_content_right(screen))', display)
+        self.assertIn("upcoming = services[1:3]", display)
+        self.assertIn("y = 17 + index * 8", display)
+        self.assertIn("right_edge = DISPLAY_WIDTH if index == 0 else _weather_content_right(screen)", display)
+        self.assertNotIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', display)
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
+
+    def test_admin_bootstraps_access_before_fetching_api(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn('<link rel="icon" href="data:,">', admin)
+        self.assertIn("window.location.replace(`${API}/session`);", admin)
+        self.assertIn("window.history.replaceState(null,'','/admin');", admin)
 
 
 if __name__ == "__main__":

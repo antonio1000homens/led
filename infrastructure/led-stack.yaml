@@ -23,7 +23,7 @@ Parameters:
   ThorpeParkCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   ThorpeParkRides: {Type: String, Default: 'Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave'}
   ChessingtonCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
-  ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem"}
+  ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
@@ -194,6 +194,9 @@ Resources:
   ControlApiIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties: {ApiId: !Ref ControlApi, IntegrationType: AWS_PROXY, IntegrationMethod: POST, IntegrationUri: !GetAtt ControlFunction.Arn, PayloadFormatVersion: '2.0'}
+  ControlSessionRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/session', Target: !Sub 'integrations/${ControlApiIntegration}'}
   ControlConfigRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/config', Target: !Sub 'integrations/${ControlApiIntegration}'}

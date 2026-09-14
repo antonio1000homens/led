@@ -14,7 +14,7 @@ CF_ACCESS_AUD="${CF_ACCESS_AUD:?CF_ACCESS_AUD is required}"
 THORPE_PARK_RIDES="${LED_THORPE_PARK_RIDES:-Hyperia,Stealth,The Swarm,SAW - The Ride,Nemesis Inferno,Colossus,Ghost Train,Rush,Detonator,Tidal Wave}"
 CHESSINGTON_RIDES="${LED_CHESSINGTON_RIDES:-}"
 if [[ -z "${CHESSINGTON_RIDES}" ]]; then
-  CHESSINGTON_RIDES="Vampire,Dragon's Fury,Mandrill Mayhem"
+  CHESSINGTON_RIDES="Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"
 fi
 CHESSINGTON_CACHE_SECONDS="${LED_CHESSINGTON_CACHE_SECONDS:-300}"
 CALENDAR_SOURCE="${LED_CALENDAR_SOURCE:-off}"

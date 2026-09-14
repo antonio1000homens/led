@@ -37,14 +37,15 @@ class PublisherTests(unittest.TestCase):
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
         payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=payload["screens"][0]
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])
-    def test_departures_contract_only_publishes_current_and_next_service(self):
+    def test_departures_contract_publishes_current_and_two_next_services(self):
         rail=FakeProvider([[
             {"time":"08:01","destination":"Waterloo"},
             {"time":"08:11","destination":"Waterloo"},
             {"time":"08:21","destination":"Waterloo"},
+            {"time":"08:31","destination":"Waterloo"},
         ]])
         screen=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()["screens"][0]
-        self.assertEqual([service["time"] for service in screen["services"]],["08:01","08:11"])
+        self.assertEqual([service["time"] for service in screen["services"]],["08:01","08:11","08:21"])
     def test_queue_and_weather_ttls_are_independent_and_contract_is_preserved(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",rail_ttl=60,thorpe_park_ttl=300,weather_ttl=600,thorpe_park_rides=("Hyperia","Stealth","The Swarm","Colossus"))
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])

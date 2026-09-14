@@ -2,6 +2,8 @@ import copy
 import unittest
 
 from runtime_config import (
+    DEFAULT_CHESSINGTON_RIDES,
+    LEGACY_DEFAULT_CHESSINGTON_RIDES,
     RuntimeConfigConflict,
     RuntimeConfigStore,
     RuntimeConfigValidationError,
@@ -47,6 +49,8 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config["feeds"]["departures"]["poll_seconds"], 60)
         self.assertEqual(config["feeds"]["thorpe_park"]["park_id"], 2)
         self.assertEqual(config["feeds"]["chessington"]["park_id"], 3)
+        self.assertEqual(config["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
+        self.assertEqual(len(config["feeds"]["chessington"]["rides"]), 6)
 
     def test_validation_rejects_sub_minimum_poll_and_unknown_or_read_only_fields(self):
         with self.assertRaises(RuntimeConfigValidationError):
@@ -85,6 +89,29 @@ class RuntimeConfigTests(unittest.TestCase):
                 "departures", {"enabled": True},
                 expected_version=1, updated_by="machine:ha.access",
             )
+
+    def test_store_expands_only_untouched_legacy_chessington_defaults(self):
+        table = FakeTable()
+        legacy = default_runtime_config({})
+        legacy["config_version"] = 4
+        legacy["updated_at"] = "2026-09-13T18:00:00Z"
+        legacy["updated_by"] = "system:defaults"
+        legacy["feeds"]["chessington"]["rides"] = list(LEGACY_DEFAULT_CHESSINGTON_RIDES)
+        table.item = {"config_id": "runtime", **copy.deepcopy(legacy)}
+        store = RuntimeConfigStore("table", table=table, defaults=default_runtime_config({}))
+
+        upgraded = store.ensure()
+
+        self.assertEqual(upgraded["config_version"], 5)
+        self.assertEqual(upgraded["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
+        self.assertEqual(table.item["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
+
+        human = copy.deepcopy(legacy)
+        human["updated_by"] = "human:admin@example.com"
+        table.item = {"config_id": "runtime", **human}
+        unchanged = store.ensure()
+        self.assertEqual(unchanged["config_version"], 4)
+        self.assertEqual(unchanged["feeds"]["chessington"]["rides"], list(LEGACY_DEFAULT_CHESSINGTON_RIDES))
 
 
 if __name__ == "__main__":
