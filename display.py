@@ -209,15 +209,16 @@ class MatrixDisplay:
         if calling_x is not None:
             self._label(group, calling, 0xFFAA00, calling_x, 10)
 
-        self._label(group, "UPCOMING", 0xFFAA00, 0, 17)
-        if len(services) > 1:
-            service = services[1]
-            slide = row_slide_phase(phase, 1)
+        upcoming = services[1:3]
+        if not upcoming:
+            self._label(group, "No upcoming services", 0xFFFFFF, 0, 17)
+        for index, service in enumerate(upcoming):
+            slide = row_slide_phase(phase, index + 1)
             x = -int((1 - slide) * 220)
             color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-            self._rail_service(group, service, color, x, 25, _weather_content_right(screen))
-        else:
-            self._label(group, "No upcoming services", 0xFFFFFF, 0, 25)
+            y = 17 + index * 8
+            right_edge = DISPLAY_WIDTH if index == 0 else _weather_content_right(screen)
+            self._rail_service(group, service, color, x, y, right_edge)
 
     def _queues(self, group, screen, phase):
         rides = screen.get("rides") or []
@@ -372,15 +373,16 @@ class FixtureDisplay:
             calling_x = calling_marquee_x(text, phase, display_width=DISPLAY_WIDTH, font_width=WEATHER_FONT_WIDTH)
             if calling_x is not None:
                 self._text(text, calling_x, 8, (255, 100, 0))
-            self._text("UPCOMING", 0, 16, (255, 100, 0))
-            if len(services) > 1:
-                service = services[1]
-                slide = row_slide_phase(phase, 1)
+            upcoming = services[1:3]
+            if not upcoming:
+                self._text("No upcoming services", 0, 16, (255, 255, 255))
+            for index, service in enumerate(upcoming):
+                slide = row_slide_phase(phase, index + 1)
                 x = -int((1 - slide) * 220)
                 color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-                self._rail_service(service, color, x, 24, _weather_content_right(screen))
-            else:
-                self._text("No upcoming services", 0, 24, (255, 255, 255))
+                y = 16 + index * 8
+                right_edge = DISPLAY_WIDTH if index == 0 else _weather_content_right(screen)
+                self._rail_service(service, color, x, y, right_edge)
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             if not rides:
@@ -463,9 +465,8 @@ class FixtureDisplay:
             if services:
                 print(format_row(services[0]).rstrip())
                 print(calling_text(services[0]))
-                print("UPCOMING")
-                if len(services) > 1:
-                    print(format_row(services[1]).rstrip())
+                for service in services[1:3]:
+                    print(format_row(service).rstrip())
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             start, _ = queue_scroll_state(phase, len(rides))
