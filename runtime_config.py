@@ -30,10 +30,15 @@ DEFAULT_THORPE_RIDES = (
     "Detonator",
     "Tidal Wave",
 )
-DEFAULT_CHESSINGTON_RIDES = (
+LEGACY_DEFAULT_CHESSINGTON_RIDES = (
     "Vampire",
     "Dragon's Fury",
     "Mandrill Mayhem",
+)
+DEFAULT_CHESSINGTON_RIDES = LEGACY_DEFAULT_CHESSINGTON_RIDES + (
+    "Rattlesnake",
+    "Croc Drop",
+    "ZUFARI",
 )
 
 FEED_REGISTRY = {
@@ -334,10 +339,35 @@ class RuntimeConfigStore:
         item.pop("config_id", None)
         return validate_runtime_config(item)
 
+    def _upgrade_legacy_chessington_defaults(self, current: dict[str, Any]) -> dict[str, Any]:
+        """Expand the untouched three-ride seed without overriding user-managed config."""
+        if current.get("updated_by") != "system:defaults":
+            return current
+        rides = current.get("feeds", {}).get("chessington", {}).get("rides")
+        if rides != list(LEGACY_DEFAULT_CHESSINGTON_RIDES):
+            return current
+
+        upgraded = copy.deepcopy(current)
+        upgraded["feeds"]["chessington"]["rides"] = list(DEFAULT_CHESSINGTON_RIDES)
+        upgraded["config_version"] = current["config_version"] + 1
+        upgraded["updated_at"] = _iso_now(self.utcnow)
+        item = {"config_id": CONFIG_ID, **upgraded}
+        try:
+            self.table.put_item(
+                Item=item,
+                ConditionExpression="config_version = :expected",
+                ExpressionAttributeValues={":expected": current["config_version"]},
+            )
+            return upgraded
+        except Exception as error:
+            if _is_conditional_failure(error):
+                return self.load()
+            raise
+
     def ensure(self) -> dict[str, Any]:
         current = self.load()
         if current["config_version"] != 0:
-            return current
+            return self._upgrade_legacy_chessington_defaults(current)
         seeded = copy.deepcopy(current)
         seeded["config_version"] = 1
         seeded["updated_at"] = _iso_now(self.utcnow)
@@ -348,7 +378,7 @@ class RuntimeConfigStore:
             return seeded
         except Exception as error:
             if _is_conditional_failure(error):
-                return self.load()
+                return self._upgrade_legacy_chessington_defaults(self.load())
             raise
 
     def patch_feed(
