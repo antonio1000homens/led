@@ -21,6 +21,7 @@ env:
   CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}
   AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
   CLOUDFORMATION_ROLE_ARN: ${{ vars.CLOUDFORMATION_ROLE_ARN }}
+  LED_DEPLOY_SSM_PREFIX: ${{ vars.LED_DEPLOY_SSM_PREFIX || '/led/deploy' }}
   LED_CALENDAR_SOURCE: "todoist"
   LED_TODOIST_CACHE_SECONDS: "${{ vars.LED_TODOIST_CACHE_SECONDS || '300' }}"
   LED_TODOIST_MAX_EVENTS: "${{ vars.LED_TODOIST_MAX_EVENTS || '6' }}"
@@ -59,14 +60,10 @@ jobs:
           cache: pip
 
       - name: Validate deployment configuration
-        env:
-          BW_NATIONAL_RAIL_TOKEN: ${{ vars.BW_NATIONAL_RAIL_TOKEN }}
-          BW_SECRET_ID_CF_DEPLOY_API_TOKEN: ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }}
         run: |
           python - <<'PY'
           import os
           import re
-          import sys
 
           if not os.environ.get("AWS_ROLE_TO_ASSUME", "").strip():
               raise SystemExit("AWS_ROLE_TO_ASSUME is required")
@@ -80,41 +77,22 @@ jobs:
               raise SystemExit("CF_ACCESS_TEAM_DOMAIN must be the existing Cloudflare Access team domain")
           if len(os.environ.get("CF_ACCESS_AUD", "").strip()) < 16:
               raise SystemExit("CF_ACCESS_AUD must contain the existing Access application audience tag")
-          uuid = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-          for name in ("BW_NATIONAL_RAIL_TOKEN", "BW_SECRET_ID_CF_DEPLOY_API_TOKEN"):
-              value = os.environ.get(name, "").strip()
-              if not uuid.fullmatch(value):
-                  print(f"{name} must contain a Bitwarden secret UID, not a secret value.", file=sys.stderr)
-                  raise SystemExit(1)
+          ssm_prefix = os.environ.get("LED_DEPLOY_SSM_PREFIX", "").rstrip("/")
+          if not ssm_prefix.startswith("/led/deploy"):
+              raise SystemExit("LED_DEPLOY_SSM_PREFIX must stay within /led/deploy")
           calendar_source = os.environ.get("LED_CALENDAR_SOURCE", "off").strip()
           if calendar_source not in ("off", "todoist"):
               raise SystemExit("LED_CALENDAR_SOURCE must be off or todoist")
           PY
-
-      - name: Resolve deployment secrets from Bitwarden
-        id: bitwarden
-        continue-on-error: true
-        uses: bitwarden/sm-action@14f92f1d294ae3c2b6a3845d389cd2c318b0dfd8 # v2.2.0
-        with:
-          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
-          secrets: |
-            ${{ vars.BW_NATIONAL_RAIL_TOKEN }} > NATIONAL_RAIL_TOKEN
-            ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }} > CF_DEPLOY_API_TOKEN
-
-      - name: Retry Bitwarden resolution
-        if: steps.bitwarden.outcome == 'failure'
-        uses: bitwarden/sm-action@14f92f1d294ae3c2b6a3845d389cd2c318b0dfd8 # v2.2.0
-        with:
-          access_token: ${{ secrets.BW_ACCESS_TOKEN }}
-          secrets: |
-            ${{ vars.BW_NATIONAL_RAIL_TOKEN }} > NATIONAL_RAIL_TOKEN
-            ${{ vars.BW_SECRET_ID_CF_DEPLOY_API_TOKEN }} > CF_DEPLOY_API_TOKEN
 
       - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           role-session-name: github-actions-led-deploy
+
+      - name: Load deployment secrets from SSM
+        run: bash scripts/load-ssm-secrets.sh
 
       - name: Verify AWS identity and select dedicated code bucket
         run: |
