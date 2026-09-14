@@ -29,9 +29,9 @@ https://led.alf-broadcast.co.uk/api/screens
 
 Cloudflare remains the authoritative DNS provider and points the DNS-only `led.alf-broadcast.co.uk` CNAME at CloudFront. The S3 `state/*` prefix is not exposed through CloudFront.
 
-Deployment follows the same operational model as the private Scouts repository: GitHub Actions uses AWS OIDC, `BW_ACCESS_TOKEN` is the Bitwarden machine-account GitHub secret, and GitHub variables hold non-secret configuration or Bitwarden secret UIDs only. The National Rail token is resolved from Bitwarden at deployment. Todoist is different because its OAuth refresh token rotates at runtime: the Todoist client credentials plus access/refresh tokens live in an SSM Parameter Store **Standard `SecureString`** at `/led/todoist/oauth`, which the publisher Lambda can decrypt and update.
+GitHub Actions uses AWS OIDC and stores only non-secret deployment configuration. The National Rail and Windsor Cloudflare deployment secrets are Standard `SecureString` parameters under `/led/deploy/*`; the workflow assumes `GitHubActionsLedDeployRole` first, then decrypts and masks those two values. Todoist is separate because its OAuth refresh token rotates at runtime: its client credentials plus access/refresh tokens remain in `/led/todoist/oauth`, which only the publisher runtime can read and update.
 
-See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, Todoist OAuth bootstrap, Bitwarden/GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, the Bitwarden-to-SSM migration helper, deployment-secret rotation, Todoist OAuth bootstrap, GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
 
 ## Hardware notes
 
@@ -72,7 +72,7 @@ LED_DATA_SOURCE=national_rail
 BWS_NATIONAL_RAIL_TOKEN_SECRET_ID=<bitwarden-secret-uuid>
 ```
 
-The process requires an authenticated `bws` CLI, normally through `BWS_ACCESS_TOKEN`. It resolves the token at startup and never sends it to the MatrixPortal or browser.
+The process requires an authenticated `bws` CLI, normally through `BWS_ACCESS_TOKEN`. It resolves the token at startup and never sends it to the MatrixPortal or browser. This is a local-development path only; the production GitHub deployment no longer depends on a Bitwarden machine account.
 
 ### Thorpe Park queue times
 
@@ -257,7 +257,3 @@ LED_SERVER_HOST=0.0.0.0
 ```
 
 Do not expose the local development server directly to the public Internet.
-
-## Legacy departures endpoint
-
-`GET /api/departures` remains available from the local development server for diagnostics and compatibility. It returns the normalized departure feed independently of the renderer-neutral `/api/screens` contract. New display functionality should be added through `/api/screens` rather than by adding upstream API clients to CircuitPython.
