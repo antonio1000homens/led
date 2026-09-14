@@ -78,7 +78,7 @@ jobs:
           if len(os.environ.get("CF_ACCESS_AUD", "").strip()) < 16:
               raise SystemExit("CF_ACCESS_AUD must contain the existing Access application audience tag")
           ssm_prefix = os.environ.get("LED_DEPLOY_SSM_PREFIX", "").rstrip("/")
-          if not ssm_prefix.startswith("/led/deploy"):
+          if ssm_prefix != "/led/deploy" and not ssm_prefix.startswith("/led/deploy/"):
               raise SystemExit("LED_DEPLOY_SSM_PREFIX must stay within /led/deploy")
           calendar_source = os.environ.get("LED_CALENDAR_SOURCE", "off").strip()
           if calendar_source not in ("off", "todoist"):
