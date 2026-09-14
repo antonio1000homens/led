@@ -35,6 +35,7 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
 
     def test_control_api_is_versioned_and_public_screens_remain_s3_backed(self):
         for route in (
+            "GET /api/control/v1/session",
             "GET /api/control/v1/config",
             "GET /api/control/v1/status",
             "GET /api/control/v1/feeds/{feed_id}/options",
@@ -53,9 +54,11 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
         self.assertIn("CF_ACCESS_AUD: ${{ vars.CF_ACCESS_AUD }}", self.workflow)
         self.assertIn("cloudflareaccess\\.com", self.workflow)
 
-    def test_admin_uses_same_origin_control_api_without_bearer_secret(self):
+    def test_admin_bootstraps_access_then_uses_same_origin_api_without_bearer_secret(self):
         self.assertIn("const API='/api/control/v1';", self.admin)
         self.assertIn("credentials:'same-origin'", self.admin)
+        self.assertIn("window.location.replace(`${API}/session`);", self.admin)
+        self.assertIn("window.history.replaceState(null,'','/admin');", self.admin)
         self.assertIn("'If-Match'", self.admin)
         self.assertNotIn("Admin token", self.admin)
         self.assertNotIn("sessionStorage", self.admin)
