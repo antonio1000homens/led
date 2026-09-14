@@ -113,6 +113,19 @@ class ConfigApiTests(unittest.TestCase):
         with self.assertRaises(config_api.AuthenticationError):
             config_api.authenticate_access({}, {"CF_ACCESS_TEAM_DOMAIN": self.team, "CF_ACCESS_AUD": self.audience})
 
+    def test_session_bootstrap_redirects_after_access_auth_without_runtime_dependencies(self):
+        event = {
+            "rawPath": "/api/control/v1/session",
+            "requestContext": {"http": {"method": "GET"}},
+            "headers": {},
+        }
+        with patch.dict(config_api.os.environ, {}, clear=True), \
+             patch.object(config_api, "authenticate_access", return_value=("human:admin@example.com", {})):
+            response = config_api.lambda_handler(event, None)
+        self.assertEqual(response["statusCode"], 302)
+        self.assertEqual(response["headers"]["location"], "/admin?access=1")
+        self.assertEqual(response["headers"]["cache-control"], "no-store")
+
     def test_patch_requires_concurrency_version_and_triggers_async_rebuild(self):
         runtime = FakeRuntimeStore()
         status = FakeStatusStore()
