@@ -314,6 +314,10 @@ Resources:
                   - acm:ListCertificates
                   - acm:RequestCertificate
                 Resource: '*'
+              - Sid: ReadDeploymentSecrets
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/led/deploy/*
               - Sid: CallerIdentity
                 Effect: Allow
                 Action: sts:GetCallerIdentity
