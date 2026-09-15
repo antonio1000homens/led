@@ -43,7 +43,7 @@ class DeploymentStaticTests(unittest.TestCase):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         display = (ROOT / "display.py").read_text(encoding="utf-8")
         self.assertIn("function todoistDueLabel(event, now = new Date())", simulator)
-        self.assertIn("return 'DUE IN TODAY';", simulator)
+        self.assertIn("return 'TODAY';", simulator)
         self.assertIn("screen.source === 'todoist'", simulator)
         self.assertIn("todoist_due_label(events[event_index], clock_date)", display)
         self.assertIn('screen.get("source") == "todoist"', display)
