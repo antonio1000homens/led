@@ -11,6 +11,7 @@ from formatting import (
     agenda_scroll_state,
     agenda_title_marquee_x,
     calendar_due_text,
+    todoist_due_label,
     calendar_row_parts,
     calendar_row_text,
     calling_marquee_x,
@@ -204,7 +205,8 @@ def _agenda_state(screen, phase):
 
 
 def _calendar_due_layout(screen, clock_date, clock_time):
-    if screen.get("kind") != "calendar_agenda":
+    """Keep the legacy header countdown for non-Todoist calendar feeds."""
+    if screen.get("kind") != "calendar_agenda" or screen.get("source") == "todoist":
         return "", 0
     events = screen.get("events") or []
     if not events:
@@ -213,8 +215,7 @@ def _calendar_due_layout(screen, clock_date, clock_time):
     if not text:
         return "", 0
     right_edge = (STALE_X if screen.get("stale") else HEADER_SLOT_X) - HEADER_GAP
-    x = max(0, right_edge - len(text) * WEATHER_FONT_WIDTH)
-    return text, x
+    return text, max(0, right_edge - len(text) * WEATHER_FONT_WIDTH)
 
 
 class MatrixDisplay:
@@ -449,7 +450,7 @@ class FixtureDisplay:
         if status:
             self._text(status, status_x + x_offset, y, color)
 
-    def _draw_screen(self, screen, phase):
+    def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
         if kind == "rail_combined":
             services = screen.get("services") or []
@@ -513,9 +514,19 @@ class FixtureDisplay:
                         break
                     when, title = calendar_row_parts(events[event_index])
                     y = 8 + slot * AGENDA_ROW_HEIGHT - y_offset
-                    self._text(title, agenda_title_marquee_x(title, phase), y, (255, 255, 255))
+                    due = todoist_due_label(events[event_index], clock_date) if screen.get("source") == "todoist" else ""
+                    if due:
+                        due_x = DISPLAY_WIDTH - len(due) * WEATHER_FONT_WIDTH
+                        title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
+                        self._text(_fit_text_pixels(title, title_width), AGENDA_TITLE_X, y, (255, 255, 255))
+                    else:
+                        self._text(title, agenda_title_marquee_x(title, phase), y, (255, 255, 255))
                     self._clear_rect(0, y, AGENDA_TITLE_X, y + AGENDA_ROW_HEIGHT)
                     self._text(when, 0, y, (255, 255, 255))
+                    if due:
+                        progress = row_slide_phase(phase, slot)
+                        due_offset = int((1.0 - progress) * DISPLAY_WIDTH)
+                        self._text(due, due_x + due_offset, y, (255, 255, 255))
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "UPCOMING", 30), 0, 0, (255, 100, 0))
         else:
@@ -538,7 +549,7 @@ class FixtureDisplay:
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
-            self._draw_screen(screen, phase)
+            self._draw_screen(screen, phase, clock_date)
             if due_text:
                 self._text(due_text, due_x, 0, (255, 255, 255))
             if screen.get("stale"):

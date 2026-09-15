@@ -6,6 +6,7 @@ from formatting import (
     agenda_scroll_state,
     agenda_title_marquee_x,
     calendar_due_text,
+    todoist_due_label,
     calendar_row,
     calendar_row_parts,
     calendar_row_text,
@@ -135,6 +136,12 @@ class FormattingTests(unittest.TestCase):
     def test_calendar_due_text_future_day_uses_calendar_days(self):
         event = {"start": "2026-09-15T09:00:00+01:00", "time_text": "09:00", "all_day": False}
         self.assertEqual(calendar_due_text(event, "2026-09-13", "23:59"), "DUE IN 2d")
+
+    def test_todoist_due_label_ignores_time(self):
+        event = {"start": "2026-09-13T23:59:00+01:00"}
+        self.assertEqual(todoist_due_label(event, "2026-09-13"), "DUE IN TODAY")
+        self.assertEqual(todoist_due_label({"start": "2026-09-14"}, "2026-09-13"), "DUE IN 1 DAY")
+        self.assertEqual(todoist_due_label({"start": "2026-09-15T01:00:00+01:00"}, "2026-09-13"), "DUE IN 2 DAYS")
 
     def test_agenda_page_holds_then_slides_to_second_three(self):
         self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))

@@ -235,6 +235,22 @@ def calendar_due_text(event, current_date, current_time):
     return "DUE IN {}m".format(minutes)
 
 
+def todoist_due_label(event, current_date):
+    """Return Todoist's day-only due label for a task row."""
+    if not isinstance(event, dict):
+        return ""
+    event_date = _iso_date_parts(event.get("start"))
+    now_date = _iso_date_parts(current_date)
+    if event_date is None or now_date is None:
+        return ""
+    day_delta = _date_ordinal(*event_date) - _date_ordinal(*now_date)
+    if day_delta < 0:
+        return ""
+    if day_delta == 0:
+        return "DUE IN TODAY"
+    return "DUE IN {} DAY{}".format(day_delta, "" if day_delta == 1 else "S")
+
+
 def header(station, stale=False):
     suffix = "  STALE" if stale else ""
     return ("NEW DEPARTURES" + suffix)[:42]
