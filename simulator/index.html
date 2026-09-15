@@ -225,8 +225,8 @@
     function stationMarqueeSpeed(screen) {
       return boundedNumber(screen.station_scroll_speed, 30, 10, 80) * 4;
     }
-    function stationMarqueeGap(screen) {
-      return boundedNumber(screen.station_list_spacing, 28, 8, 80) * 4;
+    function stationMarqueeGap() {
+      return RAIL_MARQUEE_GAP;
     }
     function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0, gap = RAIL_MARQUEE_GAP) {
       if (phase < delaySeconds) return;
@@ -238,10 +238,21 @@
       context.fillText(text, -offset, y);
       context.fillText(text, width + gap - offset, y);
     }
+    function stationSeparator(service) {
+      const logicalPixels = boundedNumber(service.station_spacing_px, 28, 8, 80);
+      const renderedPixels = logicalPixels * 4;
+      const spaceWidth = Math.max(1, context.measureText(' ').width);
+      return ' '.repeat(Math.max(1, Math.round(renderedPixels / spaceWidth)));
+    }
     function callingText(service) {
       const stops = Array.isArray(service.stops) ? service.stops : [];
       if (!stops.length) return 'CALLING AT: ' + (service.destination || 'destination') + ' only';
-      return 'CALLING AT: ' + stops.map(stop => stop.station + ' ' + stop.time + (stop.status !== 'On time' ? ' (' + stop.status + ')' : '')).join('  ·  ');
+      return 'CALLING AT: ' + stops.map(stop => {
+        let value = stop.station + ' ' + stop.time;
+        if (stop.cancelled) value += ' CANCELLED';
+        else if (stop.status && stop.status !== 'On time') value += ' (' + stop.status + ')';
+        return value;
+      }).join(stationSeparator(service));
     }
     function listPage(screen) {
       const services = Array.isArray(screen.services) ? screen.services : [];
@@ -373,7 +384,7 @@
         const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
         const headerRight = (screen.stale || forceStale) ? 800 : clock.x - 16;
         drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff');
-        marquee(callingText(next), 34, phase, '#ffaa00', stationMarqueeSpeed(screen), RAIL_MARQUEE_DELAY_SECONDS, stationMarqueeGap(screen));
+        marquee(callingText(next), 34, phase, '#ffaa00', stationMarqueeSpeed(screen), RAIL_MARQUEE_DELAY_SECONDS, stationMarqueeGap());
         const upcomingServices = railServices.slice(1);
         if (!upcomingServices.length) {
           context.fillStyle = '#ffffff';
