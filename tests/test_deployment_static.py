@@ -62,7 +62,10 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("drawRailService(upcoming, 64 + index * 30", simulator)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
         self.assertIn("stationMarqueeSpeed(screen)", simulator)
-        self.assertIn("stationMarqueeGap(screen)", simulator)
+        self.assertIn("function stationMarqueeGap()", simulator)
+        self.assertIn("return RAIL_MARQUEE_GAP;", simulator)
+        self.assertIn("function stationSeparator(service)", simulator)
+        self.assertIn("service.station_spacing_px", simulator)
 
     def test_simulator_right_aligns_rail_and_queue_state_to_display_edge(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
