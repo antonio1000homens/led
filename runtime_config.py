@@ -23,6 +23,12 @@ DEFAULT_STATION_SCROLL_SPEED = 30
 MIN_STATION_LIST_SPACING = 8
 MAX_STATION_LIST_SPACING = 80
 DEFAULT_STATION_LIST_SPACING = 28
+MIN_UPCOMING_TRAIN_COUNT = 2
+MAX_UPCOMING_TRAIN_COUNT = 10
+DEFAULT_UPCOMING_TRAIN_COUNT = 4
+MIN_UPCOMING_TRAIN_PAUSE_SECONDS = 1
+MAX_UPCOMING_TRAIN_PAUSE_SECONDS = 30
+DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS = 2
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -34,6 +40,16 @@ DEPARTURE_NUMERIC_FIELDS = {
         "minimum": MIN_STATION_LIST_SPACING,
         "maximum": MAX_STATION_LIST_SPACING,
         "default": DEFAULT_STATION_LIST_SPACING,
+    },
+    "upcoming_train_count": {
+        "minimum": MIN_UPCOMING_TRAIN_COUNT,
+        "maximum": MAX_UPCOMING_TRAIN_COUNT,
+        "default": DEFAULT_UPCOMING_TRAIN_COUNT,
+    },
+    "upcoming_train_pause_seconds": {
+        "minimum": MIN_UPCOMING_TRAIN_PAUSE_SECONDS,
+        "maximum": MAX_UPCOMING_TRAIN_PAUSE_SECONDS,
+        "default": DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
     },
 }
 
@@ -70,8 +86,10 @@ FEED_REGISTRY = {
             "screen_duration_seconds",
             "station_scroll_speed",
             "station_list_spacing",
+            "upcoming_train_count",
+            "upcoming_train_pause_seconds",
         ),
-        "advanced_fields": ("station_scroll_speed", "station_list_spacing"),
+        "advanced_fields": ("station_scroll_speed", "station_list_spacing", "upcoming_train_count", "upcoming_train_pause_seconds"),
         "screen_duration": True,
     },
     "thorpe_park": {
@@ -154,6 +172,8 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "screen_duration_seconds": 8,
                 "station_scroll_speed": DEFAULT_STATION_SCROLL_SPEED,
                 "station_list_spacing": DEFAULT_STATION_LIST_SPACING,
+                "upcoming_train_count": DEFAULT_UPCOMING_TRAIN_COUNT,
+                "upcoming_train_pause_seconds": DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
             },
             "thorpe_park": {
                 "enabled": thorpe_enabled,

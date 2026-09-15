@@ -261,6 +261,32 @@ def row_slide_phase(phase, index, stagger=1.0):
     return max(0.0, min(1.0, (phase - index * stagger) / 1.2))
 
 
+def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2):
+    """Return the current upcoming-service window and upward slide progress."""
+    service_count = max(0, int(service_count or 0))
+    visible_rows = max(1, int(visible_rows or 1))
+    max_start = max(0, service_count - visible_rows)
+    if max_start == 0:
+        return 0, 0.0
+    try:
+        phase = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        phase = 0.0
+    try:
+        pause_seconds = max(0.0, float(pause_seconds or 0))
+    except (TypeError, ValueError):
+        pause_seconds = 2.0
+    slide_seconds = 0.4
+    step_seconds = pause_seconds + slide_seconds
+    step = min(max_start, int(phase // step_seconds))
+    if step >= max_start:
+        return max_start, 0.0
+    within = phase - step * step_seconds
+    if within <= pause_seconds:
+        return step, 0.0
+    return step, min(1.0, (within - pause_seconds) / slide_seconds)
+
+
 def queue_scroll_state(phase, ride_count, visible_rows=QUEUE_VISIBLE_ROWS):
     """Return the first visible ride and 0..1 upward slide progress.
 

@@ -12,6 +12,7 @@ from formatting import (
     calendar_row_text,
     calling_marquee_x,
     calling_text,
+    departure_scroll_state,
     format_row,
     header,
     queue_scroll_state,
@@ -52,6 +53,15 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(row_slide_phase(0, 1), 0)
         self.assertGreater(row_slide_phase(1.1, 0), row_slide_phase(1.1, 1))
         self.assertEqual(row_slide_phase(4, 2), 1)
+
+    def test_departures_scroll_one_upcoming_train_at_a_time_after_pause(self):
+        self.assertEqual(departure_scroll_state(0, 4, 2), (0, 0.0))
+        self.assertEqual(departure_scroll_state(2, 4, 2), (0, 0.0))
+        start, progress = departure_scroll_state(2.2, 4, 2)
+        self.assertEqual(start, 0)
+        self.assertAlmostEqual(progress, 0.5)
+        self.assertEqual(departure_scroll_state(2.4, 4, 2), (1, 0.0))
+        self.assertEqual(departure_scroll_state(99, 4, 2), (2, 0.0))
 
     def test_calling_marquee_waits_for_primary_row_then_scrolls(self):
         text = "x" * 50

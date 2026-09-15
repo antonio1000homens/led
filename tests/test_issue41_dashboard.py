@@ -21,10 +21,10 @@ class Issue41DashboardTests(unittest.TestCase):
         ast.parse(self.runtime_source)
         ast.parse(self.publisher_source)
 
-    def test_departures_keep_two_upcoming_services_without_label_row(self):
-        self.assertIn('upcoming = services[1:3]', self.display_source)
+    def test_departures_cycle_configured_upcoming_services_without_label_row(self):
+        self.assertIn('upcoming = services[1:]', self.display_source)
         self.assertNotIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', self.display_source)
-        self.assertIn('const upcomingServices = railServices.slice(1, 3);', self.simulator_source)
+        self.assertIn('const upcomingServices = railServices.slice(1);', self.simulator_source)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64)", self.simulator_source)
 
     def test_weather_icon_and_temperature_replace_clock_as_one_header_group(self):
@@ -57,6 +57,8 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertNotIn('<details class="feed-advanced" open>', self.admin_source)
         self.assertIn("station_scroll_speed:['Station scroll speed','pixels per second']", self.admin_source)
         self.assertIn("station_list_spacing:['Station list spacing','pixels between repeated station lists']", self.admin_source)
+        self.assertIn("upcoming_train_count:['Upcoming trains','number of trains to cycle']", self.admin_source)
+        self.assertIn("upcoming_train_pause_seconds:['Train cycle pause','seconds to hold before the next train']", self.admin_source)
 
     def test_marquee_settings_are_published_to_renderer_payload(self):
         self.assertIn('"station_scroll_speed": departures_config["station_scroll_speed"]', self.publisher_source)
@@ -65,6 +67,8 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('screen.get("station_list_spacing")', self.display_source)
         self.assertIn('screen.station_scroll_speed', self.simulator_source)
         self.assertIn('screen.station_list_spacing', self.simulator_source)
+        self.assertIn('screen.get("upcoming_train_pause_seconds")', self.display_source)
+        self.assertIn('screen.upcoming_train_count', self.simulator_source)
 
     def test_platforms_use_a_stable_column_in_hardware_and_simulator(self):
         self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*132')
