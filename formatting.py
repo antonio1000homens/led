@@ -247,8 +247,8 @@ def todoist_due_label(event, current_date):
     if day_delta < 0:
         return ""
     if day_delta == 0:
-        return "TODAY"
-    return "{} DAY{}".format(day_delta, "" if day_delta == 1 else "S")
+        return "DUE IN TODAY"
+    return "DUE IN {} DAY{}".format(day_delta, "" if day_delta == 1 else "S")
 
 
 def header(station, stale=False):

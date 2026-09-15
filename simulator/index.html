@@ -181,8 +181,8 @@
       const today = londonDateParts(now);
       const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
       if (dayDelta < 0) return '';
-      if (dayDelta === 0) return 'TODAY';
-      return `${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
+      if (dayDelta === 0) return 'DUE IN TODAY';
+      return `DUE IN ${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
     }
     function queueScrollState(phase, rideCount) {
       const maxStart = Math.max(0, Number(rideCount || 0) - QUEUE_VISIBLE_ROWS);

@@ -139,9 +139,9 @@ class FormattingTests(unittest.TestCase):
 
     def test_todoist_due_label_ignores_time(self):
         event = {"start": "2026-09-13T23:59:00+01:00"}
-        self.assertEqual(todoist_due_label(event, "2026-09-13"), "TODAY")
-        self.assertEqual(todoist_due_label({"start": "2026-09-14"}, "2026-09-13"), "1 DAY")
-        self.assertEqual(todoist_due_label({"start": "2026-09-15T01:00:00+01:00"}, "2026-09-13"), "2 DAYS")
+        self.assertEqual(todoist_due_label(event, "2026-09-13"), "DUE IN TODAY")
+        self.assertEqual(todoist_due_label({"start": "2026-09-14"}, "2026-09-13"), "DUE IN 1 DAY")
+        self.assertEqual(todoist_due_label({"start": "2026-09-15T01:00:00+01:00"}, "2026-09-13"), "DUE IN 2 DAYS")
 
     def test_agenda_page_holds_then_slides_to_second_three(self):
         self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))
