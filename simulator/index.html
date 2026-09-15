@@ -70,8 +70,9 @@
     const HEADER_HOLD_SECONDS = 4.0;
     const HEADER_SLIDE_SECONDS = 0.6;
     const HEADER_SLOT_WIDTH = 128;
-    const RAIL_TIME_X = 0;
-    const RAIL_DESTINATION_X = 144;
+    const RAIL_ORDINAL_X = 0;
+    const RAIL_TIME_X = 96;
+    const RAIL_DESTINATION_X = 240;
     const RAIL_PLATFORM_X = 528;
     const RAIL_COLUMN_GAP = 16;
     const DEPARTURE_SLIDE_SECONDS = 0.4;
@@ -100,8 +101,14 @@
 
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
     function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
-    function railColumns(service) {
+    function ordinalLabel(number) {
+      const value = Number(number) || 1;
+      const suffix = value % 100 > 10 && value % 100 < 14 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
+      return String(value) + suffix;
+    }
+    function railColumns(service, ordinal = 1) {
       return {
+        ordinal: ordinalLabel(ordinal),
         time: clip(service.time || '--:--', 5),
         destination: String(service.destination || 'Unknown'),
         platform: ('P' + String(service.platform || '-')).slice(0, 3),
@@ -262,14 +269,18 @@
     }
     function departureScrollState(phase, serviceCount, pauseSeconds = 2, visibleRows = 2) {
       const maxStart = Math.max(0, serviceCount - visibleRows);
-      if (!maxStart) return { start: 0, progress: 0 };
+      if (!maxStart) return { start: 0, progress: 0, resetProgress: 0 };
       const pause = Math.max(0, Number(pauseSeconds) || 0);
       const stepSeconds = pause + DEPARTURE_SLIDE_SECONDS;
+      const resetSeconds = 0.8;
+      const normalDuration = (maxStart + 1) * stepSeconds;
+      const cycleDuration = normalDuration + resetSeconds;
       const safePhase = Math.max(0, Number(phase) || 0);
-      const step = Math.min(maxStart, Math.floor(safePhase / stepSeconds));
-      if (step >= maxStart) return { start: maxStart, progress: 0 };
-      const within = safePhase - step * stepSeconds;
-      return { start: step, progress: within <= pause ? 0 : Math.min(1, (within - pause) / DEPARTURE_SLIDE_SECONDS) };
+      const cyclePhase = safePhase % cycleDuration;
+      if (cyclePhase >= normalDuration) return { start: 0, progress: 0, resetProgress: (cyclePhase - normalDuration) / resetSeconds };
+      const step = Math.min(maxStart, Math.floor(cyclePhase / stepSeconds));
+      const within = cyclePhase - step * stepSeconds;
+      return { start: step, progress: within <= pause ? 0 : Math.min(1, (within - pause) / DEPARTURE_SLIDE_SECONDS), resetProgress: 0 };
     }
     function clockLayout(now = new Date()) {
       const text = clockFormatter.format(now);
@@ -341,8 +352,8 @@
       while (end > 0 && context.measureText(text.slice(0, end)).width > maxWidth) end -= 1;
       return text.slice(0, end);
     }
-    function drawRailService(service, y, xOffset, rightEdge, color) {
-      const columns = railColumns(service);
+    function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1) {
+      const columns = railColumns(service, ordinal);
       const statusX = columns.status ? Math.max(0, rightEdge - context.measureText(columns.status).width) : rightEdge;
       const platformWidth = context.measureText(columns.platform).width;
       let platformX = RAIL_PLATFORM_X;
@@ -351,6 +362,7 @@
       }
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;
+      context.fillText(columns.ordinal, RAIL_ORDINAL_X + xOffset, y);
       context.fillText(columns.time, RAIL_TIME_X + xOffset, y);
       context.fillText(fitLeftText(columns.destination, destinationWidth), RAIL_DESTINATION_X + xOffset, y);
       context.fillText(columns.platform, platformX + xOffset, y);
@@ -383,7 +395,7 @@
         const primaryPhase = Math.max(0, Math.min(1, phase / 1.2));
         const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
         const headerRight = (screen.stale || forceStale) ? 800 : clock.x - 16;
-        drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff');
+        drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff', 1);
         marquee(callingText(next), 34, phase, '#ffaa00', stationMarqueeSpeed(screen), RAIL_MARQUEE_DELAY_SECONDS, stationMarqueeGap());
         const upcomingServices = railServices.slice(1);
         if (!upcomingServices.length) {
@@ -391,11 +403,21 @@
           context.fillText('No upcoming services', 0, 64);
         }
         const scroll = departureScrollState(phase, upcomingServices.length, screen.upcoming_train_pause_seconds);
-        const visible = scroll.progress > 0 ? 3 : 2;
-        for (let slot = 0; slot < visible; slot += 1) {
-          const upcoming = upcomingServices[scroll.start + slot];
-          if (!upcoming) break;
-          drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30, 0, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff');
+        if (scroll.resetProgress > 0) {
+          for (let slot = 0; slot < Math.min(2, upcomingServices.length); slot += 1) {
+            const upcoming = upcomingServices[slot];
+            const entry = Math.max(0, Math.min(1, (scroll.resetProgress - slot * 0.15) / 0.4));
+            const x = -Math.round((1 - entry) * 220) * 4;
+            drawRailService(upcoming, 64 + slot * 30, x, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', slot + 2);
+          }
+        } else {
+          const visible = scroll.progress > 0 ? 3 : 2;
+          for (let slot = 0; slot < visible; slot += 1) {
+            const index = scroll.start + slot;
+            const upcoming = upcomingServices[index];
+            if (!upcoming) break;
+            drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30, 0, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', index + 2);
+          }
         }
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';

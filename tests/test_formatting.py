@@ -13,6 +13,7 @@ from formatting import (
     calling_marquee_x,
     calling_text,
     departure_scroll_state,
+    ordinal_label,
     format_row,
     header,
     queue_scroll_state,
@@ -55,13 +56,20 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(row_slide_phase(4, 2), 1)
 
     def test_departures_scroll_one_upcoming_train_at_a_time_after_pause(self):
-        self.assertEqual(departure_scroll_state(0, 4, 2), (0, 0.0))
-        self.assertEqual(departure_scroll_state(2, 4, 2), (0, 0.0))
-        start, progress = departure_scroll_state(2.2, 4, 2)
+        self.assertEqual(departure_scroll_state(0, 4, 2), (0, 0.0, 0.0))
+        self.assertEqual(departure_scroll_state(2, 4, 2), (0, 0.0, 0.0))
+        start, progress, reset = departure_scroll_state(2.2, 4, 2)
         self.assertEqual(start, 0)
         self.assertAlmostEqual(progress, 0.5)
-        self.assertEqual(departure_scroll_state(2.4, 4, 2), (1, 0.0))
-        self.assertEqual(departure_scroll_state(99, 4, 2), (2, 0.0))
+        self.assertEqual(reset, 0.0)
+        self.assertEqual(departure_scroll_state(2.4, 4, 2), (1, 0.0, 0.0))
+        self.assertEqual(departure_scroll_state(6.8, 4, 2), (2, 0.0, 0.0))
+        self.assertEqual(departure_scroll_state(7.2, 4, 2), (0, 0.0, 0.0))
+        self.assertAlmostEqual(departure_scroll_state(7.6, 4, 2)[2], 0.5)
+        self.assertEqual(departure_scroll_state(8.0, 4, 2), (0, 0.0, 0.0))
+
+    def test_departure_ordinals_use_correct_suffixes(self):
+        self.assertEqual([ordinal_label(value) for value in (1, 2, 3, 4, 11, 12, 13, 21)], ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st"])
 
     def test_calling_marquee_waits_for_primary_row_then_scrolls(self):
         text = "x" * 50

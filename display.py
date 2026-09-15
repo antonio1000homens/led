@@ -17,6 +17,7 @@ from formatting import (
     calling_marquee_x,
     calling_text,
     departure_scroll_state,
+    ordinal_label,
     format_row,
     queue_scroll_state,
     row_slide_phase,
@@ -45,8 +46,9 @@ MIN_CALLING_SCROLL_SPEED = 10.0
 MAX_CALLING_SCROLL_SPEED = 80.0
 MIN_CALLING_SCROLL_GAP = 8
 MAX_CALLING_SCROLL_GAP = 80
-RAIL_TIME_X = 0
-RAIL_DESTINATION_X = 36
+RAIL_ORDINAL_X = 0
+RAIL_TIME_X = 24
+RAIL_DESTINATION_X = 60
 RAIL_PLATFORM_X = 132
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
@@ -178,8 +180,9 @@ def _header_item_state(phase, weather):
     return "clock", int((1.0 - progress) * HEADER_SLOT_WIDTH)
 
 
-def _rail_columns(service):
+def _rail_columns(service, ordinal=1):
     return (
+        ordinal_label(ordinal),
         _clip(service.get("time", "--:--"), 5),
         str(service.get("destination") or "Unknown"),
         ("P" + str(service.get("platform", "-")))[:3],
@@ -251,14 +254,15 @@ class MatrixDisplay:
     def _header_mask(self, group):
         self._mask(group, 0, 0, DISPLAY_WIDTH, 8)
 
-    def _rail_service(self, group, service, color, x_offset, y, right_edge):
-        time_text, destination, platform, status = _rail_columns(service)
+    def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
+        ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
         platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
         platform_x = RAIL_PLATFORM_X
         if status and status_x < platform_x + platform_width + HEADER_GAP:
             platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
+        self._label(group, ordinal_text, color, RAIL_ORDINAL_X + x_offset, y)
         self._label(group, time_text, color, RAIL_TIME_X + x_offset, y)
         self._label(group, _fit_text_pixels(destination, destination_width), color, RAIL_DESTINATION_X + x_offset, y)
         self._label(group, platform, color, platform_x + x_offset, y)
@@ -272,7 +276,7 @@ class MatrixDisplay:
         primary_slide = row_slide_phase(phase, 0)
         primary_x = -int((1 - primary_slide) * 220)
         primary_color = 0xFF3300 if primary.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-        self._rail_service(group, primary, primary_color, primary_x, 3, rail_right_edge)
+        self._rail_service(group, primary, primary_color, primary_x, 3, rail_right_edge, 1)
 
         calling = calling_text(primary)
         scroll_speed, scroll_gap = _station_scroll_settings(screen)
@@ -290,17 +294,25 @@ class MatrixDisplay:
         upcoming = services[1:]
         if not upcoming:
             self._label(group, "No upcoming services", 0xFFFFFF, 0, 17)
-        start, progress = departure_scroll_state(
+        start, progress, reset_progress = departure_scroll_state(
             phase, len(upcoming), screen.get("upcoming_train_pause_seconds")
         )
-        for slot in range(3 if progress > 0 else 2):
-            index = start + slot
-            if index >= len(upcoming):
-                break
-            service = upcoming[index]
-            color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-            y = 17 + slot * 8 - int(progress * 8)
-            self._rail_service(group, service, color, 0, y, rail_right_edge)
+        if reset_progress > 0:
+            for slot in range(min(2, len(upcoming))):
+                service = upcoming[slot]
+                entry = max(0.0, min(1.0, (reset_progress - slot * 0.15) / 0.4))
+                x = -int((1.0 - entry) * 220)
+                color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
+                self._rail_service(group, service, color, x, 17 + slot * 8, rail_right_edge, slot + 2)
+        else:
+            for slot in range(3 if progress > 0 else 2):
+                index = start + slot
+                if index >= len(upcoming):
+                    break
+                service = upcoming[index]
+                color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
+                y = 17 + slot * 8 - int(progress * 8)
+                self._rail_service(group, service, color, 0, y, rail_right_edge, index + 2)
 
     def _queues(self, group, screen, phase):
         rides = screen.get("rides") or []
@@ -448,14 +460,15 @@ class FixtureDisplay:
     def _clear_rows(self, start_y, end_y):
         self._clear_rect(0, start_y, DISPLAY_WIDTH, end_y)
 
-    def _rail_service(self, service, color, x_offset, y, right_edge):
-        time_text, destination, platform, status = _rail_columns(service)
+    def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
+        ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
         platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
         platform_x = RAIL_PLATFORM_X
         if status and status_x < platform_x + platform_width + HEADER_GAP:
             platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
+        self._text(ordinal_text, RAIL_ORDINAL_X + x_offset, y, color)
         self._text(time_text, RAIL_TIME_X + x_offset, y, color)
         self._text(_fit_text_pixels(destination, destination_width), RAIL_DESTINATION_X + x_offset, y, color)
         self._text(platform, platform_x + x_offset, y, color)
@@ -471,7 +484,7 @@ class FixtureDisplay:
             primary_slide = row_slide_phase(phase, 0)
             primary_x = -int((1 - primary_slide) * 220)
             primary_color = (255, 20, 0) if primary.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-            self._rail_service(primary, primary_color, primary_x, 0, rail_right_edge)
+            self._rail_service(primary, primary_color, primary_x, 0, rail_right_edge, 1)
             text = calling_text(primary)
             scroll_speed, scroll_gap = _station_scroll_settings(screen)
             calling_x = calling_marquee_x(
@@ -487,17 +500,25 @@ class FixtureDisplay:
             upcoming = services[1:]
             if not upcoming:
                 self._text("No upcoming services", 0, 16, (255, 255, 255))
-            start, progress = departure_scroll_state(
+            start, progress, reset_progress = departure_scroll_state(
                 phase, len(upcoming), screen.get("upcoming_train_pause_seconds")
             )
-            for slot in range(3 if progress > 0 else 2):
-                index = start + slot
-                if index >= len(upcoming):
-                    break
-                service = upcoming[index]
-                color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-                y = 16 + slot * 8 - int(progress * 8)
-                self._rail_service(service, color, 0, y, rail_right_edge)
+            if reset_progress > 0:
+                for slot in range(min(2, len(upcoming))):
+                    service = upcoming[slot]
+                    entry = max(0.0, min(1.0, (reset_progress - slot * 0.15) / 0.4))
+                    x = -int((1.0 - entry) * 220)
+                    color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
+                    self._rail_service(service, color, x, 16 + slot * 8, rail_right_edge, slot + 2)
+            else:
+                for slot in range(3 if progress > 0 else 2):
+                    index = start + slot
+                    if index >= len(upcoming):
+                        break
+                    service = upcoming[index]
+                    color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
+                    y = 16 + slot * 8 - int(progress * 8)
+                    self._rail_service(service, color, 0, y, rail_right_edge, index + 2)
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             if not rides:
@@ -589,11 +610,13 @@ class FixtureDisplay:
             if services:
                 print(format_row(services[0]).rstrip())
                 print(calling_text(services[0]))
-                start, _ = departure_scroll_state(
+                start, _, reset_progress = departure_scroll_state(
                     phase, len(services[1:]), screen.get("upcoming_train_pause_seconds")
                 )
-                for service in services[1 + start:3 + start]:
-                    print(format_row(service).rstrip())
+                if reset_progress > 0:
+                    start = 0
+                for index, service in enumerate(services[1 + start:3 + start], start=start + 2):
+                    print("{} {}".format(ordinal_label(index), format_row(service).rstrip()))
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             start, _ = queue_scroll_state(phase, len(rides))
