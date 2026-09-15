@@ -14,7 +14,7 @@ if local:
         if not name.startswith("_"):
             setattr(settings, name, getattr(local, name))
 
-from display import create
+from display_layout import create
 from fixtures import animated_services
 from screen_client import ClockState, ScreenClient, ScreenRotation
 
