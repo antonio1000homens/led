@@ -11,8 +11,12 @@ from formatting import (
     agenda_title_marquee_x,
     calendar_row_parts,
     row_slide_phase,
-    todoist_due_label,
 )
+from layout_formatting import todoist_due_label
+
+# The inherited fixture renderer calls the function imported by display.py.
+# Point it at the refined day-only formatter so hardware and fixture match.
+base.todoist_due_label = todoist_due_label
 
 
 class MatrixDisplay(base.MatrixDisplay):
