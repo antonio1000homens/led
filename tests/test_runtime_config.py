@@ -5,6 +5,8 @@ from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
     DEFAULT_STATION_LIST_SPACING,
     DEFAULT_STATION_SCROLL_SPEED,
+    DEFAULT_UPCOMING_TRAIN_COUNT,
+    DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
     MAX_STATION_LIST_SPACING,
     MAX_STATION_SCROLL_SPEED,
@@ -56,6 +58,8 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config["feeds"]["departures"]["poll_seconds"], 60)
         self.assertEqual(config["feeds"]["departures"]["station_scroll_speed"], 30)
         self.assertEqual(config["feeds"]["departures"]["station_list_spacing"], 28)
+        self.assertEqual(config["feeds"]["departures"]["upcoming_train_count"], DEFAULT_UPCOMING_TRAIN_COUNT)
+        self.assertEqual(config["feeds"]["departures"]["upcoming_train_pause_seconds"], DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS)
         self.assertEqual(config["feeds"]["thorpe_park"]["park_id"], 2)
         self.assertEqual(config["feeds"]["chessington"]["park_id"], 3)
         self.assertEqual(config["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
@@ -83,6 +87,17 @@ class RuntimeConfigTests(unittest.TestCase):
         for value in (MIN_STATION_LIST_SPACING - 1, MAX_STATION_LIST_SPACING + 1):
             with self.assertRaises(RuntimeConfigValidationError):
                 validate_feed_patch("departures", {"station_list_spacing": value})
+
+        patch = validate_feed_patch("departures", {"upcoming_train_count": 6, "upcoming_train_pause_seconds": 3})
+        self.assertEqual(patch, {"upcoming_train_count": 6, "upcoming_train_pause_seconds": 3})
+
+    def test_legacy_runtime_config_defaults_missing_departure_rotation_fields(self):
+        legacy = default_runtime_config({})
+        del legacy["feeds"]["departures"]["upcoming_train_count"]
+        del legacy["feeds"]["departures"]["upcoming_train_pause_seconds"]
+        validated = validate_runtime_config(legacy)
+        self.assertEqual(validated["feeds"]["departures"]["upcoming_train_count"], DEFAULT_UPCOMING_TRAIN_COUNT)
+        self.assertEqual(validated["feeds"]["departures"]["upcoming_train_pause_seconds"], DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS)
 
     def test_legacy_runtime_config_defaults_missing_marquee_fields(self):
         legacy = default_runtime_config({})

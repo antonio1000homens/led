@@ -10,6 +10,7 @@ import os
 from queue_times import QueueTimesProvider, select_rides
 from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
+    DEFAULT_UPCOMING_TRAIN_COUNT,
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
     RuntimeConfigStore,
     default_runtime_config,
@@ -304,7 +305,7 @@ class Publisher:
         if departures_config["enabled"]:
             rail = feeds.get("departures") or {}
             rail_data = rail.get("data")
-            services = copy.deepcopy((rail_data.get("services") or [])[:3]) if rail_data else []
+            services = copy.deepcopy((rail_data.get("services") or [])[:1 + departures_config["upcoming_train_count"]]) if rail_data else []
             for service in services:
                 service["station_spacing_px"] = departures_config["station_list_spacing"]
             screens.append({
@@ -312,6 +313,8 @@ class Publisher:
                 "kind": "rail_combined",
                 "duration_seconds": departures_config["screen_duration_seconds"],
                 "station_scroll_speed": departures_config["station_scroll_speed"],
+                "upcoming_train_count": departures_config["upcoming_train_count"],
+                "upcoming_train_pause_seconds": departures_config["upcoming_train_pause_seconds"],
                 "title": f"{rail_data['station']} departures" if rail_data else "Departures unavailable",
                 "source": rail_data.get("source", "national_rail") if rail_data else "unavailable",
                 "stale": bool(rail.get("stale")) if rail_data else True,
