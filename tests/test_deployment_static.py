@@ -39,6 +39,15 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("drawCalendarDue(events, wallClock", simulator)
         self.assertIn("timeZone: 'Europe/London'", simulator)
 
+    def test_todoist_due_labels_are_day_only_and_row_level(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        display = (ROOT / "display.py").read_text(encoding="utf-8")
+        self.assertIn("function todoistDueLabel(event, now = new Date())", simulator)
+        self.assertIn("return 'TODAY';", simulator)
+        self.assertIn("screen.source === 'todoist'", simulator)
+        self.assertIn("todoist_due_label(events[event_index], clock_date)", display)
+        self.assertIn('screen.get("source") == "todoist"', display)
+
     def test_simulator_does_not_pretruncate_agenda_rows(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("return parts.when + ' ' + parts.title;", simulator)

@@ -173,6 +173,17 @@
       if (hours) return `DUE IN ${hours}h`;
       return `DUE IN ${minutes}m`;
     }
+    function todoistDueLabel(event, now = new Date()) {
+      if (!event || typeof event !== 'object') return '';
+      const start = String(event.start || '');
+      if (start.length < 10) return '';
+      const eventDate = { year: Number(start.slice(0, 4)), month: Number(start.slice(5, 7)), day: Number(start.slice(8, 10)) };
+      const today = londonDateParts(now);
+      const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
+      if (dayDelta < 0) return '';
+      if (dayDelta === 0) return 'TODAY';
+      return `${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
+    }
     function queueScrollState(phase, rideCount) {
       const maxStart = Math.max(0, Number(rideCount || 0) - QUEUE_VISIBLE_ROWS);
       if (maxStart === 0) return { start: 0, progress: 0 };
@@ -289,7 +300,8 @@
       context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
       context.fillText(layout.text, layout.textX, 4);
     }
-    function drawCalendarDue(events, now, stale, clockX) {
+    function drawCalendarDue(events, now, stale, clockX, source) {
+      if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
       const text = calendarDueText(events[0], now);
       if (!text) return;
@@ -398,18 +410,35 @@
             if (!event) break;
             const parts = calendarParts(event);
             const y = 34 + slot * 30 - yOffset;
+            const todoist = screen.source === 'todoist';
+            const due = todoist ? todoistDueLabel(event, wallClock) : '';
+            const dueWidth = due ? context.measureText(due).width : 0;
+            const dueX = 1024 - dueWidth;
             const titleStart = context.measureText(parts.when + ' ').width;
             context.fillStyle = '#ffffff';
-            context.save(); context.beginPath(); context.rect(titleStart, 32, 1024 - titleStart, 96); context.clip();
-            context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);
+            context.save();
+            context.beginPath();
+            if (todoist) {
+              context.rect(titleStart, 32, Math.max(0, dueX - titleStart - 16), 96);
+              context.clip();
+              context.fillText(parts.title, titleStart, y);
+            } else {
+              context.rect(titleStart, 32, 1024 - titleStart, 96);
+              context.clip();
+              context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);
+            }
             context.restore();
             context.fillText(parts.when, 0, y);
+            if (due) {
+              const progress = Math.max(0, Math.min(1, (phase - slot) / 1.2));
+              context.fillText(due, dueX + (1 - progress) * 1024, y);
+            }
           }
           context.restore();
         }
         context.fillStyle = '#ffaa00';
         context.fillText(String(screen.title || 'UPCOMING').slice(0, 30), 0, 4);
-        drawCalendarDue(events, wallClock, Boolean(screen.stale || forceStale), clock.x);
+        drawCalendarDue(events, wallClock, Boolean(screen.stale || forceStale), clock.x, screen.source);
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Upcoming events';
       }
