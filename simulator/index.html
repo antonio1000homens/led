@@ -27,7 +27,7 @@
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels fed by independent screens. The top-right alternates the current time with the current temperature, while the compact weather icon remains at the bottom-right.</p>
+    <p>Four 64 × 32 panels fed by independent screens. The top-right alternates between the current time and a single weather group containing the icon and temperature.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
     <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
@@ -65,11 +65,11 @@
     const QUEUE_SLIDE_SECONDS = 0.3;
     const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
     const RAIL_MARQUEE_DELAY_SECONDS = 1.2;
-    const RAIL_MARQUEE_SPEED = 144;
-    const RAIL_MARQUEE_GAP = 144;
+    const RAIL_MARQUEE_SPEED = 120;
+    const RAIL_MARQUEE_GAP = 112;
     const HEADER_HOLD_SECONDS = 4.0;
     const HEADER_SLIDE_SECONDS = 0.6;
-    const HEADER_SLOT_WIDTH = 120;
+    const HEADER_SLOT_WIDTH = 128;
     const RAIL_TIME_X = 0;
     const RAIL_DESTINATION_X = 144;
     const RAIL_PLATFORM_X = 528;
@@ -205,15 +205,26 @@
       }
       return { screen: screens[0], phase: 0, index: 0 };
     }
-    function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0) {
+    function boundedNumber(value, fallback, minimum, maximum) {
+      const parsed = Number(value);
+      const number = Number.isFinite(parsed) ? parsed : fallback;
+      return Math.min(maximum, Math.max(minimum, number));
+    }
+    function stationMarqueeSpeed(screen) {
+      return boundedNumber(screen.station_scroll_speed, 30, 10, 80) * 4;
+    }
+    function stationMarqueeGap(screen) {
+      return boundedNumber(screen.station_list_spacing, 28, 8, 80) * 4;
+    }
+    function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0, gap = RAIL_MARQUEE_GAP) {
       if (phase < delaySeconds) return;
       const text = String(value || '');
       const width = context.measureText(text).width;
       context.fillStyle = color;
       if (width <= 1024) { context.fillText(text, 0, y); return; }
-      const offset = ((phase - delaySeconds) * speed) % (width + RAIL_MARQUEE_GAP);
+      const offset = ((phase - delaySeconds) * speed) % (width + gap);
       context.fillText(text, -offset, y);
-      context.fillText(text, width + RAIL_MARQUEE_GAP - offset, y);
+      context.fillText(text, width + gap - offset, y);
     }
     function callingText(service) {
       const stops = Array.isArray(service.stops) ? service.stops : [];
@@ -243,10 +254,10 @@
       if (within < HEADER_HOLD_SECONDS) return { item: 'clock', offset: 0 };
       if (within < segment) {
         const progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS;
-        return { item: 'temperature', offset: (1 - progress) * HEADER_SLOT_WIDTH };
+        return { item: 'weather', offset: (1 - progress) * HEADER_SLOT_WIDTH };
       }
       within -= segment;
-      if (within < HEADER_HOLD_SECONDS) return { item: 'temperature', offset: 0 };
+      if (within < HEADER_HOLD_SECONDS) return { item: 'weather', offset: 0 };
       const progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS;
       return { item: 'clock', offset: (1 - progress) * HEADER_SLOT_WIDTH };
     }
@@ -255,12 +266,28 @@
       context.fillStyle = '#ffaa00';
       context.fillText(current.text, current.x + offset, 4);
     }
-    function drawTemperature(weather, offset = 0) {
-      const text = temperatureText(weather);
-      if (!text) return;
-      const x = 1016 - context.measureText(text).width + offset;
-      context.fillStyle = weather.stale ? '#aaaaaa' : '#ffffff';
-      context.fillText(text, x, 4);
+    function weatherGroupLayout(weather, offset = 0) {
+      if (!weather || typeof weather !== 'object') return null;
+      const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
+      const text = temperatureText(weather) || '--°C';
+      const groupWidth = 28 + 4 + context.measureText(text).width;
+      const groupX = Math.max(0, 1024 - groupWidth) + offset;
+      return {
+        iconName,
+        pattern: weatherIcons[iconName],
+        stale: Boolean(weather.stale),
+        text,
+        iconX: groupX,
+        textX: groupX + 32
+      };
+    }
+    function drawWeatherGroup(weather, offset = 0) {
+      const layout = weatherGroupLayout(weather, offset);
+      if (!layout) return;
+      context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
+      layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, y * 4, 4, 4); }));
+      context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
+      context.fillText(layout.text, layout.textX, 4);
     }
     function drawCalendarDue(events, now, stale, clockX) {
       if (!events.length) return;
@@ -270,26 +297,6 @@
       const x = Math.max(0, rightEdge - context.measureText(text).width);
       context.fillStyle = '#ffffff';
       context.fillText(text, x, 4);
-    }
-    function weatherIconLayout(weather) {
-      if (!weather || typeof weather !== 'object') return null;
-      const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
-      return {
-        iconName,
-        pattern: weatherIcons[iconName],
-        stale: Boolean(weather.stale),
-        iconX: 992
-      };
-    }
-    function weatherContentRight(weather) {
-      const layout = weatherIconLayout(weather);
-      return layout ? Math.max(0, layout.iconX - 16) : 1024;
-    }
-    function drawWeatherIcon(weather) {
-      const layout = weatherIconLayout(weather);
-      if (!layout) return;
-      context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
-      layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, 96 + y * 4, 4, 4); }));
     }
     function fitLeftText(value, maxWidth) {
       const text = String(value || '');
@@ -341,7 +348,7 @@
         const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
         const headerRight = (screen.stale || forceStale) ? 800 : clock.x - 16;
         drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff');
-        marquee(callingText(next), 34, phase, '#ffaa00', RAIL_MARQUEE_SPEED, RAIL_MARQUEE_DELAY_SECONDS);
+        marquee(callingText(next), 34, phase, '#ffaa00', stationMarqueeSpeed(screen), RAIL_MARQUEE_DELAY_SECONDS, stationMarqueeGap(screen));
         const upcomingServices = railServices.slice(1, 3);
         if (!upcomingServices.length) {
           context.fillStyle = '#ffffff';
@@ -351,8 +358,7 @@
           const rowIndex = index + 1;
           const upcomingPhase = Math.max(0, Math.min(1, (phase - rowIndex) / 1.2));
           const upcomingX = -Math.round((1 - upcomingPhase) * 220) * 4;
-          const rightEdge = index === 0 ? 1024 : weatherContentRight(screen.weather);
-          drawRailService(upcoming, 64 + index * 30, upcomingX, rightEdge, upcoming.cancelled ? '#ff3300' : '#ffffff');
+          drawRailService(upcoming, 64 + index * 30, upcomingX, 1024, upcoming.cancelled ? '#ff3300' : '#ffffff');
         });
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
@@ -365,12 +371,11 @@
           const queueScroll = queueScrollState(phase, rides.length);
           const rowCount = QUEUE_VISIBLE_ROWS + (queueScroll.progress > 0 ? 1 : 0);
           const yOffset = queueScroll.progress * 30;
-          const queueRight = weatherContentRight(screen.weather);
           context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
           for (let slot = 0; slot < rowCount; slot += 1) {
             const ride = rides[queueScroll.start + slot];
             if (!ride) break;
-            drawQueueRide(ride, 34 + slot * 30 - yOffset, queueRight);
+            drawQueueRide(ride, 34 + slot * 30 - yOffset, 1024);
           }
           context.restore();
         }
@@ -412,9 +417,8 @@
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
       const header = headerItemState(now / 1000, screen.weather);
-      if (header.item === 'temperature') drawTemperature(screen.weather, header.offset);
+      if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);
       else drawClock(clock, header.offset);
-      drawWeatherIcon(screen.weather);
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
       status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);

@@ -308,6 +308,8 @@ class Publisher:
                 "id": "departures",
                 "kind": "rail_combined",
                 "duration_seconds": departures_config["screen_duration_seconds"],
+                "station_scroll_speed": departures_config["station_scroll_speed"],
+                "station_list_spacing": departures_config["station_list_spacing"],
                 "title": f"{rail_data['station']} departures" if rail_data else "Departures unavailable",
                 "source": rail_data.get("source", "national_rail") if rail_data else "unavailable",
                 "stale": bool(rail.get("stale")) if rail_data else True,
