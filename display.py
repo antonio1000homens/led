@@ -1,5 +1,7 @@
 """Display backends: MatrixPortal S3 hardware and Wokwi visual fixture."""
 
+import time
+
 import board
 
 from formatting import (
@@ -15,8 +17,8 @@ from formatting import (
     calling_text,
     format_row,
     queue_scroll_state,
-    rail_row_parts,
     row_slide_phase,
+    service_status_text,
 )
 
 
@@ -28,11 +30,19 @@ QUEUE_ROW_HEIGHT = 8
 AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
 WEATHER_Y = 24
-WEATHER_LABEL_Y = 27
 WEATHER_ICON_WIDTH = 7
-WEATHER_GAP = 1
 WEATHER_FONT_WIDTH = 6
+WEATHER_GAP = 1
 HEADER_GAP = 4
+HEADER_HOLD_SECONDS = 4.0
+HEADER_SLIDE_SECONDS = 0.6
+HEADER_SLOT_WIDTH = DISPLAY_WIDTH - CLOCK_X
+CALLING_SCROLL_SPEED = 36.0
+CALLING_SCROLL_GAP = 36
+RAIL_TIME_X = 0
+RAIL_DESTINATION_X = 36
+RAIL_PLATFORM_X = 132
+RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
 WEATHER_ICONS = {
     "clear_day": ("..#.#..", "...#...", ".#####.", "..###..", ".#####.", "...#...", "..#.#.."),
@@ -99,18 +109,14 @@ def _weather_rgb(icon_name, stale=False):
     return 0x777777 if stale else color
 
 
-def _weather_layout(text):
-    text_width = len(str(text)) * WEATHER_FONT_WIDTH
-    icon_x = max(0, DISPLAY_WIDTH - (WEATHER_ICON_WIDTH + WEATHER_GAP + text_width))
-    return icon_x, icon_x + WEATHER_ICON_WIDTH + WEATHER_GAP
+def _weather_icon_x():
+    return DISPLAY_WIDTH - WEATHER_ICON_WIDTH
 
 
 def _weather_content_right(screen):
-    text = _weather_text(screen.get("weather"))
-    if text is None:
+    if not isinstance(screen.get("weather"), dict):
         return DISPLAY_WIDTH
-    icon_x, _ = _weather_layout(text)
-    return max(0, icon_x - HEADER_GAP)
+    return max(0, _weather_icon_x() - HEADER_GAP)
 
 
 def _header_content_right(screen):
@@ -123,6 +129,45 @@ def _right_aligned_x(text, right_edge):
 
 def _left_text(text, right_edge):
     return _clip(text, max(0, int(right_edge) // WEATHER_FONT_WIDTH))
+
+
+def _fit_text_pixels(text, width):
+    return _clip(text, max(0, int(width) // WEATHER_FONT_WIDTH))
+
+
+def _temperature_x(text):
+    return _right_aligned_x(text, DISPLAY_WIDTH)
+
+
+def _header_item_state(phase, weather):
+    """Return (item, x-offset) for the clock/temperature top-right carousel."""
+    if not isinstance(weather, dict):
+        return "clock", 0
+    try:
+        phase = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        phase = 0.0
+    segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS
+    within = phase % (segment * 2)
+    if within < HEADER_HOLD_SECONDS:
+        return "clock", 0
+    if within < segment:
+        progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS
+        return "temperature", int((1.0 - progress) * HEADER_SLOT_WIDTH)
+    within -= segment
+    if within < HEADER_HOLD_SECONDS:
+        return "temperature", 0
+    progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS
+    return "clock", int((1.0 - progress) * HEADER_SLOT_WIDTH)
+
+
+def _rail_columns(service):
+    return (
+        _clip(service.get("time", "--:--"), 5),
+        str(service.get("destination") or "Unknown"),
+        ("P" + str(service.get("platform", "-")))[:3],
+        service_status_text(service),
+    )
 
 
 def _rgb_tuple(color):
@@ -190,9 +235,16 @@ class MatrixDisplay:
         self._mask(group, 0, 0, DISPLAY_WIDTH, 8)
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge):
-        left, status = rail_row_parts(service)
+        time_text, destination, platform, status = _rail_columns(service)
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
-        self._label(group, _left_text(left, max(0, status_x - HEADER_GAP)), color, x_offset, y)
+        platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
+        platform_x = RAIL_PLATFORM_X
+        if status and status_x < platform_x + platform_width + HEADER_GAP:
+            platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
+        destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
+        self._label(group, time_text, color, RAIL_TIME_X + x_offset, y)
+        self._label(group, _fit_text_pixels(destination, destination_width), color, RAIL_DESTINATION_X + x_offset, y)
+        self._label(group, platform, color, platform_x + x_offset, y)
         if status:
             self._label(group, status, color, status_x + x_offset, y)
 
@@ -205,7 +257,14 @@ class MatrixDisplay:
         self._rail_service(group, primary, primary_color, primary_x, 3, _header_content_right(screen))
 
         calling = calling_text(primary)
-        calling_x = calling_marquee_x(calling, phase, display_width=DISPLAY_WIDTH, font_width=WEATHER_FONT_WIDTH)
+        calling_x = calling_marquee_x(
+            calling,
+            phase,
+            display_width=DISPLAY_WIDTH,
+            font_width=WEATHER_FONT_WIDTH,
+            speed=CALLING_SCROLL_SPEED,
+            gap=CALLING_SCROLL_GAP,
+        )
         if calling_x is not None:
             self._label(group, calling, 0xFFAA00, calling_x, 10)
 
@@ -263,15 +322,14 @@ class MatrixDisplay:
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
     def _weather(self, group, weather):
-        text = _weather_text(weather)
-        if text is None:
+        if not isinstance(weather, dict):
             return
         import displayio
 
-        icon_x, text_x = _weather_layout(text)
+        icon_x = _weather_icon_x()
         icon_name, rows = _weather_icon(weather)
-        stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
-        bitmap = displayio.Bitmap(DISPLAY_WIDTH - icon_x, 8, 2)
+        stale = bool(weather.get("stale"))
+        bitmap = displayio.Bitmap(WEATHER_ICON_WIDTH, 8, 2)
         palette = displayio.Palette(2)
         palette[0] = 0x000000
         palette[1] = _weather_rgb(icon_name, stale)
@@ -280,7 +338,6 @@ class MatrixDisplay:
                 if pixel == "#":
                     bitmap[x, y] = 1
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=icon_x, y=WEATHER_Y))
-        self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, text_x, WEATHER_LABEL_Y)
 
     def show(self, screen, clock_time="--:--", clock_date="", phase=2):
         import displayio
@@ -300,7 +357,14 @@ class MatrixDisplay:
             self._label(group, due_text, 0xFFFFFF, due_x, 3)
         if screen.get("stale"):
             self._label(group, "STALE", 0xFF3300, STALE_X, 3)
-        self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
+        self._mask(group, CLOCK_X, 0, HEADER_SLOT_WIDTH, 8)
+        item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+        if item == "temperature":
+            temperature = _weather_text(screen.get("weather")) or "--C"
+            color = 0xAAAAAA if bool(screen.get("weather", {}).get("stale")) else 0xFFFFFF
+            self._label(group, temperature, color, _temperature_x(temperature) + offset, 3)
+        else:
+            self._label(group, clock_time, 0xFFAA00, CLOCK_X + offset, 3)
         self._weather(group, screen.get("weather"))
         self.display.root_group = group
 
@@ -354,9 +418,16 @@ class FixtureDisplay:
         self._clear_rect(0, start_y, DISPLAY_WIDTH, end_y)
 
     def _rail_service(self, service, color, x_offset, y, right_edge):
-        left, status = rail_row_parts(service)
+        time_text, destination, platform, status = _rail_columns(service)
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
-        self._text(_left_text(left, max(0, status_x - HEADER_GAP)), x_offset, y, color)
+        platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
+        platform_x = RAIL_PLATFORM_X
+        if status and status_x < platform_x + platform_width + HEADER_GAP:
+            platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
+        destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
+        self._text(time_text, RAIL_TIME_X + x_offset, y, color)
+        self._text(_fit_text_pixels(destination, destination_width), RAIL_DESTINATION_X + x_offset, y, color)
+        self._text(platform, platform_x + x_offset, y, color)
         if status:
             self._text(status, status_x + x_offset, y, color)
 
@@ -370,7 +441,14 @@ class FixtureDisplay:
             primary_color = (255, 20, 0) if primary.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
             self._rail_service(primary, primary_color, primary_x, 0, _header_content_right(screen))
             text = calling_text(primary)
-            calling_x = calling_marquee_x(text, phase, display_width=DISPLAY_WIDTH, font_width=WEATHER_FONT_WIDTH)
+            calling_x = calling_marquee_x(
+                text,
+                phase,
+                display_width=DISPLAY_WIDTH,
+                font_width=WEATHER_FONT_WIDTH,
+                speed=CALLING_SCROLL_SPEED,
+                gap=CALLING_SCROLL_GAP,
+            )
             if calling_x is not None:
                 self._text(text, calling_x, 8, (255, 100, 0))
             upcoming = services[1:3]
@@ -427,21 +505,17 @@ class FixtureDisplay:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
     def _weather(self, weather):
-        text = _weather_text(weather)
-        if text is None or self.pixels is None:
+        if not isinstance(weather, dict) or self.pixels is None:
             return
-        icon_x, text_x = _weather_layout(text)
-        for y in range(WEATHER_Y, 32):
-            for x in range(icon_x, DISPLAY_WIDTH):
-                self._pixel(x, y, (0, 0, 0))
+        icon_x = _weather_icon_x()
+        self._clear_rect(icon_x, WEATHER_Y, DISPLAY_WIDTH, 32)
         icon_name, rows = _weather_icon(weather)
-        stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
+        stale = bool(weather.get("stale"))
         color = _rgb_tuple(_weather_rgb(icon_name, stale))
         for y, row in enumerate(rows):
             for x, pixel in enumerate(row):
                 if pixel == "#":
                     self._pixel(icon_x + x, WEATHER_Y + y, color)
-        self._text(text, text_x, WEATHER_Y, (170, 170, 170) if stale else (255, 255, 255))
 
     def show(self, screen, clock_time="--:--", clock_date="", phase=2):
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
@@ -452,7 +526,14 @@ class FixtureDisplay:
                 self._text(due_text, due_x, 0, (255, 255, 255))
             if screen.get("stale"):
                 self._text("STALE", STALE_X, 0, (255, 20, 0))
-            self._text(clock_time, CLOCK_X, 0, (255, 100, 0))
+            self._clear_rect(CLOCK_X, 0, DISPLAY_WIDTH, 8)
+            item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+            if item == "temperature":
+                temperature = _weather_text(screen.get("weather")) or "--C"
+                color = (170, 170, 170) if bool(screen.get("weather", {}).get("stale")) else (255, 255, 255)
+                self._text(temperature, _temperature_x(temperature) + offset, 0, color)
+            else:
+                self._text(clock_time, CLOCK_X + offset, 0, (255, 100, 0))
             self._weather(screen.get("weather"))
             self.pixels.show()
 
