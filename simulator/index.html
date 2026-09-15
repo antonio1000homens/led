@@ -27,7 +27,7 @@
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels fed by independent screens. The current time remains fixed at the top-right and current temperature plus a compact weather icon remain fixed at the bottom-right.</p>
+    <p>Four 64 × 32 panels fed by independent screens. The top-right alternates the current time with the current temperature, while the compact weather icon remains at the bottom-right.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
     <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
@@ -65,8 +65,15 @@
     const QUEUE_SLIDE_SECONDS = 0.3;
     const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
     const RAIL_MARQUEE_DELAY_SECONDS = 1.2;
-    const RAIL_MARQUEE_SPEED = 192;
-    const RAIL_MARQUEE_GAP = 224;
+    const RAIL_MARQUEE_SPEED = 144;
+    const RAIL_MARQUEE_GAP = 144;
+    const HEADER_HOLD_SECONDS = 4.0;
+    const HEADER_SLIDE_SECONDS = 0.6;
+    const HEADER_SLOT_WIDTH = 120;
+    const RAIL_TIME_X = 0;
+    const RAIL_DESTINATION_X = 144;
+    const RAIL_PLATFORM_X = 528;
+    const RAIL_COLUMN_GAP = 16;
     const AGENDA_VISIBLE_ROWS = 3;
     const AGENDA_SLIDE_SECONDS = 0.4;
     const AGENDA_MARQUEE_SPEED = 120;
@@ -92,8 +99,13 @@
 
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
     function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
-    function railLeft(service) {
-      return clip(service.time || '--:--', 5) + ' ' + String(service.destination || 'Unknown') + ' ' + ('P' + String(service.platform || '-')).slice(0, 3);
+    function railColumns(service) {
+      return {
+        time: clip(service.time || '--:--', 5),
+        destination: String(service.destination || 'Unknown'),
+        platform: ('P' + String(service.platform || '-')).slice(0, 3),
+        status: serviceStatus(service)
+      };
     }
     function row(service) {
       const state = serviceStatus(service);
@@ -218,12 +230,37 @@
       const width = context.measureText(text).width;
       return { text, width, x: 1016 - width };
     }
-    function drawClock(layout) {
+    function temperatureText(weather) {
+      if (!weather || typeof weather !== 'object') return '';
+      const temperature = Number(weather.temperature_c);
+      return Number.isFinite(temperature) ? Math.round(temperature) + '°C' : '--°C';
+    }
+    function headerItemState(phase, weather) {
+      if (!weather || typeof weather !== 'object') return { item: 'clock', offset: 0 };
+      const safePhase = Math.max(0, Number(phase) || 0);
+      const segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS;
+      let within = safePhase % (segment * 2);
+      if (within < HEADER_HOLD_SECONDS) return { item: 'clock', offset: 0 };
+      if (within < segment) {
+        const progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS;
+        return { item: 'temperature', offset: (1 - progress) * HEADER_SLOT_WIDTH };
+      }
+      within -= segment;
+      if (within < HEADER_HOLD_SECONDS) return { item: 'temperature', offset: 0 };
+      const progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS;
+      return { item: 'clock', offset: (1 - progress) * HEADER_SLOT_WIDTH };
+    }
+    function drawClock(layout, offset = 0) {
       const current = layout || clockLayout();
-      context.fillStyle = '#000';
-      context.fillRect(current.x - 8, 0, current.width + 16, 31);
       context.fillStyle = '#ffaa00';
-      context.fillText(current.text, current.x, 4);
+      context.fillText(current.text, current.x + offset, 4);
+    }
+    function drawTemperature(weather, offset = 0) {
+      const text = temperatureText(weather);
+      if (!text) return;
+      const x = 1016 - context.measureText(text).width + offset;
+      context.fillStyle = weather.stale ? '#aaaaaa' : '#ffffff';
+      context.fillText(text, x, 4);
     }
     function drawCalendarDue(events, now, stale, clockX) {
       if (!events.length) return;
@@ -234,35 +271,25 @@
       context.fillStyle = '#ffffff';
       context.fillText(text, x, 4);
     }
-    function weatherLayout(weather) {
+    function weatherIconLayout(weather) {
       if (!weather || typeof weather !== 'object') return null;
       const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
-      const pattern = weatherIcons[iconName];
-      const stale = Boolean(weather.stale);
-      const temperature = Number(weather.temperature_c);
-      const temperatureText = Number.isFinite(temperature) ? Math.round(temperature) + '°C' : '--°C';
-      const rightEdge = 1020;
-      const iconWidth = 28;
-      const gap = 8;
-      const temperatureWidth = context.measureText(temperatureText).width;
-      const temperatureX = rightEdge - temperatureWidth;
-      const iconX = Math.max(0, temperatureX - gap - iconWidth);
-      const clearX = Math.max(0, iconX - 8);
-      return { iconName, pattern, stale, temperatureText, temperatureX, iconX, clearX };
+      return {
+        iconName,
+        pattern: weatherIcons[iconName],
+        stale: Boolean(weather.stale),
+        iconX: 992
+      };
     }
     function weatherContentRight(weather) {
-      const layout = weatherLayout(weather);
+      const layout = weatherIconLayout(weather);
       return layout ? Math.max(0, layout.iconX - 16) : 1024;
     }
-    function drawWeather(weather) {
-      const layout = weatherLayout(weather);
+    function drawWeatherIcon(weather) {
+      const layout = weatherIconLayout(weather);
       if (!layout) return;
-      context.fillStyle = '#000';
-      context.fillRect(layout.clearX, 92, 1024 - layout.clearX, 36);
       context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
       layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, 96 + y * 4, 4, 4); }));
-      context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
-      context.fillText(layout.temperatureText, layout.temperatureX, 94);
     }
     function fitLeftText(value, maxWidth) {
       const text = String(value || '');
@@ -272,14 +299,19 @@
       return text.slice(0, end);
     }
     function drawRailService(service, y, xOffset, rightEdge, color) {
-      const state = serviceStatus(service);
-      const stateX = state ? Math.max(0, rightEdge - context.measureText(state).width) : rightEdge;
-      const leftMax = Math.max(0, stateX - 16);
+      const columns = railColumns(service);
+      const statusX = columns.status ? Math.max(0, rightEdge - context.measureText(columns.status).width) : rightEdge;
+      const platformWidth = context.measureText(columns.platform).width;
+      let platformX = RAIL_PLATFORM_X;
+      if (columns.status && statusX < platformX + platformWidth + RAIL_COLUMN_GAP) {
+        platformX = Math.max(RAIL_DESTINATION_X, statusX - platformWidth - RAIL_COLUMN_GAP);
+      }
+      const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;
-      context.save(); context.beginPath(); context.rect(0, y, leftMax, 28); context.clip();
-      context.fillText(railLeft(service), xOffset, y);
-      context.restore();
-      if (state) context.fillText(state, stateX + xOffset, y);
+      context.fillText(columns.time, RAIL_TIME_X + xOffset, y);
+      context.fillText(fitLeftText(columns.destination, destinationWidth), RAIL_DESTINATION_X + xOffset, y);
+      context.fillText(columns.platform, platformX + xOffset, y);
+      if (columns.status) context.fillText(columns.status, statusX + xOffset, y);
     }
     function drawQueueRide(ride, y, rightEdge) {
       const state = queueState(ride);
@@ -379,8 +411,10 @@
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
-      drawClock(clock);
-      drawWeather(screen.weather);
+      const header = headerItemState(now / 1000, screen.weather);
+      if (header.item === 'temperature') drawTemperature(screen.weather, header.offset);
+      else drawClock(clock, header.offset);
+      drawWeatherIcon(screen.weather);
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
       status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);

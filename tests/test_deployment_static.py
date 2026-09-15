@@ -20,12 +20,14 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('s3://${BUCKET}/index.html', deploy_static)
         self.assertIn("--paths '/index.html' '/api/screens'", deploy_static)
 
-    def test_simulator_weather_is_dynamically_right_aligned(self):
+    def test_simulator_weather_keeps_icon_right_and_cycles_temperature_in_header(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("const rightEdge = 1020;", simulator)
-        self.assertIn("const temperatureWidth = context.measureText(temperatureText).width;", simulator)
-        self.assertIn("const temperatureX = rightEdge - temperatureWidth;", simulator)
-        self.assertIn("const iconX = Math.max(0, temperatureX - gap - iconWidth);", simulator)
+        self.assertIn("iconX: 992", simulator)
+        self.assertIn("function temperatureText(weather)", simulator)
+        self.assertIn("const x = 1016 - context.measureText(text).width + offset;", simulator)
+        self.assertIn("function headerItemState(phase, weather)", simulator)
+        self.assertIn("if (header.item === 'temperature') drawTemperature(screen.weather, header.offset);", simulator)
+        self.assertIn("drawWeatherIcon(screen.weather);", simulator)
         self.assertNotIn("context.fillText(temperatureText, 904, 94);", simulator)
         self.assertNotIn("context.fillRect(864 + x * 4", simulator)
 
@@ -54,7 +56,8 @@ class DeploymentStaticTests(unittest.TestCase):
     def test_simulator_rail_uses_spare_line_for_third_service(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("const RAIL_MARQUEE_DELAY_SECONDS = 1.2;", simulator)
-        self.assertIn("const RAIL_MARQUEE_SPEED = 192;", simulator)
+        self.assertIn("const RAIL_MARQUEE_SPEED = 144;", simulator)
+        self.assertIn("const RAIL_MARQUEE_GAP = 144;", simulator)
         self.assertIn("return { services: services.slice(0, 3) };", simulator)
         self.assertIn("const upcomingServices = railServices.slice(1, 3);", simulator)
         self.assertIn("drawRailService(upcoming, 64 + index * 30", simulator)
