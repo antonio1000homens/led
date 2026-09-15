@@ -181,7 +181,7 @@
       const today = londonDateParts(now);
       const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
       if (dayDelta < 0) return '';
-      if (dayDelta === 0) return 'DUE IN TODAY';
+      if (dayDelta === 0) return 'TODAY';
       return `DUE IN ${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
     }
     function queueScrollState(phase, rideCount) {
@@ -381,7 +381,7 @@
           const rowIndex = index + 1;
           const upcomingPhase = Math.max(0, Math.min(1, (phase - rowIndex) / 1.2));
           const upcomingX = -Math.round((1 - upcomingPhase) * 220) * 4;
-          drawRailService(upcoming, 64 + index * 30, upcomingX, 1024, upcoming.cancelled ? '#ff3300' : '#ffffff');
+          drawRailService(upcoming, 64 + index * 30, upcomingX, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff');
         });
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
