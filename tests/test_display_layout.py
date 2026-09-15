@@ -5,10 +5,10 @@ import unittest
 
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
-import display_layout
+import display as led_display
 
 
-class CapturingFixture(display_layout.FixtureDisplay):
+class CapturingFixture(led_display.FixtureDisplay):
     def __init__(self):
         self.pixels = None
         self.drawn = []
@@ -36,7 +36,7 @@ class DisplayLayoutTests(unittest.TestCase):
         due_rows = [item for item in display.drawn if item[0] in ("TODAY", "DUE IN 1 DAY", "DUE IN 2 DAYS")]
         self.assertEqual([item[0] for item in due_rows], ["TODAY", "DUE IN 1 DAY", "DUE IN 2 DAYS"])
         for text, x, _y, _color in due_rows:
-            self.assertEqual(x + len(text) * display_layout.base.WEATHER_FONT_WIDTH, display_layout.base.DISPLAY_WIDTH)
+            self.assertEqual(x + len(text) * led_display.WEATHER_FONT_WIDTH, led_display.DISPLAY_WIDTH)
 
     def test_todoist_due_labels_ignore_hours(self):
         display = CapturingFixture()
