@@ -305,18 +305,20 @@ class Publisher:
         if departures_config["enabled"]:
             rail = feeds.get("departures") or {}
             rail_data = rail.get("data")
+            services = copy.deepcopy((rail_data.get("services") or [])[:1 + departures_config["upcoming_train_count"]]) if rail_data else []
+            for service in services:
+                service["station_spacing_px"] = departures_config["station_list_spacing"]
             screens.append({
                 "id": "departures",
                 "kind": "rail_combined",
                 "duration_seconds": departures_config["screen_duration_seconds"],
                 "station_scroll_speed": departures_config["station_scroll_speed"],
-                "station_list_spacing": departures_config["station_list_spacing"],
                 "upcoming_train_count": departures_config["upcoming_train_count"],
                 "upcoming_train_pause_seconds": departures_config["upcoming_train_pause_seconds"],
                 "title": f"{rail_data['station']} departures" if rail_data else "Departures unavailable",
                 "source": rail_data.get("source", "national_rail") if rail_data else "unavailable",
                 "stale": bool(rail.get("stale")) if rail_data else True,
-                "services": copy.deepcopy((rail_data.get("services") or [])[:1 + departures_config["upcoming_train_count"]]) if rail_data else [],
+                "services": services,
             })
         if config_feeds["thorpe_park"]["enabled"]:
             screen = self._park_screen("thorpe-park", "THORPE PARK", feeds.get("thorpe_park") or {}, config_feeds["thorpe_park"])

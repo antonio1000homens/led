@@ -146,13 +146,7 @@ def _station_scroll_settings(screen):
         MIN_CALLING_SCROLL_SPEED,
         MAX_CALLING_SCROLL_SPEED,
     )
-    gap = int(round(_bounded_number(
-        screen.get("station_list_spacing"),
-        CALLING_SCROLL_GAP,
-        MIN_CALLING_SCROLL_GAP,
-        MAX_CALLING_SCROLL_GAP,
-    )))
-    return speed, gap
+    return speed, CALLING_SCROLL_GAP
 
 
 def _weather_group_layout(weather, offset=0):
@@ -274,10 +268,11 @@ class MatrixDisplay:
     def _rail(self, group, screen, phase):
         services = screen.get("services") or []
         primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+        rail_right_edge = _header_content_right(screen)
         primary_slide = row_slide_phase(phase, 0)
         primary_x = -int((1 - primary_slide) * 220)
         primary_color = 0xFF3300 if primary.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-        self._rail_service(group, primary, primary_color, primary_x, 3, _header_content_right(screen))
+        self._rail_service(group, primary, primary_color, primary_x, 3, rail_right_edge)
 
         calling = calling_text(primary)
         scroll_speed, scroll_gap = _station_scroll_settings(screen)
@@ -305,7 +300,7 @@ class MatrixDisplay:
             service = upcoming[index]
             color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
             y = 17 + slot * 8 - int(progress * 8)
-            self._rail_service(group, service, color, 0, y, DISPLAY_WIDTH)
+            self._rail_service(group, service, color, 0, y, rail_right_edge)
 
     def _queues(self, group, screen, phase):
         rides = screen.get("rides") or []
@@ -329,7 +324,7 @@ class MatrixDisplay:
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "THORPE PARK", 30), 0xFFAA00, 0, 3)
 
-    def _calendar(self, group, screen, phase):
+    def _calendar(self, group, screen, phase, clock_date=""):
         events, visible, start, progress = _agenda_state(screen, phase)
         if not events:
             self._label(group, "No upcoming events", 0xFFFFFF, 0, AGENDA_FIRST_Y)
@@ -340,11 +335,22 @@ class MatrixDisplay:
                 event_index = start + slot
                 if event_index >= len(events):
                     break
-                when, title = calendar_row_parts(events[event_index])
+                event = events[event_index]
+                when, title = calendar_row_parts(event)
                 y = AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset
-                self._label(group, title, 0xFFFFFF, agenda_title_marquee_x(title, phase), y)
+                due = todoist_due_label(event, clock_date) if screen.get("source") == "todoist" else ""
+                if due:
+                    due_x = _right_aligned_x(due, DISPLAY_WIDTH)
+                    title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
+                    self._label(group, _fit_text_pixels(title, title_width), 0xFFFFFF, AGENDA_TITLE_X, y)
+                else:
+                    self._label(group, title, 0xFFFFFF, agenda_title_marquee_x(title, phase), y)
                 self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)
                 self._label(group, when, 0xFFFFFF, 0, y)
+                if due:
+                    due_progress = row_slide_phase(phase, slot)
+                    due_offset = int((1.0 - due_progress) * DISPLAY_WIDTH)
+                    self._label(group, due, 0xFFFFFF, due_x + due_offset, y)
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
@@ -377,7 +383,7 @@ class MatrixDisplay:
         elif kind == "theme_park_queues":
             self._queues(group, screen, phase)
         elif kind == "calendar_agenda":
-            self._calendar(group, screen, phase)
+            self._calendar(group, screen, phase, clock_date)
         else:
             self._label(group, _clip(screen.get("title") or "Display unavailable", 30), 0xFFFFFF, 0, 3)
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
@@ -461,10 +467,11 @@ class FixtureDisplay:
         if kind == "rail_combined":
             services = screen.get("services") or []
             primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
+            rail_right_edge = _header_content_right(screen)
             primary_slide = row_slide_phase(phase, 0)
             primary_x = -int((1 - primary_slide) * 220)
             primary_color = (255, 20, 0) if primary.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-            self._rail_service(primary, primary_color, primary_x, 0, _header_content_right(screen))
+            self._rail_service(primary, primary_color, primary_x, 0, rail_right_edge)
             text = calling_text(primary)
             scroll_speed, scroll_gap = _station_scroll_settings(screen)
             calling_x = calling_marquee_x(
@@ -490,7 +497,7 @@ class FixtureDisplay:
                 service = upcoming[index]
                 color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
                 y = 16 + slot * 8 - int(progress * 8)
-                self._rail_service(service, color, 0, y, DISPLAY_WIDTH)
+                self._rail_service(service, color, 0, y, rail_right_edge)
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             if not rides:
@@ -527,7 +534,7 @@ class FixtureDisplay:
                     y = 8 + slot * AGENDA_ROW_HEIGHT - y_offset
                     due = todoist_due_label(events[event_index], clock_date) if screen.get("source") == "todoist" else ""
                     if due:
-                        due_x = DISPLAY_WIDTH - len(due) * WEATHER_FONT_WIDTH
+                        due_x = _right_aligned_x(due, DISPLAY_WIDTH)
                         title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
                         self._text(_fit_text_pixels(title, title_width), AGENDA_TITLE_X, y, (255, 255, 255))
                     else:

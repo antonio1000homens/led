@@ -149,7 +149,7 @@ class FormattingTests(unittest.TestCase):
 
     def test_todoist_due_label_ignores_time(self):
         event = {"start": "2026-09-13T23:59:00+01:00"}
-        self.assertEqual(todoist_due_label(event, "2026-09-13"), "DUE IN TODAY")
+        self.assertEqual(todoist_due_label(event, "2026-09-13"), "TODAY")
         self.assertEqual(todoist_due_label({"start": "2026-09-14"}, "2026-09-13"), "DUE IN 1 DAY")
         self.assertEqual(todoist_due_label({"start": "2026-09-15T01:00:00+01:00"}, "2026-09-13"), "DUE IN 2 DAYS")
 
@@ -166,6 +166,24 @@ class FormattingTests(unittest.TestCase):
     def test_calling_text_includes_station_times(self):
         text = calling_text({"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19", "status": "On time"}]})
         self.assertEqual(text, "CALLING AT: Wimbledon 12:19")
+
+    def test_calling_text_uses_configured_spacing_between_individual_stations(self):
+        service = {
+            "station_spacing_px": 12,
+            "stops": [
+                {"station": "Wimbledon", "time": "12:19", "status": "On time"},
+                {"station": "Clapham Junction", "time": "12:27", "status": "On time"},
+            ],
+        }
+        self.assertEqual(
+            calling_text(service),
+            "CALLING AT: Wimbledon 12:19  Clapham Junction 12:27",
+        )
+        service["station_spacing_px"] = 30
+        self.assertEqual(
+            calling_text(service),
+            "CALLING AT: Wimbledon 12:19     Clapham Junction 12:27",
+        )
 
 
 if __name__ == "__main__":
