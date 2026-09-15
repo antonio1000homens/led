@@ -167,6 +167,24 @@ class FormattingTests(unittest.TestCase):
         text = calling_text({"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19", "status": "On time"}]})
         self.assertEqual(text, "CALLING AT: Wimbledon 12:19")
 
+    def test_calling_text_uses_configured_spacing_between_individual_stations(self):
+        service = {
+            "station_spacing_px": 12,
+            "stops": [
+                {"station": "Wimbledon", "time": "12:19", "status": "On time"},
+                {"station": "Clapham Junction", "time": "12:27", "status": "On time"},
+            ],
+        }
+        self.assertEqual(
+            calling_text(service),
+            "CALLING AT: Wimbledon 12:19  Clapham Junction 12:27",
+        )
+        service["station_spacing_px"] = 30
+        self.assertEqual(
+            calling_text(service),
+            "CALLING AT: Wimbledon 12:19     Clapham Junction 12:27",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
