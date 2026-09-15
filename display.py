@@ -303,7 +303,9 @@ class MatrixDisplay:
         start, progress, reset_progress = departure_scroll_state(
             phase, len(upcoming), screen.get("upcoming_train_pause_seconds")
         )
-        if reset_progress > 0:
+        if reset_progress is None:
+            pass
+        elif reset_progress > 0:
             for slot in range(min(2, len(upcoming))):
                 service = upcoming[slot]
                 entry = max(0.0, min(1.0, (reset_progress - slot * 0.15) / 0.4))
@@ -318,6 +320,8 @@ class MatrixDisplay:
                 service = upcoming[index]
                 color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
                 y = 17 + slot * 8 - int(progress * 8)
+                if y < 17:
+                    continue
                 self._rail_service(group, service, color, 0, y, rail_right_edge, index + 2)
 
     def _queues(self, group, screen, phase):
@@ -509,7 +513,9 @@ class FixtureDisplay:
             start, progress, reset_progress = departure_scroll_state(
                 phase, len(upcoming), screen.get("upcoming_train_pause_seconds")
             )
-            if reset_progress > 0:
+            if reset_progress is None:
+                pass
+            elif reset_progress > 0:
                 for slot in range(min(2, len(upcoming))):
                     service = upcoming[slot]
                     entry = max(0.0, min(1.0, (reset_progress - slot * 0.15) / 0.4))
@@ -524,6 +530,8 @@ class FixtureDisplay:
                     service = upcoming[index]
                     color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
                     y = 16 + slot * 8 - int(progress * 8)
+                    if y < 16:
+                        continue
                     self._rail_service(service, color, 0, y, rail_right_edge, index + 2)
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
@@ -619,10 +627,11 @@ class FixtureDisplay:
                 start, _, reset_progress = departure_scroll_state(
                     phase, len(services[1:]), screen.get("upcoming_train_pause_seconds")
                 )
-                if reset_progress > 0:
-                    start = 0
-                for index, service in enumerate(services[1 + start:3 + start], start=start + 2):
-                    print("{} {}".format(ordinal_label(index), format_row(service).rstrip()))
+                if reset_progress is not None:
+                    if reset_progress > 0:
+                        start = 0
+                    for index, service in enumerate(services[1 + start:3 + start], start=start + 2):
+                        print("{} {}".format(ordinal_label(index), format_row(service).rstrip()))
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             start, _ = queue_scroll_state(phase, len(rides))

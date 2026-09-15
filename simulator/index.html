@@ -272,12 +272,17 @@
       if (!maxStart) return { start: 0, progress: 0, resetProgress: 0 };
       const pause = Math.max(0, Number(pauseSeconds) || 0);
       const stepSeconds = pause + DEPARTURE_SLIDE_SECONDS;
-      const resetSeconds = 0.8;
+      const resetGapSeconds = 0.4;
+      const resetSlideSeconds = 0.8;
       const normalDuration = (maxStart + 1) * stepSeconds;
-      const cycleDuration = normalDuration + resetSeconds;
+      const cycleDuration = normalDuration + resetGapSeconds + resetSlideSeconds;
       const safePhase = Math.max(0, Number(phase) || 0);
       const cyclePhase = safePhase % cycleDuration;
-      if (cyclePhase >= normalDuration) return { start: 0, progress: 0, resetProgress: (cyclePhase - normalDuration) / resetSeconds };
+      if (cyclePhase >= normalDuration) {
+        const resetElapsed = cyclePhase - normalDuration;
+        if (resetElapsed < resetGapSeconds) return { start: 0, progress: 0, resetProgress: null };
+        return { start: 0, progress: 0, resetProgress: Math.min(1, (resetElapsed - resetGapSeconds) / resetSlideSeconds) };
+      }
       const step = Math.min(maxStart, Math.floor(cyclePhase / stepSeconds));
       const within = cyclePhase - step * stepSeconds;
       return { start: step, progress: within <= pause ? 0 : Math.min(1, (within - pause) / DEPARTURE_SLIDE_SECONDS), resetProgress: 0 };
@@ -403,7 +408,13 @@
           context.fillText('No upcoming services', 0, 64);
         }
         const scroll = departureScrollState(phase, upcomingServices.length, screen.upcoming_train_pause_seconds);
-        if (scroll.resetProgress > 0) {
+        context.save();
+        context.beginPath();
+        context.rect(0, 64, 1024, 64);
+        context.clip();
+        if (scroll.resetProgress === null) {
+          // Deliberate blank gap before the reset pair enters.
+        } else if (scroll.resetProgress > 0) {
           for (let slot = 0; slot < Math.min(2, upcomingServices.length); slot += 1) {
             const upcoming = upcomingServices[slot];
             const entry = Math.max(0, Math.min(1, (scroll.resetProgress - slot * 0.15) / 0.4));
@@ -419,6 +430,7 @@
             drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30, 0, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', index + 2);
           }
         }
+        context.restore();
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
