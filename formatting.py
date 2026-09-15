@@ -264,7 +264,11 @@ def row_slide_phase(phase, index, stagger=1.0):
 
 
 def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2):
-    """Return (window start, upward progress, left-entry reset progress)."""
+    """Return (window start, upward progress, left-entry reset progress).
+
+    ``reset_progress`` is ``None`` during the intentional blank gap before the
+    first two upcoming rows re-enter from the left.
+    """
     service_count = max(0, int(service_count or 0))
     visible_rows = max(1, int(visible_rows or 1))
     max_start = max(0, service_count - visible_rows)
@@ -279,13 +283,17 @@ def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2
     except (TypeError, ValueError):
         pause_seconds = 2.0
     slide_seconds = 0.4
-    reset_seconds = 0.8
+    reset_gap_seconds = 0.4
+    reset_slide_seconds = 0.8
     step_seconds = pause_seconds + slide_seconds
     normal_duration = (max_start + 1) * step_seconds
-    cycle_duration = normal_duration + reset_seconds
+    cycle_duration = normal_duration + reset_gap_seconds + reset_slide_seconds
     phase %= cycle_duration
     if phase >= normal_duration - 1e-9:
-        reset_progress = max(0.0, (phase - normal_duration) / reset_seconds)
+        reset_elapsed = max(0.0, phase - normal_duration)
+        if reset_elapsed < reset_gap_seconds:
+            return 0, 0.0, None
+        reset_progress = min(1.0, (reset_elapsed - reset_gap_seconds) / reset_slide_seconds)
         return 0, 0.0, 0.0 if reset_progress < 1e-9 else reset_progress
     step = min(max_start, int(phase // step_seconds))
     within = phase - step * step_seconds

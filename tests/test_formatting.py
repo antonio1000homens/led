@@ -64,9 +64,10 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(reset, 0.0)
         self.assertEqual(departure_scroll_state(2.4, 4, 2), (1, 0.0, 0.0))
         self.assertEqual(departure_scroll_state(6.8, 4, 2), (2, 0.0, 0.0))
-        self.assertEqual(departure_scroll_state(7.2, 4, 2), (0, 0.0, 0.0))
-        self.assertAlmostEqual(departure_scroll_state(7.6, 4, 2)[2], 0.5)
-        self.assertEqual(departure_scroll_state(8.0, 4, 2), (0, 0.0, 0.0))
+        self.assertIsNone(departure_scroll_state(7.2, 4, 2)[2])
+        self.assertEqual(departure_scroll_state(7.6, 4, 2)[2], 0.0)
+        self.assertAlmostEqual(departure_scroll_state(8.0, 4, 2)[2], 0.5)
+        self.assertEqual(departure_scroll_state(8.4, 4, 2), (0, 0.0, 0.0))
 
     def test_departure_ordinals_use_correct_suffixes(self):
         self.assertEqual([ordinal_label(value) for value in (1, 2, 3, 4, 11, 12, 13, 21)], ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st"])
