@@ -264,12 +264,12 @@ def row_slide_phase(phase, index, stagger=1.0):
 
 
 def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2):
-    """Return the current upcoming-service window and upward slide progress."""
+    """Return (window start, upward progress, left-entry reset progress)."""
     service_count = max(0, int(service_count or 0))
     visible_rows = max(1, int(visible_rows or 1))
     max_start = max(0, service_count - visible_rows)
     if max_start == 0:
-        return 0, 0.0
+        return 0, 0.0, 0.0
     try:
         phase = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
@@ -279,14 +279,29 @@ def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2
     except (TypeError, ValueError):
         pause_seconds = 2.0
     slide_seconds = 0.4
+    reset_seconds = 0.8
     step_seconds = pause_seconds + slide_seconds
+    normal_duration = (max_start + 1) * step_seconds
+    cycle_duration = normal_duration + reset_seconds
+    phase %= cycle_duration
+    if phase >= normal_duration - 1e-9:
+        reset_progress = max(0.0, (phase - normal_duration) / reset_seconds)
+        return 0, 0.0, 0.0 if reset_progress < 1e-9 else reset_progress
     step = min(max_start, int(phase // step_seconds))
-    if step >= max_start:
-        return max_start, 0.0
     within = phase - step * step_seconds
     if within <= pause_seconds:
-        return step, 0.0
-    return step, min(1.0, (within - pause_seconds) / slide_seconds)
+        return step, 0.0, 0.0
+    return step, min(1.0, (within - pause_seconds) / slide_seconds), 0.0
+
+
+def ordinal_label(number):
+    """Return a compact ordinal label for a departure row."""
+    number = int(number)
+    if 10 < number % 100 < 14:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    return "{}{}".format(number, suffix)
 
 
 def queue_scroll_state(phase, ride_count, visible_rows=QUEUE_VISIBLE_ROWS):
