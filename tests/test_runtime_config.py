@@ -3,12 +3,19 @@ import unittest
 
 from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
+    DEFAULT_STATION_LIST_SPACING,
+    DEFAULT_STATION_SCROLL_SPEED,
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
+    MAX_STATION_LIST_SPACING,
+    MAX_STATION_SCROLL_SPEED,
+    MIN_STATION_LIST_SPACING,
+    MIN_STATION_SCROLL_SPEED,
     RuntimeConfigConflict,
     RuntimeConfigStore,
     RuntimeConfigValidationError,
     default_runtime_config,
     validate_feed_patch,
+    validate_runtime_config,
 )
 
 
@@ -47,6 +54,8 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertFalse(config["feeds"]["weather"]["enabled"])
         self.assertTrue(config["feeds"]["calendar"]["enabled"])
         self.assertEqual(config["feeds"]["departures"]["poll_seconds"], 60)
+        self.assertEqual(config["feeds"]["departures"]["station_scroll_speed"], 30)
+        self.assertEqual(config["feeds"]["departures"]["station_list_spacing"], 28)
         self.assertEqual(config["feeds"]["thorpe_park"]["park_id"], 2)
         self.assertEqual(config["feeds"]["chessington"]["park_id"], 3)
         self.assertEqual(config["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
@@ -61,6 +70,35 @@ class RuntimeConfigTests(unittest.TestCase):
             validate_feed_patch("thorpe_park", {"park_id": 99})
         with self.assertRaises(RuntimeConfigValidationError):
             validate_feed_patch("not_a_feed", {"enabled": True})
+
+    def test_departure_marquee_settings_are_bounded_and_validated(self):
+        patch = validate_feed_patch(
+            "departures",
+            {"station_scroll_speed": 42, "station_list_spacing": 24},
+        )
+        self.assertEqual(patch, {"station_scroll_speed": 42, "station_list_spacing": 24})
+        for value in (MIN_STATION_SCROLL_SPEED - 1, MAX_STATION_SCROLL_SPEED + 1):
+            with self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("departures", {"station_scroll_speed": value})
+        for value in (MIN_STATION_LIST_SPACING - 1, MAX_STATION_LIST_SPACING + 1):
+            with self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("departures", {"station_list_spacing": value})
+
+    def test_legacy_runtime_config_defaults_missing_marquee_fields(self):
+        legacy = default_runtime_config({})
+        del legacy["feeds"]["departures"]["station_scroll_speed"]
+        del legacy["feeds"]["departures"]["station_list_spacing"]
+
+        validated = validate_runtime_config(legacy)
+
+        self.assertEqual(
+            validated["feeds"]["departures"]["station_scroll_speed"],
+            DEFAULT_STATION_SCROLL_SPEED,
+        )
+        self.assertEqual(
+            validated["feeds"]["departures"]["station_list_spacing"],
+            DEFAULT_STATION_LIST_SPACING,
+        )
 
     def test_ride_validation_is_case_insensitive_canonical_and_ordered(self):
         patch = validate_feed_patch(
@@ -78,12 +116,24 @@ class RuntimeConfigTests(unittest.TestCase):
         seeded = store.ensure()
         self.assertEqual(seeded["config_version"], 1)
         updated, fields = store.patch_feed(
-            "departures", {"enabled": False, "poll_seconds": 120},
-            expected_version=1, updated_by="human:test@example.com",
+            "departures",
+            {
+                "enabled": False,
+                "poll_seconds": 120,
+                "station_scroll_speed": 34,
+                "station_list_spacing": 20,
+            },
+            expected_version=1,
+            updated_by="human:test@example.com",
         )
         self.assertEqual(updated["config_version"], 2)
-        self.assertEqual(fields, ["enabled", "poll_seconds"])
+        self.assertEqual(
+            fields,
+            ["enabled", "poll_seconds", "station_scroll_speed", "station_list_spacing"],
+        )
         self.assertFalse(updated["feeds"]["departures"]["enabled"])
+        self.assertEqual(updated["feeds"]["departures"]["station_scroll_speed"], 34)
+        self.assertEqual(updated["feeds"]["departures"]["station_list_spacing"], 20)
         with self.assertRaises(RuntimeConfigConflict):
             store.patch_feed(
                 "departures", {"enabled": True},
