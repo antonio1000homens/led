@@ -68,7 +68,8 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("const RAIL_MARQUEE_GAP = 112;", simulator)
         self.assertIn("return { services: services.slice(0, 1 + count) };", simulator)
         self.assertIn("const upcomingServices = railServices.slice(1);", simulator)
-        self.assertIn("drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30", simulator)
+        self.assertIn("drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30, 0, headerRight", simulator)
+        self.assertIn("drawRailService(upcoming, 64 + slot * 30, x, headerRight", simulator)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
         self.assertIn("stationMarqueeSpeed(screen)", simulator)
         self.assertIn("function stationMarqueeGap()", simulator)
@@ -78,7 +79,7 @@ class DeploymentStaticTests(unittest.TestCase):
 
     def test_simulator_right_aligns_rail_and_queue_state_to_display_edge(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("function drawRailService(service, y, xOffset, rightEdge, color)", simulator)
+        self.assertIn("function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1)", simulator)
         self.assertIn("rightEdge - context.measureText(state).width", simulator)
         self.assertIn("function drawQueueRide(ride, y, rightEdge)", simulator)
         self.assertIn("drawQueueRide(ride, 34 + slot * 30 - yOffset, 1024);", simulator)
@@ -87,7 +88,7 @@ class DeploymentStaticTests(unittest.TestCase):
         display = (ROOT / "display.py").read_text(encoding="utf-8")
         self.assertIn("upcoming = services[1:]", display)
         self.assertIn("y = 17 + slot * 8 - int(progress * 8)", display)
-        self.assertIn("self._rail_service(group, service, color, 0, y, rail_right_edge)", display)
+        self.assertIn("self._rail_service(group, service, color, 0, y, rail_right_edge, index + 2)", display)
         self.assertNotIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', display)
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)

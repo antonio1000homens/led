@@ -72,6 +72,8 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertNotIn('boundedNumber(screen.station_list_spacing', self.simulator_source)
         self.assertIn('screen.get("upcoming_train_pause_seconds")', self.display_source)
         self.assertIn('screen.upcoming_train_count', self.simulator_source)
+        self.assertIn('ordinal_label', self.display_source)
+        self.assertIn('function ordinalLabel(number)', self.simulator_source)
 
     def test_platforms_use_a_stable_column_in_hardware_and_simulator(self):
         self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*132')
