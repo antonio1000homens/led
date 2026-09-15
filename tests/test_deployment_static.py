@@ -20,16 +20,15 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('s3://${BUCKET}/index.html', deploy_static)
         self.assertIn("--paths '/index.html' '/api/screens'", deploy_static)
 
-    def test_simulator_weather_keeps_icon_right_and_cycles_temperature_in_header(self):
+    def test_simulator_weather_group_cycles_with_clock_in_header(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("iconX: 992", simulator)
         self.assertIn("function temperatureText(weather)", simulator)
-        self.assertIn("const x = 1016 - context.measureText(text).width + offset;", simulator)
+        self.assertIn("function weatherGroupLayout(weather, offset = 0)", simulator)
+        self.assertIn("function drawWeatherGroup(weather, offset = 0)", simulator)
         self.assertIn("function headerItemState(phase, weather)", simulator)
-        self.assertIn("if (header.item === 'temperature') drawTemperature(screen.weather, header.offset);", simulator)
-        self.assertIn("drawWeatherIcon(screen.weather);", simulator)
-        self.assertNotIn("context.fillText(temperatureText, 904, 94);", simulator)
-        self.assertNotIn("context.fillRect(864 + x * 4", simulator)
+        self.assertIn("if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);", simulator)
+        self.assertNotIn("drawWeatherIcon(screen.weather);", simulator)
+        self.assertNotIn("iconX: 992", simulator)
 
     def test_simulator_hides_all_day_time_and_renders_due_countdown(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
@@ -53,29 +52,30 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
         self.assertIn("context.fillText(parts.when, 0, y);", simulator)
 
-    def test_simulator_rail_uses_spare_line_for_third_service(self):
+    def test_simulator_rail_uses_spare_line_and_runtime_marquee_settings(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("const RAIL_MARQUEE_DELAY_SECONDS = 1.2;", simulator)
-        self.assertIn("const RAIL_MARQUEE_SPEED = 144;", simulator)
-        self.assertIn("const RAIL_MARQUEE_GAP = 144;", simulator)
+        self.assertIn("const RAIL_MARQUEE_SPEED = 120;", simulator)
+        self.assertIn("const RAIL_MARQUEE_GAP = 112;", simulator)
         self.assertIn("return { services: services.slice(0, 3) };", simulator)
         self.assertIn("const upcomingServices = railServices.slice(1, 3);", simulator)
         self.assertIn("drawRailService(upcoming, 64 + index * 30", simulator)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
-        self.assertIn("RAIL_MARQUEE_SPEED, RAIL_MARQUEE_DELAY_SECONDS", simulator)
+        self.assertIn("stationMarqueeSpeed(screen)", simulator)
+        self.assertIn("stationMarqueeGap(screen)", simulator)
 
-    def test_simulator_right_aligns_rail_and_queue_state_to_available_edge(self):
+    def test_simulator_right_aligns_rail_and_queue_state_to_display_edge(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawRailService(service, y, xOffset, rightEdge, color)", simulator)
         self.assertIn("rightEdge - context.measureText(state).width", simulator)
         self.assertIn("function drawQueueRide(ride, y, rightEdge)", simulator)
-        self.assertIn("const queueRight = weatherContentRight(screen.weather);", simulator)
+        self.assertIn("drawQueueRide(ride, 34 + slot * 30 - yOffset, 1024);", simulator)
 
     def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
         display = (ROOT / "display.py").read_text(encoding="utf-8")
         self.assertIn("upcoming = services[1:3]", display)
         self.assertIn("y = 17 + index * 8", display)
-        self.assertIn("right_edge = DISPLAY_WIDTH if index == 0 else _weather_content_right(screen)", display)
+        self.assertIn("self._rail_service(group, service, color, x, y, DISPLAY_WIDTH)", display)
         self.assertNotIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', display)
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
@@ -85,6 +85,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('<link rel="icon" href="data:,">', admin)
         self.assertIn("window.location.replace(`${API}/session`);", admin)
         self.assertIn("window.history.replaceState(null,'','/admin');", admin)
+        self.assertIn('<details class="feed-advanced"><summary>Advanced</summary>', admin)
 
 
 if __name__ == "__main__":
