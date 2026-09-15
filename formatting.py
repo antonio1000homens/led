@@ -8,6 +8,8 @@ QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS
 RAIL_MARQUEE_SPEED = 48.0
 RAIL_MARQUEE_DELAY_SECONDS = 1.2
 RAIL_MARQUEE_GAP = 56
+CALLING_STATION_FONT_WIDTH = 6
+DEFAULT_STATION_LIST_SPACING = 28
 AGENDA_VISIBLE_ROWS = 3
 AGENDA_SLIDE_SECONDS = 0.4
 AGENDA_PAGE_SECONDS = 5.0
@@ -347,6 +349,16 @@ def agenda_scroll_state(
     return 0, progress
 
 
+def _station_separator(service):
+    """Return blank padding between calling-point entries from logical pixels."""
+    try:
+        spacing = float(service.get("station_spacing_px", DEFAULT_STATION_LIST_SPACING))
+    except (TypeError, ValueError, AttributeError):
+        spacing = DEFAULT_STATION_LIST_SPACING
+    spaces = max(1, int(round(max(0.0, spacing) / CALLING_STATION_FONT_WIDTH)))
+    return " " * spaces
+
+
 def calling_text(service):
     """Format calling stations and times for the scrolling second line."""
     stops = service.get("stops") or []
@@ -360,4 +372,4 @@ def calling_text(service):
         elif stop.get("status") not in (None, "", "On time"):
             value += " ({})".format(stop.get("status"))
         parts.append(value)
-    return "CALLING AT: " + "  -  ".join(parts)
+    return "CALLING AT: " + _station_separator(service).join(parts)
