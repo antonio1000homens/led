@@ -17,6 +17,25 @@ MIN_POLL_SECONDS = 60
 MAX_POLL_SECONDS = 86400
 MIN_SCREEN_DURATION_SECONDS = 2
 MAX_SCREEN_DURATION_SECONDS = 300
+MIN_STATION_SCROLL_SPEED = 10
+MAX_STATION_SCROLL_SPEED = 80
+DEFAULT_STATION_SCROLL_SPEED = 30
+MIN_STATION_LIST_SPACING = 8
+MAX_STATION_LIST_SPACING = 80
+DEFAULT_STATION_LIST_SPACING = 28
+
+DEPARTURE_NUMERIC_FIELDS = {
+    "station_scroll_speed": {
+        "minimum": MIN_STATION_SCROLL_SPEED,
+        "maximum": MAX_STATION_SCROLL_SPEED,
+        "default": DEFAULT_STATION_SCROLL_SPEED,
+    },
+    "station_list_spacing": {
+        "minimum": MIN_STATION_LIST_SPACING,
+        "maximum": MAX_STATION_LIST_SPACING,
+        "default": DEFAULT_STATION_LIST_SPACING,
+    },
+}
 
 DEFAULT_THORPE_RIDES = (
     "Hyperia",
@@ -45,7 +64,14 @@ FEED_REGISTRY = {
     "departures": {
         "label": "Departures",
         "provider": "national_rail",
-        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "mutable_fields": (
+            "enabled",
+            "poll_seconds",
+            "screen_duration_seconds",
+            "station_scroll_speed",
+            "station_list_spacing",
+        ),
+        "advanced_fields": ("station_scroll_speed", "station_list_spacing"),
         "screen_duration": True,
     },
     "thorpe_park": {
@@ -126,6 +152,8 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": True,
                 "poll_seconds": _int_env(env, "LED_CACHE_SECONDS", 60),
                 "screen_duration_seconds": 8,
+                "station_scroll_speed": DEFAULT_STATION_SCROLL_SPEED,
+                "station_list_spacing": DEFAULT_STATION_LIST_SPACING,
             },
             "thorpe_park": {
                 "enabled": thorpe_enabled,
@@ -179,6 +207,13 @@ def schema_metadata() -> dict[str, Any]:
                 "minimum": MIN_SCREEN_DURATION_SECONDS,
                 "maximum": MAX_SCREEN_DURATION_SECONDS,
             }
+        if feed_id == "departures":
+            for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
+                fields[field] = {
+                    "type": "integer",
+                    "minimum": metadata["minimum"],
+                    "maximum": metadata["maximum"],
+                }
         if definition.get("rides"):
             fields["rides"] = {"type": "array", "items": {"type": "string"}, "ordered": True}
         feeds[feed_id] = {
@@ -186,6 +221,7 @@ def schema_metadata() -> dict[str, Any]:
             "provider": definition["provider"],
             "mutable_fields": list(definition["mutable_fields"]),
             "fields": fields,
+            **({"advanced_fields": list(definition["advanced_fields"])} if definition.get("advanced_fields") else {}),
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
         }
     return {"feeds": feeds}
@@ -247,6 +283,15 @@ def validate_feed_patch(
             MIN_SCREEN_DURATION_SECONDS,
             MAX_SCREEN_DURATION_SECONDS,
         )
+    for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
+        if field in patch:
+            result[field] = _validate_integer(
+                feed_id,
+                field,
+                patch[field],
+                metadata["minimum"],
+                metadata["maximum"],
+            )
     if "rides" in patch:
         raw_rides = patch["rides"]
         if not isinstance(raw_rides, list) or any(not isinstance(name, str) for name in raw_rides):
@@ -282,9 +327,13 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
 
     feeds: dict[str, Any] = {}
     for feed_id, default_feed in defaults["feeds"].items():
-        raw = raw_feeds[feed_id]
-        if not isinstance(raw, dict):
+        raw_value = raw_feeds[feed_id]
+        if not isinstance(raw_value, dict):
             raise RuntimeConfigValidationError(f"{feed_id} must be an object")
+        raw = copy.deepcopy(raw_value)
+        if feed_id == "departures":
+            for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
+                raw.setdefault(field, metadata["default"])
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
         if set(raw) != expected:
