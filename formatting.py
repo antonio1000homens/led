@@ -8,6 +8,8 @@ QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS
 RAIL_MARQUEE_SPEED = 48.0
 RAIL_MARQUEE_DELAY_SECONDS = 1.2
 RAIL_MARQUEE_GAP = 56
+CALLING_LABEL = "CALLING AT: "
+CALLING_MARQUEE_PAUSE_SECONDS = 3.0
 CALLING_STATION_FONT_WIDTH = 6
 DEFAULT_STATION_LIST_SPACING = 28
 AGENDA_VISIBLE_ROWS = 3
@@ -134,28 +136,37 @@ def calling_marquee_x(
     speed=RAIL_MARQUEE_SPEED,
     delay_seconds=RAIL_MARQUEE_DELAY_SECONDS,
     gap=RAIL_MARQUEE_GAP,
+    pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS,
 ):
-    """Return the calling-points marquee x position after the primary row lands.
+    """Return the station-text x position while keeping ``CALLING AT:`` fixed.
 
-    ``None`` means the calling row must remain hidden. Once visible, long text
-    scrolls right-to-left at the configured speed and short text stays fixed.
+    ``None`` means the calling row must remain hidden. Once visible, the fixed
+    label stays at x=0 while long station text scrolls in the remaining space.
+    Each loop pauses with the first station beside the label.
     """
     try:
         phase = max(0.0, float(phase or 0))
         delay_seconds = max(0.0, float(delay_seconds or 0))
         speed = max(1.0, float(speed or RAIL_MARQUEE_SPEED))
+        pause_seconds = max(0.0, float(pause_seconds or 0))
     except (TypeError, ValueError):
         phase = 0.0
         delay_seconds = RAIL_MARQUEE_DELAY_SECONDS
         speed = RAIL_MARQUEE_SPEED
+        pause_seconds = CALLING_MARQUEE_PAUSE_SECONDS
     if phase < delay_seconds:
         return None
-    text_width = len(str(text or "")) * int(font_width)
-    if text_width <= int(display_width):
-        return 0
+    text = str(text or "")
+    prefix_width = len(CALLING_LABEL) * int(font_width)
+    stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+    visible_width = max(1, int(display_width) - prefix_width)
+    text_width = len(stations) * int(font_width)
+    if text_width <= visible_width:
+        return prefix_width
     elapsed = phase - delay_seconds
+    moving_elapsed = max(0.0, elapsed - pause_seconds)
     cycle_width = text_width + max(0, int(gap or 0))
-    return -int((elapsed * speed) % cycle_width)
+    return prefix_width - int((moving_elapsed * speed) % cycle_width)
 
 
 def _iso_date_parts(value):

@@ -14,6 +14,7 @@ from formatting import (
     todoist_due_label,
     calendar_row_parts,
     calendar_row_text,
+    CALLING_LABEL,
     calling_marquee_x,
     calling_text,
     departure_scroll_state,
@@ -131,6 +132,25 @@ def _left_text(text, right_edge):
 
 def _fit_text_pixels(text, width):
     return _clip(text, max(0, int(width) // WEATHER_FONT_WIDTH))
+
+
+def _calling_segments(text, x, gap):
+    """Return clipped station-label segments that cannot overwrite the prefix."""
+    text = str(text or "")
+    stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+    station_width = len(stations) * WEATHER_FONT_WIDTH
+    prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
+    segments = []
+    for candidate_x in (int(x), int(x) + station_width + int(gap)):
+        if candidate_x >= DISPLAY_WIDTH or candidate_x + station_width <= prefix_width:
+            continue
+        drop = max(0, (prefix_width - candidate_x + WEATHER_FONT_WIDTH - 1) // WEATHER_FONT_WIDTH)
+        visible_x = candidate_x + drop * WEATHER_FONT_WIDTH
+        visible = stations[drop:]
+        visible = visible[:max(0, (DISPLAY_WIDTH - visible_x) // WEATHER_FONT_WIDTH)]
+        if visible:
+            segments.append((visible_x, visible))
+    return segments
 
 
 def _bounded_number(value, default, minimum, maximum):
@@ -295,7 +315,9 @@ class MatrixDisplay:
             gap=scroll_gap,
         )
         if calling_x is not None:
-            self._label(group, calling, 0xFFAA00, calling_x, 10)
+            self._label(group, CALLING_LABEL, 0xFFAA00, 0, 10)
+            for segment_x, segment in _calling_segments(calling, calling_x, scroll_gap):
+                self._label(group, segment, 0xFFAA00, segment_x, 10)
 
         upcoming = services[1:]
         if not upcoming:
@@ -506,7 +528,9 @@ class FixtureDisplay:
                 gap=scroll_gap,
             )
             if calling_x is not None:
-                self._text(text, calling_x, 8, (255, 100, 0))
+                self._text(CALLING_LABEL, 0, 8, (255, 100, 0))
+                for segment_x, segment in _calling_segments(text, calling_x, scroll_gap):
+                    self._text(segment, segment_x, 8, (255, 100, 0))
             upcoming = services[1:]
             if not upcoming:
                 self._text("No upcoming services", 0, 16, (255, 255, 255))

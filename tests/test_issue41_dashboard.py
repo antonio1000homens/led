@@ -51,6 +51,9 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('stationMarqueeSpeed(screen)', self.simulator_source)
         self.assertIn('function stationMarqueeGap()', self.simulator_source)
         self.assertIn('return RAIL_MARQUEE_GAP;', self.simulator_source)
+        self.assertIn("const CALLING_LABEL = 'CALLING AT: ';", self.simulator_source)
+        self.assertIn('function callingMarqueeState(value, phase, speed, gap)', self.simulator_source)
+        self.assertIn('context.rect(calling.prefixWidth, 30, 1024 - calling.prefixWidth, 30);', self.simulator_source)
 
     def test_admin_departures_has_collapsed_advanced_controls(self):
         self.assertIn('advanced_fields', self.runtime_source)
