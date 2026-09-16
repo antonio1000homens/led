@@ -67,6 +67,8 @@
     const RAIL_MARQUEE_DELAY_SECONDS = 1.2;
     const RAIL_MARQUEE_SPEED = 120;
     const RAIL_MARQUEE_GAP = 112;
+    const CALLING_LABEL = 'CALLING AT: ';
+    const CALLING_MARQUEE_PAUSE_SECONDS = 3.0;
     const HEADER_HOLD_SECONDS = 4.0;
     const HEADER_SLIDE_SECONDS = 0.6;
     const HEADER_SLOT_WIDTH = 128;
@@ -235,6 +237,18 @@
     function stationMarqueeGap() {
       return RAIL_MARQUEE_GAP;
     }
+    function callingMarqueeState(value, phase, speed, gap) {
+      if (phase < RAIL_MARQUEE_DELAY_SECONDS) return null;
+      const text = String(value || '');
+      const stations = text.startsWith(CALLING_LABEL) ? text.slice(CALLING_LABEL.length) : text;
+      const prefixWidth = context.measureText(CALLING_LABEL).width;
+      const width = context.measureText(stations).width;
+      const availableWidth = Math.max(1, 1024 - prefixWidth);
+      if (width <= availableWidth) return { stations, offset: 0, width, prefixWidth };
+      const movingElapsed = Math.max(0, phase - RAIL_MARQUEE_DELAY_SECONDS - CALLING_MARQUEE_PAUSE_SECONDS);
+      const offset = -((movingElapsed * speed) % (width + gap));
+      return { stations, offset, width, prefixWidth };
+    }
     function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0, gap = RAIL_MARQUEE_GAP) {
       if (phase < delaySeconds) return;
       const text = String(value || '');
@@ -401,7 +415,18 @@
         const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
         const headerRight = (screen.stale || forceStale) ? 800 : clock.x - 16;
         drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff', 1);
-        marquee(callingText(next), 34, phase, '#ffaa00', stationMarqueeSpeed(screen), RAIL_MARQUEE_DELAY_SECONDS, stationMarqueeGap());
+        const calling = callingMarqueeState(callingText(next), phase, stationMarqueeSpeed(screen), stationMarqueeGap());
+        if (calling) {
+          context.fillStyle = '#ffaa00';
+          context.fillText(CALLING_LABEL, 0, 34);
+          context.save();
+          context.beginPath();
+          context.rect(calling.prefixWidth, 30, 1024 - calling.prefixWidth, 30);
+          context.clip();
+          context.fillText(calling.stations, calling.prefixWidth + calling.offset, 34);
+          context.fillText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), 34);
+          context.restore();
+        }
         const upcomingServices = railServices.slice(1);
         if (!upcomingServices.length) {
           context.fillStyle = '#ffffff';

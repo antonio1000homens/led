@@ -73,10 +73,12 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual([ordinal_label(value) for value in (1, 2, 3, 4, 11, 12, 13, 21)], ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st"])
 
     def test_calling_marquee_waits_for_primary_row_then_scrolls(self):
-        text = "x" * 50
+        text = "CALLING AT: " + "x" * 50
         self.assertIsNone(calling_marquee_x(text, 1.19))
-        self.assertEqual(calling_marquee_x(text, 1.2), 0)
-        self.assertEqual(calling_marquee_x(text, 2.2), -48)
+        self.assertEqual(calling_marquee_x(text, 1.2), 72)
+        self.assertEqual(calling_marquee_x(text, 4.2), 72)
+        self.assertEqual(calling_marquee_x(text, 5.2), 24)
+        self.assertEqual(calling_marquee_x(text, 1.2 + 3 + (50 * 6 + 56) / 48), 72)
 
     def test_queue_scroll_holds_then_slides_up(self):
         self.assertEqual(queue_scroll_state(0.9, 6), (0, 0.0))
