@@ -6,6 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
+    def test_simulator_preview_uses_full_available_width(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("main { width: 100%; padding: 28px; }", simulator)
+        self.assertIn("canvas { display: block; width: 100%;", simulator)
+
     def test_production_deploy_enables_and_verifies_todoist(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         self.assertIn('LED_CALENDAR_SOURCE: "todoist"', workflow)
