@@ -75,7 +75,7 @@ def queue_render_state(screen, phase):
     rendered["id"] = park.get("id") or park.get("feed_id") or screen.get("id")
     rendered["title"] = park.get("title") or "QUEUE TIMES"
     rendered["source"] = park.get("source") or screen.get("source") or "queue_times"
-    rendered["stale"] = bool(park.get("stale"))
+    rendered["stale"] = bool(park.get("stale")) or bool(screen.get("stale"))
     rendered["rides"] = rides
     rendered["active_park_index"] = park_index
     rendered["active_park_count"] = len(parks)
