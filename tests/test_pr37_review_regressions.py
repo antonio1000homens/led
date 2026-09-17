@@ -135,7 +135,8 @@ class Pr37ReviewRegressionTests(unittest.TestCase):
         self.assertNotIn("queues", store.state["feeds"])
         self.assertIn("thorpe_park", store.state["feeds"])
         self.assertTrue(store.state["feeds"]["thorpe_park"]["stale"])
-        park = next(screen for screen in payload["screens"] if screen["id"] == "thorpe-park")
+        queue_screen = next(screen for screen in payload["screens"] if screen["id"] == "queue-times")
+        park = next(park for park in queue_screen["parks"] if park["feed_id"] == "thorpe_park")
         self.assertEqual([ride["name"] for ride in park["rides"]], ["Hyperia"])
         self.assertTrue(park["stale"])
 
