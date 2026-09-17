@@ -29,6 +29,13 @@ DEFAULT_UPCOMING_TRAIN_COUNT = 4
 MIN_UPCOMING_TRAIN_PAUSE_SECONDS = 1
 MAX_UPCOMING_TRAIN_PAUSE_SECONDS = 30
 DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS = 2
+MIN_QUEUE_SCROLL_SPEED = 8
+MAX_QUEUE_SCROLL_SPEED = 80
+DEFAULT_QUEUE_SCROLL_SPEED = 27
+MIN_QUEUE_SCROLL_PAUSE_SECONDS = 1
+MAX_QUEUE_SCROLL_PAUSE_SECONDS = 30
+DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS = 1
+DEFAULT_QUEUE_SCREEN_DURATION_SECONDS = 16
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -50,6 +57,19 @@ DEPARTURE_NUMERIC_FIELDS = {
         "minimum": MIN_UPCOMING_TRAIN_PAUSE_SECONDS,
         "maximum": MAX_UPCOMING_TRAIN_PAUSE_SECONDS,
         "default": DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
+    },
+}
+
+QUEUE_TIMES_NUMERIC_FIELDS = {
+    "queue_scroll_speed": {
+        "minimum": MIN_QUEUE_SCROLL_SPEED,
+        "maximum": MAX_QUEUE_SCROLL_SPEED,
+        "default": DEFAULT_QUEUE_SCROLL_SPEED,
+    },
+    "queue_scroll_pause_seconds": {
+        "minimum": MIN_QUEUE_SCROLL_PAUSE_SECONDS,
+        "maximum": MAX_QUEUE_SCROLL_PAUSE_SECONDS,
+        "default": DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS,
     },
 }
 
@@ -90,6 +110,21 @@ FEED_REGISTRY = {
             "upcoming_train_pause_seconds",
         ),
         "advanced_fields": ("station_scroll_speed", "station_list_spacing", "upcoming_train_count", "upcoming_train_pause_seconds"),
+        "screen_duration": True,
+    },
+    "queue_times": {
+        "label": "Queue Times",
+        "provider": "queue_times_group",
+        "virtual": True,
+        "mutable_fields": (
+            "enabled",
+            "poll_seconds",
+            "screen_duration_seconds",
+            "queue_scroll_speed",
+            "queue_scroll_pause_seconds",
+            "splash_enabled",
+        ),
+        "advanced_fields": ("queue_scroll_speed", "queue_scroll_pause_seconds", "splash_enabled"),
         "screen_duration": True,
     },
     "thorpe_park": {
@@ -175,6 +210,32 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "upcoming_train_count": DEFAULT_UPCOMING_TRAIN_COUNT,
                 "upcoming_train_pause_seconds": DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
             },
+            "queue_times": {
+                "enabled": True,
+                "poll_seconds": thorpe_poll,
+                "screen_duration_seconds": _int_env(
+                    env,
+                    "LED_QUEUE_TIMES_DURATION_SECONDS",
+                    DEFAULT_QUEUE_SCREEN_DURATION_SECONDS,
+                    minimum=MIN_SCREEN_DURATION_SECONDS,
+                    maximum=MAX_SCREEN_DURATION_SECONDS,
+                ),
+                "queue_scroll_speed": _int_env(
+                    env,
+                    "LED_QUEUE_TIMES_SCROLL_SPEED",
+                    DEFAULT_QUEUE_SCROLL_SPEED,
+                    minimum=MIN_QUEUE_SCROLL_SPEED,
+                    maximum=MAX_QUEUE_SCROLL_SPEED,
+                ),
+                "queue_scroll_pause_seconds": _int_env(
+                    env,
+                    "LED_QUEUE_TIMES_SCROLL_PAUSE_SECONDS",
+                    DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS,
+                    minimum=MIN_QUEUE_SCROLL_PAUSE_SECONDS,
+                    maximum=MAX_QUEUE_SCROLL_PAUSE_SECONDS,
+                ),
+                "splash_enabled": env.get("LED_QUEUE_TIMES_SPLASH", "off").strip().lower() in ("1", "true", "on", "yes"),
+            },
             "thorpe_park": {
                 "enabled": thorpe_enabled,
                 "poll_seconds": thorpe_poll,
@@ -234,6 +295,14 @@ def schema_metadata() -> dict[str, Any]:
                     "minimum": metadata["minimum"],
                     "maximum": metadata["maximum"],
                 }
+        if feed_id == "queue_times":
+            for field, metadata in QUEUE_TIMES_NUMERIC_FIELDS.items():
+                fields[field] = {
+                    "type": "integer",
+                    "minimum": metadata["minimum"],
+                    "maximum": metadata["maximum"],
+                }
+            fields["splash_enabled"] = {"type": "boolean"}
         if definition.get("rides"):
             fields["rides"] = {"type": "array", "items": {"type": "string"}, "ordered": True}
         feeds[feed_id] = {
@@ -243,6 +312,7 @@ def schema_metadata() -> dict[str, Any]:
             "fields": fields,
             **({"advanced_fields": list(definition["advanced_fields"])} if definition.get("advanced_fields") else {}),
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
+            **({"virtual": True} if definition.get("virtual") else {}),
         }
     return {"feeds": feeds}
 
@@ -312,6 +382,19 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    for field, metadata in QUEUE_TIMES_NUMERIC_FIELDS.items():
+        if field in patch:
+            result[field] = _validate_integer(
+                feed_id,
+                field,
+                patch[field],
+                metadata["minimum"],
+                metadata["maximum"],
+            )
+    if "splash_enabled" in patch:
+        if not isinstance(patch["splash_enabled"], bool):
+            raise RuntimeConfigValidationError(f"{feed_id}.splash_enabled must be boolean")
+        result["splash_enabled"] = patch["splash_enabled"]
     if "rides" in patch:
         raw_rides = patch["rides"]
         if not isinstance(raw_rides, list) or any(not isinstance(name, str) for name in raw_rides):
@@ -342,6 +425,10 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     raw_feeds = value.get("feeds")
     if not isinstance(raw_feeds, dict):
         raise RuntimeConfigValidationError("feeds must be an object")
+    raw_feeds = copy.deepcopy(raw_feeds)
+    legacy_feed_ids = set(FEED_REGISTRY) - {"queue_times"}
+    if set(raw_feeds) == legacy_feed_ids:
+        raw_feeds["queue_times"] = copy.deepcopy(defaults["feeds"]["queue_times"])
     if set(raw_feeds) != set(FEED_REGISTRY):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
 
