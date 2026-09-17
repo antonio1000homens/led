@@ -11,6 +11,7 @@ from queue_times import QueueTimesProvider, select_rides
 from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
     DEFAULT_UPCOMING_TRAIN_COUNT,
+    FEED_REGISTRY,
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
     RuntimeConfigStore,
     default_runtime_config,
@@ -208,8 +209,17 @@ class Publisher:
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
         self.runtime_config_store = runtime_config_store or StaticRuntimeConfigStore(_runtime_defaults(config))
         self.rail_provider = rail_provider or NationalRailProvider(config.national_rail_token, config.station, config.max_rows)
-        self.queue_provider = queue_provider or QueueTimesProvider(2)
-        self.chessington_provider = chessington_provider or QueueTimesProvider(3)
+        self.queue_providers = {}
+        for feed_id, definition in FEED_REGISTRY.items():
+            if definition.get("provider") != "queue_times":
+                continue
+            if feed_id == "thorpe_park" and queue_provider is not None:
+                provider = queue_provider
+            elif feed_id == "chessington" and chessington_provider is not None:
+                provider = chessington_provider
+            else:
+                provider = QueueTimesProvider(definition["park_id"])
+            self.queue_providers[feed_id] = provider
         self.weather_provider = weather_provider or OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
@@ -261,7 +271,7 @@ class Publisher:
         return result
 
     @staticmethod
-    def _park_screen(screen_id, title, feed, runtime_feed):
+    def _park_payload(feed_id, title, feed, runtime_feed):
         selected_names = runtime_feed.get("rides") or []
         if not selected_names:
             return None
@@ -278,23 +288,15 @@ class Publisher:
             if rides and not any(bool(ride.get("open")) for ride in rides):
                 return None
         if missing:
-            print(json.dumps({"event": "configured_rides_missing", "feed": screen_id, "rides": missing}))
-        entries = 3
-        page_count = max(1, (len(rides) + entries - 1) // entries)
-        duration = runtime_feed["screen_duration_seconds"]
-        page_seconds = max(1, duration // page_count)
+            print(json.dumps({"event": "configured_rides_missing", "feed": feed_id, "rides": missing}))
         return {
-            "id": screen_id,
-            "kind": "theme_park_queues",
-            "duration_seconds": duration,
-            "title": title + " · Powered by Queue-Times.com",
+            "id": feed_id.replace("_", "-"),
+            "feed_id": feed_id,
+            "title": title,
             "source": source,
             "stale": stale,
             "rides": copy.deepcopy(rides),
             "missing_configured_rides": missing,
-            "entries_per_page": entries,
-            "page_seconds": page_seconds,
-            "iterations": 1,
             "attribution": "Powered by Queue-Times.com",
         }
 
@@ -320,14 +322,36 @@ class Publisher:
                 "stale": bool(rail.get("stale")) if rail_data else True,
                 "services": services,
             })
-        if config_feeds["thorpe_park"]["enabled"]:
-            screen = self._park_screen("thorpe-park", "THORPE PARK", feeds.get("thorpe_park") or {}, config_feeds["thorpe_park"])
-            if screen is not None:
-                screens.append(screen)
-        if config_feeds["chessington"]["enabled"]:
-            screen = self._park_screen("chessington", "CHESSINGTON", feeds.get("chessington") or {}, config_feeds["chessington"])
-            if screen is not None:
-                screens.append(screen)
+
+        queue_config = config_feeds["queue_times"]
+        parks = []
+        if queue_config["enabled"]:
+            for feed_id, definition in FEED_REGISTRY.items():
+                if definition.get("provider") != "queue_times":
+                    continue
+                park_config = config_feeds[feed_id]
+                if not park_config["enabled"]:
+                    continue
+                title = "CHESSINGTON" if feed_id == "chessington" else definition["label"].upper()
+                park = self._park_payload(feed_id, title, feeds.get(feed_id) or {}, park_config)
+                if park is not None:
+                    parks.append(park)
+        if parks:
+            screens.append({
+                "id": "queue-times",
+                "kind": "theme_park_queues",
+                "duration_seconds": queue_config["screen_duration_seconds"],
+                "title": "QUEUE TIMES",
+                "source": "queue_times",
+                "stale": False,
+                "parks": parks,
+                "queue_scroll_speed": queue_config["queue_scroll_speed"],
+                "queue_scroll_pause_seconds": queue_config["queue_scroll_pause_seconds"],
+                "splash_enabled": bool(queue_config["splash_enabled"]),
+                "entries_per_page": 3,
+                "attribution": "Powered by Queue-Times.com",
+            })
+
         if config_feeds["calendar"]["enabled"]:
             calendar = feeds.get("calendar") or {}
             data = calendar.get("data")
@@ -393,15 +417,16 @@ class Publisher:
                 "departures", feeds.get("departures"), settings["departures"]["poll_seconds"],
                 lambda: self._fetch_rail(now), now,
             )
-        if settings["thorpe_park"]["enabled"]:
-            feeds["thorpe_park"] = self._refresh(
-                "thorpe_park", feeds.get("thorpe_park"), settings["thorpe_park"]["poll_seconds"],
-                lambda: self._fetch_queues(now, self.queue_provider, "Thorpe Park"), now,
-            )
-        if settings["chessington"]["enabled"]:
-            feeds["chessington"] = self._refresh(
-                "chessington", feeds.get("chessington"), settings["chessington"]["poll_seconds"],
-                lambda: self._fetch_queues(now, self.chessington_provider, "Chessington World of Adventures"), now,
+        for feed_id, definition in FEED_REGISTRY.items():
+            if definition.get("provider") != "queue_times" or not settings[feed_id]["enabled"]:
+                continue
+            provider = self.queue_providers[feed_id]
+            feeds[feed_id] = self._refresh(
+                feed_id,
+                feeds.get(feed_id),
+                settings[feed_id]["poll_seconds"],
+                lambda provider=provider, park=definition["label"]: self._fetch_queues(now, provider, park),
+                now,
             )
         if settings["calendar"]["enabled"]:
             feeds["calendar"] = self._refresh(

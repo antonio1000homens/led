@@ -57,9 +57,12 @@ class PublisherTests(unittest.TestCase):
         first=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run()
         self.assertEqual(rail.calls,2); self.assertEqual(queues.calls,1); self.assertEqual(chessington.calls,1); self.assertEqual(weather.calls,1)
-        self.assertEqual([s["id"] for s in first["screens"]],["departures","thorpe-park","chessington"])
-        self.assertEqual([r["name"] for r in second["screens"][1]["rides"]],["Hyperia","Stealth","The Swarm","Colossus"])
-        self.assertEqual(second["screens"][1]["entries_per_page"],3); self.assertEqual(second["screens"][2]["rides"][0]["name"],"Mandrill Mayhem")
+        self.assertEqual([s["id"] for s in first["screens"]],["departures","queue-times"])
+        queue_screen=second["screens"][1]
+        self.assertEqual(queue_screen["kind"],"theme_park_queues")
+        self.assertEqual([park["feed_id"] for park in queue_screen["parks"]],["thorpe_park","chessington"])
+        self.assertEqual([r["name"] for r in queue_screen["parks"][0]["rides"]],["Hyperia","Stealth","The Swarm","Colossus"])
+        self.assertEqual(queue_screen["entries_per_page"],3); self.assertEqual(queue_screen["parks"][1]["rides"][0]["name"],"Mandrill Mayhem")
         for screen in second["screens"]: self.assertEqual(screen["weather"]["temperature_c"],17.4)
     def test_all_closed_queue_pages_are_omitted_per_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
@@ -74,7 +77,8 @@ class PublisherTests(unittest.TestCase):
         queues=FakeProvider([[{"name":"Hyperia","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
         chessington=FakeProvider([[{"name":"Mandrill Mayhem","open":True,"wait_minutes":15,"last_updated":"","land":""}]])
         payload=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,utcnow=self.utcnow,chessington_provider=chessington).run()
-        self.assertEqual([screen["id"] for screen in payload["screens"]],["departures","chessington"])
+        self.assertEqual([screen["id"] for screen in payload["screens"]],["departures","queue-times"])
+        self.assertEqual([park["feed_id"] for park in payload["screens"][1]["parks"]],["chessington"])
     def test_calendar_has_independent_ttl_and_six_event_contract(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300,calendar_max_events=6,calendar_duration=10,calendar_page_seconds=5)
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])
@@ -104,10 +108,14 @@ class PublisherTests(unittest.TestCase):
         payload=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
         self.assertEqual(rail.calls,0); self.assertEqual(payload["screens"],[])
 
-    def test_runtime_screen_duration_and_ride_order_reach_screens(self):
+    def test_runtime_queue_settings_and_ride_order_reach_combined_screen(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",weather_source="off")
         runtime=default_runtime_config({"LED_WEATHER_SOURCE":"off"}); runtime["config_version"]=9
         runtime["feeds"]["departures"]["screen_duration_seconds"]=12
+        runtime["feeds"]["queue_times"]["screen_duration_seconds"]=19
+        runtime["feeds"]["queue_times"]["queue_scroll_speed"]=42
+        runtime["feeds"]["queue_times"]["queue_scroll_pause_seconds"]=3
+        runtime["feeds"]["queue_times"]["splash_enabled"]=True
         runtime["feeds"]["thorpe_park"]["rides"]=["Stealth","Hyperia"]
         runtime["feeds"]["thorpe_park"]["screen_duration_seconds"]=14
         runtime["feeds"]["chessington"]["rides"]=["Vampire"]
@@ -117,9 +125,14 @@ class PublisherTests(unittest.TestCase):
         payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),queue_provider=FakeProvider([rides]),chessington_provider=FakeProvider([chess]),utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
         self.assertEqual(payload["config_version"],9)
         self.assertEqual(payload["screens"][0]["duration_seconds"],12)
-        self.assertEqual(payload["screens"][1]["duration_seconds"],14)
-        self.assertEqual([ride["name"] for ride in payload["screens"][1]["rides"]],["Stealth","Hyperia"])
-        self.assertEqual(payload["screens"][2]["duration_seconds"],11)
+        queue_screen=payload["screens"][1]
+        self.assertEqual(queue_screen["id"],"queue-times")
+        self.assertEqual(queue_screen["duration_seconds"],19)
+        self.assertEqual(queue_screen["queue_scroll_speed"],42)
+        self.assertEqual(queue_screen["queue_scroll_pause_seconds"],3)
+        self.assertTrue(queue_screen["splash_enabled"])
+        self.assertEqual([ride["name"] for ride in queue_screen["parks"][0]["rides"]],["Stealth","Hyperia"])
+        self.assertEqual([ride["name"] for ride in queue_screen["parks"][1]["rides"]],["Vampire"])
 
     def test_disappeared_ride_is_flagged_without_breaking_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",weather_source="off")
@@ -128,7 +141,8 @@ class PublisherTests(unittest.TestCase):
         runtime["feeds"]["chessington"]["enabled"]=False
         rides=[{"name":"Hyperia","open":True,"wait_minutes":20}]
         payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),queue_provider=FakeProvider([rides]),utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
-        park=payload["screens"][1]
+        queue_screen=payload["screens"][1]
+        park=queue_screen["parks"][0]
         self.assertEqual([ride["name"] for ride in park["rides"]],["Hyperia"])
         self.assertEqual(park["missing_configured_rides"],["Renamed Ride"])
 

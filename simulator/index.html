@@ -27,9 +27,9 @@
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels fed by independent screens. The top-right alternates between the current time and a single weather group containing the icon and temperature.</p>
+    <p>Four 64 × 32 panels fed by independent screens. Queue-Times parks cycle inside one shared screen; the top-right alternates between the current time and weather.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
-    <p class="credit">Thorpe Park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
+    <p class="credit">Theme park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
       <button id="pause" type="button" aria-pressed="false">Pause</button>
       <button id="previous" type="button">Previous screen</button>
@@ -61,9 +61,13 @@
     let pauseStarted = 0;
 
     const QUEUE_VISIBLE_ROWS = 3;
-    const QUEUE_HOLD_SECONDS = 1.0;
-    const QUEUE_SLIDE_SECONDS = 0.3;
-    const QUEUE_STEP_SECONDS = QUEUE_HOLD_SECONDS + QUEUE_SLIDE_SECONDS;
+    const QUEUE_ROW_HEIGHT = 30;
+    const QUEUE_DEFAULT_SCROLL_SPEED = 27;
+    const QUEUE_DEFAULT_PAUSE_SECONDS = 1;
+    const QUEUE_PARK_FLASH_SECONDS = 0.35;
+    const QUEUE_SPLASH_SLIDE_IN_SECONDS = 0.55;
+    const QUEUE_SPLASH_FLASH_SECONDS = 0.35;
+    const QUEUE_SPLASH_SLIDE_UP_SECONDS = 0.55;
     const RAIL_MARQUEE_DELAY_SECONDS = 1.2;
     const RAIL_MARQUEE_SPEED = 120;
     const RAIL_MARQUEE_GAP = 112;
@@ -194,16 +198,63 @@
       if (dayDelta === 0) return 'TODAY';
       return `DUE IN ${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
     }
-    function queueScrollState(phase, rideCount) {
+    function boundedNumber(value, fallback, minimum, maximum) {
+      const parsed = Number(value);
+      const number = Number.isFinite(parsed) ? parsed : fallback;
+      return Math.min(maximum, Math.max(minimum, number));
+    }
+    function queueSlideSeconds(scrollSpeed) {
+      const speed = boundedNumber(scrollSpeed, QUEUE_DEFAULT_SCROLL_SPEED, 8, 80);
+      return Math.max(0.08, 8 / speed);
+    }
+    function queueScrollState(phase, rideCount, pauseSeconds = QUEUE_DEFAULT_PAUSE_SECONDS, scrollSpeed = QUEUE_DEFAULT_SCROLL_SPEED) {
       const maxStart = Math.max(0, Number(rideCount || 0) - QUEUE_VISIBLE_ROWS);
       if (maxStart === 0) return { start: 0, progress: 0 };
       const safePhase = Math.max(0, Number(phase) || 0);
-      const step = Math.floor(safePhase / QUEUE_STEP_SECONDS);
+      const pause = boundedNumber(pauseSeconds, QUEUE_DEFAULT_PAUSE_SECONDS, 1, 30);
+      const slideSeconds = queueSlideSeconds(scrollSpeed);
+      const stepSeconds = pause + slideSeconds;
+      const step = Math.floor(safePhase / stepSeconds);
       if (step >= maxStart) return { start: maxStart, progress: 0 };
-      const withinStep = safePhase - step * QUEUE_STEP_SECONDS;
-      const progress = withinStep <= QUEUE_HOLD_SECONDS ? 0 : Math.min(1, (withinStep - QUEUE_HOLD_SECONDS) / QUEUE_SLIDE_SECONDS);
+      const withinStep = safePhase - step * stepSeconds;
+      const progress = withinStep <= pause ? 0 : Math.min(1, (withinStep - pause) / slideSeconds);
       return { start: step, progress };
     }
+    function queueParkDataSeconds(rideCount, pauseSeconds, scrollSpeed) {
+      const count = Math.max(0, Number(rideCount) || 0);
+      const pause = boundedNumber(pauseSeconds, QUEUE_DEFAULT_PAUSE_SECONDS, 1, 30);
+      const maxStart = Math.max(0, count - QUEUE_VISIBLE_ROWS);
+      if (maxStart === 0) return pause;
+      return pause + maxStart * (queueSlideSeconds(scrollSpeed) + pause);
+    }
+    function queueCycleState(screen, phase) {
+      const legacyPark = { id: screen.id, title: screen.title || 'QUEUE TIMES', source: screen.source, stale: screen.stale, rides: Array.isArray(screen.rides) ? screen.rides : [] };
+      const parks = Array.isArray(screen.parks) && screen.parks.length ? screen.parks : [legacyPark];
+      const splash = Boolean(screen.splash_enabled);
+      const transition = splash
+        ? QUEUE_SPLASH_SLIDE_IN_SECONDS + QUEUE_SPLASH_FLASH_SECONDS + QUEUE_SPLASH_SLIDE_UP_SECONDS
+        : QUEUE_PARK_FLASH_SECONDS;
+      const durations = parks.map(park => transition + queueParkDataSeconds((park.rides || []).length, screen.queue_scroll_pause_seconds, screen.queue_scroll_speed));
+      const total = durations.reduce((sum, value) => sum + value, 0) || 1;
+      let local = Math.max(0, Number(phase) || 0) % total;
+      let parkIndex = 0;
+      for (let index = 0; index < durations.length; index += 1) {
+        parkIndex = index;
+        if (local < durations[index] || index === durations.length - 1) break;
+        local -= durations[index];
+      }
+      if (splash) {
+        if (local < QUEUE_SPLASH_SLIDE_IN_SECONDS) return { park: parks[parkIndex], parkIndex, dataPhase: 0, mode: 'splash_in', progress: local / QUEUE_SPLASH_SLIDE_IN_SECONDS };
+        local -= QUEUE_SPLASH_SLIDE_IN_SECONDS;
+        if (local < QUEUE_SPLASH_FLASH_SECONDS) return { park: parks[parkIndex], parkIndex, dataPhase: 0, mode: 'splash_flash', progress: local / QUEUE_SPLASH_FLASH_SECONDS };
+        local -= QUEUE_SPLASH_FLASH_SECONDS;
+        if (local < QUEUE_SPLASH_SLIDE_UP_SECONDS) return { park: parks[parkIndex], parkIndex, dataPhase: 0, mode: 'splash_up', progress: local / QUEUE_SPLASH_SLIDE_UP_SECONDS };
+        return { park: parks[parkIndex], parkIndex, dataPhase: Math.max(0, local - QUEUE_SPLASH_SLIDE_UP_SECONDS), mode: 'data', progress: 1 };
+      }
+      if (local < QUEUE_PARK_FLASH_SECONDS) return { park: parks[parkIndex], parkIndex, dataPhase: 0, mode: 'flash', progress: local / QUEUE_PARK_FLASH_SECONDS };
+      return { park: parks[parkIndex], parkIndex, dataPhase: Math.max(0, local - QUEUE_PARK_FLASH_SECONDS), mode: 'data', progress: 1 };
+    }
+    function flashVisible(progress) { return Math.floor(Math.max(0, Math.min(0.999, Number(progress) || 0)) * 6) % 2 === 0; }
     function agendaScrollState(screen, phase, eventCount) {
       const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
       if (eventCount <= visible) return { start: 0, progress: 0, visible };
@@ -225,11 +276,6 @@
         remaining -= duration;
       }
       return { screen: screens[0], phase: 0, index: 0 };
-    }
-    function boundedNumber(value, fallback, minimum, maximum) {
-      const parsed = Number(value);
-      const number = Number.isFinite(parsed) ? parsed : fallback;
-      return Math.min(maximum, Math.max(minimum, number));
     }
     function stationMarqueeSpeed(screen) {
       return boundedNumber(screen.station_scroll_speed, 30, 10, 80) * 4;
@@ -395,6 +441,23 @@
       context.fillText(fitLeftText(ride.name, leftMax), 0, y);
       context.fillText(state, stateX, y);
     }
+    function drawQueueRows(rides, phase, screen) {
+      if (!rides.length) {
+        context.fillStyle = '#ffffff';
+        context.fillText('Queue data unavailable', 0, 34);
+        return;
+      }
+      const queueScroll = queueScrollState(phase, rides.length, screen.queue_scroll_pause_seconds, screen.queue_scroll_speed);
+      const rowCount = QUEUE_VISIBLE_ROWS + (queueScroll.progress > 0 ? 1 : 0);
+      const yOffset = queueScroll.progress * QUEUE_ROW_HEIGHT;
+      context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
+      for (let slot = 0; slot < rowCount; slot += 1) {
+        const ride = rides[queueScroll.start + slot];
+        if (!ride) break;
+        drawQueueRide(ride, 34 + slot * QUEUE_ROW_HEIGHT - yOffset, 1024);
+      }
+      context.restore();
+    }
     function draw(now) {
       const elapsed = paused ? pausedAt : now - pauseStarted;
       const active = screenAt(elapsed);
@@ -402,6 +465,7 @@
       const phase = active.phase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
+      let suppressHeader = false;
       context.fillStyle = '#000';
       context.fillRect(0, 0, 1024, 128);
       context.font = '24px monospace';
@@ -459,26 +523,42 @@
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
-        const rides = Array.isArray(screen.rides) ? screen.rides : [];
-        if (!rides.length) {
-          context.fillStyle = '#ffffff';
-          context.fillText('Queue data unavailable', 0, 34);
-        } else {
-          const queueScroll = queueScrollState(phase, rides.length);
-          const rowCount = QUEUE_VISIBLE_ROWS + (queueScroll.progress > 0 ? 1 : 0);
-          const yOffset = queueScroll.progress * 30;
-          context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
-          for (let slot = 0; slot < rowCount; slot += 1) {
-            const ride = rides[queueScroll.start + slot];
-            if (!ride) break;
-            drawQueueRide(ride, 34 + slot * 30 - yOffset, 1024);
+        const queueCycle = queueCycleState(screen, phase);
+        const park = queueCycle.park || {};
+        const rides = Array.isArray(park.rides) ? park.rides : [];
+        const title = String(park.title || screen.title || 'QUEUE TIMES').slice(0, 42);
+        const splashMode = queueCycle.mode.startsWith('splash_');
+        suppressHeader = splashMode;
+
+        if (queueCycle.mode === 'splash_in') {
+          const width = context.measureText(title).width;
+          const x = -width + (48 + width) * queueCycle.progress;
+          context.fillStyle = '#ffaa00';
+          context.fillText(title, x, 52);
+        } else if (queueCycle.mode === 'splash_flash') {
+          if (flashVisible(queueCycle.progress)) {
+            context.fillStyle = '#ffffff';
+            context.fillText(title, 48, 52);
           }
-          context.restore();
+        } else if (queueCycle.mode === 'splash_up') {
+          drawQueueRows(rides, 0, screen);
+          const y = 52 - 76 * queueCycle.progress;
+          const coverHeight = Math.max(0, Math.min(128, y + 30));
+          if (coverHeight > 0) {
+            context.fillStyle = '#000000';
+            context.fillRect(0, 0, 1024, coverHeight);
+          }
+          context.fillStyle = '#ffaa00';
+          context.fillText(title, 48, y);
+        } else {
+          drawQueueRows(rides, queueCycle.dataPhase, screen);
+          if (queueCycle.mode !== 'flash' || flashVisible(queueCycle.progress)) {
+            context.fillStyle = queueCycle.mode === 'flash' ? '#ffffff' : '#ffaa00';
+            context.fillText(title, 0, 4);
+          }
+          if (park.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
         }
-        context.fillStyle = '#ffaa00';
-        context.fillText(String(screen.title || 'THORPE PARK').slice(0, 42), 0, 4);
-        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
-        status.dataset.detail = String(screen.title || 'Theme park queues').split(' · ')[0] + ' queues';
+        status.dataset.detail = `${title} queues · park ${queueCycle.parkIndex + 1} of ${Math.max(1, (screen.parks || [park]).length)}`;
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {
@@ -529,9 +609,11 @@
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
-      const header = headerItemState(now / 1000, screen.weather);
-      if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);
-      else drawClock(clock, header.offset);
+      if (!suppressHeader) {
+        const header = headerItemState(now / 1000, screen.weather);
+        if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);
+        else drawClock(clock, header.offset);
+      }
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
       status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);
