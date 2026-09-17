@@ -87,7 +87,8 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1)", simulator)
         self.assertIn("rightEdge - context.measureText(state).width", simulator)
         self.assertIn("function drawQueueRide(ride, y, rightEdge)", simulator)
-        self.assertIn("drawQueueRide(ride, 34 + slot * 30 - yOffset, 1024);", simulator)
+        self.assertIn("const QUEUE_ROW_HEIGHT = 30;", simulator)
+        self.assertIn("drawQueueRide(ride, 34 + slot * QUEUE_ROW_HEIGHT - yOffset, 1024);", simulator)
 
     def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
         display = (ROOT / "display.py").read_text(encoding="utf-8")
