@@ -14,7 +14,7 @@ if local:
         if not name.startswith("_"):
             setattr(settings, name, getattr(local, name))
 
-from display import create
+from queue_display import create
 from fixtures import animated_services
 from screen_client import ClockState, ScreenClient, ScreenRotation
 
@@ -51,10 +51,7 @@ def fixture_payload(now):
 
 
 def hardware_safe_screen(screen):
-    """Avoid provider attribution punctuation that terminalio cannot render."""
-    if screen.get("kind") == "theme_park_queues":
-        screen = dict(screen)
-        screen["title"] = "THORPE PARK"
+    """Keep hardware-safe screen text without collapsing combined park titles."""
     return screen
 
 
