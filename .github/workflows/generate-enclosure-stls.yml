@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'hardware/enclosure/**/*.scad'
-      - 'hardware/enclosure/README.md'
+      - 'hardware/enclosure/**/*.md'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
@@ -27,34 +27,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y openscad
 
-      - name: Generate direct-mount STL
-        run: |
-          mkdir -p hardware/enclosure/direct-mount
-          openscad \
-            -o hardware/enclosure/direct-mount/backplane_module.stl \
-            hardware/enclosure/direct-mount/backplane_module.scad
-
-      - name: Generate legacy side-loading STL set
+      - name: Generate direct-mount STL set
         shell: bash
         run: |
           set -euo pipefail
-          src=hardware/enclosure/legacy-side-loading/side_load_enclosure.scad
-          out=hardware/enclosure/legacy-side-loading
+          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
+          out=hardware/enclosure/direct-mount
           mkdir -p "$out"
 
           declare -A parts=(
-            [frame]=01_frame_module_256mm_PRINT_4.stl
-            [left_cap]=02_left_end_cap_PRINT_1.stl
-            [right_cap]=03_right_end_cap_PRINT_1.stl
-            [rod_clip]=04_rod_retainer_clip_PRINT_8.stl
-            [seam_lock]=05_module_seam_bridge_panel_stop_PRINT_3.stl
-            [controller_tray]=06_controller_tray_PRINT_1.stl
-            [power_tray]=07_power_distribution_tray_PRINT_1.stl
-            [cable_clip]=08_cable_clip_PRINT_8.stl
-            [thickness_gauge]=09_panel_thickness_gauge_PRINT_FIRST.stl
-            [joint_coupon]=10_joint_fit_coupon_PRINT_2.stl
-            [assembly]=90_assembly_reference_DO_NOT_PRINT.stl
-            [assembly_exploded]=91_exploded_reference_DO_NOT_PRINT.stl
+            [backplane]=01_backplane_module_PRINT_4.stl
+            [joiner]=02_module_joiner_PRINT_3.stl
+            [rod_plug]=03_rod_end_plug_PRINT_4.stl
+            [matrixportal_mount]=04_matrixportal_mount_PRINT_1.stl
+            [power_mount]=05_power_distribution_mount_PRINT_1.stl
+            [cable_clip]=06_cable_clip_PRINT_8.stl
+            [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
           )
 
           for part in "${!parts[@]}"; do
@@ -75,5 +63,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add 'hardware/enclosure/**/*.stl'
-          git commit -m "Issue #53: generate enclosure STL files"
+          git commit -m "Issue #53: generate direct-mount enclosure STLs"
           git push origin "HEAD:${{ github.head_ref }}"
