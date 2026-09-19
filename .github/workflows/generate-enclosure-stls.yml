@@ -19,7 +19,7 @@ jobs:
       - name: Check out source branch
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          ref: \${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           fetch-depth: 0
 
       - name: Install OpenSCAD
@@ -43,10 +43,11 @@ jobs:
             [power_mount]=05_power_distribution_mount_PRINT_1.stl
             [cable_clip]=06_cable_clip_PRINT_8.stl
             [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
+            [mount_pattern_template]=08_mount_pattern_template_PRINT_1.stl
           )
 
-          for part in "${!parts[@]}"; do
-            openscad -D "part=\"${part}\"" -o "$out/${parts[$part]}" "$src"
+          for part in "\${!parts[@]}"; do
+            openscad -D "part=\\"\${part}\\"" -o "$out/\${parts[$part]}" "$src"
           done
 
       - name: Commit generated STLs to pull-request branch
@@ -64,4 +65,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add 'hardware/enclosure/**/*.stl'
           git commit -m "Issue #53: generate direct-mount enclosure STLs"
-          git push origin "HEAD:${{ github.head_ref }}"
+          git push origin "HEAD:\${{ github.head_ref }}"
