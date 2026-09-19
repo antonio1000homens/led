@@ -4,11 +4,20 @@ Tracked by issue #53.
 
 ## Current design: direct-mount backplane
 
-The enclosure is now **direct-mount only**. Four nominal 256 × 128 mm P4 HUB75 panels bolt directly to four printed rear backplane modules. Printed material stays behind the LED PCB so the full 1024 × 128 mm LED face remains unobstructed.
+The enclosure is **direct-mount only**. Four nominal 256 × 128 mm P4 HUB75 panels bolt directly to four printed rear backplane modules. Printed material stays behind the LED PCB so the full 1024 × 128 mm LED face remains unobstructed.
 
-The superseded side-loading concept has been removed from the repository to avoid accidentally printing or maintaining the wrong parts.
+The superseded side-loading concept has been removed.
 
-See [`direct-mount/README.md`](direct-mount/README.md) for the printable parts list, hardware BOM, assembly order and validation notes.
+See [`direct-mount/README.md`](direct-mount/README.md) for the expected mounting geometry, printable parts, hardware BOM and validation sequence.
+
+## Current expected mounting geometry
+
+The supplied 160 × 80 mm P2.5 reference STL has four symmetric mounting centres at 16.69 / 143.31 mm horizontally and 7.50 / 72.50 mm vertically. Scaling by 1.6 to the 256 × 128 mm P4 envelope gives expected centres at:
+
+- x = **26.704 mm** and **229.296 mm**
+- y = **12.0 mm** and **116.0 mm**
+
+The direct-mount CAD now uses those values. A low-material full-pattern test template is included so the pattern can be verified against one real P4 panel before the four structural backplanes are printed.
 
 ## Source and generated STLs
 
@@ -19,10 +28,11 @@ See [`direct-mount/README.md`](direct-mount/README.md) for the printable parts l
 - `direct-mount/04_matrixportal_mount_PRINT_1.stl` — removable MatrixPortal S3 rear carrier.
 - `direct-mount/05_power_distribution_mount_PRINT_1.stl` — removable fused 5 V distribution carrier.
 - `direct-mount/06_cable_clip_PRINT_8.stl` — rear cable-management clips.
-- `direct-mount/07_mounting_slot_coupon_PRINT_1.stl` — small fit test for mounting-slot/insert dimensions.
+- `direct-mount/07_mounting_slot_coupon_PRINT_1.stl` — small slot/insert test.
+- `direct-mount/08_mount_pattern_template_PRINT_1.stl` — full 256 × 128 mounting-pattern verification template.
 
 ## Regenerating STLs
 
 The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source.
 
-The LED-panel mounting pattern is still provisional because the AliExpress order did not include a mechanical drawing. Print the slot coupon and one backplane first, measure the physical panel, then update the OpenSCAD dimensions before printing all four modules.
+The P4 mounting pattern is still an expected/scaled reference rather than a vendor mechanical drawing. Verify the pattern template and one backplane against the physical panel before printing all four modules.

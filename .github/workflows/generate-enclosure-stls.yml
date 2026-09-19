@@ -43,6 +43,7 @@ jobs:
             [power_mount]=05_power_distribution_mount_PRINT_1.stl
             [cable_clip]=06_cable_clip_PRINT_8.stl
             [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
+            [mount_pattern_template]=08_mount_pattern_template_PRINT_1.stl
           )
 
           for part in "${!parts[@]}"; do

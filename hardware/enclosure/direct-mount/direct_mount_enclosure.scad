@@ -1,15 +1,21 @@
 // Modular direct-mount enclosure/backplane for four 256 x 128 mm P4 HUB75 panels.
 // Issue #53 - antonio1000homens/led
 //
-// Design intent:
-// - Print four identical backplane modules and bolt each LED PCB directly to one module.
-// - All printed structure remains BEHIND the LED PCB. Nothing projects into the 256 x 128 mm front face.
-// - Two 1000 x 8 mm round reinforcement bars pass through all four modules.
-// - Neighbouring modules align with tongue/socket keys and are locked with rear M3 joiner plates.
-// - Rear electronics carriers mount to blind M3 heat-set-insert pockets, so screws cannot protrude into the LED face.
+// Mount pattern reference:
+// The user supplied "Hub75 2.5mm Panel v7.stl" is 160 x 80 mm.
+// Four symmetric rear mounting positions were measured from that reference at:
+//   (16.69, 7.50), (143.31, 7.50), (16.69, 72.50), (143.31, 72.50) mm.
+// Scaling by 256/160 = 128/80 = 1.6 gives the EXPECTED P4 256 x 128 positions:
+//   (26.704, 12.0), (229.296, 12.0), (26.704, 116.0), (229.296, 116.0) mm.
+// This is an expected/reference pattern, not a vendor mechanical drawing. Verify one real P4 panel.
 //
-// IMPORTANT: The physical AliExpress panel mounting-hole pattern is not yet measured.
-// The LED mounting cross-slots are deliberately provisional. Print/verify one module before printing all four.
+// Design intent:
+// - Print four identical backplane modules and bolt each LED module directly to one backplane.
+// - All printed structure remains BEHIND the LED face; nothing masks the 256 x 128 mm front.
+// - Two 1000 x 8 mm round reinforcement bars pass through all four modules.
+// - Bars are offset from the expected panel mounting rows to avoid the mounting slots.
+// - Neighbouring modules align with tongue/socket keys and are locked with rear M3 joiner plates.
+// - Rear electronics carriers use blind M3 heat-set-insert pockets.
 
 $fn = 48;
 part = "backplane";
@@ -19,15 +25,24 @@ module_h = 128;
 depth = 16;
 frame = 16;
 
-pad_size = 32;
-pad_center_offset = 24;
-slot_len = 22;
-slot_w = 4.6;
+reference_w = 160;
+reference_h = 80;
+reference_scale = module_w/reference_w;
+reference_mount_x = 16.69;
+reference_mount_y = 7.50;
+mount_x_left = reference_mount_x * reference_scale;
+mount_x_right = module_w - mount_x_left;
+mount_y_bottom = reference_mount_y * reference_scale;
+mount_y_top = module_h - mount_y_bottom;
+
+slot_len = 10;
+slot_w = 4.2;
 
 rod_d = 8.6;
 rod_z = depth/2;
-rod_y_bottom = frame/2;
-rod_y_top = module_h-frame/2;
+rod_y_bottom = 24;
+rod_y_top = module_h-24;
+rod_beam_h = 12;
 
 joint_len = 6;
 joint_w = 11.5;
@@ -43,18 +58,18 @@ joiner_insert_y2 = 78;
 insert_d = 4.7;
 insert_depth = 6.2;
 
-accessory_insert_y1 = 30;
-accessory_insert_y2 = 98;
+accessory_insert_y1 = 34;
+accessory_insert_y2 = 94;
 
-module slot2d(len=22, w=4.6) {
+module slot2d(len=slot_len, w=slot_w) {
     hull() {
         translate([-(len-w)/2,0]) circle(d=w);
         translate([(len-w)/2,0]) circle(d=w);
     }
 }
 
-module cross_slot(x,y) {
-    translate([x,y,-0.5]) linear_extrude(height=depth+1) {
+module cross_slot(x,y,h=depth+1) {
+    translate([x,y,-0.5]) linear_extrude(height=h) {
         union() {
             slot2d(slot_len, slot_w);
             rotate(90) slot2d(slot_len, slot_w);
@@ -73,14 +88,13 @@ module backplane_body() {
         translate([0,frame,0]) cube([frame,module_h-2*frame,depth]);
         translate([module_w-frame,frame,0]) cube([frame,module_h-2*frame,depth]);
 
-        for (x=[pad_center_offset,module_w-pad_center_offset])
-            for (y=[pad_center_offset,module_h-pad_center_offset])
-                translate([x-pad_size/2,y-pad_size/2,0]) cube([pad_size,pad_size,depth]);
+        translate([0,rod_y_bottom-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
+        translate([0,rod_y_top-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
 
-        translate([frame,pad_center_offset-5,0]) cube([pad_center_offset-frame,10,depth]);
-        translate([frame,module_h-pad_center_offset-5,0]) cube([pad_center_offset-frame,10,depth]);
-        translate([module_w-pad_center_offset,pad_center_offset-5,0]) cube([pad_center_offset-frame,10,depth]);
-        translate([module_w-pad_center_offset,module_h-pad_center_offset-5,0]) cube([pad_center_offset-frame,10,depth]);
+        for (x=[mount_x_left,mount_x_right]) {
+            translate([x-9,0,0]) cube([18,20,depth]);
+            translate([x-9,module_h-20,0]) cube([18,20,depth]);
+        }
 
         for (yy=[joint_y1,joint_y2])
             translate([module_w-0.6,yy,joint_z]) cube([joint_len+0.6,joint_w,joint_h]);
@@ -94,8 +108,8 @@ module backplane() {
         for (yy=[rod_y_bottom,rod_y_top])
             translate([-0.5,yy,rod_z]) rotate([0,90,0]) cylinder(d=rod_d,h=module_w+7);
 
-        for (x=[pad_center_offset,module_w-pad_center_offset])
-            for (y=[pad_center_offset,module_h-pad_center_offset]) cross_slot(x,y);
+        for (x=[mount_x_left,mount_x_right])
+            for (y=[mount_y_bottom,mount_y_top]) cross_slot(x,y);
 
         for (yy=[joint_y1,joint_y2])
             translate([-0.1,yy-joint_clear/2,joint_z-joint_clear/2])
@@ -126,7 +140,7 @@ module rod_end_plug() {
 }
 
 carrier_w = 244;
-carrier_h = 80;
+carrier_h = 72;
 carrier_t = 4;
 carrier_hole_x = 2;
 carrier_hole_y = 6;
@@ -156,7 +170,7 @@ module matrixportal_mount() {
     difference() {
         union() {
             carrier_frame();
-            translate([(carrier_w-100)/2,10,0]) cube([100,60,carrier_t]);
+            translate([(carrier_w-100)/2,6,0]) cube([100,60,carrier_t]);
             for (xx=[carrier_w/2-38,carrier_w/2+38])
                 for (yy=[carrier_h/2-17,carrier_h/2+17])
                     translate([xx,yy,carrier_t]) cylinder(d=8,h=6);
@@ -172,10 +186,10 @@ module power_distribution_mount() {
     difference() {
         union() {
             carrier_frame();
-            translate([(carrier_w-126)/2,(carrier_h-56)/2,0]) cube([126,56,carrier_t]);
+            translate([(carrier_w-126)/2,(carrier_h-52)/2,0]) cube([126,52,carrier_t]);
         }
         for (xx=[carrier_w/2-48,carrier_w/2+48])
-            for (yy=[carrier_h/2-18,carrier_h/2+18])
+            for (yy=[carrier_h/2-16,carrier_h/2+16])
                 translate([xx,yy,-0.5]) elongated_hole(20,4.2,carrier_t+1);
         for (yy=[carrier_h/2-12,carrier_h/2+12])
             translate([carrier_w/2+56,yy,-0.5]) cube([3.5,12,carrier_t+1]);
@@ -207,6 +221,22 @@ module mounting_slot_coupon() {
     }
 }
 
+module mount_pattern_template() {
+    template_t = 2;
+    band_h = 20;
+    side_w = 8;
+    difference() {
+        union() {
+            cube([module_w,band_h,template_t]);
+            translate([0,module_h-band_h,0]) cube([module_w,band_h,template_t]);
+            cube([side_w,module_h,template_t]);
+            translate([module_w-side_w,0,0]) cube([side_w,module_h,template_t]);
+        }
+        for (x=[mount_x_left,mount_x_right])
+            for (y=[mount_y_bottom,mount_y_top]) cross_slot(x,y,template_t+1);
+    }
+}
+
 if (part == "backplane") backplane();
 else if (part == "joiner") module_joiner();
 else if (part == "rod_plug") rod_end_plug();
@@ -214,4 +244,5 @@ else if (part == "matrixportal_mount") matrixportal_mount();
 else if (part == "power_mount") power_distribution_mount();
 else if (part == "cable_clip") cable_clip();
 else if (part == "slot_coupon") mounting_slot_coupon();
+else if (part == "mount_pattern_template") mount_pattern_template();
 else assert(false, str("Unknown part: ",part));
