@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -16,36 +16,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
-          fetch-depth: 0
 
       - name: Install OpenSCAD
         run: |
           sudo apt-get update
           sudo apt-get install -y openscad
-
-      # Temporary branch bootstrap: render and commit the changed backplane STL.
-      # This block is removed after the generated STL lands so validation returns read-only.
-      - name: Regenerate changed backplane STL
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          set -euo pipefail
-          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
-          out=hardware/enclosure/direct-mount/01_backplane_module_PRINT_4.stl
-          openscad -D 'part="backplane"' -o "$out" "$src"
-
-          if git diff --quiet -- "$out"; then
-            echo 'Backplane STL is already current.'
-            exit 0
-          fi
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add "$out"
-          git commit -m 'Regenerate backplane STL with joiner recesses'
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
 
       - name: Regenerate and verify checked-in STLs
         shell: bash
