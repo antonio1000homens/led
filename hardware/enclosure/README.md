@@ -4,32 +4,25 @@ Tracked by issue #53.
 
 ## Current design: direct-mount backplane
 
-The preferred enclosure is a four-module rear backplane. Each nominal 256 × 128 mm P4 HUB75 panel mounts directly to one printed module. Printed material stays behind the LED PCB; the full 1024 × 128 mm display face is a keep-clear area.
+The enclosure is now **direct-mount only**. Four nominal 256 × 128 mm P4 HUB75 panels bolt directly to four printed rear backplane modules. Printed material stays behind the LED PCB so the full 1024 × 128 mm LED face remains unobstructed.
 
-- `direct-mount/backplane_module.scad` — parametric source.
-- `direct-mount/backplane_module.stl` — generated printable module; print 4.
-- Two 1000 mm × 8 mm reinforcement bars run through the four modules.
-- The current mounting cross-slots are provisional until the real panel hole pattern is measured.
+The superseded side-loading concept has been removed from the repository to avoid accidentally printing or maintaining the wrong parts.
 
-## Legacy concept: side-loading
+See [`direct-mount/README.md`](direct-mount/README.md) for the printable parts list, hardware BOM, assembly order and validation notes.
 
-`legacy-side-loading/` preserves the earlier slide-in concept for reference. It is **not** the preferred enclosure after issue #53 switched to direct mounting.
+## Source and generated STLs
 
-The generated legacy STL set contains:
-- frame module
-- left/right end caps
-- rod-retainer clip
-- seam bridge/panel stop
-- MatrixPortal controller tray
-- power-distribution tray
-- cable clip
-- panel-thickness gauge
-- joint-fit coupon
-- assembly reference
-- exploded assembly reference
+- `direct-mount/direct_mount_enclosure.scad` — parametric source for all current parts.
+- `direct-mount/01_backplane_module_PRINT_4.stl` — one rear backplane per LED panel.
+- `direct-mount/02_module_joiner_PRINT_3.stl` — rear seam locks between neighbouring modules.
+- `direct-mount/03_rod_end_plug_PRINT_4.stl` — retains the two 1 m × 8 mm reinforcement bars.
+- `direct-mount/04_matrixportal_mount_PRINT_1.stl` — removable MatrixPortal S3 rear carrier.
+- `direct-mount/05_power_distribution_mount_PRINT_1.stl` — removable fused 5 V distribution carrier.
+- `direct-mount/06_cable_clip_PRINT_8.stl` — rear cable-management clips.
+- `direct-mount/07_mounting_slot_coupon_PRINT_1.stl` — small fit test for mounting-slot/insert dimensions.
 
 ## Regenerating STLs
 
-Use the repository workflow **Generate enclosure STLs** or run OpenSCAD locally.
+The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source.
 
-Do not print all four direct-mount modules until the physical AliExpress panel has been measured and the provisional mounting slots have been validated.
+The LED-panel mounting pattern is still provisional because the AliExpress order did not include a mechanical drawing. Print the slot coupon and one backplane first, measure the physical panel, then update the OpenSCAD dimensions before printing all four modules.
