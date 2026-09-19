@@ -57,31 +57,31 @@ jobs:
 
           canonical_hash() {
             python - "$1" <<'PY'
-import hashlib
-import sys
+          import hashlib
+          import sys
 
-path = sys.argv[1]
-triangles = []
-vertices = []
+          path = sys.argv[1]
+          triangles = []
+          vertices = []
 
-with open(path, encoding="utf-8", errors="strict") as handle:
-    for raw in handle:
-        line = raw.strip()
-        if not line.startswith("vertex "):
-            continue
-        _, xs, ys, zs = line.split()
-        vertex = tuple(round(float(value), 6) for value in (xs, ys, zs))
-        vertices.append(vertex)
-        if len(vertices) == 3:
-            triangles.append(tuple(sorted(vertices)))
-            vertices = []
+          with open(path, encoding="utf-8", errors="strict") as handle:
+              for raw in handle:
+                  line = raw.strip()
+                  if not line.startswith("vertex "):
+                      continue
+                  _, xs, ys, zs = line.split()
+                  vertex = tuple(round(float(value), 6) for value in (xs, ys, zs))
+                  vertices.append(vertex)
+                  if len(vertices) == 3:
+                      triangles.append(tuple(sorted(vertices)))
+                      vertices = []
 
-if vertices:
-    raise SystemExit(f"incomplete triangle data in {path}")
+          if vertices:
+              raise SystemExit(f"incomplete triangle data in {path}")
 
-payload = repr(sorted(triangles)).encode("utf-8")
-print(hashlib.sha256(payload).hexdigest())
-PY
+          payload = repr(sorted(triangles)).encode("utf-8")
+          print(hashlib.sha256(payload).hexdigest())
+          PY
           }
 
           status=0
