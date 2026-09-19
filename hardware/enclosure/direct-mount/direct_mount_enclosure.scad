@@ -15,6 +15,8 @@
 // - Two 1000 x 8 mm round reinforcement bars pass through all four modules.
 // - Bars are offset from the expected panel mounting rows to avoid the mounting slots.
 // - Neighbouring modules align with tongue/socket keys and are locked with rear M3 joiner plates.
+// - Each 4 mm joiner sits in matching rear recesses so its outside face is almost flush with the backplanes.
+// - The LED-panel-facing side of every backplane stays flat and unchanged.
 // - Rear electronics carriers use blind M3 heat-set-insert pockets.
 
 $fn = 48;
@@ -55,6 +57,17 @@ joint_y2 = 79;
 joiner_insert_x = 8;
 joiner_insert_y1 = 50;
 joiner_insert_y2 = 78;
+joiner_w = 32;
+joiner_h = 48;
+joiner_t = 4;
+joiner_hole_y_inset = 10;
+joiner_clear_xy = 0.25;
+joiner_clear_z = 0.20;
+joiner_recess_depth = joiner_t + joiner_clear_z;
+joiner_recess_half_w = joiner_w/2 + joiner_clear_xy;
+joiner_recess_y = joiner_insert_y1 - joiner_hole_y_inset - joiner_clear_xy;
+joiner_recess_h = joiner_h + 2*joiner_clear_xy;
+joiner_recess_surface_z = depth - joiner_recess_depth;
 insert_d = 4.7;
 insert_depth = 6.2;
 
@@ -77,8 +90,8 @@ module cross_slot(x,y,h=depth+1) {
     }
 }
 
-module blind_insert_pocket(x,y,d=insert_d,dep=insert_depth) {
-    translate([x,y,depth-dep]) cylinder(d=d,h=dep+0.25);
+module blind_insert_pocket(x,y,surface_z=depth,d=insert_d,dep=insert_depth) {
+    translate([x,y,surface_z-dep]) cylinder(d=d,h=dep+0.25);
 }
 
 module backplane_body() {
@@ -101,6 +114,16 @@ module backplane_body() {
     }
 }
 
+module joiner_recesses() {
+    // The 32 mm joiner is centred on a module seam, so each backplane
+    // provides half of the pocket. Extra XY/Z clearance prevents a
+    // printed joiner from holding either backplane off the LED PCB.
+    translate([-0.01,joiner_recess_y,joiner_recess_surface_z])
+        cube([joiner_recess_half_w+0.01,joiner_recess_h,joiner_recess_depth+0.01]);
+    translate([module_w-joiner_recess_half_w,joiner_recess_y,joiner_recess_surface_z])
+        cube([joiner_recess_half_w+0.01,joiner_recess_h,joiner_recess_depth+0.01]);
+}
+
 module backplane() {
     difference() {
         backplane_body();
@@ -115,8 +138,12 @@ module backplane() {
             translate([-0.1,yy-joint_clear/2,joint_z-joint_clear/2])
                 cube([joint_len+0.2,joint_w+joint_clear,joint_h+joint_clear]);
 
+        joiner_recesses();
+
+        // Keep the full heat-set-insert depth, measured from the new recess floor.
         for (xx=[joiner_insert_x,module_w-joiner_insert_x])
-            for (yy=[joiner_insert_y1,joiner_insert_y2]) blind_insert_pocket(xx,yy);
+            for (yy=[joiner_insert_y1,joiner_insert_y2])
+                blind_insert_pocket(xx,yy,joiner_recess_surface_z);
 
         for (xx=[joiner_insert_x,module_w-joiner_insert_x])
             for (yy=[accessory_insert_y1,accessory_insert_y2]) blind_insert_pocket(xx,yy);
@@ -125,10 +152,10 @@ module backplane() {
 
 module module_joiner() {
     difference() {
-        cube([32,48,4]);
-        for (xx=[8,24])
-            for (yy=[10,38])
-                translate([xx,yy,-0.5]) cylinder(d=3.5,h=5);
+        cube([joiner_w,joiner_h,joiner_t]);
+        for (xx=[joiner_insert_x,joiner_w-joiner_insert_x])
+            for (yy=[joiner_hole_y_inset,joiner_h-joiner_hole_y_inset])
+                translate([xx,yy,-0.5]) cylinder(d=3.5,h=joiner_t+1);
     }
 }
 

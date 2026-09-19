@@ -47,6 +47,17 @@ Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real pane
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
+## Recessed seam joiners
+
+Each `02_module_joiner_PRINT_3.stl` is **32 × 48 × 4 mm** and is centred across a panel seam. The rear face of each neighbouring backplane now provides half of a matching recess:
+
+- **16.25 mm** pocket width per backplane, giving 0.25 mm lateral clearance on each outer joiner edge
+- **48.5 mm** pocket height, giving 0.25 mm clearance at each end
+- **4.2 mm** pocket depth for the 4 mm joiner, leaving 0.2 mm depth clearance
+- the joiner M3 heat-set pockets retain their full **6.2 mm** depth measured from the recess floor
+
+The panel-facing surface is unchanged, so the backplane still sits directly and flush against the rear mounting face of the LED panel. When two backplanes meet, the joiner is recessed into their rear faces rather than being trapped between a backplane and the LED PCB.
+
 ## Reinforcement-bar change
 
 The expected panel mounting rows are only 12 mm from the top/bottom edges. The earlier 8 mm bar channels were too close to those rows, so the bar centres are now at **y=24 mm and y=104 mm**. Narrow printed beams support the bores while leaving the central connector-access area open.
