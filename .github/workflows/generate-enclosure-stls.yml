@@ -3,7 +3,8 @@ name: Generate enclosure STLs
 on:
   pull_request:
     paths:
-      - 'hardware/enclosure/**'
+      - 'hardware/enclosure/**/*.scad'
+      - 'hardware/enclosure/README.md'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
@@ -29,7 +30,9 @@ jobs:
       - name: Generate direct-mount STL
         run: |
           mkdir -p hardware/enclosure/direct-mount
-          openscad             -o hardware/enclosure/direct-mount/backplane_module.stl             hardware/enclosure/direct-mount/backplane_module.scad
+          openscad \
+            -o hardware/enclosure/direct-mount/backplane_module.stl \
+            hardware/enclosure/direct-mount/backplane_module.scad
 
       - name: Generate legacy side-loading STL set
         shell: bash
@@ -63,7 +66,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- hardware/enclosure '*.stl' &&              [ -z "$(git ls-files --others --exclude-standard hardware/enclosure | grep '\.stl$' || true)" ]; then
+          if git diff --quiet -- hardware/enclosure && \
+             [ -z "$(git ls-files --others --exclude-standard hardware/enclosure | grep '\.stl$' || true)" ]; then
             echo "STLs are already up to date."
             exit 0
           fi
