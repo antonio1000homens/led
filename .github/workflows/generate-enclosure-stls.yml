@@ -1,39 +1,34 @@
-name: Generate enclosure STLs
+name: Validate enclosure STLs
 
 on:
   pull_request:
     paths:
       - 'hardware/enclosure/**/*.scad'
-      - 'hardware/enclosure/**/*.md'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  generate:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+  validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source branch
+      - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          fetch-depth: 0
 
       - name: Install OpenSCAD
         run: |
           sudo apt-get update
           sudo apt-get install -y openscad
 
-      - name: Generate direct-mount STL set
+      - name: Regenerate and verify checked-in STLs
         shell: bash
         run: |
           set -euo pipefail
           src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
-          out=hardware/enclosure/direct-mount
-          mkdir -p "$out"
+          tracked=hardware/enclosure/direct-mount
+          generated="$(mktemp -d)"
 
           declare -A parts=(
             [backplane]=01_backplane_module_PRINT_4.stl
@@ -47,22 +42,63 @@ jobs:
           )
 
           for part in "${!parts[@]}"; do
-            openscad -D "part=\"${part}\"" -o "$out/${parts[$part]}" "$src"
+            openscad -D "part=\"${part}\"" -o "$generated/${parts[$part]}" "$src"
           done
 
-      - name: Commit generated STLs to pull-request branch
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- hardware/enclosure && \
-             [ -z "$(git ls-files --others --exclude-standard hardware/enclosure | grep '\.stl$' || true)" ]; then
-            echo "STLs are already up to date."
-            exit 0
+          expected_list="$generated/expected.txt"
+          actual_list="$generated/actual.txt"
+          printf '%s\n' "${parts[@]}" | sort > "$expected_list"
+          find "$tracked" -maxdepth 1 -type f -name '*.stl' -printf '%f\n' | sort > "$actual_list"
+
+          if ! diff -u "$expected_list" "$actual_list"; then
+            echo 'Checked-in STL file set does not match the expected generated set.' >&2
+            exit 1
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add 'hardware/enclosure/**/*.stl'
-          git commit -m "Issue #53: generate direct-mount enclosure STLs"
-          git push origin "HEAD:${{ github.head_ref }}"
+          canonical_hash() {
+            python - "$1" <<'PY'
+import hashlib
+import sys
+
+path = sys.argv[1]
+triangles = []
+vertices = []
+
+with open(path, encoding="utf-8", errors="strict") as handle:
+    for raw in handle:
+        line = raw.strip()
+        if not line.startswith("vertex "):
+            continue
+        _, xs, ys, zs = line.split()
+        vertex = tuple(round(float(value), 6) for value in (xs, ys, zs))
+        vertices.append(vertex)
+        if len(vertices) == 3:
+            triangles.append(tuple(sorted(vertices)))
+            vertices = []
+
+if vertices:
+    raise SystemExit(f"incomplete triangle data in {path}")
+
+payload = repr(sorted(triangles)).encode("utf-8")
+print(hashlib.sha256(payload).hexdigest())
+PY
+          }
+
+          status=0
+          for filename in "${parts[@]}"; do
+            tracked_hash="$(canonical_hash "$tracked/$filename")"
+            generated_hash="$(canonical_hash "$generated/$filename")"
+            if [ "$tracked_hash" != "$generated_hash" ]; then
+              echo "STALE: $tracked/$filename" >&2
+              status=1
+            else
+              echo "OK: $tracked/$filename"
+            fi
+          done
+
+          if [ "$status" -ne 0 ]; then
+            echo >&2
+            echo 'One or more checked-in STLs are geometrically different from direct_mount_enclosure.scad.' >&2
+            echo 'Regenerate the STL set locally with OpenSCAD and commit the updated binaries.' >&2
+            exit "$status"
+          fi
