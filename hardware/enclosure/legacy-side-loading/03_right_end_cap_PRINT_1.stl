@@ -4283,6 +4283,20 @@ solid OpenSCAD_Model
       vertex 0 18.1 4
     endloop
   endfacet
+  facet normal 0 -0.555447 -0.831552
+    outer loop
+      vertex 0 7.4 11.4722
+      vertex 5 7.58489 11.3487
+      vertex 5 7.4 11.4722
+    endloop
+  endfacet
+  facet normal -0 -0.555447 -0.831552
+    outer loop
+      vertex 5 7.58489 11.3487
+      vertex 0 7.4 11.4722
+      vertex 0 7.58489 11.3487
+    endloop
+  endfacet
   facet normal 0 -0.946929 0.321444
     outer loop
       vertex 0 8.12059 9.34944
@@ -4941,20 +4955,6 @@ solid OpenSCAD_Model
       vertex 0 5.07776 10.85
     endloop
   endfacet
-  facet normal 0 -0.555447 -0.831552
-    outer loop
-      vertex 0 7.4 11.4722
-      vertex 5 7.58489 11.3487
-      vertex 5 7.4 11.4722
-    endloop
-  endfacet
-  facet normal -0 -0.555447 -0.831552
-    outer loop
-      vertex 5 7.58489 11.3487
-      vertex 0 7.4 11.4722
-      vertex 0 7.58489 11.3487
-    endloop
-  endfacet
   facet normal -0 0.195208 0.980762
     outer loop
       vertex 0 148.228 8.31454
@@ -4995,6 +4995,20 @@ solid OpenSCAD_Model
       vertex 5 149.652 11.2021
       vertex 0 149.799 11.0349
       vertex 5 149.799 11.0349
+    endloop
+  endfacet
+  facet normal 0 -0.555219 -0.831704
+    outer loop
+      vertex 0 149.3 11.4722
+      vertex 5 149.485 11.3487
+      vertex 5 149.3 11.4722
+    endloop
+  endfacet
+  facet normal -0 -0.555219 -0.831704
+    outer loop
+      vertex 5 149.485 11.3487
+      vertex 0 149.3 11.4722
+      vertex 0 149.485 11.3487
     endloop
   endfacet
   facet normal 0 -0.895717 0.444625
@@ -5611,20 +5625,6 @@ solid OpenSCAD_Model
       vertex 0 146.765 10.2219
       vertex 5 146.75 10
       vertex 0 146.75 10
-    endloop
-  endfacet
-  facet normal 0 -0.555219 -0.831704
-    outer loop
-      vertex 0 149.3 11.4722
-      vertex 5 149.485 11.3487
-      vertex 5 149.3 11.4722
-    endloop
-  endfacet
-  facet normal -0 -0.555219 -0.831704
-    outer loop
-      vertex 5 149.485 11.3487
-      vertex 0 149.3 11.4722
-      vertex 0 149.485 11.3487
     endloop
   endfacet
 endsolid OpenSCAD_Model
