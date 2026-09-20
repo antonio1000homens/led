@@ -471,7 +471,13 @@
       context.font = '24px monospace';
       context.textBaseline = 'top';
       context.fillStyle = '#ffaa00';
-      if (screen.kind === 'rail_combined') {
+      if (screen.empty_state) {
+        const message = String(screen.empty_state);
+        context.fillStyle = '#ffffff';
+        context.fillText(message, Math.max(0, (1024 - context.measureText(message).width) / 2), 52);
+        suppressHeader = true;
+        status.dataset.detail = message;
+      } else if (screen.kind === 'rail_combined') {
         const railServices = listPage(screen).services;
         const next = railServices[0] || { time: '--:--', destination: 'No services', platform: '-', status: '' };
         const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
