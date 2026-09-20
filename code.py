@@ -2,6 +2,11 @@
 
 import time
 
+try:
+    import gc
+except ImportError:
+    gc = None
+
 import settings
 
 try:
@@ -70,6 +75,21 @@ transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
 rendered_diagnostic_index = None
+last_render_key = None
+
+
+def _matrix_root_token():
+    """Return the current root-group identity when running on MatrixPortal."""
+    base = getattr(display, "base", display)
+    hardware_display = getattr(base, "display", None)
+    root_group = getattr(hardware_display, "root_group", None)
+    return id(root_group) if root_group is not None else None
+
+
+def _memory_free():
+    if gc is None or not hasattr(gc, "mem_free"):
+        return None
+    return gc.mem_free()
 
 while True:
     now = time.monotonic()
@@ -89,8 +109,11 @@ while True:
     should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
     if should_fetch:
         try:
+            print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
-            rotation.update(payload.get("screens"), now)
+            screens = payload.get("screens")
+            print("FETCH OK screens={}".format(len(screens or [])))
+            rotation.update(screens, now)
             fetched_at = payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, now)
@@ -111,10 +134,33 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
+    render_key = (screen.get("id"), screen.get("kind")) if isinstance(screen, dict) else (None, None)
+    instrument_render = render_key != last_render_key
+    if instrument_render:
+        if gc is not None and hasattr(gc, "collect"):
+            gc.collect()
+        render_started = time.monotonic()
+        memory_before = _memory_free()
+        root_before = _matrix_root_token()
+        print(
+            "RENDER START id={} kind={} index={} phase={} mode={} mem={}".format(
+                render_key[0], render_key[1], rotation.index, phase, runtime_mode.mode, memory_before
+            )
+        )
     display.show(
         screen,
         clock.text(now),
         clock_date=clock.date_text(now),
         phase=phase if settings.ANIMATE else 2,
     )
+    if instrument_render:
+        memory_after = _memory_free()
+        root_after = _matrix_root_token()
+        print(
+            "RENDER OK id={} duration={:.3f} mem_before={} mem_after={} root_changed={}".format(
+                render_key[0], time.monotonic() - render_started, memory_before, memory_after,
+                root_before != root_after,
+            )
+        )
+        last_render_key = render_key
     time.sleep(settings.FRAME_SECONDS if settings.ANIMATE else settings.POLL_SECONDS)
