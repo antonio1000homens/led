@@ -1,5 +1,6 @@
 # Wokwi downloads these when running the CircuitPython project.
 adafruit_display_text
+adafruit_bitmap_font
 adafruit_connection_manager
 adafruit_requests
 adafruit_ntp

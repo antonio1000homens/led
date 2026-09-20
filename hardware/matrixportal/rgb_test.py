@@ -18,7 +18,7 @@ import rgbmatrix
 PANEL_WIDTH = 64
 PANEL_HEIGHT = 32
 PANEL_COUNT = 1
-BIT_DEPTH = 4
+BIT_DEPTH = 2
 HOLD_SECONDS = 2
 
 # Deliberately use modest RGB levels for the first test instead of driving a
@@ -37,6 +37,7 @@ matrix = rgbmatrix.RGBMatrix(
     width=PANEL_WIDTH * PANEL_COUNT,
     height=PANEL_HEIGHT,
     bit_depth=BIT_DEPTH,
+    doublebuffer=True,
     addr_pins=board.MTX_ADDRESS[:4],
     **board.MTX_COMMON,
 )

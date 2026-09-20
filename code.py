@@ -23,10 +23,17 @@ from queue_display import create
 from fixtures import animated_services
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
+from matrix_config import MATRIX_REFRESH_FPS
 
 
 if settings.SCREEN_SOURCE not in ("fixture", "api"):
     raise ValueError("SCREEN_SOURCE must be fixture or api")
+
+# The four-panel MatrixPortal installation is operated in static mode.  A
+# local settings file may select the backend and network, but cannot re-enable
+# the high-frequency animation path that produced scan-line flashes.
+if settings.DISPLAY_BACKEND == "matrix":
+    settings.ANIMATE = False
 
 
 def fixture_payload(now):
@@ -91,6 +98,22 @@ def _memory_free():
         return None
     return gc.mem_free()
 
+
+def _display_phase(screen, phase):
+    if settings.ANIMATE:
+        return phase
+    if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
+        return phase
+    return 2
+
+
+def _smooth_todoist(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "calendar_agenda"
+        and screen.get("source") == "todoist"
+    )
+
 while True:
     now = time.monotonic()
     for event in buttons.poll(now) if buttons is not None else ():
@@ -134,6 +157,7 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
+    frame_started = time.monotonic()
     render_key = (screen.get("id"), screen.get("kind")) if isinstance(screen, dict) else (None, None)
     instrument_render = render_key != last_render_key
     if instrument_render:
@@ -151,7 +175,7 @@ while True:
         screen,
         clock.text(now),
         clock_date=clock.date_text(now),
-        phase=phase if settings.ANIMATE else 2,
+        phase=_display_phase(screen, phase),
     )
     if instrument_render:
         memory_after = _memory_free()
@@ -163,4 +187,18 @@ while True:
             )
         )
         last_render_key = render_key
-    time.sleep(settings.FRAME_SECONDS if settings.ANIMATE else settings.POLL_SECONDS)
+    smooth_todoist = _smooth_todoist(screen)
+    if settings.ANIMATE or smooth_todoist:
+        frame_seconds = settings.FRAME_SECONDS if settings.ANIMATE else 1.0 / MATRIX_REFRESH_FPS
+        remaining = frame_seconds - (time.monotonic() - frame_started)
+        if remaining > 0:
+            time.sleep(remaining)
+    else:
+        # Static pages must still rotate independently of the network poll.
+        # Waking only at the next page/fetch boundary avoids repeatedly
+        # rebuilding the complete HUB75 framebuffer, which can show as
+        # horizontal flashes on long panel chains.
+        duration = max(1, int(screen.get("duration_seconds") or 8))
+        until_rotation = max(0.05, duration - max(0, phase))
+        until_fetch = max(0.05, next_fetch - time.monotonic())
+        time.sleep(min(until_rotation, until_fetch))

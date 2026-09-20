@@ -4,11 +4,19 @@ import time
 
 import board
 
+from matrix_config import (
+    MATRIX_BIT_DEPTH,
+    MATRIX_REFRESH_FPS,
+    TODOIST_MARQUEE_PAUSE_SECONDS,
+    TODOIST_MARQUEE_SPEED,
+)
+
 from formatting import (
     AGENDA_TITLE_X,
     AGENDA_VISIBLE_ROWS,
     QUEUE_VISIBLE_ROWS,
     agenda_scroll_state,
+    agenda_marquee_x,
     agenda_title_marquee_x,
     calendar_due_text,
     todoist_due_label,
@@ -35,7 +43,7 @@ QUEUE_ROW_HEIGHT = 8
 AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
-WEATHER_FONT_WIDTH = 6
+WEATHER_FONT_WIDTH = 5
 WEATHER_GAP = 1
 HEADER_GAP = 4
 HEADER_HOLD_SECONDS = 4.0
@@ -250,21 +258,28 @@ class MatrixDisplay:
         import displayio
         import framebufferio
         import rgbmatrix
+        from adafruit_bitmap_font import bitmap_font
         from adafruit_display_text import label
-        import terminalio
 
         displayio.release_displays()
         matrix = rgbmatrix.RGBMatrix(
             width=DISPLAY_WIDTH,
             height=32,
-            bit_depth=4,
+            # Four chained 64x32 panels need refresh headroom. Two bits per
+            # channel retain the board's text/status colours while matching
+            # the MatrixPortal helper's flicker-resistant default.
+            bit_depth=MATRIX_BIT_DEPTH,
+            doublebuffer=True,
             addr_pins=board.MTX_ADDRESS[:4],
             **board.MTX_COMMON,
         )
-        self.display = framebufferio.FramebufferDisplay(matrix, auto_refresh=True)
+        # Publish complete groups explicitly. Replacing root_group during an
+        # active HUB75 scan can expose a partially updated row as a flash.
+        self.display = framebufferio.FramebufferDisplay(matrix, auto_refresh=False)
         self.display.root_group = displayio.Group()
+        self._refresh_misses = 0
         self.label_type = label.Label
-        self.font = terminalio.FONT
+        self.font = bitmap_font.load_font("/font5x7.pcf")
 
     def _label(self, group, text, color, x, y):
         group.append(self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y)))
@@ -283,6 +298,17 @@ class MatrixDisplay:
     def _header_mask(self, group):
         self._mask(group, 0, 0, DISPLAY_WIDTH, 8)
 
+    def _present(self, group):
+        """Publish one fully-built frame to the matrix."""
+        self.display.root_group = group
+        # Pace frame publication through framebufferio. This waits for the
+        # display refresh scheduler rather than swapping a frame mid-cycle.
+        refreshed = self.display.refresh(target_frames_per_second=MATRIX_REFRESH_FPS)
+        if not refreshed:
+            self._refresh_misses += 1
+            if self._refresh_misses % 20 == 0:
+                print("DISPLAY REFRESH DEADLINE MISSED count={}".format(self._refresh_misses))
+
     def show_diagnostic(self, color):
         """Fill the complete physical matrix with one moderate test colour."""
         import displayio
@@ -292,7 +318,7 @@ class MatrixDisplay:
         palette[0] = int(color)
         group = displayio.Group()
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        self.display.root_group = group
+        self._present(group)
         print("DIAGNOSTIC 0x{:06X}".format(int(color)))
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
@@ -401,15 +427,31 @@ class MatrixDisplay:
                 if due:
                     due_x = _right_aligned_x(due, DISPLAY_WIDTH)
                     title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
-                    self._label(group, _fit_text_pixels(title, title_width), 0xFFFFFF, AGENDA_TITLE_X, y)
+                    title_chars = max(1, title_width // 5)
+                    title_x = AGENDA_TITLE_X + agenda_marquee_x(
+                        title,
+                        phase,
+                        visible_chars=title_chars,
+                        font_width=5,
+                        speed=TODOIST_MARQUEE_SPEED,
+                        pause_seconds=TODOIST_MARQUEE_PAUSE_SECONDS,
+                    )
+                    self._label(group, title, 0xFFFFFF, title_x, y)
+                    # Clip the moving title before the fixed due/event label
+                    # is painted, so long text cannot overlap it.
+                    self._mask(
+                        group,
+                        due_x - HEADER_GAP,
+                        y - 3,
+                        DISPLAY_WIDTH - due_x + HEADER_GAP,
+                        AGENDA_ROW_HEIGHT,
+                    )
                 else:
                     self._label(group, title, 0xFFFFFF, agenda_title_marquee_x(title, phase), y)
                 self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)
                 self._label(group, when, 0xFFFFFF, 0, y)
                 if due:
-                    due_progress = row_slide_phase(phase, slot)
-                    due_offset = int((1.0 - due_progress) * DISPLAY_WIDTH)
-                    self._label(group, due, 0xFFFFFF, due_x + due_offset, y)
+                    self._label(group, due, 0xFFFFFF, due_x, y)
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
@@ -441,7 +483,7 @@ class MatrixDisplay:
             text = _clip(empty_state, 30)
             x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
             self._label(group, text, 0xFFFFFF, x, 18)
-            self.display.root_group = group
+            self._present(group)
             return
         kind = screen.get("kind")
         if kind == "rail_combined":
@@ -463,7 +505,7 @@ class MatrixDisplay:
             self._header_weather(group, screen.get("weather"), offset)
         else:
             self._label(group, clock_time, 0xFFAA00, CLOCK_X + offset, 3)
-        self.display.root_group = group
+        self._present(group)
 
 
 class FixtureDisplay:

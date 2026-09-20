@@ -117,7 +117,7 @@ SCREEN_SOURCE = "api"
 SCREEN_API_URL = "https://led.alf-broadcast.co.uk"
 
 POLL_SECONDS = 30
-ANIMATE = True
+ANIMATE = False  # use static pages for maximum HUB75 stability
 FRAME_SECONDS = 0.2
 
 WIFI_SSID = "YOUR_WIFI_NAME"

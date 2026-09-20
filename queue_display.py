@@ -14,7 +14,7 @@ from queue_cycle import (
 
 DISPLAY_WIDTH = 256
 DISPLAY_HEIGHT = 32
-FONT_WIDTH = 6
+FONT_WIDTH = 5
 LEGACY_QUEUE_HOLD_SECONDS = 1.0
 LEGACY_QUEUE_SLIDE_SECONDS = 0.3
 LEGACY_QUEUE_STEP_SECONDS = LEGACY_QUEUE_HOLD_SECONDS + LEGACY_QUEUE_SLIDE_SECONDS
@@ -110,6 +110,7 @@ class QueueAwareDisplay:
             if cover_height:
                 self.base._mask(group, 0, 0, DISPLAY_WIDTH, cover_height)
             self.base._label(group, title, 0xFFAA00, SPLASH_TARGET_X, y)
+            self.base._present(group)
             return
 
         group = displayio.Group()
@@ -118,7 +119,7 @@ class QueueAwareDisplay:
             self.base._label(group, title, 0xFFAA00, x, SPLASH_BASELINE_Y)
         elif _flash_visible(progress):
             self.base._label(group, title, 0xFFFFFF, SPLASH_TARGET_X, SPLASH_BASELINE_Y)
-        self.base.display.root_group = group
+        self.base._present(group)
 
     def _fixture_splash(self, screen, clock_time, mode, progress):
         title = str(screen.get("title") or "QUEUE TIMES")

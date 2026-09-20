@@ -115,8 +115,8 @@ class FormattingTests(unittest.TestCase):
         title = "x" * 40
         self.assertEqual(agenda_title_marquee_x(title, 0), AGENDA_TITLE_X)
         self.assertEqual(agenda_title_marquee_x(title, 1), AGENDA_TITLE_X - 30)
-        self.assertEqual(agenda_title_marquee_x(title, 2), AGENDA_TITLE_X - 60)
-        self.assertEqual(agenda_title_marquee_x(title, 3.25), AGENDA_TITLE_X)
+        self.assertEqual(agenda_title_marquee_x(title, 2), AGENDA_TITLE_X - 50)
+        self.assertEqual(agenda_title_marquee_x(title, 3.25), AGENDA_TITLE_X - 9)
 
     def test_agenda_marquee_keeps_42_characters_static(self):
         self.assertEqual(agenda_marquee_x("x" * 42, 99), 0)
@@ -125,9 +125,9 @@ class FormattingTests(unittest.TestCase):
         text = "x" * 52
         self.assertEqual(agenda_marquee_x(text, 0), 0)
         self.assertEqual(agenda_marquee_x(text, 1), -30)
-        self.assertEqual(agenda_marquee_x(text, 2), -60)
-        self.assertEqual(agenda_marquee_x(text, 3), -60)
-        self.assertEqual(agenda_marquee_x(text, 3.25), 0)
+        self.assertEqual(agenda_marquee_x(text, 2), -50)
+        self.assertEqual(agenda_marquee_x(text, 3), -2)
+        self.assertEqual(agenda_marquee_x(text, 3.25), -9)
 
     def test_calendar_row_hides_all_day_time(self):
         row = calendar_row({"start": "2026-09-14", "all_day": True, "date_text": "14/09", "time_text": "ALL", "title": "Inset day"})
@@ -193,7 +193,7 @@ class FormattingTests(unittest.TestCase):
         service["station_spacing_px"] = 30
         self.assertEqual(
             calling_text(service),
-            "CALLING AT: Wimbledon 12:19     Clapham Junction 12:27",
+            "CALLING AT: Wimbledon 12:19      Clapham Junction 12:27",
         )
 
 
