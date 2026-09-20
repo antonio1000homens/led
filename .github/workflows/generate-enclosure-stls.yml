@@ -19,6 +19,11 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
 
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
       - name: Regenerate affected insert-pilot STLs
         if: github.head_ref == 'docs/heat-set-insert-spec'
         shell: bash
@@ -35,11 +40,6 @@ jobs:
             git commit -m "cad: regenerate STLs for M3 insert pilots"
             git push origin "HEAD:${{ github.head_ref }}"
           fi
-
-      - name: Install OpenSCAD
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y openscad
 
       - name: Regenerate and verify checked-in STLs
         shell: bash
