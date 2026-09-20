@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import copy
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 import os
+from zoneinfo import ZoneInfo
 
 from queue_times import QueueTimesProvider, select_rides
 from runtime_config import (
@@ -38,6 +39,34 @@ def _parse_iso(value):
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
+
+
+def _todoist_event_is_upcoming(event, now, timezone_name):
+    """Revalidate cached Todoist events before publishing them to the display."""
+    if not isinstance(event, dict):
+        return False
+    start = str(event.get("start") or "").strip()
+    if not start:
+        # Preserve compatibility with older/partial cached payloads that cannot
+        # be revalidated. Newly normalized Todoist events always include start.
+        return True
+
+    display_zone = ZoneInfo(timezone_name)
+    local_now = now.astimezone(display_zone)
+
+    if event.get("all_day") or "T" not in start:
+        try:
+            return date.fromisoformat(start[:10]) >= local_now.date()
+        except ValueError:
+            return True
+
+    try:
+        due_at = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if due_at.tzinfo is None:
+        due_at = due_at.replace(tzinfo=display_zone)
+    return due_at.astimezone(display_zone) >= local_now
 
 
 def _env_int(env, name, default, minimum=1):
@@ -361,6 +390,15 @@ class Publisher:
         if config_feeds["calendar"]["enabled"]:
             calendar = feeds.get("calendar") or {}
             data = calendar.get("data")
+            calendar_events = []
+            if data is not None:
+                calendar_events = data.get("events") or []
+                if data.get("source") == "todoist":
+                    calendar_events = [
+                        event
+                        for event in calendar_events
+                        if _todoist_event_is_upcoming(event, now, self.config.calendar_timezone)
+                    ]
             screens.append({
                 "id": "calendar", "kind": "calendar_agenda",
                 "duration_seconds": config_feeds["calendar"]["screen_duration_seconds"],
@@ -368,7 +406,7 @@ class Publisher:
                 "source": data.get("source", "todoist") if data is not None else "unavailable",
                 "stale": bool(calendar.get("stale")) if data is not None else True,
                 "viewport_size": 3, "page_seconds": self.config.calendar_page_seconds,
-                "events": copy.deepcopy((data.get("events") or [])[:self.config.calendar_max_events]) if data is not None else [],
+                "events": copy.deepcopy(calendar_events[:self.config.calendar_max_events]),
             })
         if config_feeds["weather"]["enabled"]:
             weather = feeds.get("weather") or {}
