@@ -172,5 +172,84 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual([row.y for row in row_groups[3:6]], [11, 19, 27])
 
 
+    def test_page_waits_for_longest_marquee_and_settled_pause_before_slide(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            transition_at = display._todoist_page_transition_at(3)
+
+            self.assertGreater(transition_at, screen["page_seconds"])
+            row_groups = [row[0] for row in display._todoist_rows]
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at - 0.1,
+            )
+            self.assertEqual([row.y for row in row_groups[:4]], [11, 19, 27, 64])
+
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at + 0.2,
+            )
+            self.assertEqual([row.y for row in row_groups[:4]], [-1, 7, 15, 23])
+
+    def test_todoist_title_stays_at_end_until_page_transition(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            _, title_group, title, visible_chars = display._todoist_rows[0]
+            scroll_seconds = display._todoist_title_scroll_seconds(title, visible_chars)
+            final_x = display._todoist_title_x(title, scroll_seconds, visible_chars)
+            transition_at = display._todoist_page_transition_at(3)
+
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=scroll_seconds + 0.5,
+            )
+            self.assertEqual(title_group.x, final_x)
+
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at - 0.05,
+            )
+            self.assertEqual(title_group.x, final_x)
+
+    def test_second_page_marquee_restarts_from_initial_position(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            transition_at = display._todoist_page_transition_at(3)
+            second_title_group = display._todoist_rows[3][1]
+
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at + led_display.AGENDA_SLIDE_SECONDS,
+            )
+            self.assertEqual(second_title_group.x, led_display.AGENDA_TITLE_X)
+
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at + led_display.AGENDA_SLIDE_SECONDS + 1.0 / MATRIX_REFRESH_FPS,
+            )
+            self.assertEqual(second_title_group.x, led_display.AGENDA_TITLE_X - 1)
+
+
 if __name__ == "__main__":
     unittest.main()
