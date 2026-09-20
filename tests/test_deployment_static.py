@@ -99,6 +99,15 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
 
+    def test_no_services_page_suppresses_normal_departure_chrome(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        display = (ROOT / "display.py").read_text(encoding="utf-8")
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("if (screen.empty_state) {", simulator)
+        self.assertIn("suppressHeader = true;", simulator)
+        self.assertIn('empty_state = screen.get("empty_state")', display)
+        self.assertIn("No services duration", admin)
+
     def test_admin_bootstraps_access_before_fetching_api(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn('<link rel="icon" href="data:,">', admin)
