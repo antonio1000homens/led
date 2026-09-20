@@ -27,7 +27,7 @@
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels fed by independent screens. Queue-Times parks cycle inside one shared screen; the top-right alternates between the current time and weather.</p>
+    <p>Four 64 × 32 panels. Hardware preview mirrors the MatrixPortal's 5×7 font, 1-bit RGB palette, panel seams and 7 FPS application refresh; switch it off for a clean content view.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
     <p class="credit">Theme park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
     <div class="controls" aria-label="Simulator controls">
@@ -35,15 +35,38 @@
       <button id="previous" type="button">Previous screen</button>
       <button id="next" type="button">Next screen</button>
       <button id="stale" type="button" aria-pressed="false">Force stale</button>
+      <button id="hardware-preview" type="button" aria-pressed="true">LED hardware</button>
       <span class="status" id="status"></span>
     </div>
   </main>
   <script>
     const canvas = document.getElementById('board');
-    const context = canvas.getContext('2d');
+    const displayContext = canvas.getContext('2d');
+    displayContext.imageSmoothingEnabled = false;
+
+    // Keep the existing 4x layout coordinate system for the content renderer,
+    // then sample it through a 256x32 logical framebuffer before presenting it.
+    // This makes one logical framebuffer pixel equal one physical LED.
+    const renderCanvas = document.createElement('canvas');
+    renderCanvas.width = 1024;
+    renderCanvas.height = 128;
+    const context = renderCanvas.getContext('2d');
     context.imageSmoothingEnabled = false;
+
+    const logicalCanvas = document.createElement('canvas');
+    logicalCanvas.width = 256;
+    logicalCanvas.height = 32;
+    const logicalContext = logicalCanvas.getContext('2d', { willReadFrequently: true });
+    logicalContext.imageSmoothingEnabled = false;
+
+    const ledBackground = document.createElement('canvas');
+    ledBackground.width = 1024;
+    ledBackground.height = 128;
+    const ledBackgroundContext = ledBackground.getContext('2d');
+
     const pauseButton = document.getElementById('pause');
     const staleButton = document.getElementById('stale');
+    const hardwarePreviewButton = document.getElementById('hardware-preview');
     const status = document.getElementById('status');
     const clockFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const londonDateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -59,6 +82,101 @@
     let screenDataKey = '';
     let pausedAt = 0;
     let pauseStarted = 0;
+    let hardwarePreview = true;
+    let lastHardwareFrame = -Infinity;
+
+    const MATRIX_REFRESH_FPS = 7;
+    const MATRIX_FRAME_MS = 1000 / MATRIX_REFRESH_FPS;
+    const FONT_FIRST_CODEPOINT = 32;
+    const FONT_PIXEL_SCALE = 4;
+    const FONT_CELL_WIDTH = 5 * FONT_PIXEL_SCALE;
+    const TODOIST_MARQUEE_SPEED = 7 * FONT_PIXEL_SCALE;
+    const FONT_5X7 = [[0,0,0,0,0,0,0],[4,4,4,4,0,4,0],[10,10,10,0,0,0,0],[0,10,31,10,31,10,0],[0,14,20,14,5,14,0],[16,18,4,8,18,2,0],[0,8,20,8,20,10,0],[4,4,4,0,0,0,0],[4,8,8,8,8,4,0],[8,4,4,4,4,8,0],[0,10,4,14,4,10,0],[0,4,4,31,4,4,0],[0,0,0,0,6,4,8],[0,0,0,30,0,0,0],[0,0,0,0,12,12,0],[0,2,4,8,16,0,0],[4,10,10,10,10,4,0],[4,12,4,4,4,14,0],[12,18,2,4,8,30,0],[30,2,12,2,18,12,0],[4,12,20,30,4,4,0],[30,16,28,2,18,12,0],[12,16,28,18,18,12,0],[30,2,4,4,8,8,0],[12,18,12,18,18,12,0],[12,18,18,14,2,12,0],[0,12,12,0,12,12,0],[0,12,12,0,12,8,16],[0,2,4,8,4,2,0],[0,0,30,0,30,0,0],[0,8,4,2,4,8,0],[4,10,2,4,0,4,0],[12,18,22,22,16,12,0],[12,18,18,30,18,18,0],[28,18,28,18,18,28,0],[12,18,16,16,18,12,0],[28,18,18,18,18,28,0],[30,16,28,16,16,30,0],[30,16,28,16,16,16,0],[12,18,16,22,18,14,0],[18,18,30,18,18,18,0],[14,4,4,4,4,14,0],[2,2,2,2,18,12,0],[18,20,24,24,20,18,0],[16,16,16,16,16,30,0],[18,30,30,18,18,18,0],[18,26,26,22,22,18,0],[12,18,18,18,18,12,0],[28,18,18,28,16,16,0],[12,18,18,18,26,12,2],[28,18,18,28,20,18,0],[12,18,8,4,18,12,0],[14,4,4,4,4,4,0],[18,18,18,18,18,12,0],[18,18,18,18,12,12,0],[18,18,18,30,30,18,0],[18,18,12,12,18,18,0],[10,10,10,4,4,4,0],[30,2,4,8,16,30,0],[14,8,8,8,8,14,0],[0,16,8,4,2,0,0],[14,2,2,2,2,14,0],[4,10,0,0,0,0,0],[0,0,0,0,0,30,0],[8,4,0,0,0,0,0],[0,0,14,18,22,10,0],[16,16,28,18,18,28,0],[0,0,12,16,16,12,0],[2,2,14,18,18,14,0],[0,0,12,22,24,12,0],[4,10,8,28,8,8,0],[0,0,14,18,12,16,14],[16,16,28,18,18,18,0],[4,0,12,4,4,14,0],[2,0,2,2,2,10,4],[16,16,20,24,20,18,0],[12,4,4,4,4,14,0],[0,0,20,30,18,18,0],[0,0,28,18,18,18,0],[0,0,12,18,18,12,0],[0,0,28,18,18,28,16],[0,0,14,18,18,14,2],[0,0,28,18,16,16,0],[0,0,14,24,6,28,0],[8,8,28,8,8,6,0],[0,0,18,18,18,14,0],[0,0,10,10,10,4,0],[0,0,18,18,30,30,0],[0,0,18,12,12,18,0],[0,0,18,18,10,4,8],[0,0,30,4,8,30,0],[2,4,12,4,4,2,0],[4,4,4,4,4,4,0],[8,4,6,4,4,8,0],[10,20,0,0,0,0,0]];
+
+    function measureLedText(value) {
+      return { width: String(value ?? '').length * FONT_CELL_WIDTH };
+    }
+
+    function drawLedText(value, x, y) {
+      const text = String(value ?? '');
+      const color = context.fillStyle;
+      const startX = Math.round(Number(x || 0) / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE;
+      const startY = Math.round(Number(y || 0) / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE;
+      for (let index = 0; index < text.length; index += 1) {
+        const code = text.charCodeAt(index);
+        const rows = FONT_5X7[code - FONT_FIRST_CODEPOINT] || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
+        const charX = startX + index * FONT_CELL_WIDTH;
+        context.fillStyle = color;
+        rows.forEach((rowBits, row) => {
+          for (let column = 0; column < 5; column += 1) {
+            if (rowBits & (1 << (4 - column))) {
+              context.fillRect(
+                charX + column * FONT_PIXEL_SCALE,
+                startY + row * FONT_PIXEL_SCALE,
+                FONT_PIXEL_SCALE,
+                FONT_PIXEL_SCALE
+              );
+            }
+          }
+        });
+      }
+    }
+
+    function quantizeRgb(red, green, blue) {
+      return [
+        red >= 128 ? 255 : 0,
+        green >= 128 ? 255 : 0,
+        blue >= 128 ? 255 : 0
+      ];
+    }
+
+    function buildLedBackground() {
+      ledBackgroundContext.fillStyle = '#000000';
+      ledBackgroundContext.fillRect(0, 0, ledBackground.width, ledBackground.height);
+      ledBackgroundContext.fillStyle = '#07090b';
+      for (let y = 0; y < 32; y += 1) {
+        for (let x = 0; x < 256; x += 1) {
+          ledBackgroundContext.fillRect(x * 4, y * 4, 3, 3);
+        }
+      }
+      // The real display is four 64x32 modules. Emphasise the three joins
+      // without hiding the LED columns on either side.
+      ledBackgroundContext.fillStyle = '#010203';
+      [64, 128, 192].forEach(column => ledBackgroundContext.fillRect(column * 4 - 1, 0, 2, 128));
+    }
+
+    function presentPreview() {
+      displayContext.globalAlpha = 1;
+      displayContext.shadowBlur = 0;
+      displayContext.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!hardwarePreview) {
+        displayContext.drawImage(renderCanvas, 0, 0);
+        return;
+      }
+
+      logicalContext.clearRect(0, 0, 256, 32);
+      logicalContext.drawImage(renderCanvas, 0, 0, 1024, 128, 0, 0, 256, 32);
+      const pixels = logicalContext.getImageData(0, 0, 256, 32).data;
+
+      displayContext.drawImage(ledBackground, 0, 0);
+      for (let y = 0; y < 32; y += 1) {
+        for (let x = 0; x < 256; x += 1) {
+          const offset = (y * 256 + x) * 4;
+          const [red, green, blue] = quantizeRgb(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+          if (!(red || green || blue)) continue;
+          const color = `rgb(${red},${green},${blue})`;
+          displayContext.fillStyle = color;
+          displayContext.globalAlpha = 0.18;
+          displayContext.fillRect(x * 4, y * 4, 4, 4);
+          displayContext.globalAlpha = 1;
+          displayContext.fillRect(x * 4, y * 4, 3, 3);
+        }
+      }
+      displayContext.globalAlpha = 1;
+    }
+
+    buildLedBackground();
 
     const QUEUE_VISIBLE_ROWS = 3;
     const QUEUE_ROW_HEIGHT = 30;
@@ -147,7 +265,7 @@
     function agendaTitleX(title, phase, startX) {
       const value = String(title || '');
       const availableWidth = Math.max(0, 1024 - startX);
-      const titleWidth = context.measureText(value).width;
+      const titleWidth = measureLedText(value).width;
       const overflow = Math.max(0, titleWidth - availableWidth);
       if (overflow <= 0) return startX;
       const scrollSeconds = overflow / AGENDA_MARQUEE_SPEED;
@@ -287,8 +405,8 @@
       if (phase < RAIL_MARQUEE_DELAY_SECONDS) return null;
       const text = String(value || '');
       const stations = text.startsWith(CALLING_LABEL) ? text.slice(CALLING_LABEL.length) : text;
-      const prefixWidth = context.measureText(CALLING_LABEL).width;
-      const width = context.measureText(stations).width;
+      const prefixWidth = measureLedText(CALLING_LABEL).width;
+      const width = measureLedText(stations).width;
       const availableWidth = Math.max(1, 1024 - prefixWidth);
       if (width <= availableWidth) return { stations, offset: 0, width, prefixWidth };
       const movingElapsed = Math.max(0, phase - RAIL_MARQUEE_DELAY_SECONDS - CALLING_MARQUEE_PAUSE_SECONDS);
@@ -298,17 +416,17 @@
     function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0, gap = RAIL_MARQUEE_GAP) {
       if (phase < delaySeconds) return;
       const text = String(value || '');
-      const width = context.measureText(text).width;
+      const width = measureLedText(text).width;
       context.fillStyle = color;
-      if (width <= 1024) { context.fillText(text, 0, y); return; }
+      if (width <= 1024) { drawLedText(text, 0, y); return; }
       const offset = ((phase - delaySeconds) * speed) % (width + gap);
-      context.fillText(text, -offset, y);
-      context.fillText(text, width + gap - offset, y);
+      drawLedText(text, -offset, y);
+      drawLedText(text, width + gap - offset, y);
     }
     function stationSeparator(service) {
       const logicalPixels = boundedNumber(service.station_spacing_px, 28, 8, 80);
       const renderedPixels = logicalPixels * 4;
-      const spaceWidth = Math.max(1, context.measureText(' ').width);
+      const spaceWidth = Math.max(1, measureLedText(' ').width);
       return ' '.repeat(Math.max(1, Math.round(renderedPixels / spaceWidth)));
     }
     function callingText(service) {
@@ -349,7 +467,7 @@
     }
     function clockLayout(now = new Date()) {
       const text = clockFormatter.format(now);
-      const width = context.measureText(text).width;
+      const width = measureLedText(text).width;
       return { text, width, x: 1016 - width };
     }
     function temperatureText(weather) {
@@ -375,13 +493,13 @@
     function drawClock(layout, offset = 0) {
       const current = layout || clockLayout();
       context.fillStyle = '#ffaa00';
-      context.fillText(current.text, current.x + offset, 4);
+      drawLedText(current.text, current.x + offset, 4);
     }
     function weatherGroupLayout(weather, offset = 0) {
       if (!weather || typeof weather !== 'object') return null;
       const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
       const text = temperatureText(weather) || '--°C';
-      const groupWidth = 28 + 4 + context.measureText(text).width;
+      const groupWidth = 28 + 4 + measureLedText(text).width;
       const groupX = Math.max(0, 1024 - groupWidth) + offset;
       return {
         iconName,
@@ -398,7 +516,7 @@
       context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
       layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, y * 4, 4, 4); }));
       context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
-      context.fillText(layout.text, layout.textX, 4);
+      drawLedText(layout.text, layout.textX, 4);
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
@@ -406,45 +524,45 @@
       const text = calendarDueText(events[0], now);
       if (!text) return;
       const rightEdge = stale ? 800 : clockX - 16;
-      const x = Math.max(0, rightEdge - context.measureText(text).width);
+      const x = Math.max(0, rightEdge - measureLedText(text).width);
       context.fillStyle = '#ffffff';
-      context.fillText(text, x, 4);
+      drawLedText(text, x, 4);
     }
     function fitLeftText(value, maxWidth) {
       const text = String(value || '');
       if (maxWidth <= 0) return '';
       let end = text.length;
-      while (end > 0 && context.measureText(text.slice(0, end)).width > maxWidth) end -= 1;
+      while (end > 0 && measureLedText(text.slice(0, end)).width > maxWidth) end -= 1;
       return text.slice(0, end);
     }
     function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1) {
       const columns = railColumns(service, ordinal);
-      const statusX = columns.status ? Math.max(0, rightEdge - context.measureText(columns.status).width) : rightEdge;
-      const platformWidth = context.measureText(columns.platform).width;
+      const statusX = columns.status ? Math.max(0, rightEdge - measureLedText(columns.status).width) : rightEdge;
+      const platformWidth = measureLedText(columns.platform).width;
       let platformX = RAIL_PLATFORM_X;
       if (columns.status && statusX < platformX + platformWidth + RAIL_COLUMN_GAP) {
         platformX = Math.max(RAIL_DESTINATION_X, statusX - platformWidth - RAIL_COLUMN_GAP);
       }
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;
-      context.fillText(columns.ordinal, RAIL_ORDINAL_X + xOffset, y);
-      context.fillText(columns.time, RAIL_TIME_X + xOffset, y);
-      context.fillText(fitLeftText(columns.destination, destinationWidth), RAIL_DESTINATION_X + xOffset, y);
-      context.fillText(columns.platform, platformX + xOffset, y);
-      if (columns.status) context.fillText(columns.status, statusX + xOffset, y);
+      drawLedText(columns.ordinal, RAIL_ORDINAL_X + xOffset, y);
+      drawLedText(columns.time, RAIL_TIME_X + xOffset, y);
+      drawLedText(fitLeftText(columns.destination, destinationWidth), RAIL_DESTINATION_X + xOffset, y);
+      drawLedText(columns.platform, platformX + xOffset, y);
+      if (columns.status) drawLedText(columns.status, statusX + xOffset, y);
     }
     function drawQueueRide(ride, y, rightEdge) {
       const state = queueState(ride);
-      const stateX = Math.max(0, rightEdge - context.measureText(state).width);
+      const stateX = Math.max(0, rightEdge - measureLedText(state).width);
       const leftMax = Math.max(0, stateX - 16);
       context.fillStyle = ride.open ? '#ffffff' : '#ff3300';
-      context.fillText(fitLeftText(ride.name, leftMax), 0, y);
-      context.fillText(state, stateX, y);
+      drawLedText(fitLeftText(ride.name, leftMax), 0, y);
+      drawLedText(state, stateX, y);
     }
     function drawQueueRows(rides, phase, screen) {
       if (!rides.length) {
         context.fillStyle = '#ffffff';
-        context.fillText('Queue data unavailable', 0, 34);
+        drawLedText('Queue data unavailable', 0, 34);
         return;
       }
       const queueScroll = queueScrollState(phase, rides.length, screen.queue_scroll_pause_seconds, screen.queue_scroll_speed);
@@ -459,22 +577,26 @@
       context.restore();
     }
     function draw(now) {
+      if (hardwarePreview && now - lastHardwareFrame < MATRIX_FRAME_MS) {
+        requestAnimationFrame(draw);
+        return;
+      }
+      if (hardwarePreview) lastHardwareFrame = now;
       const elapsed = paused ? pausedAt : now - pauseStarted;
       const active = screenAt(elapsed);
       const screen = active.screen;
-      const phase = active.phase;
+      const rawPhase = active.phase;
+      const phase = hardwarePreview && screen.source !== 'todoist' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
       context.fillStyle = '#000';
       context.fillRect(0, 0, 1024, 128);
-      context.font = '24px monospace';
-      context.textBaseline = 'top';
       context.fillStyle = '#ffaa00';
       if (screen.empty_state) {
         const message = String(screen.empty_state);
         context.fillStyle = '#ffffff';
-        context.fillText(message, Math.max(0, (1024 - context.measureText(message).width) / 2), 52);
+        drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 52);
         suppressHeader = true;
         status.dataset.detail = message;
       } else if (screen.kind === 'rail_combined') {
@@ -488,19 +610,19 @@
         const calling = callingMarqueeState(callingText(next), phase, stationMarqueeSpeed(screen), stationMarqueeGap());
         if (calling) {
           context.fillStyle = '#ffaa00';
-          context.fillText(CALLING_LABEL, 0, 34);
+          drawLedText(CALLING_LABEL, 0, 34);
           context.save();
           context.beginPath();
           context.rect(calling.prefixWidth, 30, 1024 - calling.prefixWidth, 30);
           context.clip();
-          context.fillText(calling.stations, calling.prefixWidth + calling.offset, 34);
-          context.fillText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), 34);
+          drawLedText(calling.stations, calling.prefixWidth + calling.offset, 34);
+          drawLedText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), 34);
           context.restore();
         }
         const upcomingServices = railServices.slice(1);
         if (!upcomingServices.length) {
           context.fillStyle = '#ffffff';
-          context.fillText('No upcoming services', 0, 64);
+          drawLedText('No upcoming services', 0, 64);
         }
         const scroll = departureScrollState(phase, upcomingServices.length, screen.upcoming_train_pause_seconds);
         context.save();
@@ -526,7 +648,7 @@
           }
         }
         context.restore();
-        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', 820, 4); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
         const queueCycle = queueCycleState(screen, phase);
@@ -537,14 +659,14 @@
         suppressHeader = splashMode;
 
         if (queueCycle.mode === 'splash_in') {
-          const width = context.measureText(title).width;
+          const width = measureLedText(title).width;
           const x = -width + (48 + width) * queueCycle.progress;
           context.fillStyle = '#ffaa00';
-          context.fillText(title, x, 52);
+          drawLedText(title, x, 52);
         } else if (queueCycle.mode === 'splash_flash') {
           if (flashVisible(queueCycle.progress)) {
             context.fillStyle = '#ffffff';
-            context.fillText(title, 48, 52);
+            drawLedText(title, 48, 52);
           }
         } else if (queueCycle.mode === 'splash_up') {
           drawQueueRows(rides, 0, screen);
@@ -555,21 +677,21 @@
             context.fillRect(0, 0, 1024, coverHeight);
           }
           context.fillStyle = '#ffaa00';
-          context.fillText(title, 48, y);
+          drawLedText(title, 48, y);
         } else {
           drawQueueRows(rides, queueCycle.dataPhase, screen);
           if (queueCycle.mode !== 'flash' || flashVisible(queueCycle.progress)) {
             context.fillStyle = queueCycle.mode === 'flash' ? '#ffffff' : '#ffaa00';
-            context.fillText(title, 0, 4);
+            drawLedText(title, 0, 4);
           }
-          if (park.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
+          if (park.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', 820, 4); }
         }
         status.dataset.detail = `${title} queues · park ${queueCycle.parkIndex + 1} of ${Math.max(1, (screen.parks || [park]).length)}`;
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {
           context.fillStyle = '#ffffff';
-          context.fillText('No upcoming events', 0, 34);
+          drawLedText('No upcoming events', 0, 34);
         } else {
           const agenda = agendaScrollState(screen, phase, events.length);
           const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible * 2 : agenda.visible);
@@ -582,34 +704,41 @@
             const y = 34 + slot * 30 - yOffset;
             const todoist = screen.source === 'todoist';
             const due = todoist ? todoistDueLabel(event, wallClock) : '';
-            const dueWidth = due ? context.measureText(due).width : 0;
+            const dueWidth = due ? measureLedText(due).width : 0;
             const dueX = 1024 - dueWidth;
-            const titleStart = context.measureText(parts.when + ' ').width;
+            const titleStart = measureLedText(parts.when + ' ').width;
             context.fillStyle = '#ffffff';
             context.save();
             context.beginPath();
             if (todoist) {
-              context.rect(titleStart, 32, Math.max(0, dueX - titleStart - 16), 96);
+              const availableWidth = Math.max(0, dueX - titleStart - 16);
+              const overflow = Math.max(0, measureLedText(parts.title).width - availableWidth);
+              const scrollSeconds = overflow > 0 ? overflow / TODOIST_MARQUEE_SPEED : 0;
+              const cycleSeconds = scrollSeconds + AGENDA_MARQUEE_PAUSE_SECONDS;
+              const withinCycle = cycleSeconds > 0 ? Math.max(0, Number(phase) || 0) % cycleSeconds : 0;
+              const titleOffset = overflow <= 0
+                ? 0
+                : withinCycle >= scrollSeconds
+                  ? overflow
+                  : Math.min(overflow, Math.floor(withinCycle * TODOIST_MARQUEE_SPEED / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE);
+              context.rect(titleStart, 32, availableWidth, 96);
               context.clip();
-              context.fillText(parts.title, titleStart, y);
+              drawLedText(parts.title, titleStart - titleOffset, y);
             } else {
               context.rect(titleStart, 32, 1024 - titleStart, 96);
               context.clip();
-              context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);
+              drawLedText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);
             }
             context.restore();
-            context.fillText(parts.when, 0, y);
-            if (due) {
-              const progress = Math.max(0, Math.min(1, (phase - slot) / 1.2));
-              context.fillText(due, dueX + (1 - progress) * 1024, y);
-            }
+            drawLedText(parts.when, 0, y);
+            if (due) drawLedText(due, dueX, y);
           }
           context.restore();
         }
         context.fillStyle = '#ffaa00';
-        context.fillText(String(screen.title || 'UPCOMING').slice(0, 30), 0, 4);
+        drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, 4);
         drawCalendarDue(events, wallClock, Boolean(screen.stale || forceStale), clock.x, screen.source);
-        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; context.fillText('STALE', 820, 4); }
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', 820, 4); }
         status.dataset.detail = 'Upcoming events';
       }
       context.strokeStyle = '#26303c';
@@ -620,8 +749,10 @@
         if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);
         else drawClock(clock, header.offset);
       }
+      presentPreview();
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-      status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + updated + (feedError ? ' · feed error' : '');
+      const previewMode = hardwarePreview ? ' · LED 7 FPS' : ' · clean';
+      status.textContent = (status.dataset.detail || screen.title) + ' · screen ' + (active.index + 1) + ' of ' + Math.max(1, screens.length) + (paused ? ' · paused' : ' · running') + ' · ' + source + previewMode + updated + (feedError ? ' · feed error' : '');
       requestAnimationFrame(draw);
     }
     pauseButton.addEventListener('click', () => {
@@ -634,6 +765,11 @@
     staleButton.addEventListener('click', () => {
       forceStale = !forceStale;
       staleButton.setAttribute('aria-pressed', String(forceStale));
+    });
+    hardwarePreviewButton.addEventListener('click', () => {
+      hardwarePreview = !hardwarePreview;
+      hardwarePreviewButton.setAttribute('aria-pressed', String(hardwarePreview));
+      lastHardwareFrame = -Infinity;
     });
     function changeScreen(direction) {
       screenOffset += direction;
