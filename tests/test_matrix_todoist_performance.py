@@ -161,14 +161,25 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
             row_groups = [row[0] for row in display._todoist_rows]
             assignments = display.display.root_assignments
+            transition_at = display._todoist_page_transition_at(3)
             self.assertEqual([row.y for row in row_groups[:4]], [11, 19, 27, 64])
 
-            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=5.2)
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at + 0.2,
+            )
             self.assertEqual(display.display.root_assignments, assignments)
             self.assertEqual([row[0] for row in display._todoist_rows], row_groups)
             self.assertEqual([row.y for row in row_groups[:4]], [-1, 7, 15, 23])
 
-            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=5.5)
+            display.show(
+                screen,
+                clock_time="19:40",
+                clock_date="2026-09-20",
+                phase=transition_at + led_display.AGENDA_SLIDE_SECONDS,
+            )
             self.assertEqual([row.y for row in row_groups[3:6]], [11, 19, 27])
 
 
