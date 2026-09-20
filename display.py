@@ -442,7 +442,7 @@ class MatrixDisplay:
             self._label(group, "No upcoming events", 0xFFFFFF, 0, AGENDA_FIRST_Y)
         else:
             row_count = min(len(events) - start, visible * 2 if progress > 0 else visible)
-            y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
+            y_offset = int(progress * visible * AGENDA_ROW_HEIGHT + 1e-9)
             for slot in range(max(0, row_count)):
                 event_index = start + slot
                 if event_index >= len(events):
@@ -607,7 +607,10 @@ class MatrixDisplay:
             phase = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             phase = 0.0
-        offset = min(overflow, int(phase * max(1.0, float(TODOIST_MARQUEE_SPEED))))
+        offset = min(
+            overflow,
+            int(phase * max(1.0, float(TODOIST_MARQUEE_SPEED)) + 1e-9),
+        )
         return AGENDA_TITLE_X - offset
 
     def _update_todoist_scene(self, screen, clock_time, phase):
@@ -629,7 +632,7 @@ class MatrixDisplay:
             transition_at = self._todoist_page_transition_at(visible)
             if phase > transition_at:
                 slide_elapsed = phase - transition_at
-                if slide_elapsed < AGENDA_SLIDE_SECONDS:
+                if slide_elapsed + 1e-9 < AGENDA_SLIDE_SECONDS:
                     progress = min(1.0, slide_elapsed / AGENDA_SLIDE_SECONDS)
                     # During the slide, page 1 remains fully scrolled while
                     # page 2 enters at its initial, unscrolled title position.
