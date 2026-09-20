@@ -442,7 +442,7 @@ class MatrixDisplay:
             self._label(group, "No upcoming events", 0xFFFFFF, 0, AGENDA_FIRST_Y)
         else:
             row_count = min(len(events) - start, visible * 2 if progress > 0 else visible)
-            y_offset = int(progress * visible * AGENDA_ROW_HEIGHT + 1e-9)
+            y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
             for slot in range(max(0, row_count)):
                 event_index = start + slot
                 if event_index >= len(events):
@@ -641,7 +641,7 @@ class MatrixDisplay:
                     start = visible
                     page_phase = max(0.0, slide_elapsed - AGENDA_SLIDE_SECONDS)
 
-        y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
+        y_offset = int(progress * visible * AGENDA_ROW_HEIGHT + 1e-9)
 
         for index, row in enumerate(self._todoist_rows):
             row_group, title_group, title, visible_chars = row
