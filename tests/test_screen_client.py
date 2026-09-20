@@ -74,6 +74,22 @@ class RotationTests(unittest.TestCase):
         self.assertEqual(screen["revision"], 2)
         self.assertEqual(phase, 2)
 
+    def test_next_advances_immediately_and_restarts_duration(self):
+        rotation = ScreenRotation()
+        rotation.update(
+            [
+                {"id": "rail", "duration_seconds": 8},
+                {"id": "queues", "duration_seconds": 8},
+            ],
+            0,
+        )
+        rotation.next(3)
+        screen, phase = rotation.current(3)
+        self.assertEqual(screen["id"], "queues")
+        self.assertEqual(phase, 0)
+        rotation.next(4)
+        self.assertEqual(rotation.current(4)[0]["id"], "rail")
+
 
 class FakeResponse:
     def __init__(self, payload):
@@ -88,6 +104,15 @@ class FakeResponse:
 
     def close(self):
         self.closed = True
+
+
+class CircuitPythonResponse(FakeResponse):
+    def __init__(self, payload, status_code=200):
+        super().__init__(payload)
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        raise AssertionError("CircuitPython response should use status_code")
 
 
 class FakeSession:
@@ -111,6 +136,26 @@ class ClientTests(unittest.TestCase):
         payload = ScreenClient(Settings, session=session).fetch()
         self.assertEqual(payload["screens"], [])
         self.assertEqual(session.urls, ["http://led-backend:8000/api/screens"])
+        self.assertTrue(response.closed)
+
+    def test_supports_circuitpython_response_status_code(self):
+        response = CircuitPythonResponse({"screens": []})
+
+        class Settings:
+            SCREEN_API_URL = "https://led.example"
+
+        payload = ScreenClient(Settings, session=FakeSession(response)).fetch()
+        self.assertEqual(payload["screens"], [])
+        self.assertTrue(response.closed)
+
+    def test_rejects_circuitpython_http_error(self):
+        response = CircuitPythonResponse({"error": "no"}, status_code=503)
+
+        class Settings:
+            SCREEN_API_URL = "https://led.example"
+
+        with self.assertRaises(ValueError):
+            ScreenClient(Settings, session=FakeSession(response)).fetch()
         self.assertTrue(response.closed)
 
     def test_rejects_invalid_payload(self):

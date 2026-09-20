@@ -16,6 +16,7 @@ if local:
 
 from queue_display import create
 from fixtures import animated_services
+from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
 
 
@@ -59,12 +60,32 @@ display = create(settings)
 rotation = ScreenRotation()
 clock = ClockState()
 client = ScreenClient(settings) if settings.SCREEN_SOURCE == "api" else None
+buttons = None
+if settings.DISPLAY_BACKEND == "matrix":
+    from button_control import MatrixButtons
+
+    buttons = MatrixButtons()
 next_fetch = 0
 transport_stale = False
 fixture_clock_synced = False
+runtime_mode = RuntimeMode()
+rendered_diagnostic_index = None
 
 while True:
     now = time.monotonic()
+    for event in buttons.poll(now) if buttons is not None else ():
+        if runtime_mode.handle(event, rotation, now):
+            rendered_diagnostic_index = None
+
+    if runtime_mode.mode == "diagnostic":
+        if rendered_diagnostic_index != runtime_mode.diagnostic_index:
+            name, color = runtime_mode.diagnostic()
+            print("DIAGNOSTIC", name)
+            display.show_diagnostic(color)
+            rendered_diagnostic_index = runtime_mode.diagnostic_index
+        time.sleep(settings.FRAME_SECONDS)
+        continue
+
     should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
     if should_fetch:
         try:

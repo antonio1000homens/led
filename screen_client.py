@@ -184,6 +184,14 @@ class ScreenRotation:
             self.started_at += duration
             self.index = (self.index + 1) % len(self.screens)
 
+    def next(self, now):
+        """Move immediately to the next screen and restart its duration."""
+        if not self.screens:
+            return
+        self.current(now)
+        self.index = (self.index + 1) % len(self.screens)
+        self.started_at = now
+
 
 class ScreenClient:
     """Fetch `/api/screens` from the LAN backend using CircuitPython Wi-Fi."""
@@ -197,18 +205,34 @@ class ScreenClient:
         if not self._managed_session:
             return
 
+        import time
+        import rtc
         import wifi
 
         if not wifi.radio.connected:
             wifi.radio.connect(self.settings.WIFI_SSID, self.settings.WIFI_PASSWORD)
 
         if self.session is None:
-            import ssl
+            import adafruit_connection_manager
+            import adafruit_ntp
             import adafruit_requests
-            import socketpool
 
-            pool = socketpool.SocketPool(wifi.radio)
-            self.session = adafruit_requests.Session(pool, ssl.create_default_context())
+            pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
+            # ESP32-S3 RTC time is lost on power removal. Set it before TLS
+            # certificate validation, otherwise HTTPS fails with an mbedTLS
+            # certificate-time error on a freshly powered board.
+            if time.localtime().tm_year < 2022:
+                print("Setting system time from NTP")
+                ntp = adafruit_ntp.NTP(pool, tz_offset=0, cache_seconds=3600)
+                rtc.RTC().datetime = ntp.datetime
+            ssl_context = adafruit_connection_manager.get_radio_ssl_context(wifi.radio)
+            try:
+                with open("/gtsr4.pem", "r") as certificate:
+                    ssl_context.load_verify_locations(cadata=certificate.read())
+                print("Loaded GTS Root R4 certificate")
+            except (AttributeError, OSError, TypeError) as error:
+                print("GTS Root R4 certificate unavailable:", error)
+            self.session = adafruit_requests.Session(pool, ssl_context)
 
     def fetch(self):
         self._ensure_session()
@@ -218,7 +242,14 @@ class ScreenClient:
         response = None
         try:
             response = self.session.get(base + "/api/screens")
-            response.raise_for_status()
+            status_code = getattr(response, "status_code", None)
+            if status_code is not None:
+                if status_code < 200 or status_code >= 300:
+                    raise ValueError("Screen API returned HTTP {}".format(status_code))
+            else:
+                # Keep compatibility with the CPython test double and
+                # requests-like sessions that expose raise_for_status().
+                response.raise_for_status()
             payload = response.json()
             if not isinstance(payload, dict) or not isinstance(payload.get("screens"), list):
                 raise ValueError("Invalid screen API response")

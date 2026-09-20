@@ -91,7 +91,10 @@ def _queue_parts(ride):
 
 def _queue_row(ride):
     name, state = _queue_parts(ride)
-    return (_clip(name, 24).ljust(24) + state.rjust(8))[:32]
+    name = _clip(name, 24)
+    name = name + (" " * max(0, 24 - len(name)))
+    state = (" " * max(0, 8 - len(state))) + state
+    return (name + state)[-32:]
 
 
 def _weather_text(weather):
@@ -279,6 +282,18 @@ class MatrixDisplay:
 
     def _header_mask(self, group):
         self._mask(group, 0, 0, DISPLAY_WIDTH, 8)
+
+    def show_diagnostic(self, color):
+        """Fill the complete physical matrix with one moderate test colour."""
+        import displayio
+
+        bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 1)
+        palette = displayio.Palette(1)
+        palette[0] = int(color)
+        group = displayio.Group()
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+        self.display.root_group = group
+        print("DIAGNOSTIC 0x{:06X}".format(int(color)))
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
@@ -689,6 +704,13 @@ class FixtureDisplay:
             print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))
         if screen.get("stale"):
             print("STALE")
+
+    def show_diagnostic(self, color):
+        """Keep fixture mode observable when the hardware path is unavailable."""
+        if self.pixels is not None:
+            self.pixels.fill(_rgb_tuple(int(color)))
+            self.pixels.show()
+        print("DIAGNOSTIC 0x{:06X}".format(int(color)))
 
 
 def create(settings):

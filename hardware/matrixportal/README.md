@@ -104,3 +104,85 @@ addr_pins=board.MTX_ADDRESS[:4],
 If a panel displays repeated rows, shifted rows, wrong colours, or no image
 while the serial test is running, check the panel model/scan type and HUB75
 IN/OUT orientation before changing the application renderer.
+
+## Install the production application
+
+After the four-panel smoke test works, replace the smoke-test `code.py` with
+the real application. Put this uncommitted `settings_local.py` on the root of
+the `CIRCUITPY` drive:
+
+```python
+DISPLAY_BACKEND = "matrix"
+SCREEN_SOURCE = "api"
+SCREEN_API_URL = "https://led.alf-broadcast.co.uk"
+
+POLL_SECONDS = 30
+ANIMATE = True
+FRAME_SECONDS = 0.2
+
+WIFI_SSID = "YOUR_WIFI_NAME"
+WIFI_PASSWORD = "YOUR_WIFI_PASSWORD"
+```
+
+Keep Wi-Fi credentials out of `settings.py` and out of Git. The application
+uses `wifi.radio.connect(...)` through `ScreenClient` and reads production
+screen data from `/api/screens`.
+
+From the repository root, copy the application and its CircuitPython modules:
+
+```sh
+cp code.py settings.py queue_display.py queue_cycle.py display.py \
+   formatting.py fixtures.py screen_client.py button_control.py matrix_runtime.py \
+   gtsr4.pem /Volumes/CIRCUITPY/
+cp settings_local.py /Volumes/CIRCUITPY/
+```
+
+The current runtime dependencies are listed in `requirements.txt`. Install
+them into a temporary macOS environment and target the board:
+
+```sh
+python3 -m venv .venv-circuitpy
+source .venv-circuitpy/bin/activate
+pip install circup
+circup install -r requirements.txt
+```
+
+`gtsr4.pem` is a public Google Trust Services root certificate required by the
+current `led.alf-broadcast.co.uk` certificate chain on this CircuitPython
+firmware. Keep it on `CIRCUITPY`; it contains no project secret.
+
+The production application starts in normal mode. Press **UP** to toggle
+diagnostic mode. In diagnostic mode, **DOWN** cycles moderate-brightness
+full-panel red, green, blue, white, and black. Press **UP** again to return to
+the application. In normal mode, **DOWN** immediately advances to the next
+screen and restarts its display duration. A reset always returns to normal
+mode.
+
+## Serial diagnostics on macOS
+
+With the board connected over USB-C, find its CircuitPython serial device:
+
+```sh
+ls /dev/cu.usbmodem*
+```
+
+Connect at 115200 baud:
+
+```sh
+screen /dev/cu.usbmodemXXXX 115200
+```
+
+Startup messages, Wi-Fi failures, API failures, and rendered screen details
+are printed there. Exit `screen` with **Ctrl-A**, then **\\**, then confirm
+with **y**. Press **Ctrl-D** to reload CircuitPython after saving files; use
+**Ctrl-C** to interrupt the running application when debugging.
+
+Always eject `CIRCUITPY` before unplugging it:
+
+```sh
+diskutil eject /dev/diskN
+```
+
+Replace `diskN` with the external disk shown by `diskutil list`. Keep the
+MatrixPortal on USB-C and the HUB75 panels on their separate regulated 5 V
+supply; never hot-plug HUB75 cables while powered.

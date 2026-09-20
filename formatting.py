@@ -25,9 +25,21 @@ AGENDA_MARQUEE_SPEED = 30.0
 AGENDA_MARQUEE_PAUSE_SECONDS = 1.25
 
 
+def _pad_right(value, width):
+    value = str(value or "")
+    width = max(0, int(width or 0))
+    return (value + (" " * max(0, width - len(value))))[:width]
+
+
+def _pad_left(value, width):
+    value = str(value or "")
+    width = max(0, int(width or 0))
+    return ((" " * max(0, width - len(value))) + value)[-width:] if width else ""
+
+
 def _clip(value, width):
     value = str(value or "")
-    return value[:width].ljust(width)
+    return _pad_right(value, width)
 
 
 def service_status_text(service):
@@ -51,7 +63,7 @@ def format_row(service, width=32):
     prefix = time + " "
     suffix = " " + platform + " " + status
     destination = _clip(service.get("destination", "Unknown"), max(1, width - len(prefix) - len(suffix)))
-    return (prefix + destination + suffix)[:width].ljust(width)
+    return _pad_right(prefix + destination + suffix, width)
 
 
 def calendar_row_parts(event):
@@ -69,7 +81,7 @@ def calendar_row_parts(event):
             date_text = start[:10]
     when = (date_text + (" " + time_text if time_text else "")).strip()
     title = str(event.get("title") or event.get("location") or "Event")
-    return when[:AGENDA_WHEN_WIDTH].ljust(AGENDA_WHEN_WIDTH), title
+    return _pad_right(when, AGENDA_WHEN_WIDTH), title
 
 
 def calendar_row_text(event):
@@ -80,7 +92,7 @@ def calendar_row_text(event):
 
 def calendar_row(event, width=AGENDA_ROW_WIDTH):
     """Format one normalized agenda event to a fixed-width static row."""
-    return calendar_row_text(event)[:width].ljust(width)
+    return _pad_right(calendar_row_text(event), width)
 
 
 def agenda_marquee_x(

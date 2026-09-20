@@ -162,6 +162,9 @@ class QueueAwareDisplay:
             return self._fixture_splash(rendered, clock_time, mode, progress)
         return self.base.show(rendered, clock_time, clock_date=clock_date, phase=render_phase)
 
+    def show_diagnostic(self, color):
+        return self.base.show_diagnostic(color)
+
 
 def create(settings):
     from display import create as create_base
