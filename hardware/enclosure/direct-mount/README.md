@@ -65,11 +65,29 @@ The expected panel mounting rows are only 12 mm from the top/bottom edges. The e
 ## Non-printed hardware
 
 - 2 × 1000 mm × 8 mm round steel/aluminium bars
-- M3 heat-set inserts, nominal 4.7 mm pilot in the current CAD
+- **M3 heat-set inserts: M3 × 6 mm long × 4.5 mm outside diameter**
 - M3 × 8–10 mm screws for the three joiners and electronics carriers
 - 2–4 × M2.5 screws/nuts for the MatrixPortal S3 carrier; verify the physical board
 - panel mounting screws/washers to match the actual P4 panel bosses
 - fused 5 V distribution hardware and appropriately rated 5 V input connector/cable
+
+### Heat-set insert purchasing spec
+
+Use brass, knurled heat-set inserts intended for thermoplastic/3D-printed parts with:
+
+| Property | Required / target value |
+| --- | --- |
+| Internal thread | **M3 × 0.5** |
+| Insert length | **6 mm** |
+| Maximum outside diameter | **about 4.5 mm** |
+| Listing shorthand | **M3 × 6 × 4.5** when the seller uses thread × length × OD |
+| Mating screws | **M3 × 8–10 mm** for the joiners/carriers |
+
+For the pictured mixed screw/insert kits, this is the **M3 B** family, specifically the compartment labelled **M3*6*4.5**. The M3 A inserts shown as **M3*6*4.2** are a smaller outside-diameter family and are not the selected project standard.
+
+**CAD fit warning:** the current OpenSCAD source still has `insert_d = 4.7` mm and `insert_depth = 6.2` mm. A 4.7 mm cylindrical pilot is too large to treat as a reliable heat-set pilot for a 4.5 mm OD insert; heat-set inserts need surrounding plastic to flow into the knurling. Before the structural parts are printed, calibrate the insert pilot with `07_mounting_slot_coupon_PRINT_1.stl` and update the CAD. A sensible starting pilot for common M3 inserts in this OD range is around **4.0–4.1 mm**, but the actual printed fit and the insert supplier's dimensions take precedence.
+
+Do not populate every optional insert pocket automatically. Install inserts only where the selected joiners, carrier or cable-management hardware needs them, and keep spare inserts for fit testing/rework.
 
 ## Recommended validation sequence
 
