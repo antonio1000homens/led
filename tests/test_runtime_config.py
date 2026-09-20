@@ -3,6 +3,7 @@ import unittest
 
 from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
+    DEFAULT_NO_SERVICES_DURATION_SECONDS,
     DEFAULT_STATION_LIST_SPACING,
     DEFAULT_STATION_SCROLL_SPEED,
     DEFAULT_UPCOMING_TRAIN_COUNT,
@@ -56,6 +57,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertFalse(config["feeds"]["weather"]["enabled"])
         self.assertTrue(config["feeds"]["calendar"]["enabled"])
         self.assertEqual(config["feeds"]["departures"]["poll_seconds"], 60)
+        self.assertEqual(config["feeds"]["departures"]["no_services_duration_seconds"], DEFAULT_NO_SERVICES_DURATION_SECONDS)
         self.assertEqual(config["feeds"]["departures"]["station_scroll_speed"], 30)
         self.assertEqual(config["feeds"]["departures"]["station_list_spacing"], 28)
         self.assertEqual(config["feeds"]["departures"]["upcoming_train_count"], DEFAULT_UPCOMING_TRAIN_COUNT)
@@ -64,6 +66,20 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config["feeds"]["chessington"]["park_id"], 3)
         self.assertEqual(config["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
         self.assertEqual(len(config["feeds"]["chessington"]["rides"]), 6)
+
+    def test_no_services_duration_is_bounded_and_backfilled_for_existing_config(self):
+        patch = validate_feed_patch("departures", {"no_services_duration_seconds": 5})
+        self.assertEqual(patch["no_services_duration_seconds"], 5)
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("departures", {"no_services_duration_seconds": 1})
+
+        legacy = default_runtime_config({})
+        del legacy["feeds"]["departures"]["no_services_duration_seconds"]
+        validated = validate_runtime_config(legacy)
+        self.assertEqual(
+            validated["feeds"]["departures"]["no_services_duration_seconds"],
+            DEFAULT_NO_SERVICES_DURATION_SECONDS,
+        )
 
     def test_validation_rejects_sub_minimum_poll_and_unknown_or_read_only_fields(self):
         with self.assertRaises(RuntimeConfigValidationError):
