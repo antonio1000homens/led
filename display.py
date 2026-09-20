@@ -281,8 +281,29 @@ class MatrixDisplay:
         self.label_type = label.Label
         self.font = bitmap_font.load_font("/font5x7.pcf")
 
+        # Todoist is the only Matrix page that continuously animates while the
+        # rest of the board is in static mode. Keep its display tree alive and
+        # mutate group coordinates instead of rebuilding labels, bitmaps and
+        # masks for every frame.
+        self._todoist_group = None
+        self._todoist_rows = []
+        self._todoist_events = None
+        self._todoist_clock_date = None
+        self._todoist_title = None
+        self._todoist_stale = None
+        self._todoist_viewport_size = None
+        self._todoist_page_seconds = None
+        self._todoist_weather_icon = None
+        self._todoist_weather_temp = None
+        self._todoist_weather_stale = None
+        self._todoist_clock_group = None
+        self._todoist_clock_label = None
+        self._todoist_weather_group = None
+
     def _label(self, group, text, color, x, y):
-        group.append(self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y)))
+        item = self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y))
+        group.append(item)
+        return item
 
     def _mask(self, group, x, y, width, height=8):
         import displayio
@@ -298,16 +319,21 @@ class MatrixDisplay:
     def _header_mask(self, group):
         self._mask(group, 0, 0, DISPLAY_WIDTH, 8)
 
-    def _present(self, group):
-        """Publish one fully-built frame to the matrix."""
-        self.display.root_group = group
-        # Pace frame publication through framebufferio. This waits for the
-        # display refresh scheduler rather than swapping a frame mid-cycle.
+    def _refresh(self):
+        """Synchronise one changed framebuffer with the HUB75 refresh cycle."""
         refreshed = self.display.refresh(target_frames_per_second=MATRIX_REFRESH_FPS)
         if not refreshed:
             self._refresh_misses += 1
             if self._refresh_misses % 20 == 0:
                 print("DISPLAY REFRESH DEADLINE MISSED count={}".format(self._refresh_misses))
+        return refreshed
+
+    def _present(self, group):
+        """Publish one fully-built frame to the matrix."""
+        self.display.root_group = group
+        # Pace frame publication through framebufferio. This waits for the
+        # display refresh scheduler rather than swapping a frame mid-cycle.
+        self._refresh()
 
     def show_diagnostic(self, color):
         """Fill the complete physical matrix with one moderate test colour."""
@@ -455,6 +481,162 @@ class MatrixDisplay:
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
+    def _todoist_cache_matches(self, screen, clock_date):
+        weather = screen.get("weather")
+        weather_icon = weather.get("icon") if isinstance(weather, dict) else None
+        weather_temp = weather.get("temperature_c") if isinstance(weather, dict) else None
+        weather_stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
+        return (
+            self._todoist_group is not None
+            and self._todoist_events is screen.get("events")
+            and self._todoist_clock_date == clock_date
+            and self._todoist_title == screen.get("title")
+            and self._todoist_stale == bool(screen.get("stale"))
+            and self._todoist_viewport_size == max(1, int(screen.get("viewport_size") or AGENDA_VISIBLE_ROWS))
+            and self._todoist_page_seconds == (screen.get("page_seconds") or 5)
+            and self._todoist_weather_icon == weather_icon
+            and self._todoist_weather_temp == weather_temp
+            and self._todoist_weather_stale == weather_stale
+        )
+
+    def _build_todoist_scene(self, screen, clock_time, clock_date):
+        """Build the Todoist scene once; animation mutates only child positions."""
+        import displayio
+
+        root = displayio.Group()
+        events = screen.get("events") or ()
+        rows = []
+
+        if not events:
+            self._label(root, "No upcoming events", 0xFFFFFF, 0, AGENDA_FIRST_Y)
+        else:
+            for event in events:
+                row_group = displayio.Group()
+                title_group = displayio.Group()
+                when, title = calendar_row_parts(event)
+                due = todoist_due_label(event, clock_date)
+                due_x = _right_aligned_x(due, DISPLAY_WIDTH) if due else DISPLAY_WIDTH
+                title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X) if due else DISPLAY_WIDTH - AGENDA_TITLE_X
+                visible_chars = max(1, title_width // WEATHER_FONT_WIDTH)
+
+                self._label(title_group, title, 0xFFFFFF, 0, 0)
+                row_group.append(title_group)
+
+                # Masks are fixed children of the row. Only title_group.x and
+                # row_group.y change while scrolling, so no per-frame Bitmap,
+                # Palette, Label or Group allocation is needed.
+                if due:
+                    self._mask(
+                        row_group,
+                        due_x - HEADER_GAP,
+                        -3,
+                        DISPLAY_WIDTH - due_x + HEADER_GAP,
+                        AGENDA_ROW_HEIGHT,
+                    )
+                self._mask(row_group, 0, -3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)
+                self._label(row_group, when, 0xFFFFFF, 0, 0)
+                if due:
+                    self._label(row_group, due, 0xFFFFFF, due_x, 0)
+
+                row_group.y = 64
+                root.append(row_group)
+                rows.append((row_group, title_group, title, visible_chars))
+
+        self._header_mask(root)
+        self._label(root, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
+        if screen.get("stale"):
+            self._label(root, "STALE", 0xFF3300, STALE_X, 3)
+
+        self._mask(root, HEADER_SLOT_X, 0, HEADER_SLOT_WIDTH, 8)
+        clock_group = displayio.Group()
+        clock_label = self._label(clock_group, clock_time, 0xFFAA00, CLOCK_X, 3)
+        root.append(clock_group)
+
+        weather_group = displayio.Group()
+        if isinstance(screen.get("weather"), dict):
+            self._header_weather(weather_group, screen.get("weather"), 0)
+        root.append(weather_group)
+
+        weather = screen.get("weather")
+        self._todoist_group = root
+        self._todoist_rows = rows
+        self._todoist_events = screen.get("events")
+        self._todoist_clock_date = clock_date
+        self._todoist_title = screen.get("title")
+        self._todoist_stale = bool(screen.get("stale"))
+        self._todoist_viewport_size = max(1, int(screen.get("viewport_size") or AGENDA_VISIBLE_ROWS))
+        self._todoist_page_seconds = screen.get("page_seconds") or 5
+        self._todoist_weather_icon = weather.get("icon") if isinstance(weather, dict) else None
+        self._todoist_weather_temp = weather.get("temperature_c") if isinstance(weather, dict) else None
+        self._todoist_weather_stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
+        self._todoist_clock_group = clock_group
+        self._todoist_clock_label = clock_label
+        self._todoist_weather_group = weather_group
+
+    def _update_todoist_scene(self, screen, clock_time, phase):
+        """Move cached Todoist groups using elapsed phase; return True if changed."""
+        changed = False
+        visible = self._todoist_viewport_size
+        event_count = len(self._todoist_rows)
+        start, progress = agenda_scroll_state(
+            phase,
+            event_count,
+            self._todoist_page_seconds,
+            visible,
+        )
+        y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
+
+        for index, row in enumerate(self._todoist_rows):
+            row_group, title_group, title, visible_chars = row
+            if progress > 0 and start <= index < start + visible * 2:
+                y = AGENDA_FIRST_Y + (index - start) * AGENDA_ROW_HEIGHT - y_offset
+            elif progress <= 0 and start <= index < start + visible:
+                y = AGENDA_FIRST_Y + (index - start) * AGENDA_ROW_HEIGHT
+            else:
+                y = 64
+            if row_group.y != y:
+                row_group.y = y
+                changed = True
+
+            title_x = AGENDA_TITLE_X + agenda_marquee_x(
+                title,
+                phase,
+                visible_chars=visible_chars,
+                font_width=WEATHER_FONT_WIDTH,
+                speed=TODOIST_MARQUEE_SPEED,
+                pause_seconds=TODOIST_MARQUEE_PAUSE_SECONDS,
+            )
+            if title_group.x != title_x:
+                title_group.x = title_x
+                changed = True
+
+        if self._todoist_clock_label.text != clock_time:
+            self._todoist_clock_label.text = clock_time
+            changed = True
+
+        item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+        clock_x = offset if item == "clock" else DISPLAY_WIDTH
+        weather_x = offset if item == "weather" else DISPLAY_WIDTH
+        if self._todoist_clock_group.x != clock_x:
+            self._todoist_clock_group.x = clock_x
+            changed = True
+        if self._todoist_weather_group.x != weather_x:
+            self._todoist_weather_group.x = weather_x
+            changed = True
+        return changed
+
+    def _show_todoist(self, screen, clock_time, clock_date, phase):
+        """Render Todoist with a persistent scene graph and coordinate-only animation."""
+        if not self._todoist_cache_matches(screen, clock_date):
+            self._build_todoist_scene(screen, clock_time, clock_date)
+
+        changed = self._update_todoist_scene(screen, clock_time, phase)
+        if self.display.root_group is not self._todoist_group:
+            self.display.root_group = self._todoist_group
+            changed = True
+        if changed:
+            self._refresh()
+
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
             return
@@ -477,15 +659,23 @@ class MatrixDisplay:
     def show(self, screen, clock_time="--:--", clock_date="", phase=2):
         import displayio
 
-        group = displayio.Group()
         empty_state = screen.get("empty_state")
+        kind = screen.get("kind")
+        if (
+            not empty_state
+            and kind == "calendar_agenda"
+            and screen.get("source") == "todoist"
+        ):
+            self._show_todoist(screen, clock_time, clock_date, phase)
+            return
+
+        group = displayio.Group()
         if empty_state:
             text = _clip(empty_state, 30)
             x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
             self._label(group, text, 0xFFFFFF, x, 18)
             self._present(group)
             return
-        kind = screen.get("kind")
         if kind == "rail_combined":
             self._rail(group, screen, phase)
         elif kind == "theme_park_queues":

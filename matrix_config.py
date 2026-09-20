@@ -8,5 +8,5 @@
 # green, blue, cyan, magenta, and black colours used by the board.
 MATRIX_BIT_DEPTH = 1
 MATRIX_REFRESH_FPS = 7
-TODOIST_MARQUEE_SPEED = 4.0
+TODOIST_MARQUEE_SPEED = 7.0
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
