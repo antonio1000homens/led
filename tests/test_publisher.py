@@ -104,12 +104,41 @@ class PublisherTests(unittest.TestCase):
         first=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); screen=first["screens"][1]
         self.assertEqual(calendar.calls,1); self.assertEqual(screen["id"],"calendar"); self.assertEqual(screen["duration_seconds"],10); self.assertEqual(len(screen["events"]),6); self.assertFalse(second["screens"][1]["stale"])
-    def test_calendar_keeps_cached_data_stale_after_failure(self):
+    def test_cached_calendar_prunes_event_once_it_becomes_overdue_before_ttl(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300)
+        rail=FakeProvider([[{"time":"08:01"}]])
+        calendar=FakeProvider([[
+            {"start":"2026-09-13T08:01:00+01:00","all_day":False,"date_text":"13/09","time_text":"08:01","title":"Soon overdue"},
+            {"start":"2026-09-13T09:00:00+01:00","all_day":False,"date_text":"13/09","time_text":"09:00","title":"Still upcoming"},
+        ]])
+        first=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()
+        self.assertEqual([event["title"] for event in first["screens"][1]["events"]],["Soon overdue","Still upcoming"])
+        self.now+=timedelta(minutes=2)
+        second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()
+        self.assertEqual(calendar.calls,1)
+        self.assertEqual([event["title"] for event in second["screens"][1]["events"]],["Still upcoming"])
+        self.assertFalse(second["screens"][1]["stale"])
+
+    def test_calendar_keeps_cached_data_stale_after_failure_but_prunes_overdue_event(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=60)
-        rail=FakeProvider([[{"time":"08:01"}],[{"time":"08:02"}]]); calendar=FakeProvider([[{"date_text":"13/09","time_text":"18:00","title":"Keep me"}],RuntimeError("private upstream error")])
+        rail=FakeProvider([[{"time":"08:01"}],[{"time":"08:02"}]])
+        calendar=FakeProvider([[
+            {"start":"2026-09-13T08:01:00+01:00","all_day":False,"date_text":"13/09","time_text":"08:01","title":"Expires"},
+            {"start":"2026-09-13T09:00:00+01:00","all_day":False,"date_text":"13/09","time_text":"09:00","title":"Keep me"},
+        ],RuntimeError("private upstream error")])
         Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); self.now+=timedelta(seconds=61)
         screen=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()["screens"][1]
-        self.assertTrue(screen["stale"]); self.assertEqual(screen["events"][0]["title"],"Keep me")
+        self.assertTrue(screen["stale"])
+        self.assertEqual([event["title"] for event in screen["events"]],["Keep me"])
+
+    def test_cached_calendar_retains_all_day_task_until_local_day_ends(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300)
+        rail=FakeProvider([[{"time":"08:01"}]])
+        calendar=FakeProvider([[
+            {"start":"2026-09-13","all_day":True,"date_text":"13/09","time_text":"ALL","title":"All day today"},
+        ]])
+        screen=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()["screens"][1]
+        self.assertEqual([event["title"] for event in screen["events"]],["All day today"])
     def test_cold_calendar_failure_does_not_break_departures(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist")
         payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]]),utcnow=self.utcnow,calendar_provider=FakeProvider([RuntimeError("private upstream error")])).run()
