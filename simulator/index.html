@@ -91,6 +91,19 @@
     const FONT_PIXEL_SCALE = 4;
     const FONT_CELL_WIDTH = 5 * FONT_PIXEL_SCALE;
     const TODOIST_MARQUEE_SPEED = 7 * FONT_PIXEL_SCALE;
+    const TODOIST_MARQUEE_PAUSE_SECONDS = 1.5;
+    const HEADER_TEXT_Y = 3 * FONT_PIXEL_SCALE;
+    const CALLING_TEXT_Y = 10 * FONT_PIXEL_SCALE;
+    const CONTENT_FIRST_Y = 11 * FONT_PIXEL_SCALE;
+    const CONTENT_ROW_HEIGHT = 8 * FONT_PIXEL_SCALE;
+    const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;
+    const CLOCK_X = 226 * FONT_PIXEL_SCALE;
+    const STALE_X = 190 * FONT_PIXEL_SCALE;
+    const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
+    const STALE_HEADER_CONTENT_RIGHT = 186 * FONT_PIXEL_SCALE;
+    const SPLASH_TARGET_X = 12 * FONT_PIXEL_SCALE;
+    const SPLASH_BASELINE_Y = 17 * FONT_PIXEL_SCALE;
+    const SPLASH_TOP_Y = -6 * FONT_PIXEL_SCALE;
     const FONT_5X7 = [[0,0,0,0,0,0,0],[4,4,4,4,0,4,0],[10,10,10,0,0,0,0],[0,10,31,10,31,10,0],[0,14,20,14,5,14,0],[16,18,4,8,18,2,0],[0,8,20,8,20,10,0],[4,4,4,0,0,0,0],[4,8,8,8,8,4,0],[8,4,4,4,4,8,0],[0,10,4,14,4,10,0],[0,4,4,31,4,4,0],[0,0,0,0,6,4,8],[0,0,0,30,0,0,0],[0,0,0,0,12,12,0],[0,2,4,8,16,0,0],[4,10,10,10,10,4,0],[4,12,4,4,4,14,0],[12,18,2,4,8,30,0],[30,2,12,2,18,12,0],[4,12,20,30,4,4,0],[30,16,28,2,18,12,0],[12,16,28,18,18,12,0],[30,2,4,4,8,8,0],[12,18,12,18,18,12,0],[12,18,18,14,2,12,0],[0,12,12,0,12,12,0],[0,12,12,0,12,8,16],[0,2,4,8,4,2,0],[0,0,30,0,30,0,0],[0,8,4,2,4,8,0],[4,10,2,4,0,4,0],[12,18,22,22,16,12,0],[12,18,18,30,18,18,0],[28,18,28,18,18,28,0],[12,18,16,16,18,12,0],[28,18,18,18,18,28,0],[30,16,28,16,16,30,0],[30,16,28,16,16,16,0],[12,18,16,22,18,14,0],[18,18,30,18,18,18,0],[14,4,4,4,4,14,0],[2,2,2,2,18,12,0],[18,20,24,24,20,18,0],[16,16,16,16,16,30,0],[18,30,30,18,18,18,0],[18,26,26,22,22,18,0],[12,18,18,18,18,12,0],[28,18,18,28,16,16,0],[12,18,18,18,26,12,2],[28,18,18,28,20,18,0],[12,18,8,4,18,12,0],[14,4,4,4,4,4,0],[18,18,18,18,18,12,0],[18,18,18,18,12,12,0],[18,18,18,30,30,18,0],[18,18,12,12,18,18,0],[10,10,10,4,4,4,0],[30,2,4,8,16,30,0],[14,8,8,8,8,14,0],[0,16,8,4,2,0,0],[14,2,2,2,2,14,0],[4,10,0,0,0,0,0],[0,0,0,0,0,30,0],[8,4,0,0,0,0,0],[0,0,14,18,22,10,0],[16,16,28,18,18,28,0],[0,0,12,16,16,12,0],[2,2,14,18,18,14,0],[0,0,12,22,24,12,0],[4,10,8,28,8,8,0],[0,0,14,18,12,16,14],[16,16,28,18,18,18,0],[4,0,12,4,4,14,0],[2,0,2,2,2,10,4],[16,16,20,24,20,18,0],[12,4,4,4,4,14,0],[0,0,20,30,18,18,0],[0,0,28,18,18,18,0],[0,0,12,18,18,12,0],[0,0,28,18,18,28,16],[0,0,14,18,18,14,2],[0,0,28,18,16,16,0],[0,0,14,24,6,28,0],[8,8,28,8,8,6,0],[0,0,18,18,18,14,0],[0,0,10,10,10,4,0],[0,0,18,18,30,30,0],[0,0,18,12,12,18,0],[0,0,18,18,10,4,8],[0,0,30,4,8,30,0],[2,4,12,4,4,2,0],[4,4,4,4,4,4,0],[8,4,6,4,4,8,0],[10,20,0,0,0,0,0]];
 
     function measureLedText(value) {
@@ -179,7 +192,7 @@
     buildLedBackground();
 
     const QUEUE_VISIBLE_ROWS = 3;
-    const QUEUE_ROW_HEIGHT = 30;
+    const QUEUE_ROW_HEIGHT = CONTENT_ROW_HEIGHT;
     const QUEUE_DEFAULT_SCROLL_SPEED = 27;
     const QUEUE_DEFAULT_PAUSE_SECONDS = 1;
     const QUEUE_PARK_FLASH_SECONDS = 0.35;
@@ -468,12 +481,12 @@
     function clockLayout(now = new Date()) {
       const text = clockFormatter.format(now);
       const width = measureLedText(text).width;
-      return { text, width, x: 1016 - width };
+      return { text, width, x: CLOCK_X };
     }
     function temperatureText(weather) {
       if (!weather || typeof weather !== 'object') return '';
       const temperature = Number(weather.temperature_c);
-      return Number.isFinite(temperature) ? Math.round(temperature) + '°C' : '--°C';
+      return Number.isFinite(temperature) ? Math.round(temperature) + 'C' : '--C';
     }
     function headerItemState(phase, weather) {
       if (!weather || typeof weather !== 'object') return { item: 'clock', offset: 0 };
@@ -493,7 +506,7 @@
     function drawClock(layout, offset = 0) {
       const current = layout || clockLayout();
       context.fillStyle = '#ffaa00';
-      drawLedText(current.text, current.x + offset, 4);
+      drawLedText(current.text, current.x + offset, HEADER_TEXT_Y);
     }
     function weatherGroupLayout(weather, offset = 0) {
       if (!weather || typeof weather !== 'object') return null;
@@ -516,17 +529,17 @@
       context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
       layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, y * 4, 4, 4); }));
       context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
-      drawLedText(layout.text, layout.textX, 4);
+      drawLedText(layout.text, layout.textX, HEADER_TEXT_Y);
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
       const text = calendarDueText(events[0], now);
       if (!text) return;
-      const rightEdge = stale ? 800 : clockX - 16;
+      const rightEdge = stale ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
       const x = Math.max(0, rightEdge - measureLedText(text).width);
       context.fillStyle = '#ffffff';
-      drawLedText(text, x, 4);
+      drawLedText(text, x, HEADER_TEXT_Y);
     }
     function fitLeftText(value, maxWidth) {
       const text = String(value || '');
@@ -562,7 +575,7 @@
     function drawQueueRows(rides, phase, screen) {
       if (!rides.length) {
         context.fillStyle = '#ffffff';
-        drawLedText('Queue data unavailable', 0, 34);
+        drawLedText('Queue data unavailable', 0, CONTENT_FIRST_Y);
         return;
       }
       const queueScroll = queueScrollState(phase, rides.length, screen.queue_scroll_pause_seconds, screen.queue_scroll_speed);
@@ -572,7 +585,7 @@
       for (let slot = 0; slot < rowCount; slot += 1) {
         const ride = rides[queueScroll.start + slot];
         if (!ride) break;
-        drawQueueRide(ride, 34 + slot * QUEUE_ROW_HEIGHT - yOffset, 1024);
+        drawQueueRide(ride, CONTENT_FIRST_Y + slot * QUEUE_ROW_HEIGHT - yOffset, 1024);
       }
       context.restore();
     }
@@ -596,7 +609,7 @@
       if (screen.empty_state) {
         const message = String(screen.empty_state);
         context.fillStyle = '#ffffff';
-        drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 52);
+        drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
       } else if (screen.kind === 'rail_combined') {
@@ -605,24 +618,24 @@
         const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
         const primaryPhase = Math.max(0, Math.min(1, phase / 1.2));
         const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
-        const headerRight = (screen.stale || forceStale) ? 800 : clock.x - 16;
-        drawRailService(next, 4, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff', 1);
+        const headerRight = (screen.stale || forceStale) ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
+        drawRailService(next, HEADER_TEXT_Y, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff', 1);
         const calling = callingMarqueeState(callingText(next), phase, stationMarqueeSpeed(screen), stationMarqueeGap());
         if (calling) {
           context.fillStyle = '#ffaa00';
-          drawLedText(CALLING_LABEL, 0, 34);
+          drawLedText(CALLING_LABEL, 0, CALLING_TEXT_Y);
           context.save();
           context.beginPath();
           context.rect(calling.prefixWidth, 30, 1024 - calling.prefixWidth, 30);
           context.clip();
-          drawLedText(calling.stations, calling.prefixWidth + calling.offset, 34);
-          drawLedText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), 34);
+          drawLedText(calling.stations, calling.prefixWidth + calling.offset, CALLING_TEXT_Y);
+          drawLedText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), CALLING_TEXT_Y);
           context.restore();
         }
         const upcomingServices = railServices.slice(1);
         if (!upcomingServices.length) {
           context.fillStyle = '#ffffff';
-          drawLedText('No upcoming services', 0, 64);
+          drawLedText('No upcoming services', 0, UPCOMING_FIRST_Y);
         }
         const scroll = departureScrollState(phase, upcomingServices.length, screen.upcoming_train_pause_seconds);
         context.save();
@@ -636,7 +649,7 @@
             const upcoming = upcomingServices[slot];
             const entry = Math.max(0, Math.min(1, (scroll.resetProgress - slot * 0.15) / 0.4));
             const x = -Math.round((1 - entry) * 220) * 4;
-            drawRailService(upcoming, 64 + slot * 30, x, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', slot + 2);
+            drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT, x, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', slot + 2);
           }
         } else {
           const visible = scroll.progress > 0 ? 3 : 2;
@@ -644,11 +657,11 @@
             const index = scroll.start + slot;
             const upcoming = upcomingServices[index];
             if (!upcoming) break;
-            drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30, 0, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', index + 2);
+            drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT - scroll.progress * CONTENT_ROW_HEIGHT, 0, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', index + 2);
           }
         }
         context.restore();
-        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', 820, 4); }
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', STALE_X, HEADER_TEXT_Y); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
         const queueCycle = queueCycleState(screen, phase);
@@ -660,48 +673,48 @@
 
         if (queueCycle.mode === 'splash_in') {
           const width = measureLedText(title).width;
-          const x = -width + (48 + width) * queueCycle.progress;
+          const x = -width + (SPLASH_TARGET_X + width) * queueCycle.progress;
           context.fillStyle = '#ffaa00';
-          drawLedText(title, x, 52);
+          drawLedText(title, x, SPLASH_BASELINE_Y);
         } else if (queueCycle.mode === 'splash_flash') {
           if (flashVisible(queueCycle.progress)) {
             context.fillStyle = '#ffffff';
-            drawLedText(title, 48, 52);
+            drawLedText(title, SPLASH_TARGET_X, SPLASH_BASELINE_Y);
           }
         } else if (queueCycle.mode === 'splash_up') {
           drawQueueRows(rides, 0, screen);
-          const y = 52 - 76 * queueCycle.progress;
-          const coverHeight = Math.max(0, Math.min(128, y + 30));
+          const y = SPLASH_BASELINE_Y + (SPLASH_TOP_Y - SPLASH_BASELINE_Y) * queueCycle.progress;
+          const coverHeight = Math.max(0, Math.min(128, y + 5 * FONT_PIXEL_SCALE));
           if (coverHeight > 0) {
             context.fillStyle = '#000000';
             context.fillRect(0, 0, 1024, coverHeight);
           }
           context.fillStyle = '#ffaa00';
-          drawLedText(title, 48, y);
+          drawLedText(title, SPLASH_TARGET_X, y);
         } else {
           drawQueueRows(rides, queueCycle.dataPhase, screen);
           if (queueCycle.mode !== 'flash' || flashVisible(queueCycle.progress)) {
             context.fillStyle = queueCycle.mode === 'flash' ? '#ffffff' : '#ffaa00';
-            drawLedText(title, 0, 4);
+            drawLedText(title, 0, HEADER_TEXT_Y);
           }
-          if (park.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', 820, 4); }
+          if (park.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', STALE_X, HEADER_TEXT_Y); }
         }
         status.dataset.detail = `${title} queues · park ${queueCycle.parkIndex + 1} of ${Math.max(1, (screen.parks || [park]).length)}`;
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {
           context.fillStyle = '#ffffff';
-          drawLedText('No upcoming events', 0, 34);
+          drawLedText('No upcoming events', 0, CONTENT_FIRST_Y);
         } else {
           const agenda = agendaScrollState(screen, phase, events.length);
           const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible * 2 : agenda.visible);
-          const yOffset = agenda.progress * agenda.visible * 30;
+          const yOffset = agenda.progress * agenda.visible * CONTENT_ROW_HEIGHT;
           context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
           for (let slot = 0; slot < rowCount; slot += 1) {
             const event = events[agenda.start + slot];
             if (!event) break;
             const parts = calendarParts(event);
-            const y = 34 + slot * 30 - yOffset;
+            const y = CONTENT_FIRST_Y + slot * CONTENT_ROW_HEIGHT - yOffset;
             const todoist = screen.source === 'todoist';
             const due = todoist ? todoistDueLabel(event, wallClock) : '';
             const dueWidth = due ? measureLedText(due).width : 0;
@@ -714,7 +727,7 @@
               const availableWidth = Math.max(0, dueX - titleStart - 16);
               const overflow = Math.max(0, measureLedText(parts.title).width - availableWidth);
               const scrollSeconds = overflow > 0 ? overflow / TODOIST_MARQUEE_SPEED : 0;
-              const cycleSeconds = scrollSeconds + AGENDA_MARQUEE_PAUSE_SECONDS;
+              const cycleSeconds = scrollSeconds + TODOIST_MARQUEE_PAUSE_SECONDS;
               const withinCycle = cycleSeconds > 0 ? Math.max(0, Number(phase) || 0) % cycleSeconds : 0;
               const titleOffset = overflow <= 0
                 ? 0
@@ -736,16 +749,17 @@
           context.restore();
         }
         context.fillStyle = '#ffaa00';
-        drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, 4);
+        drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, HEADER_TEXT_Y);
         drawCalendarDue(events, wallClock, Boolean(screen.stale || forceStale), clock.x, screen.source);
-        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', 820, 4); }
+        if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', STALE_X, HEADER_TEXT_Y); }
         status.dataset.detail = 'Upcoming events';
       }
       context.strokeStyle = '#26303c';
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
       if (!suppressHeader) {
-        const header = headerItemState(now / 1000, screen.weather);
+        const headerPhase = hardwarePreview ? (screen.source === 'todoist' ? rawPhase : 2) : now / 1000;
+        const header = headerItemState(headerPhase, screen.weather);
         if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);
         else drawClock(clock, header.offset);
       }
