@@ -85,7 +85,7 @@ Use brass, knurled heat-set inserts intended for thermoplastic/3D-printed parts 
 
 For the pictured mixed screw/insert kits, this is the **M3 B** family, specifically the compartment labelled **M3*6*4.5**. The M3 A inserts shown as **M3*6*4.2** are a smaller outside-diameter family and are not the selected project standard.
 
-**CAD fit warning:** the current OpenSCAD source still has `insert_d = 4.7` mm and `insert_depth = 6.2` mm. A 4.7 mm cylindrical pilot is too large to treat as a reliable heat-set pilot for a 4.5 mm OD insert; heat-set inserts need surrounding plastic to flow into the knurling. Before the structural parts are printed, calibrate the insert pilot with `07_mounting_slot_coupon_PRINT_1.stl` and update the CAD. A sensible starting pilot for common M3 inserts in this OD range is around **4.0–4.1 mm**, but the actual printed fit and the insert supplier's dimensions take precedence.
+**CAD fit:** the OpenSCAD source now uses a **4.0 mm nominal pilot** (`insert_d = 4.0`) and **6.2 mm blind-pocket depth** for the selected M3 × 6 × 4.5 mm insert. Print `07_mounting_slot_coupon_PRINT_1.stl` first and verify the fit with the actual insert and chosen filament before committing to all four backplanes. If the insert is excessively tight or loose on the real printer, adjust the pilot in small increments (for example 0.1 mm) and regenerate the STLs.
 
 Do not populate every optional insert pocket automatically. Install inserts only where the selected joiners, carrier or cable-management hardware needs them, and keep spare inserts for fit testing/rework.
 
