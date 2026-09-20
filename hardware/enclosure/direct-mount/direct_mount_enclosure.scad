@@ -68,7 +68,9 @@ joiner_recess_half_w = joiner_w/2 + joiner_clear_xy;
 joiner_recess_y = joiner_insert_y1 - joiner_hole_y_inset - joiner_clear_xy;
 joiner_recess_h = joiner_h + 2*joiner_clear_xy;
 joiner_recess_surface_z = depth - joiner_recess_depth;
-insert_d = 4.7;
+// M3 x 6 x 4.5 mm brass heat-set insert target.
+// 4.0 mm is the nominal printed pilot; verify with the coupon for the chosen filament/printer.
+insert_d = 4.0;
 insert_depth = 6.2;
 
 accessory_insert_y1 = 34;
