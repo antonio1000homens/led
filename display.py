@@ -421,6 +421,13 @@ class MatrixDisplay:
         import displayio
 
         group = displayio.Group()
+        empty_state = screen.get("empty_state")
+        if empty_state:
+            text = _clip(empty_state, 30)
+            x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
+            self._label(group, text, 0xFFFFFF, x, 18)
+            self.display.root_group = group
+            return
         kind = screen.get("kind")
         if kind == "rail_combined":
             self._rail(group, screen, phase)
@@ -623,6 +630,16 @@ class FixtureDisplay:
         self._text(text, text_x, 0, (170, 170, 170) if stale else (255, 255, 255))
 
     def show(self, screen, clock_time="--:--", clock_date="", phase=2):
+        empty_state = screen.get("empty_state")
+        if empty_state:
+            if self.pixels is not None:
+                self.pixels.fill((0, 0, 0))
+                text = _clip(empty_state, 30)
+                x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
+                self._text(text, x, 13, (255, 255, 255))
+                self.pixels.show()
+            print("\n{}".format(empty_state))
+            return
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))

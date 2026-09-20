@@ -29,6 +29,7 @@ DEFAULT_UPCOMING_TRAIN_COUNT = 4
 MIN_UPCOMING_TRAIN_PAUSE_SECONDS = 1
 MAX_UPCOMING_TRAIN_PAUSE_SECONDS = 30
 DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS = 2
+DEFAULT_NO_SERVICES_DURATION_SECONDS = 5
 MIN_QUEUE_SCROLL_SPEED = 8
 MAX_QUEUE_SCROLL_SPEED = 80
 DEFAULT_QUEUE_SCROLL_SPEED = 27
@@ -57,6 +58,11 @@ DEPARTURE_NUMERIC_FIELDS = {
         "minimum": MIN_UPCOMING_TRAIN_PAUSE_SECONDS,
         "maximum": MAX_UPCOMING_TRAIN_PAUSE_SECONDS,
         "default": DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
+    },
+    "no_services_duration_seconds": {
+        "minimum": MIN_SCREEN_DURATION_SECONDS,
+        "maximum": MAX_SCREEN_DURATION_SECONDS,
+        "default": DEFAULT_NO_SERVICES_DURATION_SECONDS,
     },
 }
 
@@ -104,12 +110,13 @@ FEED_REGISTRY = {
             "enabled",
             "poll_seconds",
             "screen_duration_seconds",
+            "no_services_duration_seconds",
             "station_scroll_speed",
             "station_list_spacing",
             "upcoming_train_count",
             "upcoming_train_pause_seconds",
         ),
-        "advanced_fields": ("station_scroll_speed", "station_list_spacing", "upcoming_train_count", "upcoming_train_pause_seconds"),
+        "advanced_fields": ("no_services_duration_seconds", "station_scroll_speed", "station_list_spacing", "upcoming_train_count", "upcoming_train_pause_seconds"),
         "screen_duration": True,
     },
     "queue_times": {
@@ -205,6 +212,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": True,
                 "poll_seconds": _int_env(env, "LED_CACHE_SECONDS", 60),
                 "screen_duration_seconds": 8,
+                "no_services_duration_seconds": DEFAULT_NO_SERVICES_DURATION_SECONDS,
                 "station_scroll_speed": DEFAULT_STATION_SCROLL_SPEED,
                 "station_list_spacing": DEFAULT_STATION_LIST_SPACING,
                 "upcoming_train_count": DEFAULT_UPCOMING_TRAIN_COUNT,

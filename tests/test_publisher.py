@@ -37,6 +37,23 @@ class PublisherTests(unittest.TestCase):
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
         payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=payload["screens"][0]
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])
+        self.assertIsNone(screen["empty_state"])
+    def test_empty_departures_publish_no_services_page_for_configured_duration(self):
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        runtime["feeds"]["departures"]["screen_duration_seconds"]=12
+        runtime["feeds"]["departures"]["no_services_duration_seconds"]=5
+        screen=Publisher(
+            self.config,
+            self.store,
+            rail_provider=FakeProvider([[]]),
+            utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()["screens"][0]
+        self.assertEqual(screen["services"],[])
+        self.assertEqual(screen["empty_state"],"No Services")
+        self.assertEqual(screen["duration_seconds"],5)
+        self.assertFalse(screen["stale"])
+
     def test_departures_contract_publishes_current_and_configured_next_services(self):
         rail=FakeProvider([[
             {"time":"08:01","destination":"Waterloo"},
@@ -48,6 +65,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual([service["time"] for service in screen["services"]],["08:01","08:11","08:21","08:31"])
         self.assertEqual(screen["upcoming_train_count"], 4)
         self.assertEqual(screen["upcoming_train_pause_seconds"], 2)
+        self.assertIsNone(screen["empty_state"])
     def test_queue_and_weather_ttls_are_independent_and_contract_is_preserved(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",rail_ttl=60,thorpe_park_ttl=300,weather_ttl=600,thorpe_park_rides=("Hyperia","Stealth","The Swarm","Colossus"))
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])
