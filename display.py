@@ -12,6 +12,7 @@ from matrix_config import (
 )
 
 from formatting import (
+    AGENDA_SLIDE_SECONDS,
     AGENDA_TITLE_X,
     AGENDA_VISIBLE_ROWS,
     QUEUE_VISIBLE_ROWS,
@@ -573,17 +574,70 @@ class MatrixDisplay:
         self._todoist_clock_label = clock_label
         self._todoist_weather_group = weather_group
 
+    def _todoist_title_scroll_seconds(self, title, visible_chars):
+        """Return the one-way scroll time needed to reveal a Todoist title."""
+        visible_chars = max(1, int(visible_chars or 1))
+        overflow = max(0, (len(str(title or "")) - visible_chars) * WEATHER_FONT_WIDTH)
+        return overflow / max(1.0, float(TODOIST_MARQUEE_SPEED))
+
+    def _todoist_page_transition_at(self, visible):
+        """Delay page 2 until page-1 marquees finish and visibly settle."""
+        try:
+            minimum_page_seconds = max(0.0, float(self._todoist_page_seconds or 0))
+        except (TypeError, ValueError):
+            minimum_page_seconds = 0.0
+        longest_scroll = 0.0
+        for row in self._todoist_rows[:visible]:
+            longest_scroll = max(
+                longest_scroll,
+                self._todoist_title_scroll_seconds(row[2], row[3]),
+            )
+        return max(
+            minimum_page_seconds,
+            longest_scroll + TODOIST_MARQUEE_PAUSE_SECONDS,
+        )
+
+    def _todoist_title_x(self, title, phase, visible_chars):
+        """Scroll once to the final title position instead of looping."""
+        visible_chars = max(1, int(visible_chars or 1))
+        overflow = max(0, (len(str(title or "")) - visible_chars) * WEATHER_FONT_WIDTH)
+        if overflow <= 0:
+            return AGENDA_TITLE_X
+        try:
+            phase = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            phase = 0.0
+        offset = min(overflow, int(phase * max(1.0, float(TODOIST_MARQUEE_SPEED))))
+        return AGENDA_TITLE_X - offset
+
     def _update_todoist_scene(self, screen, clock_time, phase):
-        """Move cached Todoist groups using elapsed phase; return True if changed."""
+        """Move cached Todoist groups using page-local animation phases."""
         changed = False
         visible = self._todoist_viewport_size
         event_count = len(self._todoist_rows)
-        start, progress = agenda_scroll_state(
-            phase,
-            event_count,
-            self._todoist_page_seconds,
-            visible,
-        )
+        try:
+            phase = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            phase = 0.0
+
+        start = 0
+        progress = 0.0
+        page_phase = phase
+        transition_at = None
+
+        if event_count > visible:
+            transition_at = self._todoist_page_transition_at(visible)
+            if phase > transition_at:
+                slide_elapsed = phase - transition_at
+                if slide_elapsed < AGENDA_SLIDE_SECONDS:
+                    progress = min(1.0, slide_elapsed / AGENDA_SLIDE_SECONDS)
+                    # During the slide, page 1 remains fully scrolled while
+                    # page 2 enters at its initial, unscrolled title position.
+                    page_phase = None
+                else:
+                    start = visible
+                    page_phase = max(0.0, slide_elapsed - AGENDA_SLIDE_SECONDS)
+
         y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
 
         for index, row in enumerate(self._todoist_rows):
@@ -598,14 +652,17 @@ class MatrixDisplay:
                 row_group.y = y
                 changed = True
 
-            title_x = AGENDA_TITLE_X + agenda_marquee_x(
-                title,
-                phase,
-                visible_chars=visible_chars,
-                font_width=WEATHER_FONT_WIDTH,
-                speed=TODOIST_MARQUEE_SPEED,
-                pause_seconds=TODOIST_MARQUEE_PAUSE_SECONDS,
-            )
+            if progress > 0:
+                if index < visible:
+                    title_phase = self._todoist_title_scroll_seconds(title, visible_chars)
+                else:
+                    title_phase = 0.0
+            elif start <= index < start + visible:
+                title_phase = page_phase
+            else:
+                title_phase = 0.0
+
+            title_x = self._todoist_title_x(title, title_phase, visible_chars)
             if title_group.x != title_x:
                 title_group.x = title_x
                 changed = True
