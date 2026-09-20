@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -16,6 +16,25 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Regenerate affected insert-pilot STLs
+        if: github.head_ref == 'docs/heat-set-insert-spec'
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
+          tracked=hardware/enclosure/direct-mount
+          openscad -D 'part="backplane"' -o "$tracked/01_backplane_module_PRINT_4.stl" "$src"
+          openscad -D 'part="slot_coupon"' -o "$tracked/07_mounting_slot_coupon_PRINT_1.stl" "$src"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$tracked/01_backplane_module_PRINT_4.stl" "$tracked/07_mounting_slot_coupon_PRINT_1.stl"
+          if ! git diff --cached --quiet; then
+            git commit -m "cad: regenerate STLs for M3 insert pilots"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
 
       - name: Install OpenSCAD
         run: |
