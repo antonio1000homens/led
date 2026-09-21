@@ -11,7 +11,10 @@ RAIL_MARQUEE_GAP = 56
 CALLING_LABEL = "CALLING AT: "
 CALLING_MARQUEE_PAUSE_SECONDS = 3.0
 CALLING_STATION_FONT_WIDTH = 5
-DEFAULT_STATION_LIST_SPACING = 28
+DEFAULT_STATION_LIST_SPACING = 10
+RAIL_ROW_Y = (1, 9, 17, 25)
+RAIL_SUMMARY_SECONDS = 8.0
+RAIL_CALLING_SECONDS = 8.0
 AGENDA_VISIBLE_ROWS = 3
 AGENDA_SLIDE_SECONDS = 0.4
 AGENDA_PAGE_SECONDS = 5.0
@@ -270,10 +273,58 @@ def todoist_due_label(event, current_date):
         return ""
     day_delta = _date_ordinal(*event_date) - _date_ordinal(*now_date)
     if day_delta < 0:
-        return ""
+        return "OVERDUE"
     if day_delta == 0:
         return "TODAY"
     return "DUE {} DAY{}".format(day_delta, "" if day_delta == 1 else "S")
+
+
+def todoist_page_timing(events, page_seconds=AGENDA_PAGE_SECONDS, visible_rows=AGENDA_VISIBLE_ROWS,
+                        current_date="", marquee_speed=AGENDA_MARQUEE_SPEED,
+                        settle_pause_seconds=AGENDA_MARQUEE_PAUSE_SECONDS):
+    """Return the minimum readable timeline for a Todoist screen.
+
+    Each page gets its own title-scroll time followed by the configured
+    settled/readable dwell.  Due labels are included in the available title
+    width so an overdue label cannot be hidden by a long title.
+    """
+    events = list(events or [])
+    visible_rows = max(1, int(visible_rows or AGENDA_VISIBLE_ROWS))
+    page_seconds = max(0.0, float(page_seconds or 0))
+    marquee_speed = max(1.0, float(marquee_speed or AGENDA_MARQUEE_SPEED))
+    settle_pause_seconds = max(0.0, float(settle_pause_seconds or 0))
+    page_durations = []
+    for start in range(0, len(events), visible_rows):
+        longest_scroll = 0.0
+        for event in events[start:start + visible_rows]:
+            _when, title = calendar_row_parts(event)
+            due = todoist_due_label(event, current_date)
+            due_width = len(due) * AGENDA_FONT_WIDTH if due else 0
+            available_width = max(
+                AGENDA_FONT_WIDTH,
+                256 - AGENDA_TITLE_X - 4 - due_width,
+            )
+            overflow = max(0, len(title) * AGENDA_FONT_WIDTH - available_width)
+            longest_scroll = max(longest_scroll, overflow / marquee_speed)
+        page_durations.append(
+            longest_scroll + (settle_pause_seconds if longest_scroll else 0.0) + page_seconds
+        )
+    if not page_durations:
+        return 0.0
+    return sum(page_durations) + max(0, len(page_durations) - 1) * AGENDA_SLIDE_SECONDS
+
+
+def todoist_effective_duration(screen_duration, events, page_seconds=AGENDA_PAGE_SECONDS,
+                               visible_rows=AGENDA_VISIBLE_ROWS, current_date=""):
+    """Extend, never shorten, the server-configured Todoist screen duration."""
+    configured = max(1.0, float(screen_duration or 1))
+    required = todoist_page_timing(
+        events,
+        page_seconds=page_seconds,
+        visible_rows=visible_rows,
+        current_date=current_date,
+    )
+    return int(max(configured, required) + 0.999999)
 
 
 def header(station, stale=False):
@@ -419,3 +470,41 @@ def calling_text(service):
             value += " ({})".format(stop.get("status"))
         parts.append(value)
     return "CALLING AT: " + _station_separator(service).join(parts)
+
+
+def rail_phase(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
+    """Return the departures presentation state for the supplied phase."""
+    try:
+        total = max(0.1, float(summary_seconds)) + max(0.1, float(calling_seconds))
+        value = max(0.0, float(phase or 0)) % total
+    except (TypeError, ValueError):
+        value = 0.0
+        summary_seconds = RAIL_SUMMARY_SECONDS
+    return "summary" if value < max(0.1, float(summary_seconds)) else "calling"
+
+
+def rail_phase_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
+    """Return phase-local elapsed seconds, resetting at the calling state."""
+    summary_seconds = max(0.1, float(summary_seconds))
+    total = summary_seconds + max(0.1, float(calling_seconds))
+    value = max(0.0, float(phase or 0)) % total
+    return value if value < summary_seconds else value - summary_seconds
+
+
+def rail_rows(services, phase):
+    """Return four logical departures rows shared by hardware and fixtures."""
+    services = list(services or [])
+    state = rail_phase(phase)
+    if state == "summary":
+        return [
+            ("header", None),
+            ("service", services[1] if len(services) > 1 else None),
+            ("service", services[2] if len(services) > 2 else None),
+            ("service", services[3] if len(services) > 3 else None),
+        ]
+    return [
+        ("service", services[0] if len(services) > 0 else None),
+        ("calling", services[0] if len(services) > 0 else None),
+        ("service", services[1] if len(services) > 1 else None),
+        ("calling", services[1] if len(services) > 1 else None),
+    ]

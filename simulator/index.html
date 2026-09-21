@@ -97,6 +97,9 @@
     const CONTENT_FIRST_Y = 11 * FONT_PIXEL_SCALE;
     const CONTENT_ROW_HEIGHT = 8 * FONT_PIXEL_SCALE;
     const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;
+    const RAIL_ROW_Y = [1, 9, 17, 25].map(value => value * FONT_PIXEL_SCALE);
+    const RAIL_SUMMARY_SECONDS = 8;
+    const RAIL_CALLING_SECONDS = 8;
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -305,7 +308,7 @@
       if (!eventDate.year || !eventDate.month || !eventDate.day) return '';
       const today = londonDateParts(now);
       const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
-      if (dayDelta < 0) return '';
+      if (dayDelta < 0) return 'OVERDUE';
       if (dayDelta > 0) return `DUE IN ${dayDelta}d`;
       if (event.all_day) return 'DUE TODAY';
       const dueAt = new Date(start);
@@ -398,11 +401,11 @@
     }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
-      const total = screens.reduce((sum, screen) => sum + Math.max(1, Number(screen.duration_seconds) || 8), 0) * 1000;
+      const total = screens.reduce((sum, screen) => sum + Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8), 0) * 1000;
       let remaining = elapsed % total;
       for (let index = 0; index < screens.length; index += 1) {
         const screen = screens[(index + screenOffset + screens.length * 1000) % screens.length];
-        const duration = Math.max(1, Number(screen.duration_seconds) || 8) * 1000;
+        const duration = Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8) * 1000;
         if (remaining < duration) return { screen, phase: remaining / 1000, index: (index + screenOffset + screens.length * 1000) % screens.length };
         remaining -= duration;
       }
@@ -437,7 +440,7 @@
       drawLedText(text, width + gap - offset, y);
     }
     function stationSeparator(service) {
-      const logicalPixels = boundedNumber(service.station_spacing_px, 28, 8, 80);
+      const logicalPixels = boundedNumber(service.station_spacing_px, 10, 8, 80);
       const renderedPixels = logicalPixels * 4;
       const spaceWidth = Math.max(1, measureLedText(' ').width);
       return ' '.repeat(Math.max(1, Math.round(renderedPixels / spaceWidth)));
@@ -477,6 +480,31 @@
       const step = Math.min(maxStart, Math.floor(cyclePhase / stepSeconds));
       const within = cyclePhase - step * stepSeconds;
       return { start: step, progress: within <= pause ? 0 : Math.min(1, (within - pause) / DEPARTURE_SLIDE_SECONDS), resetProgress: 0 };
+    }
+    function railPhase(phase) {
+      const total = RAIL_SUMMARY_SECONDS + RAIL_CALLING_SECONDS;
+      return (Math.max(0, Number(phase) || 0) % total) < RAIL_SUMMARY_SECONDS ? 'summary' : 'calling';
+    }
+    function railPhaseElapsed(phase) {
+      const summary = RAIL_SUMMARY_SECONDS;
+      const total = summary + RAIL_CALLING_SECONDS;
+      const value = Math.max(0, Number(phase) || 0) % total;
+      return value < summary ? value : value - summary;
+    }
+    function railRows(services, phase) {
+      const list = Array.isArray(services) ? services : [];
+      if (railPhase(phase) === 'summary') return [
+        { kind: 'header', service: null },
+        { kind: 'service', service: list[1] || null },
+        { kind: 'service', service: list[2] || null },
+        { kind: 'service', service: list[3] || null }
+      ];
+      return [
+        { kind: 'service', service: list[0] || null },
+        { kind: 'calling', service: list[0] || null },
+        { kind: 'service', service: list[1] || null },
+        { kind: 'calling', service: list[1] || null }
+      ];
     }
     function clockLayout(now = new Date()) {
       const text = clockFormatter.format(now);
@@ -614,53 +642,30 @@
         status.dataset.detail = message;
       } else if (screen.kind === 'rail_combined') {
         const railServices = listPage(screen).services;
-        const next = railServices[0] || { time: '--:--', destination: 'No services', platform: '-', status: '' };
-        const nextPulse = !next.cancelled || Math.floor(phase * 2) % 2 === 0;
-        const primaryPhase = Math.max(0, Math.min(1, phase / 1.2));
-        const primaryX = -Math.round((1 - primaryPhase) * 220) * 4;
         const headerRight = (screen.stale || forceStale) ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
-        drawRailService(next, HEADER_TEXT_Y, primaryX, headerRight, next.cancelled && nextPulse ? '#ff3300' : '#ffffff', 1);
-        const calling = callingMarqueeState(callingText(next), phase, stationMarqueeSpeed(screen), stationMarqueeGap());
-        if (calling) {
-          context.fillStyle = '#ffaa00';
-          drawLedText(CALLING_LABEL, 0, CALLING_TEXT_Y);
-          context.save();
-          context.beginPath();
-          context.rect(calling.prefixWidth, 30, 1024 - calling.prefixWidth, 30);
-          context.clip();
-          drawLedText(calling.stations, calling.prefixWidth + calling.offset, CALLING_TEXT_Y);
-          drawLedText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), CALLING_TEXT_Y);
-          context.restore();
-        }
-        const upcomingServices = railServices.slice(1);
-        if (!upcomingServices.length) {
-          context.fillStyle = '#ffffff';
-          drawLedText('No upcoming services', 0, UPCOMING_FIRST_Y);
-        }
-        const scroll = departureScrollState(phase, upcomingServices.length, screen.upcoming_train_pause_seconds);
-        context.save();
-        context.beginPath();
-        context.rect(0, 64, 1024, 64);
-        context.clip();
-        if (scroll.resetProgress === null) {
-          // Deliberate blank gap before the reset pair enters.
-        } else if (scroll.resetProgress > 0) {
-          for (let slot = 0; slot < Math.min(2, upcomingServices.length); slot += 1) {
-            const upcoming = upcomingServices[slot];
-            const entry = Math.max(0, Math.min(1, (scroll.resetProgress - slot * 0.15) / 0.4));
-            const x = -Math.round((1 - entry) * 220) * 4;
-            drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT, x, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', slot + 2);
+        railRows(railServices, phase).forEach((row, rowIndex) => {
+          const y = RAIL_ROW_Y[rowIndex];
+          if (row.kind === 'header') {
+            context.fillStyle = '#ffaa00';
+            drawLedText('DEPARTURES', 0, y);
+          } else if (row.kind === 'service' && row.service) {
+            const ordinal = railPhase(phase) === 'calling' ? (rowIndex === 0 ? 1 : 2) : rowIndex + 1;
+            drawRailService(row.service, y, 0, headerRight, row.service.cancelled ? '#ff3300' : '#ffffff', ordinal);
+          } else if (row.kind === 'calling' && row.service) {
+            const calling = callingMarqueeState(callingText(row.service), railPhaseElapsed(phase), stationMarqueeSpeed(screen), stationMarqueeGap());
+            if (calling) {
+              context.fillStyle = '#ffaa00';
+              drawLedText(CALLING_LABEL, 0, y);
+              context.save();
+              context.beginPath();
+              context.rect(calling.prefixWidth, y, 1024 - calling.prefixWidth, 28);
+              context.clip();
+              drawLedText(calling.stations, calling.prefixWidth + calling.offset, y);
+              drawLedText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), y);
+              context.restore();
+            }
           }
-        } else {
-          const visible = scroll.progress > 0 ? 3 : 2;
-          for (let slot = 0; slot < visible; slot += 1) {
-            const index = scroll.start + slot;
-            const upcoming = upcomingServices[index];
-            if (!upcoming) break;
-            drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT - scroll.progress * CONTENT_ROW_HEIGHT, 0, headerRight, upcoming.cancelled ? '#ff3300' : '#ffffff', index + 2);
-          }
-        }
-        context.restore();
+        });
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', STALE_X, HEADER_TEXT_Y); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {
@@ -744,7 +749,7 @@
             }
             context.restore();
             drawLedText(parts.when, 0, y);
-            if (due) drawLedText(due, dueX, y);
+            if (due) { context.fillStyle = due === 'OVERDUE' ? '#ff3300' : '#ffffff'; drawLedText(due, dueX, y); }
           }
           context.restore();
         }

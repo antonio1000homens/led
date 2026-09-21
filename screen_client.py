@@ -177,7 +177,10 @@ class ScreenRotation:
             self.started_at = now
         while True:
             screen = self.screens[self.index]
-            duration = max(1, int(screen.get("duration_seconds") or 8))
+            duration = max(
+                1,
+                int(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
+            )
             elapsed = max(0, now - self.started_at)
             if elapsed < duration:
                 return screen, elapsed

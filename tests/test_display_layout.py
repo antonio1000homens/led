@@ -53,6 +53,20 @@ class DisplayLayoutTests(unittest.TestCase):
 
         self.assertEqual([item[0] for item in display.drawn].count("TODAY"), 2)
 
+    def test_overdue_todoist_label_is_red_and_right_aligned(self):
+        display = CapturingFixture()
+        screen = {
+            "kind": "calendar_agenda",
+            "source": "todoist",
+            "events": [{"start": "2026-09-12", "date_text": "12/09", "all_day": True, "title": "Late task"}],
+        }
+        display._draw_screen(screen, phase=10, clock_date="2026-09-13")
+        overdue = [item for item in display.drawn if item[0] == "OVERDUE"]
+        self.assertEqual(len(overdue), 1)
+        _text, x, _y, color = overdue[0]
+        self.assertEqual(x + len("OVERDUE") * led_display.WEATHER_FONT_WIDTH, led_display.DISPLAY_WIDTH)
+        self.assertEqual(color, (255, 51, 0))
+
     def test_departure_statuses_share_one_vertical_column(self):
         display = CapturingFixture()
         screen = {
@@ -61,10 +75,11 @@ class DisplayLayoutTests(unittest.TestCase):
                 {"time": "12:00", "destination": "Waterloo", "platform": "1", "status": "On time"},
                 {"time": "12:10", "destination": "Waterloo", "platform": "2", "status": "On time"},
                 {"time": "12:20", "destination": "Waterloo", "platform": "3", "status": "On time"},
+                {"time": "12:30", "destination": "Waterloo", "platform": "4", "status": "On time"},
             ],
         }
 
-        display._draw_screen(screen, phase=10, clock_date="2026-09-15")
+        display._draw_screen(screen, phase=0, clock_date="2026-09-15")
 
         status_x = [x for text, x, _y, _color in display.drawn if text == "On time"]
         self.assertEqual(len(status_x), 3)

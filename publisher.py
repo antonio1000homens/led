@@ -21,6 +21,7 @@ from runtime_config import (
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from weather import OpenMeteoProvider
+from formatting import todoist_effective_duration
 
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
@@ -394,14 +395,21 @@ class Publisher:
             if data is not None:
                 calendar_events = data.get("events") or []
                 if data.get("source") == "todoist":
-                    calendar_events = [
-                        event
-                        for event in calendar_events
-                        if _todoist_event_is_upcoming(event, now, self.config.calendar_timezone)
-                    ]
+                    calendar_events = copy.deepcopy(calendar_events[:self.config.calendar_max_events])
+                    local_date = now.astimezone(ZoneInfo(self.config.calendar_timezone)).date().isoformat()
+                    duration_seconds = todoist_effective_duration(
+                        config_feeds["calendar"]["screen_duration_seconds"],
+                        calendar_events,
+                        page_seconds=self.config.calendar_page_seconds,
+                        current_date=local_date,
+                    )
+                else:
+                    duration_seconds = config_feeds["calendar"]["screen_duration_seconds"]
+            else:
+                duration_seconds = config_feeds["calendar"]["screen_duration_seconds"]
             screens.append({
                 "id": "calendar", "kind": "calendar_agenda",
-                "duration_seconds": config_feeds["calendar"]["screen_duration_seconds"],
+                "duration_seconds": duration_seconds,
                 "title": "UPCOMING" if data is not None else "Calendar unavailable",
                 "source": data.get("source", "todoist") if data is not None else "unavailable",
                 "stale": bool(calendar.get("stale")) if data is not None else True,

@@ -23,10 +23,9 @@ class Issue41DashboardTests(unittest.TestCase):
         ast.parse(self.publisher_source)
 
     def test_departures_cycle_configured_upcoming_services_without_label_row(self):
-        self.assertIn('upcoming = services[1:]', self.display_source)
-        self.assertNotIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', self.display_source)
-        self.assertIn('const upcomingServices = railServices.slice(1);', self.simulator_source)
-        self.assertNotIn("context.fillText('UPCOMING', 0, 64)", self.simulator_source)
+        self.assertIn('rail_rows(services, phase)', self.display_source)
+        self.assertIn('function railRows(services, phase)', self.simulator_source)
+        self.assertIn("{ kind: 'header', service: null }", self.simulator_source)
 
     def test_weather_icon_and_temperature_replace_clock_as_one_header_group(self):
         self.assertIn('def _header_item_state(phase, weather):', self.display_source)
@@ -53,7 +52,7 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('return RAIL_MARQUEE_GAP;', self.simulator_source)
         self.assertIn("const CALLING_LABEL = 'CALLING AT: ';", self.simulator_source)
         self.assertIn('function callingMarqueeState(value, phase, speed, gap)', self.simulator_source)
-        self.assertIn('context.rect(calling.prefixWidth, 30, 1024 - calling.prefixWidth, 30);', self.simulator_source)
+        self.assertIn('context.rect(calling.prefixWidth, y, 1024 - calling.prefixWidth, 28);', self.simulator_source)
 
     def test_admin_departures_has_collapsed_advanced_controls(self):
         self.assertIn('advanced_fields', self.runtime_source)
@@ -73,8 +72,8 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('service.station_spacing_px', self.simulator_source)
         self.assertIn('.join(stationSeparator(service))', self.simulator_source)
         self.assertNotIn('boundedNumber(screen.station_list_spacing', self.simulator_source)
-        self.assertIn('screen.get("upcoming_train_pause_seconds")', self.display_source)
-        self.assertIn('screen.upcoming_train_count', self.simulator_source)
+        self.assertIn('rail_rows(services, phase)', self.display_source)
+        self.assertIn('function railRows(services, phase)', self.simulator_source)
         self.assertIn('ordinal_label', self.display_source)
         self.assertIn('function ordinalLabel(number)', self.simulator_source)
 

@@ -30,6 +30,10 @@ from formatting import (
     calling_marquee_x,
     calling_text,
     departure_scroll_state,
+    RAIL_ROW_Y,
+    rail_phase,
+    rail_phase_elapsed,
+    rail_rows,
     ordinal_label,
     format_row,
     queue_scroll_state,
@@ -345,6 +349,7 @@ class MatrixDisplay:
         self._rail_stale = None
         self._rail_weather = None
         self._rail_calling_labels = []
+        self._rail_phase = None
         self._rail_clock_group = None
         self._rail_clock_label = None
         self._rail_weather_group = None
@@ -489,50 +494,31 @@ class MatrixDisplay:
         import displayio
 
         services = screen.get("services") or []
-        primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
         rail_right_edge = _header_content_right(screen)
-        primary_slide = row_slide_phase(phase, 0)
-        primary_x = -int((1 - primary_slide) * 220)
-        primary_color = 0xFF3300 if primary.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-        self._rail_service(group, primary, primary_color, primary_x, 3, rail_right_edge, 1)
-
-        # Keep the calling-at labels in a child group so their text and x
-        # coordinates can be changed without rebuilding the rail scene.
-        calling_group = displayio.Group()
-        calling_prefix = self._label(calling_group, "", 0xFFAA00, 0, 10)
-        calling_segments = [
-            self._label(calling_group, "", 0xFFAA00, 0, 10),
-            self._label(calling_group, "", 0xFFAA00, 0, 10),
-        ]
-        group.append(calling_group)
-        self._rail_calling_labels = [calling_prefix] + calling_segments
-
-        upcoming = services[1:]
-        if not upcoming:
-            self._label(group, "No upcoming services", 0xFFFFFF, 0, 17)
-        start, progress, reset_progress = departure_scroll_state(
-            phase, len(upcoming), screen.get("upcoming_train_pause_seconds")
-        )
-        if reset_progress is None:
-            pass
-        elif reset_progress > 0:
-            for slot in range(min(2, len(upcoming))):
-                service = upcoming[slot]
-                entry = max(0.0, min(1.0, (reset_progress - slot * 0.15) / 0.4))
-                x = -int((1.0 - entry) * 220)
-                color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-                self._rail_service(group, service, color, x, 17 + slot * 8, rail_right_edge, slot + 2)
-        else:
-            for slot in range(3 if progress > 0 else 2):
-                index = start + slot
-                if index >= len(upcoming):
-                    break
-                service = upcoming[index]
-                color = 0xFF3300 if service.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
-                y = 17 + slot * 8 - int(progress * 8)
-                if y < 17:
-                    continue
-                self._rail_service(group, service, color, 0, y, rail_right_edge, index + 2)
+        state = rail_phase(phase)
+        rows = rail_rows(services, phase)
+        self._rail_calling_labels = []
+        for row_index, (row_kind, service) in enumerate(rows):
+            y = RAIL_ROW_Y[row_index]
+            if row_kind == "header":
+                self._label(group, "DEPARTURES", 0xFFAA00, 0, y)
+            elif row_kind == "service" and service is not None:
+                ordinal = (1 if state == "calling" and row_index == 0 else
+                            2 if state == "summary" and row_index == 1 else
+                            3 if state == "summary" and row_index == 2 else
+                            4 if state == "summary" else 2)
+                color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
+                self._rail_service(group, service, color, 0, y, rail_right_edge, ordinal)
+            elif row_kind == "calling":
+                calling_group = displayio.Group()
+                labels = [
+                    self._label(calling_group, "", 0xFFAA00, 0, y),
+                    self._label(calling_group, "", 0xFFAA00, 0, y),
+                    self._label(calling_group, "", 0xFFAA00, 0, y),
+                ]
+                group.append(calling_group)
+                self._rail_calling_labels.append(labels)
+        self._rail_phase = state
 
     def _rail_cache_matches(self, screen):
         return (
@@ -543,14 +529,12 @@ class MatrixDisplay:
             and self._rail_weather == screen.get("weather")
         )
 
-    def _build_rail_scene(self, screen, clock_time):
+    def _build_rail_scene(self, screen, clock_time, phase):
         """Build a departures scene once; animation mutates only child labels."""
         import displayio
 
         root = displayio.Group()
-        # Static departures intentionally use the settled phase.  The
-        # calling-at child is immediately updated to the live phase below.
-        self._rail(root, screen, 2)
+        self._rail(root, screen, phase)
 
         self._header_mask(root)
         self._label(root, _clip(screen.get("title") or "NEW DEPARTURES", 30), 0xFFAA00, 0, 3)
@@ -578,31 +562,31 @@ class MatrixDisplay:
     def _update_rail_scene(self, screen, clock_time, phase):
         """Update only the calling-at marquee and rotating header item."""
         changed = False
-        services = screen.get("services") or []
-        primary = services[0] if services else {"destination": "No data"}
-        calling = calling_text(primary)
         scroll_speed, scroll_gap = _station_scroll_settings(screen)
-        calling_x = calling_marquee_x(
-            calling,
-            phase,
-            display_width=DISPLAY_WIDTH,
-            font_width=WEATHER_FONT_WIDTH,
-            speed=scroll_speed,
-            gap=scroll_gap,
-        )
-        prefix, first, second = self._rail_calling_labels
-        segments = _calling_segments(calling, calling_x, scroll_gap) if calling_x is not None else ()
-        values = [(0, CALLING_LABEL if calling_x is not None else "")]
-        values.extend(segments)
-        while len(values) < 3:
-            values.append((0, ""))
-        for label_item, (x, text) in zip(self._rail_calling_labels, values[:3]):
-            if label_item.x != int(x):
-                label_item.x = int(x)
-                changed = True
-            if label_item.text != str(text):
-                label_item.text = str(text)
-                changed = True
+        services = screen.get("services") or []
+        for calling_index, labels in enumerate(self._rail_calling_labels):
+            service = services[calling_index] if calling_index < len(services) else {}
+            calling = calling_text(service)
+            calling_x = calling_marquee_x(
+                calling,
+                rail_phase_elapsed(phase),
+                display_width=DISPLAY_WIDTH,
+                font_width=WEATHER_FONT_WIDTH,
+                speed=scroll_speed,
+                gap=scroll_gap,
+            )
+            segments = _calling_segments(calling, calling_x, scroll_gap) if calling_x is not None else ()
+            values = [(0, CALLING_LABEL if calling_x is not None else "")]
+            values.extend(segments)
+            while len(values) < 3:
+                values.append((0, ""))
+            for label_item, (x, text) in zip(labels, values[:3]):
+                if label_item.x != int(x):
+                    label_item.x = int(x)
+                    changed = True
+                if label_item.text != str(text):
+                    label_item.text = str(text)
+                    changed = True
 
         if self._rail_clock_label.text != clock_time:
             self._rail_clock_label.text = clock_time
@@ -620,8 +604,9 @@ class MatrixDisplay:
 
     def _show_rail(self, screen, clock_time, phase):
         """Render departures with a persistent scene and live calling marquee."""
-        if not self._rail_cache_matches(screen):
-            self._build_rail_scene(screen, clock_time)
+        state = rail_phase(phase)
+        if not self._rail_cache_matches(screen) or self._rail_phase != state:
+            self._build_rail_scene(screen, clock_time, phase)
         changed = self._update_rail_scene(screen, clock_time, phase)
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
@@ -752,7 +737,8 @@ class MatrixDisplay:
                 self._mask(row_group, 0, -3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)
                 self._label(row_group, when, 0xFFFFFF, 0, 0)
                 if due:
-                    self._label(row_group, due, 0xFFFFFF, due_x, 0)
+                    due_color = 0xFF3300 if due == "OVERDUE" else 0xFFFFFF
+                    self._label(row_group, due, due_color, due_x, 0)
 
                 row_group.y = 64
                 root.append(row_group)
@@ -1044,52 +1030,27 @@ class FixtureDisplay:
         kind = screen.get("kind")
         if kind == "rail_combined":
             services = screen.get("services") or []
-            primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
             rail_right_edge = _header_content_right(screen)
-            primary_slide = row_slide_phase(phase, 0)
-            primary_x = -int((1 - primary_slide) * 220)
-            primary_color = (255, 20, 0) if primary.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-            self._rail_service(primary, primary_color, primary_x, 0, rail_right_edge, 1)
-            text = calling_text(primary)
-            scroll_speed, scroll_gap = _station_scroll_settings(screen)
-            calling_x = calling_marquee_x(
-                text,
-                phase,
-                display_width=DISPLAY_WIDTH,
-                font_width=WEATHER_FONT_WIDTH,
-                speed=scroll_speed,
-                gap=scroll_gap,
-            )
-            if calling_x is not None:
-                self._text(CALLING_LABEL, 0, 8, (255, 100, 0))
-                for segment_x, segment in _calling_segments(text, calling_x, scroll_gap):
-                    self._text(segment, segment_x, 8, (255, 100, 0))
-            upcoming = services[1:]
-            if not upcoming:
-                self._text("No upcoming services", 0, 16, (255, 255, 255))
-            start, progress, reset_progress = departure_scroll_state(
-                phase, len(upcoming), screen.get("upcoming_train_pause_seconds")
-            )
-            if reset_progress is None:
-                pass
-            elif reset_progress > 0:
-                for slot in range(min(2, len(upcoming))):
-                    service = upcoming[slot]
-                    entry = max(0.0, min(1.0, (reset_progress - slot * 0.15) / 0.4))
-                    x = -int((1.0 - entry) * 220)
-                    color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-                    self._rail_service(service, color, x, 16 + slot * 8, rail_right_edge, slot + 2)
-            else:
-                for slot in range(3 if progress > 0 else 2):
-                    index = start + slot
-                    if index >= len(upcoming):
-                        break
-                    service = upcoming[index]
-                    color = (255, 20, 0) if service.get("cancelled") and int(phase * 2) % 2 else (255, 255, 255)
-                    y = 16 + slot * 8 - int(progress * 8)
-                    if y < 16:
-                        continue
-                    self._rail_service(service, color, 0, y, rail_right_edge, index + 2)
+            state = rail_phase(phase)
+            calling_number = 0
+            for row_index, (row_kind, service) in enumerate(rail_rows(services, phase)):
+                y = RAIL_ROW_Y[row_index]
+                if row_kind == "header":
+                    self._text("DEPARTURES", 0, y, (255, 170, 0))
+                elif row_kind == "service" and service is not None:
+                    ordinal = (1 if row_index == 0 else 2) if state == "calling" else row_index + 1
+                    color = (255, 20, 0) if service.get("cancelled") else (255, 255, 255)
+                    self._rail_service(service, color, 0, y, rail_right_edge, ordinal)
+                elif row_kind == "calling" and service is not None:
+                    text = calling_text(service)
+                    scroll_speed, scroll_gap = _station_scroll_settings(screen)
+                    calling_x = calling_marquee_x(text, rail_phase_elapsed(phase), display_width=DISPLAY_WIDTH,
+                                                  font_width=WEATHER_FONT_WIDTH, speed=scroll_speed, gap=scroll_gap)
+                    if calling_x is not None:
+                        self._text(CALLING_LABEL, 0, y, (255, 170, 0))
+                        for segment_x, segment in _calling_segments(text, calling_x, scroll_gap):
+                            self._text(segment, segment_x, y, (255, 170, 0))
+                    calling_number += 1
         elif kind == "theme_park_queues":
             rides = screen.get("rides") or []
             if not rides:
@@ -1136,7 +1097,8 @@ class FixtureDisplay:
                     if due:
                         progress = row_slide_phase(phase, slot)
                         due_offset = int((1.0 - progress) * DISPLAY_WIDTH)
-                        self._text(due, due_x + due_offset, y, (255, 255, 255))
+                        due_color = (255, 51, 0) if due == "OVERDUE" else (255, 255, 255)
+                        self._text(due, due_x + due_offset, y, due_color)
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "UPCOMING", 30), 0, 0, (255, 100, 0))
         else:

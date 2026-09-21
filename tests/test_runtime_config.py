@@ -59,7 +59,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config["feeds"]["departures"]["poll_seconds"], 60)
         self.assertEqual(config["feeds"]["departures"]["no_services_duration_seconds"], DEFAULT_NO_SERVICES_DURATION_SECONDS)
         self.assertEqual(config["feeds"]["departures"]["station_scroll_speed"], 30)
-        self.assertEqual(config["feeds"]["departures"]["station_list_spacing"], 28)
+        self.assertEqual(config["feeds"]["departures"]["station_list_spacing"], 10)
         self.assertEqual(config["feeds"]["departures"]["upcoming_train_count"], DEFAULT_UPCOMING_TRAIN_COUNT)
         self.assertEqual(config["feeds"]["departures"]["upcoming_train_pause_seconds"], DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS)
         self.assertEqual(config["feeds"]["thorpe_park"]["park_id"], 2)

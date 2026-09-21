@@ -103,8 +103,8 @@ class PublisherTests(unittest.TestCase):
         events=[{"start":f"2026-09-{13+i:02d}T18:00:00+01:00","date_text":f"{13+i:02d}/09","time_text":"18:00","title":f"Event {i+1}"} for i in range(6)]; calendar=FakeProvider([events])
         first=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); screen=first["screens"][1]
-        self.assertEqual(calendar.calls,1); self.assertEqual(screen["id"],"calendar"); self.assertEqual(screen["duration_seconds"],10); self.assertEqual(len(screen["events"]),6); self.assertFalse(second["screens"][1]["stale"])
-    def test_cached_calendar_prunes_event_once_it_becomes_overdue_before_ttl(self):
+        self.assertEqual(calendar.calls,1); self.assertEqual(screen["id"],"calendar"); self.assertGreaterEqual(screen["duration_seconds"],10); self.assertEqual(len(screen["events"]),6); self.assertFalse(second["screens"][1]["stale"])
+    def test_cached_calendar_retains_active_event_once_it_becomes_overdue_before_ttl(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300)
         rail=FakeProvider([[{"time":"08:01"}]])
         calendar=FakeProvider([[
@@ -116,10 +116,10 @@ class PublisherTests(unittest.TestCase):
         self.now+=timedelta(minutes=2)
         second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()
         self.assertEqual(calendar.calls,1)
-        self.assertEqual([event["title"] for event in second["screens"][1]["events"]],["Still upcoming"])
+        self.assertEqual([event["title"] for event in second["screens"][1]["events"]],["Soon overdue","Still upcoming"])
         self.assertFalse(second["screens"][1]["stale"])
 
-    def test_calendar_keeps_cached_data_stale_after_failure_but_prunes_overdue_event(self):
+    def test_calendar_keeps_cached_data_stale_after_failure_and_retains_overdue_event(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=60)
         rail=FakeProvider([[{"time":"08:01"}],[{"time":"08:02"}]])
         calendar=FakeProvider([[
@@ -129,7 +129,7 @@ class PublisherTests(unittest.TestCase):
         Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); self.now+=timedelta(seconds=61)
         screen=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()["screens"][1]
         self.assertTrue(screen["stale"])
-        self.assertEqual([event["title"] for event in screen["events"]],["Keep me"])
+        self.assertEqual([event["title"] for event in screen["events"]],["Expires","Keep me"])
 
     def test_cached_calendar_retains_all_day_task_until_local_day_ends(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300)

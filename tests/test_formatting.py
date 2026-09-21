@@ -12,6 +12,11 @@ from formatting import (
     calendar_row_text,
     calling_marquee_x,
     calling_text,
+    todoist_effective_duration,
+    todoist_page_timing,
+    RAIL_ROW_Y,
+    rail_phase,
+    rail_rows,
     departure_scroll_state,
     ordinal_label,
     format_row,
@@ -163,6 +168,39 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(todoist_due_label(event, "2026-09-13"), "TODAY")
         self.assertEqual(todoist_due_label({"start": "2026-09-14"}, "2026-09-13"), "DUE 1 DAY")
         self.assertEqual(todoist_due_label({"start": "2026-09-15T01:00:00+01:00"}, "2026-09-13"), "DUE 2 DAYS")
+
+    def test_todoist_due_label_marks_past_date_overdue(self):
+        self.assertEqual(todoist_due_label({"start": "2026-09-12"}, "2026-09-13"), "OVERDUE")
+
+    def test_todoist_timing_adds_scroll_before_readable_dwell(self):
+        short = [{"start": "2026-09-13", "all_day": True, "title": "Short"}]
+        long = [{"start": "2026-09-13", "all_day": True, "title": "x" * 80}]
+        self.assertEqual(todoist_page_timing(short, page_seconds=5, current_date="2026-09-13"), 5)
+        self.assertGreater(todoist_page_timing(long, page_seconds=5, current_date="2026-09-13"), 5)
+
+    def test_todoist_timing_gives_each_page_its_own_dwell(self):
+        events = [{"start": "2026-09-13", "all_day": True, "title": "Short"} for _ in range(6)]
+        self.assertEqual(todoist_page_timing(events, page_seconds=5, current_date="2026-09-13"), 10.4)
+
+    def test_todoist_effective_duration_never_shortens_configured_duration(self):
+        events = [{"start": "2026-09-13", "all_day": True, "title": "Short"}]
+        self.assertEqual(todoist_effective_duration(30, events, page_seconds=5, current_date="2026-09-13"), 30)
+
+    def test_rail_uses_shared_four_row_grid_and_safe_missing_services(self):
+        self.assertEqual(RAIL_ROW_Y, (1, 9, 17, 25))
+        self.assertEqual(sorted(RAIL_ROW_Y), list(RAIL_ROW_Y))
+        self.assertLessEqual(RAIL_ROW_Y[-1] + 6, 31)
+        for count in range(4):
+            rows = rail_rows([{"time": "12:00"}] * count, 0)
+            self.assertEqual(len(rows), 4)
+            self.assertIsNotNone(rows[0])
+
+    def test_rail_summary_and_calling_rows_match_issue_72_contract(self):
+        services = [{"time": "12:{:02d}".format(index), "destination": "Waterloo"} for index in range(4)]
+        self.assertEqual([kind for kind, _ in rail_rows(services, 0)], ["header", "service", "service", "service"])
+        self.assertEqual([kind for kind, _ in rail_rows(services, 8)], ["service", "calling", "service", "calling"])
+        self.assertEqual(rail_phase(0), "summary")
+        self.assertEqual(rail_phase(8), "calling")
 
     def test_agenda_page_holds_then_slides_to_second_three(self):
         self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))

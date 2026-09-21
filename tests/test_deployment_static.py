@@ -72,9 +72,9 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("const RAIL_MARQUEE_SPEED = 120;", simulator)
         self.assertIn("const RAIL_MARQUEE_GAP = 112;", simulator)
         self.assertIn("return { services: services.slice(0, 1 + count) };", simulator)
-        self.assertIn("const upcomingServices = railServices.slice(1);", simulator)
-        self.assertIn("drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT - scroll.progress * CONTENT_ROW_HEIGHT, 0, headerRight", simulator)
-        self.assertIn("drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT, x, headerRight", simulator)
+        self.assertIn("function railRows(services, phase)", simulator)
+        self.assertIn("RAIL_ROW_Y[rowIndex]", simulator)
+        self.assertIn("drawRailService(row.service, y, 0, headerRight", simulator)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
         self.assertIn("stationMarqueeSpeed(screen)", simulator)
         self.assertIn("function stationMarqueeGap()", simulator)
@@ -112,10 +112,9 @@ class DeploymentStaticTests(unittest.TestCase):
 
     def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
         display = (ROOT / "display.py").read_text(encoding="utf-8")
-        self.assertIn("upcoming = services[1:]", display)
-        self.assertIn("y = 17 + slot * 8 - int(progress * 8)", display)
-        self.assertIn("self._rail_service(group, service, color, 0, y, rail_right_edge, index + 2)", display)
-        self.assertNotIn('self._label(group, "UPCOMING", 0xFFAA00, 0, 17)', display)
+        self.assertIn("RAIL_ROW_Y", display)
+        self.assertIn("rail_rows(services, phase)", display)
+        self.assertIn('self._label(group, "DEPARTURES", 0xFFAA00, 0, y)', display)
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
 
