@@ -36,7 +36,8 @@
         0,
         0,
         0
-      ]
+      ],
+      "role": "panel_1_leftmost_front_view_hub75_input"
     },
     "backplane_2": {
       "part": "backplane",
@@ -60,7 +61,8 @@
         768,
         0,
         0
-      ]
+      ],
+      "role": "panel_4_rightmost_front_view_chain_end"
     },
     "joiner_12": {
       "part": "joiner",
@@ -92,7 +94,9 @@
         6,
         28,
         16
-      ]
+      ],
+      "role": "panel_1_matrixportal_controller_carrier",
+      "assigned_backplane": "backplane_1"
     },
     "power_carrier_fixture": {
       "part": "power_mount",
@@ -234,7 +238,7 @@
       "b": "backplane_4"
     },
     {
-      "name": "MatrixPortal carrier nominally seats on backplane",
+      "name": "Panel 1 MatrixPortal carrier nominally seats on leftmost backplane",
       "type": "no_interference",
       "a": "matrixportal_carrier_fixture",
       "b": "backplane_1"
@@ -246,7 +250,7 @@
       "b": "backplane_1"
     },
     {
-      "name": "MatrixPortal carrier clears installed seam joiner",
+      "name": "Panel 1 MatrixPortal carrier clears Panel 1-2 seam joiner",
       "type": "no_interference",
       "a": "matrixportal_carrier_fixture",
       "b": "joiner_12",

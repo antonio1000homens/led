@@ -10,6 +10,28 @@ This is the current enclosure design for the four P4 HUB75 panels.
 - 2 × 1000 mm × 8 mm reinforcement bars
 - no printed bezel or rail is allowed in front of the LED PCB
 
+## Panel numbering and controller position
+
+Panel numbering is fixed for assembly and wiring:
+
+```text
+Front / LED-face view
+
+LEFT                                                        RIGHT
+┌────────────┬────────────┬────────────┬────────────┐
+│  Panel 1   │  Panel 2   │  Panel 3   │  Panel 4   │
+│ controller │            │            │ right-end  │
+└────────────┴────────────┴────────────┴────────────┘
+     ↑
+     MatrixPortal S3 is mounted on the rear of Panel 1
+
+HUB75 data direction: MatrixPortal → Panel 1 → Panel 2 → Panel 3 → Panel 4
+```
+
+**Panel 1 is the leftmost panel when looking at the illuminated LED face from the front.** The `04_matrixportal_mount_PRINT_1.stl` carrier attaches to the rear of Panel 1 / `backplane_1`. Panel 4 is the rightmost panel and uses `01b_backplane_right_end_PRINT_1.stl`.
+
+When working from the rear of the assembled display, remember that the apparent left/right order is reversed relative to this front-view numbering. Connect the MatrixPortal HUB75 output to the input connector of Panel 1, then daisy-chain the panel outputs in numerical order through Panel 4.
+
 ## Expected LED-panel mounting pattern
 
 A supplied reference model, `Hub75 2.5mm Panel v7.stl`, measures 160 × 80 mm. Its four symmetric rear mounting centres were measured as:
@@ -40,7 +62,7 @@ Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real pane
 | `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost backplane; omits unused outer tongues/recess/insert pockets |
 | `02_module_joiner_PRINT_3.stl` | 3 | Locks each module seam from the rear with flush countersunk M3 screws |
 | `03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
-| `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier |
+| `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier for the rear of Panel 1 / `backplane_1` |
 | `05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
 | `06_cable_clip_PRINT_8.stl` | 8 | M3 screw-down rear cable clips |
 | `07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
@@ -112,7 +134,7 @@ The MatrixPortal-specific geometry ported from PR #77 uses the Adafruit PCB enve
 
 The carrier now uses **round 2.8 mm M2.5 clearance holes** rather than the former elongated/rotated slots. Each hole has a captive M2.5 hex-nut pocket accessible from the underside. Low 2 mm support ribs tie all four 8 mm standoffs into the carrier side rails so the printed part is one connected shell while leaving the populated PCB underside substantially open.
 
-The MatrixPortal carrier remains removable from the same four M3 backplane attachment points introduced by #82; no backplane insert positions are changed by this MatrixPortal update. CI also verifies that the generated MatrixPortal STL is a single connected component reaching the z=0 print plane.
+The MatrixPortal carrier remains removable from the same four M3 backplane attachment points introduced by #82; no backplane insert positions are changed by this MatrixPortal update. **For the assembled display it is assigned specifically to Panel 1 / `backplane_1`, the HUB75 input end of the chain.** CI also verifies that the generated MatrixPortal STL is a single connected component reaching the z=0 print plane.
 
 The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
 
@@ -126,7 +148,7 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
 5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
 6. Insert and centre the two 1 m × 8 mm reinforcement bars.
-7. Fit the rod-end plugs, MatrixPortal carrier, power-distribution carrier and cable clips.
+7. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`, connect its HUB75 output to Panel 1 input, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
 
 ## Validation still required
 
