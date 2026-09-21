@@ -22,6 +22,7 @@ cp \
   "${ROOT_DIR}/queue_times.py" \
   "${ROOT_DIR}/weather.py" \
   "${ROOT_DIR}/todoist.py" \
+  "${ROOT_DIR}/formatting.py" \
   "${ROOT_DIR}/fixtures.py" \
   "${PACKAGE_DIR}/"
 
