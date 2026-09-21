@@ -1,21 +1,39 @@
 """Non-user-tunable timing limits for the four-panel MatrixPortal S3."""
 
-# Issue #70 presentation experiment.
+# Issue #70 hardware experiment.
 #
-# Change only these three values between hardware runs:
+# The local board agent only needs to change this ONE value between runs,
+# upload the branch to CIRCUITPY, and capture serial output:
 #
-#   MATRIX_PRESENTATION_MODE = "target_fps"   # Mode A: current behaviour
-#   MATRIX_PRESENTATION_MODE = "immediate"    # Mode B: refresh(None) + app pacing
-#   MATRIX_PRESENTATION_MODE = "auto_refresh" # Mode C: CircuitPython owns refresh
-#
-# MATRIX_REFRESH_FPS is the manual refresh target in Mode A. In Modes B/C it
-# is the application animation-update cadence. Keep TODOIST_MARQUEE_SPEED equal
-# to it for the 7/7, 8/8 and 10/10 comparison so moving frames advance by
-# approximately one logical pixel per animation tick.
-MATRIX_PRESENTATION_MODE = "target_fps"
+#   A7 / A8 / A10 = current target-FPS refresh control
+#   B7 / B8 / B10 = immediate refresh + application-owned pacing
+#   C7 / C8 / C10 = CircuitPython auto-refresh + application animation cadence
+MATRIX_EXPERIMENT_PRESET = "A7"
+
+_MATRIX_EXPERIMENT_PRESETS = {
+    "A7": ("target_fps", 7, 7.0),
+    "A8": ("target_fps", 8, 8.0),
+    "A10": ("target_fps", 10, 10.0),
+    "B7": ("immediate", 7, 7.0),
+    "B8": ("immediate", 8, 8.0),
+    "B10": ("immediate", 10, 10.0),
+    "C7": ("auto_refresh", 7, 7.0),
+    "C8": ("auto_refresh", 8, 8.0),
+    "C10": ("auto_refresh", 10, 10.0),
+}
+
+try:
+    (
+        MATRIX_PRESENTATION_MODE,
+        MATRIX_REFRESH_FPS,
+        TODOIST_MARQUEE_SPEED,
+    ) = _MATRIX_EXPERIMENT_PRESETS[MATRIX_EXPERIMENT_PRESET]
+except KeyError:
+    raise ValueError("Unknown MATRIX_EXPERIMENT_PRESET: {}".format(MATRIX_EXPERIMENT_PRESET))
+
+# One bit per RGB channel keeps maximum refresh headroom across four chained
+# panels while retaining the board's eight required colours.
 MATRIX_BIT_DEPTH = 1
-MATRIX_REFRESH_FPS = 7
-TODOIST_MARQUEE_SPEED = 7.0
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
 
 # Aggregate serial summaries are deliberately infrequent so measurement does
