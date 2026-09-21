@@ -28,6 +28,27 @@ class FlashEventTests(unittest.TestCase):
         self.assertEqual(event["label"], "Take washing out")
         self.assertIsNone(parse_flash_event(EVENT, 1790010400))
 
+    def test_home_assistant_contract_with_published_at_and_offset_is_supported(self):
+        import json
+        payload = {
+            "id": "sensor.echo_living_room_next_reminder|2099-09-21T18:00:00+01:00|Take washing out",
+            "type": "reminder",
+            "label": "Take washing out",
+            "due_at": "2099-09-21T18:00:00+01:00",
+            "published_at": "2099-09-21T17:42:12+01:00",
+            "expires_at": "2099-09-21T18:05:00+01:00",
+            "source": "alexa",
+        }
+        event = parse_flash_event(json.dumps(payload), 4080585600)
+        self.assertEqual(event, {
+            "id": payload["id"],
+            "type": "reminder",
+            "label": payload["label"],
+            "due_at": payload["due_at"],
+            "expires_at": payload["expires_at"],
+            "source": "alexa",
+        })
+
     def test_malformed_event_is_ignored(self):
         for value in ({}, {**EVENT, "type": "other"}, {**EVENT, "expires_at": "bad"}):
             self.assertIsNone(parse_flash_event(value, 0))
@@ -75,15 +96,22 @@ class FakeMqtt:
         self.subscriptions = []
         self.connected = False
         self.loop_calls = 0
+        self.loop_timeouts = []
+        self.disconnect_calls = 0
 
     def connect(self):
         self.connected = True
+
+    def disconnect(self):
+        self.disconnect_calls += 1
+        self.connected = False
 
     def subscribe(self, topic, qos=0):
         self.subscriptions.append((topic, qos))
 
     def loop(self, timeout=0):
         self.loop_calls += 1
+        self.loop_timeouts.append(timeout)
         if self.fail_loop:
             raise OSError("broker disconnected")
         if self.callback_payload is not None and self.on_message:
@@ -99,6 +127,7 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(0)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
         self.assertEqual(received, [json_payload])
+        self.assertEqual(client.loop_timeouts, [0.1])
 
     def test_initial_failure_is_contained_and_later_connect_retries(self):
         attempts = []
@@ -115,10 +144,12 @@ class MqttTransportTests(unittest.TestCase):
         self.assertEqual(len(attempts), 2)
 
     def test_disconnect_is_contained_and_reconnect_resubscribes(self):
-        clients = [FakeMqtt(fail_loop=True), FakeMqtt()]
+        first = FakeMqtt(fail_loop=True)
+        clients = [first, FakeMqtt()]
         transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=lambda settings: clients.pop(0))
         transport.poll(0)
         self.assertFalse(transport.connected)
+        self.assertEqual(first.disconnect_calls, 1)
         transport.poll(5)
         self.assertTrue(transport.connected)
         self.assertEqual(clients, [])

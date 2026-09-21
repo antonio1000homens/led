@@ -97,8 +97,14 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL:
     def receive_flash(payload):
         global flash_resume, last_render_key
         now = time.monotonic()
-        epoch_now = time.time()
-        if flash.accept(payload, now, epoch_now=epoch_now if epoch_now >= 1000000000 else None):
+        epoch_now = clock.epoch(now)
+        if epoch_now is None:
+            system_epoch = time.time()
+            epoch_now = system_epoch if system_epoch >= 1000000000 else None
+        if epoch_now is None:
+            print("FLASH ignored: clock not synchronized")
+            return
+        if flash.accept(payload, now, epoch_now=epoch_now):
             # A replacement must not advance the frozen underlying rotation.
             if flash_resume is None:
                 flash_resume = rotation.pause(now)
