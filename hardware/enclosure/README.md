@@ -58,3 +58,5 @@ The four PCB mounting centres are explicit carrier-local coordinates:
 | 135.335 | 60.130 |
 
 The holes are round 2.8 mm M2.5-clearance holes on 19.685 × 40.640 mm spacing. The 5V/GND terminal screws are electrical terminals only, not mounting points. Carrier-to-backplane M3 points are carrier-local `(8,6)`, `(236,6)`, `(8,66)`, `(236,66)`, corresponding to backplane `(14,34)`, `(242,34)`, `(14,94)`, `(242,94)`.
+
+The carrier is one connected printable solid: 2 mm-high side and 6 mm-wide cross-ribs join the four 8 mm posts at both MatrixPortal mounting rows while preserving the large central clearance opening. The posts start at z=2 mm and finish at the 10 mm PCB mounting surface. Captive M2.5 nut pockets open at the carrier bottom and connect to the round through-holes.

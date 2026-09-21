@@ -49,6 +49,7 @@
   <text x="132" y="68" class="small" text-anchor="middle">DOWN / UP / RESET accessible</text>
   <text x="132" y="72" class="small" text-anchor="middle">5V / GND terminals accessible</text>
   <text x="132" y="106" class="small" text-anchor="middle">72 mm connector/access opening</text>
+  <text x="10" y="110" class="small">One connected solid: 6 mm-wide cross-ribs at y=19.490 and y=60.130; posts z=2–10 mm; bottom-open M2.5 nut traps.</text>
 
   <g transform="translate(10,116)">
     <circle cx="2" cy="0" r="1.4" class="matrix-hole"/>

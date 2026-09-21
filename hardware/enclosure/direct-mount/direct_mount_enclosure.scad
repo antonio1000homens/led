@@ -201,7 +201,8 @@ matrixportal_pcb_y = (carrier_h-matrixportal_pcb_h)/2;
 matrixportal_hole_spacing_x = 19.685;
 matrixportal_hole_spacing_y = 40.640;
 matrixportal_standoff_d = 8;
-matrixportal_standoff_h = 6;
+matrixportal_standoff_z = 2;
+matrixportal_standoff_h = 8;
 matrixportal_hole_d = 2.8; // round M2.5 clearance hole
 matrixportal_nut_af = 5.0; // nominal M2.5 hex nut across flats
 matrixportal_nut_h = 2.2;
@@ -256,9 +257,10 @@ module matrixportal_carrier_frame() {
 }
 
 module matrixportal_post_supports() {
-    // Tie each post back to a side rail without recreating a solid centre
-    // deck. These ribs are only 2 mm high; with the 6 mm post rise they leave
-    // 8 mm clearance below the PCB underside and its populated components.
+    // Tie each post back to a side rail and bridge each left/right pair. These
+    // ribs are only 2 mm high; with the posts starting at z=2 and ending at
+    // z=10 they leave about 8 mm clearance below the PCB underside and its
+    // populated components while making the carrier one connected solid.
     for (point=matrixportal_mount_points) {
         if (point[0] < carrier_w/2)
             translate([12,point[1]-matrixportal_support_rib_w/2,0])
@@ -267,6 +269,12 @@ module matrixportal_post_supports() {
             translate([point[0],point[1]-matrixportal_support_rib_w/2,0])
                 cube([carrier_w-12-point[0],matrixportal_support_rib_w,matrixportal_support_rib_h]);
     }
+
+    // Narrow cross-ribs join the two posts at each MatrixPortal mounting row.
+    // The exact row centres are the y coordinates of the four plated PCB holes.
+    for (row_y=[19.490,60.130])
+        translate([115.650,row_y-matrixportal_support_rib_w/2,0])
+            cube([135.335-115.650,matrixportal_support_rib_w,matrixportal_support_rib_h]);
 }
 
 module matrixportal_mount() {
@@ -277,7 +285,7 @@ module matrixportal_mount() {
 
             // Standoffs centred on the MatrixPortal S3's four M2.5 mounting holes.
             for (point=matrixportal_mount_points)
-                    translate([point[0],point[1],carrier_t])
+                    translate([point[0],point[1],matrixportal_standoff_z])
                         cylinder(d=matrixportal_standoff_d,h=matrixportal_standoff_h);
         }
 
@@ -287,9 +295,11 @@ module matrixportal_mount() {
                 translate([point[0],point[1],-0.5])
                     cylinder(d=matrixportal_hole_d,h=carrier_t+7);
 
-        // Captive M2.5 nut pockets open on the underside of each post.
+        // Captive M2.5 nut pockets open at the carrier bottom and connect to
+        // the round through-holes. The recess reaches z=2.2, just into the
+        // post that starts at z=2, so a nut can be inserted from underneath.
         for (point=matrixportal_mount_points)
-            translate([point[0],point[1],carrier_t-0.01])
+            translate([point[0],point[1],-0.01])
                 rotate([0,0,30])
                     cylinder(d=matrixportal_nut_af,h=matrixportal_nut_h,$fn=6);
 

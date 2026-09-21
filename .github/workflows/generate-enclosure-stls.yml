@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'hardware/enclosure/**/*.scad'
+      - 'hardware/enclosure/**/*.py'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
@@ -102,3 +103,6 @@ jobs:
             echo 'Regenerate the STL set locally with OpenSCAD and commit the updated binaries.' >&2
             exit "$status"
           fi
+
+          python3 hardware/enclosure/direct-mount/validate_matrixportal_stl.py \
+            "$generated/04_matrixportal_mount_PRINT_1.stl"
