@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'hardware/enclosure/**/*.scad'
+      - 'hardware/enclosure/**/*.stl'
+      - 'hardware/enclosure/**/*.py'
+      - 'hardware/enclosure/**/*.json'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
@@ -17,10 +20,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: Install OpenSCAD
+      - name: Install OpenSCAD and Python tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y openscad
+          sudo apt-get install -y openscad python3-venv
 
       - name: Regenerate and verify checked-in STLs
         shell: bash
@@ -31,7 +34,8 @@ jobs:
           generated="$(mktemp -d)"
 
           declare -A parts=(
-            [backplane]=01_backplane_module_PRINT_4.stl
+            [backplane]=01_backplane_module_PRINT_3.stl
+            [backplane_right]=01b_backplane_right_end_PRINT_1.stl
             [joiner]=02_module_joiner_PRINT_3.stl
             [rod_plug]=03_rod_end_plug_PRINT_4.stl
             [matrixportal_mount]=04_matrixportal_mount_PRINT_1.stl
@@ -102,3 +106,11 @@ jobs:
             echo 'Regenerate the STL set locally with OpenSCAD and commit the updated binaries.' >&2
             exit "$status"
           fi
+
+      - name: Validate mesh health and nominal assembly interfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-mechanical
+          .venv-mechanical/bin/python -m pip install --disable-pip-version-check --quiet trimesh manifold3d numpy
+          .venv-mechanical/bin/python hardware/enclosure/direct-mount/validate_assembly.py hardware/enclosure/direct-mount/assembly_validation.json

@@ -5,7 +5,7 @@ This is the current enclosure design for the four P4 HUB75 panels.
 ## Geometry
 
 - 4 × nominal 256 × 128 mm LED panels
-- 4 × identical printed backplanes
+- 3 × standard printed backplanes + 1 × right-end backplane
 - finished LED face: 1024 × 128 mm
 - 2 × 1000 mm × 8 mm reinforcement bars
 - no printed bezel or rail is allowed in front of the LED PCB
@@ -36,8 +36,9 @@ Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real pane
 
 | File | Qty | Purpose |
 | --- | ---: | --- |
-| `01_backplane_module_PRINT_4.stl` | 4 | Main 256 × 128 mm rear structure; one per LED panel |
-| `02_module_joiner_PRINT_3.stl` | 3 | Locks each module seam from the rear with M3 screws |
+| `01_backplane_module_PRINT_3.stl` | 3 | Standard 256 × 128 mm rear structure with right-side seam alignment tongues |
+| `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost backplane; omits unused outer tongues/recess/insert pockets |
+| `02_module_joiner_PRINT_3.stl` | 3 | Locks each module seam from the rear with flush countersunk M3 screws |
 | `03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
 | `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier |
 | `05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
@@ -58,15 +59,20 @@ Each `02_module_joiner_PRINT_3.stl` is **32 × 48 × 4 mm** and is centred acros
 
 The panel-facing surface is unchanged, so the backplane still sits directly and flush against the rear mounting face of the LED panel. When two backplanes meet, the joiner is recessed into their rear faces rather than being trapped between a backplane and the LED PCB.
 
+The alignment tongues are now 7.2 mm high from z=4 mm, finishing at z=11.2 mm. The joiner pocket floor is z=11.8 mm, leaving **0.6 mm nominal Z clearance** between each tongue and the installed joiner.
+
+The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Use M3 flat-head/countersunk screws whose heads fit fully within that envelope so no screw head stands proud into an electronics carrier.
+
 ## Reinforcement-bar change
 
-The expected panel mounting rows are only 12 mm from the top/bottom edges. The earlier 8 mm bar channels were too close to those rows, so the bar centres are now at **y=24 mm and y=104 mm**. Narrow printed beams support the bores while leaving the central connector-access area open.
+The expected panel mounting rows are only 12 mm from the top/bottom edges. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
 
 ## Non-printed hardware
 
 - 2 × 1000 mm × 8 mm round steel/aluminium bars
 - **M3 heat-set inserts: M3 × 6 mm long × 4.5 mm outside diameter**
-- M3 × 8–10 mm screws for the three joiners and electronics carriers
+- M3 × 10 mm **flat-head/countersunk** screws for the three seam joiners (head must fit the 6.4 mm countersink)
+- M3 × 8–10 mm screws for the electronics carriers
 - 2–4 × M2.5 screws/nuts for the MatrixPortal S3 carrier; verify the physical board
 - panel mounting screws/washers to match the actual P4 panel bosses
 - fused 5 V distribution hardware and appropriately rated 5 V input connector/cable
@@ -81,21 +87,29 @@ Use brass, knurled heat-set inserts intended for thermoplastic/3D-printed parts 
 | Insert length | **6 mm** |
 | Maximum outside diameter | **about 4.5 mm** |
 | Listing shorthand | **M3 × 6 × 4.5** when the seller uses thread × length × OD |
-| Mating screws | **M3 × 8–10 mm** for the joiners/carriers |
+| Mating screws | **M3 × 10 mm countersunk** for seam joiners; **M3 × 8–10 mm** for carriers |
 
 For the pictured mixed screw/insert kits, this is the **M3 B** family, specifically the compartment labelled **M3*6*4.5**. The M3 A inserts shown as **M3*6*4.2** are a smaller outside-diameter family and are not the selected project standard.
 
-**CAD fit:** the OpenSCAD source now uses a **4.0 mm nominal pilot** (`insert_d = 4.0`) and **6.2 mm blind-pocket depth** for the selected M3 × 6 × 4.5 mm insert. Print `07_mounting_slot_coupon_PRINT_1.stl` first and verify the fit with the actual insert and chosen filament before committing to all four backplanes. If the insert is excessively tight or loose on the real printer, adjust the pilot in small increments (for example 0.1 mm) and regenerate the STLs.
+**CAD fit:** the OpenSCAD source uses a **4.0 mm nominal pilot** (`insert_d = 4.0`) and **6.2 mm blind-pocket depth** for the selected M3 × 6 × 4.5 mm insert. The revised `07_mounting_slot_coupon_PRINT_1.stl` is 8 mm thick and reproduces that exact blind pocket, leaving 1.8 mm of material beneath it. Print the coupon first and verify the fit with the actual insert and chosen filament before committing to the structural backplanes. If the insert is excessively tight or loose on the real printer, adjust the pilot in small increments (for example 0.1 mm) and regenerate the STLs.
 
 Do not populate every optional insert pocket automatically. Install inserts only where the selected joiners, carrier or cable-management hardware needs them, and keep spare inserts for fit testing/rework.
+
+## Carrier and end-module changes
+
+The removable carrier attachment points are now **12 mm from each backplane edge** rather than 8 mm. Matching carrier holes are 6 mm from each edge of the 244 mm carrier, leaving about **4.25 mm nominal plastic ligament** outside a 3.5 mm mounting hole.
+
+The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
+
+The rod-end plug is now a split, tapered friction/detent design sized for the 9.2 mm bore. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
 
 ## Recommended validation sequence
 
 1. Print the full-pattern template and verify the four expected mounting centres on one physical panel.
 2. Print one complete backplane and verify connector/component clearance.
 3. Heat-set the M3 inserts from the rear.
-4. Bolt the four panels to their backplanes using the existing rear mounting points.
-5. Join neighbouring backplanes with the alignment tongues/sockets and rear joiner plates.
+4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
+5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
 6. Insert and centre the two 1 m × 8 mm reinforcement bars.
 7. Fit the rod-end plugs, MatrixPortal carrier, power-distribution carrier and cable clips.
 
