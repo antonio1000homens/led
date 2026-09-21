@@ -1,6 +1,9 @@
 name: Validate enclosure STLs
 
 on:
+  push:
+    branches:
+      - feature/mechanical-assembly-validation
   pull_request:
     paths:
       - 'hardware/enclosure/**/*.scad'
@@ -11,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -25,6 +28,41 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y openscad python3-venv
 
+      - name: One-off regenerate enclosure STLs on fix branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/mechanical-assembly-validation'
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
+          tracked=hardware/enclosure/direct-mount
+
+          rm -f "$tracked/01_backplane_module_PRINT_4.stl"
+
+          declare -A parts=(
+            [backplane]=01_backplane_module_PRINT_3.stl
+            [backplane_right]=01b_backplane_right_end_PRINT_1.stl
+            [joiner]=02_module_joiner_PRINT_3.stl
+            [rod_plug]=03_rod_end_plug_PRINT_4.stl
+            [matrixportal_mount]=04_matrixportal_mount_PRINT_1.stl
+            [power_mount]=05_power_distribution_mount_PRINT_1.stl
+            [cable_clip]=06_cable_clip_PRINT_8.stl
+            [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
+            [mount_pattern_template]=08_mount_pattern_template_PRINT_1.stl
+          )
+
+          for part in "${!parts[@]}"; do
+            openscad -D "part=\"${part}\"" -o "$tracked/${parts[$part]}" "$src"
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$tracked"/*.stl
+          git add -u "$tracked"
+          if ! git diff --cached --quiet; then
+            git commit -m "Regenerate enclosure STLs after mechanical fixes"
+            git push origin HEAD:"$GITHUB_REF_NAME"
+          fi
+
       - name: Regenerate and verify checked-in STLs
         shell: bash
         run: |
@@ -34,7 +72,8 @@ jobs:
           generated="$(mktemp -d)"
 
           declare -A parts=(
-            [backplane]=01_backplane_module_PRINT_4.stl
+            [backplane]=01_backplane_module_PRINT_3.stl
+            [backplane_right]=01b_backplane_right_end_PRINT_1.stl
             [joiner]=02_module_joiner_PRINT_3.stl
             [rod_plug]=03_rod_end_plug_PRINT_4.stl
             [matrixportal_mount]=04_matrixportal_mount_PRINT_1.stl
