@@ -83,6 +83,18 @@ def _parse_utc_timestamp(value):
     return year, month, day, hour, minute, second
 
 
+def _utc_epoch_from_parts(year, month, day, hour, minute, second):
+    """Convert a validated UTC date/time tuple to Unix epoch seconds."""
+    years = year - 1
+    days = years * 365 + years // 4 - years // 100 + years // 400
+    month_days = (31, 29 if _is_leap_year(year) else 28, 31, 30, 31, 30,
+                  31, 31, 30, 31, 30, 31)
+    days += sum(month_days[:month - 1]) + day - 1
+    epoch_years = 1969
+    epoch_days = epoch_years * 365 + epoch_years // 4 - epoch_years // 100 + epoch_years // 400
+    return (days - epoch_days) * 86400 + hour * 3600 + minute * 60 + second
+
+
 def london_date_and_seconds_from_utc(value):
     """Convert an ISO UTC timestamp to London local date and seconds."""
     year, month, day, hour, minute, second = _parse_utc_timestamp(value)
@@ -104,13 +116,22 @@ class ClockState:
     def __init__(self):
         self._date = None
         self._seconds = None
+        self._epoch = None
         self._synced_at = None
 
     def sync(self, fetched_at, now):
-        year, month, day, seconds = london_date_and_seconds_from_utc(fetched_at)
+        year, month, day, hour, minute, second = _parse_utc_timestamp(fetched_at)
+        _, _, _, seconds = london_date_and_seconds_from_utc(fetched_at)
         self._date = (year, month, day)
         self._seconds = seconds
+        self._epoch = _utc_epoch_from_parts(year, month, day, hour, minute, second)
         self._synced_at = now
+
+    def epoch(self, now):
+        """Return UTC epoch time derived from the last API timestamp."""
+        if self._epoch is None or self._synced_at is None:
+            return None
+        return self._epoch + max(0, now - self._synced_at)
 
     def _parts(self, now):
         if self._date is None or self._seconds is None or self._synced_at is None:
