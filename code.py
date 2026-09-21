@@ -23,7 +23,11 @@ from queue_display import create
 from fixtures import animated_services
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
-from matrix_config import MATRIX_REFRESH_FPS
+from matrix_config import (
+    MATRIX_PRESENTATION_MODE,
+    MATRIX_REFRESH_FPS,
+    MATRIX_STATS_INTERVAL_SECONDS,
+)
 
 
 if settings.SCREEN_SOURCE not in ("fixture", "api"):
@@ -84,6 +88,17 @@ runtime_mode = RuntimeMode()
 rendered_diagnostic_index = None
 last_render_key = None
 
+# Todoist frame-pacing diagnostics are reset whenever the board enters the
+# Todoist screen, so each serial summary represents one comparable run.
+pace_active = False
+pace_started = 0.0
+pace_last_report = 0.0
+pace_ticks = 0
+pace_late_frames = 0
+pace_late_streak = 0
+pace_max_late_streak = 0
+next_animation_deadline = None
+
 
 def _matrix_root_token():
     """Return the current root-group identity when running on MatrixPortal."""
@@ -113,6 +128,26 @@ def _smooth_todoist(screen):
         and screen.get("kind") == "calendar_agenda"
         and screen.get("source") == "todoist"
     )
+
+
+def _report_pace(now):
+    if not pace_active or now - pace_last_report < MATRIX_STATS_INTERVAL_SECONDS:
+        return False
+    elapsed = max(0.001, now - pace_started)
+    print(
+        "FRAME PACE mode={} target_fps={} elapsed={:.1f} animation_ticks={} "
+        "tick_fps={:.2f} late_frames={} max_late_streak={}".format(
+            MATRIX_PRESENTATION_MODE,
+            MATRIX_REFRESH_FPS,
+            elapsed,
+            pace_ticks,
+            pace_ticks / elapsed,
+            pace_late_frames,
+            pace_max_late_streak,
+        )
+    )
+    return True
+
 
 while True:
     now = time.monotonic()
@@ -188,12 +223,62 @@ while True:
         )
         last_render_key = render_key
     smooth_todoist = _smooth_todoist(screen)
-    if settings.ANIMATE or smooth_todoist:
-        frame_seconds = settings.FRAME_SECONDS if settings.ANIMATE else 1.0 / MATRIX_REFRESH_FPS
+    if smooth_todoist:
+        frame_seconds = 1.0 / MATRIX_REFRESH_FPS
+        if not pace_active:
+            pace_active = True
+            pace_started = frame_started
+            pace_last_report = frame_started
+            pace_ticks = 0
+            pace_late_frames = 0
+            pace_late_streak = 0
+            pace_max_late_streak = 0
+            next_animation_deadline = frame_started
+
+        pace_ticks += 1
+        after_render = time.monotonic()
+
+        if MATRIX_PRESENTATION_MODE in ("immediate", "auto_refresh"):
+            # Modes B/C own the animation cadence in the application. Use an
+            # absolute deadline to avoid accumulating render-time drift.
+            next_animation_deadline += frame_seconds
+            remaining = next_animation_deadline - after_render
+            if remaining > 0:
+                pace_late_streak = 0
+                time.sleep(remaining)
+            else:
+                pace_late_frames += 1
+                pace_late_streak += 1
+                pace_max_late_streak = max(pace_max_late_streak, pace_late_streak)
+                # A fetch or screen transition can put us more than one full
+                # frame behind. Rebase rather than spinning through stale ticks.
+                if -remaining > frame_seconds:
+                    next_animation_deadline = after_render
+        else:
+            # Mode A is the control: preserve the existing relative sleep so
+            # its measurements remain directly comparable with issue #66.
+            remaining = frame_seconds - (after_render - frame_started)
+            if remaining > 0:
+                pace_late_streak = 0
+                time.sleep(remaining)
+            else:
+                pace_late_frames += 1
+                pace_late_streak += 1
+                pace_max_late_streak = max(pace_max_late_streak, pace_late_streak)
+
+        report_now = time.monotonic()
+        if _report_pace(report_now):
+            pace_last_report = report_now
+    elif settings.ANIMATE:
+        pace_active = False
+        next_animation_deadline = None
+        frame_seconds = settings.FRAME_SECONDS
         remaining = frame_seconds - (time.monotonic() - frame_started)
         if remaining > 0:
             time.sleep(remaining)
     else:
+        pace_active = False
+        next_animation_deadline = None
         # Static pages must still rotate independently of the network poll.
         # Waking only at the next page/fetch boundary avoids repeatedly
         # rebuilding the complete HUB75 framebuffer, which can show as
