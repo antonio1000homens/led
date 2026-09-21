@@ -34,7 +34,7 @@ class FlashMqttClient:
                     username=self.settings.MQTT_USERNAME or None,
                     password=self.settings.MQTT_PASSWORD or None,
                     socket_pool=pool,
-                    socket_timeout=0.1,
+                    socket_timeout=0.5,
                 )
             else:
                 self.client = self.mqtt_factory(self.settings)
@@ -44,10 +44,21 @@ class FlashMqttClient:
             self.connected = True
             print("MQTT subscribed topic={}".format(self.settings.MQTT_TOPIC))
         except Exception as error:
-            self.connected = False
-            self.client = None
+            self._discard_client()
             self.next_attempt = now + 30
             print("MQTT unavailable:", error)
+
+    def _discard_client(self):
+        client = self.client
+        self.connected = False
+        self.client = None
+        if client is not None:
+            try:
+                disconnect = getattr(client, "disconnect", None)
+                if disconnect is not None:
+                    disconnect()
+            except Exception:
+                pass
 
     def poll(self, now):
         self._connect(now)
@@ -57,9 +68,8 @@ class FlashMqttClient:
             # MiniMQTT requires the loop timeout to be at least the socket
             # timeout configured above. Keep both bounded so MQTT remains
             # subordinate to the render loop without rejecting every poll.
-            self.client.loop(timeout=0.1)
+            self.client.loop(timeout=0.5)
         except Exception as error:
-            self.connected = False
-            self.client = None
+            self._discard_client()
             self.next_attempt = now + 5
             print("MQTT disconnected:", error)
