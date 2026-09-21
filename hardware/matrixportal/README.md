@@ -154,6 +154,10 @@ is deliberately dormant. `settings.py` keeps both `MQTT_ENABLED` and
 broker credentials or enable either gate until Home Assistant issue #3 and the
 broker path have passed review.
 
+Flash enablement and display duration are runtime values from `/api/screens`;
+they are not configured in `settings_local.py`. The board uses the safe
+five-second default until its first successful runtime-config refresh.
+
 When that gate is eventually approved, `circup install -r requirements.txt`
 installs `adafruit_minimqtt` into `CIRCUITPY/lib`; the board still uses only
 uncommitted `settings_local.py` for broker hostname, port, topic and any

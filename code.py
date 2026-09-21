@@ -88,7 +88,6 @@ fixture_clock_synced = False
 runtime_mode = RuntimeMode()
 flash = FlashState(
     enabled=(settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL),
-    duration_seconds=getattr(settings, "FLASH_SCREEN_DURATION_SECONDS", 5),
 )
 flash_resume = None
 mqtt = None
