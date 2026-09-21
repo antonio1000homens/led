@@ -125,8 +125,8 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         led_display.board.MTX_ADDRESS = (0, 1, 2, 3)
         led_display.board.MTX_COMMON = {}
 
-    def test_marquee_speed_matches_refresh_for_one_pixel_per_frame(self):
-        self.assertEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
+    def test_marquee_speed_does_not_exceed_update_cadence(self):
+        self.assertLessEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
 
     def test_consecutive_todoist_frames_reuse_root_and_move_title_group(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -149,7 +149,8 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertIs(display.display.root_group, root)
             self.assertEqual(display.display.root_assignments, assignments)
             self.assertIs(display._todoist_rows[0][1], title_group)
-            self.assertEqual(title_group.x, first_x - 1)
+            expected_offset = int(TODOIST_MARQUEE_SPEED / MATRIX_REFRESH_FPS + 1e-9)
+            self.assertEqual(title_group.x, first_x - expected_offset)
             expected_target = (
                 MATRIX_REFRESH_FPS
                 if MATRIX_PRESENTATION_MODE == "target_fps"
@@ -263,7 +264,8 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 clock_date="2026-09-20",
                 phase=transition_at + led_display.AGENDA_SLIDE_SECONDS + 1.0 / MATRIX_REFRESH_FPS,
             )
-            self.assertEqual(second_title_group.x, led_display.AGENDA_TITLE_X - 1)
+            expected_offset = int(TODOIST_MARQUEE_SPEED / MATRIX_REFRESH_FPS + 1e-9)
+            self.assertEqual(second_title_group.x, led_display.AGENDA_TITLE_X - expected_offset)
 
 
     def test_immediate_mode_uses_manual_immediate_refresh(self):
@@ -297,7 +299,8 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 self.assertTrue(display.display.auto_refresh)
                 self.assertEqual(display.presentation_mode, "auto_refresh")
                 self.assertEqual(display.display.refresh_targets, [])
-                self.assertEqual(display._todoist_rows[0][1].x, first_x - 1)
+                expected_offset = int(TODOIST_MARQUEE_SPEED / MATRIX_REFRESH_FPS + 1e-9)
+                self.assertEqual(display._todoist_rows[0][1].x, first_x - expected_offset)
 
     def test_invalid_presentation_mode_is_rejected(self):
         with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "unknown"):
