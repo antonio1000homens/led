@@ -198,7 +198,12 @@ class FormattingTests(unittest.TestCase):
     def test_rail_summary_and_calling_rows_match_issue_72_contract(self):
         services = [{"time": "12:{:02d}".format(index), "destination": "Waterloo"} for index in range(4)]
         self.assertEqual([kind for kind, _ in rail_rows(services, 0)], ["header", "service", "service", "service"])
-        self.assertEqual([kind for kind, _ in rail_rows(services, 8)], ["service", "calling", "service", "calling"])
+        calling_rows = rail_rows(services, 8)
+        self.assertEqual([kind for kind, _ in calling_rows], ["service", "calling", "service", "calling"])
+        self.assertIs(calling_rows[0][1], services[0])
+        self.assertIs(calling_rows[1][1], services[0])
+        self.assertIs(calling_rows[2][1], services[1])
+        self.assertIs(calling_rows[3][1], services[1])
         self.assertEqual(rail_phase(0), "summary")
         self.assertEqual(rail_phase(8), "calling")
 
