@@ -1,6 +1,6 @@
 # LED enclosure CAD
 
-Tracked by issue #53.
+Tracked by issues #53 and #76.
 
 ## Current design: direct-mount backplane
 
@@ -10,14 +10,20 @@ The superseded side-loading concept has been removed.
 
 See [`direct-mount/README.md`](direct-mount/README.md) for the expected mounting geometry, printable parts, hardware BOM and validation sequence.
 
-## Current expected mounting geometry
+## Current provisional physical mounting geometry
 
-The supplied 160 × 80 mm P2.5 reference STL has four symmetric mounting centres at 16.69 / 143.31 mm horizontally and 7.50 / 72.50 mm vertically. Scaling by 1.6 to the 256 × 128 mm P4 envelope gives expected centres at:
+The purchased panel is treated as a 256 × 128 mm PCB. Issue #76 replaces the superseded P2.5 scaling assumption with the following six-point pattern derived from the physical panel/template photograph:
 
-- x = **26.704 mm** and **229.296 mm**
-- y = **12.0 mm** and **116.0 mm**
+| Point | x (mm) | y (mm) |
+| --- | ---: | ---: |
+| bottom-left | 6 | 6 |
+| bottom-centre | 128 | 6 |
+| bottom-right | 250 | 6 |
+| top-left | 6 | 122 |
+| top-centre | 128 | 122 |
+| top-right | 250 | 122 |
 
-The direct-mount CAD now uses those values. A low-material full-pattern test template is included so the pattern can be verified against one real P4 panel before the four structural backplanes are printed.
+The CAD now uses explicit `panel_w`, `panel_h`, and `panel_mount_points` parameters. The nominal 6 mm edge offset is photo-derived and still requires one direct ruler/caliper verification before structural printing. The low-material full-pattern template is the first validation part.
 
 ## Source and generated STLs
 
@@ -35,4 +41,4 @@ The direct-mount CAD now uses those values. A low-material full-pattern test tem
 
 The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source.
 
-The P4 mounting pattern is still an expected/scaled reference rather than a vendor mechanical drawing. Verify the pattern template and one backplane against the physical panel before printing all four modules.
+The P4 mounting pattern is now an explicit six-point physical-panel hypothesis, not a scaled P2.5 reference. Verify the pattern template and one backplane against the physical panel before printing all four modules.
