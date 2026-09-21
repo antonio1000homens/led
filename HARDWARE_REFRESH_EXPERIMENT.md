@@ -12,7 +12,7 @@ Mode C (CircuitPython auto-refresh).
 B8 remains the production baseline because it combines the strongest tested
 manual-refresh reliability with the lower 8-update/s cadence.
 
-This branch adds a focused post-#72 **B12** experiment. B12 keeps Mode B's
+The merged source retains a focused post-#72 **B12** experiment. B12 keeps Mode B's
 immediate refresh strategy but raises the application animation cadence to
 12 updates/s while deliberately keeping the Todoist marquee speed at 8 px/s.
 This isolates update smoothness from text travel speed.
@@ -176,6 +176,15 @@ more ticks.
 
 If B12 is clearly smoother and remains stable, record that evidence on #70
 before changing the production preset.
+
+### B12 serial result
+
+The connected-board run after PR #73 booted, fetched the live two-screen
+payload, and completed all measured immediate refreshes successfully. At the
+12-update/s cadence it reached 11.31 animation ticks/s in the first 20.1 s,
+with 12 late frames and a maximum late streak of 3. The 40.2 s summary still
+showed 135/135 successful refreshes and no refresh failures. No direct visual
+observation was available, so B8 remains the production profile.
 
 ## Stress check for the best candidate
 
