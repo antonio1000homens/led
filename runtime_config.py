@@ -37,6 +37,9 @@ MIN_QUEUE_SCROLL_PAUSE_SECONDS = 1
 MAX_QUEUE_SCROLL_PAUSE_SECONDS = 30
 DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS = 1
 DEFAULT_QUEUE_SCREEN_DURATION_SECONDS = 16
+DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
+MIN_FLASH_SCREEN_DURATION_SECONDS = 2
+MAX_FLASH_SCREEN_DURATION_SECONDS = 60
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -162,6 +165,13 @@ FEED_REGISTRY = {
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
     },
+    "flash": {
+        "label": "Flash events",
+        "provider": "mqtt_pending",
+        "mutable_fields": ("enabled", "screen_duration_seconds"),
+        "screen_duration": True,
+        "flash": True,
+    },
 }
 
 
@@ -273,6 +283,16 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     maximum=MAX_SCREEN_DURATION_SECONDS,
                 ),
             },
+            "flash": {
+                # This is deliberately disabled until Home Assistant issue #3
+                # and the broker path have been reviewed and enabled together.
+                "enabled": False,
+                "screen_duration_seconds": _int_env(
+                    env, "LED_FLASH_SCREEN_DURATION_SECONDS", DEFAULT_FLASH_SCREEN_DURATION_SECONDS,
+                    minimum=MIN_FLASH_SCREEN_DURATION_SECONDS,
+                    maximum=MAX_FLASH_SCREEN_DURATION_SECONDS,
+                ),
+            },
         },
         "updated_at": None,
         "updated_by": "system:defaults",
@@ -293,8 +313,8 @@ def schema_metadata() -> dict[str, Any]:
         if definition.get("screen_duration"):
             fields["screen_duration_seconds"] = {
                 "type": "integer",
-                "minimum": MIN_SCREEN_DURATION_SECONDS,
-                "maximum": MAX_SCREEN_DURATION_SECONDS,
+                "minimum": MIN_FLASH_SCREEN_DURATION_SECONDS if definition.get("flash") else MIN_SCREEN_DURATION_SECONDS,
+                "maximum": MAX_FLASH_SCREEN_DURATION_SECONDS if definition.get("flash") else MAX_SCREEN_DURATION_SECONDS,
             }
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
@@ -378,8 +398,8 @@ def validate_feed_patch(
             feed_id,
             "screen_duration_seconds",
             patch["screen_duration_seconds"],
-            MIN_SCREEN_DURATION_SECONDS,
-            MAX_SCREEN_DURATION_SECONDS,
+            MIN_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MIN_SCREEN_DURATION_SECONDS,
+            MAX_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MAX_SCREEN_DURATION_SECONDS,
         )
     for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
         if field in patch:
@@ -434,9 +454,14 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     if not isinstance(raw_feeds, dict):
         raise RuntimeConfigValidationError("feeds must be an object")
     raw_feeds = copy.deepcopy(raw_feeds)
-    legacy_feed_ids = set(FEED_REGISTRY) - {"queue_times"}
+    legacy_feed_ids = set(FEED_REGISTRY) - {"queue_times", "flash"}
     if set(raw_feeds) == legacy_feed_ids:
         raw_feeds["queue_times"] = copy.deepcopy(defaults["feeds"]["queue_times"])
+        raw_feeds["flash"] = copy.deepcopy(defaults["feeds"]["flash"])
+    elif set(raw_feeds) == legacy_feed_ids | {"flash"}:
+        raw_feeds["queue_times"] = copy.deepcopy(defaults["feeds"]["queue_times"])
+    elif set(raw_feeds) == legacy_feed_ids | {"queue_times"}:
+        raw_feeds["flash"] = copy.deepcopy(defaults["feeds"]["flash"])
     if set(raw_feeds) != set(FEED_REGISTRY):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
 

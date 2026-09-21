@@ -21,6 +21,7 @@ if local:
 
 from queue_display import create
 from fixtures import animated_services
+from flash_events import FlashState
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from matrix_config import (
@@ -85,6 +86,26 @@ next_fetch = 0
 transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
+flash = FlashState(
+    enabled=(settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL),
+    duration_seconds=getattr(settings, "FLASH_SCREEN_DURATION_SECONDS", 5),
+)
+flash_resume = None
+mqtt = None
+if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL:
+    from mqtt_client import FlashMqttClient
+
+    def receive_flash(payload):
+        global flash_resume, last_render_key
+        now = time.monotonic()
+        if flash.accept(payload, now):
+            # A replacement must not advance the frozen underlying rotation.
+            if flash_resume is None:
+                flash_resume = rotation.pause(now)
+            last_render_key = None
+            print("FLASH START id={}".format(flash.event["id"]))
+
+    mqtt = FlashMqttClient(settings, receive_flash)
 rendered_diagnostic_index = None
 last_render_key = None
 
@@ -160,6 +181,8 @@ def _report_pace(now):
 
 while True:
     now = time.monotonic()
+    if mqtt is not None:
+        mqtt.poll(now)
     for event in buttons.poll(now) if buttons is not None else ():
         if runtime_mode.handle(event, rotation, now):
             rendered_diagnostic_index = None
@@ -191,7 +214,17 @@ while True:
             transport_stale = bool(rotation.screens)
         next_fetch = now + settings.POLL_SECONDS
 
-    screen, phase = rotation.current(now)
+    if flash.active(now):
+        screen, phase = flash.screen(), now - flash.started_at
+    else:
+        if flash.event is not None:
+            flash.clear()
+            if flash_resume is not None:
+                rotation.resume(now, flash_resume[0], flash_resume[1])
+                flash_resume = None
+            last_render_key = None
+            print("FLASH END")
+        screen, phase = rotation.current(now)
     screen = hardware_safe_screen(screen)
     if transport_stale:
         screen = dict(screen)

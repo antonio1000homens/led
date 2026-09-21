@@ -90,6 +90,19 @@ class RotationTests(unittest.TestCase):
         rotation.next(4)
         self.assertEqual(rotation.current(4)[0]["id"], "rail")
 
+    def test_pause_and_resume_preserve_interrupted_screen_phase(self):
+        rotation = ScreenRotation()
+        rotation.update(
+            [{"id": "one", "duration_seconds": 10}, {"id": "two", "duration_seconds": 10}],
+            0,
+        )
+        interrupted = rotation.pause(4)
+        self.assertEqual(interrupted[0]["id"], "one")
+        self.assertEqual(interrupted[1], 4)
+        rotation.resume(9, *interrupted)
+        self.assertEqual(rotation.current(12)[0]["id"], "one")
+        self.assertEqual(rotation.current(19)[0]["id"], "two")
+
 
 class FakeResponse:
     def __init__(self, payload):

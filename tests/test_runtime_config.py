@@ -66,6 +66,20 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config["feeds"]["chessington"]["park_id"], 3)
         self.assertEqual(config["feeds"]["chessington"]["rides"], list(DEFAULT_CHESSINGTON_RIDES))
         self.assertEqual(len(config["feeds"]["chessington"]["rides"]), 6)
+        self.assertFalse(config["feeds"]["flash"]["enabled"])
+        self.assertEqual(config["feeds"]["flash"]["screen_duration_seconds"], 5)
+
+    def test_flash_duration_is_bounded_and_legacy_configs_are_backfilled(self):
+        self.assertEqual(
+            validate_feed_patch("flash", {"enabled": True, "screen_duration_seconds": 12}),
+            {"enabled": True, "screen_duration_seconds": 12},
+        )
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("flash", {"screen_duration_seconds": 1})
+        legacy = default_runtime_config({})
+        del legacy["feeds"]["flash"]
+        validated = validate_runtime_config(legacy)
+        self.assertFalse(validated["feeds"]["flash"]["enabled"])
 
     def test_no_services_duration_is_bounded_and_backfilled_for_existing_config(self):
         patch = validate_feed_patch("departures", {"no_services_duration_seconds": 5})

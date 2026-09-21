@@ -682,6 +682,20 @@ class MatrixDisplay:
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
+    def _flash(self, group, screen):
+        """Render a generic transient event without provider-specific logic."""
+        import displayio
+        del displayio
+        self._label(group, _clip(screen.get("title") or "FLASH", 30), 0xFFAA00, 0, 3)
+        label = str(screen.get("label") or "")
+        first, second = label[:42], label[42:84]
+        self._label(group, first, 0xFFFFFF, 0, 12)
+        if second:
+            self._label(group, second, 0xFFFFFF, 0, 20)
+        due = str(screen.get("due_at") or "")
+        if len(due) >= 16:
+            self._label(group, due[11:16], 0xAAAAAA, 226, 3)
+
     def _todoist_cache_matches(self, screen, clock_date):
         weather = screen.get("weather")
         weather_icon = weather.get("icon") if isinstance(weather, dict) else None
@@ -947,6 +961,8 @@ class MatrixDisplay:
             self._queues(group, screen, phase)
         elif kind == "calendar_agenda":
             self._calendar(group, screen, phase, clock_date)
+        elif kind == "flash":
+            self._flash(group, screen)
         else:
             self._label(group, _clip(screen.get("title") or "Display unavailable", 30), 0xFFFFFF, 0, 3)
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
@@ -1101,6 +1117,16 @@ class FixtureDisplay:
                         self._text(due, due_x + due_offset, y, due_color)
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "UPCOMING", 30), 0, 0, (255, 100, 0))
+        elif kind == "flash":
+            self._clear_rows(0, 32)
+            self._text(_clip(screen.get("title") or "FLASH", 30), 0, 0, (255, 170, 0))
+            label = str(screen.get("label") or "")
+            self._text(label[:42], 0, 11, (255, 255, 255))
+            if len(label) > 42:
+                self._text(label[42:84], 0, 19, (255, 255, 255))
+            due = str(screen.get("due_at") or "")
+            if len(due) >= 16:
+                self._text(due[11:16], 226, 0, (170, 170, 170))
         else:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
@@ -1172,6 +1198,8 @@ class FixtureDisplay:
                 print("No upcoming events")
             for event in events[start:start + visible]:
                 print(calendar_row_text(event).rstrip())
+        elif kind == "flash":
+            print(str(screen.get("label") or ""))
         weather = screen.get("weather")
         if isinstance(weather, dict):
             print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))

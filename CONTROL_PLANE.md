@@ -21,6 +21,7 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 | `chessington` | Queue-Times park 3 | `enabled`, `poll_seconds`, `screen_duration_seconds`, ordered `rides` |
 | `weather` | Open-Meteo | `enabled`, `poll_seconds` |
 | `calendar` | Todoist | `enabled`, `poll_seconds`, `screen_duration_seconds` |
+| `flash` | Pending MQTT event path | `enabled`, `screen_duration_seconds` (default 5) |
 
 `poll_seconds` is between 60 and 86400 seconds. Screen duration is between 2 and 300 seconds. Queue-Times `park_id` is implementation metadata and cannot be patched.
 
@@ -143,6 +144,15 @@ The same API maps naturally to REST-backed switches, input-number controls, scri
 Thorpe Park and Chessington use the same Queue-Times normalization/provider code. Ride selection is ordered. If a previously configured attraction disappears or is renamed upstream, the publisher ignores that missing ride, logs/flags it in the published park screen as `missing_configured_rides`, and continues rendering any remaining configured rides. Every Queue-Times screen retains Queue-Times attribution.
 
 The admin UI obtains choices from the API rather than hard-coding attractions, so new rides can appear without a frontend deployment once Queue-Times reports them.
+
+## Flash events
+
+The `flash` setting owns only operational controls for transient events. It is
+disabled by default and does not make the backend ingest Alexa reminders. The
+future Home Assistant publisher owns the event payload and will publish it to
+the board's configured MQTT topic after issue #3 is complete. The board-side
+MQTT connection currently requires both `MQTT_ENABLED` and the explicit
+`MQTT_ENABLE_EXPERIMENTAL` safety gate; both are false in `settings.py`.
 
 ## Local development and testing
 

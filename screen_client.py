@@ -195,6 +195,22 @@ class ScreenRotation:
         self.index = (self.index + 1) % len(self.screens)
         self.started_at = now
 
+    def pause(self, now):
+        """Freeze rotation and return the interrupted screen/phase."""
+        screen, phase = self.current(now)
+        return screen, phase
+
+    def resume(self, now, screen, phase):
+        """Resume the captured screen without restarting the full rotation."""
+        if not self.screens:
+            return
+        screen_id = screen.get("id") if isinstance(screen, dict) else None
+        for index, candidate in enumerate(self.screens):
+            if candidate.get("id") == screen_id:
+                self.index = index
+                self.started_at = float(now) - max(0, float(phase or 0))
+                return
+
 
 class ScreenClient:
     """Fetch `/api/screens` from the LAN backend using CircuitPython Wi-Fi."""

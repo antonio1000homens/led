@@ -288,7 +288,7 @@ def _status_payload(config: dict[str, Any], status_store: StatusStore) -> dict[s
             "last_successful_refresh": state.get("last_success_at"),
             "last_attempted_refresh": state.get("last_attempt_at"),
             "stale": bool(state.get("stale")) if effective["enabled"] else False,
-            "poll_seconds": effective["poll_seconds"],
+            "poll_seconds": effective.get("poll_seconds"),
         }
     screens = status_store.screens_state()
     return {
