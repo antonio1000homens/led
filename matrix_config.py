@@ -6,9 +6,9 @@
 # upload the branch to CIRCUITPY, and capture serial output:
 #
 #   A7 / A8 / A10 = current target-FPS refresh control
-#   B7 / B8 / B10 = immediate refresh + application-owned pacing
+#   B7 / B8 / B10 / B12 = immediate refresh + application-owned pacing
 #   C7 / C8 / C10 = CircuitPython auto-refresh + application animation cadence
-MATRIX_EXPERIMENT_PRESET = "B8"
+MATRIX_EXPERIMENT_PRESET = "B12"
 
 _MATRIX_EXPERIMENT_PRESETS = {
     "A7": ("target_fps", 7, 7.0),
@@ -17,6 +17,9 @@ _MATRIX_EXPERIMENT_PRESETS = {
     "B7": ("immediate", 7, 7.0),
     "B8": ("immediate", 8, 8.0),
     "B10": ("immediate", 10, 10.0),
+    # B12 intentionally increases animation cadence without increasing text
+    # travel speed, isolating smoothness from readability/speed changes.
+    "B12": ("immediate", 12, 8.0),
     "C7": ("auto_refresh", 7, 7.0),
     "C8": ("auto_refresh", 8, 8.0),
     "C10": ("auto_refresh", 10, 10.0),
