@@ -336,6 +336,19 @@ class MatrixDisplay:
         self._todoist_clock_label = None
         self._todoist_weather_group = None
 
+        # Departures use the same persistent-scene approach as Todoist.  Only
+        # the calling-at labels move between frames; rebuilding the complete
+        # four-panel scene is deliberately avoided.
+        self._rail_group = None
+        self._rail_services = None
+        self._rail_title = None
+        self._rail_stale = None
+        self._rail_weather = None
+        self._rail_calling_labels = []
+        self._rail_clock_group = None
+        self._rail_clock_label = None
+        self._rail_weather_group = None
+
     def _label(self, group, text, color, x, y):
         item = self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y))
         group.append(item)
@@ -473,6 +486,8 @@ class MatrixDisplay:
             self._label(group, status, color, status_x + x_offset, y)
 
     def _rail(self, group, screen, phase):
+        import displayio
+
         services = screen.get("services") or []
         primary = services[0] if services else {"time": "--:--", "destination": "No data", "platform": "-", "status": "Waiting"}
         rail_right_edge = _header_content_right(screen)
@@ -481,20 +496,16 @@ class MatrixDisplay:
         primary_color = 0xFF3300 if primary.get("cancelled") and int(phase * 2) % 2 else 0xFFFFFF
         self._rail_service(group, primary, primary_color, primary_x, 3, rail_right_edge, 1)
 
-        calling = calling_text(primary)
-        scroll_speed, scroll_gap = _station_scroll_settings(screen)
-        calling_x = calling_marquee_x(
-            calling,
-            phase,
-            display_width=DISPLAY_WIDTH,
-            font_width=WEATHER_FONT_WIDTH,
-            speed=scroll_speed,
-            gap=scroll_gap,
-        )
-        if calling_x is not None:
-            self._label(group, CALLING_LABEL, 0xFFAA00, 0, 10)
-            for segment_x, segment in _calling_segments(calling, calling_x, scroll_gap):
-                self._label(group, segment, 0xFFAA00, segment_x, 10)
+        # Keep the calling-at labels in a child group so their text and x
+        # coordinates can be changed without rebuilding the rail scene.
+        calling_group = displayio.Group()
+        calling_prefix = self._label(calling_group, "", 0xFFAA00, 0, 10)
+        calling_segments = [
+            self._label(calling_group, "", 0xFFAA00, 0, 10),
+            self._label(calling_group, "", 0xFFAA00, 0, 10),
+        ]
+        group.append(calling_group)
+        self._rail_calling_labels = [calling_prefix] + calling_segments
 
         upcoming = services[1:]
         if not upcoming:
@@ -522,6 +533,101 @@ class MatrixDisplay:
                 if y < 17:
                     continue
                 self._rail_service(group, service, color, 0, y, rail_right_edge, index + 2)
+
+    def _rail_cache_matches(self, screen):
+        return (
+            self._rail_group is not None
+            and self._rail_services is screen.get("services")
+            and self._rail_title == screen.get("title")
+            and self._rail_stale == bool(screen.get("stale"))
+            and self._rail_weather == screen.get("weather")
+        )
+
+    def _build_rail_scene(self, screen, clock_time):
+        """Build a departures scene once; animation mutates only child labels."""
+        import displayio
+
+        root = displayio.Group()
+        # Static departures intentionally use the settled phase.  The
+        # calling-at child is immediately updated to the live phase below.
+        self._rail(root, screen, 2)
+
+        self._header_mask(root)
+        self._label(root, _clip(screen.get("title") or "NEW DEPARTURES", 30), 0xFFAA00, 0, 3)
+        if screen.get("stale"):
+            self._label(root, "STALE", 0xFF3300, STALE_X, 3)
+
+        self._mask(root, HEADER_SLOT_X, 0, HEADER_SLOT_WIDTH, 8)
+        clock_group = displayio.Group()
+        clock_label = self._label(clock_group, clock_time, 0xFFAA00, CLOCK_X, 3)
+        root.append(clock_group)
+        weather_group = displayio.Group()
+        if isinstance(screen.get("weather"), dict):
+            self._header_weather(weather_group, screen.get("weather"), 0)
+        root.append(weather_group)
+
+        self._rail_group = root
+        self._rail_services = screen.get("services")
+        self._rail_title = screen.get("title")
+        self._rail_stale = bool(screen.get("stale"))
+        self._rail_weather = screen.get("weather")
+        self._rail_clock_group = clock_group
+        self._rail_clock_label = clock_label
+        self._rail_weather_group = weather_group
+
+    def _update_rail_scene(self, screen, clock_time, phase):
+        """Update only the calling-at marquee and rotating header item."""
+        changed = False
+        services = screen.get("services") or []
+        primary = services[0] if services else {"destination": "No data"}
+        calling = calling_text(primary)
+        scroll_speed, scroll_gap = _station_scroll_settings(screen)
+        calling_x = calling_marquee_x(
+            calling,
+            phase,
+            display_width=DISPLAY_WIDTH,
+            font_width=WEATHER_FONT_WIDTH,
+            speed=scroll_speed,
+            gap=scroll_gap,
+        )
+        prefix, first, second = self._rail_calling_labels
+        segments = _calling_segments(calling, calling_x, scroll_gap) if calling_x is not None else ()
+        values = [(0, CALLING_LABEL if calling_x is not None else "")]
+        values.extend(segments)
+        while len(values) < 3:
+            values.append((0, ""))
+        for label_item, (x, text) in zip(self._rail_calling_labels, values[:3]):
+            if label_item.x != int(x):
+                label_item.x = int(x)
+                changed = True
+            if label_item.text != str(text):
+                label_item.text = str(text)
+                changed = True
+
+        if self._rail_clock_label.text != clock_time:
+            self._rail_clock_label.text = clock_time
+            changed = True
+        item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+        clock_x = offset if item == "clock" else DISPLAY_WIDTH
+        weather_x = offset if item == "weather" else DISPLAY_WIDTH
+        if self._rail_clock_group.x != clock_x:
+            self._rail_clock_group.x = clock_x
+            changed = True
+        if self._rail_weather_group.x != weather_x:
+            self._rail_weather_group.x = weather_x
+            changed = True
+        return changed
+
+    def _show_rail(self, screen, clock_time, phase):
+        """Render departures with a persistent scene and live calling marquee."""
+        if not self._rail_cache_matches(screen):
+            self._build_rail_scene(screen, clock_time)
+        changed = self._update_rail_scene(screen, clock_time, phase)
+        if self.display.root_group is not self._rail_group:
+            self.display.root_group = self._rail_group
+            changed = True
+        if changed:
+            self._refresh()
 
     def _queues(self, group, screen, phase):
         rides = screen.get("rides") or []
@@ -836,6 +942,10 @@ class MatrixDisplay:
             and screen.get("source") == "todoist"
         ):
             self._show_todoist(screen, clock_time, clock_date, phase)
+            return
+
+        if not empty_state and kind == "rail_combined":
+            self._show_rail(screen, clock_time, phase)
             return
 
         group = displayio.Group()

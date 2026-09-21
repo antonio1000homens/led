@@ -7,7 +7,7 @@ from unittest.mock import patch
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
 import display as led_display
-from matrix_config import MATRIX_REFRESH_FPS, TODOIST_MARQUEE_SPEED
+from matrix_config import MATRIX_PRESENTATION_MODE, MATRIX_REFRESH_FPS, TODOIST_MARQUEE_SPEED
 
 
 class FakeGroup(list):
@@ -126,8 +126,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         led_display.board.MTX_COMMON = {}
 
     def test_marquee_speed_matches_refresh_for_one_pixel_per_frame(self):
-        self.assertEqual(MATRIX_REFRESH_FPS, 7)
-        self.assertEqual(TODOIST_MARQUEE_SPEED, 7.0)
+        self.assertEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
 
     def test_consecutive_todoist_frames_reuse_root_and_move_title_group(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -151,7 +150,12 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display.display.root_assignments, assignments)
             self.assertIs(display._todoist_rows[0][1], title_group)
             self.assertEqual(title_group.x, first_x - 1)
-            self.assertEqual(display.display.refresh_targets[-1], MATRIX_REFRESH_FPS)
+            expected_target = (
+                MATRIX_REFRESH_FPS
+                if MATRIX_PRESENTATION_MODE == "target_fps"
+                else None
+            )
+            self.assertEqual(display.display.refresh_targets[-1], expected_target)
 
     def test_page_slide_reuses_row_groups_and_changes_only_positions(self):
         with patch.dict(sys.modules, fake_modules()):

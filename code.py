@@ -117,6 +117,8 @@ def _memory_free():
 def _display_phase(screen, phase):
     if settings.ANIMATE:
         return phase
+    if _smooth_departures(screen):
+        return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
     return 2
@@ -127,6 +129,13 @@ def _smooth_todoist(screen):
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "calendar_agenda"
         and screen.get("source") == "todoist"
+    )
+
+
+def _smooth_departures(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "rail_combined"
     )
 
 
@@ -222,8 +231,8 @@ while True:
             )
         )
         last_render_key = render_key
-    smooth_todoist = _smooth_todoist(screen)
-    if smooth_todoist:
+    smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen)
+    if smooth_animation:
         frame_seconds = 1.0 / MATRIX_REFRESH_FPS
         if not pace_active:
             pace_active = True

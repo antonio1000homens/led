@@ -8,7 +8,7 @@
 #   A7 / A8 / A10 = current target-FPS refresh control
 #   B7 / B8 / B10 = immediate refresh + application-owned pacing
 #   C7 / C8 / C10 = CircuitPython auto-refresh + application animation cadence
-MATRIX_EXPERIMENT_PRESET = "A7"
+MATRIX_EXPERIMENT_PRESET = "B8"
 
 _MATRIX_EXPERIMENT_PRESETS = {
     "A7": ("target_fps", 7, 7.0),

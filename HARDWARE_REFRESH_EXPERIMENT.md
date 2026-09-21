@@ -2,6 +2,18 @@
 
 This branch is intended to be copied directly to the physical MatrixPortal S3.
 
+## Current decision
+
+Mode A is retired as a production candidate. Its targeted refresh deadline
+discarded a large proportion of changed frames in the physical runs. Further
+testing is limited to Mode B (immediate refresh with application pacing) and
+Mode C (CircuitPython auto-refresh).
+
+B8 is the current active profile because it combines the strongest tested
+manual-refresh reliability with the lower 8-update/s cadence. This is a
+provisional operational choice until direct visual observations select between
+B8, C8, B10, and C10.
+
 The retained Todoist scene is identical across the primary test modes. Only the presentation strategy and animation cadence change.
 
 ## What the local board agent needs to do
@@ -35,7 +47,7 @@ For each run:
 
 ## Presets
 
-Run these nine presets:
+The remaining comparison is limited to these four presets:
 
 | Preset | Presentation mode | Animation / target FPS | Todoist marquee |
 | --- | --- | ---: | ---: |
@@ -48,6 +60,9 @@ Run these nine presets:
 | C7 | CircuitPython `auto_refresh=True` | 7 update ticks/s | 7 px/s |
 | C8 | CircuitPython `auto_refresh=True` | 8 update ticks/s | 8 px/s |
 | C10 | CircuitPython `auto_refresh=True` | 10 update ticks/s | 10 px/s |
+
+The A7/A8/A10 presets remain in the code only as historical controls and are
+not part of the remaining test plan.
 
 For C presets, the number is the **application animation-update cadence**. CircuitPython owns framebuffer refresh timing.
 
@@ -109,6 +124,17 @@ In auto-refresh mode, `refresh_attempts`, `refresh_successes`, and `presented_fp
 | C7 | | | | | n/a | | | | |
 | C8 | | | | | n/a | | | | |
 | C10 | | | | | n/a | | | | |
+
+### Current serial evidence
+
+| Preset | Window | Refresh result | Application pacing | Network / reset |
+| --- | ---: | --- | --- | --- |
+| B8 | 60.9 s | 409/409 successful, 0 failures | 7.43 ticks/s; 4 late, max streak 3 | fetches succeeded; no reset observed |
+| C8 | 20.1 s | n/a; auto-refresh owns presentation | 7.61 ticks/s; 10 late, max streak 2 | fetch succeeded; reload occurred after capture |
+| B10 | 102.4 s | 706/706 successful, 0 failures | 10.44 ticks/s; 5 late, max streak 2 | fetches succeeded; no reset observed |
+| C10 | 20.1 s | n/a; auto-refresh owns presentation | 10.06 ticks/s; 116 late, max streak 4 | fetch succeeded; reload occurred after capture |
+
+These serial results do not establish flashing, tearing, or visual smoothness.
 
 ## Stress check for the best candidate
 
