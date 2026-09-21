@@ -37,6 +37,13 @@ class ClockTests(unittest.TestCase):
         self.assertEqual(clock.date_text(115), "2027-01-01")
         self.assertEqual(clock.text(115), "00:00")
 
+    def test_clock_exposes_utc_epoch_for_event_expiry(self):
+        clock = ClockState()
+        clock.sync("2026-09-21T17:42:12Z", 100.0)
+        self.assertEqual(clock.epoch(100.0), 1790012532)
+        self.assertEqual(clock.epoch(112.5), 1790012544.5)
+        self.assertIsNone(ClockState().epoch(100.0))
+
 
 class RotationTests(unittest.TestCase):
     def test_rotates_using_each_screen_duration(self):
