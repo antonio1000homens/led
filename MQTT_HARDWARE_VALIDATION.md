@@ -48,3 +48,20 @@ With the idle run stable, publish several test events and verify:
 
 Do not enable the production board path or close #74 until these observations
 are recorded against the actual MatrixPortal and the Home Assistant publisher.
+
+## Captured baseline
+
+On 2026-09-21, the physically connected MatrixPortal S3 was synchronized with
+the production bundle and measured with MQTT disabled (`MQTT_ENABLED = False`,
+`MQTT_ENABLE_EXPERIMENTAL = False`) using the `B8` profile:
+
+- presentation mode: `immediate`
+- target animation rate: 8 FPS
+- frame-pacing samples: 7.73 FPS at 40.2 seconds, 7.07 FPS at 82.7 seconds
+- late frames: 6 and 9 respectively; maximum late streak: 1 and 2
+- HUB75 refresh failures: 0 in each observed matrix statistics sample
+- departures and calendar rendered, with successful HTTP refreshes during the capture
+- observed render times: 1.070 seconds for departures and 0.526 seconds for calendar
+
+The MQTT-enabled-but-idle comparison and event checks remain gated on the
+Home Assistant issue #3 contract and approved broker configuration.

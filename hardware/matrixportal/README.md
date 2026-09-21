@@ -133,6 +133,7 @@ From the repository root, copy the application and its CircuitPython modules:
 ```sh
 cp code.py settings.py queue_display.py queue_cycle.py display.py \
    formatting.py fixtures.py screen_client.py button_control.py matrix_runtime.py \
+   flash_events.py mqtt_client.py \
    gtsr4.pem /Volumes/CIRCUITPY/
 cp settings_local.py /Volumes/CIRCUITPY/
 ```
