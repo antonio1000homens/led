@@ -327,7 +327,7 @@
       const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
       if (dayDelta < 0) return '';
       if (dayDelta === 0) return 'TODAY';
-      return `DUE IN ${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
+      return `DUE ${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
     }
     function boundedNumber(value, fallback, minimum, maximum) {
       const parsed = Number(value);

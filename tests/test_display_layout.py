@@ -33,8 +33,8 @@ class DisplayLayoutTests(unittest.TestCase):
 
         display._draw_screen(screen, phase=10, clock_date="2026-09-15")
 
-        due_rows = [item for item in display.drawn if item[0] in ("TODAY", "DUE IN 1 DAY", "DUE IN 2 DAYS")]
-        self.assertEqual([item[0] for item in due_rows], ["TODAY", "DUE IN 1 DAY", "DUE IN 2 DAYS"])
+        due_rows = [item for item in display.drawn if item[0] in ("TODAY", "DUE 1 DAY", "DUE 2 DAYS")]
+        self.assertEqual([item[0] for item in due_rows], ["TODAY", "DUE 1 DAY", "DUE 2 DAYS"])
         for text, x, _y, _color in due_rows:
             self.assertEqual(x + len(text) * led_display.WEATHER_FONT_WIDTH, led_display.DISPLAY_WIDTH)
 
