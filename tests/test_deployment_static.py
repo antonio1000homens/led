@@ -61,10 +61,10 @@ class DeploymentStaticTests(unittest.TestCase):
     def test_simulator_keeps_agenda_date_time_fixed_while_title_scrolls(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function agendaTitleX(title, phase, startX)", simulator)
-        self.assertIn("const titleStart = context.measureText(parts.when + ' ').width;", simulator)
+        self.assertIn("const titleStart = measureLedText(parts.when + ' ').width;", simulator)
         self.assertIn("context.rect(titleStart, 32, 1024 - titleStart, 96);", simulator)
-        self.assertIn("context.fillText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
-        self.assertIn("context.fillText(parts.when, 0, y);", simulator)
+        self.assertIn("drawLedText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
+        self.assertIn("drawLedText(parts.when, 0, y);", simulator)
 
     def test_simulator_rail_uses_spare_line_and_runtime_marquee_settings(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
@@ -73,8 +73,8 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("const RAIL_MARQUEE_GAP = 112;", simulator)
         self.assertIn("return { services: services.slice(0, 1 + count) };", simulator)
         self.assertIn("const upcomingServices = railServices.slice(1);", simulator)
-        self.assertIn("drawRailService(upcoming, 64 + slot * 30 - scroll.progress * 30, 0, headerRight", simulator)
-        self.assertIn("drawRailService(upcoming, 64 + slot * 30, x, headerRight", simulator)
+        self.assertIn("drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT - scroll.progress * CONTENT_ROW_HEIGHT, 0, headerRight", simulator)
+        self.assertIn("drawRailService(upcoming, UPCOMING_FIRST_Y + slot * CONTENT_ROW_HEIGHT, x, headerRight", simulator)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
         self.assertIn("stationMarqueeSpeed(screen)", simulator)
         self.assertIn("function stationMarqueeGap()", simulator)
@@ -85,10 +85,30 @@ class DeploymentStaticTests(unittest.TestCase):
     def test_simulator_right_aligns_rail_and_queue_state_to_display_edge(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1)", simulator)
-        self.assertIn("rightEdge - context.measureText(state).width", simulator)
+        self.assertIn("rightEdge - measureLedText(state).width", simulator)
         self.assertIn("function drawQueueRide(ride, y, rightEdge)", simulator)
-        self.assertIn("const QUEUE_ROW_HEIGHT = 30;", simulator)
-        self.assertIn("drawQueueRide(ride, 34 + slot * QUEUE_ROW_HEIGHT - yOffset, 1024);", simulator)
+        self.assertIn("const QUEUE_ROW_HEIGHT = CONTENT_ROW_HEIGHT;", simulator)
+        self.assertIn("drawQueueRide(ride, CONTENT_FIRST_Y + slot * QUEUE_ROW_HEIGHT - yOffset, 1024);", simulator)
+
+    def test_simulator_hardware_preview_matches_matrix_constraints(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="hardware-preview"', simulator)
+        self.assertIn("let hardwarePreview = true;", simulator)
+        self.assertIn("const MATRIX_REFRESH_FPS = 7;", simulator)
+        self.assertIn("logicalCanvas.width = 256;", simulator)
+        self.assertIn("logicalCanvas.height = 32;", simulator)
+        self.assertIn("const FONT_5X7 =", simulator)
+        self.assertIn("function drawLedText(value, x, y)", simulator)
+        self.assertIn("function quantizeRgb(red, green, blue)", simulator)
+        self.assertIn("[64, 128, 192].forEach", simulator)
+        self.assertIn("const TODOIST_MARQUEE_SPEED = 7 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const TODOIST_MARQUEE_PAUSE_SECONDS = 1.5;", simulator)
+        self.assertIn("const CLOCK_X = 226 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const STALE_X = 190 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const CONTENT_FIRST_Y = 11 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("presentPreview();", simulator)
+        self.assertNotIn("context.font = '24px monospace';", simulator)
 
     def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
         display = (ROOT / "display.py").read_text(encoding="utf-8")
