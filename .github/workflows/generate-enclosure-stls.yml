@@ -116,6 +116,9 @@ jobs:
             exit "$status"
           fi
 
+          python3 hardware/enclosure/direct-mount/validate_matrixportal_stl.py \
+            "$generated/04_matrixportal_mount_PRINT_1.stl"
+
       - name: Validate mesh health and nominal assembly interfaces
         shell: bash
         run: |
