@@ -34,6 +34,14 @@ The CAD uses these six centres with short 10 × 4.2 mm cross-slots. The silver c
 
 Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real panel before printing four structural backplanes.
 
+## MatrixPortal S3 carrier geometry
+
+The carrier is centred on the backplane with a 6 mm X offset and 28 mm Y offset. Its four carrier-to-backplane M3 clearance holes are explicitly at `(8,6)`, `(236,6)`, `(8,66)`, and `(236,66)`; these align with backplane heat-set inserts at `(14,34)`, `(242,34)`, `(14,94)`, and `(242,94)`.
+
+The official Adafruit MatrixPortal S3 reference is a 44.45 × 63.50 mm PCB in portrait orientation, with HUB75 at the top and USB-C at the bottom. Its carrier-local plated mounting centres are `(115.650,19.490)`, `(135.335,19.490)`, `(115.650,60.130)`, and `(135.335,60.130)`. The carrier uses four round 2.8 mm M2.5-clearance holes on 19.685 × 40.640 mm spacing, supported by 8 mm diameter × 6 mm high posts. Insert one nominal 5.0 mm-across-flats, 2.2 mm-high M2.5 hex nut into the underside captive pocket of each post, then fasten the PCB with M2.5 screws from the PCB side.
+
+The carrier has no elongated MatrixPortal mounting slots. Its top/bottom centre has a 72 mm-wide through-opening under the PCB edge connectors and controls. Four narrow 2 mm-high ribs tie the 8 mm posts to the side rails while leaving 8 mm vertical clearance below the PCB underside; the central populated/connector area is not filled with a solid deck. The HUB75 connector, USB-C, DOWN/UP/RESET buttons, and 5V/GND terminals must remain accessible. The two 5V/GND terminal screws are electrical only and are not mechanical mounting points. The printable carrier SVG is generated directly from the same SCAD source with `part="matrixportal_2d"`; use [`04_matrixportal_mount_ASSEMBLY.svg`](04_matrixportal_mount_ASSEMBLY.svg) as the 1:1 documentation overlay and print it at 100% / Actual Size without scaling.
+
 ## Printable parts
 
 | File | Qty | Purpose |
@@ -105,6 +113,7 @@ Do not populate every optional insert pocket automatically. Install inserts only
 5. Join neighbouring backplanes with the alignment tongues/sockets and rear joiner plates.
 6. Insert and centre the two 1 m × 8 mm reinforcement bars.
 7. Fit the rod-end plugs, MatrixPortal carrier, power-distribution carrier and cable clips.
+8. Overlay `04_matrixportal_mount_ASSEMBLY.svg` on the carrier/backplane paper projections and check the MatrixPortal orientation, four PCB holes, four carrier M3 holes, and connector/button/terminal access.
 
 ## Validation still required
 

@@ -73,9 +73,6 @@ joiner_recess_surface_z = depth - joiner_recess_depth;
 insert_d = 4.0;
 insert_depth = 6.2;
 
-accessory_insert_y1 = 34;
-accessory_insert_y2 = 94;
-
 module slot2d(len=slot_len, w=slot_w) {
     hull() {
         translate([-(len-w)/2,0]) circle(d=w);
@@ -157,8 +154,9 @@ module backplane() {
             for (yy=[joiner_insert_y1,joiner_insert_y2])
                 blind_insert_pocket(xx,yy,joiner_recess_surface_z);
 
-        for (xx=[joiner_insert_x,module_w-joiner_insert_x])
-            for (yy=[accessory_insert_y1,accessory_insert_y2]) blind_insert_pocket(xx,yy);
+        // Carrier-to-backplane M3 inserts at the centred carrier interface.
+        for (point=[[14,34],[242,34],[14,94],[242,94]])
+            blind_insert_pocket(point[0],point[1]);
     }
 }
 
@@ -181,27 +179,41 @@ module rod_end_plug() {
 carrier_w = 244;
 carrier_h = 72;
 carrier_t = 4;
-carrier_hole_x = 2;
-carrier_hole_y = 6;
+
+// Carrier-to-backplane M3 clearance holes. The carrier is centred on the
+// 256 x 128 mm backplane at offset (6,28), so these land at
+// (14,34), (242,34), (14,94), and (242,94) on the backplane.
+carrier_mount_points = [
+    [8,   6],
+    [236, 6],
+    [8,   66],
+    [236, 66]
+];
+carrier_mount_hole_d = 3.5;
 
 // Adafruit MatrixPortal S3 PCB mounting-hole pattern.
 // Source: Adafruit MatrixPortal S3 PCB layout (MOUNTINGHOLE_2.5_PLATED centres).
-// The carrier coordinate system is rotated relative to the PCB drawing:
-// carrier x carries the 19.685 mm PCB spacing and carrier y carries 40.64 mm.
+// Portrait orientation: HUB75 at the top and USB-C at the bottom.
+matrixportal_pcb_w = 44.45;
+matrixportal_pcb_h = 63.50;
+matrixportal_pcb_x = (carrier_w-matrixportal_pcb_w)/2;
+matrixportal_pcb_y = (carrier_h-matrixportal_pcb_h)/2;
 matrixportal_hole_spacing_x = 19.685;
-matrixportal_hole_spacing_y = 40.64;
+matrixportal_hole_spacing_y = 40.640;
 matrixportal_standoff_d = 8;
 matrixportal_standoff_h = 6;
 matrixportal_hole_d = 2.8; // round M2.5 clearance hole
+matrixportal_nut_af = 5.0; // nominal M2.5 hex nut across flats
+matrixportal_nut_h = 2.2;
+matrixportal_support_rib_w = 6;
+matrixportal_support_rib_h = 2;
 
-matrixportal_mount_xs = [
-    carrier_w/2 - matrixportal_hole_spacing_x/2,
-    carrier_w/2 + matrixportal_hole_spacing_x/2
-];
-
-matrixportal_mount_ys = [
-    carrier_h/2 - matrixportal_hole_spacing_y/2,
-    carrier_h/2 + matrixportal_hole_spacing_y/2
+// Explicit carrier-local coordinates from the official Adafruit PCB geometry.
+matrixportal_mount_points = [
+    [115.650, 19.490],
+    [135.335, 19.490],
+    [115.650, 60.130],
+    [135.335, 60.130]
 ];
 
 module carrier_frame() {
@@ -212,9 +224,9 @@ module carrier_frame() {
             cube([12,carrier_h,carrier_t]);
             translate([carrier_w-12,0,0]) cube([12,carrier_h,carrier_t]);
         }
-        for (xx=[carrier_hole_x,carrier_w-carrier_hole_x])
-            for (yy=[carrier_hole_y,carrier_h-carrier_hole_y])
-                translate([xx,yy,-0.5]) cylinder(d=3.5,h=carrier_t+1);
+        for (point=carrier_mount_points)
+            translate([point[0],point[1],-0.5])
+                cylinder(d=carrier_mount_hole_d,h=carrier_t+1);
     }
 }
 
@@ -225,25 +237,61 @@ module elongated_hole(len=12,d=3.2,h=10) {
     }
 }
 
+module matrixportal_carrier_frame() {
+    // Keep the carrier perimeter and inward M3 mounting points, but open the
+    // top/bottom centre under the MatrixPortal edge connectors and buttons.
+    difference() {
+        union() {
+            cube([carrier_w,12,carrier_t]);
+            translate([0,carrier_h-12,0]) cube([carrier_w,12,carrier_t]);
+            cube([12,carrier_h,carrier_t]);
+            translate([carrier_w-12,0,0]) cube([12,carrier_h,carrier_t]);
+        }
+        translate([(carrier_w-72)/2,-0.5,-0.5])
+            cube([72,carrier_h+1,carrier_t+1]);
+        for (point=carrier_mount_points)
+            translate([point[0],point[1],-0.5])
+                cylinder(d=carrier_mount_hole_d,h=carrier_t+1);
+    }
+}
+
+module matrixportal_post_supports() {
+    // Tie each post back to a side rail without recreating a solid centre
+    // deck. These ribs are only 2 mm high; with the 6 mm post rise they leave
+    // 8 mm clearance below the PCB underside and its populated components.
+    for (point=matrixportal_mount_points) {
+        if (point[0] < carrier_w/2)
+            translate([12,point[1]-matrixportal_support_rib_w/2,0])
+                cube([point[0]-12,matrixportal_support_rib_w,matrixportal_support_rib_h]);
+        else
+            translate([point[0],point[1]-matrixportal_support_rib_w/2,0])
+                cube([carrier_w-12-point[0],matrixportal_support_rib_w,matrixportal_support_rib_h]);
+    }
+}
+
 module matrixportal_mount() {
     difference() {
         union() {
-            carrier_frame();
-            translate([(carrier_w-100)/2,6,0]) cube([100,60,carrier_t]);
+            matrixportal_carrier_frame();
+            matrixportal_post_supports();
 
             // Standoffs centred on the MatrixPortal S3's four M2.5 mounting holes.
-            for (xx=matrixportal_mount_xs)
-                for (yy=matrixportal_mount_ys)
-                    translate([xx,yy,carrier_t])
+            for (point=matrixportal_mount_points)
+                    translate([point[0],point[1],carrier_t])
                         cylinder(d=matrixportal_standoff_d,h=matrixportal_standoff_h);
         }
 
         // Round holes are intentional: the paper fit check exposed the former
         // elongated-slot/90-degree orientation mistake in PR #77.
-        for (xx=matrixportal_mount_xs)
-            for (yy=matrixportal_mount_ys)
-                translate([xx,yy,-0.5])
+        for (point=matrixportal_mount_points)
+                translate([point[0],point[1],-0.5])
                     cylinder(d=matrixportal_hole_d,h=carrier_t+7);
+
+        // Captive M2.5 nut pockets open on the underside of each post.
+        for (point=matrixportal_mount_points)
+            translate([point[0],point[1],carrier_t-0.01])
+                rotate([0,0,30])
+                    cylinder(d=matrixportal_nut_af,h=matrixportal_nut_h,$fn=6);
 
         translate([carrier_w/2-22,carrier_h/2-6,-0.5]) cube([44,12,carrier_t+1]);
     }
@@ -313,4 +361,5 @@ else if (part == "cable_clip") cable_clip();
 else if (part == "slot_coupon") mounting_slot_coupon();
 else if (part == "mount_pattern_template") mount_pattern_template();
 else if (part == "backplane_2d") projection(cut=false) backplane();
+else if (part == "matrixportal_2d") projection(cut=false) matrixportal_mount();
 else assert(false, str("Unknown part: ",part));

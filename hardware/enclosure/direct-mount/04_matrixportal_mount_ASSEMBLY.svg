@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Documentation-only 1:1 carrier assembly diagram. Units are millimetres. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="300mm" height="140mm" viewBox="0 0 300 140">
+  <title>MatrixPortal S3 carrier assembly reference</title>
+  <desc>
+    244 by 72 mm carrier with centred 44.45 by 63.50 mm MatrixPortal S3 PCB.
+    HUB75 is at the top and USB-C at the bottom. Red points are carrier to
+    backplane M3 clearance holes. Blue points are MatrixPortal PCB mounting holes.
+  </desc>
+  <style>
+    .carrier { fill: #e8edf2; stroke: #1e2a33; stroke-width: .6; }
+    .pcb { fill: #c7d8c9; stroke: #1d5b2a; stroke-width: .5; }
+    .matrix-hole { fill: #fff; stroke: #1769aa; stroke-width: .7; }
+    .carrier-hole { fill: #fff; stroke: #b21f2d; stroke-width: .7; }
+    .access-opening { fill: #fff; stroke: #7b8790; stroke-width: .4; stroke-dasharray: 2,1; }
+    .label { font-family: sans-serif; font-size: 3.2px; fill: #17212b; }
+    .small { font-family: sans-serif; font-size: 2.8px; fill: #17212b; }
+    .legend { font-family: sans-serif; font-size: 3.4px; fill: #17212b; }
+  </style>
+
+  <text x="10" y="10" class="legend" font-weight="bold">MatrixPortal S3 carrier assembly — 1:1 documentation view</text>
+  <text x="10" y="15" class="small">Carrier: 244 × 72 mm. PCB outline: 44.45 × 63.50 mm, centred on carrier.</text>
+
+  <!-- Carrier-local drawing origin is (10,30); all geometry below is 1 mm = 1 SVG unit. -->
+  <rect x="10" y="30" width="244" height="72" rx="1" class="carrier"/>
+  <rect x="96" y="30" width="72" height="72" class="access-opening"/>
+  <rect x="109.775" y="34.25" width="44.45" height="63.50" rx=".8" class="pcb"/>
+
+  <!-- PCB mounting holes: carrier-local (115.650,19.490), (135.335,19.490),
+       (115.650,60.130), (135.335,60.130), with y inverted for SVG display. -->
+  <g class="matrix-hole">
+    <circle cx="125.650" cy="82.510" r="1.4"/>
+    <circle cx="145.335" cy="82.510" r="1.4"/>
+    <circle cx="125.650" cy="41.870" r="1.4"/>
+    <circle cx="145.335" cy="41.870" r="1.4"/>
+  </g>
+
+  <!-- Carrier-to-backplane M3 holes: carrier-local x/y (8,6), (236,6),
+       (8,66), (236,66), with y inverted for SVG display. -->
+  <g class="carrier-hole">
+    <circle cx="18" cy="96" r="1.75"/>
+    <circle cx="246" cy="96" r="1.75"/>
+    <circle cx="18" cy="36" r="1.75"/>
+    <circle cx="246" cy="36" r="1.75"/>
+  </g>
+
+  <text x="132" y="32.5" class="label" text-anchor="middle">HUB75 — TOP</text>
+  <text x="132" y="101.5" class="label" text-anchor="middle">USB-C — BOTTOM</text>
+  <text x="132" y="68" class="small" text-anchor="middle">DOWN / UP / RESET accessible</text>
+  <text x="132" y="72" class="small" text-anchor="middle">5V / GND terminals accessible</text>
+  <text x="132" y="106" class="small" text-anchor="middle">72 mm connector/access opening</text>
+
+  <g transform="translate(10,116)">
+    <circle cx="2" cy="0" r="1.4" class="matrix-hole"/>
+    <text x="6" y="1.2" class="legend">Blue: MatrixPortal plated M2.5 mounting holes</text>
+    <circle cx="132" cy="0" r="1.75" class="carrier-hole"/>
+    <text x="136" y="1.2" class="legend">Red: carrier-to-backplane M3 clearance holes</text>
+  </g>
+  <text x="10" y="127" class="legend" font-weight="bold">IMPORTANT: the two silver 5V/GND terminal screws are ELECTRICAL ONLY; they are not mechanical mounting points.</text>
+  <text x="10" y="133" class="small">Print at 100% / Actual Size for a paper overlay. Do not scale to fit.</text>
+</svg>
