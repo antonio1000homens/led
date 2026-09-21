@@ -6,6 +6,7 @@ import board
 
 from matrix_config import (
     MATRIX_BIT_DEPTH,
+    MATRIX_EXPERIMENT_PRESET,
     MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
     MATRIX_STATS_INTERVAL_SECONDS,
@@ -307,7 +308,8 @@ class MatrixDisplay:
         self._stats_interval_total = 0.0
         self._stats_interval_count = 0
         print(
-            "MATRIX PRESENTATION mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
+            "MATRIX PRESENTATION preset={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
+                MATRIX_EXPERIMENT_PRESET,
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 TODOIST_MARQUEE_SPEED,
