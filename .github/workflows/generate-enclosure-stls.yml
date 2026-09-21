@@ -1,9 +1,6 @@
 name: Validate enclosure STLs
 
 on:
-  push:
-    branches:
-      - fix/enclosure-generated-artifacts
   pull_request:
     paths:
       - 'hardware/enclosure/**/*.scad'
@@ -14,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -35,38 +32,6 @@ jobs:
           if git grep -n '01_backplane_module_PRINT_4' -- 'hardware/enclosure/direct-mount'; then
             echo 'Superseded PRINT_4 backplane artifact/reference found. Use PRINT_3 plus the right-end variant.' >&2
             exit 1
-          fi
-
-      - name: One-off regenerate enclosure STLs on cleanup branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/enclosure-generated-artifacts'
-        shell: bash
-        run: |
-          set -euo pipefail
-          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
-          tracked=hardware/enclosure/direct-mount
-
-          declare -A parts=(
-            [backplane]=01_backplane_module_PRINT_3.stl
-            [backplane_right]=01b_backplane_right_end_PRINT_1.stl
-            [joiner]=02_module_joiner_PRINT_3.stl
-            [rod_plug]=03_rod_end_plug_PRINT_4.stl
-            [matrixportal_mount]=04_matrixportal_mount_PRINT_1.stl
-            [power_mount]=05_power_distribution_mount_PRINT_1.stl
-            [cable_clip]=06_cable_clip_PRINT_8.stl
-            [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
-            [mount_pattern_template]=08_mount_pattern_template_PRINT_1.stl
-          )
-
-          for part in "${!parts[@]}"; do
-            openscad -D "part=\"${part}\"" -o "$tracked/${parts[$part]}" "$src"
-          done
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$tracked"/*.stl
-          if ! git diff --cached --quiet; then
-            git commit -m "Regenerate enclosure STLs from source of truth"
-            git push origin HEAD:"$GITHUB_REF_NAME"
           fi
 
       - name: Regenerate and verify checked-in STLs
