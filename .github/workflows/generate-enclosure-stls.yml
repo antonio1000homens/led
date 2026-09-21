@@ -25,6 +25,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y openscad python3-venv
 
+      - name: Reject superseded PRINT_4 backplane artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n '01_backplane_module_PRINT_4' -- 'hardware/enclosure/direct-mount'; then
+            echo 'Superseded PRINT_4 backplane artifact/reference found. Use PRINT_3 plus the right-end variant.' >&2
+            exit 1
+          fi
+
       - name: Regenerate and verify checked-in STLs
         shell: bash
         run: |
