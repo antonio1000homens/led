@@ -6,7 +6,9 @@ import board
 
 from matrix_config import (
     MATRIX_BIT_DEPTH,
+    MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
+    MATRIX_STATS_INTERVAL_SECONDS,
     TODOIST_MARQUEE_PAUSE_SECONDS,
     TODOIST_MARQUEE_SPEED,
 )
@@ -274,13 +276,44 @@ class MatrixDisplay:
             addr_pins=board.MTX_ADDRESS[:4],
             **board.MTX_COMMON,
         )
-        # Publish complete groups explicitly. Replacing root_group during an
-        # active HUB75 scan can expose a partially updated row as a flash.
-        self.display = framebufferio.FramebufferDisplay(matrix, auto_refresh=False)
+        # Keep scene construction identical while issue #70 varies only the
+        # framebuffer presentation strategy.
+        if MATRIX_PRESENTATION_MODE not in ("target_fps", "immediate", "auto_refresh"):
+            raise ValueError(
+                "MATRIX_PRESENTATION_MODE must be target_fps, immediate, or auto_refresh"
+            )
+        self.presentation_mode = MATRIX_PRESENTATION_MODE
+        self.display = framebufferio.FramebufferDisplay(
+            matrix,
+            auto_refresh=self.presentation_mode == "auto_refresh",
+        )
         self.display.root_group = displayio.Group()
         self._refresh_misses = 0
         self.label_type = label.Label
         self.font = bitmap_font.load_font("/font5x7.pcf")
+
+        # Low-overhead aggregate metrics for the physical-board comparison.
+        now = time.monotonic()
+        self._stats_started = now
+        self._stats_last_report = now
+        self._stats_heap_start = self._heap_free()
+        self._stats_changes = 0
+        self._stats_refresh_attempts = 0
+        self._stats_refresh_successes = 0
+        self._stats_refresh_failures = 0
+        self._stats_last_success = None
+        self._stats_interval_min = None
+        self._stats_interval_max = None
+        self._stats_interval_total = 0.0
+        self._stats_interval_count = 0
+        print(
+            "MATRIX PRESENTATION mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
+                self.presentation_mode,
+                MATRIX_REFRESH_FPS,
+                TODOIST_MARQUEE_SPEED,
+                self.display.auto_refresh,
+            )
+        )
 
         # Todoist is the only Matrix page that continuously animates while the
         # rest of the board is in static mode. Keep its display tree alive and
@@ -320,13 +353,87 @@ class MatrixDisplay:
     def _header_mask(self, group):
         self._mask(group, 0, 0, DISPLAY_WIDTH, 8)
 
+    def _heap_free(self):
+        try:
+            import gc
+            return gc.mem_free() if hasattr(gc, "mem_free") else None
+        except (ImportError, AttributeError):
+            return None
+
+    def _record_success_interval(self, now):
+        if self._stats_last_success is not None:
+            interval = max(0.0, now - self._stats_last_success)
+            if self._stats_interval_min is None or interval < self._stats_interval_min:
+                self._stats_interval_min = interval
+            if self._stats_interval_max is None or interval > self._stats_interval_max:
+                self._stats_interval_max = interval
+            self._stats_interval_total += interval
+            self._stats_interval_count += 1
+        self._stats_last_success = now
+
+    def _maybe_report_stats(self):
+        now = time.monotonic()
+        if now - self._stats_last_report < MATRIX_STATS_INTERVAL_SECONDS:
+            return
+        elapsed = max(0.001, now - self._stats_started)
+        if self.presentation_mode == "auto_refresh":
+            presented_fps = "n/a"
+        else:
+            presented_fps = "{:.2f}".format(self._stats_refresh_successes / elapsed)
+        interval_avg = (
+            self._stats_interval_total / self._stats_interval_count
+            if self._stats_interval_count
+            else None
+        )
+        print(
+            "MATRIX STATS mode={} target_fps={} elapsed={:.1f} changes={} "
+            "refresh_attempts={} refresh_successes={} refresh_failures={} "
+            "presented_fps={} interval_min={} interval_max={} interval_avg={} "
+            "heap_start={} heap_end={}".format(
+                self.presentation_mode,
+                MATRIX_REFRESH_FPS,
+                elapsed,
+                self._stats_changes,
+                self._stats_refresh_attempts,
+                self._stats_refresh_successes,
+                self._stats_refresh_failures,
+                presented_fps,
+                "{:.4f}".format(self._stats_interval_min)
+                if self._stats_interval_min is not None
+                else "n/a",
+                "{:.4f}".format(self._stats_interval_max)
+                if self._stats_interval_max is not None
+                else "n/a",
+                "{:.4f}".format(interval_avg) if interval_avg is not None else "n/a",
+                self._stats_heap_start,
+                self._heap_free(),
+            )
+        )
+        self._stats_last_report = now
+
     def _refresh(self):
-        """Synchronise one changed framebuffer with the HUB75 refresh cycle."""
-        refreshed = self.display.refresh(target_frames_per_second=MATRIX_REFRESH_FPS)
-        if not refreshed:
+        """Present one changed scene according to the issue #70 test mode."""
+        self._stats_changes += 1
+
+        # With auto-refresh enabled, mutating displayio objects is sufficient.
+        # Calling refresh() here would make this mode no longer a clean test.
+        if self.presentation_mode == "auto_refresh":
+            self._maybe_report_stats()
+            return True
+
+        self._stats_refresh_attempts += 1
+        target = None if self.presentation_mode == "immediate" else MATRIX_REFRESH_FPS
+        refreshed = self.display.refresh(target_frames_per_second=target)
+        now = time.monotonic()
+        if refreshed:
+            self._stats_refresh_successes += 1
+            self._record_success_interval(now)
+        else:
+            self._stats_refresh_failures += 1
             self._refresh_misses += 1
             if self._refresh_misses % 20 == 0:
                 print("DISPLAY REFRESH DEADLINE MISSED count={}".format(self._refresh_misses))
+        self._maybe_report_stats()
         return refreshed
 
     def _present(self, group):
