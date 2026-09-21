@@ -43,6 +43,11 @@ def _iso_epoch(value):
 
 def parse_flash_event(payload, now=None):
     """Return a safe normalized event, or ``None`` for invalid/expired input."""
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except (ValueError, UnicodeError):
+            return None
     if isinstance(payload, (bytes, bytearray)):
         try:
             payload = json.loads(payload.decode("utf-8"))
@@ -86,10 +91,10 @@ class FlashState:
         self.event = None
         self.started_at = None
 
-    def accept(self, payload, now):
+    def accept(self, payload, now, epoch_now=None):
         if not self.enabled:
             return False
-        event = parse_flash_event(payload, now)
+        event = parse_flash_event(payload, epoch_now if epoch_now is not None else now)
         if event is None or event["id"] in self.seen:
             return False
         self.seen.append(event["id"])
@@ -97,6 +102,18 @@ class FlashState:
         self.event = event
         self.started_at = float(now)
         return True
+
+    def configure(self, enabled=None, duration_seconds=None):
+        """Apply public runtime settings without changing transport settings."""
+        if enabled is not None:
+            self.enabled = bool(enabled)
+        if duration_seconds is not None:
+            try:
+                self.duration_seconds = max(1, int(duration_seconds))
+            except (TypeError, ValueError):
+                pass
+        if not self.enabled:
+            self.clear()
 
     def active(self, now):
         return self.event is not None and float(now) - self.started_at < self.duration_seconds

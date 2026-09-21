@@ -98,7 +98,8 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL:
     def receive_flash(payload):
         global flash_resume, last_render_key
         now = time.monotonic()
-        if flash.accept(payload, now):
+        epoch_now = time.time()
+        if flash.accept(payload, now, epoch_now=epoch_now if epoch_now >= 1000000000 else None):
             # A replacement must not advance the frozen underlying rotation.
             if flash_resume is None:
                 flash_resume = rotation.pause(now)
@@ -179,6 +180,18 @@ def _report_pace(now):
     return True
 
 
+def _apply_flash_config(payload):
+    config = payload.get("flash") if isinstance(payload, dict) else None
+    if not isinstance(config, dict):
+        return
+    # The public screen payload carries only non-secret operational settings.
+    # Transport activation remains controlled exclusively by local board flags.
+    flash.configure(
+        enabled=(settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and config.get("enabled", False)),
+        duration_seconds=config.get("screen_duration_seconds"),
+    )
+
+
 while True:
     now = time.monotonic()
     if mqtt is not None:
@@ -204,6 +217,7 @@ while True:
             screens = payload.get("screens")
             print("FETCH OK screens={}".format(len(screens or [])))
             rotation.update(screens, now)
+            _apply_flash_config(payload)
             fetched_at = payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, now)

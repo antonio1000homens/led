@@ -153,6 +153,9 @@ future Home Assistant publisher owns the event payload and will publish it to
 the board's configured MQTT topic after issue #3 is complete. The board-side
 MQTT connection currently requires both `MQTT_ENABLED` and the explicit
 `MQTT_ENABLE_EXPERIMENTAL` safety gate; both are false in `settings.py`.
+The public `/api/screens` response carries the effective non-secret `flash`
+settings so the board can apply admin changes on its normal HTTP refresh path;
+it never carries broker credentials or reminder payloads.
 
 ## Local development and testing
 

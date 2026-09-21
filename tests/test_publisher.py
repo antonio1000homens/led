@@ -181,6 +181,21 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual([ride["name"] for ride in queue_screen["parks"][0]["rides"]],["Stealth","Hyperia"])
         self.assertEqual([ride["name"] for ride in queue_screen["parks"][1]["rides"]],["Vampire"])
 
+    def test_flash_runtime_settings_are_published_without_event_payload(self):
+        runtime = default_runtime_config({"LED_WEATHER_SOURCE": "off"})
+        runtime["config_version"] = 12
+        runtime["feeds"]["flash"]["enabled"] = True
+        runtime["feeds"]["flash"]["screen_duration_seconds"] = 10
+        payload = Publisher(
+            self.config,
+            self.store,
+            rail_provider=FakeProvider([[{"time": "08:01"}]]),
+            utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        self.assertEqual(payload["flash"], {"enabled": True, "screen_duration_seconds": 10})
+        self.assertNotIn("event", payload["flash"])
+
     def test_disappeared_ride_is_flagged_without_breaking_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",weather_source="off")
         runtime=default_runtime_config({"LED_WEATHER_SOURCE":"off"})

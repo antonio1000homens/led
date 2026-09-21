@@ -425,7 +425,12 @@ class Publisher:
             overlay["stale"] = bool(weather.get("stale")) if data is not None else True
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
-        return {"fetched_at": _iso(now), "config_version": runtime["config_version"], "screens": screens}
+        return {
+            "fetched_at": _iso(now),
+            "config_version": runtime["config_version"],
+            "flash": copy.deepcopy(config_feeds["flash"]),
+            "screens": screens,
+        }
 
     def _runtime(self):
         try:

@@ -1,6 +1,7 @@
 import unittest
 
 from flash_events import FlashState, parse_flash_event
+from mqtt_client import FlashMqttClient
 
 
 EVENT = {
@@ -14,6 +15,14 @@ EVENT = {
 
 
 class FlashEventTests(unittest.TestCase):
+    def test_payload_decoding_accepts_json_strings_bytes_and_dicts(self):
+        import json
+        encoded = json.dumps(EVENT)
+        self.assertEqual(parse_flash_event(encoded, 0)["id"], "reminder-1")
+        self.assertEqual(parse_flash_event(encoded.encode("utf-8"), 0)["id"], "reminder-1")
+        self.assertEqual(parse_flash_event(EVENT, 0)["id"], "reminder-1")
+        self.assertIsNone(parse_flash_event("not-json", 0))
+
     def test_valid_event_is_normalized_and_expiry_is_checked(self):
         event = parse_flash_event(EVENT, 1790000000)
         self.assertEqual(event["label"], "Take washing out")
@@ -37,6 +46,78 @@ class FlashEventTests(unittest.TestCase):
         state = FlashState(enabled=False)
         self.assertFalse(state.accept(EVENT, 0))
         self.assertIsNone(state.screen())
+
+    def test_epoch_expiry_and_monotonic_duration_are_separate(self):
+        state = FlashState(enabled=True, duration_seconds=5)
+        self.assertTrue(state.accept(EVENT, 100.0, epoch_now=1790000000))
+        self.assertTrue(state.active(104.9))
+        self.assertFalse(state.active(105.1))
+        self.assertFalse(state.accept(EVENT, 200.0, epoch_now=1790010400))
+
+
+class FakeSettings:
+    MQTT_BROKER = "broker.example"
+    MQTT_PORT = 1883
+    MQTT_USERNAME = "user"
+    MQTT_PASSWORD = "password"
+    MQTT_TOPIC = "led/flash/reminder"
+
+
+class FakeMqtt:
+    def __init__(self, callback_payload=None, fail_loop=False):
+        self.callback_payload = callback_payload
+        self.fail_loop = fail_loop
+        self.on_message = None
+        self.subscriptions = []
+        self.connected = False
+        self.loop_calls = 0
+
+    def connect(self):
+        self.connected = True
+
+    def subscribe(self, topic, qos=0):
+        self.subscriptions.append((topic, qos))
+
+    def loop(self, timeout=0):
+        self.loop_calls += 1
+        if self.fail_loop:
+            raise OSError("broker disconnected")
+        if self.callback_payload is not None and self.on_message:
+            self.on_message(self, FakeSettings.MQTT_TOPIC, self.callback_payload)
+            self.callback_payload = None
+
+
+class MqttTransportTests(unittest.TestCase):
+    def test_connects_qos_one_and_delivers_string_payload(self):
+        received = []
+        client = FakeMqtt(json_payload := '{"id":"x","type":"reminder","label":"Hi","expires_at":"2099-01-01T00:00:00Z"}')
+        transport = FlashMqttClient(FakeSettings, received.append, mqtt_factory=lambda settings: client)
+        transport.poll(0)
+        self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
+        self.assertEqual(received, [json_payload])
+
+    def test_initial_failure_is_contained_and_later_connect_retries(self):
+        attempts = []
+        def factory(settings):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise OSError("offline")
+            return FakeMqtt()
+        transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=factory)
+        transport.poll(0)
+        self.assertFalse(transport.connected)
+        transport.poll(31)
+        self.assertTrue(transport.connected)
+        self.assertEqual(len(attempts), 2)
+
+    def test_disconnect_is_contained_and_reconnect_resubscribes(self):
+        clients = [FakeMqtt(fail_loop=True), FakeMqtt()]
+        transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=lambda settings: clients.pop(0))
+        transport.poll(0)
+        self.assertFalse(transport.connected)
+        transport.poll(5)
+        self.assertTrue(transport.connected)
+        self.assertEqual(clients, [])
 
 
 if __name__ == "__main__":

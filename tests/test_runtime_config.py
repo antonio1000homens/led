@@ -17,6 +17,7 @@ from runtime_config import (
     RuntimeConfigStore,
     RuntimeConfigValidationError,
     default_runtime_config,
+    schema_metadata,
     validate_feed_patch,
     validate_runtime_config,
 )
@@ -68,6 +69,10 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(len(config["feeds"]["chessington"]["rides"]), 6)
         self.assertFalse(config["feeds"]["flash"]["enabled"])
         self.assertEqual(config["feeds"]["flash"]["screen_duration_seconds"], 5)
+        self.assertEqual(
+            schema_metadata()["feeds"]["flash"]["mutable_fields"],
+            ["enabled", "screen_duration_seconds"],
+        )
 
     def test_flash_duration_is_bounded_and_legacy_configs_are_backfilled(self):
         self.assertEqual(
