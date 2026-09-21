@@ -36,29 +36,30 @@ Manifold boolean engine to check:
 3. seam joiners fit the declared recesses without unintended solid overlap;
 4. nominal 8 mm reinforcement rods pass through all four backplanes;
 5. electronics carriers nominally seat on the backplane;
-6. declared hardware envelopes such as seam screw heads do not collide with
-   carrier geometry;
+6. installed recessed joiners remain clear of the electronics carriers;
 7. the assembled backplane envelope remains within declared bounds.
 
 The GitHub Actions workflow first regenerates the STLs from OpenSCAD and
 verifies that the checked-in meshes are current, then runs these mechanical
 checks.
 
-## Known failures
+## Resolved automated findings
 
-Existing unresolved mechanical findings from issue #81 are represented as
-`expected_failure` checks. They are printed as `XFAIL` rather than silently
-being treated as compatible.
+The geometry-only findings from issue #81 are now enforced as normal passing
+checks rather than expected failures:
 
-At present this includes:
+- finding 1: the lowered alignment tongues clear the recessed joiners;
+- finding 2: countersunk seam fasteners allow carriers to clear the installed
+  joiners;
+- finding 6: the dedicated right-end backplane keeps the four-module printed
+  structure inside the 1024 mm envelope.
 
-- finding 1: alignment tongue / recessed joiner interference;
-- finding 2: representative seam screw-head / carrier interference;
-- finding 6: rightmost alignment tongue extending the nominal 1024 mm
-  backplane envelope.
+The first regenerated validation run measured 0.000000 mm³ intersection for
+all three joiner/backplane seam checks and both carrier/joiner checks, with the
+assembly bounds exactly x=0.000..1024.000 mm.
 
-When one of these designs is corrected, remove its
-`expected_failure` marker so the interface becomes a required passing check.
+The manifest still supports `expected_failure` for future known defects, but
+none of these three findings remains exempted.
 
 ## Physical validation remains necessary
 
@@ -69,6 +70,7 @@ manual validation gates for:
 - the real P4 panel mounting pattern;
 - rear LED-panel component and connector keep-outs;
 - insertion of the real 1 m x 8 mm rods through four printed modules;
-- MatrixPortal and power-distribution hardware fit.
+- MatrixPortal and power-distribution hardware fit;
+- split rod-end plug retention in the chosen filament/printer.
 
 These physical gates remain part of issues #76 and #81.
