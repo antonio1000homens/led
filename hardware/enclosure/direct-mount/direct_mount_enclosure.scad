@@ -186,12 +186,13 @@ carrier_hole_y = 6;
 
 // Adafruit MatrixPortal S3 PCB mounting-hole pattern.
 // Source: Adafruit MatrixPortal S3 PCB layout (MOUNTINGHOLE_2.5_PLATED centres).
-matrixportal_hole_spacing_x = 40.64;
-matrixportal_hole_spacing_y = 19.685;
+// The carrier coordinate system is rotated relative to the PCB drawing:
+// carrier x carries the 19.685 mm PCB spacing and carrier y carries 40.64 mm.
+matrixportal_hole_spacing_x = 19.685;
+matrixportal_hole_spacing_y = 40.64;
 matrixportal_standoff_d = 8;
 matrixportal_standoff_h = 6;
-matrixportal_slot_len = 10;
-matrixportal_slot_d = 2.8;
+matrixportal_hole_d = 2.8; // round M2.5 clearance hole
 
 matrixportal_mount_xs = [
     carrier_w/2 - matrixportal_hole_spacing_x/2,
@@ -237,12 +238,12 @@ module matrixportal_mount() {
                         cylinder(d=matrixportal_standoff_d,h=matrixportal_standoff_h);
         }
 
-        // Retain short slots for print / PCB tolerance while matching the nominal hole centres.
+        // Round holes are intentional: the paper fit check exposed the former
+        // elongated-slot/90-degree orientation mistake in PR #77.
         for (xx=matrixportal_mount_xs)
             for (yy=matrixportal_mount_ys)
                 translate([xx,yy,-0.5])
-                    rotate([0,0,90])
-                        elongated_hole(matrixportal_slot_len,matrixportal_slot_d,carrier_t+7);
+                    cylinder(d=matrixportal_hole_d,h=carrier_t+7);
 
         translate([carrier_w/2-22,carrier_h/2-6,-0.5]) cube([44,12,carrier_t+1]);
     }

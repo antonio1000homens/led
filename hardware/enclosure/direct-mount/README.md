@@ -74,6 +74,10 @@ The expected panel mounting rows are only 12 mm from the top/bottom edges. The e
 - panel mounting screws/washers to match the actual P4 panel bosses
 - fused 5 V distribution hardware and appropriately rated 5 V input connector/cable
 
+The MatrixPortal S3 carrier uses the PCB's 19.685 mm × 40.64 mm hole spacing
+in carrier x/y respectively, with four round 2.8 mm M2.5-clearance holes. It
+does not use elongated PCB mounting slots.
+
 ### Heat-set insert purchasing spec
 
 Use brass, knurled heat-set inserts intended for thermoplastic/3D-printed parts with:
