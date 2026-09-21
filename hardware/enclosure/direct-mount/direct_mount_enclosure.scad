@@ -174,6 +174,25 @@ carrier_t = 4;
 carrier_hole_x = 2;
 carrier_hole_y = 6;
 
+// Adafruit MatrixPortal S3 PCB mounting-hole pattern.
+// Source: Adafruit MatrixPortal S3 PCB layout (MOUNTINGHOLE_2.5_PLATED centres).
+matrixportal_hole_spacing_x = 40.64;
+matrixportal_hole_spacing_y = 19.685;
+matrixportal_standoff_d = 8;
+matrixportal_standoff_h = 6;
+matrixportal_slot_len = 10;
+matrixportal_slot_d = 2.8;
+
+matrixportal_mount_xs = [
+    carrier_w/2 - matrixportal_hole_spacing_x/2,
+    carrier_w/2 + matrixportal_hole_spacing_x/2
+];
+
+matrixportal_mount_ys = [
+    carrier_h/2 - matrixportal_hole_spacing_y/2,
+    carrier_h/2 + matrixportal_hole_spacing_y/2
+];
+
 module carrier_frame() {
     difference() {
         union() {
@@ -200,13 +219,21 @@ module matrixportal_mount() {
         union() {
             carrier_frame();
             translate([(carrier_w-100)/2,6,0]) cube([100,60,carrier_t]);
-            for (xx=[carrier_w/2-38,carrier_w/2+38])
-                for (yy=[carrier_h/2-17,carrier_h/2+17])
-                    translate([xx,yy,carrier_t]) cylinder(d=8,h=6);
+
+            // Standoffs centred on the MatrixPortal S3's four M2.5 mounting holes.
+            for (xx=matrixportal_mount_xs)
+                for (yy=matrixportal_mount_ys)
+                    translate([xx,yy,carrier_t])
+                        cylinder(d=matrixportal_standoff_d,h=matrixportal_standoff_h);
         }
-        for (xx=[carrier_w/2-38,carrier_w/2+38])
-            for (yy=[carrier_h/2-17,carrier_h/2+17])
-                translate([xx,yy,-0.5]) rotate([0,0,90]) elongated_hole(10,2.8,carrier_t+7);
+
+        // Retain short slots for print / PCB tolerance while matching the nominal hole centres.
+        for (xx=matrixportal_mount_xs)
+            for (yy=matrixportal_mount_ys)
+                translate([xx,yy,-0.5])
+                    rotate([0,0,90])
+                        elongated_hole(matrixportal_slot_len,matrixportal_slot_d,carrier_t+7);
+
         translate([carrier_w/2-22,carrier_h/2-6,-0.5]) cube([44,12,carrier_t+1]);
     }
 }
