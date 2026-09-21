@@ -262,5 +262,45 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(second_title_group.x, led_display.AGENDA_TITLE_X - 1)
 
 
+    def test_immediate_mode_uses_manual_immediate_refresh(self):
+        with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "immediate"):
+            with patch.dict(sys.modules, fake_modules()):
+                display = led_display.MatrixDisplay()
+                screen = todoist_screen(3)
+
+                display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+
+                self.assertFalse(display.display.auto_refresh)
+                self.assertEqual(display.presentation_mode, "immediate")
+                self.assertTrue(display.display.refresh_targets)
+                self.assertIsNone(display.display.refresh_targets[-1])
+
+    def test_auto_refresh_mode_does_not_call_manual_refresh(self):
+        with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "auto_refresh"):
+            with patch.dict(sys.modules, fake_modules()):
+                display = led_display.MatrixDisplay()
+                screen = todoist_screen(3)
+
+                display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+                first_x = display._todoist_rows[0][1].x
+                display.show(
+                    screen,
+                    clock_time="19:40",
+                    clock_date="2026-09-20",
+                    phase=1.0 / MATRIX_REFRESH_FPS,
+                )
+
+                self.assertTrue(display.display.auto_refresh)
+                self.assertEqual(display.presentation_mode, "auto_refresh")
+                self.assertEqual(display.display.refresh_targets, [])
+                self.assertEqual(display._todoist_rows[0][1].x, first_x - 1)
+
+    def test_invalid_presentation_mode_is_rejected(self):
+        with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "unknown"):
+            with patch.dict(sys.modules, fake_modules()):
+                with self.assertRaises(ValueError):
+                    led_display.MatrixDisplay()
+
+
 if __name__ == "__main__":
     unittest.main()
