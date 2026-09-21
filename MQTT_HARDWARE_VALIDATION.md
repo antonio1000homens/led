@@ -1,0 +1,50 @@
+# Issue #74 hardware validation gate
+
+This is the test procedure for the MatrixPortal MQTT path. It is intentionally
+not an activation instruction: the checked-in safety flags remain false until
+Home Assistant issue #3 and the broker configuration are approved.
+
+## Preconditions
+
+- Home Assistant publishes the documented `led/flash/reminder` contract with
+  QoS 1 and `retain: false`.
+- A stable broker hostname and uncommitted board credentials are available.
+- `adafruit_minimqtt` has been installed into `CIRCUITPY/lib`.
+- The board is running the current B8 production refresh profile.
+- Record a disabled-MQTT baseline first; do not compare against memory or a
+  different payload.
+
+## Capture for each run
+
+Use the existing serial diagnostics for a minimum of 60 seconds of Todoist
+and departures activity. Record:
+
+- `MATRIX PRESENTATION` profile and target cadence;
+- `MATRIX STATS` refresh attempts, successes, failures and heap values;
+- `FRAME PACE` tick rate, late frames and maximum late streak;
+- fetch success/failure and reconnect messages;
+- visible flashing, tearing, marquee jumps and page-slide behaviour.
+
+Run the same payload in two states:
+
+1. MQTT disabled (B8 baseline).
+2. MQTT enabled but idle, with no published messages.
+
+The idle run must retain bounded socket servicing and show no material change
+in refresh failures, late-frame streaks, heap drift or visible rendering.
+
+## Event checks
+
+With the idle run stable, publish several test events and verify:
+
+- the flash starts without waiting for the HTTP poll;
+- the configured runtime duration is honoured;
+- the underlying screen resumes at its prior phase;
+- a duplicate ID is ignored;
+- an expired event is ignored;
+- a newer event replaces an active flash and restarts its duration;
+- broker disconnect leaves HTTP screen rotation operating;
+- reconnect restores the subscription.
+
+Do not enable the production board path or close #74 until these observations
+are recorded against the actual MatrixPortal and the Home Assistant publisher.

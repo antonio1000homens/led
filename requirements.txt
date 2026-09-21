@@ -4,4 +4,5 @@ adafruit_bitmap_font
 adafruit_connection_manager
 adafruit_requests
 adafruit_ntp
+adafruit_minimqtt
 neopixel

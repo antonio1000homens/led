@@ -46,6 +46,10 @@ class FlashEventTests(unittest.TestCase):
         state = FlashState(enabled=False)
         self.assertFalse(state.accept(EVENT, 0))
         self.assertIsNone(state.screen())
+        state.configure(enabled=True, duration_seconds=10)
+        self.assertTrue(state.accept(EVENT, 0, epoch_now=1790000000))
+        state.configure(enabled=False)
+        self.assertIsNone(state.screen())
 
     def test_epoch_expiry_and_monotonic_duration_are_separate(self):
         state = FlashState(enabled=True, duration_seconds=5)
@@ -118,6 +122,37 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(5)
         self.assertTrue(transport.connected)
         self.assertEqual(clients, [])
+
+    def test_mqtt_outage_does_not_block_http_screen_fetch(self):
+        from screen_client import ScreenClient
+
+        transport = FlashMqttClient(
+            FakeSettings,
+            lambda payload: None,
+            mqtt_factory=lambda settings: FakeMqtt(fail_loop=True),
+        )
+        transport.poll(0)
+
+        class Response:
+            status_code = 200
+            closed = False
+
+            def json(self):
+                return {"screens": [{"id": "departures"}]}
+
+            def close(self):
+                self.closed = True
+
+        class Session:
+            def get(self, url):
+                self.url = url
+                return Response()
+
+        class Settings:
+            SCREEN_API_URL = "https://led.example"
+
+        payload = ScreenClient(Settings, session=Session()).fetch()
+        self.assertEqual(payload["screens"][0]["id"], "departures")
 
 
 if __name__ == "__main__":

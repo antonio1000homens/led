@@ -147,6 +147,17 @@ pip install circup
 circup install -r requirements.txt
 ```
 
+The MQTT dependency is included for the issue #74 listener, but the listener
+is deliberately dormant. `settings.py` keeps both `MQTT_ENABLED` and
+`MQTT_ENABLE_EXPERIMENTAL` false, with an empty broker setting. Do not copy
+broker credentials or enable either gate until Home Assistant issue #3 and the
+broker path have passed review.
+
+When that gate is eventually approved, `circup install -r requirements.txt`
+installs `adafruit_minimqtt` into `CIRCUITPY/lib`; the board still uses only
+uncommitted `settings_local.py` for broker hostname, port, topic and any
+credentials. The board connects outbound and does not require a reserved IP.
+
 `gtsr4.pem` is a public Google Trust Services root certificate required by the
 current `led.alf-broadcast.co.uk` certificate chain on this CircuitPython
 firmware. Keep it on `CIRCUITPY`; it contains no project secret.
