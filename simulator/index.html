@@ -496,9 +496,9 @@
       const list = Array.isArray(services) ? services : [];
       if (railPhase(phase) === 'summary') return [
         { kind: 'header', service: null },
+        { kind: 'service', service: list[0] || null },
         { kind: 'service', service: list[1] || null },
-        { kind: 'service', service: list[2] || null },
-        { kind: 'service', service: list[3] || null }
+        { kind: 'service', service: list[2] || null }
       ];
       return [
         { kind: 'service', service: list[0] || null },

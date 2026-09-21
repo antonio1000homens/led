@@ -498,9 +498,9 @@ def rail_rows(services, phase):
     if state == "summary":
         return [
             ("header", None),
+            ("service", services[0] if len(services) > 0 else None),
             ("service", services[1] if len(services) > 1 else None),
             ("service", services[2] if len(services) > 2 else None),
-            ("service", services[3] if len(services) > 3 else None),
         ]
     return [
         ("service", services[0] if len(services) > 0 else None),
