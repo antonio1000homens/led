@@ -65,3 +65,20 @@ the production bundle and measured with MQTT disabled (`MQTT_ENABLED = False`,
 
 The MQTT-enabled-but-idle comparison and event checks remain gated on the
 Home Assistant issue #3 contract and approved broker configuration.
+
+## Fresh synchronized baseline
+
+On 2026-09-21, after synchronizing the attached MatrixPortal with the merged
+`master` runtime bundle, a 70-second disabled-MQTT capture was recorded with
+both local MQTT gates false:
+
+- target animation rate: 8 FPS;
+- frame-pacing samples: 7.67 FPS at 60.2 seconds, 7.75 FPS at 80.2 seconds,
+  7.78 FPS at 100.3 seconds and 7.79 FPS at 120.4 seconds;
+- late frames: 10, 10, 13 and 15 respectively; maximum late streak: 2;
+- HUB75 refresh failures: 0 in every sample;
+- normal HTTP refreshes succeeded (`FETCH OK screens=2`);
+- no MQTT connection or flash-event output appeared.
+
+Use this synchronized capture as the disabled-MQTT reference for the eventual
+approved MQTT-enabled-idle comparison.
