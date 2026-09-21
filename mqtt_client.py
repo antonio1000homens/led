@@ -54,8 +54,10 @@ class FlashMqttClient:
         if not self.client or not self.connected:
             return
         try:
-            # A zero/short timeout keeps this subordinate to the render loop.
-            self.client.loop(timeout=0.01)
+            # MiniMQTT requires the loop timeout to be at least the socket
+            # timeout configured above. Keep both bounded so MQTT remains
+            # subordinate to the render loop without rejecting every poll.
+            self.client.loop(timeout=0.1)
         except Exception as error:
             self.connected = False
             self.client = None

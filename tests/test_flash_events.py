@@ -75,6 +75,7 @@ class FakeMqtt:
         self.subscriptions = []
         self.connected = False
         self.loop_calls = 0
+        self.loop_timeouts = []
 
     def connect(self):
         self.connected = True
@@ -84,6 +85,7 @@ class FakeMqtt:
 
     def loop(self, timeout=0):
         self.loop_calls += 1
+        self.loop_timeouts.append(timeout)
         if self.fail_loop:
             raise OSError("broker disconnected")
         if self.callback_payload is not None and self.on_message:
@@ -99,6 +101,7 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(0)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
         self.assertEqual(received, [json_payload])
+        self.assertEqual(client.loop_timeouts, [0.1])
 
     def test_initial_failure_is_contained_and_later_connect_retries(self):
         attempts = []
