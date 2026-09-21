@@ -1,54 +1,130 @@
 {
   "schema_version": 1,
   "parts": {
-    "backplane": {"file": "01_backplane_module_PRINT_4.stl"},
-    "joiner": {"file": "02_module_joiner_PRINT_3.stl"},
-    "rod_plug": {"file": "03_rod_end_plug_PRINT_4.stl"},
-    "matrixportal_mount": {"file": "04_matrixportal_mount_PRINT_1.stl"},
-    "power_mount": {"file": "05_power_distribution_mount_PRINT_1.stl"},
-    "cable_clip": {"file": "06_cable_clip_PRINT_8.stl"},
-    "slot_coupon": {"file": "07_mounting_slot_coupon_PRINT_1.stl"},
-    "mount_pattern_template": {"file": "08_mount_pattern_template_PRINT_1.stl"}
+    "backplane": {
+      "file": "01_backplane_module_PRINT_3.stl"
+    },
+    "joiner": {
+      "file": "02_module_joiner_PRINT_3.stl"
+    },
+    "rod_plug": {
+      "file": "03_rod_end_plug_PRINT_4.stl"
+    },
+    "matrixportal_mount": {
+      "file": "04_matrixportal_mount_PRINT_1.stl"
+    },
+    "power_mount": {
+      "file": "05_power_distribution_mount_PRINT_1.stl"
+    },
+    "cable_clip": {
+      "file": "06_cable_clip_PRINT_8.stl"
+    },
+    "slot_coupon": {
+      "file": "07_mounting_slot_coupon_PRINT_1.stl"
+    },
+    "mount_pattern_template": {
+      "file": "08_mount_pattern_template_PRINT_1.stl"
+    },
+    "backplane_right": {
+      "file": "01b_backplane_right_end_PRINT_1.stl"
+    }
   },
   "instances": {
-    "backplane_1": {"part": "backplane", "translate": [0, 0, 0]},
-    "backplane_2": {"part": "backplane", "translate": [256, 0, 0]},
-    "backplane_3": {"part": "backplane", "translate": [512, 0, 0]},
-    "backplane_4": {"part": "backplane", "translate": [768, 0, 0]},
-    "joiner_12": {"part": "joiner", "translate": [240, 40, 11.8]},
-    "joiner_23": {"part": "joiner", "translate": [496, 40, 11.8]},
-    "joiner_34": {"part": "joiner", "translate": [752, 40, 11.8]},
-    "matrixportal_carrier_fixture": {"part": "matrixportal_mount", "translate": [6, 28, 16]},
-    "power_carrier_fixture": {"part": "power_mount", "translate": [6, 28, 16]}
+    "backplane_1": {
+      "part": "backplane",
+      "translate": [
+        0,
+        0,
+        0
+      ]
+    },
+    "backplane_2": {
+      "part": "backplane",
+      "translate": [
+        256,
+        0,
+        0
+      ]
+    },
+    "backplane_3": {
+      "part": "backplane",
+      "translate": [
+        512,
+        0,
+        0
+      ]
+    },
+    "backplane_4": {
+      "part": "backplane_right",
+      "translate": [
+        768,
+        0,
+        0
+      ]
+    },
+    "joiner_12": {
+      "part": "joiner",
+      "translate": [
+        240,
+        40,
+        11.8
+      ]
+    },
+    "joiner_23": {
+      "part": "joiner",
+      "translate": [
+        496,
+        40,
+        11.8
+      ]
+    },
+    "joiner_34": {
+      "part": "joiner",
+      "translate": [
+        752,
+        40,
+        11.8
+      ]
+    },
+    "matrixportal_carrier_fixture": {
+      "part": "matrixportal_mount",
+      "translate": [
+        6,
+        28,
+        16
+      ]
+    },
+    "power_carrier_fixture": {
+      "part": "power_mount",
+      "translate": [
+        6,
+        28,
+        16
+      ]
+    }
   },
   "primitives": {
     "rod_bottom": {
       "type": "cylinder",
-      "radius": 4.0,
-      "height": 1000.0,
+      "radius": 4,
+      "height": 1000,
       "axis": "x",
-      "center": [512, 24, 8]
+      "center": [
+        512,
+        24,
+        8
+      ]
     },
     "rod_top": {
       "type": "cylinder",
-      "radius": 4.0,
-      "height": 1000.0,
+      "radius": 4,
+      "height": 1000,
       "axis": "x",
-      "center": [512, 104, 8]
-    },
-    "seam12_left_screw_head_y50": {
-      "type": "cylinder",
-      "radius": 3.0,
-      "height": 2.0,
-      "axis": "z",
-      "center": [248, 50, 16.8]
-    },
-    "seam12_left_screw_head_y78": {
-      "type": "cylinder",
-      "radius": 3.0,
-      "height": 2.0,
-      "axis": "z",
-      "center": [248, 78, 16.8]
+      "center": [
+        512,
+        104,
+        8
+      ]
     }
   },
   "checks": [
@@ -75,7 +151,6 @@
       "type": "no_interference",
       "a": "joiner_12",
       "b": "backplane_1",
-      "expected_failure": true,
       "issue": "#81 finding 1"
     },
     {
@@ -89,7 +164,6 @@
       "type": "no_interference",
       "a": "joiner_23",
       "b": "backplane_2",
-      "expected_failure": true,
       "issue": "#81 finding 1"
     },
     {
@@ -103,7 +177,6 @@
       "type": "no_interference",
       "a": "joiner_34",
       "b": "backplane_3",
-      "expected_failure": true,
       "issue": "#81 finding 1"
     },
     {
@@ -173,45 +246,31 @@
       "b": "backplane_1"
     },
     {
-      "name": "MatrixPortal carrier clears seam screw head at y=50",
+      "name": "MatrixPortal carrier clears installed seam joiner",
       "type": "no_interference",
       "a": "matrixportal_carrier_fixture",
-      "b": "seam12_left_screw_head_y50",
-      "expected_failure": true,
+      "b": "joiner_12",
       "issue": "#81 finding 2"
     },
     {
-      "name": "MatrixPortal carrier clears seam screw head at y=78",
-      "type": "no_interference",
-      "a": "matrixportal_carrier_fixture",
-      "b": "seam12_left_screw_head_y78",
-      "expected_failure": true,
-      "issue": "#81 finding 2"
-    },
-    {
-      "name": "power carrier clears seam screw head at y=50",
+      "name": "power carrier clears installed seam joiner",
       "type": "no_interference",
       "a": "power_carrier_fixture",
-      "b": "seam12_left_screw_head_y50",
-      "expected_failure": true,
-      "issue": "#81 finding 2"
-    },
-    {
-      "name": "power carrier clears seam screw head at y=78",
-      "type": "no_interference",
-      "a": "power_carrier_fixture",
-      "b": "seam12_left_screw_head_y78",
-      "expected_failure": true,
+      "b": "joiner_12",
       "issue": "#81 finding 2"
     },
     {
       "name": "four-backplane printed structure stays inside 1024 mm width",
       "type": "axis_bounds",
       "axis": "x",
-      "instances": ["backplane_1", "backplane_2", "backplane_3", "backplane_4"],
+      "instances": [
+        "backplane_1",
+        "backplane_2",
+        "backplane_3",
+        "backplane_4"
+      ],
       "min": 0,
       "max": 1024,
-      "expected_failure": true,
       "issue": "#81 finding 6"
     }
   ],
@@ -235,6 +294,11 @@
       "name": "controller and power hardware fit",
       "reason": "Exact real-hardware connector, terminal and strain-relief envelopes are not all represented in CAD.",
       "issue": "#81 finding 10"
+    },
+    {
+      "name": "split rod-end plug retention",
+      "reason": "The CAD now uses a compressible detent sized for the 9.2 mm bore, but FDM shrinkage and filament stiffness require one physical insertion/removal test.",
+      "issue": "#81 finding 8"
     }
   ]
 }
