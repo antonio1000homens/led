@@ -272,14 +272,14 @@ WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
 ```
 
-For local development instead, copy `settings_local.py.example` to the ignored `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `server.py`, for example `http://192.168.1.123:8000`.
+For local development instead, copy `firmware/settings_local.py.example` to the ignored root `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `scripts/run-server.sh`, for example `http://192.168.1.123:8000`.
 
 The MatrixPortal does not need provider credentials or direct upstream API clients. It makes only the same `/api/screens` request regardless of which server-side feeds are enabled.
 
-For a physical board to reach a local backend, `server.py` must listen on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
+For a physical board to reach a local backend, start the grouped backend on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
 
-```text
-LED_SERVER_HOST=0.0.0.0
+```sh
+LED_SERVER_HOST=0.0.0.0 bash scripts/run-server.sh
 ```
 
 Do not expose the local development server directly to the public Internet.
