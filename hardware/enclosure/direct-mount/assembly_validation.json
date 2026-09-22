@@ -115,10 +115,12 @@
     "power_carrier_fixture": {
       "part": "power_mount",
       "translate": [
-        6,
+        262,
         28,
         16
-      ]
+      ],
+      "role": "panel_2_power_distribution_carrier",
+      "assigned_backplane": "backplane_2"
     }
   },
   "primitives": {
@@ -258,22 +260,9 @@
       "b": "backplane_1"
     },
     {
-      "name": "power carrier nominally seats on backplane",
-      "type": "no_interference",
-      "a": "power_carrier_fixture",
-      "b": "backplane_1"
-    },
-    {
       "name": "Panel 1 MatrixPortal carrier clears Panel 1-2 seam joiner",
       "type": "no_interference",
       "a": "matrixportal_carrier_fixture",
-      "b": "joiner_12",
-      "issue": "#81 finding 2"
-    },
-    {
-      "name": "power carrier clears installed seam joiner",
-      "type": "no_interference",
-      "a": "power_carrier_fixture",
       "b": "joiner_12",
       "issue": "#81 finding 2"
     },
@@ -290,6 +279,26 @@
       "min": 0,
       "max": 1024,
       "issue": "#81 finding 6"
+    },
+    {
+      "name": "power carrier nominally seats on Panel 2 backplane",
+      "type": "no_interference",
+      "a": "power_carrier_fixture",
+      "b": "backplane_2"
+    },
+    {
+      "name": "Panel 2 power carrier clears Panel 1-2 seam joiner",
+      "type": "no_interference",
+      "a": "power_carrier_fixture",
+      "b": "joiner_12",
+      "issue": "#81 finding 2"
+    },
+    {
+      "name": "Panel 2 power carrier clears Panel 2-3 seam joiner",
+      "type": "no_interference",
+      "a": "power_carrier_fixture",
+      "b": "joiner_23",
+      "issue": "#81 finding 2"
     }
   ],
   "manual_validation_gates": [
@@ -322,6 +331,107 @@
       "name": "MatrixPortal left-side service access",
       "reason": "The CAD provides a 10 mm PCB overhang at Panel 1's left edge, but real button finger clearance, USB-C plug clearance and any future side cover must be checked with the physical MatrixPortal S3.",
       "issue": "#81 finding 10"
+    }
+  ],
+  "layout_checks": [
+    {
+      "name": "backplane origins are on 256 mm pitch",
+      "type": "translation_sequence",
+      "instances": [
+        "backplane_1",
+        "backplane_2",
+        "backplane_3",
+        "backplane_4"
+      ],
+      "axis": "x",
+      "start": 0,
+      "step": 256,
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "all backplane origins share y=0",
+      "type": "translation_axis_equal",
+      "instances": [
+        "backplane_1",
+        "backplane_2",
+        "backplane_3",
+        "backplane_4"
+      ],
+      "axis": "y",
+      "value": 0,
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "all backplane origins share z=0",
+      "type": "translation_axis_equal",
+      "instances": [
+        "backplane_1",
+        "backplane_2",
+        "backplane_3",
+        "backplane_4"
+      ],
+      "axis": "z",
+      "value": 0,
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "joiners are centred on the three panel seams",
+      "type": "translation_sequence",
+      "instances": [
+        "joiner_12",
+        "joiner_23",
+        "joiner_34"
+      ],
+      "axis": "x",
+      "start": 240,
+      "step": 256,
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "joiners share y=40",
+      "type": "translation_axis_equal",
+      "instances": [
+        "joiner_12",
+        "joiner_23",
+        "joiner_34"
+      ],
+      "axis": "y",
+      "value": 40,
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "joiners share recess-floor z=11.8",
+      "type": "translation_axis_equal",
+      "instances": [
+        "joiner_12",
+        "joiner_23",
+        "joiner_34"
+      ],
+      "axis": "z",
+      "value": 11.8,
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "MatrixPortal carrier is assigned to Panel 1 nominal position",
+      "type": "translation_equals",
+      "instance": "matrixportal_carrier_fixture",
+      "value": [
+        6,
+        28,
+        16
+      ],
+      "tolerance_mm": 0.001
+    },
+    {
+      "name": "power carrier is assigned to Panel 2 nominal position",
+      "type": "translation_equals",
+      "instance": "power_carrier_fixture",
+      "value": [
+        262,
+        28,
+        16
+      ],
+      "tolerance_mm": 0.001
     }
   ]
 }
