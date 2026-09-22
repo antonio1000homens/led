@@ -1,12 +1,55 @@
-name: Deploy LED
+name: Backend / AWS + Cloudflare
 
 on:
   pull_request:
-    paths-ignore:
-      - 'hardware/enclosure/**'
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'publisher.py'
+      - 'config_api.py'
+      - 'runtime_config.py'
+      - 'server.py'
+      - 'queue_times.py'
+      - 'weather.py'
+      - 'todoist.py'
+      - 'formatting.py'
+      - 'fixtures.py'
+      - 'requirements-server.txt'
+      - 'infrastructure/**'
+      - 'scripts/bootstrap-deployment-role.sh'
+      - 'scripts/bootstrap-ssm-migration.sh'
+      - 'scripts/bootstrap-todoist-oauth.py'
+      - 'scripts/cloudflare_dns.py'
+      - 'scripts/configure-cloudflare-dns.sh'
+      - 'scripts/deploy-stack.sh'
+      - 'scripts/deploy.sh'
+      - 'scripts/load-ssm-secrets.sh'
+      - 'scripts/package-lambda.sh'
+      - 'scripts/request-acm-certificate.sh'
+      - 'config/**'
+      - '.env.example'
+      - 'tests/**'
   push:
     branches:
       - master
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'publisher.py'
+      - 'config_api.py'
+      - 'runtime_config.py'
+      - 'server.py'
+      - 'queue_times.py'
+      - 'weather.py'
+      - 'todoist.py'
+      - 'formatting.py'
+      - 'fixtures.py'
+      - 'requirements-server.txt'
+      - 'infrastructure/led-stack.yaml'
+      - 'scripts/cloudflare_dns.py'
+      - 'scripts/configure-cloudflare-dns.sh'
+      - 'scripts/deploy-stack.sh'
+      - 'scripts/load-ssm-secrets.sh'
+      - 'scripts/package-lambda.sh'
+      - 'scripts/request-acm-certificate.sh'
   workflow_dispatch:
 
 permissions:
