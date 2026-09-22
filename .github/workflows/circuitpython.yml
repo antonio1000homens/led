@@ -27,6 +27,7 @@ on:
       - 'tests/test_display_layout.py'
       - 'tests/test_flash_events.py'
       - 'tests/test_formatting.py'
+      - 'tests/test_issue41_dashboard.py'
       - 'tests/test_matrix_runtime.py'
       - 'tests/test_matrix_todoist_performance.py'
       - 'tests/test_mqtt_safety.py'
@@ -82,6 +83,7 @@ jobs:
             fixtures.py \
             flash_events.py \
             formatting.py \
+            hardware/matrixportal/rgb_test.py \
             matrix_config.py \
             matrix_runtime.py \
             mqtt_client.py \
@@ -99,6 +101,7 @@ jobs:
             test_display_layout.py
             test_flash_events.py
             test_formatting.py
+            test_issue41_dashboard.py
             test_matrix_runtime.py
             test_matrix_todoist_performance.py
             test_mqtt_safety.py
