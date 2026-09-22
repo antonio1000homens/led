@@ -72,48 +72,6 @@ module complete_enclosure_assembly(show_guides=true) {
 
 }
 
-// Lightweight assembly for orthographic SVG projection.
-//
-// This deliberately imports the already-validated printable STL meshes rather
-// than re-running every OpenSCAD boolean in direct_mount_enclosure.scad for
-// each view. Placement constants are shared with the parametric assembly above.
-module complete_enclosure_projection_mesh() {
-    // Backplanes.
-    translate([0,0,0])
-        import("01_backplane_module_PRINT_3.stl", convexity=10);
-    translate([panel_pitch,0,0])
-        import("01_backplane_module_PRINT_3.stl", convexity=10);
-    translate([2*panel_pitch,0,0])
-        import("01_backplane_module_PRINT_3.stl", convexity=10);
-    translate([3*panel_pitch,0,0])
-        import("01b_backplane_right_end_PRINT_1.stl", convexity=10);
-
-    // Recessed seam joiners.
-    for (x=[240,496,752])
-        translate([x,40,joiner_z])
-            import("02_module_joiner_PRINT_3.stl", convexity=10);
-
-    // Reinforcement rods.
-    for (y=[rod_y_bottom,rod_y_top])
-        translate([12,y,rod_z])
-            rotate([0,90,0])
-                cylinder(d=8,h=1000,$fn=48);
-
-    // Panel 1 MatrixPortal carrier plus simplified PCB reference.
-    translate([6,28,carrier_z])
-        import("04_matrixportal_mount_PRINT_1.stl", convexity=10);
-    translate([
-        6 + matrixportal_pcb_x,
-        28 + matrixportal_pcb_y,
-        carrier_z + matrixportal_standoff_z + matrixportal_standoff_h
-    ])
-        matrixportal_s3_reference();
-
-    // Panel 2 power-distribution carrier.
-    translate([panel_pitch + 6,28,carrier_z])
-        import("05_power_distribution_mount_PRINT_1.stl", convexity=10);
-}
-
 // Opening this file directly still shows the complete 3D assembly.
 // Projection wrapper files set suppress_complete_assembly=true before include.
 if (is_undef(suppress_complete_assembly) || !suppress_complete_assembly)
