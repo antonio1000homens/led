@@ -20,7 +20,7 @@
 // - Rear electronics carriers use blind M3 heat-set-insert pockets.
 
 $fn = 48;
-part = "backplane";
+selected_part = is_undef(part) ? "backplane" : part;
 
 module_w = 256;
 module_h = 128;
@@ -205,13 +205,31 @@ carrier_t = 4;
 carrier_hole_x = 6;
 carrier_hole_y = 6;
 
-// MatrixPortal S3 board-specific geometry ported from PR #77 while retaining
-// the #82/#83 carrier-to-backplane M3 interface above.
-// Official Adafruit PCB envelope: 44.45 x 63.50 mm, portrait orientation.
+// MatrixPortal S3 side-access carrier.
+//
+// Panel 1 uses the standard #82/#83 four-point carrier-to-backplane interface,
+// so the carrier itself still sits at x=6..250 on the 256 mm backplane.
+// The MatrixPortal PCB is shifted left within the carrier so its physical left
+// edge sits 10 mm beyond the Panel 1 PCB/backplane edge:
+//   global board left = carrier global x (6) + matrixportal_pcb_x (-16) = -10 mm.
+//
+// Adafruit places the MatrixPortal over the matrix edge to keep the left-edge
+// USB-C and Reset/Up/Down buttons reachable. This design uses the component-side
+// HUB75 IDC connector and a short ribbon cable instead of requiring the board to
+// line up with the panel's rear HUB75 connector.
 matrixportal_pcb_w = 44.45;
 matrixportal_pcb_h = 63.50;
-matrixportal_hole_spacing_x = 19.685;
-matrixportal_hole_spacing_y = 40.640;
+matrixportal_pcb_x = -16.0;
+matrixportal_pcb_y = (carrier_h-matrixportal_pcb_h)/2;
+matrixportal_side_overhang_global = 10.0;
+
+// Hole offsets within the MatrixPortal PCB, derived from the existing official
+// PCB mounting geometry used by PR #84.
+matrixportal_hole_x1 = 15.875;
+matrixportal_hole_x2 = 35.560;
+matrixportal_hole_y1 = 15.240;
+matrixportal_hole_y2 = 55.880;
+
 matrixportal_standoff_d = 8;
 matrixportal_standoff_z = 2;
 matrixportal_standoff_h = 8;
@@ -221,12 +239,12 @@ matrixportal_nut_h = 2.2;
 matrixportal_support_rib_w = 6;
 matrixportal_support_rib_h = 2;
 
-// Carrier-local hole centres from the MatrixPortal S3 PCB geometry.
+// Carrier-local mounting centres after moving the board to the left service edge.
 matrixportal_mount_points = [
-    [115.650, 19.490],
-    [135.335, 19.490],
-    [115.650, 60.130],
-    [135.335, 60.130]
+    [matrixportal_pcb_x + matrixportal_hole_x1, matrixportal_pcb_y + matrixportal_hole_y1],
+    [matrixportal_pcb_x + matrixportal_hole_x2, matrixportal_pcb_y + matrixportal_hole_y1],
+    [matrixportal_pcb_x + matrixportal_hole_x1, matrixportal_pcb_y + matrixportal_hole_y2],
+    [matrixportal_pcb_x + matrixportal_hole_x2, matrixportal_pcb_y + matrixportal_hole_y2]
 ];
 
 module carrier_frame() {
@@ -252,8 +270,8 @@ module elongated_hole(len=12,d=3.2,h=10) {
 }
 
 module matrixportal_carrier_frame() {
-    // Keep the validated carrier perimeter and M3 mounting positions, while
-    // opening the centre beneath the MatrixPortal edge connectors/buttons.
+    // Retain the validated full-width carrier so all four M3 backplane points
+    // remain unchanged. The MatrixPortal now occupies only the left end.
     difference() {
         union() {
             cube([carrier_w,12,carrier_t]);
@@ -261,6 +279,7 @@ module matrixportal_carrier_frame() {
             cube([12,carrier_h,carrier_t]);
             translate([carrier_w-12,0,0]) cube([12,carrier_h,carrier_t]);
         }
+        // Keep the broad centre open for cable routing and rear-panel service.
         translate([(carrier_w-72)/2,-0.5,-0.5])
             cube([72,carrier_h+1,carrier_t+1]);
         for (xx=[carrier_hole_x,carrier_w-carrier_hole_x])
@@ -270,20 +289,20 @@ module matrixportal_carrier_frame() {
 }
 
 module matrixportal_post_supports() {
-    // Low ribs make all four standoffs part of one printable connected shell
-    // while leaving the populated PCB underside substantially open.
-    for (point=matrixportal_mount_points) {
-        if (point[0] < carrier_w/2)
-            translate([12,point[1]-matrixportal_support_rib_w/2,0])
-                cube([point[0]-12,matrixportal_support_rib_w,matrixportal_support_rib_h]);
-        else
-            translate([point[0],point[1]-matrixportal_support_rib_w/2,0])
-                cube([carrier_w-12-point[0],matrixportal_support_rib_w,matrixportal_support_rib_h]);
-    }
-
-    for (row_y=[19.490,60.130])
-        translate([115.650,row_y-matrixportal_support_rib_w/2,0])
-            cube([135.335-115.650,matrixportal_support_rib_w,matrixportal_support_rib_h]);
+    // Each row is tied into the existing left rail. The outer PCB standoff is
+    // allowed to sit slightly left of the carrier origin; its 8 mm boss still
+    // overlaps the x=0..12 carrier rail and remains entirely inside Panel 1
+    // once the carrier is translated +6 mm onto the backplane.
+    for (row_y=[
+        matrixportal_pcb_y + matrixportal_hole_y1,
+        matrixportal_pcb_y + matrixportal_hole_y2
+    ])
+        translate([0,row_y-matrixportal_support_rib_w/2,0])
+            cube([
+                matrixportal_pcb_x + matrixportal_hole_x2,
+                matrixportal_support_rib_w,
+                matrixportal_support_rib_h
+            ]);
 }
 
 module matrixportal_mount() {
@@ -297,19 +316,17 @@ module matrixportal_mount() {
                     cylinder(d=matrixportal_standoff_d,h=matrixportal_standoff_h);
         }
 
-        // Round holes replace the former elongated/rotated slots.
         for (point=matrixportal_mount_points)
             translate([point[0],point[1],-0.5])
                 cylinder(d=matrixportal_hole_d,h=carrier_t+7);
 
-        // Captive M2.5 nut pockets open from the underside and intersect the
-        // through-holes, allowing the MatrixPortal to be removed independently.
+        // Captive M2.5 nut pockets remain accessible from the rear/underside.
         for (point=matrixportal_mount_points)
             translate([point[0],point[1],-0.01])
                 rotate([0,0,30])
                     cylinder(d=matrixportal_nut_af,h=matrixportal_nut_h,$fn=6);
 
-        // Keep the existing central service opening.
+        // Preserve the existing central service opening.
         translate([carrier_w/2-22,carrier_h/2-6,-0.5]) cube([44,12,carrier_t+1]);
     }
 }
@@ -371,13 +388,13 @@ module mount_pattern_template() {
     }
 }
 
-if (part == "backplane") backplane(false);
-else if (part == "backplane_right") backplane(true);
-else if (part == "joiner") module_joiner();
-else if (part == "rod_plug") rod_end_plug();
-else if (part == "matrixportal_mount") matrixportal_mount();
-else if (part == "power_mount") power_distribution_mount();
-else if (part == "cable_clip") cable_clip();
-else if (part == "slot_coupon") mounting_slot_coupon();
-else if (part == "mount_pattern_template") mount_pattern_template();
-else assert(false, str("Unknown part: ",part));
+if (selected_part == "backplane") backplane(false);
+else if (selected_part == "backplane_right") backplane(true);
+else if (selected_part == "joiner") module_joiner();
+else if (selected_part == "rod_plug") rod_end_plug();
+else if (selected_part == "matrixportal_mount") matrixportal_mount();
+else if (selected_part == "power_mount") power_distribution_mount();
+else if (selected_part == "cable_clip") cable_clip();
+else if (selected_part == "slot_coupon") mounting_slot_coupon();
+else if (selected_part == "mount_pattern_template") mount_pattern_template();
+else if (selected_part != "__library__") assert(false, str("Unknown part: ",selected_part));
