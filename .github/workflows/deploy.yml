@@ -4,16 +4,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/deploy.yml'
-      - 'publisher.py'
-      - 'config_api.py'
-      - 'runtime_config.py'
-      - 'server.py'
-      - 'queue_times.py'
-      - 'weather.py'
-      - 'todoist.py'
-      - 'formatting.py'
-      - 'fixtures.py'
-      - 'models.py'
+      - 'backend/**'
+      - 'shared/**'
       - 'requirements-server.txt'
       - 'infrastructure/**'
       - 'scripts/bootstrap-deployment-role.sh'
@@ -23,6 +15,8 @@ on:
       - 'scripts/deploy.sh'
       - 'scripts/load-ssm-secrets.sh'
       - 'scripts/package-lambda.sh'
+      - 'scripts/run-server.sh'
+      - 'scripts/run-tests.sh'
       - 'config/**'
       - '.env.example'
       - 'tests/test_combined_queue_admin.py'
@@ -46,15 +40,8 @@ on:
       - master
     paths:
       - '.github/workflows/deploy.yml'
-      - 'publisher.py'
-      - 'config_api.py'
-      - 'runtime_config.py'
-      - 'server.py'
-      - 'queue_times.py'
-      - 'weather.py'
-      - 'todoist.py'
-      - 'formatting.py'
-      - 'fixtures.py'
+      - 'backend/**'
+      - 'shared/**'
       - 'requirements-server.txt'
       - 'infrastructure/led-stack.yaml'
       - 'scripts/deploy-stack.sh'
@@ -66,6 +53,7 @@ permissions:
   contents: read
 
 env:
+  PYTHONPATH: firmware:backend:shared
   AWS_REGION: eu-west-2
   STACK_NAME: led-serverless
   DOMAIN_NAME: ${{ vars.LED_DOMAIN_NAME || 'led.alf-broadcast.co.uk' }}
