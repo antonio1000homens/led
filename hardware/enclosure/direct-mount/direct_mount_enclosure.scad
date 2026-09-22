@@ -20,7 +20,8 @@
 // - Rear electronics carriers use blind M3 heat-set-insert pockets.
 
 $fn = 48;
-selected_part = is_undef(part) ? "backplane" : part;
+// `part` is intentionally not assigned here: command-line -D and the per-part
+// wrapper SCAD files may set it. If undefined, the default render is backplane.
 
 module_w = 256;
 module_h = 128;
@@ -388,13 +389,13 @@ module mount_pattern_template() {
     }
 }
 
-if (selected_part == "backplane") backplane(false);
-else if (selected_part == "backplane_right") backplane(true);
-else if (selected_part == "joiner") module_joiner();
-else if (selected_part == "rod_plug") rod_end_plug();
-else if (selected_part == "matrixportal_mount") matrixportal_mount();
-else if (selected_part == "power_mount") power_distribution_mount();
-else if (selected_part == "cable_clip") cable_clip();
-else if (selected_part == "slot_coupon") mounting_slot_coupon();
-else if (selected_part == "mount_pattern_template") mount_pattern_template();
-else if (selected_part != "__library__") assert(false, str("Unknown part: ",selected_part));
+if (is_undef(part) || part == "backplane") backplane(false);
+else if (part == "backplane_right") backplane(true);
+else if (part == "joiner") module_joiner();
+else if (part == "rod_plug") rod_end_plug();
+else if (part == "matrixportal_mount") matrixportal_mount();
+else if (part == "power_mount") power_distribution_mount();
+else if (part == "cable_clip") cable_clip();
+else if (part == "slot_coupon") mounting_slot_coupon();
+else if (part == "mount_pattern_template") mount_pattern_template();
+else if (part != "__library__") assert(false, str("Unknown part: ",part));
