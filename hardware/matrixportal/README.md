@@ -94,7 +94,7 @@ Then connect panel 1 **OUT** to panel 2 **IN**, panel 2 **OUT** to panel 3
 proper 5 V power connection.
 
 The smoke test intentionally uses the same MatrixPortal S3 pin setup as
-`display.py`:
+`firmware/display.py`:
 
 ```python
 addr_pins=board.MTX_ADDRESS[:4],
@@ -128,14 +128,26 @@ Keep Wi-Fi credentials out of `settings.py` and out of Git. The application
 uses `wifi.radio.connect(...)` through `ScreenClient` and reads production
 screen data from `/api/screens`.
 
-From the repository root, copy the application and its CircuitPython modules:
+From the repository root, create an uncommitted local settings file if needed:
 
 ```sh
-cp code.py settings.py queue_display.py queue_cycle.py display.py \
-   formatting.py fixtures.py screen_client.py button_control.py matrix_runtime.py \
-   flash_events.py mqtt_client.py \
-   gtsr4.pem /Volumes/CIRCUITPY/
+cp firmware/settings_local.py.example settings_local.py
+```
+
+Then stage and install the application. The install helper flattens `firmware/`
+and `shared/` into the layout CircuitPython expects while leaving an existing
+`settings_local.py` and `lib/` directory untouched:
+
+```sh
+bash scripts/install-firmware.sh /Volumes/CIRCUITPY
 cp settings_local.py /Volumes/CIRCUITPY/
+```
+
+To inspect the exact payload without writing to the board:
+
+```sh
+bash scripts/stage-firmware.sh
+ls .build/circuitpy
 ```
 
 The current runtime dependencies are listed in `requirements.txt`. Install
@@ -149,7 +161,7 @@ circup install -r requirements.txt
 ```
 
 The MQTT dependency is included for the issue #74 listener, but the listener
-is deliberately dormant. `settings.py` keeps both `MQTT_ENABLED` and
+is deliberately dormant. `firmware/settings.py` keeps both `MQTT_ENABLED` and
 `MQTT_ENABLE_EXPERIMENTAL` false, with an empty broker setting. Do not copy
 broker credentials or enable either gate until Home Assistant issue #3 and the
 broker path have passed review.
