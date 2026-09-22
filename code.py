@@ -134,6 +134,18 @@ pace_late_streak = 0
 pace_max_late_streak = 0
 next_animation_deadline = None
 
+# Low-volume work-attribution telemetry for soak runs. These counters are
+# reported with FRAME PACE and deliberately avoid per-frame serial output.
+telemetry_started = time.monotonic()
+telemetry_fetches = 0
+telemetry_fetch_failures = 0
+telemetry_fetch_total = 0.0
+telemetry_fetch_max = 0.0
+telemetry_scene_renders = 0
+telemetry_scene_render_total = 0.0
+telemetry_scene_render_max = 0.0
+telemetry_scene_render_over_budget = 0
+
 
 def _matrix_root_token():
     """Return the current root-group identity when running on MatrixPortal."""
@@ -178,9 +190,18 @@ def _report_pace(now):
     if not pace_active or now - pace_last_report < MATRIX_STATS_INTERVAL_SECONDS:
         return False
     elapsed = max(0.001, now - pace_started)
+    telemetry_elapsed = max(0.001, now - telemetry_started)
+    fetch_average = telemetry_fetch_total / telemetry_fetches if telemetry_fetches else 0.0
+    render_average = (
+        telemetry_scene_render_total / telemetry_scene_renders
+        if telemetry_scene_renders else 0.0
+    )
     print(
         "FRAME PACE mode={} target_fps={} elapsed={:.1f} animation_ticks={} "
-        "tick_fps={:.2f} late_frames={} max_late_streak={}".format(
+        "tick_fps={:.2f} late_frames={} max_late_streak={} "
+        "fetches={} fetch_failures={} fetch_avg={:.3f} fetch_max={:.3f} "
+        "scene_renders={} render_avg={:.3f} render_max={:.3f} "
+        "render_over_budget={} telemetry_elapsed={:.1f}".format(
             MATRIX_PRESENTATION_MODE,
             MATRIX_REFRESH_FPS,
             elapsed,
@@ -188,6 +209,15 @@ def _report_pace(now):
             pace_ticks / elapsed,
             pace_late_frames,
             pace_max_late_streak,
+            telemetry_fetches,
+            telemetry_fetch_failures,
+            fetch_average,
+            telemetry_fetch_max,
+            telemetry_scene_renders,
+            render_average,
+            telemetry_scene_render_max,
+            telemetry_scene_render_over_budget,
+            telemetry_elapsed,
         )
     )
     return True
@@ -224,11 +254,16 @@ while True:
 
     should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
     if should_fetch:
+        fetch_started = time.monotonic()
         try:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = payload.get("screens")
-            print("FETCH OK screens={}".format(len(screens or [])))
+            fetch_duration = time.monotonic() - fetch_started
+            telemetry_fetches += 1
+            telemetry_fetch_total += fetch_duration
+            telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
+            print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
             rotation.update(screens, now)
             _apply_flash_config(payload)
             fetched_at = payload.get("fetched_at")
@@ -237,7 +272,12 @@ while True:
                 fixture_clock_synced = True
             transport_stale = False
         except Exception as error:
-            print("Screen fetch failed:", error)
+            fetch_duration = time.monotonic() - fetch_started
+            telemetry_fetches += 1
+            telemetry_fetch_failures += 1
+            telemetry_fetch_total += fetch_duration
+            telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
+            print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
             transport_stale = bool(rotation.screens)
         next_fetch = now + settings.POLL_SECONDS
 
@@ -284,9 +324,15 @@ while True:
     if instrument_render:
         memory_after = _memory_free()
         root_after = _matrix_root_token()
+        render_duration = time.monotonic() - render_started
+        telemetry_scene_renders += 1
+        telemetry_scene_render_total += render_duration
+        telemetry_scene_render_max = max(telemetry_scene_render_max, render_duration)
+        if render_duration > (1.0 / max(1, MATRIX_REFRESH_FPS)):
+            telemetry_scene_render_over_budget += 1
         print(
             "RENDER OK id={} duration={:.3f} mem_before={} mem_after={} root_changed={}".format(
-                render_key[0], time.monotonic() - render_started, memory_before, memory_after,
+                render_key[0], render_duration, memory_before, memory_after,
                 root_before != root_after,
             )
         )
