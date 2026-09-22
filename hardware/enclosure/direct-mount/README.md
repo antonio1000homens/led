@@ -28,7 +28,7 @@ LEFT                                                        RIGHT
 HUB75 data direction: MatrixPortal → Panel 1 → Panel 2 → Panel 3 → Panel 4
 ```
 
-**Panel 1 is the leftmost panel when looking at the illuminated LED face from the front.** The `04_matrixportal_mount_PRINT_1.stl` carrier attaches to the rear of Panel 1 / `backplane_1`. Panel 4 is the rightmost panel and uses `01b_backplane_right_end_PRINT_1.stl`.
+**Panel 1 is the leftmost panel when looking at the illuminated LED face from the front.** The `04_matrixportal_mount_PRINT_1.stl` carrier attaches to the rear of Panel 1 / `backplane_1`. The MatrixPortal PCB is intentionally shifted to the left so its button/USB edge overhangs the Panel 1 side by about **10 mm**. Panel 4 is the rightmost panel and uses `01b_backplane_right_end_PRINT_1.stl`.
 
 When working from the rear of the assembled display, remember that the apparent left/right order is reversed relative to this front-view numbering. Connect the MatrixPortal HUB75 output to the input connector of Panel 1, then daisy-chain the panel outputs in numerical order through Panel 4.
 
@@ -70,6 +70,22 @@ Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real pane
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
+### Individual OpenSCAD entry files
+
+Each printable component now also has its own `.scad` entry file. These wrappers select the matching module from the common parametric source so you can open or export one part directly in OpenSCAD without editing the master file:
+
+- `01_backplane_module_PRINT_3.scad`
+- `01b_backplane_right_end_PRINT_1.scad`
+- `02_module_joiner_PRINT_3.scad`
+- `03_rod_end_plug_PRINT_4.scad`
+- `04_matrixportal_mount_PRINT_1.scad`
+- `05_power_distribution_mount_PRINT_1.scad`
+- `06_cable_clip_PRINT_8.scad`
+- `07_mounting_slot_coupon_PRINT_1.scad`
+- `08_mount_pattern_template_PRINT_1.scad`
+
+The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference and `04_matrixportal_side_access_ASSEMBLY.scad` is an assembly preview.
+
 ## Recessed seam joiners
 
 Each `02_module_joiner_PRINT_3.stl` is **32 × 48 × 4 mm** and is centred across a panel seam. The rear face of each neighbouring backplane now provides half of a matching recess:
@@ -96,6 +112,7 @@ The expected panel mounting rows are only 12 mm from the top/bottom edges. The b
 - M3 × 10 mm **flat-head/countersunk** screws for the three seam joiners (head must fit the 6.4 mm countersink)
 - M3 × 8–10 mm screws for the electronics carriers
 - 4 × M2.5 screws/nuts for the MatrixPortal S3 carrier; verify the physical board
+- 1 × short 16-way / 2×8 HUB75 IDC ribbon cable from the MatrixPortal component-side HUB75 connector to Panel 1 input
 - panel mounting screws/washers to match the actual P4 panel bosses
 - fused 5 V distribution hardware and appropriately rated 5 V input connector/cable
 
@@ -121,20 +138,30 @@ Do not populate every optional insert pocket automatically. Install inserts only
 
 The removable carrier attachment points are now **12 mm from each backplane edge** rather than 8 mm. Matching carrier holes are 6 mm from each edge of the 244 mm carrier, leaving about **4.25 mm nominal plastic ligament** outside a 3.5 mm mounting hole. The MatrixPortal improvements deliberately preserve these #82/#83 carrier-to-backplane positions.
 
-### MatrixPortal S3 carrier
+### MatrixPortal S3 carrier — left-side service access
 
-The MatrixPortal-specific geometry ported from PR #77 uses the Adafruit PCB envelope of **44.45 × 63.50 mm** in portrait orientation. The four carrier-local PCB mounting centres are:
+The MatrixPortal carrier keeps the same **244 × 72 mm** four-point M3 attachment interface introduced by #82/#83, but the PCB itself is no longer centred on the carrier. It is shifted to the **left end of Panel 1** so the physical PCB edge containing USB-C and the user buttons is accessible from the enclosure side.
+
+The MatrixPortal PCB envelope remains **44.45 × 63.50 mm** in portrait orientation. Within the carrier its PCB origin is now `x=-16.0 mm`, `y=4.25 mm`. Because the complete carrier is installed at `x=+6 mm` on Panel 1, the PCB's left edge lands at **x=-10 mm relative to the Panel 1/backplane edge**. The printed carrier/standoffs remain within the Panel 1 structural envelope; only the electronics board overhangs.
+
+The four carrier-local PCB mounting centres are therefore:
 
 | x (mm) | y (mm) |
 | ---: | ---: |
-| 115.650 | 19.490 |
-| 135.335 | 19.490 |
-| 115.650 | 60.130 |
-| 135.335 | 60.130 |
+| -0.125 | 19.490 |
+| 19.560 | 19.490 |
+| -0.125 | 60.130 |
+| 19.560 | 60.130 |
 
-The carrier now uses **round 2.8 mm M2.5 clearance holes** rather than the former elongated/rotated slots. Each hole has a captive M2.5 hex-nut pocket accessible from the underside. Low 2 mm support ribs tie all four 8 mm standoffs into the carrier side rails so the printed part is one connected shell while leaving the populated PCB underside substantially open.
+The carrier uses **round 2.8 mm M2.5 clearance holes** with captive M2.5 hex-nut pockets accessible from the underside. Low 2 mm ribs tie the four 8 mm standoffs into the existing left carrier rail. The two outer standoffs slightly cross the carrier-local x=0 plane but, after the carrier's +6 mm backplane offset, still remain behind the Panel 1 footprint.
 
-The MatrixPortal carrier remains removable from the same four M3 backplane attachment points introduced by #82; no backplane insert positions are changed by this MatrixPortal update. **For the assembled display it is assigned specifically to Panel 1 / `backplane_1`, the HUB75 input end of the chain.** CI also verifies that the generated MatrixPortal STL is a single connected component reaching the z=0 print plane.
+Do **not** make three separate button holes in a future side cover. Leave one continuous side-service opening for the MatrixPortal's left edge so USB-C plus Reset/Up/Down/Boot remain reachable despite small production tolerances and connector protrusion. The current target is to keep at least the PCB's **10 mm side overhang** unobstructed.
+
+For this side-access arrangement use the MatrixPortal's **component-side 2×8 HUB75 IDC connector** and a short ribbon cable to Panel 1 input. This avoids making the carrier depend on the still-unmeasured position of the physical panel's rear HUB75 connector.
+
+The MatrixPortal carrier remains removable from the same four M3 backplane attachment points introduced by #82; no backplane insert positions are changed. **For the assembled display it is assigned specifically to Panel 1 / `backplane_1`, the HUB75 input end of the chain.** CI verifies that the generated MatrixPortal STL is one connected component reaching the z=0 print plane.
+
+For a visual mechanical check, open `04_matrixportal_side_access_ASSEMBLY.scad`. It shows Panel 1, the printed carrier, a simplified MatrixPortal PCB reference, and the x=0 panel side plane.
 
 The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
 
@@ -148,7 +175,7 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
 5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
 6. Insert and centre the two 1 m × 8 mm reinforcement bars.
-7. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`, connect its HUB75 output to Panel 1 input, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
+7. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
 
 ## Validation still required
 
@@ -161,3 +188,4 @@ Before printing all four backplanes, confirm:
 - screw/boss diameter and thread
 - maximum rear component/connector depth
 - HUB75 and power connector keep-out zones
+- MatrixPortal left-side button/USB access with the real PCB and any final side cover fitted

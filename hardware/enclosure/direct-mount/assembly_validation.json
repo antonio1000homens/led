@@ -2,31 +2,40 @@
   "schema_version": 1,
   "parts": {
     "backplane": {
-      "file": "01_backplane_module_PRINT_3.stl"
+      "file": "01_backplane_module_PRINT_3.stl",
+      "source_scad": "01_backplane_module_PRINT_3.scad"
     },
     "joiner": {
-      "file": "02_module_joiner_PRINT_3.stl"
+      "file": "02_module_joiner_PRINT_3.stl",
+      "source_scad": "02_module_joiner_PRINT_3.scad"
     },
     "rod_plug": {
-      "file": "03_rod_end_plug_PRINT_4.stl"
+      "file": "03_rod_end_plug_PRINT_4.stl",
+      "source_scad": "03_rod_end_plug_PRINT_4.scad"
     },
     "matrixportal_mount": {
-      "file": "04_matrixportal_mount_PRINT_1.stl"
+      "file": "04_matrixportal_mount_PRINT_1.stl",
+      "source_scad": "04_matrixportal_mount_PRINT_1.scad"
     },
     "power_mount": {
-      "file": "05_power_distribution_mount_PRINT_1.stl"
+      "file": "05_power_distribution_mount_PRINT_1.stl",
+      "source_scad": "05_power_distribution_mount_PRINT_1.scad"
     },
     "cable_clip": {
-      "file": "06_cable_clip_PRINT_8.stl"
+      "file": "06_cable_clip_PRINT_8.stl",
+      "source_scad": "06_cable_clip_PRINT_8.scad"
     },
     "slot_coupon": {
-      "file": "07_mounting_slot_coupon_PRINT_1.stl"
+      "file": "07_mounting_slot_coupon_PRINT_1.stl",
+      "source_scad": "07_mounting_slot_coupon_PRINT_1.scad"
     },
     "mount_pattern_template": {
-      "file": "08_mount_pattern_template_PRINT_1.stl"
+      "file": "08_mount_pattern_template_PRINT_1.stl",
+      "source_scad": "08_mount_pattern_template_PRINT_1.scad"
     },
     "backplane_right": {
-      "file": "01b_backplane_right_end_PRINT_1.stl"
+      "file": "01b_backplane_right_end_PRINT_1.stl",
+      "source_scad": "01b_backplane_right_end_PRINT_1.scad"
     }
   },
   "instances": {
@@ -96,7 +105,12 @@
         16
       ],
       "role": "panel_1_matrixportal_controller_carrier",
-      "assigned_backplane": "backplane_1"
+      "assigned_backplane": "backplane_1",
+      "side_access": {
+        "pcb_left_overhang_mm": 10,
+        "access_side": "panel_1_left",
+        "hub75_connection": "component_side_2x8_idc_ribbon_to_panel_1"
+      }
     },
     "power_carrier_fixture": {
       "part": "power_mount",
@@ -303,6 +317,11 @@
       "name": "split rod-end plug retention",
       "reason": "The CAD now uses a compressible detent sized for the 9.2 mm bore, but FDM shrinkage and filament stiffness require one physical insertion/removal test.",
       "issue": "#81 finding 8"
+    },
+    {
+      "name": "MatrixPortal left-side service access",
+      "reason": "The CAD provides a 10 mm PCB overhang at Panel 1's left edge, but real button finger clearance, USB-C plug clearance and any future side cover must be checked with the physical MatrixPortal S3.",
+      "issue": "#81 finding 10"
     }
   ]
 }
