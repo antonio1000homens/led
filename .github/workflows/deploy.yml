@@ -27,7 +27,22 @@ on:
       - 'scripts/request-acm-certificate.sh'
       - 'config/**'
       - '.env.example'
-      - 'tests/**'
+      - 'tests/test_combined_queue_admin.py'
+      - 'tests/test_config_api.py'
+      - 'tests/test_control_plane_infrastructure.py'
+      - 'tests/test_formatting.py'
+      - 'tests/test_infrastructure.py'
+      - 'tests/test_issue38_ssm_migration.py'
+      - 'tests/test_issue41_dashboard.py'
+      - 'tests/test_models.py'
+      - 'tests/test_pr28_deployment.py'
+      - 'tests/test_pr37_review_regressions.py'
+      - 'tests/test_publisher.py'
+      - 'tests/test_queue_times.py'
+      - 'tests/test_runtime_config.py'
+      - 'tests/test_server.py'
+      - 'tests/test_todoist.py'
+      - 'tests/test_weather.py'
   push:
     branches:
       - master
