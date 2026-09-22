@@ -63,7 +63,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("function agendaTitleX(title, phase, startX)", simulator)
         self.assertIn("const titleStart = measureLedText(parts.when + ' ').width;", simulator)
         self.assertIn("context.rect(titleStart, 32, 1024 - titleStart, 96);", simulator)
-        self.assertIn("drawLedText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);", simulator)
+        self.assertIn("drawLedText(parts.title, agendaTitleX(parts.title, titlePhase, titleStart), y);", simulator)
         self.assertIn("drawLedText(parts.when, 0, y);", simulator)
 
     def test_simulator_rail_uses_spare_line_and_runtime_marquee_settings(self):
@@ -105,7 +105,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("const TODOIST_MARQUEE_PAUSE_SECONDS = 1.5;", simulator)
         self.assertIn("const CLOCK_X = 226 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const STALE_X = 190 * FONT_PIXEL_SCALE;", simulator)
-        self.assertIn("const CONTENT_FIRST_Y = 11 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const CONTENT_FIRST_Y = 8 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("presentPreview();", simulator)
         self.assertNotIn("context.font = '24px monospace';", simulator)

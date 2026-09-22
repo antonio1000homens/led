@@ -12,7 +12,10 @@ CALLING_LABEL = "CALLING AT: "
 CALLING_MARQUEE_PAUSE_SECONDS = 3.0
 CALLING_STATION_FONT_WIDTH = 5
 DEFAULT_STATION_LIST_SPACING = 10
-RAIL_ROW_Y = (1, 9, 17, 25)
+# Shared four-row grid for the physical 32px panel.
+# Four 7px glyphs with a one-pixel inter-row gap, shifted down from the
+# clipped top-heavy layout while keeping every glyph within rows 0..31.
+RAIL_ROW_Y = (2, 10, 18, 25)
 RAIL_SUMMARY_SECONDS = 8.0
 RAIL_CALLING_SECONDS = 8.0
 AGENDA_VISIBLE_ROWS = 3
@@ -498,9 +501,9 @@ def rail_rows(services, phase):
     if state == "summary":
         return [
             ("header", None),
-            ("service", services[0] if len(services) > 0 else None),
             ("service", services[1] if len(services) > 1 else None),
             ("service", services[2] if len(services) > 2 else None),
+            ("service", services[3] if len(services) > 3 else None),
         ]
     return [
         ("service", services[0] if len(services) > 0 else None),

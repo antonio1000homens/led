@@ -95,10 +95,10 @@
     const TODOIST_MARQUEE_PAUSE_SECONDS = 1.5;
     const HEADER_TEXT_Y = 3 * FONT_PIXEL_SCALE;
     const CALLING_TEXT_Y = 10 * FONT_PIXEL_SCALE;
-    const CONTENT_FIRST_Y = 11 * FONT_PIXEL_SCALE;
+    const CONTENT_FIRST_Y = 8 * FONT_PIXEL_SCALE;
     const CONTENT_ROW_HEIGHT = 8 * FONT_PIXEL_SCALE;
     const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;
-    const RAIL_ROW_Y = [1, 9, 17, 25].map(value => value * FONT_PIXEL_SCALE);
+    const RAIL_ROW_Y = [2, 10, 18, 25].map(value => value * FONT_PIXEL_SCALE);
     const RAIL_SUMMARY_SECONDS = 8;
     const RAIL_CALLING_SECONDS = 8;
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
@@ -329,9 +329,24 @@
       const eventDate = { year: Number(start.slice(0, 4)), month: Number(start.slice(5, 7)), day: Number(start.slice(8, 10)) };
       const today = londonDateParts(now);
       const dayDelta = calendarDayNumber(eventDate) - calendarDayNumber(today);
-      if (dayDelta < 0) return '';
+      if (dayDelta < 0) return 'OVERDUE';
       if (dayDelta === 0) return 'TODAY';
       return `DUE ${dayDelta} DAY${dayDelta === 1 ? '' : 'S'}`;
+    }
+    function todoistPageTransitionSeconds(screen, events, start = 0) {
+      const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
+      const pageSeconds = Math.max(0, Number(screen.page_seconds) || 5);
+      const now = new Date();
+      let longestScroll = 0;
+      (events || []).slice(start, start + visible).forEach(event => {
+        const due = todoistDueLabel(event, now);
+        const dueWidth = due ? measureLedText(due).width : 0;
+        const titleStart = measureLedText(calendarParts(event).when + ' ').width;
+        const available = Math.max(FONT_CELL_WIDTH, 1024 - titleStart - 16 - dueWidth);
+        const overflow = Math.max(0, measureLedText(calendarParts(event).title).width - available);
+        longestScroll = Math.max(longestScroll, overflow / TODOIST_MARQUEE_SPEED);
+      });
+      return longestScroll + (longestScroll ? TODOIST_MARQUEE_PAUSE_SECONDS : 0) + pageSeconds;
     }
     function boundedNumber(value, fallback, minimum, maximum) {
       const parsed = Number(value);
@@ -393,7 +408,9 @@
     function agendaScrollState(screen, phase, eventCount) {
       const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
       if (eventCount <= visible) return { start: 0, progress: 0, visible };
-      const pageSeconds = Math.max(0, Number(screen.page_seconds) || 5);
+      const pageSeconds = screen.source === 'todoist'
+        ? todoistPageTransitionSeconds(screen, screen.events || [], 0)
+        : Math.max(0, Number(screen.page_seconds) || 5);
       const safePhase = Math.max(0, Number(phase) || 0);
       if (safePhase <= pageSeconds) return { start: 0, progress: 0, visible };
       const progress = Math.min(1, (safePhase - pageSeconds) / AGENDA_SLIDE_SECONDS);
@@ -496,9 +513,9 @@
       const list = Array.isArray(services) ? services : [];
       if (railPhase(phase) === 'summary') return [
         { kind: 'header', service: null },
-        { kind: 'service', service: list[0] || null },
         { kind: 'service', service: list[1] || null },
-        { kind: 'service', service: list[2] || null }
+        { kind: 'service', service: list[2] || null },
+        { kind: 'service', service: list[3] || null }
       ];
       return [
         { kind: 'service', service: list[0] || null },
@@ -642,6 +659,7 @@
         suppressHeader = true;
         status.dataset.detail = message;
       } else if (screen.kind === 'rail_combined') {
+        suppressHeader = true;
         const railServices = listPage(screen).services;
         const headerRight = (screen.stale || forceStale) ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
         railRows(railServices, phase).forEach((row, rowIndex) => {
@@ -725,6 +743,12 @@
           const agenda = agendaScrollState(screen, phase, events.length);
           const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible * 2 : agenda.visible);
           const yOffset = agenda.progress * agenda.visible * CONTENT_ROW_HEIGHT;
+          const todoistTransition = screen.source === 'todoist'
+            ? todoistPageTransitionSeconds(screen, events, 0)
+            : 0;
+          const titlePhase = screen.source === 'todoist' && agenda.start > 0
+            ? Math.max(0, phase - todoistTransition - AGENDA_SLIDE_SECONDS)
+            : phase;
           context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
           for (let slot = 0; slot < rowCount; slot += 1) {
             const event = events[agenda.start + slot];
@@ -744,7 +768,7 @@
               const overflow = Math.max(0, measureLedText(parts.title).width - availableWidth);
               const scrollSeconds = overflow > 0 ? overflow / TODOIST_MARQUEE_SPEED : 0;
               const cycleSeconds = scrollSeconds + TODOIST_MARQUEE_PAUSE_SECONDS;
-              const withinCycle = cycleSeconds > 0 ? Math.max(0, Number(phase) || 0) % cycleSeconds : 0;
+              const withinCycle = cycleSeconds > 0 ? Math.max(0, Number(titlePhase) || 0) % cycleSeconds : 0;
               const titleOffset = overflow <= 0
                 ? 0
                 : withinCycle >= scrollSeconds
@@ -756,7 +780,7 @@
             } else {
               context.rect(titleStart, 32, 1024 - titleStart, 96);
               context.clip();
-              drawLedText(parts.title, agendaTitleX(parts.title, phase, titleStart), y);
+              drawLedText(parts.title, agendaTitleX(parts.title, titlePhase, titleStart), y);
             }
             context.restore();
             drawLedText(parts.when, 0, y);

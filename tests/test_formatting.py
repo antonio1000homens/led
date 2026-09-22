@@ -187,8 +187,9 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(todoist_effective_duration(30, events, page_seconds=5, current_date="2026-09-13"), 30)
 
     def test_rail_uses_shared_four_row_grid_and_safe_missing_services(self):
-        self.assertEqual(RAIL_ROW_Y, (1, 9, 17, 25))
+        self.assertEqual(RAIL_ROW_Y, (2, 10, 18, 25))
         self.assertEqual(sorted(RAIL_ROW_Y), list(RAIL_ROW_Y))
+        self.assertGreaterEqual(RAIL_ROW_Y[0], 0)
         self.assertLessEqual(RAIL_ROW_Y[-1] + 6, 31)
         for count in range(4):
             rows = rail_rows([{"time": "12:00"}] * count, 0)
@@ -199,9 +200,9 @@ class FormattingTests(unittest.TestCase):
         services = [{"time": "12:{:02d}".format(index), "destination": "Waterloo"} for index in range(4)]
         summary_rows = rail_rows(services, 0)
         self.assertEqual([kind for kind, _ in summary_rows], ["header", "service", "service", "service"])
-        self.assertIs(summary_rows[1][1], services[0])
-        self.assertIs(summary_rows[2][1], services[1])
-        self.assertIs(summary_rows[3][1], services[2])
+        self.assertIs(summary_rows[1][1], services[1])
+        self.assertIs(summary_rows[2][1], services[2])
+        self.assertIs(summary_rows[3][1], services[3])
         calling_rows = rail_rows(services, 8)
         self.assertEqual([kind for kind, _ in calling_rows], ["service", "calling", "service", "calling"])
         self.assertIs(calling_rows[0][1], services[0])

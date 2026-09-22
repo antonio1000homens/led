@@ -48,7 +48,7 @@ HEADER_SLOT_X = 224
 STALE_X = 190
 QUEUE_FIRST_Y = 11
 QUEUE_ROW_HEIGHT = 8
-AGENDA_FIRST_Y = 11
+AGENDA_FIRST_Y = 8
 AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEATHER_FONT_WIDTH = 5
@@ -504,9 +504,8 @@ class MatrixDisplay:
                 self._label(group, "DEPARTURES", 0xFFAA00, 0, y)
             elif row_kind == "service" and service is not None:
                 ordinal = (1 if state == "calling" and row_index == 0 else
-                            2 if state == "summary" and row_index == 1 else
-                            3 if state == "summary" and row_index == 2 else
-                            4 if state == "summary" else 2)
+                            row_index + 1 if state == "summary" else
+                            1 if row_index == 0 else 2)
                 color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
                 self._rail_service(group, service, color, 0, y, rail_right_edge, ordinal)
             elif row_kind == "calling":
@@ -536,19 +535,11 @@ class MatrixDisplay:
         root = displayio.Group()
         self._rail(root, screen, phase)
 
-        self._header_mask(root)
-        self._label(root, _clip(screen.get("title") or "NEW DEPARTURES", 30), 0xFFAA00, 0, 3)
-        if screen.get("stale"):
-            self._label(root, "STALE", 0xFF3300, STALE_X, 3)
-
-        self._mask(root, HEADER_SLOT_X, 0, HEADER_SLOT_WIDTH, 8)
+        # Departures owns all four physical rows.  The generic header mask and
+        # clock/weather overlay used by other screens would cover row 1.
         clock_group = displayio.Group()
-        clock_label = self._label(clock_group, clock_time, 0xFFAA00, CLOCK_X, 3)
-        root.append(clock_group)
+        clock_label = self._label(clock_group, "", 0xFFAA00, CLOCK_X, 3)
         weather_group = displayio.Group()
-        if isinstance(screen.get("weather"), dict):
-            self._header_weather(weather_group, screen.get("weather"), 0)
-        root.append(weather_group)
 
         self._rail_group = root
         self._rail_services = screen.get("services")
@@ -807,9 +798,10 @@ class MatrixDisplay:
                 longest_scroll,
                 self._todoist_title_scroll_seconds(row[2], row[3]),
             )
-        return max(
-            minimum_page_seconds,
-            longest_scroll + TODOIST_MARQUEE_PAUSE_SECONDS,
+        return (
+            longest_scroll
+            + (TODOIST_MARQUEE_PAUSE_SECONDS if longest_scroll else 0.0)
+            + minimum_page_seconds
         )
 
     def _todoist_title_x(self, title, phase, visible_chars):

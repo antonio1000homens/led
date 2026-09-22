@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 import json
 import os
 from zoneinfo import ZoneInfo
@@ -40,34 +40,6 @@ def _parse_iso(value):
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
-
-
-def _todoist_event_is_upcoming(event, now, timezone_name):
-    """Revalidate cached Todoist events before publishing them to the display."""
-    if not isinstance(event, dict):
-        return False
-    start = str(event.get("start") or "").strip()
-    if not start:
-        # Preserve compatibility with older/partial cached payloads that cannot
-        # be revalidated. Newly normalized Todoist events always include start.
-        return True
-
-    display_zone = ZoneInfo(timezone_name)
-    local_now = now.astimezone(display_zone)
-
-    if event.get("all_day") or "T" not in start:
-        try:
-            return date.fromisoformat(start[:10]) >= local_now.date()
-        except ValueError:
-            return True
-
-    try:
-        due_at = datetime.fromisoformat(start.replace("Z", "+00:00"))
-    except ValueError:
-        return True
-    if due_at.tzinfo is None:
-        due_at = due_at.replace(tzinfo=display_zone)
-    return due_at.astimezone(display_zone) >= local_now
 
 
 def _env_int(env, name, default, minimum=1):
