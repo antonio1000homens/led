@@ -9,12 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 class Issue41DashboardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.display_source = (ROOT / "display.py").read_text()
-        cls.formatting_source = (ROOT / "formatting.py").read_text()
+        cls.display_source = (ROOT / "firmware" / "display.py").read_text()
+        cls.formatting_source = (ROOT / "shared" / "formatting.py").read_text()
         cls.simulator_source = (ROOT / "simulator" / "index.html").read_text()
         cls.admin_source = (ROOT / "simulator" / "admin.html").read_text()
-        cls.runtime_source = (ROOT / "runtime_config.py").read_text()
-        cls.publisher_source = (ROOT / "publisher.py").read_text()
+        cls.runtime_source = (ROOT / "backend" / "runtime_config.py").read_text()
+        cls.publisher_source = (ROOT / "backend" / "publisher.py").read_text()
 
     def test_python_sources_remain_syntactically_valid(self):
         ast.parse(self.display_source)
