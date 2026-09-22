@@ -38,6 +38,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate static deployment script syntax
+        run: bash -n scripts/deploy-static.sh
+
       - name: Run static web regression tests
         shell: bash
         run: |
