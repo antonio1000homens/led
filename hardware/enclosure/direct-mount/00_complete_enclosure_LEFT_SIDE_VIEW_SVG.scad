@@ -5,4 +5,4 @@ include <00_complete_enclosure_ASSEMBLY.scad>;
 translate([40,0,0])
     projection(cut=false)
         rotate([0,-90,0])
-            complete_enclosure_projection_mesh();
+            complete_enclosure_assembly(false);
