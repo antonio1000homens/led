@@ -8,7 +8,8 @@ that owns that area.
 | --- | --- | --- | --- |
 | Enclosure / mechanical | `hardware/enclosure/**` | Regenerate/compare STLs, render assembly/SVG entrypoints, validate meshes and interfaces | Repeat the same validation; no deployment |
 | CircuitPython / MatrixPortal | Board runtime files in the repository root plus `hardware/matrixportal/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
-| Backend / AWS / Cloudflare | Lambda/backend modules, `infrastructure/led-stack.yaml`, production deployment helpers | Run the backend test suite | Test, package Lambda, deploy CloudFormation, reconcile ACM/Cloudflare DNS and publish the backend |
+| Backend / AWS | Lambda/backend modules, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
+| Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
 | Static web | `simulator/**`, `scripts/deploy-static.sh` | Run simulator/admin regression tests | Upload simulator/admin assets and invalidate CloudFront |
 | Bootstrap/manual tooling | `infrastructure/bootstrap.yaml`, bootstrap/migration scripts, local deployment helpers | Backend validation where applicable | No automatic production mutation |
 | Documentation | Markdown and other documentation-only changes | No workflow unless a workflow file is also changed | No deployment |
@@ -25,16 +26,33 @@ and the backend workflow. That overlap is intentional.
 
 ## Cloudflare ownership
 
-Cloudflare is part of the production backend deployment, not a firmware or
-enclosure concern. Changes to:
+Cloudflare-only helper changes use `Cloudflare / DNS Reconcile` rather than
+the full backend deployment. The workflow:
 
-- `scripts/cloudflare_dns.py`
-- `scripts/configure-cloudflare-dns.sh`
-- `scripts/request-acm-certificate.sh`
+1. validates the Cloudflare and ACM helper scripts;
+2. assumes the existing LED deployment role with GitHub OIDC;
+3. loads only the Cloudflare deployment token from SSM;
+4. requests or reuses the ACM certificate;
+5. reconciles the ACM validation DNS record;
+6. reads the existing CloudFront distribution domain from the deployed stack;
+7. reconciles the `led.alf-broadcast.co.uk` hostname.
 
-trigger the backend workflow. The backend deployment retains the existing
-Windsor account checks and reconciles the ACM validation record and LED
-hostname as part of deployment.
+The backend deployment still performs the same DNS reconciliation when a
+backend deployment genuinely occurs. Both workflows use the same
+`led-production` concurrency group so AWS/Cloudflare/static production
+mutations cannot race each other.
+
+## Production versus validation-only inputs
+
+The production backend push trigger is intentionally narrower than its pull
+request trigger:
+
+- `infrastructure/led-stack.yaml` is an automatic production input.
+- `infrastructure/bootstrap.yaml` is bootstrap/manual infrastructure and does
+  not trigger a production backend deploy.
+- bootstrap/migration helpers are validated on pull requests but do not trigger
+  production changes merely because they are merged.
+- tests and documentation never trigger a production deploy on their own.
 
 ## Repository layout direction
 
