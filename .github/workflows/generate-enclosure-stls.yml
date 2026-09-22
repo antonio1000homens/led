@@ -179,6 +179,23 @@ jobs:
           openscad -o "$generated/complete_enclosure_assembly.csg" \
             "$tracked/00_complete_enclosure_ASSEMBLY.scad"
 
+          declare -a svg_views=(
+            00_complete_enclosure_FRONT_VIEW_SVG.scad
+            00_complete_enclosure_BACK_VIEW_SVG.scad
+            00_complete_enclosure_LEFT_SIDE_VIEW_SVG.scad
+            00_complete_enclosure_RIGHT_SIDE_VIEW_SVG.scad
+            00_complete_enclosure_TOP_VIEW_SVG.scad
+            00_complete_enclosure_BOTTOM_VIEW_SVG.scad
+          )
+
+          for view in "${svg_views[@]}"; do
+            out="$generated/${view%.scad}.svg"
+            openscad -o "$out" "$tracked/$view"
+            test -s "$out"
+            grep -q '<svg' "$out"
+            echo "OK: $view -> SVG"
+          done
+
       - name: Validate mesh health and nominal assembly interfaces
         shell: bash
         run: |
