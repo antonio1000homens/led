@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/circuitpython.yml'
       - 'code.py'
+      - 'font5x7.pcf'
+      - 'gtsr4.pem'
       - 'firmware/**'
       - 'shared/**'
       - 'requirements.txt'
@@ -29,6 +31,8 @@ on:
     paths:
       - '.github/workflows/circuitpython.yml'
       - 'code.py'
+      - 'font5x7.pcf'
+      - 'gtsr4.pem'
       - 'firmware/**'
       - 'shared/**'
       - 'requirements.txt'
