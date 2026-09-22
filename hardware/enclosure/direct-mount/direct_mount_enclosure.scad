@@ -280,9 +280,10 @@ module matrixportal_carrier_frame() {
             cube([12,carrier_h,carrier_t]);
             translate([carrier_w-12,0,0]) cube([12,carrier_h,carrier_t]);
         }
-        // Keep the broad centre open for cable routing and rear-panel service.
-        translate([(carrier_w-72)/2,-0.5,-0.5])
-            cube([72,carrier_h+1,carrier_t+1]);
+        // The perimeter frame already leaves a broad open centre. The former
+        // 72 mm full-height centre cutout used by the centred MatrixPortal
+        // would split this side-access carrier into disconnected left/right
+        // shells, so it is intentionally omitted.
         for (xx=[carrier_hole_x,carrier_w-carrier_hole_x])
             for (yy=[carrier_hole_y,carrier_h-carrier_hole_y])
                 translate([xx,yy,-0.5]) cylinder(d=3.5,h=carrier_t+1);
