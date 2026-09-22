@@ -86,6 +86,23 @@ The complete assembly file is **not** a printable component and does not replace
 
 CI now validates the assembly placement explicitly. The backplane origins must remain on an exact **256 mm pitch**, all four must share the same Y/Z origin, the joiners must stay on their three nominal seam positions, and the electronics carriers must remain assigned to their intended panels. The existing overall-width and interference checks still run in addition to these placement checks.
 
+### SVG / 2D projection views
+
+The full assembly is a 3D object, so OpenSCAD cannot export `00_complete_enclosure_ASSEMBLY.scad` directly as SVG. Use one of these dedicated 2D projection files instead:
+
+- `00_complete_enclosure_FRONT_VIEW_SVG.scad`
+- `00_complete_enclosure_BACK_VIEW_SVG.scad`
+- `00_complete_enclosure_LEFT_SIDE_VIEW_SVG.scad`
+- `00_complete_enclosure_RIGHT_SIDE_VIEW_SVG.scad`
+- `00_complete_enclosure_TOP_VIEW_SVG.scad`
+- `00_complete_enclosure_BOTTOM_VIEW_SVG.scad`
+
+Open the desired projection in OpenSCAD, render it, then use **File → Export → Export as SVG**. These files suppress the 3D top-level assembly and apply `projection(cut=false)` from the appropriate viewing direction.
+
+The front view keeps Panel 1 on the left, matching the illuminated face. The rear view is mirrored so it represents the assembly as seen physically from behind. Side/top/bottom files rotate the assembly before projection so depth appears in the 2D drawing.
+
+CI exports every one of these projection files to an actual SVG and checks that a non-empty SVG document is produced, preventing a future change from accidentally turning them back into 3D objects.
+
 ### Individual OpenSCAD entry files
 
 Each printable component now also has its own `.scad` entry file. These wrappers select the matching module from the common parametric source so you can open or export one part directly in OpenSCAD without editing the master file:
