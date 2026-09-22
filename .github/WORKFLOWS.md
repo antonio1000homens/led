@@ -7,8 +7,8 @@ that owns that area.
 | Area | Primary paths | Pull request behaviour | Push to `master` |
 | --- | --- | --- | --- |
 | Enclosure / mechanical | `hardware/enclosure/**` | Regenerate/compare STLs, render assembly/SVG entrypoints, validate meshes and interfaces | Repeat the same validation; no deployment |
-| CircuitPython / MatrixPortal | Board runtime files in the repository root plus `hardware/matrixportal/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
-| Backend / AWS | Lambda/backend modules, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
+| CircuitPython / MatrixPortal | `code.py`, `firmware/**`, `shared/**`, plus `hardware/matrixportal/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
+| Backend / AWS | `backend/**`, `shared/**`, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
 | Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
 | Static web | `simulator/**`, `scripts/deploy-static.sh` | Run simulator/admin regression tests | Upload simulator/admin assets and invalidate CloudFront |
 | Bootstrap/manual tooling | `infrastructure/bootstrap.yaml`, bootstrap/migration scripts, local deployment helpers | Backend validation where applicable | No automatic production mutation |
@@ -16,13 +16,13 @@ that owns that area.
 
 ## Shared files
 
-Some root modules are intentionally shared while the source tree remains flat:
+Cross-runtime modules live under `shared/`:
 
-- `formatting.py` is used by both the MatrixPortal renderer and backend publisher.
-- `fixtures.py` is used by both firmware fixture mode and the local/backend server.
+- `shared/formatting.py` is used by both the MatrixPortal renderer and backend publisher.
+- `shared/fixtures.py` is used by both firmware fixture mode and the local/backend server.
 
-Changes to these shared files therefore trigger both CircuitPython validation
-and the backend workflow. That overlap is intentional.
+Changes under `shared/**` therefore trigger both CircuitPython validation and
+the backend workflow. That overlap is intentional.
 
 ## Cloudflare ownership
 
@@ -54,26 +54,30 @@ request trigger:
   production changes merely because they are merged.
 - tests and documentation never trigger a production deploy on their own.
 
-## Repository layout direction
+## Repository layout
 
-The current repository keeps CircuitPython and backend Python modules at the
-root because the MatrixPortal copy workflow and Lambda packaging currently
-expect those paths. Do not move them casually: a folder move would require
-coordinated updates to MatrixPortal copy instructions, imports, unit tests and
-`scripts/package-lambda.sh`.
-
-A future structural cleanup can move code toward:
+Python sources are grouped by runtime ownership:
 
 ```text
-firmware/
-backend/
-web/
+code.py                  # Wokwi/CircuitPython entrypoint only
+firmware/                # MatrixPortal implementation modules
+backend/                 # CPython local server and Lambda modules
+shared/                  # modules imported by both runtimes
+simulator/
 hardware/
 infrastructure/
 scripts/
 tests/
 ```
 
-The workflow ownership above should remain the contract during that migration:
-moving files should update path filters without changing which class of change
-causes a production deployment.
+Wokwi requires `code.py` at the CircuitPython project root, so that single
+entrypoint intentionally remains there. It adds `firmware/` and `shared/`
+to the import path for repository/Wokwi execution. `scripts/stage-firmware.sh`
+flattens those modules into `.build/circuitpy/`, and
+`scripts/install-firmware.sh` copies the staged application onto a mounted
+`CIRCUITPY` drive without removing `settings_local.py` or `lib/`.
+
+Lambda packaging follows the same principle: source lives under `backend/`
+and `shared/`, while `scripts/package-lambda.sh` flattens the selected
+runtime modules into the deployment ZIP so existing Lambda import and handler
+names remain unchanged.

@@ -11,7 +11,7 @@ When that gate is eventually approved, the board will additionally need the
 CircuitPython `adafruit_minimqtt` library copied to `CIRCUITPY/lib`. Until then
 the library is intentionally not imported by the normal boot path.
 
-The production LED backend is serverless and publishes a static renderer-neutral snapshot instead of running `server.py` continuously.
+The production LED backend is serverless and publishes a static renderer-neutral snapshot instead of running `backend/server.py` continuously.
 
 ```text
 EventBridge Scheduler (1 minute)

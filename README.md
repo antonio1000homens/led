@@ -12,6 +12,25 @@ Open-Meteo ──────┤                              │               
 Future feeds ────┘                              └──> browser          └──> 256×32 HUB75
 ```
 
+## Repository layout
+
+Application Python is grouped by runtime rather than kept flat at the repository root:
+
+```text
+code.py       CircuitPython/Wokwi entrypoint
+firmware/     MatrixPortal implementation
+backend/      local CPython server and Lambda implementation
+shared/       renderer/fixture modules used by both runtimes
+scripts/      build, test, deployment and maintenance tooling
+tests/        host-side regression tests
+```
+
+The root `code.py` is intentional because Wokwi/CircuitPython uses that
+entrypoint. Use `scripts/stage-firmware.sh` to create the flat filesystem
+expected by a physical board, or `scripts/install-firmware.sh` to copy it to
+a mounted `CIRCUITPY` volume.
+
+
 Transient flash events are designed as a separate path: Home Assistant will
 publish normalized reminder events to MQTT, and the MatrixPortal will briefly
 show them before resuming the paused normal rotation. The MQTT path is
@@ -25,7 +44,7 @@ The checked-in defaults run a deterministic fixture mode for Wokwi, with no cred
 
 ## Production AWS deployment
 
-Production does **not** run `server.py` as an always-on webserver. EventBridge Scheduler invokes `led-publisher` once per minute; the Lambda refreshes only feeds whose independent TTL has elapsed, persists the last successful feed state to private S3, and atomically publishes the existing `/api/screens` contract as an S3 object. CloudFront serves the simulator and screen snapshot through a private S3 Origin Access Control (OAC).
+Production does **not** run `backend/server.py` as an always-on webserver. EventBridge Scheduler invokes `led-publisher` once per minute; the Lambda refreshes only feeds whose independent TTL has elapsed, persists the last successful feed state to private S3, and atomically publishes the existing `/api/screens` contract as an S3 object. CloudFront serves the simulator and screen snapshot through a private S3 Origin Access Control (OAC).
 
 The production endpoint is:
 
@@ -49,7 +68,7 @@ Wokwi uses four chained WS2812 matrix parts as a visual surrogate because its do
 ## Run tests
 
 ```sh
-python3 -m unittest discover -s tests -v
+bash scripts/run-tests.sh
 ```
 
 ## Backend
@@ -57,7 +76,7 @@ python3 -m unittest discover -s tests -v
 For rapid look-and-feel work without a MatrixPortal, run the local server:
 
 ```sh
-python3 server.py
+bash scripts/run-server.sh
 ```
 
 Then visit `http://127.0.0.1:8000`. The browser polls `/api/screens` every 30 seconds and renders the same normalized screen kinds used by the physical board.
@@ -177,7 +196,7 @@ A failed Todoist refresh preserves the last successful events and marks only the
 For credential-free visual testing, the local fixture contains six normalized events and exercises both agenda pages:
 
 ```sh
-python3 server.py --calendar-source fixture
+bash scripts/run-server.sh --calendar-source fixture
 ```
 
 ### Current weather overlay
@@ -253,14 +272,14 @@ WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
 ```
 
-For local development instead, copy `settings_local.py.example` to the ignored `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `server.py`, for example `http://192.168.1.123:8000`.
+For local development instead, copy `firmware/settings_local.py.example` to the ignored root `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `scripts/run-server.sh`, for example `http://192.168.1.123:8000`.
 
 The MatrixPortal does not need provider credentials or direct upstream API clients. It makes only the same `/api/screens` request regardless of which server-side feeds are enabled.
 
-For a physical board to reach a local backend, `server.py` must listen on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
+For a physical board to reach a local backend, start the grouped backend on an address reachable from the LAN rather than its safe `127.0.0.1` default. For example, on a trusted home network:
 
-```text
-LED_SERVER_HOST=0.0.0.0
+```sh
+LED_SERVER_HOST=0.0.0.0 bash scripts/run-server.sh
 ```
 
 Do not expose the local development server directly to the public Internet.

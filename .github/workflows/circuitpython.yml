@@ -4,27 +4,19 @@ on:
   pull_request:
     paths:
       - '.github/workflows/circuitpython.yml'
-      - 'button_control.py'
       - 'code.py'
-      - 'display.py'
-      - 'fixtures.py'
-      - 'flash_events.py'
       - 'font5x7.pcf'
-      - 'formatting.py'
       - 'gtsr4.pem'
-      - 'matrix_config.py'
-      - 'matrix_runtime.py'
-      - 'mqtt_client.py'
-      - 'queue_cycle.py'
-      - 'queue_display.py'
+      - 'firmware/**'
+      - 'shared/**'
       - 'requirements.txt'
-      - 'screen_client.py'
-      - 'settings.py'
-      - 'settings_local.py.example'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
+      - 'scripts/stage-firmware.sh'
+      - 'scripts/install-firmware.sh'
       - 'tests/test_button_control.py'
       - 'tests/test_display_layout.py'
+      - 'tests/test_deployment_static.py'
       - 'tests/test_flash_events.py'
       - 'tests/test_formatting.py'
       - 'tests/test_issue41_dashboard.py'
@@ -38,29 +30,23 @@ on:
       - master
     paths:
       - '.github/workflows/circuitpython.yml'
-      - 'button_control.py'
       - 'code.py'
-      - 'display.py'
-      - 'fixtures.py'
-      - 'flash_events.py'
       - 'font5x7.pcf'
-      - 'formatting.py'
       - 'gtsr4.pem'
-      - 'matrix_config.py'
-      - 'matrix_runtime.py'
-      - 'mqtt_client.py'
-      - 'queue_cycle.py'
-      - 'queue_display.py'
+      - 'firmware/**'
+      - 'shared/**'
       - 'requirements.txt'
-      - 'screen_client.py'
-      - 'settings.py'
-      - 'settings_local.py.example'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
+      - 'scripts/stage-firmware.sh'
+      - 'scripts/install-firmware.sh'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  PYTHONPATH: firmware:backend:shared
 
 jobs:
   validate:
@@ -74,23 +60,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile CircuitPython-compatible source
+      - name: Validate firmware staging tools
+        shell: bash
         run: |
-          python -m compileall -q \
-            button_control.py \
-            code.py \
-            display.py \
-            fixtures.py \
-            flash_events.py \
-            formatting.py \
-            hardware/matrixportal/rgb_test.py \
-            matrix_config.py \
-            matrix_runtime.py \
-            mqtt_client.py \
-            queue_cycle.py \
-            queue_display.py \
-            screen_client.py \
-            settings.py
+          set -euo pipefail
+          bash -n scripts/stage-firmware.sh
+          bash -n scripts/install-firmware.sh
+          bash scripts/stage-firmware.sh /tmp/circuitpy
+          test -f /tmp/circuitpy/code.py
+          test -f /tmp/circuitpy/display.py
+          test -f /tmp/circuitpy/formatting.py
+          test -f /tmp/circuitpy/gtsr4.pem
+
+      - name: Compile CircuitPython-compatible source
+        run: python -m compileall -q code.py firmware shared hardware/matrixportal/rgb_test.py
 
       - name: Run firmware and shared-renderer unit tests
         shell: bash
@@ -99,6 +82,7 @@ jobs:
           tests=(
             test_button_control.py
             test_display_layout.py
+            test_deployment_static.py
             test_flash_events.py
             test_formatting.py
             test_issue41_dashboard.py
