@@ -1,8 +1,11 @@
 import json
+from pathlib import Path
 import threading
 import unittest
 from urllib.error import HTTPError
 from urllib.request import urlopen
+
+import server as server_module
 
 from server import (
     ConfigurationError,
@@ -15,6 +18,14 @@ from server import (
     normalize_darwin_board,
     resolve_bitwarden_secret,
 )
+
+
+class SourceLayoutTests(unittest.TestCase):
+    def test_backend_resolves_repository_root_after_source_grouping(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        self.assertEqual(server_module.PROJECT_ROOT, repository_root)
+        self.assertEqual(server_module.SIMULATOR_ROOT, repository_root / "simulator")
+        self.assertEqual(server_module.load_dotenv.__defaults__[0], repository_root / ".env")
 
 
 class FakeProvider:
