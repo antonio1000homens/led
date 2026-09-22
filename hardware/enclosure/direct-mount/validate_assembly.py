@@ -147,13 +147,69 @@ def main() -> int:
         return 1
 
     instances: dict[str, trimesh.Trimesh] = {}
+    translations: dict[str, np.ndarray] = {}
     for instance_name, spec in manifest.get("instances", {}).items():
+        translation = np.asarray(spec.get("translate", [0, 0, 0]), dtype=float)
         mesh = parts[spec["part"]].copy()
-        mesh.apply_translation(np.asarray(spec.get("translate", [0, 0, 0]), dtype=float))
+        mesh.apply_translation(translation)
         instances[instance_name] = mesh
+        translations[instance_name] = translation
 
     for primitive_name, spec in manifest.get("primitives", {}).items():
         instances[primitive_name] = primitive_mesh(spec)
+
+    layout_checks = manifest.get("layout_checks", [])
+    if layout_checks:
+        print("\nAssembly placement / alignment")
+        print("------------------------------")
+        for check in layout_checks:
+            kind = check["type"]
+            label = check["name"]
+            tolerance = float(check.get("tolerance_mm", 0.01))
+
+            try:
+                if kind == "translation_equals":
+                    actual = translations[check["instance"]]
+                    expected = np.asarray(check["value"], dtype=float)
+                    delta = np.abs(actual - expected)
+                    ok = bool(np.all(delta <= tolerance))
+                    detail = (
+                        f"{check['instance']} translation={actual.tolist()}, "
+                        f"expected={expected.tolist()}, max delta={float(delta.max()):.6f} mm"
+                    )
+                elif kind == "translation_axis_equal":
+                    axis_name = check["axis"]
+                    axis = AXES[axis_name]
+                    expected = float(check["value"])
+                    values = [float(translations[name][axis]) for name in check["instances"]]
+                    deltas = [abs(value - expected) for value in values]
+                    ok = all(delta <= tolerance for delta in deltas)
+                    detail = (
+                        f"{axis_name} values={values}, expected={expected:.3f}, "
+                        f"max delta={max(deltas, default=0.0):.6f} mm"
+                    )
+                elif kind == "translation_sequence":
+                    axis_name = check["axis"]
+                    axis = AXES[axis_name]
+                    start = float(check["start"])
+                    step = float(check["step"])
+                    values = [float(translations[name][axis]) for name in check["instances"]]
+                    expected = [start + step * index for index in range(len(values))]
+                    deltas = [abs(a - b) for a, b in zip(values, expected)]
+                    ok = all(delta <= tolerance for delta in deltas)
+                    detail = (
+                        f"{axis_name} values={values}, expected={expected}, "
+                        f"max delta={max(deltas, default=0.0):.6f} mm"
+                    )
+                else:
+                    raise ValueError(f"Unsupported layout check type: {kind}")
+            except Exception as exc:
+                ok = False
+                detail = f"check raised {type(exc).__name__}: {exc}"
+
+            print(result_line(ok, False, label, detail))
+            if not ok:
+                failures += 1
 
     print("\nAssembly interfaces")
     print("-------------------")
