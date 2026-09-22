@@ -4,23 +4,10 @@ on:
   pull_request:
     paths:
       - '.github/workflows/circuitpython.yml'
-      - 'button_control.py'
       - 'code.py'
-      - 'display.py'
-      - 'fixtures.py'
-      - 'flash_events.py'
-      - 'font5x7.pcf'
-      - 'formatting.py'
-      - 'gtsr4.pem'
-      - 'matrix_config.py'
-      - 'matrix_runtime.py'
-      - 'mqtt_client.py'
-      - 'queue_cycle.py'
-      - 'queue_display.py'
+      - 'firmware/**'
+      - 'shared/**'
       - 'requirements.txt'
-      - 'screen_client.py'
-      - 'settings.py'
-      - 'settings_local.py.example'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
       - 'tests/test_button_control.py'
@@ -38,29 +25,19 @@ on:
       - master
     paths:
       - '.github/workflows/circuitpython.yml'
-      - 'button_control.py'
       - 'code.py'
-      - 'display.py'
-      - 'fixtures.py'
-      - 'flash_events.py'
-      - 'font5x7.pcf'
-      - 'formatting.py'
-      - 'gtsr4.pem'
-      - 'matrix_config.py'
-      - 'matrix_runtime.py'
-      - 'mqtt_client.py'
-      - 'queue_cycle.py'
-      - 'queue_display.py'
+      - 'firmware/**'
+      - 'shared/**'
       - 'requirements.txt'
-      - 'screen_client.py'
-      - 'settings.py'
-      - 'settings_local.py.example'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  PYTHONPATH: firmware:backend:shared
 
 jobs:
   validate:
@@ -75,22 +52,7 @@ jobs:
           python-version: '3.12'
 
       - name: Compile CircuitPython-compatible source
-        run: |
-          python -m compileall -q \
-            button_control.py \
-            code.py \
-            display.py \
-            fixtures.py \
-            flash_events.py \
-            formatting.py \
-            hardware/matrixportal/rgb_test.py \
-            matrix_config.py \
-            matrix_runtime.py \
-            mqtt_client.py \
-            queue_cycle.py \
-            queue_display.py \
-            screen_client.py \
-            settings.py
+        run: python -m compileall -q code.py firmware shared hardware/matrixportal/rgb_test.py
 
       - name: Run firmware and shared-renderer unit tests
         shell: bash
