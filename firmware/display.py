@@ -10,6 +10,10 @@ from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
     MATRIX_STATS_INTERVAL_SECONDS,
+    DEPARTURES_CALLING_FPS,
+    HEADER_SLIDE_FPS,
+    TODOIST_MARQUEE_FPS,
+    TODOIST_PAGE_SLIDE_FPS,
     TODOIST_MARQUEE_PAUSE_SECONDS,
     TODOIST_MARQUEE_SPEED,
 )
@@ -225,6 +229,22 @@ def _header_item_state(phase, weather):
     return "clock", int((1.0 - progress) * HEADER_SLOT_WIDTH)
 
 
+def _header_slide_active(phase, weather):
+    """Return whether the clock/weather carousel is in a slide interval."""
+    if not isinstance(weather, dict):
+        return False
+    try:
+        phase = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        phase = 0.0
+    segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS
+    within = phase % (segment * 2)
+    return (
+        HEADER_HOLD_SECONDS <= within < segment
+        or segment + HEADER_HOLD_SECONDS <= within < segment * 2
+    )
+
+
 def _rail_columns(service, ordinal=1):
     return (
         ordinal_label(ordinal),
@@ -311,6 +331,17 @@ class MatrixDisplay:
         self._stats_interval_max = None
         self._stats_interval_total = 0.0
         self._stats_interval_count = 0
+        self._stats_animation_ticks = 0
+        self._stats_todoist_ticks = 0
+        self._stats_todoist_changed = 0
+        self._stats_rail_ticks = 0
+        self._stats_rail_changed = 0
+        self._stats_update_total = 0.0
+        self._stats_update_max = 0.0
+        self._stats_refresh_total = 0.0
+        self._stats_refresh_max = 0.0
+        self._stats_fetch_overlap = 0
+        self._stats_cadence_switches = 0
         print(
             "MATRIX PRESENTATION preset={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
                 MATRIX_EXPERIMENT_PRESET,
@@ -409,7 +440,10 @@ class MatrixDisplay:
             "MATRIX STATS mode={} target_fps={} elapsed={:.1f} changes={} "
             "refresh_attempts={} refresh_successes={} refresh_failures={} "
             "presented_fps={} interval_min={} interval_max={} interval_avg={} "
-            "heap_start={} heap_end={}".format(
+            "heap_start={} heap_end={} animation_ticks={} todoist_ticks={} "
+            "todoist_changed={} rail_ticks={} rail_changed={} "
+            "update_avg={} update_max={} refresh_avg={} refresh_max={} "
+            "fetch_overlap={} cadence_switches={}".format(
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 elapsed,
@@ -427,9 +461,61 @@ class MatrixDisplay:
                 "{:.4f}".format(interval_avg) if interval_avg is not None else "n/a",
                 self._stats_heap_start,
                 self._heap_free(),
+                self._stats_animation_ticks,
+                self._stats_todoist_ticks,
+                self._stats_todoist_changed,
+                self._stats_rail_ticks,
+                self._stats_rail_changed,
+                "{:.4f}".format(self._stats_update_total / self._stats_animation_ticks)
+                if self._stats_animation_ticks else "n/a",
+                "{:.4f}".format(self._stats_update_max),
+                "{:.4f}".format(self._stats_refresh_total / self._stats_refresh_successes)
+                if self._stats_refresh_successes else "n/a",
+                "{:.4f}".format(self._stats_refresh_max),
+                self._stats_fetch_overlap,
+                self._stats_cadence_switches,
             )
         )
         self._stats_last_report = now
+
+    def note_fetch_overlap(self):
+        """Record a blocking fetch that occurred while animation was active."""
+        self._stats_fetch_overlap += 1
+
+    def note_cadence_switch(self):
+        self._stats_cadence_switches += 1
+
+    def animation_cadence(self, screen, phase):
+        """Return the desired update cadence for the active partial scene."""
+        if not isinstance(screen, dict):
+            return 0
+        kind = screen.get("kind")
+        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+            if self._todoist_rows and self._todoist_page_slide_active(phase):
+                return TODOIST_PAGE_SLIDE_FPS
+            return TODOIST_MARQUEE_FPS
+        if kind == "rail_combined":
+            if _header_slide_active(phase, screen.get("weather")):
+                return HEADER_SLIDE_FPS
+            if rail_phase(phase) == "calling":
+                services = screen.get("services") or ()
+                if any(calling_text(service) for service in services[:2]):
+                    return DEPARTURES_CALLING_FPS
+            return MATRIX_REFRESH_FPS
+        return 0
+
+    def _record_animation_update(self, scene, changed, duration):
+        self._stats_animation_ticks += 1
+        self._stats_update_total += duration
+        self._stats_update_max = max(self._stats_update_max, duration)
+        if scene == "todoist":
+            self._stats_todoist_ticks += 1
+            if changed:
+                self._stats_todoist_changed += 1
+        elif scene == "rail":
+            self._stats_rail_ticks += 1
+            if changed:
+                self._stats_rail_changed += 1
 
     def _refresh(self):
         """Present one changed scene according to the issue #70 test mode."""
@@ -443,10 +529,14 @@ class MatrixDisplay:
 
         self._stats_refresh_attempts += 1
         target = None if self.presentation_mode == "immediate" else MATRIX_REFRESH_FPS
+        refresh_started = time.monotonic()
         refreshed = self.display.refresh(target_frames_per_second=target)
         now = time.monotonic()
         if refreshed:
             self._stats_refresh_successes += 1
+            refresh_duration = now - refresh_started
+            self._stats_refresh_total += refresh_duration
+            self._stats_refresh_max = max(self._stats_refresh_max, refresh_duration)
             self._record_success_interval(now)
         else:
             self._stats_refresh_failures += 1
@@ -598,10 +688,12 @@ class MatrixDisplay:
         state = rail_phase(phase)
         if not self._rail_cache_matches(screen) or self._rail_phase != state:
             self._build_rail_scene(screen, clock_time, phase)
+        update_started = time.monotonic()
         changed = self._update_rail_scene(screen, clock_time, phase)
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
             changed = True
+        self._record_animation_update("rail", changed, time.monotonic() - update_started)
         if changed:
             self._refresh()
 
@@ -804,6 +896,16 @@ class MatrixDisplay:
             + minimum_page_seconds
         )
 
+    def _todoist_page_slide_active(self, phase):
+        if len(self._todoist_rows) <= self._todoist_viewport_size:
+            return False
+        transition_at = self._todoist_page_transition_at(self._todoist_viewport_size)
+        try:
+            slide_elapsed = float(phase or 0) - transition_at
+        except (TypeError, ValueError):
+            return False
+        return 0.0 < slide_elapsed < AGENDA_SLIDE_SECONDS
+
     def _todoist_title_x(self, title, phase, visible_chars):
         """Scroll once to the final title position instead of looping."""
         visible_chars = max(1, int(visible_chars or 1))
@@ -897,10 +999,12 @@ class MatrixDisplay:
         if not self._todoist_cache_matches(screen, clock_date):
             self._build_todoist_scene(screen, clock_time, clock_date)
 
+        update_started = time.monotonic()
         changed = self._update_todoist_scene(screen, clock_time, phase)
         if self.display.root_group is not self._todoist_group:
             self.display.root_group = self._todoist_group
             changed = True
+        self._record_animation_update("todoist", changed, time.monotonic() - update_started)
         if changed:
             self._refresh()
 

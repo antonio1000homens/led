@@ -10,7 +10,7 @@ from queue_cycle import (
     queue_scroll_state,
     queue_slide_seconds,
 )
-from queue_display import queue_render_state
+from queue_display import QueueAwareDisplay, queue_render_state
 
 
 class QueueScrollTimingTests(unittest.TestCase):
@@ -90,6 +90,27 @@ class QueueParkCycleTests(unittest.TestCase):
         self.assertEqual(second["title"], "CHESSINGTON")
         self.assertTrue(second["stale"])
         self.assertEqual(mode, "flash")
+
+
+class QueueDisplayAdapterTests(unittest.TestCase):
+    def test_forwards_adaptive_animation_contract_to_base_display(self):
+        class Base:
+            def animation_cadence(self, screen, phase):
+                return (screen, phase)
+
+            def note_fetch_overlap(self):
+                self.fetch_overlap = True
+
+            def note_cadence_switch(self):
+                self.cadence_switch = True
+
+        base = Base()
+        display = QueueAwareDisplay(base)
+        self.assertEqual(display.animation_cadence({"id": "calendar"}, 2), ({"id": "calendar"}, 2))
+        display.note_fetch_overlap()
+        display.note_cadence_switch()
+        self.assertTrue(base.fetch_overlap)
+        self.assertTrue(base.cadence_switch)
 
 
 if __name__ == "__main__":

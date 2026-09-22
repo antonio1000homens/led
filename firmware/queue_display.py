@@ -96,6 +96,20 @@ class QueueAwareDisplay:
     def __init__(self, base):
         self.base = base
 
+    def animation_cadence(self, screen, phase):
+        """Expose the base Matrix animation contract through the queue adapter."""
+        if hasattr(self.base, "animation_cadence"):
+            return self.base.animation_cadence(screen, phase)
+        return 0
+
+    def note_fetch_overlap(self):
+        if hasattr(self.base, "note_fetch_overlap"):
+            self.base.note_fetch_overlap()
+
+    def note_cadence_switch(self):
+        if hasattr(self.base, "note_cadence_switch"):
+            self.base.note_cadence_switch()
+
     def _matrix_splash(self, screen, clock_time, mode, progress):
         import displayio
 

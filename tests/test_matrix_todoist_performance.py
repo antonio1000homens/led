@@ -7,7 +7,15 @@ from unittest.mock import patch
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
 import display as led_display
-from matrix_config import MATRIX_PRESENTATION_MODE, MATRIX_REFRESH_FPS, TODOIST_MARQUEE_SPEED
+from matrix_config import (
+    DEPARTURES_CALLING_FPS,
+    HEADER_SLIDE_FPS,
+    MATRIX_PRESENTATION_MODE,
+    MATRIX_REFRESH_FPS,
+    TODOIST_MARQUEE_FPS,
+    TODOIST_PAGE_SLIDE_FPS,
+    TODOIST_MARQUEE_SPEED,
+)
 
 
 class FakeGroup(list):
@@ -120,6 +128,29 @@ def todoist_screen(count=6):
     }
 
 
+def departures_screen():
+    return {
+        "id": "departures",
+        "kind": "rail_combined",
+        "title": "WAT departures",
+        "services": [
+            {
+                "time": "19:40",
+                "destination": "Windsor",
+                "platform": "2",
+                "stops": [{"station": "Clapham", "time": "19:52"}],
+            },
+            {
+                "time": "19:50",
+                "destination": "Reading",
+                "platform": "4",
+                "stops": [{"station": "Richmond", "time": "20:02"}],
+            },
+        ],
+        "weather": {"temperature_c": 17, "icon": "clear_day"},
+    }
+
+
 class MatrixTodoistPerformanceTests(unittest.TestCase):
     def setUp(self):
         led_display.board.MTX_ADDRESS = (0, 1, 2, 3)
@@ -213,6 +244,58 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 phase=transition_at + 0.2,
             )
             self.assertEqual([row.y for row in row_groups[:4]], [-4, 4, 12, 20])
+
+    def test_cadence_uses_8hz_for_marquee_and_12hz_only_for_page_slide(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            transition_at = display._todoist_page_transition_at(3)
+
+            self.assertEqual(display.animation_cadence(screen, 1.0), TODOIST_MARQUEE_FPS)
+            self.assertEqual(
+                display.animation_cadence(screen, transition_at + 0.2),
+                TODOIST_PAGE_SLIDE_FPS,
+            )
+            self.assertEqual(
+                display.animation_cadence(screen, transition_at + led_display.AGENDA_SLIDE_SECONDS + 1.0),
+                TODOIST_MARQUEE_FPS,
+            )
+
+    def test_departures_calling_and_header_slides_select_temporary_cadence(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            display.show(screen, clock_time="19:40", phase=0)
+
+            self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
+            self.assertEqual(display.animation_cadence(screen, 4.2), HEADER_SLIDE_FPS)
+            self.assertEqual(display.animation_cadence(screen, 0.5), MATRIX_REFRESH_FPS)
+
+    def test_unchanged_partial_scene_does_not_present_duplicate_frame(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(3)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            refreshes = len(display.display.refresh_targets)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+
+            self.assertEqual(len(display.display.refresh_targets), refreshes)
+            self.assertEqual(display._stats_todoist_ticks, 2)
+            self.assertEqual(display._stats_todoist_changed, 1)
+
+    def test_partial_scene_updates_keep_root_and_report_attribution(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            display.show(screen, clock_time="19:40", phase=8.1)
+            root = display.display.root_group
+            display.show(screen, clock_time="19:40", phase=8.2)
+
+            self.assertIs(display.display.root_group, root)
+            self.assertEqual(display._stats_rail_ticks, 2)
+            self.assertGreaterEqual(display._stats_rail_changed, 1)
+            self.assertGreaterEqual(display._stats_update_max, 0.0)
 
     def test_todoist_title_stays_at_end_until_page_transition(self):
         with patch.dict(sys.modules, fake_modules()):

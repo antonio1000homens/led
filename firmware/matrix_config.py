@@ -39,6 +39,14 @@ except KeyError:
 MATRIX_BIT_DEPTH = 1
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
 
+# Issue #91 adaptive partial-scene cadence. These are animation update
+# cadences, not framebuffer refresh modes; Mode B remains the presentation
+# strategy and only changed persistent-scene state is presented.
+TODOIST_MARQUEE_FPS = 8
+TODOIST_PAGE_SLIDE_FPS = 12
+HEADER_SLIDE_FPS = 12
+DEPARTURES_CALLING_FPS = 12
+
 # Aggregate serial summaries are deliberately infrequent so measurement does
 # not materially change MatrixPortal timing.
 MATRIX_STATS_INTERVAL_SECONDS = 20.0

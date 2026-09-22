@@ -30,6 +30,7 @@ if local:
 from queue_display import create
 from fixtures import animated_services
 from flash_events import FlashState
+from animation_scheduler import next_deadline
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from matrix_config import (
@@ -145,6 +146,7 @@ telemetry_scene_renders = 0
 telemetry_scene_render_total = 0.0
 telemetry_scene_render_max = 0.0
 telemetry_scene_render_over_budget = 0
+animation_cadence = None
 
 
 def _matrix_root_token():
@@ -253,6 +255,10 @@ while True:
         continue
 
     should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
+    fetch_during_animation = False
+    if should_fetch and rotation.screens:
+        candidate = rotation.screens[rotation.index % len(rotation.screens)]
+        fetch_during_animation = _smooth_todoist(candidate) or _smooth_departures(candidate)
     if should_fetch:
         fetch_started = time.monotonic()
         try:
@@ -280,6 +286,8 @@ while True:
             print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
             transport_stale = bool(rotation.screens)
         next_fetch = now + settings.POLL_SECONDS
+        if fetch_during_animation and hasattr(display, "note_fetch_overlap"):
+            display.note_fetch_overlap()
 
     if flash.active(now):
         screen, phase = flash.screen(), now - flash.started_at
@@ -339,7 +347,15 @@ while True:
         last_render_key = render_key
     smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen)
     if smooth_animation:
-        frame_seconds = 1.0 / MATRIX_REFRESH_FPS
+        desired_cadence = display.animation_cadence(screen, phase) or MATRIX_REFRESH_FPS
+        cadence_changed = animation_cadence != desired_cadence
+        if cadence_changed:
+            was_active = pace_active
+            animation_cadence = desired_cadence
+            next_animation_deadline = None
+            if was_active and hasattr(display, "note_cadence_switch"):
+                display.note_cadence_switch()
+        frame_seconds = 1.0 / desired_cadence
         if not pace_active:
             pace_active = True
             pace_started = frame_started
@@ -352,12 +368,16 @@ while True:
 
         pace_ticks += 1
         after_render = time.monotonic()
+        next_animation_deadline, remaining, late, rebased = next_deadline(
+            next_animation_deadline,
+            after_render,
+            desired_cadence,
+            cadence_changed=cadence_changed,
+        )
 
         if MATRIX_PRESENTATION_MODE in ("immediate", "auto_refresh"):
             # Modes B/C own the animation cadence in the application. Use an
             # absolute deadline to avoid accumulating render-time drift.
-            next_animation_deadline += frame_seconds
-            remaining = next_animation_deadline - after_render
             if remaining > 0:
                 pace_late_streak = 0
                 time.sleep(remaining)
@@ -365,10 +385,6 @@ while True:
                 pace_late_frames += 1
                 pace_late_streak += 1
                 pace_max_late_streak = max(pace_max_late_streak, pace_late_streak)
-                # A fetch or screen transition can put us more than one full
-                # frame behind. Rebase rather than spinning through stale ticks.
-                if -remaining > frame_seconds:
-                    next_animation_deadline = after_render
         else:
             # Mode A is the control: preserve the existing relative sleep so
             # its measurements remain directly comparable with issue #66.
@@ -386,6 +402,7 @@ while True:
             pace_last_report = report_now
     elif settings.ANIMATE:
         pace_active = False
+        animation_cadence = None
         next_animation_deadline = None
         frame_seconds = settings.FRAME_SECONDS
         remaining = frame_seconds - (time.monotonic() - frame_started)
@@ -393,6 +410,7 @@ while True:
             time.sleep(remaining)
     else:
         pace_active = False
+        animation_cadence = None
         next_animation_deadline = None
         # Static pages must still rotate independently of the network poll.
         # Waking only at the next page/fetch boundary avoids repeatedly
