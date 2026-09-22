@@ -1,7 +1,16 @@
-name: Validate enclosure STLs
+name: Enclosure / Validate
 
 on:
   pull_request:
+    paths:
+      - 'hardware/enclosure/**/*.scad'
+      - 'hardware/enclosure/**/*.stl'
+      - 'hardware/enclosure/**/*.py'
+      - 'hardware/enclosure/**/*.json'
+      - '.github/workflows/generate-enclosure-stls.yml'
+  push:
+    branches:
+      - master
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
