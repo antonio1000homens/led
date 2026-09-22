@@ -28,7 +28,7 @@ from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
 SECRET_ID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SIMULATOR_ROOT = PROJECT_ROOT / "simulator"
 DEFAULT_THORPE_PARK_RIDES = (
     "Hyperia",
