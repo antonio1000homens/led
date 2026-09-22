@@ -121,8 +121,8 @@ class ClockState:
 
     def sync(self, fetched_at, now):
         year, month, day, hour, minute, second = _parse_utc_timestamp(fetched_at)
-        _, _, _, seconds = london_date_and_seconds_from_utc(fetched_at)
-        self._date = (year, month, day)
+        local_year, local_month, local_day, seconds = london_date_and_seconds_from_utc(fetched_at)
+        self._date = (local_year, local_month, local_day)
         self._seconds = seconds
         self._epoch = _utc_epoch_from_parts(year, month, day, hour, minute, second)
         self._synced_at = now
