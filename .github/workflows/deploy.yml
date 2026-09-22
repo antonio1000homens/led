@@ -1,4 +1,4 @@
-name: Backend / AWS + Cloudflare
+name: Backend / Deploy
 
 on:
   pull_request:
@@ -18,13 +18,10 @@ on:
       - 'scripts/bootstrap-deployment-role.sh'
       - 'scripts/bootstrap-ssm-migration.sh'
       - 'scripts/bootstrap-todoist-oauth.py'
-      - 'scripts/cloudflare_dns.py'
-      - 'scripts/configure-cloudflare-dns.sh'
       - 'scripts/deploy-stack.sh'
       - 'scripts/deploy.sh'
       - 'scripts/load-ssm-secrets.sh'
       - 'scripts/package-lambda.sh'
-      - 'scripts/request-acm-certificate.sh'
       - 'config/**'
       - '.env.example'
       - 'tests/test_combined_queue_admin.py'
@@ -59,12 +56,9 @@ on:
       - 'fixtures.py'
       - 'requirements-server.txt'
       - 'infrastructure/led-stack.yaml'
-      - 'scripts/cloudflare_dns.py'
-      - 'scripts/configure-cloudflare-dns.sh'
       - 'scripts/deploy-stack.sh'
       - 'scripts/load-ssm-secrets.sh'
       - 'scripts/package-lambda.sh'
-      - 'scripts/request-acm-certificate.sh'
   workflow_dispatch:
 
 permissions:
