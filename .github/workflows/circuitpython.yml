@@ -1,0 +1,113 @@
+name: CircuitPython / Validate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/circuitpython.yml'
+      - 'button_control.py'
+      - 'code.py'
+      - 'display.py'
+      - 'fixtures.py'
+      - 'flash_events.py'
+      - 'font5x7.pcf'
+      - 'formatting.py'
+      - 'gtsr4.pem'
+      - 'matrix_config.py'
+      - 'matrix_runtime.py'
+      - 'mqtt_client.py'
+      - 'queue_cycle.py'
+      - 'queue_display.py'
+      - 'requirements.txt'
+      - 'screen_client.py'
+      - 'settings.py'
+      - 'settings_local.py.example'
+      - 'diagram.json'
+      - 'hardware/matrixportal/**'
+      - 'tests/test_button_control.py'
+      - 'tests/test_display_layout.py'
+      - 'tests/test_flash_events.py'
+      - 'tests/test_formatting.py'
+      - 'tests/test_issue41_dashboard.py'
+      - 'tests/test_matrix_runtime.py'
+      - 'tests/test_matrix_todoist_performance.py'
+      - 'tests/test_mqtt_safety.py'
+      - 'tests/test_queue_cycle.py'
+      - 'tests/test_screen_client.py'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/circuitpython.yml'
+      - 'button_control.py'
+      - 'code.py'
+      - 'display.py'
+      - 'fixtures.py'
+      - 'flash_events.py'
+      - 'font5x7.pcf'
+      - 'formatting.py'
+      - 'gtsr4.pem'
+      - 'matrix_config.py'
+      - 'matrix_runtime.py'
+      - 'mqtt_client.py'
+      - 'queue_cycle.py'
+      - 'queue_display.py'
+      - 'requirements.txt'
+      - 'screen_client.py'
+      - 'settings.py'
+      - 'settings_local.py.example'
+      - 'diagram.json'
+      - 'hardware/matrixportal/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Compile CircuitPython-compatible source
+        run: |
+          python -m compileall -q \
+            button_control.py \
+            code.py \
+            display.py \
+            fixtures.py \
+            flash_events.py \
+            formatting.py \
+            hardware/matrixportal/rgb_test.py \
+            matrix_config.py \
+            matrix_runtime.py \
+            mqtt_client.py \
+            queue_cycle.py \
+            queue_display.py \
+            screen_client.py \
+            settings.py
+
+      - name: Run firmware and shared-renderer unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests=(
+            test_button_control.py
+            test_display_layout.py
+            test_flash_events.py
+            test_formatting.py
+            test_issue41_dashboard.py
+            test_matrix_runtime.py
+            test_matrix_todoist_performance.py
+            test_mqtt_safety.py
+            test_queue_cycle.py
+            test_screen_client.py
+          )
+          for test_file in "${tests[@]}"; do
+            python -m unittest discover -s tests -p "${test_file}" -v
+          done

@@ -1,0 +1,85 @@
+name: Web / Simulator + Admin
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/static-web.yml'
+      - 'simulator/**'
+      - 'scripts/deploy-static.sh'
+      - 'tests/test_deployment_static.py'
+      - 'tests/test_issue41_dashboard.py'
+      - 'tests/test_combined_queue_admin.py'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/static-web.yml'
+      - 'simulator/**'
+      - 'scripts/deploy-static.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-west-2
+  STACK_NAME: led-serverless
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate static deployment script syntax
+        run: bash -n scripts/deploy-static.sh
+
+      - name: Run static web regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test_file in \
+            test_deployment_static.py \
+            test_issue41_dashboard.py \
+            test_combined_queue_admin.py
+          do
+            python -m unittest discover -s tests -p "${test_file}" -v
+          done
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: led-production
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Validate deployment configuration
+        run: |
+          if [ -z "${AWS_ROLE_TO_ASSUME}" ]; then
+            echo "AWS_ROLE_TO_ASSUME is required" >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          role-session-name: github-actions-led-static
+
+      - name: Deploy simulator and admin static content
+        run: bash scripts/deploy-static.sh

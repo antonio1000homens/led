@@ -1,0 +1,147 @@
+name: Cloudflare / DNS Reconcile
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cloudflare.yml'
+      - 'scripts/cloudflare_dns.py'
+      - 'scripts/configure-cloudflare-dns.sh'
+      - 'scripts/request-acm-certificate.sh'
+      - 'tests/test_infrastructure.py'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/cloudflare.yml'
+      - 'scripts/cloudflare_dns.py'
+      - 'scripts/configure-cloudflare-dns.sh'
+      - 'scripts/request-acm-certificate.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-west-2
+  STACK_NAME: led-serverless
+  DOMAIN_NAME: ${{ vars.LED_DOMAIN_NAME || 'led.alf-broadcast.co.uk' }}
+  ZONE_NAME: ${{ vars.LED_CF_ZONE_NAME || 'alf-broadcast.co.uk' }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+  AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+  LED_DEPLOY_SSM_PREFIX: ${{ vars.LED_DEPLOY_SSM_PREFIX || '/led/deploy' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate Cloudflare helper syntax
+        run: |
+          python -m py_compile scripts/cloudflare_dns.py
+          bash -n scripts/configure-cloudflare-dns.sh
+          bash -n scripts/request-acm-certificate.sh
+
+      - name: Run Cloudflare infrastructure regression tests
+        run: python -m unittest discover -s tests -p 'test_infrastructure.py' -v
+
+  reconcile:
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: led-production
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Validate deployment configuration
+        run: |
+          python - <<'PY'
+          import os
+          import re
+
+          if not os.environ.get("AWS_ROLE_TO_ASSUME", "").strip():
+              raise SystemExit("AWS_ROLE_TO_ASSUME is required")
+          account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
+          if not re.fullmatch(r"[0-9a-fA-F]{32}", account_id):
+              raise SystemExit("CLOUDFLARE_ACCOUNT_ID must be the 32-character Windsor Cloudflare account ID")
+          ssm_prefix = os.environ.get("LED_DEPLOY_SSM_PREFIX", "").rstrip("/")
+          if ssm_prefix != "/led/deploy" and not ssm_prefix.startswith("/led/deploy/"):
+              raise SystemExit("LED_DEPLOY_SSM_PREFIX must stay within /led/deploy")
+          PY
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          role-session-name: github-actions-led-cloudflare
+
+      - name: Load Cloudflare token from SSM
+        shell: bash
+        run: |
+          set -euo pipefail
+          parameter="${LED_DEPLOY_SSM_PREFIX%/}/cloudflare/api-token"
+          token="$(aws ssm get-parameter \
+            --name "${parameter}" \
+            --with-decryption \
+            --region "${AWS_REGION}" \
+            --query 'Parameter.Value' \
+            --output text)"
+          if [ -z "${token}" ] || [ "${token}" = "None" ]; then
+            echo "Cloudflare deployment token is empty" >&2
+            exit 1
+          fi
+          echo "::add-mask::${token}"
+          delimiter="__CF_TOKEN_${RANDOM}_${RANDOM}__"
+          {
+            echo "CF_DEPLOY_API_TOKEN<<${delimiter}"
+            printf '%s\n' "${token}"
+            echo "${delimiter}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Request or reuse ACM certificate
+        id: certificate
+        run: |
+          CERTIFICATE_ARN="$(bash scripts/request-acm-certificate.sh)"
+          echo "certificate_arn=${CERTIFICATE_ARN}" >> "${GITHUB_OUTPUT}"
+
+      - name: Reconcile ACM validation record
+        env:
+          CERTIFICATE_ARN: ${{ steps.certificate.outputs.certificate_arn }}
+        run: bash scripts/configure-cloudflare-dns.sh
+
+      - name: Wait for ACM validation
+        env:
+          CERTIFICATE_ARN: ${{ steps.certificate.outputs.certificate_arn }}
+        run: aws acm wait certificate-validated --region us-east-1 --certificate-arn "${CERTIFICATE_ARN}"
+
+      - name: Read CloudFront domain
+        id: stack
+        run: |
+          domain="$(aws cloudformation describe-stacks \
+            --region "${AWS_REGION}" \
+            --stack-name "${STACK_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue | [0]" \
+            --output text)"
+          if [ -z "${domain}" ] || [ "${domain}" = "None" ]; then
+            echo "DistributionDomainName stack output is unavailable" >&2
+            exit 1
+          fi
+          echo "distribution_domain=${domain}" >> "${GITHUB_OUTPUT}"
+
+      - name: Reconcile LED hostname
+        env:
+          CLOUDFRONT_DOMAIN: ${{ steps.stack.outputs.distribution_domain }}
+        run: bash scripts/configure-cloudflare-dns.sh
