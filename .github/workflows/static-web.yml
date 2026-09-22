@@ -58,7 +58,7 @@ jobs:
       contents: read
       id-token: write
     concurrency:
-      group: led-production-static
+      group: led-production
       cancel-in-progress: false
     steps:
       - name: Check out repository
