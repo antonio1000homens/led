@@ -1,6 +1,14 @@
 """MatrixPortal / Wokwi information-board entrypoint."""
 
+import sys
 import time
+
+# Wokwi requires code.py at the project root, while implementation modules are
+# grouped by responsibility in the repository. Physical-board staging flattens
+# these directories back onto CIRCUITPY, where the extra paths are harmless.
+for source_path in ("/firmware", "/shared", "firmware", "shared"):
+    if source_path not in sys.path:
+        sys.path.append(source_path)
 
 try:
     import gc
