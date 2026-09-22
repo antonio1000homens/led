@@ -15,15 +15,15 @@ python3 -m pip install --disable-pip-version-check --no-compile \
   --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --abi cp312 --only-binary=:all: \
   -r "${ROOT_DIR}/requirements-server.txt" -t "${PACKAGE_DIR}" >/dev/null
 cp \
-  "${ROOT_DIR}/publisher.py" \
-  "${ROOT_DIR}/config_api.py" \
-  "${ROOT_DIR}/runtime_config.py" \
-  "${ROOT_DIR}/server.py" \
-  "${ROOT_DIR}/queue_times.py" \
-  "${ROOT_DIR}/weather.py" \
-  "${ROOT_DIR}/todoist.py" \
-  "${ROOT_DIR}/formatting.py" \
-  "${ROOT_DIR}/fixtures.py" \
+  "${ROOT_DIR}/backend/publisher.py" \
+  "${ROOT_DIR}/backend/config_api.py" \
+  "${ROOT_DIR}/backend/runtime_config.py" \
+  "${ROOT_DIR}/backend/server.py" \
+  "${ROOT_DIR}/backend/queue_times.py" \
+  "${ROOT_DIR}/backend/weather.py" \
+  "${ROOT_DIR}/backend/todoist.py" \
+  "${ROOT_DIR}/shared/formatting.py" \
+  "${ROOT_DIR}/shared/fixtures.py" \
   "${PACKAGE_DIR}/"
 
 PACKAGE_DIR="${PACKAGE_DIR}" ZIP_FILE="${ZIP_FILE}" python3 - <<'PY'
