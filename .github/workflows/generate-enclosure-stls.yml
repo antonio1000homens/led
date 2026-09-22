@@ -172,8 +172,12 @@ jobs:
             echo "OK: $scad -> $stl"
           done
 
-          # Parse/render the assembly preview as CSG so it is also kept syntactically valid.
-          openscad -o "$generated/matrixportal_side_access_preview.csg"             "$tracked/04_matrixportal_side_access_ASSEMBLY.scad"
+          # Parse/render assembly previews as CSG so their geometry/placement files
+          # remain syntactically valid in CI without producing extra printable STLs.
+          openscad -o "$generated/matrixportal_side_access_preview.csg" \
+            "$tracked/04_matrixportal_side_access_ASSEMBLY.scad"
+          openscad -o "$generated/complete_enclosure_assembly.csg" \
+            "$tracked/00_complete_enclosure_ASSEMBLY.scad"
 
       - name: Validate mesh health and nominal assembly interfaces
         shell: bash
