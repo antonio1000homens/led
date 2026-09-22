@@ -23,13 +23,13 @@ The retained Todoist scene is identical across the primary test modes. Only the 
 
 For each run:
 
-1. Edit **one line** in `matrix_config.py`:
+1. Edit **one line** in `firmware/matrix_config.py`:
 
    ```python
    MATRIX_EXPERIMENT_PRESET = "A7"
    ```
 
-2. Upload/synchronise this branch to CIRCUITPY using the same process used for the current production board.
+2. Upload/synchronise this branch with `bash scripts/install-firmware.sh /Volumes/CIRCUITPY`.
 3. Allow the board to boot, fetch the live payload, and enter the Todoist screen.
 4. Observe at least 30 seconds and preferably multiple complete six-task page cycles.
 5. Capture the serial lines beginning with:
