@@ -10,8 +10,11 @@ on:
       - 'requirements.txt'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
+      - 'scripts/stage-firmware.sh'
+      - 'scripts/install-firmware.sh'
       - 'tests/test_button_control.py'
       - 'tests/test_display_layout.py'
+      - 'tests/test_deployment_static.py'
       - 'tests/test_flash_events.py'
       - 'tests/test_formatting.py'
       - 'tests/test_issue41_dashboard.py'
@@ -31,6 +34,8 @@ on:
       - 'requirements.txt'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
+      - 'scripts/stage-firmware.sh'
+      - 'scripts/install-firmware.sh'
   workflow_dispatch:
 
 permissions:
@@ -51,6 +56,18 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate firmware staging tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/stage-firmware.sh
+          bash -n scripts/install-firmware.sh
+          bash scripts/stage-firmware.sh /tmp/circuitpy
+          test -f /tmp/circuitpy/code.py
+          test -f /tmp/circuitpy/display.py
+          test -f /tmp/circuitpy/formatting.py
+          test -f /tmp/circuitpy/gtsr4.pem
+
       - name: Compile CircuitPython-compatible source
         run: python -m compileall -q code.py firmware shared hardware/matrixportal/rgb_test.py
 
@@ -61,6 +78,7 @@ jobs:
           tests=(
             test_button_control.py
             test_display_layout.py
+            test_deployment_static.py
             test_flash_events.py
             test_formatting.py
             test_issue41_dashboard.py
