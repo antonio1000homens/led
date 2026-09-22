@@ -70,6 +70,22 @@ Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real pane
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
+### Complete enclosure assembly preview
+
+Open `00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear structure rather than a single printable part. It includes:
+
+- Panels/backplanes 1–4 at x = 0, 256, 512 and 768 mm;
+- the dedicated right-end backplane on Panel 4;
+- all three recessed seam joiners;
+- both 1000 × 8 mm reinforcement rods;
+- the MatrixPortal carrier on Panel 1, including the simplified PCB reference and left-side service overhang;
+- the power-distribution carrier on Panel 2;
+- translucent guide planes at the three nominal panel seams.
+
+The complete assembly file is **not** a printable component and does not replace `direct_mount_enclosure.scad`. The latter remains the shared parametric geometry source; the assembly file simply instantiates those modules at their nominal positions.
+
+CI now validates the assembly placement explicitly. The backplane origins must remain on an exact **256 mm pitch**, all four must share the same Y/Z origin, the joiners must stay on their three nominal seam positions, and the electronics carriers must remain assigned to their intended panels. The existing overall-width and interference checks still run in addition to these placement checks.
+
 ### Individual OpenSCAD entry files
 
 Each printable component now also has its own `.scad` entry file. These wrappers select the matching module from the common parametric source so you can open or export one part directly in OpenSCAD without editing the master file:
@@ -84,7 +100,7 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 - `07_mounting_slot_coupon_PRINT_1.scad`
 - `08_mount_pattern_template_PRINT_1.scad`
 
-The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference and `04_matrixportal_side_access_ASSEMBLY.scad` is an assembly preview.
+The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 
 ## Recessed seam joiners
 
