@@ -214,3 +214,62 @@ diskutil eject /dev/diskN
 Replace `diskN` with the external disk shown by `diskutil list`. Keep the
 MatrixPortal on USB-C and the HUB75 panels on their separate regulated 5 V
 supply; never hot-plug HUB75 cables while powered.
+
+
+## Dirty-region refresh benchmark
+
+Issue #92 contains a standalone benchmark for checking whether smaller
+`displayio` dirty regions reduce the time spent in
+`FramebufferDisplay.refresh()` on the four-panel MatrixPortal S3 chain.
+
+This benchmark temporarily replaces the production `code.py`. It does not use
+Wi-Fi, HTTP, MQTT, fonts, or the application renderer.
+
+Copy it to the board:
+
+```sh
+cp hardware/matrixportal/partial_refresh_benchmark.py /Volumes/CIRCUITPY/code.py
+```
+
+Connect to the serial console and capture the `BENCH` lines. The script runs
+three rounds and alternates scenario order to reduce bias from runtime drift.
+It compares:
+
+- a full 256×32 dirty TileGrid;
+- a 256×8 dirty band;
+- a 32×8 dirty band;
+- a 32×8 TileGrid moving by one pixel.
+
+All cases use the production-oriented matrix constraints for this experiment:
+`bit_depth=1`, `doublebuffer=True`,
+`FramebufferDisplay(auto_refresh=False)`, and
+`refresh(target_frames_per_second=None)`.
+
+The lit pattern is intentionally sparse so the full-screen case does not drive
+all LEDs continuously while still dirtifying the complete TileGrid extent.
+
+Expected serial output is aggregate-only:
+
+```text
+MatrixPortal dirty-region refresh benchmark
+CONFIG width=256 height=32 bit_depth=1 doublebuffer=True warmup=12 samples=80 rounds=3
+ROUND 1
+BENCH scenario=full_256x32 count=80 min_ms=... avg_ms=... max_ms=...
+BENCH scenario=band_256x8 count=80 min_ms=... avg_ms=... max_ms=...
+BENCH scenario=band_32x8 count=80 min_ms=... avg_ms=... max_ms=...
+BENCH scenario=move_32x8_1px count=80 min_ms=... avg_ms=... max_ms=...
+...
+BENCH COMPLETE
+```
+
+Do not interpret a smaller dirty area as a native partial HUB75 scan. The
+benchmark is specifically intended to determine whether the current
+CircuitPython RGBMatrix/Protomatter presentation cost remains effectively
+global after `displayio` has already limited composition to dirty regions.
+
+After testing, restore the production application with:
+
+```sh
+bash scripts/install-firmware.sh /Volumes/CIRCUITPY
+cp settings_local.py /Volumes/CIRCUITPY/
+```
