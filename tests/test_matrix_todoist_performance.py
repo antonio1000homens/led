@@ -380,6 +380,17 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display.animation_cadence(long_screen, 10.0), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(long_screen, 12.5), DEPARTURES_CALLING_FPS)
 
+    def test_departures_scene_attaches_clock_and_weather_overlay(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["weather"] = {"temperature_c": 17, "icon": "clear_day"}
+            display.show(screen, clock_time="19:40", phase=0)
+            self.assertIsNotNone(display._rail_clock_group)
+            self.assertIsNotNone(display._rail_weather_group)
+            self.assertIn(display._rail_clock_group, display._rail_group)
+            self.assertIn(display._rail_weather_group, display._rail_group)
+
     def test_boundary_sleep_uses_earliest_header_event(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()

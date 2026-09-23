@@ -759,6 +759,10 @@ class MatrixDisplay:
         clock_group = displayio.Group()
         clock_label = self._label(clock_group, "", 0xFFAA00, CLOCK_X, 3)
         weather_group = displayio.Group()
+        if isinstance(screen.get("weather"), dict):
+            self._header_weather(weather_group, screen.get("weather"), 0)
+        root.append(clock_group)
+        root.append(weather_group)
 
         self._rail_group = root
         self._rail_services = screen.get("services")

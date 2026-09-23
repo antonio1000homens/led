@@ -681,7 +681,6 @@
         suppressHeader = true;
         status.dataset.detail = message;
       } else if (screen.kind === 'rail_combined') {
-        suppressHeader = true;
         const railServices = listPage(screen).services;
         const headerRight = (screen.stale || forceStale) ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
         railRows(railServices, phase).forEach((row, rowIndex) => {
