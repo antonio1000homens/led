@@ -1,9 +1,13 @@
 import unittest
 
-from animation_scheduler import next_deadline
+from animation_scheduler import earliest_wake_seconds, next_deadline
 
 
 class AnimationSchedulerTests(unittest.TestCase):
+    def test_wake_arbitration_uses_earliest_boundary(self):
+        self.assertEqual(earliest_wake_seconds(7.5, 20, 3.5), 3.5)
+        self.assertEqual(earliest_wake_seconds(7.5, 20, None), 7.5)
+
     def test_cadence_switch_rebases_before_scheduling_new_frame(self):
         deadline, remaining, late, rebased = next_deadline(
             previous_deadline=100.0,

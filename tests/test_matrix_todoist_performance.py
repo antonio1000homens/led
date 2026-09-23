@@ -128,7 +128,16 @@ def todoist_screen(count=6):
     }
 
 
-def departures_screen():
+def departures_screen(long_calling=False):
+    first_stops = [{"station": "Clapham", "time": "19:52"}]
+    second_stops = [{"station": "Richmond", "time": "20:02"}]
+    if long_calling:
+        first_stops = [
+            {"station": "Clapham Junction", "time": "19:52"},
+            {"station": "East Croydon", "time": "20:04"},
+            {"station": "Redhill", "time": "20:18"},
+            {"station": "Gatwick Airport", "time": "20:31"},
+        ]
     return {
         "id": "departures",
         "kind": "rail_combined",
@@ -138,13 +147,13 @@ def departures_screen():
                 "time": "19:40",
                 "destination": "Windsor",
                 "platform": "2",
-                "stops": [{"station": "Clapham", "time": "19:52"}],
+                "stops": first_stops,
             },
             {
                 "time": "19:50",
                 "destination": "Reading",
                 "platform": "4",
-                "stops": [{"station": "Richmond", "time": "20:02"}],
+                "stops": second_stops,
             },
         ],
         "weather": {"temperature_c": 17, "icon": "clear_day"},
@@ -306,10 +315,31 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             screen = departures_screen()
             display.show(screen, clock_time="19:40", phase=0)
 
-            self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
+            self.assertEqual(display.animation_cadence(screen, 8.1), 0)
             self.assertEqual(display.animation_cadence(screen, 4.2), HEADER_SLIDE_FPS)
             self.assertEqual(display.animation_cadence(screen, 0.5), 0)
             self.assertGreater(display.animation_sleep_seconds(screen, 0.5), 0)
+
+            long_screen = departures_screen(long_calling=True)
+            self.assertEqual(display.animation_cadence(long_screen, 10.0), 0)
+            self.assertEqual(display.animation_cadence(long_screen, 12.5), DEPARTURES_CALLING_FPS)
+
+    def test_boundary_sleep_uses_earliest_header_event(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            display.show(screen, clock_time="19:40", phase=0)
+
+            sleep_seconds = display.animation_sleep_seconds(screen, 0.5)
+            self.assertLessEqual(sleep_seconds, 3.5)
+            self.assertEqual(display.animation_cadence(screen, 4.0), HEADER_SLIDE_FPS)
+
+            todoist = todoist_screen(6)
+            todoist["weather"] = {"temperature_c": 17, "icon": "clear_day"}
+            display.show(todoist, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            sleep_seconds = display.animation_sleep_seconds(todoist, 0.5)
+            self.assertLessEqual(sleep_seconds, 3.5)
+            self.assertEqual(display.animation_cadence(todoist, 4.0), HEADER_SLIDE_FPS)
 
     def test_unchanged_partial_scene_does_not_present_duplicate_frame(self):
         with patch.dict(sys.modules, fake_modules()):

@@ -32,6 +32,8 @@ from formatting import (
     calendar_row_parts,
     calendar_row_text,
     CALLING_LABEL,
+    RAIL_MARQUEE_DELAY_SECONDS,
+    CALLING_MARQUEE_PAUSE_SECONDS,
     calling_marquee_x,
     calling_text,
     departure_scroll_state,
@@ -523,10 +525,8 @@ class MatrixDisplay:
         if kind == "rail_combined":
             if _header_slide_active(phase, screen.get("weather")):
                 return HEADER_SLIDE_FPS
-            if rail_phase(phase) == "calling":
-                services = screen.get("services") or ()
-                if any(calling_text(service) for service in services[:2]):
-                    return DEPARTURES_CALLING_FPS
+            if self._departures_calling_moving(screen, phase):
+                return DEPARTURES_CALLING_FPS
             return 0
         return 0
 
@@ -553,11 +553,15 @@ class MatrixDisplay:
                         self._todoist_title_scroll_seconds(row[2], row[3]),
                     )
                 transition_at = self._todoist_page_transition_at(visible)
+                boundaries = []
                 if phase < longest_scroll:
-                    return max(0.05, longest_scroll - phase)
+                    boundaries.append(longest_scroll - phase)
                 if phase < transition_at:
-                    return max(0.05, transition_at - phase)
+                    boundaries.append(transition_at - phase)
+                boundaries.append(_header_next_boundary_seconds(phase, screen.get("weather")))
+                return max(0.05, min(boundaries))
         if kind == "rail_combined":
+            boundaries = [_header_next_boundary_seconds(phase, screen.get("weather"))]
             if rail_phase(phase) == "summary":
                 try:
                     value = max(0.0, float(phase or 0))
@@ -565,8 +569,40 @@ class MatrixDisplay:
                     value = 0.0
                 cycle = RAIL_SUMMARY_SECONDS + RAIL_CALLING_SECONDS
                 within = value % cycle
-                return max(0.05, RAIL_SUMMARY_SECONDS - within)
+                boundaries.append(RAIL_SUMMARY_SECONDS - within)
+            elif not self._departures_calling_moving(screen, phase):
+                local_phase = rail_phase_elapsed(phase)
+                movement_at = RAIL_MARQUEE_DELAY_SECONDS + CALLING_MARQUEE_PAUSE_SECONDS
+                if local_phase < movement_at:
+                    boundaries.append(movement_at - local_phase)
+            return max(0.05, min(boundaries))
         return _header_next_boundary_seconds(phase, screen.get("weather"))
+
+    def _departures_calling_moving(self, screen, phase):
+        if rail_phase(phase) != "calling":
+            return False
+        local_phase = rail_phase_elapsed(phase)
+        if local_phase < RAIL_MARQUEE_DELAY_SECONDS + CALLING_MARQUEE_PAUSE_SECONDS:
+            return False
+        services = screen.get("services") or ()
+        scroll_speed, scroll_gap = _station_scroll_settings(screen)
+        for service in services[:2]:
+            text = calling_text(service)
+            x = calling_marquee_x(
+                text,
+                local_phase,
+                display_width=DISPLAY_WIDTH,
+                font_width=WEATHER_FONT_WIDTH,
+                speed=scroll_speed,
+                gap=scroll_gap,
+            )
+            if x is None:
+                continue
+            prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
+            station_text = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+            if len(station_text) * WEATHER_FONT_WIDTH > DISPLAY_WIDTH - prefix_width:
+                return True
+        return False
 
     def _record_animation_update(self, scene, changed, duration):
         self._stats_animation_ticks += 1

@@ -18,3 +18,12 @@ def next_deadline(previous_deadline, now, cadence, cadence_changed=False):
         deadline = now
         rebased = True
     return deadline, remaining, late, rebased
+
+
+def earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep, fallback=1.0):
+    """Choose the earliest positive rotation, fetch, or animation boundary."""
+    values = []
+    for value in (until_rotation, until_fetch, boundary_sleep):
+        if value is not None:
+            values.append(max(0.05, float(value)))
+    return min(values) if values else max(0.05, float(fallback))

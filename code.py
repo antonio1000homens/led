@@ -30,7 +30,7 @@ if local:
 from queue_display import create
 from fixtures import animated_services
 from flash_events import FlashState
-from animation_scheduler import next_deadline
+from animation_scheduler import earliest_wake_seconds, next_deadline
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from matrix_config import (
@@ -356,7 +356,7 @@ while True:
             duration = max(1, int(screen.get("duration_seconds") or 8))
             until_rotation = max(0.05, duration - max(0, phase))
             until_fetch = max(0.05, next_fetch - time.monotonic())
-            time.sleep(min(until_rotation, until_fetch, boundary_sleep or 1.0))
+            time.sleep(earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep))
             continue
         cadence_changed = animation_cadence != desired_cadence
         if cadence_changed:
