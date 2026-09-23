@@ -36,24 +36,42 @@ When working from the rear of the assembled display, remember that the apparent 
 
 The production backplane no longer derives its screw positions from the historical 160 × 80 mm P2.5 reference model.
 
-A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, established the six-boss 3 × 2 layout. The **first printed 1:1 template** then showed the outer boss centres were **2 mm too close to every panel edge**. The corrected production coordinates are therefore:
+A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, established the six-boss 3 × 2 layout. The **first printed 1:1 template** then showed the outer boss centres were **2 mm too close to every panel edge**. The first physical template moved the outer holes 2 mm inward from the scan/photo estimate. A subsequent fit showed that correction was **0.5 mm too far inward**, so the outer centres are now moved 0.5 mm back toward every panel edge.
+
+The current production coordinates are:
 
 | X (mm) | Y (mm) |
 | ---: | ---: |
-| 8.4 | 8.4 |
-| 128.0 | 8.4 |
-| 247.6 | 8.4 |
-| 8.4 | 119.6 |
-| 128.0 | 119.6 |
-| 247.6 | 119.6 |
+| 7.9 | 7.9 |
+| 128.0 | 7.9 |
+| 248.1 | 7.9 |
+| 7.9 | 120.1 |
+| 128.0 | 120.1 |
+| 248.1 | 120.1 |
 
 This gives:
-- **8.4 mm confirmed edge inset target** on all four sides;
+- **7.9 mm current edge inset target** on all four sides;
 - a centre mounting column at **x = 128.0 mm**;
-- outer-column spacing of **119.6 mm** either side of centre;
-- vertical row spacing of **111.2 mm**.
+- outer-column spacing of **120.1 mm** either side of centre;
+- vertical row spacing of **112.2 mm**.
 
-The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the corrected structural backplane is accepted.
+The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the structural backplane is accepted.
+
+### Rear backplane footprint
+
+Physical fitting indicates that the moulded **rear** of the LED module is approximately **1 mm smaller overall** than the nominal 256 × 128 mm front/illuminated envelope.
+
+The CAD therefore keeps the nominal panel coordinate system and panel-to-panel pitch at **256 × 128 mm**, but the printed structural backplane is centred inside that envelope with:
+
+- rear backplane footprint: **255 × 127 mm**;
+- edge inset: **0.5 mm on all four sides**;
+- nominal gap between adjacent rear backplanes: **1.0 mm** when the LED panel fronts remain on a 256 mm pitch.
+
+Boss-hole and locator-clearance coordinates remain referenced to the nominal panel envelope, so shrinking the rear frame does **not** move the measured mounting centres.
+
+The seam alignment tongues are extended across the 1 mm rear-frame gap so they retain the intended engagement in the neighbouring backplane socket. The recessed rear joiners remain centred on the nominal 256 mm panel seams.
+
+This 255 × 127 mm rear footprint still requires a physical fit check against one real panel before printing the remaining backplanes.
 
 ### Moulded locating-pin clearance
 
@@ -71,8 +89,8 @@ Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass ins
 
 | File | Qty | Purpose |
 | --- | ---: | --- |
-| `01_backplane_module_PRINT_3.stl` | 3 | Standard 256 × 128 mm rear structure with right-side seam alignment tongues |
-| `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost backplane; omits unused outer tongues/recess/insert pockets |
+| `01_backplane_module_PRINT_3.stl` | 3 | Standard centred 255 × 127 mm rear structure on a 256 × 128 mm panel pitch, with seam alignment tongues |
+| `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost 255 × 127 mm backplane; omits unused outer tongues/recess/insert pockets |
 | `02_module_joiner_PRINT_3.stl` | 3 | Locks each module seam from the rear with flush countersunk M3 screws |
 | `03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
 | `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier for the rear of Panel 1 / `backplane_1` |
@@ -91,7 +109,7 @@ Open `00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear str
 - Panels/backplanes 1–4 at x = 0, 256, 512 and 768 mm;
 - the dedicated right-end backplane on Panel 4;
 - all three recessed seam joiners;
-- both 1000 × 8 mm reinforcement rods;
+- both 1000 × 6 mm reinforcement rods;
 - the MatrixPortal carrier on Panel 1, including the simplified PCB reference and left-side service overhang;
 - the power-distribution carrier on Panel 2;
 - translucent guide planes at the three nominal panel seams.
@@ -151,11 +169,11 @@ The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Us
 
 ## Reinforcement-bar change
 
-The corrected brass-insert rows are **8.4 mm from the top/bottom edges** after the first physical template fit showed a 2 mm edge offset. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
+The current brass-insert rows are **7.9 mm from the top/bottom edges** after the second physical fit moved the first correction 0.5 mm back outward. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **7.2 mm** for nominal **6 mm rods**, preserving 0.6 mm radial nominal clearance, and each module has an **8.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
 
 ## Non-printed hardware
 
-- 2 × 1000 mm × 8 mm round steel/aluminium bars
+- 2 × 1000 mm × 6 mm round steel/aluminium bars
 - **M3 heat-set inserts: M3 × 6 mm long × 4.5 mm outside diameter**
 - M3 × 10 mm **flat-head/countersunk** screws for the three seam joiners (head must fit the 6.4 mm countersink)
 - M3 × 8–10 mm screws for the electronics carriers
@@ -214,7 +232,7 @@ For a visual mechanical check, open `04_matrixportal_side_access_ASSEMBLY.scad`.
 
 The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
 
-The rod-end plug is now a split, tapered friction/detent design sized for the 9.2 mm bore. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
+The rod-end plug is now a split, tapered friction/detent design sized for the 7.2 mm bore used by the 6 mm reinforcement bars. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
 
 ## Separate centre-boss desk stand
 
@@ -239,13 +257,13 @@ The stand is deliberately not fused into the backplane, so it can be omitted for
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
 5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
-6. Insert and centre the two 1 m × 8 mm reinforcement bars.
+6. Insert and centre the two 1 m × 6 mm reinforcement bars.
 7. If desk-standing is required, fit two centre-boss stands to the lower-centre bosses of Panels 1 and 4 and verify that the anti-rotation lips seat correctly and the assembled display is stable.
 8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
 
 ## Validation still required
 
-The six-point layout is based on the calibrated real-panel photograph and independently supported by the 3D scan, but the **first physical template exposed a 2 mm edge-offset error**. The corrected coordinates are now in CAD; the replacement is not production-accepted until the revised template/backplane is physically fitted.
+The six-point layout is based on the calibrated real-panel photograph and independently supported by the 3D scan. The first physical template drove a 2 mm inward correction; the next fit showed that was 0.5 mm too far inward. The latest coordinates are now in CAD, but the replacement is not production-accepted until the revised template/backplane is physically fitted.
 
 Before printing the remaining backplanes, confirm:
 

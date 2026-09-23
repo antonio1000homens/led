@@ -130,7 +130,7 @@
   "primitives": {
     "rod_bottom": {
       "type": "cylinder",
-      "radius": 4,
+      "radius": 3,
       "height": 1000,
       "axis": "x",
       "center": [
@@ -141,7 +141,7 @@
     },
     "rod_top": {
       "type": "cylinder",
-      "radius": 4,
+      "radius": 3,
       "height": 1000,
       "axis": "x",
       "center": [
@@ -210,49 +210,49 @@
       "b": "backplane_4"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 1",
+      "name": "bottom 6 mm rod clears backplane 1",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_1"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 2",
+      "name": "bottom 6 mm rod clears backplane 2",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_2"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 3",
+      "name": "bottom 6 mm rod clears backplane 3",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_3"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 4",
+      "name": "bottom 6 mm rod clears backplane 4",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_4"
     },
     {
-      "name": "top 8 mm rod clears backplane 1",
+      "name": "top 6 mm rod clears backplane 1",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_1"
     },
     {
-      "name": "top 8 mm rod clears backplane 2",
+      "name": "top 6 mm rod clears backplane 2",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_2"
     },
     {
-      "name": "top 8 mm rod clears backplane 3",
+      "name": "top 6 mm rod clears backplane 3",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_3"
     },
     {
-      "name": "top 8 mm rod clears backplane 4",
+      "name": "top 6 mm rod clears backplane 4",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_4"
@@ -308,7 +308,7 @@
   "manual_validation_gates": [
     {
       "name": "real P4 mounting pattern",
-      "reason": "The first printed 1:1 template showed the outer brass-boss holes 2 mm too close to every panel edge. CAD is corrected to x=8.4/128/247.6 and y=8.4/119.6; print the revised template and confirm before structural backplanes.",
+      "reason": "The first printed template moved the outer boss holes 2 mm inward; the next physical fit showed that was 0.5 mm too far. CAD is now corrected to x=7.9/128/248.1 and y=7.9/120.1. Print/re-fit the revised template before accepting structural backplanes.",
       "issue": "#76"
     },
     {
@@ -323,7 +323,7 @@
     },
     {
       "name": "printed 1 m rod insertion",
-      "reason": "Nominal CAD clearance can be checked automatically, but accumulated FDM tolerance across four modules requires a physical test.",
+      "reason": "Nominal CAD uses 6 mm reinforcement bars in 7.2 mm bores (0.6 mm radial clearance), but accumulated FDM tolerance across four modules still requires a physical insertion test.",
       "issue": "#81 finding 5"
     },
     {
@@ -344,6 +344,11 @@
     {
       "name": "centre-boss desk stand physical stability",
       "reason": "PRINT_3 reduces the boss mounting plate from 5 mm to 3 mm and adds a 15 mm forward toe under the display while retaining the 60 mm rear foot. Verify screw length/thread engagement, anti-rotation lip fit and that two stands no longer tip forward.",
+      "issue": "#76"
+    },
+    {
+      "name": "rear backplane footprint",
+      "reason": "The physical LED module rear appears 1 mm smaller overall than the front 256 x 128 mm envelope. CAD now uses a centred 255 x 127 mm rear footprint (0.5 mm inset on every edge) while retaining the nominal panel coordinate system and 256 mm module pitch. Confirm the revised backplane seats inside the rear moulding without edge overhang.",
       "issue": "#76"
     }
   ],
@@ -449,35 +454,35 @@
     }
   ],
   "measured_panel_geometry": {
-    "source": "calibrated 1:1 ruler photograph cross-checked with Kiri Engine scan, then corrected by first physical template fit (outer bosses +2 mm inward from all edges)",
+    "source": "calibrated 1:1 ruler photograph cross-checked with Kiri Engine scan, then corrected by two physical template fits (first +2 mm inward from all edges, second 0.5 mm back outward)",
     "panel_nominal_mm": [
       256,
       128
     ],
     "brass_mount_centres_mm": [
       [
-        8.4,
-        8.4
+        7.9,
+        7.9
       ],
       [
         128,
-        8.4
+        7.9
       ],
       [
-        247.6,
-        8.4
+        248.1,
+        7.9
       ],
       [
-        8.4,
-        119.6
+        7.9,
+        120.1
       ],
       [
         128,
-        119.6
+        120.1
       ],
       [
-        247.6,
-        119.6
+        248.1,
+        120.1
       ]
     ],
     "panel_mount_hole_d_mm": 4.5,
@@ -500,6 +505,20 @@
       ]
     ],
     "moulded_locator_clearance_d_mm": 10,
-    "physical_fit_status": "first template showed 2 mm edge-offset error; corrected template pending physical re-fit"
+    "physical_fit_status": "second physical fit showed the first inward correction was 0.5 mm too far; CAD now uses x=7.9/128/248.1 and y=7.9/120.1, pending another physical re-fit",
+    "rear_backplane_target_mm": [
+      255,
+      127
+    ],
+    "rear_backplane_edge_inset_mm": 0.5,
+    "rear_backplane_fit_note": "Physical LED module rear moulding appears 1 mm smaller overall than the 256 x 128 mm front envelope; CAD keeps the 256 x 128 coordinate system/pitch but insets the printed backplane 0.5 mm on every edge."
+  },
+  "reinforcement_bar": {
+    "nominal_diameter_mm": 6,
+    "bore_diameter_mm": 7.2,
+    "radial_clearance_mm": 0.6,
+    "leadin_diameter_mm": 8.4,
+    "length_mm": 1000,
+    "note": "Bar centre positions are unchanged from the previous 8 mm-bar design."
   }
 }

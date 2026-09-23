@@ -31,12 +31,12 @@ module complete_enclosure_assembly(show_guides=true) {
         color([0.55,0.55,0.58])
             translate([x,40,joiner_z]) module_joiner();
 
-    // ---------- 1000 mm reinforcement rods ----------
+    // ---------- 1000 mm x 6 mm reinforcement rods ----------
     module rod_x(y) {
         color([0.70,0.70,0.72])
             translate([12,y,rod_z])
                 rotate([0,90,0])
-                    cylinder(d=8,h=1000,$fn=64);
+                    cylinder(d=reinforcement_bar_d,h=1000,$fn=64);
     }
     rod_x(rod_y_bottom);
     rod_x(rod_y_top);

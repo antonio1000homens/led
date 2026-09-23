@@ -3,11 +3,12 @@
 //
 // P4 physical-panel geometry:
 // A calibrated 1:1 ruler photograph plus an independent Kiri Engine scan show
-// six brass mounting inserts in a symmetric 3 x 2 pattern. A first physical
-// template fit then showed the outer boss centres need to move 2 mm inward
-// from every panel edge:
-//   x = 8.4, 128.0, 247.6 mm
-//   y = 8.4, 119.6 mm
+// six brass mounting inserts in a symmetric 3 x 2 pattern. The first physical
+// template moved the outer boss centres 2 mm inward; the next fit showed that
+// correction was 0.5 mm too far inward, so the outer centres move 0.5 mm back
+// toward every panel edge:
+//   x = 7.9, 128.0, 248.1 mm
+//   y = 7.9, 120.1 mm
 // These replace the obsolete four-point pattern inferred from a scaled P2.5 panel.
 //
 // The previously inferred four-point centres (26.704/229.296 x 12/116 mm)
@@ -31,17 +32,27 @@ $fn = 48;
 // `part` is intentionally not assigned here: command-line -D and the per-part
 // wrapper SCAD files may set it. If undefined, the default render is backplane.
 
+// Nominal front-panel envelope / panel-to-panel pitch.
 module_w = 256;
 module_h = 128;
+
+// The moulded rear of the physical LED module is slightly smaller than the
+// 256 x 128 mm illuminated/front envelope. Keep all measured boss coordinates
+// in the nominal panel coordinate system, but inset the printed backplane by
+// 0.5 mm on every edge: 255 x 127 mm overall.
+backplane_edge_inset = 0.5;
+backplane_w = module_w - 2*backplane_edge_inset;
+backplane_h = module_h - 2*backplane_edge_inset;
+
 depth = 16;
 frame = 16;
 
 // Physical-template-corrected P4 brass insert centres.
-// The first 1:1 printed template showed every outer boss centre 2 mm too close
-// to its nearest panel edge, so both axes are inset by a further 2 mm.
-// The centre column remains on x = 128 mm.
-panel_mount_x = [8.4, 128.0, 247.6];
-panel_mount_y = [8.4, 119.6];
+// First fit: outer bosses moved 2 mm inward from the scan/photo estimate.
+// Second fit: those outer holes were 0.5 mm too far inward, so move them
+// 0.5 mm back toward their nearest panel edges. Centre X remains 128 mm.
+panel_mount_x = [7.9, 128.0, 248.1];
+panel_mount_y = [7.9, 120.1];
 panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolerance.
 
 // Moulded locating-pin clearance. These four centres correspond to the old
@@ -53,8 +64,12 @@ panel_locator_clearance_d = 10.0;
 slot_len = 10;
 slot_w = 4.2;
 
-rod_d = 9.2;
-rod_leadin_d = 10.4;
+// Reinforcement bars are now nominal 6 mm diameter.
+// Preserve the previous 0.6 mm radial running clearance used for the 8 mm
+// bars: 6 mm bar -> 7.2 mm bore, with a larger FDM-friendly lead-in.
+reinforcement_bar_d = 6;
+rod_d = 7.2;
+rod_leadin_d = 8.4;
 rod_leadin_len = 1.5;
 rod_z = depth/2;
 rod_y_bottom = 24;
@@ -127,17 +142,51 @@ module rod_bore(y) {
 
 module backplane_body(with_right_tongues=true) {
     union() {
-        cube([module_w,frame,depth]);
-        translate([0,module_h-frame,0]) cube([module_w,frame,depth]);
-        translate([0,frame,0]) cube([frame,module_h-2*frame,depth]);
-        translate([module_w-frame,frame,0]) cube([frame,module_h-2*frame,depth]);
+        // Rear frame is centred inside the nominal 256 x 128 front-panel
+        // envelope, leaving 0.5 mm clearance on every outside edge.
+        translate([backplane_edge_inset,backplane_edge_inset,0])
+            cube([backplane_w,frame,depth]);
+        translate([
+            backplane_edge_inset,
+            module_h-backplane_edge_inset-frame,
+            0
+        ]) cube([backplane_w,frame,depth]);
+        translate([
+            backplane_edge_inset,
+            backplane_edge_inset+frame,
+            0
+        ]) cube([frame,backplane_h-2*frame,depth]);
+        translate([
+            module_w-backplane_edge_inset-frame,
+            backplane_edge_inset+frame,
+            0
+        ]) cube([frame,backplane_h-2*frame,depth]);
 
-        translate([0,rod_y_bottom-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
-        translate([0,rod_y_top-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
+        translate([
+            backplane_edge_inset,
+            rod_y_bottom-rod_beam_h/2,
+            0
+        ]) cube([backplane_w,rod_beam_h,depth]);
+        translate([
+            backplane_edge_inset,
+            rod_y_top-rod_beam_h/2,
+            0
+        ]) cube([backplane_w,rod_beam_h,depth]);
 
         if (with_right_tongues)
             for (yy=[joint_y1,joint_y2])
-                translate([module_w-0.6,yy,joint_z]) cube([joint_len+0.6,joint_w,joint_h]);
+                // Preserve 0.6 mm attachment into this backplane, bridge the
+                // 1 mm rear-frame gap at a panel seam, then retain the original
+                // 6 mm engagement into the neighbouring socket.
+                translate([
+                    module_w-backplane_edge_inset-0.6,
+                    yy,
+                    joint_z
+                ]) cube([
+                    joint_len + 2*backplane_edge_inset + 0.6,
+                    joint_w,
+                    joint_h
+                ]);
     }
 }
 
@@ -171,8 +220,18 @@ module backplane(right_end=false) {
                 translate([x,y,-0.5]) cylinder(d=panel_locator_clearance_d,h=depth+1);
 
         for (yy=[joint_y1,joint_y2])
-            translate([-0.1,yy-joint_clear/2,joint_z-joint_clear/2])
-                cube([joint_len+0.2,joint_w+joint_clear,joint_h+joint_clear]);
+            // Socket begins just outside the inset rear-frame edge and keeps
+            // the original 6 mm tongue engagement inside the neighbour.
+            translate([
+                backplane_edge_inset-0.1,
+                yy-joint_clear/2,
+                joint_z-joint_clear/2
+            ])
+                cube([
+                    joint_len+0.2,
+                    joint_w+joint_clear,
+                    joint_h+joint_clear
+                ]);
 
         joiner_recesses(!right_end);
 
@@ -205,14 +264,14 @@ module rod_end_plug() {
     stem_len = 11.4;
     difference() {
         union() {
-            cylinder(h=cap_t,d=13);
-            translate([0,0,cap_t]) cylinder(h=stem_len,d1=9.25,d2=9.05);
+            cylinder(h=cap_t,d=11);
+            translate([0,0,cap_t]) cylinder(h=stem_len,d1=7.25,d2=7.05);
             // Compressible detent gives the plug positive friction retention
-            // in the 9.2 mm bore without adhesive.
-            translate([0,0,cap_t+stem_len-2.0]) cylinder(h=0.9,d=9.45);
+            // in the 7.2 mm bore without adhesive.
+            translate([0,0,cap_t+stem_len-2.0]) cylinder(h=0.9,d=7.45);
         }
         // Split the outer half of the stem so the detent can compress on entry.
-        translate([-0.6,-5,cap_t+4.0]) cube([1.2,10,stem_len]);
+        translate([-0.55,-4,cap_t+4.0]) cube([1.1,8,stem_len]);
     }
 }
 
@@ -421,7 +480,11 @@ module centre_boss_stand() {
             // underneath the display and 60 mm rearward. The forward toe gives
             // the stand a front reaction point instead of letting the display
             // pivot forward around the lower boss.
-            translate([0,-stand_foot_t,-stand_front_toe_len])
+            translate([
+                0,
+                backplane_edge_inset-stand_foot_t,
+                -stand_front_toe_len
+            ])
                 cube([
                     stand_w,
                     stand_foot_t,
@@ -433,13 +496,21 @@ module centre_boss_stand() {
                 hull() {
                     translate([xx,0,0])
                         cube([stand_rib_t,stand_plate_h,stand_plate_t]);
-                    translate([xx,-stand_foot_t,stand_rear_foot_len-10])
+                    translate([
+                        xx,
+                        backplane_edge_inset-stand_foot_t,
+                        stand_rear_foot_len-10
+                    ])
                         cube([stand_rib_t,stand_foot_t,10]);
                 }
 
             // Anti-rotation lip: wraps 5 mm under the rear of the backplane edge
             // without reaching the LED-panel-facing plane.
-            translate([0,-stand_edge_hook_h,-stand_edge_hook_depth])
+            translate([
+                0,
+                backplane_edge_inset-stand_edge_hook_h,
+                -stand_edge_hook_depth
+            ])
                 cube([
                     stand_w,
                     stand_edge_hook_h,
