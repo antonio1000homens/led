@@ -64,8 +64,12 @@ panel_locator_clearance_d = 10.0;
 slot_len = 10;
 slot_w = 4.2;
 
-rod_d = 9.2;
-rod_leadin_d = 10.4;
+// Reinforcement bars are now nominal 6 mm diameter.
+// Preserve the previous 0.6 mm radial running clearance used for the 8 mm
+// bars: 6 mm bar -> 7.2 mm bore, with a larger FDM-friendly lead-in.
+reinforcement_bar_d = 6;
+rod_d = 7.2;
+rod_leadin_d = 8.4;
 rod_leadin_len = 1.5;
 rod_z = depth/2;
 rod_y_bottom = 24;
@@ -260,14 +264,14 @@ module rod_end_plug() {
     stem_len = 11.4;
     difference() {
         union() {
-            cylinder(h=cap_t,d=13);
-            translate([0,0,cap_t]) cylinder(h=stem_len,d1=9.25,d2=9.05);
+            cylinder(h=cap_t,d=11);
+            translate([0,0,cap_t]) cylinder(h=stem_len,d1=7.25,d2=7.05);
             // Compressible detent gives the plug positive friction retention
-            // in the 9.2 mm bore without adhesive.
-            translate([0,0,cap_t+stem_len-2.0]) cylinder(h=0.9,d=9.45);
+            // in the 7.2 mm bore without adhesive.
+            translate([0,0,cap_t+stem_len-2.0]) cylinder(h=0.9,d=7.45);
         }
         // Split the outer half of the stem so the detent can compress on entry.
-        translate([-0.6,-5,cap_t+4.0]) cube([1.2,10,stem_len]);
+        translate([-0.55,-4,cap_t+4.0]) cube([1.1,8,stem_len]);
     }
 }
 
