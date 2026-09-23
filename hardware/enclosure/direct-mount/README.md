@@ -297,6 +297,8 @@ For the complete four-panel display, print **two stands** and fit them to the lo
 
 The stand is deliberately not fused into the backplane, so it can be omitted for wall mounting or reprinted independently if a different desk angle/foot length is later preferred.
 
+The new recessed panel screw wells reduce screw length for **ordinary panel mounting points**. Where a desk stand is fitted, the lower-centre screw still clamps through the 3 mm stand plate at the rear surface, so that fastener remains the stand-specific longer screw described above. The rear lid has sufficient nominal internal clearance to cover the stand plate/screw head, but that combined fit remains a physical validation item.
+
 ## Recommended validation sequence
 
 1. Print the **revised** full-pattern template and verify all six corrected brass-boss centres plus the four 10 mm locating-pin clearances on one physical panel.
