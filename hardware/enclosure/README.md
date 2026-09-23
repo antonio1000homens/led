@@ -33,7 +33,7 @@ The old P2.5-derived positions are retained only as separate moulded-locator cle
 - `direct-mount/06_cable_clip_PRINT_8.stl` — rear cable-management clips.
 - `direct-mount/07_mounting_slot_coupon_PRINT_1.stl` — slot test plus production-depth blind insert pocket.
 - `direct-mount/08_mount_pattern_template_PRINT_1.stl` — full 256 × 128 mounting-pattern verification template.
-- `direct-mount/09_centre_boss_desk_stand_PRINT_2.stl` — separately printed rear desk stand; print two for the complete display and attach them at the lower-centre bosses.
+- `direct-mount/09_centre_boss_desk_stand_PRINT_3.stl` — separately printed centre-boss desk stand with a 3 mm mounting plate and 15 mm forward anti-tip toe; print two for the complete display.
 
 ## Regenerating STLs
 
