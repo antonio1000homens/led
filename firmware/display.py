@@ -729,7 +729,7 @@ class MatrixDisplay:
                 self._label(group, "DEPARTURES", 0xFFAA00, 0, y)
             elif row_kind == "service" and service is not None:
                 ordinal = (1 if state == "calling" and row_index == 0 else
-                            row_index + 1 if state == "summary" else
+                            row_index if state == "summary" else
                             1 if row_index == 0 else 2)
                 color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
                 self._rail_service(group, service, color, 0, y, rail_right_edge, ordinal)
@@ -1320,7 +1320,7 @@ class FixtureDisplay:
                 if row_kind == "header":
                     self._text("DEPARTURES", 0, y, (255, 170, 0))
                 elif row_kind == "service" and service is not None:
-                    ordinal = (1 if row_index == 0 else 2) if state == "calling" else row_index + 1
+                    ordinal = (1 if row_index == 0 else 2) if state == "calling" else row_index
                     color = (255, 20, 0) if service.get("cancelled") else (255, 255, 255)
                     self._rail_service(service, color, 0, y, rail_right_edge, ordinal)
                 elif row_kind == "calling" and service is not None:

@@ -514,9 +514,9 @@
       const list = Array.isArray(services) ? services : [];
       if (railPhase(phase) === 'summary') return [
         { kind: 'header', service: null },
+        { kind: 'service', service: list[0] || null },
         { kind: 'service', service: list[1] || null },
-        { kind: 'service', service: list[2] || null },
-        { kind: 'service', service: list[3] || null }
+        { kind: 'service', service: list[2] || null }
       ];
       return [
         { kind: 'service', service: list[0] || null },
@@ -669,7 +669,7 @@
             context.fillStyle = '#ffaa00';
             drawLedText('DEPARTURES', 0, y);
           } else if (row.kind === 'service' && row.service) {
-            const ordinal = railPhase(phase) === 'calling' ? (rowIndex === 0 ? 1 : 2) : rowIndex + 1;
+            const ordinal = railPhase(phase) === 'calling' ? (rowIndex === 0 ? 1 : 2) : rowIndex;
             drawRailService(row.service, y, 0, headerRight, row.service.cancelled ? '#ff3300' : '#ffffff', ordinal);
           } else if (row.kind === 'calling' && row.service) {
             const calling = callingMarqueeState(callingText(row.service), railPhaseElapsed(phase), stationMarqueeSpeed(screen), stationMarqueeGap());
