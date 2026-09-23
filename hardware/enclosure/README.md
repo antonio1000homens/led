@@ -27,7 +27,7 @@ The old P2.5-derived positions are retained only as separate moulded-locator cle
 - `direct-mount/01_backplane_module_PRINT_3.stl` — three centred 255 × 127 mm rear backplanes with right-side alignment tongues, used on a 256 mm panel pitch.
 - `direct-mount/01b_backplane_right_end_PRINT_1.stl` — rightmost 255 × 127 mm backplane without unused outer tongues/recesses.
 - `direct-mount/02_module_joiner_PRINT_3.stl` — recessed rear seam locks with flush countersunk M3 fasteners.
-- `direct-mount/03_rod_end_plug_PRINT_4.stl` — retains the two 1 m × 8 mm reinforcement bars.
+- `direct-mount/03_rod_end_plug_PRINT_4.stl` — retains the two 1 m × 6 mm reinforcement bars.
 - `direct-mount/04_matrixportal_mount_PRINT_1.stl` — removable MatrixPortal S3 rear carrier.
 - `direct-mount/05_power_distribution_mount_PRINT_1.stl` — removable fused 5 V distribution carrier.
 - `direct-mount/06_cable_clip_PRINT_8.stl` — rear cable-management clips.
