@@ -187,10 +187,10 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(todoist_effective_duration(30, events, page_seconds=5, current_date="2026-09-13"), 30)
 
     def test_rail_uses_shared_four_row_grid_and_safe_missing_services(self):
-        self.assertEqual(RAIL_ROW_Y, (2, 10, 18, 25))
+        self.assertEqual(RAIL_ROW_Y, (4, 12, 20, 28))
         self.assertEqual(sorted(RAIL_ROW_Y), list(RAIL_ROW_Y))
-        self.assertGreaterEqual(RAIL_ROW_Y[0], 0)
-        self.assertLessEqual(RAIL_ROW_Y[-1] + 6, 31)
+        self.assertGreaterEqual(RAIL_ROW_Y[0], 4)
+        self.assertEqual(RAIL_ROW_Y[-1], 28)
         for count in range(4):
             rows = rail_rows([{"time": "12:00"}] * count, 0)
             self.assertEqual(len(rows), 4)

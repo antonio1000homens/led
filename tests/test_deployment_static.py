@@ -105,6 +105,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("const TODOIST_MARQUEE_PAUSE_SECONDS = 1.5;", simulator)
         self.assertIn("const CLOCK_X = 226 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const STALE_X = 190 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const RAIL_ROW_Y = [4, 12, 20, 28].map(value => value * FONT_PIXEL_SCALE);", simulator)
         self.assertIn("const CONTENT_FIRST_Y = 8 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("presentPreview();", simulator)

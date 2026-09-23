@@ -78,10 +78,10 @@ MATRIX_ANIMATION_PROFILES = {
     },
 }
 
-# Keep the pre-#91 fixed B8 scheduling model reproducible until a physical
-# comparison demonstrates a clear visual improvement. A board-local
-# settings_local.py may opt into "adaptive" for the P1 experiment.
-MATRIX_ANIMATION_PROFILE = "baseline"
+# The physical comparison found the 20 Hz transition cadence smooth without
+# refresh failures. Keep marquee and departures cadence unchanged; only page
+# and header transitions use the higher cadence.
+MATRIX_ANIMATION_PROFILE = "transition_20"
 try:
     import settings_local as _animation_settings_local
     MATRIX_ANIMATION_PROFILE = getattr(

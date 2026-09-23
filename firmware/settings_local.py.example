@@ -6,11 +6,11 @@ POLL_SECONDS = 30
 ANIMATE = True
 FRAME_SECONDS = 0.2
 
-# Optional issue #94 experiment. Keep the production control unless a matched
-# physical-board comparison is being run: adaptive, transition_15, or
-# transition_20. This changes transition cadence only; it does not change
+# Optional issue #94 override for a board-local comparison: adaptive,
+# transition_15, transition_20, or baseline. The checked-in default is
+# transition_20; this changes transition cadence only and does not change
 # marquee speed or the Matrix presentation mode.
-# MATRIX_ANIMATION_PROFILE = "baseline"
+# MATRIX_ANIMATION_PROFILE = "transition_20"
 
 WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"

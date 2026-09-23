@@ -278,7 +278,8 @@ cp settings_local.py /Volumes/CIRCUITPY/
 ## Short-transition cadence experiment
 
 Issue #94 adds explicit application-cadence profiles for matched physical
-comparisons. The checked-in and production default is `baseline` (fixed B8).
+comparisons. The checked-in and production default is `transition_20` (fixed
+B8 presentation with 20 Hz page/header transitions).
 The opt-in candidates are:
 
 - `adaptive`: current P1 behaviour, with 12 Hz page/header/departures
@@ -300,9 +301,9 @@ bash scripts/install-firmware.sh /Volumes/CIRCUITPY
 Capture `MATRIX PRESENTATION`, `MATRIX STATS`, and `FRAME PACE` serial lines
 for matched runs. The class counters in `MATRIX STATS` distinguish Todoist
 marquee, Todoist page slide, header slide, and departures calling updates.
-Do not change marquee speed, slide duration, presentation mode, or the
-production default as part of this comparison. Restore `baseline` after the
-run and verify a clean boot before treating a candidate as deployable.
+Do not change marquee speed, slide duration, or presentation mode as part of
+this comparison. Restore `transition_20` after temporary candidate runs and
+verify a clean boot before treating the board as deployable.
 
 For a deterministic local payload that actually exercises both Todoist pages
 and the clock/weather header, run the backend with both fixture sources:

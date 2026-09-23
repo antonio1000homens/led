@@ -13,9 +13,10 @@ CALLING_MARQUEE_PAUSE_SECONDS = 3.0
 CALLING_STATION_FONT_WIDTH = 5
 DEFAULT_STATION_LIST_SPACING = 10
 # Shared four-row grid for the physical 32px panel.
-# Four 7px glyphs with a one-pixel inter-row gap, shifted down from the
-# clipped top-heavy layout while keeping every glyph within rows 0..31.
-RAIL_ROW_Y = (2, 10, 18, 25)
+# Four 7px glyph baselines with one-pixel inter-row gaps.  The font's
+# ascender is above the label coordinate, so this uses the full 32px panel
+# without clipping the first row or leaving a large unused bottom band.
+RAIL_ROW_Y = (4, 12, 20, 28)
 RAIL_SUMMARY_SECONDS = 8.0
 RAIL_CALLING_SECONDS = 8.0
 AGENDA_VISIBLE_ROWS = 3
