@@ -308,7 +308,7 @@
   "manual_validation_gates": [
     {
       "name": "real P4 mounting pattern",
-      "reason": "The first printed 1:1 template showed the outer brass-boss holes 2 mm too close to every panel edge. CAD is corrected to x=8.4/128/247.6 and y=8.4/119.6; print the revised template and confirm before structural backplanes.",
+      "reason": "The first printed template moved the outer boss holes 2 mm inward; the next physical fit showed that was 0.5 mm too far. CAD is now corrected to x=7.9/128/248.1 and y=7.9/120.1. Print/re-fit the revised template before accepting structural backplanes.",
       "issue": "#76"
     },
     {
@@ -449,35 +449,35 @@
     }
   ],
   "measured_panel_geometry": {
-    "source": "calibrated 1:1 ruler photograph cross-checked with Kiri Engine scan, then corrected by first physical template fit (outer bosses +2 mm inward from all edges)",
+    "source": "calibrated 1:1 ruler photograph cross-checked with Kiri Engine scan, then corrected by two physical template fits (first +2 mm inward from all edges, second 0.5 mm back outward)",
     "panel_nominal_mm": [
       256,
       128
     ],
     "brass_mount_centres_mm": [
       [
-        8.4,
-        8.4
+        7.9,
+        7.9
       ],
       [
         128,
-        8.4
+        7.9
       ],
       [
-        247.6,
-        8.4
+        248.1,
+        7.9
       ],
       [
-        8.4,
-        119.6
+        7.9,
+        120.1
       ],
       [
         128,
-        119.6
+        120.1
       ],
       [
-        247.6,
-        119.6
+        248.1,
+        120.1
       ]
     ],
     "panel_mount_hole_d_mm": 4.5,
@@ -500,6 +500,6 @@
       ]
     ],
     "moulded_locator_clearance_d_mm": 10,
-    "physical_fit_status": "first template showed 2 mm edge-offset error; corrected template pending physical re-fit"
+    "physical_fit_status": "second physical fit showed the first inward correction was 0.5 mm too far; CAD now uses x=7.9/128/248.1 and y=7.9/120.1, pending another physical re-fit"
   }
 }
