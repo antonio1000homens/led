@@ -57,6 +57,22 @@ This gives:
 
 The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the structural backplane is accepted.
 
+### Rear backplane footprint
+
+Physical fitting indicates that the moulded **rear** of the LED module is approximately **1 mm smaller overall** than the nominal 256 × 128 mm front/illuminated envelope.
+
+The CAD therefore keeps the nominal panel coordinate system and panel-to-panel pitch at **256 × 128 mm**, but the printed structural backplane is centred inside that envelope with:
+
+- rear backplane footprint: **255 × 127 mm**;
+- edge inset: **0.5 mm on all four sides**;
+- nominal gap between adjacent rear backplanes: **1.0 mm** when the LED panel fronts remain on a 256 mm pitch.
+
+Boss-hole and locator-clearance coordinates remain referenced to the nominal panel envelope, so shrinking the rear frame does **not** move the measured mounting centres.
+
+The seam alignment tongues are extended across the 1 mm rear-frame gap so they retain the intended engagement in the neighbouring backplane socket. The recessed rear joiners remain centred on the nominal 256 mm panel seams.
+
+This 255 × 127 mm rear footprint still requires a physical fit check against one real panel before printing the remaining backplanes.
+
 ### Moulded locating-pin clearance
 
 The failed physical backplane fit also showed a protruding moulded locating pin entering one of the old four provisional P2.5-derived slots. Those old centres are therefore retained **only as locating-pin clearance positions**, not mounting points:
@@ -73,8 +89,8 @@ Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass ins
 
 | File | Qty | Purpose |
 | --- | ---: | --- |
-| `01_backplane_module_PRINT_3.stl` | 3 | Standard 256 × 128 mm rear structure with right-side seam alignment tongues |
-| `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost backplane; omits unused outer tongues/recess/insert pockets |
+| `01_backplane_module_PRINT_3.stl` | 3 | Standard centred 255 × 127 mm rear structure on a 256 × 128 mm panel pitch, with seam alignment tongues |
+| `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost 255 × 127 mm backplane; omits unused outer tongues/recess/insert pockets |
 | `02_module_joiner_PRINT_3.stl` | 3 | Locks each module seam from the rear with flush countersunk M3 screws |
 | `03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
 | `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier for the rear of Panel 1 / `backplane_1` |
