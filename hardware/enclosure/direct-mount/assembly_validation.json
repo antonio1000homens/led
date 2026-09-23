@@ -3,11 +3,13 @@
   "parts": {
     "backplane": {
       "file": "01_backplane_module_PRINT_3.stl",
-      "source_scad": "01_backplane_module_PRINT_3.scad"
+      "source_scad": "01_backplane_module_PRINT_3.scad",
+      "expected_components": 1
     },
     "joiner": {
       "file": "02_module_joiner_PRINT_4.stl",
-      "source_scad": "02_module_joiner_PRINT_4.scad"
+      "source_scad": "02_module_joiner_PRINT_4.scad",
+      "expected_components": 2
     },
     "rod_plug": {
       "file": "03_rod_end_plug_PRINT_4.stl",
@@ -35,7 +37,8 @@
     },
     "backplane_right": {
       "file": "01b_backplane_right_end_PRINT_1.stl",
-      "source_scad": "01b_backplane_right_end_PRINT_1.scad"
+      "source_scad": "01b_backplane_right_end_PRINT_1.scad",
+      "expected_components": 1
     },
     "centre_boss_stand": {
       "file": "09_centre_boss_desk_stand_PRINT_3.stl",
@@ -43,7 +46,8 @@
     },
     "rear_lid": {
       "file": "10_rear_lid_PRINT_4.stl",
-      "source_scad": "10_rear_lid_PRINT_4.scad"
+      "source_scad": "10_rear_lid_PRINT_4.scad",
+      "expected_components": 1
     }
   },
   "instances": {
@@ -357,7 +361,7 @@
     },
     {
       "name": "panel-to-panel seam cable corridor",
-      "reason": "PRINT_4 moves/narrows the two alignment tongues and splits each seam joiner into two recessed straps, leaving a nominal 36 mm full-depth rail opening and 36 mm clear joiner corridor. Physically verify the real HUB75 ribbon and power wiring can cross each seam without being pinched or forced against the joiner/tongues.",
+      "reason": "The seam channel is 36 mm high and opens through the rear 12 mm of each 16 mm vertical rail while retaining a 4 mm panel-facing structural web, so the backplane remains one piece. Physically verify the real HUB75 ribbon and power wiring can cross each seam without being pinched or forced against the web, joiner straps or alignment tongues.",
       "issue": "#76"
     },
     {
@@ -545,7 +549,10 @@
     "joiner_origin_y_mm": 32,
     "joiner_overall_height_mm": 64,
     "joiner_strap_height_mm": 14,
-    "note": "Each seam uses two recessed straps from one PRINT_4 STL/set, leaving the centre corridor open."
+    "note": "A 4 mm panel-facing web keeps each backplane one connected print; the rear 12 mm of the 16 mm rail is open across the 36 mm-high seam cable channel. PRINT_4 joiner straps remain above/below the channel.",
+    "full_depth": false,
+    "front_structural_web_mm": 4,
+    "rear_channel_depth_mm": 12
   },
   "rear_lid": {
     "quantity": 4,
