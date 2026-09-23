@@ -1,5 +1,9 @@
 # MatrixPortal refresh experiment — issue #70
 
+> **Historical experiment record.** For the current consolidated conclusions and
+> design rules from #70, #91, #92 and #94, see
+> [`docs/matrixportal-performance.md`](docs/matrixportal-performance.md).
+
 This branch is intended to be copied directly to the physical MatrixPortal S3.
 
 ## Current decision
