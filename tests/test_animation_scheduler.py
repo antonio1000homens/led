@@ -29,6 +29,16 @@ class AnimationSchedulerTests(unittest.TestCase):
         self.assertTrue(late)
         self.assertTrue(rebased)
 
+        next_frame, next_remaining, next_late, next_rebased = next_deadline(
+            previous_deadline=deadline,
+            now=11.01,
+            cadence=8,
+        )
+        self.assertAlmostEqual(next_frame, 11.0 + 1.0 / 8.0)
+        self.assertGreater(next_remaining, 0)
+        self.assertFalse(next_late)
+        self.assertFalse(next_rebased)
+
 
 if __name__ == "__main__":
     unittest.main()

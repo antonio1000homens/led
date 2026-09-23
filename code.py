@@ -347,7 +347,17 @@ while True:
         last_render_key = render_key
     smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen)
     if smooth_animation:
-        desired_cadence = display.animation_cadence(screen, phase) or MATRIX_REFRESH_FPS
+        desired_cadence = display.animation_cadence(screen, phase)
+        if desired_cadence <= 0:
+            pace_active = False
+            animation_cadence = None
+            next_animation_deadline = None
+            boundary_sleep = display.animation_sleep_seconds(screen, phase)
+            duration = max(1, int(screen.get("duration_seconds") or 8))
+            until_rotation = max(0.05, duration - max(0, phase))
+            until_fetch = max(0.05, next_fetch - time.monotonic())
+            time.sleep(min(until_rotation, until_fetch, boundary_sleep or 1.0))
+            continue
         cadence_changed = animation_cadence != desired_cadence
         if cadence_changed:
             was_active = pace_active

@@ -102,6 +102,11 @@ class QueueAwareDisplay:
             return self.base.animation_cadence(screen, phase)
         return 0
 
+    def animation_sleep_seconds(self, screen, phase):
+        if hasattr(self.base, "animation_sleep_seconds"):
+            return self.base.animation_sleep_seconds(screen, phase)
+        return None
+
     def note_fetch_overlap(self):
         if hasattr(self.base, "note_fetch_overlap"):
             self.base.note_fetch_overlap()

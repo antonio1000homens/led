@@ -5,6 +5,7 @@ import time
 import board
 
 from matrix_config import (
+    MATRIX_ANIMATION_PROFILE,
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
     MATRIX_PRESENTATION_MODE,
@@ -35,6 +36,8 @@ from formatting import (
     calling_text,
     departure_scroll_state,
     RAIL_ROW_Y,
+    RAIL_CALLING_SECONDS,
+    RAIL_SUMMARY_SECONDS,
     rail_phase,
     rail_phase_elapsed,
     rail_rows,
@@ -245,6 +248,22 @@ def _header_slide_active(phase, weather):
     )
 
 
+def _header_next_boundary_seconds(phase, weather):
+    if not isinstance(weather, dict):
+        return 60.0
+    try:
+        phase = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        phase = 0.0
+    segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS
+    cycle = segment * 2
+    within = phase % cycle
+    for boundary in (HEADER_HOLD_SECONDS, segment + HEADER_HOLD_SECONDS, cycle):
+        if boundary > within + 1e-9:
+            return max(0.05, boundary - within)
+    return max(0.05, cycle - within)
+
+
 def _rail_columns(service, ordinal=1):
     return (
         ordinal_label(ordinal),
@@ -343,8 +362,9 @@ class MatrixDisplay:
         self._stats_fetch_overlap = 0
         self._stats_cadence_switches = 0
         print(
-            "MATRIX PRESENTATION preset={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
+            "MATRIX PRESENTATION preset={} animation_profile={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
                 MATRIX_EXPERIMENT_PRESET,
+                MATRIX_ANIMATION_PROFILE,
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 TODOIST_MARQUEE_SPEED,
@@ -487,13 +507,19 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
+        if MATRIX_ANIMATION_PROFILE == "baseline":
+            return MATRIX_REFRESH_FPS
         if not isinstance(screen, dict):
             return 0
         kind = screen.get("kind")
         if kind == "calendar_agenda" and screen.get("source") == "todoist":
             if self._todoist_rows and self._todoist_page_slide_active(phase):
                 return TODOIST_PAGE_SLIDE_FPS
-            return TODOIST_MARQUEE_FPS
+            if _header_slide_active(phase, screen.get("weather")):
+                return HEADER_SLIDE_FPS
+            if self._todoist_rows and self._todoist_titles_moving(phase):
+                return TODOIST_MARQUEE_FPS
+            return 0
         if kind == "rail_combined":
             if _header_slide_active(phase, screen.get("weather")):
                 return HEADER_SLIDE_FPS
@@ -501,8 +527,46 @@ class MatrixDisplay:
                 services = screen.get("services") or ()
                 if any(calling_text(service) for service in services[:2]):
                     return DEPARTURES_CALLING_FPS
-            return MATRIX_REFRESH_FPS
+            return 0
         return 0
+
+    def animation_sleep_seconds(self, screen, phase):
+        """Return a conservative sleep until the next known animation boundary."""
+        if MATRIX_ANIMATION_PROFILE != "adaptive":
+            return None
+        if not isinstance(screen, dict):
+            return None
+        kind = screen.get("kind")
+        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+            if self._todoist_rows:
+                try:
+                    phase = max(0.0, float(phase or 0))
+                except (TypeError, ValueError):
+                    phase = 0.0
+                if self._todoist_page_slide_active(phase):
+                    return 0.0
+                visible = self._todoist_viewport_size
+                longest_scroll = 0.0
+                for row in self._todoist_rows[:visible]:
+                    longest_scroll = max(
+                        longest_scroll,
+                        self._todoist_title_scroll_seconds(row[2], row[3]),
+                    )
+                transition_at = self._todoist_page_transition_at(visible)
+                if phase < longest_scroll:
+                    return max(0.05, longest_scroll - phase)
+                if phase < transition_at:
+                    return max(0.05, transition_at - phase)
+        if kind == "rail_combined":
+            if rail_phase(phase) == "summary":
+                try:
+                    value = max(0.0, float(phase or 0))
+                except (TypeError, ValueError):
+                    value = 0.0
+                cycle = RAIL_SUMMARY_SECONDS + RAIL_CALLING_SECONDS
+                within = value % cycle
+                return max(0.05, RAIL_SUMMARY_SECONDS - within)
+        return _header_next_boundary_seconds(phase, screen.get("weather"))
 
     def _record_animation_update(self, scene, changed, duration):
         self._stats_animation_ticks += 1
@@ -672,7 +736,7 @@ class MatrixDisplay:
         if self._rail_clock_label.text != clock_time:
             self._rail_clock_label.text = clock_time
             changed = True
-        item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+        item, offset = _header_item_state(phase, screen.get("weather"))
         clock_x = offset if item == "clock" else DISPLAY_WIDTH
         weather_x = offset if item == "weather" else DISPLAY_WIDTH
         if self._rail_clock_group.x != clock_x:
@@ -906,6 +970,31 @@ class MatrixDisplay:
             return False
         return 0.0 < slide_elapsed < AGENDA_SLIDE_SECONDS
 
+    def _todoist_titles_moving(self, phase):
+        try:
+            phase = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            phase = 0.0
+        visible = self._todoist_viewport_size
+        if not visible:
+            return False
+        transition_at = self._todoist_page_transition_at(visible)
+        if phase < transition_at:
+            return any(
+                phase < self._todoist_title_scroll_seconds(row[2], row[3])
+                for row in self._todoist_rows[:visible]
+            )
+        if len(self._todoist_rows) <= visible:
+            return False
+        slide_end = transition_at + AGENDA_SLIDE_SECONDS
+        if phase < slide_end:
+            return False
+        page_phase = phase - slide_end
+        return any(
+            page_phase < self._todoist_title_scroll_seconds(row[2], row[3])
+            for row in self._todoist_rows[visible:visible * 2]
+        )
+
     def _todoist_title_x(self, title, phase, visible_chars):
         """Scroll once to the final title position instead of looping."""
         visible_chars = max(1, int(visible_chars or 1))
@@ -983,7 +1072,7 @@ class MatrixDisplay:
             self._todoist_clock_label.text = clock_time
             changed = True
 
-        item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+        item, offset = _header_item_state(phase, screen.get("weather"))
         clock_x = offset if item == "clock" else DISPLAY_WIDTH
         weather_x = offset if item == "weather" else DISPLAY_WIDTH
         if self._todoist_clock_group.x != clock_x:
@@ -1067,7 +1156,7 @@ class MatrixDisplay:
         if screen.get("stale"):
             self._label(group, "STALE", 0xFF3300, STALE_X, 3)
         self._mask(group, HEADER_SLOT_X, 0, HEADER_SLOT_WIDTH, 8)
-        item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+        item, offset = _header_item_state(phase, screen.get("weather"))
         if item == "weather":
             self._header_weather(group, screen.get("weather"), offset)
         else:
@@ -1259,7 +1348,7 @@ class FixtureDisplay:
             if screen.get("stale"):
                 self._text("STALE", STALE_X, 0, (255, 20, 0))
             self._clear_rect(HEADER_SLOT_X, 0, DISPLAY_WIDTH, 8)
-            item, offset = _header_item_state(time.monotonic(), screen.get("weather"))
+            item, offset = _header_item_state(phase, screen.get("weather"))
             if item == "weather":
                 self._header_weather(screen.get("weather"), offset)
             else:

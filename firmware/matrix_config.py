@@ -47,6 +47,22 @@ TODOIST_PAGE_SLIDE_FPS = 12
 HEADER_SLIDE_FPS = 12
 DEPARTURES_CALLING_FPS = 12
 
+# Keep the pre-#91 fixed B8 scheduling model reproducible until a physical
+# comparison demonstrates a clear visual improvement. A board-local
+# settings_local.py may opt into "adaptive" for the P1 experiment.
+MATRIX_ANIMATION_PROFILE = "baseline"
+try:
+    import settings_local as _animation_settings_local
+    MATRIX_ANIMATION_PROFILE = getattr(
+        _animation_settings_local,
+        "MATRIX_ANIMATION_PROFILE",
+        MATRIX_ANIMATION_PROFILE,
+    )
+except ImportError:
+    pass
+if MATRIX_ANIMATION_PROFILE not in ("baseline", "adaptive"):
+    raise ValueError("MATRIX_ANIMATION_PROFILE must be baseline or adaptive")
+
 # Aggregate serial summaries are deliberately infrequent so measurement does
 # not materially change MatrixPortal timing.
 MATRIX_STATS_INTERVAL_SECONDS = 20.0

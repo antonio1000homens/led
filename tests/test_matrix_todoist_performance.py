@@ -155,6 +155,11 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
     def setUp(self):
         led_display.board.MTX_ADDRESS = (0, 1, 2, 3)
         led_display.board.MTX_COMMON = {}
+        self._animation_profile = led_display.MATRIX_ANIMATION_PROFILE
+        led_display.MATRIX_ANIMATION_PROFILE = "adaptive"
+
+    def tearDown(self):
+        led_display.MATRIX_ANIMATION_PROFILE = self._animation_profile
 
     def test_marquee_speed_does_not_exceed_update_cadence(self):
         self.assertLessEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
@@ -262,6 +267,39 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 TODOIST_MARQUEE_FPS,
             )
 
+    def test_header_cadence_and_position_use_the_same_phase(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(3)
+            screen["weather"] = {"temperature_c": 17, "icon": "clear_day"}
+            phase = 4.2
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=phase)
+
+            expected_item, expected_offset = led_display._header_item_state(phase, screen["weather"])
+            self.assertEqual(display.animation_cadence(screen, phase), HEADER_SLIDE_FPS)
+            self.assertEqual(
+                display._todoist_clock_group.x if expected_item == "clock" else display._todoist_weather_group.x,
+                expected_offset,
+            )
+
+    def test_baseline_gate_keeps_fixed_b8_schedule(self):
+        with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
+            with patch.dict(sys.modules, fake_modules()):
+                display = led_display.MatrixDisplay()
+                screen = todoist_screen(6)
+                display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+                transition_at = display._todoist_page_transition_at(3)
+                self.assertEqual(display.animation_cadence(screen, transition_at + 0.2), MATRIX_REFRESH_FPS)
+
+    def test_settled_todoist_page_can_sleep_until_boundary(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(3)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=100)
+
+            self.assertEqual(display.animation_cadence(screen, 100), 0)
+            self.assertGreater(display.animation_sleep_seconds(screen, 100), 0)
+
     def test_departures_calling_and_header_slides_select_temporary_cadence(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
@@ -270,7 +308,8 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
             self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(screen, 4.2), HEADER_SLIDE_FPS)
-            self.assertEqual(display.animation_cadence(screen, 0.5), MATRIX_REFRESH_FPS)
+            self.assertEqual(display.animation_cadence(screen, 0.5), 0)
+            self.assertGreater(display.animation_sleep_seconds(screen, 0.5), 0)
 
     def test_unchanged_partial_scene_does_not_present_duplicate_frame(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -278,7 +317,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             screen = todoist_screen(3)
             display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
             refreshes = len(display.display.refresh_targets)
-            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0.01)
 
             self.assertEqual(len(display.display.refresh_targets), refreshes)
             self.assertEqual(display._stats_todoist_ticks, 2)
@@ -296,6 +335,30 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display._stats_rail_ticks, 2)
             self.assertGreaterEqual(display._stats_rail_changed, 1)
             self.assertGreaterEqual(display._stats_update_max, 0.0)
+
+    def test_telemetry_counters_account_for_updates_refreshes_and_boundaries(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            display._record_animation_update("rail", True, 0.25)
+            display._record_animation_update("rail", False, 0.50)
+            display.note_fetch_overlap()
+            display.note_cadence_switch()
+
+            with patch.object(display.display, "refresh", return_value=True):
+                with patch.object(led_display.time, "monotonic", side_effect=[10.0, 10.25, 10.25]):
+                    self.assertTrue(display._refresh())
+
+            self.assertEqual(display._stats_animation_ticks, 2)
+            self.assertEqual(display._stats_rail_ticks, 2)
+            self.assertEqual(display._stats_rail_changed, 1)
+            self.assertAlmostEqual(display._stats_update_total, 0.75)
+            self.assertAlmostEqual(display._stats_update_max, 0.50)
+            self.assertEqual(display._stats_refresh_attempts, 1)
+            self.assertEqual(display._stats_refresh_successes, 1)
+            self.assertAlmostEqual(display._stats_refresh_total, 0.25)
+            self.assertAlmostEqual(display._stats_refresh_max, 0.25)
+            self.assertEqual(display._stats_fetch_overlap, 1)
+            self.assertEqual(display._stats_cadence_switches, 1)
 
     def test_todoist_title_stays_at_end_until_page_transition(self):
         with patch.dict(sys.modules, fake_modules()):
