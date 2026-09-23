@@ -91,6 +91,10 @@ joint_y2 = 86;
 seam_cable_y_min = 46;
 seam_cable_y_max = 82;
 seam_cable_h = seam_cable_y_max - seam_cable_y_min;
+// Keep a continuous panel-facing web so the backplane remains one physical
+// print. The cable channel opens from the rear through the remaining 12 mm.
+seam_cable_front_web_t = 4;
+seam_cable_rear_depth = depth - seam_cable_front_web_t;
 
 // The seam lock is now a PAIR of recessed straps in one STL/set. The clear
 // 36 mm space between them aligns with the full-depth cable opening above.
@@ -242,30 +246,34 @@ module joiner_recesses(include_right_side=true) {
     }
 }
 
-module seam_cable_openings() {
-    // Remove the centre of both vertical seam rails through the complete depth.
-    // This creates a 36 mm high panel-to-panel cable corridor.
+module seam_cable_openings(include_right_side=true) {
+    // Rear-side cable channels through the vertical seam rails.
+    //
+    // IMPORTANT: do not cut through z=0..4. That 4 mm panel-facing web keeps
+    // the upper and lower halves of each backplane structurally connected,
+    // while the rear 12 mm remains open for HUB75/power cables to cross seams.
     translate([
         -0.1,
         seam_cable_y_min,
-        -0.5
+        seam_cable_front_web_t
     ])
         cube([
             backplane_edge_inset + frame + 0.2,
             seam_cable_h,
-            depth + 1
+            seam_cable_rear_depth + 0.5
         ]);
 
-    translate([
-        module_w-backplane_edge_inset-frame-0.1,
-        seam_cable_y_min,
-        -0.5
-    ])
-        cube([
-            backplane_edge_inset + frame + 0.2,
-            seam_cable_h,
-            depth + 1
-        ]);
+    if (include_right_side)
+        translate([
+            module_w-backplane_edge_inset-frame-0.1,
+            seam_cable_y_min,
+            seam_cable_front_web_t
+        ])
+            cube([
+                backplane_edge_inset + frame + 0.2,
+                seam_cable_h,
+                seam_cable_rear_depth + 0.5
+            ]);
 }
 
 module lid_lock_socket(x,y) {
@@ -315,7 +323,7 @@ module backplane(right_end=false) {
                     joint_h+joint_clear
                 ]);
 
-        seam_cable_openings();
+        seam_cable_openings(!right_end);
         joiner_recesses(!right_end);
 
         // Four dedicated snap sockets for the removable rear lid.
