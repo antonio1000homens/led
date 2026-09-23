@@ -73,7 +73,7 @@ jobs:
           test -f /tmp/circuitpy/gtsr4.pem
 
       - name: Compile CircuitPython-compatible source
-        run: python -m compileall -q code.py firmware shared hardware/matrixportal/rgb_test.py
+        run: python -m compileall -q code.py firmware shared hardware/matrixportal
 
       - name: Run firmware and shared-renderer unit tests
         shell: bash
