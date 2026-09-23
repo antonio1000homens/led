@@ -80,7 +80,11 @@ def intersection_volume(a: trimesh.Trimesh, b: trimesh.Trimesh) -> float:
     return abs(float(result.volume))
 
 
-def check_mesh_health(name: str, mesh: trimesh.Trimesh) -> list[str]:
+def check_mesh_health(
+    name: str,
+    mesh: trimesh.Trimesh,
+    expected_components: int | None = None,
+) -> list[str]:
     errors: list[str] = []
     if mesh.is_empty:
         errors.append("mesh is empty")
@@ -95,6 +99,15 @@ def check_mesh_health(name: str, mesh: trimesh.Trimesh) -> list[str]:
         errors.append("mesh is not a valid closed volume")
     if np.any(mesh.extents <= 0):
         errors.append(f"mesh has non-positive extents {mesh.extents.tolist()}")
+
+    if expected_components is not None:
+        component_count = len(mesh.split(only_watertight=False))
+        if component_count != int(expected_components):
+            errors.append(
+                f"mesh has {component_count} connected components; "
+                f"expected {int(expected_components)}"
+            )
+
     return errors
 
 
@@ -134,13 +147,22 @@ def main() -> int:
 
         mesh = load_mesh(path)
         parts[part_name] = mesh
-        errors = check_mesh_health(part_name, mesh)
+        expected_components = spec.get("expected_components")
+        errors = check_mesh_health(part_name, mesh, expected_components)
         extents = " x ".join(f"{value:.3f}" for value in mesh.extents)
         if errors:
             print(f"FAIL  {part_name}: {'; '.join(errors)}")
             failures += 1
         else:
-            print(f"PASS  {part_name}: {extents} mm, {len(mesh.faces)} triangles")
+            component_note = (
+                f", {int(expected_components)} connected component(s)"
+                if expected_components is not None
+                else ""
+            )
+            print(
+                f"PASS  {part_name}: {extents} mm, "
+                f"{len(mesh.faces)} triangles{component_note}"
+            )
 
     if failures:
         print(f"\nStopping before assembly checks: {failures} mesh-health failure(s).")
