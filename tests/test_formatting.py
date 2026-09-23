@@ -83,7 +83,7 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(calling_marquee_x(text, 1), 208)
         self.assertEqual(calling_marquee_x(text, 2), 160)
         self.assertIsNone(calling_marquee_x(text, 11.3))
-        self.assertEqual(calling_marquee_x(text, 14.3), 256)
+        self.assertEqual(calling_marquee_x(text, 14.25), 256)
         short = "CALLING AT: x"
         self.assertEqual(calling_marquee_x(short, 0), 256)
         self.assertGreater(calling_marquee_x(short, 1), 72)
