@@ -3,9 +3,11 @@
 //
 // P4 physical-panel geometry:
 // A calibrated 1:1 ruler photograph plus an independent Kiri Engine scan show
-// six brass mounting inserts in a symmetric 3 x 2 pattern:
-//   x = 6.4, 128.0, 249.6 mm
-//   y = 6.4, 121.6 mm
+// six brass mounting inserts in a symmetric 3 x 2 pattern. A first physical
+// template fit then showed the outer boss centres need to move 2 mm inward
+// from every panel edge:
+//   x = 8.4, 128.0, 247.6 mm
+//   y = 8.4, 119.6 mm
 // These replace the obsolete four-point pattern inferred from a scaled P2.5 panel.
 //
 // The previously inferred four-point centres (26.704/229.296 x 12/116 mm)
@@ -34,9 +36,12 @@ module_h = 128;
 depth = 16;
 frame = 16;
 
-// Measured/scan-validated P4 brass insert centres.
-panel_mount_x = [6.4, 128.0, 249.6];
-panel_mount_y = [6.4, 121.6];
+// Physical-template-corrected P4 brass insert centres.
+// The first 1:1 printed template showed every outer boss centre 2 mm too close
+// to its nearest panel edge, so both axes are inset by a further 2 mm.
+// The centre column remains on x = 128 mm.
+panel_mount_x = [8.4, 128.0, 247.6];
+panel_mount_y = [8.4, 119.6];
 panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolerance.
 
 // Moulded locating-pin clearance. These four centres correspond to the old
@@ -385,6 +390,67 @@ module mounting_slot_coupon() {
     }
 }
 
+// Separate rear desk stand using the lower centre panel boss.
+// Install with the mounting plate against the rear face of the backplane and
+// share the lower-centre panel screw. The small underside lip keys against the
+// backplane lower edge to resist rotation around the single screw.
+// For a complete four-panel display, print two and fit them to the lower-centre
+// bosses of Panels 1 and 4.
+stand_w = 32;
+stand_plate_h = 30;
+stand_plate_t = 5;
+stand_foot_len = 60;
+stand_foot_t = 6;
+stand_rib_t = 5;
+stand_edge_hook_depth = 5;
+stand_edge_hook_h = 3;
+stand_mount_y = panel_mount_y[0];
+
+module centre_boss_stand() {
+    difference() {
+        union() {
+            // Rear mounting plate.
+            cube([stand_w,stand_plate_h,stand_plate_t]);
+
+            // Desk foot; its 6 mm thickness sits below the panel/backplane edge.
+            translate([0,-stand_foot_t,0])
+                cube([stand_w,stand_foot_t,stand_foot_len]);
+
+            // Two triangular side ribs tie the plate into the rearward foot.
+            for (xx=[0,stand_w-stand_rib_t])
+                hull() {
+                    translate([xx,0,0])
+                        cube([stand_rib_t,stand_plate_h,stand_plate_t]);
+                    translate([xx,-stand_foot_t,stand_foot_len-10])
+                        cube([stand_rib_t,stand_foot_t,10]);
+                }
+
+            // Anti-rotation lip: wraps 5 mm under the rear of the backplane edge
+            // without reaching the LED-panel-facing plane.
+            translate([0,-stand_edge_hook_h,-stand_edge_hook_depth])
+                cube([
+                    stand_w,
+                    stand_edge_hook_h,
+                    stand_edge_hook_depth + stand_plate_t
+                ]);
+        }
+
+        // Shared lower-centre boss screw. Use the same screw family as the
+        // panel mount, but approximately stand_plate_t longer.
+        translate([stand_w/2,stand_mount_y,-0.5])
+            cylinder(d=panel_mount_hole_d,h=stand_plate_t+1);
+    }
+}
+
+// Print the stand on its side so the triangular ribs and foot build upward
+// without large horizontal bridges/supports. Translation keeps the rotated STL
+// on z >= 0 for predictable slicer placement.
+module centre_boss_stand_print() {
+    translate([0,0,stand_w])
+        rotate([0,90,0])
+            centre_boss_stand();
+}
+
 module mount_pattern_template() {
     template_t = 2;
     band_h = 20;
@@ -415,4 +481,5 @@ else if (part == "power_mount") power_distribution_mount();
 else if (part == "cable_clip") cable_clip();
 else if (part == "slot_coupon") mounting_slot_coupon();
 else if (part == "mount_pattern_template") mount_pattern_template();
+else if (part == "centre_boss_stand") centre_boss_stand_print();
 else if (part != "__library__") assert(false, str("Unknown part: ",part));

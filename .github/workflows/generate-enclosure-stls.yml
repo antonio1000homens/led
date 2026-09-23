@@ -61,6 +61,7 @@ jobs:
             [cable_clip]=06_cable_clip_PRINT_8.stl
             [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
             [mount_pattern_template]=08_mount_pattern_template_PRINT_1.stl
+            [centre_boss_stand]=09_centre_boss_desk_stand_PRINT_2.stl
           )
 
           for part in "${!parts[@]}"; do
@@ -145,6 +146,7 @@ jobs:
             [06_cable_clip_PRINT_8.scad]=06_cable_clip_PRINT_8.stl
             [07_mounting_slot_coupon_PRINT_1.scad]=07_mounting_slot_coupon_PRINT_1.stl
             [08_mount_pattern_template_PRINT_1.scad]=08_mount_pattern_template_PRINT_1.stl
+            [09_centre_boss_desk_stand_PRINT_2.scad]=09_centre_boss_desk_stand_PRINT_2.stl
           )
 
           canonical_hash() {
