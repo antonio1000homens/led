@@ -398,8 +398,13 @@ module mounting_slot_coupon() {
 // bosses of Panels 1 and 4.
 stand_w = 32;
 stand_plate_h = 30;
-stand_plate_t = 5;
-stand_foot_len = 60;
+// Reduced from 5 mm after physical fit so the shared boss screw only needs
+// about 3 mm of extra length. Strength is retained by the side ribs.
+stand_plate_t = 3;
+stand_rear_foot_len = 60;
+// A short toe projects under the front of the display to stop the assembly
+// pitching forward. It stays below the LED face rather than in front of it.
+stand_front_toe_len = 15;
 stand_foot_t = 6;
 stand_rib_t = 5;
 stand_edge_hook_depth = 5;
@@ -412,16 +417,23 @@ module centre_boss_stand() {
             // Rear mounting plate.
             cube([stand_w,stand_plate_h,stand_plate_t]);
 
-            // Desk foot; its 6 mm thickness sits below the panel/backplane edge.
-            translate([0,-stand_foot_t,0])
-                cube([stand_w,stand_foot_t,stand_foot_len]);
+            // Desk foot spans both sides of the panel plane: 15 mm forward
+            // underneath the display and 60 mm rearward. The forward toe gives
+            // the stand a front reaction point instead of letting the display
+            // pivot forward around the lower boss.
+            translate([0,-stand_foot_t,-stand_front_toe_len])
+                cube([
+                    stand_w,
+                    stand_foot_t,
+                    stand_front_toe_len + stand_rear_foot_len
+                ]);
 
             // Two triangular side ribs tie the plate into the rearward foot.
             for (xx=[0,stand_w-stand_rib_t])
                 hull() {
                     translate([xx,0,0])
                         cube([stand_rib_t,stand_plate_h,stand_plate_t]);
-                    translate([xx,-stand_foot_t,stand_foot_len-10])
+                    translate([xx,-stand_foot_t,stand_rear_foot_len-10])
                         cube([stand_rib_t,stand_foot_t,10]);
                 }
 
@@ -435,8 +447,9 @@ module centre_boss_stand() {
                 ]);
         }
 
-        // Shared lower-centre boss screw. Use the same screw family as the
-        // panel mount, but approximately stand_plate_t longer.
+        // Shared lower-centre boss screw. The 3 mm plate deliberately keeps
+        // the extra screw-length requirement small; use the same screw family
+        // as the panel mount and verify safe thread engagement physically.
         translate([stand_w/2,stand_mount_y,-0.5])
             cylinder(d=panel_mount_hole_d,h=stand_plate_t+1);
     }
