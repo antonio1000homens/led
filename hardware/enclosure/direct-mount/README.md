@@ -36,24 +36,26 @@ When working from the rear of the assembled display, remember that the apparent 
 
 The production backplane no longer derives its screw positions from the historical 160 × 80 mm P2.5 reference model.
 
-A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, established the six-boss 3 × 2 layout. The **first printed 1:1 template** then showed the outer boss centres were **2 mm too close to every panel edge**. The corrected production coordinates are therefore:
+A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, established the six-boss 3 × 2 layout. The **first printed 1:1 template** then showed the outer boss centres were **2 mm too close to every panel edge**. The first physical template moved the outer holes 2 mm inward from the scan/photo estimate. A subsequent fit showed that correction was **0.5 mm too far inward**, so the outer centres are now moved 0.5 mm back toward every panel edge.
+
+The current production coordinates are:
 
 | X (mm) | Y (mm) |
 | ---: | ---: |
-| 8.4 | 8.4 |
-| 128.0 | 8.4 |
-| 247.6 | 8.4 |
-| 8.4 | 119.6 |
-| 128.0 | 119.6 |
-| 247.6 | 119.6 |
+| 7.9 | 7.9 |
+| 128.0 | 7.9 |
+| 248.1 | 7.9 |
+| 7.9 | 120.1 |
+| 128.0 | 120.1 |
+| 248.1 | 120.1 |
 
 This gives:
-- **8.4 mm confirmed edge inset target** on all four sides;
+- **7.9 mm current edge inset target** on all four sides;
 - a centre mounting column at **x = 128.0 mm**;
-- outer-column spacing of **119.6 mm** either side of centre;
-- vertical row spacing of **111.2 mm**.
+- outer-column spacing of **120.1 mm** either side of centre;
+- vertical row spacing of **112.2 mm**.
 
-The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the corrected structural backplane is accepted.
+The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the structural backplane is accepted.
 
 ### Moulded locating-pin clearance
 
@@ -151,7 +153,7 @@ The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Us
 
 ## Reinforcement-bar change
 
-The corrected brass-insert rows are **8.4 mm from the top/bottom edges** after the first physical template fit showed a 2 mm edge offset. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
+The current brass-insert rows are **7.9 mm from the top/bottom edges** after the second physical fit moved the first correction 0.5 mm back outward. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
 
 ## Non-printed hardware
 
@@ -245,7 +247,7 @@ The stand is deliberately not fused into the backplane, so it can be omitted for
 
 ## Validation still required
 
-The six-point layout is based on the calibrated real-panel photograph and independently supported by the 3D scan, but the **first physical template exposed a 2 mm edge-offset error**. The corrected coordinates are now in CAD; the replacement is not production-accepted until the revised template/backplane is physically fitted.
+The six-point layout is based on the calibrated real-panel photograph and independently supported by the 3D scan. The first physical template drove a 2 mm inward correction; the next fit showed that was 0.5 mm too far inward. The latest coordinates are now in CAD, but the replacement is not production-accepted until the revised template/backplane is physically fitted.
 
 Before printing the remaining backplanes, confirm:
 
