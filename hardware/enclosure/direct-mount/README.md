@@ -36,24 +36,24 @@ When working from the rear of the assembled display, remember that the apparent 
 
 The production backplane no longer derives its screw positions from the historical 160 × 80 mm P2.5 reference model.
 
-A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, shows **six brass mounting inserts in a symmetric 3 × 2 pattern**:
+A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, established the six-boss 3 × 2 layout. The **first printed 1:1 template** then showed the outer boss centres were **2 mm too close to every panel edge**. The corrected production coordinates are therefore:
 
 | X (mm) | Y (mm) |
 | ---: | ---: |
-| 6.4 | 6.4 |
-| 128.0 | 6.4 |
-| 249.6 | 6.4 |
-| 6.4 | 121.6 |
-| 128.0 | 121.6 |
-| 249.6 | 121.6 |
+| 8.4 | 8.4 |
+| 128.0 | 8.4 |
+| 247.6 | 8.4 |
+| 8.4 | 119.6 |
+| 128.0 | 119.6 |
+| 247.6 | 119.6 |
 
 This gives:
-- **6.4 mm nominal edge inset** on all four sides;
+- **8.4 mm confirmed edge inset target** on all four sides;
 - a centre mounting column at **x = 128.0 mm**;
-- outer-column spacing of **121.6 mm** either side of centre;
-- vertical row spacing of **115.2 mm**.
+- outer-column spacing of **119.6 mm** either side of centre;
+- vertical row spacing of **111.2 mm**.
 
-The production CAD uses **4.5 mm round through-holes** at these six centres. This provides practical clearance for the panel screws while keeping substantially more edge material than the old 10 mm cross-slots.
+The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the corrected structural backplane is accepted.
 
 ### Moulded locating-pin clearance
 
@@ -79,7 +79,8 @@ Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass ins
 | `05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
 | `06_cable_clip_PRINT_8.stl` | 8 | M3 screw-down rear cable clips |
 | `07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
-| `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six brass inserts plus locating-pin clearances |
+| `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six corrected brass-boss centres plus locating-pin clearances |
+| `09_centre_boss_desk_stand_PRINT_2.stl` | 2 | Separate rear desk stands; each shares a lower-centre panel boss screw and keys against the backplane lower edge |
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
@@ -129,6 +130,7 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 - `06_cable_clip_PRINT_8.scad`
 - `07_mounting_slot_coupon_PRINT_1.scad`
 - `08_mount_pattern_template_PRINT_1.scad`
+- `09_centre_boss_desk_stand_PRINT_2.scad`
 
 The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 
@@ -149,7 +151,7 @@ The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Us
 
 ## Reinforcement-bar change
 
-The measured brass-insert rows are **6.4 mm from the top/bottom edges**. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
+The corrected brass-insert rows are **8.4 mm from the top/bottom edges** after the first physical template fit showed a 2 mm edge offset. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
 
 ## Non-printed hardware
 
@@ -160,6 +162,7 @@ The measured brass-insert rows are **6.4 mm from the top/bottom edges**. The loc
 - 4 × M2.5 screws/nuts for the MatrixPortal S3 carrier; verify the physical board
 - 1 × short 16-way / 2×8 HUB75 IDC ribbon cable from the MatrixPortal component-side HUB75 connector to Panel 1 input
 - panel mounting screws/washers to match the actual P4 panel bosses
+- for each desk stand, one panel-mount screw approximately **5 mm longer** than the normal lower-centre boss screw, while preserving safe thread engagement
 - fused 5 V distribution hardware and appropriately rated 5 V input connector/cable
 
 ### Heat-set insert purchasing spec
@@ -213,19 +216,34 @@ The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits
 
 The rod-end plug is now a split, tapered friction/detent design sized for the 9.2 mm bore. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
 
+## Separate centre-boss desk stand
+
+`09_centre_boss_desk_stand_PRINT_2.stl` is an optional, separately printed rear desk stand. Each stand:
+
+- attaches at the **lower centre boss** (x = 128 mm, y = 8.4 mm);
+- shares that panel/backplane mounting screw rather than adding a new panel hole;
+- uses a 32 mm wide rear mounting plate and a 60 mm rearward foot;
+- includes an underside anti-rotation lip that keys against the **rear portion** of the backplane lower edge without reaching the LED-panel-facing plane;
+- lifts the panel/backplane lower edge by approximately 6 mm when the foot is resting on a desk.
+
+For the complete four-panel display, print **two stands** and fit them to the lower-centre bosses of Panels 1 and 4. Use the same screw family as the panel boss but approximately 5 mm longer to account for the stand mounting plate. Confirm the actual screw thread and safe engagement depth before use.
+
+The stand is deliberately not fused into the backplane, so it can be omitted for wall mounting or reprinted independently if a different desk angle/foot length is later preferred.
+
 ## Recommended validation sequence
 
-1. Print the full-pattern template and verify all **six brass mounting centres** plus the four 10 mm locating-pin clearances on one physical panel.
-2. Print one complete replacement backplane and verify all six screw holes, locating-pin clearance, connector/component clearance and flat seating.
+1. Print the **revised** full-pattern template and verify all six corrected brass-boss centres plus the four 10 mm locating-pin clearances on one physical panel.
+2. Only after the revised template fits, print one complete replacement backplane and verify all six screw holes, locating-pin clearance, connector/component clearance and flat seating.
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
 5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
 6. Insert and centre the two 1 m × 8 mm reinforcement bars.
-7. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
+7. If desk-standing is required, fit two centre-boss stands to the lower-centre bosses of Panels 1 and 4 and verify that the anti-rotation lips seat correctly and the assembled display is stable.
+8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
 
 ## Validation still required
 
-The six-point mounting pattern is now based on the calibrated real-panel photograph and independently supported by the 3D scan, rather than by P2.5 scaling. The replacement is still not considered production-accepted until the revised template/backplane is physically fitted.
+The six-point layout is based on the calibrated real-panel photograph and independently supported by the 3D scan, but the **first physical template exposed a 2 mm edge-offset error**. The corrected coordinates are now in CAD; the replacement is not production-accepted until the revised template/backplane is physically fitted.
 
 Before printing the remaining backplanes, confirm:
 
