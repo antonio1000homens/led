@@ -57,7 +57,7 @@ panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolera
 // Rear counterbores reduce the screw-through plastic stack from 16 mm to 5 mm.
 // Normal screw heads therefore sit recessed below the rear surface/lid plane.
 panel_mount_local_t = 5;
-panel_mount_head_recess_d = 11;
+panel_mount_head_recess_d = 10;
 panel_mount_head_recess_depth = depth - panel_mount_local_t;
 
 // Moulded locating-pin clearance. These four centres correspond to the old
@@ -93,24 +93,24 @@ joint_y1 = 34;
 joint_y2 = 86;
 
 // Full-depth cable opening through both vertical seam rails.
-// Flat HUB75 ribbon cables need far less vertical clearance than the first
-// 36 mm experiment. Keep a centred 16 mm high rear channel instead.
-seam_cable_y_min = 56;
-seam_cable_y_max = 72;
+// A 16-way HUB75 ribbon is thin but about 20 mm wide, so use a shallow,
+// centred 24 mm opening rather than the original 36 mm full-depth cut.
+seam_cable_y_min = 52;
+seam_cable_y_max = 76;
 seam_cable_h = seam_cable_y_max - seam_cable_y_min;
-// Keep a continuous panel-facing web so the backplane remains one physical
-// print. The cable channel opens from the rear through the remaining 12 mm.
-seam_cable_front_web_t = 4;
-seam_cable_rear_depth = depth - seam_cable_front_web_t;
+// Only notch the rear 5 mm of the rail. The remaining 11 mm front web makes
+// the seam rail substantially stronger while still clearing a flat ribbon.
+seam_cable_rear_depth = 5;
+seam_cable_front_web_t = depth - seam_cable_rear_depth;
 
-// The seam lock remains a PAIR of recessed straps in one STL/set, but the
-// centre gap now matches the smaller 16 mm flat-ribbon channel.
-joiner_origin_y = 38;
+// The seam lock remains a PAIR of recessed straps in one STL/set. The clear
+// 24 mm centre gap aligns with the shallow flat-ribbon notch.
+joiner_origin_y = 34;
 joiner_insert_x = 8;
-joiner_insert_y1 = 47;
-joiner_insert_y2 = 81;
+joiner_insert_y1 = 43;
+joiner_insert_y2 = 85;
 joiner_w = 32;
-joiner_h = 52;
+joiner_h = 60;
 joiner_strap_h = 18;
 joiner_t = 4;
 joiner_hole_y_inset = 7;
@@ -256,9 +256,9 @@ module joiner_recesses(include_right_side=true) {
 module seam_cable_openings(include_right_side=true) {
     // Rear-side cable channels through the vertical seam rails.
     //
-    // A 16 mm-high channel is sufficient for the flat ribbon cable while the
-    // 4 mm panel-facing web keeps upper/lower frame sections connected.
-    // The rear 12 mm of each rail is open across the seam.
+    // The 24 mm opening accommodates the ribbon width; only the rear 5 mm
+    // is notched because the ribbon itself is thin. The remaining 11 mm front
+    // web keeps upper/lower frame sections strongly connected.
     translate([
         -0.1,
         seam_cable_y_min,
@@ -305,7 +305,7 @@ module backplane(right_end=false) {
         for (yy=[rod_y_bottom,rod_y_top]) rod_bore(yy);
 
         // Six real P4 mounting holes: three along each long edge.
-        // Each hole has an 11 mm rear counterbore, leaving only 5 mm of local
+        // Each hole has a 10 mm rear counterbore, leaving only 5 mm of local
         // plastic between the screw head and LED-panel boss. This avoids the
         // need for unusually long screws and keeps heads below the lid plane.
         for (x=panel_mount_x)
