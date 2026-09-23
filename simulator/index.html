@@ -349,6 +349,16 @@
       });
       return longestScroll + (longestScroll ? TODOIST_MARQUEE_PAUSE_SECONDS : 0) + pageSeconds;
     }
+    function todoistPageStarts(screen, eventCount) {
+      const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
+      const step = Math.max(1, Number(screen.page_step) || 1);
+      const last = Math.max(0, eventCount - visible);
+      const starts = [];
+      for (let start = 0; start <= last; start += step) starts.push(start);
+      if (!starts.length) starts.push(0);
+      if (starts[starts.length - 1] !== last) starts.push(last);
+      return starts;
+    }
     function boundedNumber(value, fallback, minimum, maximum) {
       const parsed = Number(value);
       const number = Number.isFinite(parsed) ? parsed : fallback;
@@ -409,10 +419,20 @@
     function agendaScrollState(screen, phase, eventCount) {
       const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
       if (eventCount <= visible) return { start: 0, progress: 0, visible };
-      const pageSeconds = screen.source === 'todoist'
-        ? todoistPageTransitionSeconds(screen, screen.events || [], 0)
-        : Math.max(0, Number(screen.page_seconds) || 5);
       const safePhase = Math.max(0, Number(phase) || 0);
+      if (screen.source === 'todoist') {
+        const starts = todoistPageStarts(screen, eventCount);
+        let remaining = safePhase;
+        for (let index = 0; index < starts.length; index += 1) {
+          const start = starts[index];
+          const duration = todoistPageTransitionSeconds(screen, screen.events || [], start);
+          if (remaining <= duration || index === starts.length - 1) return { start, progress: 0, visible, pagePhase: remaining };
+          remaining -= duration;
+          if (remaining < AGENDA_SLIDE_SECONDS) return { start, progress: Math.max(0, remaining / AGENDA_SLIDE_SECONDS), visible, pagePhase: null };
+          remaining -= AGENDA_SLIDE_SECONDS;
+        }
+      }
+      const pageSeconds = Math.max(0, Number(screen.page_seconds) || 5);
       if (safePhase <= pageSeconds) return { start: 0, progress: 0, visible };
       const progress = Math.min(1, (safePhase - pageSeconds) / AGENDA_SLIDE_SECONDS);
       if (progress >= 1) return { start: visible, progress: 0, visible };
@@ -742,14 +762,10 @@
           drawLedText('No upcoming events', 0, AGENDA_FIRST_Y);
         } else {
           const agenda = agendaScrollState(screen, phase, events.length);
-          const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible * 2 : agenda.visible);
-          const yOffset = agenda.progress * agenda.visible * CONTENT_ROW_HEIGHT;
-          const todoistTransition = screen.source === 'todoist'
-            ? todoistPageTransitionSeconds(screen, events, 0)
-            : 0;
-          const titlePhase = screen.source === 'todoist' && agenda.start > 0
-            ? Math.max(0, phase - todoistTransition - AGENDA_SLIDE_SECONDS)
-            : phase;
+          const step = Math.max(1, Number(screen.page_step) || 1);
+          const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible + step : agenda.visible);
+          const yOffset = agenda.progress * step * CONTENT_ROW_HEIGHT;
+          const titlePhase = agenda.pagePhase == null ? phase : (agenda.pagePhase ?? phase);
           context.save(); context.beginPath(); context.rect(0, 32, 1024, 96); context.clip();
           for (let slot = 0; slot < rowCount; slot += 1) {
             const event = events[agenda.start + slot];

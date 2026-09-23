@@ -169,6 +169,7 @@ class ScreenFeedTests(unittest.TestCase):
         calendar = payload["screens"][1]
         self.assertEqual(calendar["source"], "todoist")
         self.assertEqual(calendar["viewport_size"], 3)
+        self.assertEqual(calendar["page_step"], 1)
         self.assertEqual(calendar["page_seconds"], 5)
         self.assertGreater(calendar["duration_seconds"], 8)
         self.assertEqual(calendar["weather"]["source"], "weather_fixture")

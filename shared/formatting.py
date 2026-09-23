@@ -283,9 +283,21 @@ def todoist_due_label(event, current_date):
     return "DUE {} DAY{}".format(day_delta, "" if day_delta == 1 else "S")
 
 
+def todoist_page_starts(event_count, visible_rows=AGENDA_VISIBLE_ROWS, step_rows=1):
+    """Return overlapping Todoist windows, advancing by ``step_rows``."""
+    event_count = max(0, int(event_count or 0))
+    visible_rows = max(1, int(visible_rows or AGENDA_VISIBLE_ROWS))
+    step_rows = max(1, int(step_rows or 1))
+    last_start = max(0, event_count - visible_rows)
+    starts = list(range(0, last_start + 1, step_rows))
+    if starts and starts[-1] != last_start:
+        starts.append(last_start)
+    return starts or [0]
+
+
 def todoist_page_timing(events, page_seconds=AGENDA_PAGE_SECONDS, visible_rows=AGENDA_VISIBLE_ROWS,
                         current_date="", marquee_speed=AGENDA_MARQUEE_SPEED,
-                        settle_pause_seconds=AGENDA_MARQUEE_PAUSE_SECONDS):
+                        settle_pause_seconds=AGENDA_MARQUEE_PAUSE_SECONDS, step_rows=1):
     """Return the minimum readable timeline for a Todoist screen.
 
     Each page gets its own title-scroll time followed by the configured
@@ -298,7 +310,8 @@ def todoist_page_timing(events, page_seconds=AGENDA_PAGE_SECONDS, visible_rows=A
     marquee_speed = max(1.0, float(marquee_speed or AGENDA_MARQUEE_SPEED))
     settle_pause_seconds = max(0.0, float(settle_pause_seconds or 0))
     page_durations = []
-    for start in range(0, len(events), visible_rows):
+    starts = todoist_page_starts(len(events), visible_rows, step_rows)
+    for start in starts:
         longest_scroll = 0.0
         for event in events[start:start + visible_rows]:
             _when, title = calendar_row_parts(event)
@@ -318,8 +331,43 @@ def todoist_page_timing(events, page_seconds=AGENDA_PAGE_SECONDS, visible_rows=A
     return sum(page_durations) + max(0, len(page_durations) - 1) * AGENDA_SLIDE_SECONDS
 
 
+def todoist_scroll_state(phase, events, page_seconds=AGENDA_PAGE_SECONDS,
+                         visible_rows=AGENDA_VISIBLE_ROWS, current_date="",
+                         step_rows=1):
+    """Return ``(start, progress, page_phase)`` for one-row Todoist scrolling.
+
+    ``progress`` is the active one-row slide; ``page_phase`` is the local
+    title-marquee phase for the settled window and is ``None`` during a slide.
+    """
+    events = list(events or [])
+    visible_rows = max(1, int(visible_rows or AGENDA_VISIBLE_ROWS))
+    starts = todoist_page_starts(len(events), visible_rows, step_rows)
+    if len(starts) == 1:
+        return 0, 0.0, max(0.0, float(phase or 0))
+    try:
+        remaining = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        remaining = 0.0
+    for index, start in enumerate(starts):
+        window = events[start:start + visible_rows]
+        duration = todoist_page_timing(
+            window,
+            page_seconds=page_seconds,
+            visible_rows=visible_rows,
+            current_date=current_date,
+            step_rows=visible_rows,
+        )
+        if remaining <= duration or index == len(starts) - 1:
+            return start, 0.0, remaining
+        remaining -= duration
+        if remaining < AGENDA_SLIDE_SECONDS:
+            return start, max(0.0, remaining / AGENDA_SLIDE_SECONDS), None
+        remaining -= AGENDA_SLIDE_SECONDS
+    return starts[-1], 0.0, remaining
+
+
 def todoist_effective_duration(screen_duration, events, page_seconds=AGENDA_PAGE_SECONDS,
-                               visible_rows=AGENDA_VISIBLE_ROWS, current_date=""):
+                               visible_rows=AGENDA_VISIBLE_ROWS, current_date="", step_rows=1):
     """Extend, never shorten, the server-configured Todoist screen duration."""
     configured = max(1.0, float(screen_duration or 1))
     required = todoist_page_timing(
@@ -327,6 +375,7 @@ def todoist_effective_duration(screen_duration, events, page_seconds=AGENDA_PAGE
         page_seconds=page_seconds,
         visible_rows=visible_rows,
         current_date=current_date,
+        step_rows=step_rows,
     )
     return int(max(configured, required) + 0.999999)
 

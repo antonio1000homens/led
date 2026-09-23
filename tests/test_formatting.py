@@ -180,7 +180,7 @@ class FormattingTests(unittest.TestCase):
 
     def test_todoist_timing_gives_each_page_its_own_dwell(self):
         events = [{"start": "2026-09-13", "all_day": True, "title": "Short"} for _ in range(6)]
-        self.assertEqual(todoist_page_timing(events, page_seconds=5, current_date="2026-09-13"), 10.4)
+        self.assertEqual(todoist_page_timing(events, page_seconds=5, current_date="2026-09-13"), 21.2)
 
     def test_todoist_effective_duration_never_shortens_configured_duration(self):
         events = [{"start": "2026-09-13", "all_day": True, "title": "Short"}]

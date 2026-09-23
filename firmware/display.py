@@ -394,6 +394,7 @@ class MatrixDisplay:
         self._todoist_title = None
         self._todoist_stale = None
         self._todoist_viewport_size = None
+        self._todoist_page_step = 1
         self._todoist_page_seconds = None
         self._todoist_weather_icon = None
         self._todoist_weather_temp = None
@@ -582,7 +583,7 @@ class MatrixDisplay:
                         longest_scroll,
                         self._todoist_title_scroll_seconds(row[2], row[3]),
                     )
-                transition_at = self._todoist_page_transition_at(visible)
+                transition_at = self._todoist_page_transition_at(0)
                 boundaries = []
                 if phase < longest_scroll:
                     boundaries.append(longest_scroll - phase)
@@ -931,6 +932,7 @@ class MatrixDisplay:
             and self._todoist_title == screen.get("title")
             and self._todoist_stale == bool(screen.get("stale"))
             and self._todoist_viewport_size == max(1, int(screen.get("viewport_size") or AGENDA_VISIBLE_ROWS))
+            and self._todoist_page_step == max(1, int(screen.get("page_step") or 1))
             and self._todoist_page_seconds == (screen.get("page_seconds") or 5)
             and self._todoist_weather_icon == weather_icon
             and self._todoist_weather_temp == weather_temp
@@ -1004,6 +1006,7 @@ class MatrixDisplay:
         self._todoist_title = screen.get("title")
         self._todoist_stale = bool(screen.get("stale"))
         self._todoist_viewport_size = max(1, int(screen.get("viewport_size") or AGENDA_VISIBLE_ROWS))
+        self._todoist_page_step = max(1, int(screen.get("page_step") or 1))
         self._todoist_page_seconds = screen.get("page_seconds") or 5
         self._todoist_weather_icon = weather.get("icon") if isinstance(weather, dict) else None
         self._todoist_weather_temp = weather.get("temperature_c") if isinstance(weather, dict) else None
@@ -1018,14 +1021,15 @@ class MatrixDisplay:
         overflow = max(0, (len(str(title or "")) - visible_chars) * WEATHER_FONT_WIDTH)
         return overflow / max(1.0, float(TODOIST_MARQUEE_SPEED))
 
-    def _todoist_page_transition_at(self, visible):
-        """Delay page 2 until page-1 marquees finish and visibly settle."""
+    def _todoist_page_transition_at(self, start):
+        """Return the dwell time for the Todoist window at ``start``."""
         try:
             minimum_page_seconds = max(0.0, float(self._todoist_page_seconds or 0))
         except (TypeError, ValueError):
             minimum_page_seconds = 0.0
         longest_scroll = 0.0
-        for row in self._todoist_rows[:visible]:
+        visible = self._todoist_viewport_size
+        for row in self._todoist_rows[start:start + visible]:
             longest_scroll = max(
                 longest_scroll,
                 self._todoist_title_scroll_seconds(row[2], row[3]),
@@ -1039,12 +1043,19 @@ class MatrixDisplay:
     def _todoist_page_slide_active(self, phase):
         if len(self._todoist_rows) <= self._todoist_viewport_size:
             return False
-        transition_at = self._todoist_page_transition_at(self._todoist_viewport_size)
         try:
-            slide_elapsed = float(phase or 0) - transition_at
+            remaining = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             return False
-        return 0.0 < slide_elapsed < AGENDA_SLIDE_SECONDS
+        last_start = max(0, len(self._todoist_rows) - self._todoist_viewport_size)
+        for start in range(0, last_start + 1, self._todoist_page_step):
+            if start == last_start:
+                break
+            remaining -= self._todoist_page_transition_at(start)
+            if remaining < AGENDA_SLIDE_SECONDS:
+                return remaining > 0.0
+            remaining -= AGENDA_SLIDE_SECONDS
+        return False
 
     def _todoist_titles_moving(self, phase):
         try:
@@ -1054,22 +1065,23 @@ class MatrixDisplay:
         visible = self._todoist_viewport_size
         if not visible:
             return False
-        transition_at = self._todoist_page_transition_at(visible)
-        if phase < transition_at:
-            return any(
-                phase < self._todoist_title_scroll_seconds(row[2], row[3])
-                for row in self._todoist_rows[:visible]
-            )
-        if len(self._todoist_rows) <= visible:
-            return False
-        slide_end = transition_at + AGENDA_SLIDE_SECONDS
-        if phase < slide_end:
-            return False
-        page_phase = phase - slide_end
-        return any(
-            page_phase < self._todoist_title_scroll_seconds(row[2], row[3])
-            for row in self._todoist_rows[visible:visible * 2]
-        )
+        last_start = max(0, len(self._todoist_rows) - visible)
+        remaining = phase
+        starts = list(range(0, last_start + 1, self._todoist_page_step))
+        if starts[-1] != last_start:
+            starts.append(last_start)
+        for index, start in enumerate(starts):
+            duration = self._todoist_page_transition_at(start)
+            if remaining <= duration or index == len(starts) - 1:
+                return any(
+                    remaining < self._todoist_title_scroll_seconds(row[2], row[3])
+                    for row in self._todoist_rows[start:start + visible]
+                )
+            remaining -= duration
+            if remaining < AGENDA_SLIDE_SECONDS:
+                return False
+            remaining -= AGENDA_SLIDE_SECONDS
+        return False
 
     def _todoist_title_x(self, title, phase, visible_chars):
         """Scroll once to the final title position instead of looping."""
@@ -1100,26 +1112,37 @@ class MatrixDisplay:
         start = 0
         progress = 0.0
         page_phase = phase
-        transition_at = None
+        sliding_from = None
 
         if event_count > visible:
-            transition_at = self._todoist_page_transition_at(visible)
-            if phase > transition_at:
-                slide_elapsed = phase - transition_at
-                if slide_elapsed + 1e-9 < AGENDA_SLIDE_SECONDS:
-                    progress = min(1.0, slide_elapsed / AGENDA_SLIDE_SECONDS)
-                    # During the slide, page 1 remains fully scrolled while
-                    # page 2 enters at its initial, unscrolled title position.
-                    page_phase = None
-                else:
-                    start = visible
-                    page_phase = max(0.0, slide_elapsed - AGENDA_SLIDE_SECONDS)
+            last_start = max(0, event_count - visible)
+            remaining = phase
+            starts = list(range(0, last_start + 1, self._todoist_page_step))
+            if starts[-1] != last_start:
+                starts.append(last_start)
+            for index, candidate in enumerate(starts):
+                window_duration = self._todoist_page_transition_at(candidate)
+                if remaining <= window_duration or index == len(starts) - 1:
+                    start = candidate
+                    page_phase = remaining
+                    break
+                remaining -= window_duration
+                if remaining <= AGENDA_SLIDE_SECONDS + 1e-9:
+                    if remaining >= AGENDA_SLIDE_SECONDS - 1e-9:
+                        remaining = AGENDA_SLIDE_SECONDS
+                    else:
+                        start = candidate
+                        progress = max(0.0, remaining / AGENDA_SLIDE_SECONDS)
+                        page_phase = None
+                        sliding_from = candidate
+                        break
+                remaining -= AGENDA_SLIDE_SECONDS
 
-        y_offset = int(progress * visible * AGENDA_ROW_HEIGHT + 1e-9)
+        y_offset = int(progress * self._todoist_page_step * AGENDA_ROW_HEIGHT + 1e-9)
 
         for index, row in enumerate(self._todoist_rows):
             row_group, title_group, title, visible_chars = row
-            if progress > 0 and start <= index < start + visible * 2:
+            if progress > 0 and start <= index < start + visible + self._todoist_page_step:
                 y = AGENDA_FIRST_Y + (index - start) * AGENDA_ROW_HEIGHT - y_offset
             elif progress <= 0 and start <= index < start + visible:
                 y = AGENDA_FIRST_Y + (index - start) * AGENDA_ROW_HEIGHT
@@ -1130,7 +1153,7 @@ class MatrixDisplay:
                 changed = True
 
             if progress > 0:
-                if index < visible:
+                if sliding_from is not None and index < sliding_from + visible:
                     title_phase = self._todoist_title_scroll_seconds(title, visible_chars)
                 else:
                     title_phase = 0.0

@@ -402,8 +402,10 @@ class ScreenFeed:
                             8,
                             events,
                             page_seconds=5,
+                            step_rows=1,
                         ),
                         "viewport_size": 3,
+                        "page_step": 1,
                         "page_seconds": 5,
                     })
                 screens.append(calendar_screen)

@@ -40,6 +40,9 @@ DEFAULT_QUEUE_SCREEN_DURATION_SECONDS = 16
 DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
 MIN_FLASH_SCREEN_DURATION_SECONDS = 2
 MAX_FLASH_SCREEN_DURATION_SECONDS = 60
+MIN_CALENDAR_VISIBLE_TASKS = 1
+MAX_CALENDAR_VISIBLE_TASKS = 3
+DEFAULT_CALENDAR_VISIBLE_TASKS = 3
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -79,6 +82,14 @@ QUEUE_TIMES_NUMERIC_FIELDS = {
         "minimum": MIN_QUEUE_SCROLL_PAUSE_SECONDS,
         "maximum": MAX_QUEUE_SCROLL_PAUSE_SECONDS,
         "default": DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS,
+    },
+}
+
+CALENDAR_NUMERIC_FIELDS = {
+    "visible_task_count": {
+        "minimum": MIN_CALENDAR_VISIBLE_TASKS,
+        "maximum": MAX_CALENDAR_VISIBLE_TASKS,
+        "default": DEFAULT_CALENDAR_VISIBLE_TASKS,
     },
 }
 
@@ -162,7 +173,8 @@ FEED_REGISTRY = {
     "calendar": {
         "label": "Calendar",
         "provider": "todoist",
-        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds", "visible_task_count"),
+        "advanced_fields": ("visible_task_count",),
         "screen_duration": True,
     },
     "flash": {
@@ -282,6 +294,13 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     minimum=MIN_SCREEN_DURATION_SECONDS,
                     maximum=MAX_SCREEN_DURATION_SECONDS,
                 ),
+                "visible_task_count": _int_env(
+                    env,
+                    "LED_TODOIST_VISIBLE_TASKS",
+                    DEFAULT_CALENDAR_VISIBLE_TASKS,
+                    minimum=MIN_CALENDAR_VISIBLE_TASKS,
+                    maximum=MAX_CALENDAR_VISIBLE_TASKS,
+                ),
             },
             "flash": {
                 # This is deliberately disabled until Home Assistant issue #3
@@ -331,6 +350,13 @@ def schema_metadata() -> dict[str, Any]:
                     "maximum": metadata["maximum"],
                 }
             fields["splash_enabled"] = {"type": "boolean"}
+        if feed_id == "calendar":
+            for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
+                fields[field] = {
+                    "type": "integer",
+                    "minimum": metadata["minimum"],
+                    "maximum": metadata["maximum"],
+                }
         if definition.get("rides"):
             fields["rides"] = {"type": "array", "items": {"type": "string"}, "ordered": True}
         feeds[feed_id] = {
@@ -419,6 +445,15 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
+        if field in patch:
+            result[field] = _validate_integer(
+                feed_id,
+                field,
+                patch[field],
+                metadata["minimum"],
+                metadata["maximum"],
+            )
     if "splash_enabled" in patch:
         if not isinstance(patch["splash_enabled"], bool):
             raise RuntimeConfigValidationError(f"{feed_id}.splash_enabled must be boolean")
@@ -473,6 +508,9 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         raw = copy.deepcopy(raw_value)
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
+                raw.setdefault(field, metadata["default"])
+        if feed_id == "calendar":
+            for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only

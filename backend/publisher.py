@@ -362,6 +362,7 @@ class Publisher:
 
         if config_feeds["calendar"]["enabled"]:
             calendar = feeds.get("calendar") or {}
+            visible_tasks = max(1, int(config_feeds["calendar"].get("visible_task_count", 3)))
             data = calendar.get("data")
             calendar_events = []
             if data is not None:
@@ -374,6 +375,8 @@ class Publisher:
                         calendar_events,
                         page_seconds=self.config.calendar_page_seconds,
                         current_date=local_date,
+                        visible_rows=visible_tasks,
+                        step_rows=1,
                     )
                 else:
                     duration_seconds = config_feeds["calendar"]["screen_duration_seconds"]
@@ -385,7 +388,8 @@ class Publisher:
                 "title": "UPCOMING" if data is not None else "Calendar unavailable",
                 "source": data.get("source", "todoist") if data is not None else "unavailable",
                 "stale": bool(calendar.get("stale")) if data is not None else True,
-                "viewport_size": 3, "page_seconds": self.config.calendar_page_seconds,
+                "viewport_size": visible_tasks, "page_step": 1,
+                "page_seconds": self.config.calendar_page_seconds,
                 "events": copy.deepcopy(calendar_events[:self.config.calendar_max_events]),
             })
         if config_feeds["weather"]["enabled"]:
