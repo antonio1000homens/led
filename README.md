@@ -23,6 +23,7 @@ backend/      local CPython server and Lambda implementation
 shared/       renderer/fixture modules used by both runtimes
 scripts/      build, test, deployment and maintenance tooling
 tests/        host-side regression tests
+docs/         architecture decisions and consolidated experiment findings
 ```
 
 The root `code.py` is intentional because Wokwi/CircuitPython uses that
@@ -60,6 +61,10 @@ GitHub Actions uses AWS OIDC and stores only non-secret deployment configuration
 See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, the Bitwarden-to-SSM migration helper, deployment-secret rotation, Todoist OAuth bootstrap, GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
 
 ## Hardware notes
+
+For the current MatrixPortal refresh/pacing architecture, measured performance
+results, and the decisions from issues #70, #91, #92 and #94, see
+[`docs/matrixportal-performance.md`](docs/matrixportal-performance.md).
 
 The four panels must have an appropriate HUB75 data chain and a separate, correctly sized 5 V power supply. Do not attempt to power four panels from the MatrixPortal or USB alone. Confirm the panel scan/pin wiring against the actual panel before purchase; the software assumes the MatrixPortal S3 `MTX_*` pin definitions and 1/32-scan 64×32 panels.
 
