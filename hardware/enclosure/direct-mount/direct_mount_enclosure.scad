@@ -3,11 +3,12 @@
 //
 // P4 physical-panel geometry:
 // A calibrated 1:1 ruler photograph plus an independent Kiri Engine scan show
-// six brass mounting inserts in a symmetric 3 x 2 pattern. A first physical
-// template fit then showed the outer boss centres need to move 2 mm inward
-// from every panel edge:
-//   x = 8.4, 128.0, 247.6 mm
-//   y = 8.4, 119.6 mm
+// six brass mounting inserts in a symmetric 3 x 2 pattern. The first physical
+// template moved the outer boss centres 2 mm inward; the next fit showed that
+// correction was 0.5 mm too far inward, so the outer centres move 0.5 mm back
+// toward every panel edge:
+//   x = 7.9, 128.0, 248.1 mm
+//   y = 7.9, 120.1 mm
 // These replace the obsolete four-point pattern inferred from a scaled P2.5 panel.
 //
 // The previously inferred four-point centres (26.704/229.296 x 12/116 mm)
@@ -37,11 +38,11 @@ depth = 16;
 frame = 16;
 
 // Physical-template-corrected P4 brass insert centres.
-// The first 1:1 printed template showed every outer boss centre 2 mm too close
-// to its nearest panel edge, so both axes are inset by a further 2 mm.
-// The centre column remains on x = 128 mm.
-panel_mount_x = [8.4, 128.0, 247.6];
-panel_mount_y = [8.4, 119.6];
+// First fit: outer bosses moved 2 mm inward from the scan/photo estimate.
+// Second fit: those outer holes were 0.5 mm too far inward, so move them
+// 0.5 mm back toward their nearest panel edges. Centre X remains 128 mm.
+panel_mount_x = [7.9, 128.0, 248.1];
+panel_mount_y = [7.9, 120.1];
 panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolerance.
 
 // Moulded locating-pin clearance. These four centres correspond to the old
