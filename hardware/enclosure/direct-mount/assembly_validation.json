@@ -6,8 +6,8 @@
       "source_scad": "01_backplane_module_PRINT_3.scad"
     },
     "joiner": {
-      "file": "02_module_joiner_PRINT_3.stl",
-      "source_scad": "02_module_joiner_PRINT_3.scad"
+      "file": "02_module_joiner_PRINT_4.stl",
+      "source_scad": "02_module_joiner_PRINT_4.scad"
     },
     "rod_plug": {
       "file": "03_rod_end_plug_PRINT_4.stl",
@@ -40,6 +40,10 @@
     "centre_boss_stand": {
       "file": "09_centre_boss_desk_stand_PRINT_3.stl",
       "source_scad": "09_centre_boss_desk_stand_PRINT_3.scad"
+    },
+    "rear_lid": {
+      "file": "10_rear_lid_PRINT_4.stl",
+      "source_scad": "10_rear_lid_PRINT_4.scad"
     }
   },
   "instances": {
@@ -81,7 +85,7 @@
       "part": "joiner",
       "translate": [
         240,
-        40,
+        32,
         11.8
       ]
     },
@@ -89,7 +93,7 @@
       "part": "joiner",
       "translate": [
         496,
-        40,
+        32,
         11.8
       ]
     },
@@ -97,7 +101,7 @@
       "part": "joiner",
       "translate": [
         752,
-        40,
+        32,
         11.8
       ]
     },
@@ -350,6 +354,16 @@
       "name": "rear backplane footprint",
       "reason": "The physical LED module rear appears 1 mm smaller overall than the front 256 x 128 mm envelope. CAD now uses a centred 255 x 127 mm rear footprint (0.5 mm inset on every edge) while retaining the nominal panel coordinate system and 256 mm module pitch. Confirm the revised backplane seats inside the rear moulding without edge overhang.",
       "issue": "#76"
+    },
+    {
+      "name": "panel-to-panel seam cable corridor",
+      "reason": "PRINT_4 moves/narrows the two alignment tongues and splits each seam joiner into two recessed straps, leaving a nominal 36 mm full-depth rail opening and 36 mm clear joiner corridor. Physically verify the real HUB75 ribbon and power wiring can cross each seam without being pinched or forced against the joiner/tongues.",
+      "issue": "#76"
+    },
+    {
+      "name": "snap-on rear lid fit and retention",
+      "reason": "The lid uses four dedicated stepped round sockets in the rear frame and matching split snap pegs. PETG is preferred for repeated flexing. Verify snap force, removal force, electronics clearance, MatrixPortal side access, ventilation and cable egress before relying on the lid.",
+      "issue": "#76"
     }
   ],
   "layout_checks": [
@@ -407,7 +421,7 @@
       "tolerance_mm": 0.001
     },
     {
-      "name": "joiners share y=40",
+      "name": "joiner strap sets share y=32",
       "type": "translation_axis_equal",
       "instances": [
         "joiner_12",
@@ -415,7 +429,7 @@
         "joiner_34"
       ],
       "axis": "y",
-      "value": 40,
+      "value": 32,
       "tolerance_mm": 0.001
     },
     {
@@ -520,5 +534,44 @@
     "leadin_diameter_mm": 8.4,
     "length_mm": 1000,
     "note": "Bar centre positions are unchanged from the previous 8 mm-bar design."
+  },
+  "seam_cable_corridor": {
+    "y_min_mm": 46,
+    "y_max_mm": 82,
+    "clear_height_mm": 36,
+    "alignment_tongue_width_mm": 8,
+    "lower_tongue_y_mm": 34,
+    "upper_tongue_y_mm": 86,
+    "joiner_origin_y_mm": 32,
+    "joiner_overall_height_mm": 64,
+    "joiner_strap_height_mm": 14,
+    "note": "Each seam uses two recessed straps from one PRINT_4 STL/set, leaving the centre corridor open."
+  },
+  "rear_lid": {
+    "quantity": 4,
+    "preferred_material": "PETG",
+    "plate_thickness_mm": 2.4,
+    "clearance_behind_backplane_mm": 18,
+    "lock_socket_centres_mm": [
+      [
+        64,
+        8
+      ],
+      [
+        192,
+        8
+      ],
+      [
+        64,
+        120
+      ],
+      [
+        192,
+        120
+      ]
+    ],
+    "socket_throat_d_mm": 5.8,
+    "socket_chamber_d_mm": 6.5,
+    "note": "Dedicated lid sockets do not reuse the occupied reinforcement-bar bores."
   }
 }
