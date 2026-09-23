@@ -7,7 +7,7 @@ This is the current enclosure design for the four P4 HUB75 panels.
 - 4 × nominal 256 × 128 mm LED panels
 - 3 × standard printed backplanes + 1 × right-end backplane
 - finished LED face: 1024 × 128 mm
-- 2 × 1000 mm × 8 mm reinforcement bars
+- 2 × 1000 mm × 6 mm reinforcement bars
 - no printed bezel or rail is allowed in front of the LED PCB
 
 ## Panel numbering and controller position
@@ -55,7 +55,9 @@ This gives:
 - outer-column spacing of **120.1 mm** either side of centre;
 - vertical row spacing of **112.2 mm**.
 
-The production CAD uses **4.5 mm round through-holes** at these six centres. The revised template must be physically rechecked before the structural backplane is accepted.
+The production CAD uses **4.5 mm round through-holes** at these six centres. On the structural backplane, each mounting hole now has an **11 mm diameter rear screw well** that is **11 mm deep**, leaving only **5 mm of plastic** between the recessed screw head and the LED-panel boss. This substantially reduces the extra screw length required compared with passing through the full 16 mm backplane, and keeps normal screw heads below the rear surface so they do not interfere with the snap-on lid.
+
+The 1:1 mounting template remains thin and does not reproduce these screw wells; its job is only to verify the six boss centres and locating-pin clearances. The revised template must still be physically rechecked before the structural backplane is accepted.
 
 ### Rear backplane footprint
 
@@ -156,27 +158,33 @@ The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files
 
 ## Seam cable corridor and recessed joiner straps
 
-The original seam geometry left too much material in the route used by the inter-panel HUB75/power cables. PRINT_4 makes the cable route an explicit mechanical feature rather than relying on cables squeezing around the joiner.
+The first cable-corridor revision cut a 36 mm opening through the full 16 mm depth of each vertical seam rail. That created the right cable route but also disconnected the upper and lower halves of the backplane. The corrected design keeps each backplane as **one connected printed part**.
 
-Each seam now has a **36 mm high full-depth opening**, from **y=46 mm to y=82 mm**, cut through both vertical rear-frame rails. The two alignment tongues are also reduced from 11.5 mm to **8 mm wide** and moved outward to **y=34 mm** and **y=86 mm**, keeping them away from the central cable route.
+Because the inter-panel HUB75 wiring is a flat ribbon cable, the opening is now smaller:
 
-`02_module_joiner_PRINT_4.stl` contains **two separate 32 × 14 × 4 mm straps** for one seam. Install both straps:
+- cable channel height: **16 mm**, from **y=56 mm to y=72 mm**
+- channel depth: rear **12 mm** of the 16 mm backplane
+- retained panel-facing structural web: **4 mm**
+- alignment tongues remain **8 mm wide** at y=34–42 mm and y=86–94 mm
 
-- lower strap: nominal y = **32–46 mm**
-- cable corridor: nominal y = **46–82 mm**
-- upper strap: nominal y = **82–96 mm**
+The 4 mm web continuously joins the upper and lower frame sections while the rear 12 mm provides the cable passage. CI now explicitly requires each standard/right-end backplane STL to contain **exactly one connected component**, so a future full-depth cut cannot silently split the module again.
+
+`02_module_joiner_PRINT_4.stl` still contains two separate recessed straps for one seam, but they are moved closer together around the smaller ribbon opening:
+
+- lower strap: nominal y = **38–56 mm**
+- cable corridor: nominal y = **56–72 mm**
+- upper strap: nominal y = **72–90 mm**
 - four countersunk M3 screws total per seam
-- screw/insert rows move to **y=39 mm** and **y=89 mm**
-- the recess remains **4.2 mm deep** for a 4 mm strap, preserving 0.2 mm depth clearance
-- the joiner M3 heat-set pockets retain their full **6.2 mm** depth from the recess floor
-
-The panel-facing surface remains unchanged. The straps sit in separate rear recesses, while the centre of the seam stays physically open from one panel enclosure to the next.
+- screw/insert rows: **y=47 mm** and **y=81 mm**
+- each strap: **32 × 18 × 4 mm**
+- recess depth remains **4.2 mm**, leaving 0.2 mm depth clearance
+- joiner M3 heat-set pockets retain their full **6.2 mm** depth from the recess floor
 
 The alignment tongues remain 7.2 mm high from z=4 mm, finishing at z=11.2 mm. The strap pocket floor remains z=11.8 mm, leaving **0.6 mm nominal Z clearance** between a tongue and an installed strap.
 
 The strap through-holes retain the **6.4 mm × 1.7 mm 90° countersink**. Use M3 flat-head/countersunk screws whose heads fit fully within that envelope.
 
-The 36 mm corridor is intended to accommodate the real inter-panel ribbon/power wiring, but it is still a physical validation item: route the actual cable bundle through one assembled seam before printing all modules.
+The 16 mm × 12 mm rear channel is intended for the real flat inter-panel ribbon cable. It remains a physical validation item: route the actual ribbon through one assembled seam and check that it bends naturally without being pinched against the 4 mm web, alignment tongues or seam straps.
 
 ## Reinforcement-bar change
 
@@ -293,7 +301,7 @@ The stand is deliberately not fused into the backplane, so it can be omitted for
 2. Only after the revised template fits, print one complete replacement backplane and verify all six screw holes, locating-pin clearance, connector/component clearance and flat seating.
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
-5. Join neighbouring backplanes with the narrowed alignment tongues/sockets and the two recessed PRINT_4 seam straps, then route the real inter-panel cable bundle through the 36 mm centre corridor.
+5. Join neighbouring backplanes with the narrowed alignment tongues/sockets and the two recessed PRINT_4 seam straps, then route the real flat ribbon through the 16 mm-high × 12 mm-deep rear channel.
 6. Insert and centre the two 1 m × 6 mm reinforcement bars.
 7. If desk-standing is required, fit two centre-boss stands to the lower-centre bosses of Panels 1 and 4 and verify that the anti-rotation lips seat correctly and the assembled display is stable.
 8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
@@ -308,10 +316,10 @@ Before printing the remaining backplanes, confirm:
 - the six brass mounting holes accept screws without forcing or drilling;
 - the moulded locating pins enter the new 10 mm clearances without contacting the backplane;
 - the panel/backplane sits flat;
-- screw/boss diameter and thread are correct for the selected fasteners;
+- the 11 mm rear screw wells accept the actual panel screw heads, leave the heads below the rear/lid plane, and the selected screws still achieve safe boss engagement without bottoming out;
 - maximum rear component/connector depth remains clear;
 - HUB75 and power connector keep-out zones remain accessible;
-- the actual inter-panel HUB75/power cable bundle crosses each 36 mm seam corridor without pinching;
+- the actual inter-panel flat ribbon crosses each 16 mm-high rear seam channel without pinching;
 - the PRINT_4 seam straps and 8 mm alignment tongues do not interfere with the cable route;
 - one PETG rear lid snaps in/out without cracking, excessive force or electronics contact;
 - MatrixPortal left-side button/USB access remains usable with the lid fitted.
