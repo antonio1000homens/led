@@ -26,10 +26,10 @@ module complete_enclosure_assembly(show_guides=true) {
     color([0.24,0.24,0.26])
         translate([3*panel_pitch,0,0]) backplane(true);
 
-    // ---------- Recessed seam joiners ----------
+    // ---------- Recessed seam strap pairs / clear cable corridor ----------
     for (x=[240,496,752])
         color([0.55,0.55,0.58])
-            translate([x,40,joiner_z]) module_joiner();
+            translate([x,joiner_origin_y,joiner_z]) module_joiner();
 
     // ---------- 1000 mm x 6 mm reinforcement rods ----------
     module rod_x(y) {
