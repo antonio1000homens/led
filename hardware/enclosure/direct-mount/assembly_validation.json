@@ -130,7 +130,7 @@
   "primitives": {
     "rod_bottom": {
       "type": "cylinder",
-      "radius": 4,
+      "radius": 3,
       "height": 1000,
       "axis": "x",
       "center": [
@@ -141,7 +141,7 @@
     },
     "rod_top": {
       "type": "cylinder",
-      "radius": 4,
+      "radius": 3,
       "height": 1000,
       "axis": "x",
       "center": [
@@ -210,49 +210,49 @@
       "b": "backplane_4"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 1",
+      "name": "bottom 6 mm rod clears backplane 1",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_1"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 2",
+      "name": "bottom 6 mm rod clears backplane 2",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_2"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 3",
+      "name": "bottom 6 mm rod clears backplane 3",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_3"
     },
     {
-      "name": "bottom 8 mm rod clears backplane 4",
+      "name": "bottom 6 mm rod clears backplane 4",
       "type": "no_interference",
       "a": "rod_bottom",
       "b": "backplane_4"
     },
     {
-      "name": "top 8 mm rod clears backplane 1",
+      "name": "top 6 mm rod clears backplane 1",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_1"
     },
     {
-      "name": "top 8 mm rod clears backplane 2",
+      "name": "top 6 mm rod clears backplane 2",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_2"
     },
     {
-      "name": "top 8 mm rod clears backplane 3",
+      "name": "top 6 mm rod clears backplane 3",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_3"
     },
     {
-      "name": "top 8 mm rod clears backplane 4",
+      "name": "top 6 mm rod clears backplane 4",
       "type": "no_interference",
       "a": "rod_top",
       "b": "backplane_4"
@@ -323,7 +323,7 @@
     },
     {
       "name": "printed 1 m rod insertion",
-      "reason": "Nominal CAD clearance can be checked automatically, but accumulated FDM tolerance across four modules requires a physical test.",
+      "reason": "Nominal CAD uses 6 mm reinforcement bars in 7.2 mm bores (0.6 mm radial clearance), but accumulated FDM tolerance across four modules still requires a physical insertion test.",
       "issue": "#81 finding 5"
     },
     {
@@ -512,5 +512,13 @@
     ],
     "rear_backplane_edge_inset_mm": 0.5,
     "rear_backplane_fit_note": "Physical LED module rear moulding appears 1 mm smaller overall than the 256 x 128 mm front envelope; CAD keeps the 256 x 128 coordinate system/pitch but insets the printed backplane 0.5 mm on every edge."
+  },
+  "reinforcement_bar": {
+    "nominal_diameter_mm": 6,
+    "bore_diameter_mm": 7.2,
+    "radial_clearance_mm": 0.6,
+    "leadin_diameter_mm": 8.4,
+    "length_mm": 1000,
+    "note": "Bar centre positions are unchanged from the previous 8 mm-bar design."
   }
 }
