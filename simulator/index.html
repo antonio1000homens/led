@@ -209,6 +209,7 @@
     const RAIL_MARQUEE_GAP = 112;
     const CALLING_LABEL = 'CALLING AT: ';
     const CALLING_MARQUEE_PAUSE_SECONDS = 3.0;
+    const CALLING_MARQUEE_END_PAUSE_SECONDS = 3.0;
     const HEADER_HOLD_SECONDS = 4.0;
     const HEADER_SLIDE_SECONDS = 0.6;
     const HEADER_SLOT_WIDTH = 128;
@@ -463,9 +464,16 @@
       const width = measureLedText(stations).width;
       const availableWidth = Math.max(1, 1024 - prefixWidth);
       const elapsed = Math.max(0, Number(phase) || 0);
-      const stationX = width <= availableWidth
-        ? Math.max(prefixWidth, 1024 - elapsed * speed)
-        : 1024 - ((elapsed * speed) % (1024 - prefixWidth + width + gap));
+      if (width <= availableWidth) {
+        const stationX = Math.max(prefixWidth, 1024 - elapsed * speed);
+        return { stations, offset: stationX - prefixWidth, width, prefixWidth };
+      }
+      const travelWidth = 1024 - prefixWidth + width + gap;
+      const travelSeconds = travelWidth / speed;
+      const cycleSeconds = travelSeconds + CALLING_MARQUEE_END_PAUSE_SECONDS;
+      const withinCycle = cycleSeconds > 0 ? elapsed % cycleSeconds : 0;
+      if (withinCycle >= travelSeconds) return null;
+      const stationX = 1024 - withinCycle * speed;
       const offset = stationX - prefixWidth;
       return { stations, offset, width, prefixWidth };
     }
@@ -693,9 +701,9 @@
             drawRailService(row.service, y, 0, headerRight, row.service.cancelled ? '#ff3300' : '#ffffff', ordinal);
           } else if (row.kind === 'calling' && row.service) {
             const calling = callingMarqueeState(callingText(row.service), railPhaseElapsed(phase), stationMarqueeSpeed(screen), stationMarqueeGap());
+            context.fillStyle = '#ffaa00';
+            drawLedText(CALLING_LABEL, 0, y);
             if (calling) {
-              context.fillStyle = '#ffaa00';
-              drawLedText(CALLING_LABEL, 0, y);
               context.save();
               context.beginPath();
               context.rect(calling.prefixWidth, y, 1024 - calling.prefixWidth, 28);

@@ -790,7 +790,7 @@ class MatrixDisplay:
                 gap=scroll_gap,
             )
             segments = _calling_segments(calling, calling_x, scroll_gap) if calling_x is not None else ()
-            values = [(0, CALLING_LABEL if calling_x is not None else "")]
+            values = [(0, CALLING_LABEL)]
             values.extend(segments)
             while len(values) < 3:
                 values.append((0, ""))
@@ -1348,8 +1348,8 @@ class FixtureDisplay:
                     scroll_speed, scroll_gap = _station_scroll_settings(screen)
                     calling_x = calling_marquee_x(text, rail_phase_elapsed(phase), display_width=DISPLAY_WIDTH,
                                                   font_width=WEATHER_FONT_WIDTH, speed=scroll_speed, gap=scroll_gap)
+                    self._text(CALLING_LABEL, 0, y, (255, 170, 0))
                     if calling_x is not None:
-                        self._text(CALLING_LABEL, 0, y, (255, 170, 0))
                         for segment_x, segment in _calling_segments(text, calling_x, scroll_gap):
                             self._text(segment, segment_x, y, (255, 170, 0))
                     calling_number += 1
