@@ -224,7 +224,8 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 - shares that panel/backplane mounting screw rather than adding a new panel hole;
 - uses a 32 mm wide rear mounting plate and a 60 mm rearward foot;
 - includes an underside anti-rotation lip that keys against the **rear portion** of the backplane lower edge without reaching the LED-panel-facing plane;
-- lifts the panel/backplane lower edge by approximately 6 mm when the foot is resting on a desk.
+- lifts the panel/backplane lower edge by approximately 6 mm when the foot is resting on a desk;
+- is exported **pre-oriented on its side** so the ribs/foot can be printed with minimal support rather than as an installed-orientation L shape.
 
 For the complete four-panel display, print **two stands** and fit them to the lower-centre bosses of Panels 1 and 4. Use the same screw family as the panel boss but approximately 5 mm longer to account for the stand mounting plate. Confirm the actual screw thread and safe engagement depth before use.
 
