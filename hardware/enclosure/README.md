@@ -26,7 +26,7 @@ The old P2.5-derived positions are retained only as separate moulded-locator cle
 - `direct-mount/direct_mount_enclosure.scad` — parametric source for all current parts.
 - `direct-mount/01_backplane_module_PRINT_3.stl` — three centred 255 × 127 mm rear backplanes with right-side alignment tongues, used on a 256 mm panel pitch.
 - `direct-mount/01b_backplane_right_end_PRINT_1.stl` — rightmost 255 × 127 mm backplane without unused outer tongues/recesses.
-- `direct-mount/02_module_joiner_PRINT_4.stl` — two recessed seam straps per STL/set, leaving a 16 mm-high rear flat-ribbon channel while a 4 mm front web keeps each backplane one piece.
+- `direct-mount/02_module_joiner_PRINT_4.stl` — two recessed seam straps per STL/set, leaving a shallow 24 mm-high × 5 mm-deep rear ribbon notch while 11 mm of front rail keeps each backplane one piece.
 - `direct-mount/03_rod_end_plug_PRINT_4.stl` — retains the two 1 m × 6 mm reinforcement bars.
 - `direct-mount/04_matrixportal_mount_PRINT_1.stl` — removable MatrixPortal S3 rear carrier.
 - `direct-mount/05_power_distribution_mount_PRINT_1.stl` — removable fused 5 V distribution carrier.
@@ -38,6 +38,6 @@ The old P2.5-derived positions are retained only as separate moulded-locator cle
 
 ## Regenerating STLs
 
-The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source. The seam geometry now provides a 16 mm-high × 12 mm-deep rear ribbon channel while retaining a 4 mm panel-facing structural web; CI also requires each backplane to be a single connected mesh. The rear lid uses dedicated snap sockets rather than the occupied reinforcement-bar bores.
+The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source. The seam geometry now provides a shallow 24 mm-high × 5 mm-deep rear ribbon notch while retaining 11 mm of panel-facing rail; CI also requires each backplane to be a single connected mesh. The rear lid uses dedicated snap sockets rather than the occupied reinforcement-bar bores.
 
 The six-boss P4 pattern has now been refined by two physical fits, including a latest 0.5 mm outward correction. The revised template and one corrected backplane must still be physically verified before printing all four modules. The optional desk stand also requires a physical stability and screw-engagement check.
