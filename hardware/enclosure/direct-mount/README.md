@@ -61,7 +61,7 @@ The failed physical backplane fit also showed a protruding moulded locating pin 
 
 - X = **26.704 / 229.296 mm**
 - Y = **12.0 / 116.0 mm**
-- clearance diameter = **8.0 mm**
+- clearance diameter = **10.0 mm**
 
 The screw holes and locating-pin clearances are intentionally different shapes so their purpose is obvious.
 
@@ -215,7 +215,7 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 
 ## Recommended validation sequence
 
-1. Print the full-pattern template and verify all **six brass mounting centres** plus the four locating-pin clearances on one physical panel.
+1. Print the full-pattern template and verify all **six brass mounting centres** plus the four 10 mm locating-pin clearances on one physical panel.
 2. Print one complete replacement backplane and verify all six screw holes, locating-pin clearance, connector/component clearance and flat seating.
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
@@ -230,7 +230,7 @@ The six-point mounting pattern is now based on the calibrated real-panel photogr
 Before printing the remaining backplanes, confirm:
 
 - the six brass mounting holes accept screws without forcing or drilling;
-- the moulded locating pins enter the new 8 mm clearances without contacting the backplane;
+- the moulded locating pins enter the new 10 mm clearances without contacting the backplane;
 - the panel/backplane sits flat;
 - screw/boss diameter and thread are correct for the selected fasteners;
 - maximum rear component/connector depth remains clear;
