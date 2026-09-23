@@ -38,8 +38,8 @@
       "source_scad": "01b_backplane_right_end_PRINT_1.scad"
     },
     "centre_boss_stand": {
-      "file": "09_centre_boss_desk_stand_PRINT_2.stl",
-      "source_scad": "09_centre_boss_desk_stand_PRINT_2.scad"
+      "file": "09_centre_boss_desk_stand_PRINT_3.stl",
+      "source_scad": "09_centre_boss_desk_stand_PRINT_3.scad"
     }
   },
   "instances": {
@@ -343,7 +343,7 @@
     },
     {
       "name": "centre-boss desk stand physical stability",
-      "reason": "The optional stand shares the lower-centre panel boss screw and keys against the backplane lower edge. Verify screw length/thread engagement, anti-rotation lip fit and stability with two stands before relying on it to support the assembled display.",
+      "reason": "PRINT_3 reduces the boss mounting plate from 5 mm to 3 mm and adds a 15 mm forward toe under the display while retaining the 60 mm rear foot. Verify screw length/thread engagement, anti-rotation lip fit and that two stands no longer tip forward.",
       "issue": "#76"
     }
   ],
