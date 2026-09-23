@@ -304,12 +304,17 @@
   "manual_validation_gates": [
     {
       "name": "real P4 mounting pattern",
-      "reason": "STL/CAD analysis cannot prove the inferred mounting centres match the purchased physical panel.",
-      "issue": "#81 finding 3 / #76"
+      "reason": "Six brass mounting centres are now derived from a calibrated 1:1 real-panel photograph and independently supported by the Kiri scan; final acceptance still requires one revised template/backplane physical fit.",
+      "issue": "#76"
+    },
+    {
+      "name": "P4 moulded locator clearance",
+      "reason": "The failed print showed at least one protruding moulded panel locator entering an old provisional slot. The replacement provides 8 mm round clearances at all four old symmetric centres; confirm every real locator clears and the panel seats flat.",
+      "issue": "#76"
     },
     {
       "name": "rear component and connector keep-outs",
-      "reason": "Physical LED-panel rear geometry has not yet been captured as a collision model.",
+      "reason": "The real-panel scan/photo improve confidence in the rear layout, but the revised backplane must still be physically checked for flat seating, moulded locator clearance and connector/component contact.",
       "issue": "#81 finding 4 / #76"
     },
     {
@@ -433,5 +438,59 @@
       ],
       "tolerance_mm": 0.001
     }
-  ]
+  ],
+  "measured_panel_geometry": {
+    "source": "calibrated 1:1 ruler photograph cross-checked with Kiri Engine scan",
+    "panel_nominal_mm": [
+      256,
+      128
+    ],
+    "brass_mount_centres_mm": [
+      [
+        6.4,
+        6.4
+      ],
+      [
+        128,
+        6.4
+      ],
+      [
+        249.6,
+        6.4
+      ],
+      [
+        6.4,
+        121.6
+      ],
+      [
+        128,
+        121.6
+      ],
+      [
+        249.6,
+        121.6
+      ]
+    ],
+    "panel_mount_hole_d_mm": 4.5,
+    "moulded_locator_clearance_centres_mm": [
+      [
+        26.704,
+        12
+      ],
+      [
+        229.296,
+        12
+      ],
+      [
+        26.704,
+        116
+      ],
+      [
+        229.296,
+        116
+      ]
+    ],
+    "moulded_locator_clearance_d_mm": 8,
+    "physical_fit_status": "pending revised template/backplane fit"
+  }
 }
