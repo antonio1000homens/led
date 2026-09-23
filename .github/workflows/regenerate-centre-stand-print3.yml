@@ -1,0 +1,45 @@
+name: Enclosure / Regenerate centre stand PRINT_3
+
+on:
+  push:
+    branches:
+      - fix/thinner-forward-centre-stand
+    paths:
+      - '.github/workflows/regenerate-centre-stand-print3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/thinner-forward-centre-stand
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate PRINT_3 stand
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
+          out=hardware/enclosure/direct-mount/09_centre_boss_desk_stand_PRINT_3.stl
+          openscad -D 'part="centre_boss_stand"' -o "$out" "$src"
+          rm -f hardware/enclosure/direct-mount/09_centre_boss_desk_stand_PRINT_2.stl
+
+      - name: Commit generated stand
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A hardware/enclosure/direct-mount/09_centre_boss_desk_stand_PRINT_*.stl
+          git commit -m "Regenerate thinner anti-tip centre stand"
+          git push origin HEAD:fix/thinner-forward-centre-stand
