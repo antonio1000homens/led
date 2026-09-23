@@ -54,7 +54,10 @@ HEADER_SLOT_X = 224
 STALE_X = 190
 QUEUE_FIRST_Y = 11
 QUEUE_ROW_HEIGHT = 8
-AGENDA_FIRST_Y = 8
+# The font label coordinate is a baseline. Start the three agenda rows lower
+# so the final row uses the bottom of the 32px panel instead of leaving a
+# visible unused band below it.
+AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEATHER_FONT_WIDTH = 5
@@ -1354,7 +1357,7 @@ class FixtureDisplay:
         elif kind == "calendar_agenda":
             events, visible, start, progress = _agenda_state(screen, phase)
             if not events:
-                self._text("No upcoming events", 0, 8, (255, 255, 255))
+                self._text("No upcoming events", 0, AGENDA_FIRST_Y, (255, 255, 255))
             else:
                 row_count = min(len(events) - start, visible * 2 if progress > 0 else visible)
                 y_offset = int(progress * visible * AGENDA_ROW_HEIGHT)
@@ -1363,7 +1366,7 @@ class FixtureDisplay:
                     if event_index >= len(events):
                         break
                     when, title = calendar_row_parts(events[event_index])
-                    y = 8 + slot * AGENDA_ROW_HEIGHT - y_offset
+                    y = AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset
                     due = todoist_due_label(events[event_index], clock_date) if screen.get("source") == "todoist" else ""
                     if due:
                         due_x = _right_aligned_x(due, DISPLAY_WIDTH)

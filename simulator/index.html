@@ -97,6 +97,7 @@
     const CALLING_TEXT_Y = 10 * FONT_PIXEL_SCALE;
     const CONTENT_FIRST_Y = 8 * FONT_PIXEL_SCALE;
     const CONTENT_ROW_HEIGHT = 8 * FONT_PIXEL_SCALE;
+    const AGENDA_FIRST_Y = 11 * FONT_PIXEL_SCALE;
     const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;
     const RAIL_ROW_Y = [4, 12, 20, 28].map(value => value * FONT_PIXEL_SCALE);
     const RAIL_SUMMARY_SECONDS = 8;
@@ -738,7 +739,7 @@
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {
           context.fillStyle = '#ffffff';
-          drawLedText('No upcoming events', 0, CONTENT_FIRST_Y);
+          drawLedText('No upcoming events', 0, AGENDA_FIRST_Y);
         } else {
           const agenda = agendaScrollState(screen, phase, events.length);
           const rowCount = Math.min(events.length - agenda.start, agenda.progress > 0 ? agenda.visible * 2 : agenda.visible);
@@ -754,7 +755,7 @@
             const event = events[agenda.start + slot];
             if (!event) break;
             const parts = calendarParts(event);
-            const y = CONTENT_FIRST_Y + slot * CONTENT_ROW_HEIGHT - yOffset;
+            const y = AGENDA_FIRST_Y + slot * CONTENT_ROW_HEIGHT - yOffset;
             const todoist = screen.source === 'todoist';
             const due = todoist ? todoistDueLabel(event, wallClock) : '';
             const dueWidth = due ? measureLedText(due).width : 0;

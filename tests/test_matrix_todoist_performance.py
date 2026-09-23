@@ -268,7 +268,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             row_groups = [row[0] for row in display._todoist_rows]
             assignments = display.display.root_assignments
             transition_at = display._todoist_page_transition_at(3)
-            self.assertEqual([row.y for row in row_groups[:4]], [8, 16, 24, 64])
+            self.assertEqual([row.y for row in row_groups[:4]], [11, 19, 27, 64])
 
             display.show(
                 screen,
@@ -278,7 +278,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             )
             self.assertEqual(display.display.root_assignments, assignments)
             self.assertEqual([row[0] for row in display._todoist_rows], row_groups)
-            self.assertEqual([row.y for row in row_groups[:4]], [-4, 4, 12, 20])
+            self.assertEqual([row.y for row in row_groups[:4]], [-1, 7, 15, 23])
 
             display.show(
                 screen,
@@ -286,7 +286,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 clock_date="2026-09-20",
                 phase=transition_at + led_display.AGENDA_SLIDE_SECONDS,
             )
-            self.assertEqual([row.y for row in row_groups[3:6]], [8, 16, 24])
+            self.assertEqual([row.y for row in row_groups[3:6]], [11, 19, 27])
 
 
     def test_page_waits_for_longest_marquee_and_settled_pause_before_slide(self):
@@ -305,7 +305,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 clock_date="2026-09-20",
                 phase=transition_at - 0.1,
             )
-            self.assertEqual([row.y for row in row_groups[:4]], [8, 16, 24, 64])
+            self.assertEqual([row.y for row in row_groups[:4]], [11, 19, 27, 64])
 
             display.show(
                 screen,
@@ -313,7 +313,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 clock_date="2026-09-20",
                 phase=transition_at + 0.2,
             )
-            self.assertEqual([row.y for row in row_groups[:4]], [-4, 4, 12, 20])
+            self.assertEqual([row.y for row in row_groups[:4]], [-1, 7, 15, 23])
 
     def test_cadence_uses_8hz_for_marquee_and_12hz_only_for_page_slide(self):
         with patch.dict(sys.modules, fake_modules()):
