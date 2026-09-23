@@ -4,7 +4,7 @@ Tracked by issue #53.
 
 ## Current design: direct-mount backplane
 
-The enclosure is **direct-mount only**. Four nominal 256 × 128 mm P4 HUB75 panels bolt directly to three standard rear backplanes plus one dedicated right-end backplane. Printed material stays behind the LED PCB so the full 1024 × 128 mm LED face remains unobstructed.
+The enclosure is **direct-mount only**. Four nominal 256 × 128 mm P4 HUB75 panels bolt directly to three standard rear backplanes plus one dedicated right-end backplane. The physical rear moulding appears slightly smaller than the illuminated/front envelope, so each printed backplane is now centred at **255 × 127 mm** within the nominal 256 × 128 mm panel coordinate system. Printed material stays behind the LED PCB so the full 1024 × 128 mm LED face remains unobstructed.
 
 The superseded side-loading concept has been removed.
 
@@ -19,13 +19,13 @@ The current six boss centres are:
 - x = **7.9, 128.0 and 248.1 mm**
 - y = **7.9 and 120.1 mm**
 
-The old P2.5-derived positions are retained only as separate moulded-locator clearance positions. Print the revised low-material template and verify it physically before printing a structural backplane.
+The old P2.5-derived positions are retained only as separate moulded-locator clearance positions. The mounting coordinates remain referenced to the nominal 256 × 128 mm front-panel envelope even though the rear backplane itself is inset 0.5 mm on every edge. Print the revised low-material template and verify it physically before printing a structural backplane.
 
 ## Source and generated STLs
 
 - `direct-mount/direct_mount_enclosure.scad` — parametric source for all current parts.
-- `direct-mount/01_backplane_module_PRINT_3.stl` — three standard rear backplanes with right-side alignment tongues.
-- `direct-mount/01b_backplane_right_end_PRINT_1.stl` — rightmost backplane without unused outer tongues/recesses.
+- `direct-mount/01_backplane_module_PRINT_3.stl` — three centred 255 × 127 mm rear backplanes with right-side alignment tongues, used on a 256 mm panel pitch.
+- `direct-mount/01b_backplane_right_end_PRINT_1.stl` — rightmost 255 × 127 mm backplane without unused outer tongues/recesses.
 - `direct-mount/02_module_joiner_PRINT_3.stl` — recessed rear seam locks with flush countersunk M3 fasteners.
 - `direct-mount/03_rod_end_plug_PRINT_4.stl` — retains the two 1 m × 8 mm reinforcement bars.
 - `direct-mount/04_matrixportal_mount_PRINT_1.stl` — removable MatrixPortal S3 rear carrier.
