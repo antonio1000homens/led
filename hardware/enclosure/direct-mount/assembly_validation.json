@@ -345,6 +345,11 @@
       "name": "centre-boss desk stand physical stability",
       "reason": "PRINT_3 reduces the boss mounting plate from 5 mm to 3 mm and adds a 15 mm forward toe under the display while retaining the 60 mm rear foot. Verify screw length/thread engagement, anti-rotation lip fit and that two stands no longer tip forward.",
       "issue": "#76"
+    },
+    {
+      "name": "rear backplane footprint",
+      "reason": "The physical LED module rear appears 1 mm smaller overall than the front 256 x 128 mm envelope. CAD now uses a centred 255 x 127 mm rear footprint (0.5 mm inset on every edge) while retaining the nominal panel coordinate system and 256 mm module pitch. Confirm the revised backplane seats inside the rear moulding without edge overhang.",
+      "issue": "#76"
     }
   ],
   "layout_checks": [
@@ -500,6 +505,12 @@
       ]
     ],
     "moulded_locator_clearance_d_mm": 10,
-    "physical_fit_status": "second physical fit showed the first inward correction was 0.5 mm too far; CAD now uses x=7.9/128/248.1 and y=7.9/120.1, pending another physical re-fit"
+    "physical_fit_status": "second physical fit showed the first inward correction was 0.5 mm too far; CAD now uses x=7.9/128/248.1 and y=7.9/120.1, pending another physical re-fit",
+    "rear_backplane_target_mm": [
+      255,
+      127
+    ],
+    "rear_backplane_edge_inset_mm": 0.5,
+    "rear_backplane_fit_note": "Physical LED module rear moulding appears 1 mm smaller overall than the 256 x 128 mm front envelope; CAD keeps the 256 x 128 coordinate system/pitch but insets the printed backplane 0.5 mm on every edge."
   }
 }
