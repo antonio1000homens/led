@@ -12,12 +12,12 @@ See [`direct-mount/README.md`](direct-mount/README.md) for the expected mounting
 
 ## Current measured / physically corrected mounting geometry
 
-The production mounting geometry no longer derives from the historical P2.5 reference model. A calibrated photograph and Kiri scan established a six-boss P4 layout, and the **first printed 1:1 template** then showed the outer boss centres needed to move **2 mm inward from every panel edge**.
+The production mounting geometry no longer derives from the historical P2.5 reference model. A calibrated photograph and Kiri scan established a six-boss P4 layout. The first printed template moved the outer boss centres **2 mm inward**, and the next physical fit showed that correction was **0.5 mm too far inward**.
 
-The corrected six boss centres are:
+The current six boss centres are:
 
-- x = **8.4, 128.0 and 247.6 mm**
-- y = **8.4 and 119.6 mm**
+- x = **7.9, 128.0 and 248.1 mm**
+- y = **7.9 and 120.1 mm**
 
 The old P2.5-derived positions are retained only as separate moulded-locator clearance positions. Print the revised low-material template and verify it physically before printing a structural backplane.
 
@@ -39,4 +39,4 @@ The old P2.5-derived positions are retained only as separate moulded-locator cle
 
 The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source.
 
-The six-boss P4 pattern has been corrected from the first physical template fit, but the revised template and one corrected backplane must still be physically verified before printing all four modules. The optional desk stand also requires a physical stability and screw-engagement check.
+The six-boss P4 pattern has now been refined by two physical fits, including a latest 0.5 mm outward correction. The revised template and one corrected backplane must still be physically verified before printing all four modules. The optional desk stand also requires a physical stability and screw-engagement check.
