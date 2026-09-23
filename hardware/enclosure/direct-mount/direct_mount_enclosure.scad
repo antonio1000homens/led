@@ -10,8 +10,9 @@
 //
 // The previously inferred four-point centres (26.704/229.296 x 12/116 mm)
 // are retained only as clearance centres for protruding moulded locating pins.
-// The physical test print showed at least one of those panel pins entering the
-// old slot, so the replacement backplane provides explicit round clearance there.
+// The physical test print showed at least one of those panel locators entering
+// the old slot. A 10 mm round clearance intentionally overlaps the 16 mm frame
+// opening by 1 mm, avoiding a fragile/tangent zero-thickness boundary.
 // Final acceptance remains a physical fit test against the real P4 panel.
 //
 // Design intent:
@@ -42,7 +43,7 @@ panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolera
 // provisional P2.5-derived slots; they are NOT panel screw locations.
 panel_locator_x = [26.704, 229.296];
 panel_locator_y = [12.0, 116.0];
-panel_locator_clearance_d = 8.0;
+panel_locator_clearance_d = 10.0;
 
 slot_len = 10;
 slot_w = 4.2;
