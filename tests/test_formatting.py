@@ -211,6 +211,8 @@ class FormattingTests(unittest.TestCase):
         self.assertIs(calling_rows[3][1], services[1])
         self.assertEqual(rail_phase(0), "summary")
         self.assertEqual(rail_phase(8), "calling")
+        self.assertEqual(rail_phase(19.9), "calling")
+        self.assertEqual(rail_phase(20), "summary")
 
     def test_agenda_page_holds_then_slides_to_second_three(self):
         self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))
