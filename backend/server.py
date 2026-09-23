@@ -22,6 +22,7 @@ import time
 from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
+from formatting import todoist_effective_duration
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
 from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable
 
@@ -186,12 +187,26 @@ class FixtureProvider:
 
 
 class FixtureCalendarProvider:
-    """Credential-free stand-in for a future calendar adapter."""
+    """Credential-free Todoist-shaped calendar feed for transition testing."""
 
-    source = "calendar_fixture"
+    source = "todoist"
 
     def fetch(self):
         return copy.deepcopy(CALENDAR_EVENTS)
+
+
+class FixtureWeatherProvider:
+    """Deterministic weather overlay for matched physical-board runs."""
+
+    def get(self):
+        return {
+            "source": "weather_fixture",
+            "stale": False,
+            "temperature_c": 17,
+            "weather_code": 2,
+            "icon": "partly_cloudy_day",
+            "is_day": True,
+        }
 
 
 class NationalRailProvider:
@@ -371,15 +386,27 @@ class ScreenFeed:
         if self.calendar_provider is not None:
             try:
                 events = self.calendar_provider.fetch()
-                screens.append({
+                calendar_source = self.calendar_provider.source
+                calendar_screen = {
                     "id": "calendar",
                     "kind": "calendar_agenda",
                     "duration_seconds": 8,
                     "title": "Upcoming events",
-                    "source": self.calendar_provider.source,
+                    "source": calendar_source,
                     "stale": False,
                     "events": events,
-                })
+                }
+                if calendar_source == "todoist":
+                    calendar_screen.update({
+                        "duration_seconds": todoist_effective_duration(
+                            8,
+                            events,
+                            page_seconds=5,
+                        ),
+                        "viewport_size": 3,
+                        "page_seconds": 5,
+                    })
+                screens.append(calendar_screen)
             except Exception:
                 screens.append({
                     "id": "calendar",
@@ -480,7 +507,7 @@ def main():
     parser.add_argument("--thorpe-park-source", choices=("off", "queue_times"), default=os.getenv("LED_THORPE_PARK_SOURCE", "off"))
     parser.add_argument("--thorpe-park-cache-seconds", type=int, default=int(os.getenv("LED_THORPE_PARK_CACHE_SECONDS", "300")))
     parser.add_argument("--thorpe-park-rides", default=os.getenv("LED_THORPE_PARK_RIDES", ",".join(DEFAULT_THORPE_PARK_RIDES)))
-    parser.add_argument("--weather-source", choices=("off", "open_meteo"), default=os.getenv("LED_WEATHER_SOURCE", "open_meteo"))
+    parser.add_argument("--weather-source", choices=("off", "fixture", "open_meteo"), default=os.getenv("LED_WEATHER_SOURCE", "open_meteo"))
     parser.add_argument("--weather-cache-seconds", type=int, default=int(os.getenv("LED_WEATHER_CACHE_SECONDS", "600")))
     parser.add_argument("--weather-latitude", type=float, default=float(os.getenv("LED_WEATHER_LATITUDE", str(DEFAULT_WEATHER_LATITUDE))))
     parser.add_argument("--weather-longitude", type=float, default=float(os.getenv("LED_WEATHER_LONGITUDE", str(DEFAULT_WEATHER_LONGITUDE))))
@@ -515,7 +542,9 @@ def main():
         queue_feed = ThorpeParkFeed(QueueTimesProvider(), args.thorpe_park_cache_seconds)
 
     weather_feed = None
-    if args.weather_source == "open_meteo":
+    if args.weather_source == "fixture":
+        weather_feed = FixtureWeatherProvider()
+    elif args.weather_source == "open_meteo":
         weather_feed = WeatherFeed(
             OpenMeteoProvider(args.weather_latitude, args.weather_longitude),
             args.weather_cache_seconds,

@@ -303,3 +303,17 @@ marquee, Todoist page slide, header slide, and departures calling updates.
 Do not change marquee speed, slide duration, presentation mode, or the
 production default as part of this comparison. Restore `baseline` after the
 run and verify a clean boot before treating a candidate as deployable.
+
+For a deterministic local payload that actually exercises both Todoist pages
+and the clock/weather header, run the backend with both fixture sources:
+
+```sh
+LED_SERVER_HOST=0.0.0.0 bash scripts/run-server.sh \
+  --calendar-source fixture \
+  --weather-source fixture
+```
+
+The calendar fixture is emitted with the production Todoist source identity,
+viewport/page timing, and an extended screen duration calculated for all six
+events. The weather fixture avoids making the comparison depend on an external
+weather request.

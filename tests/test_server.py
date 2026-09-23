@@ -12,6 +12,7 @@ from server import (
     DepartureFeed,
     FeedUnavailable,
     FixtureCalendarProvider,
+    FixtureWeatherProvider,
     FixtureProvider,
     ScreenFeed,
     create_server,
@@ -157,6 +158,20 @@ class ScreenFeedTests(unittest.TestCase):
         self.assertEqual(payload["screens"][0]["source"], "unavailable")
         self.assertEqual(payload["screens"][1]["kind"], "calendar_agenda")
         self.assertTrue(payload["screens"][1]["events"])
+
+    def test_calendar_fixture_matches_todoist_transition_contract(self):
+        feed = DepartureFeed(FixtureProvider(10), "NEM", 60)
+        payload = ScreenFeed(
+            feed,
+            FixtureCalendarProvider(),
+            weather_feed=FixtureWeatherProvider(),
+        ).get()
+        calendar = payload["screens"][1]
+        self.assertEqual(calendar["source"], "todoist")
+        self.assertEqual(calendar["viewport_size"], 3)
+        self.assertEqual(calendar["page_seconds"], 5)
+        self.assertGreater(calendar["duration_seconds"], 8)
+        self.assertEqual(calendar["weather"]["source"], "weather_fixture")
 
 
 class HttpTests(unittest.TestCase):

@@ -446,6 +446,33 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display._stats_fetch_overlap, 1)
             self.assertEqual(display._stats_cadence_switches, 1)
 
+    def test_animation_class_telemetry_attributes_changed_and_unchanged_ticks(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            updates = (
+                ("todoist", "todoist_marquee", True),
+                ("todoist", "todoist_page_slide", False),
+                ("todoist", "header_slide", True),
+                ("rail", "departures_calling", True),
+            )
+            for scene, animation_class, changed in updates:
+                display._record_animation_update(scene, changed, 0.01, animation_class)
+
+            for animation_class in (
+                "todoist_marquee",
+                "todoist_page_slide",
+                "header_slide",
+                "departures_calling",
+            ):
+                self.assertEqual(
+                    display._stats_animation_classes[animation_class]["ticks"],
+                    1,
+                )
+            self.assertEqual(display._stats_animation_classes["todoist_marquee"]["changed"], 1)
+            self.assertEqual(display._stats_animation_classes["todoist_page_slide"]["changed"], 0)
+            self.assertEqual(display._stats_animation_classes["header_slide"]["changed"], 1)
+            self.assertEqual(display._stats_animation_classes["departures_calling"]["changed"], 1)
+
     def test_todoist_title_stays_at_end_until_page_transition(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
