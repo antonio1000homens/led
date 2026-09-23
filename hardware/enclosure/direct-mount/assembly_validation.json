@@ -89,7 +89,7 @@
       "part": "joiner",
       "translate": [
         240,
-        32,
+        38,
         11.8
       ]
     },
@@ -97,7 +97,7 @@
       "part": "joiner",
       "translate": [
         496,
-        32,
+        38,
         11.8
       ]
     },
@@ -105,7 +105,7 @@
       "part": "joiner",
       "translate": [
         752,
-        32,
+        38,
         11.8
       ]
     },
@@ -361,12 +361,17 @@
     },
     {
       "name": "panel-to-panel seam cable corridor",
-      "reason": "The seam channel is 36 mm high and opens through the rear 12 mm of each 16 mm vertical rail while retaining a 4 mm panel-facing structural web, so the backplane remains one piece. Physically verify the real HUB75 ribbon and power wiring can cross each seam without being pinched or forced against the web, joiner straps or alignment tongues.",
+      "reason": "The seam channel is 16 mm high for the flat ribbon cable and opens through the rear 12 mm of each 16 mm vertical rail while retaining a 4 mm panel-facing structural web. Verify the real ribbon/power wiring crosses without pinching against the web, joiner straps or alignment tongues.",
       "issue": "#76"
     },
     {
       "name": "snap-on rear lid fit and retention",
       "reason": "The lid uses four dedicated stepped round sockets in the rear frame and matching split snap pegs. PETG is preferred for repeated flexing. Verify snap force, removal force, electronics clearance, MatrixPortal side access, ventilation and cable egress before relying on the lid.",
+      "issue": "#76"
+    },
+    {
+      "name": "panel mounting screw-well fit",
+      "reason": "Each panel mount now has an 11 mm diameter rear counterbore leaving 5 mm of local plastic. Verify the actual screw head fits inside the recess, remains below the rear lid plane, and still provides safe thread engagement in the panel boss without bottoming out.",
       "issue": "#76"
     }
   ],
@@ -425,7 +430,7 @@
       "tolerance_mm": 0.001
     },
     {
-      "name": "joiner strap sets share y=32",
+      "name": "joiner strap sets share y=38",
       "type": "translation_axis_equal",
       "instances": [
         "joiner_12",
@@ -433,7 +438,7 @@
         "joiner_34"
       ],
       "axis": "y",
-      "value": 32,
+      "value": 38,
       "tolerance_mm": 0.001
     },
     {
@@ -540,19 +545,18 @@
     "note": "Bar centre positions are unchanged from the previous 8 mm-bar design."
   },
   "seam_cable_corridor": {
-    "y_min_mm": 46,
-    "y_max_mm": 82,
-    "clear_height_mm": 36,
+    "y_min_mm": 56,
+    "y_max_mm": 72,
+    "clear_height_mm": 16,
     "alignment_tongue_width_mm": 8,
     "lower_tongue_y_mm": 34,
     "upper_tongue_y_mm": 86,
-    "joiner_origin_y_mm": 32,
-    "joiner_overall_height_mm": 64,
-    "joiner_strap_height_mm": 14,
-    "note": "A 4 mm panel-facing web keeps each backplane one connected print; the rear 12 mm of the 16 mm rail is open across the 36 mm-high seam cable channel. PRINT_4 joiner straps remain above/below the channel.",
-    "full_depth": false,
+    "joiner_origin_y_mm": 38,
+    "joiner_overall_height_mm": 52,
+    "joiner_strap_height_mm": 18,
     "front_structural_web_mm": 4,
-    "rear_channel_depth_mm": 12
+    "rear_channel_depth_mm": 12,
+    "note": "A 4 mm panel-facing web keeps each backplane one connected print. The rear 12 mm of the 16 mm rail is open across a 16 mm-high flat-ribbon channel; PRINT_4 joiner straps remain above/below it."
   },
   "rear_lid": {
     "quantity": 4,
@@ -580,5 +584,12 @@
     "socket_throat_d_mm": 5.8,
     "socket_chamber_d_mm": 6.5,
     "note": "Dedicated lid sockets do not reuse the occupied reinforcement-bar bores."
+  },
+  "panel_mount_screw_wells": {
+    "through_hole_diameter_mm": 4.5,
+    "rear_counterbore_diameter_mm": 11,
+    "remaining_local_backplane_thickness_mm": 5,
+    "counterbore_depth_mm": 11,
+    "note": "Rear counterbores reduce the required screw length and keep screw heads below the 16 mm rear surface so they do not interfere with the lid."
   }
 }
