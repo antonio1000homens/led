@@ -442,6 +442,15 @@ module centre_boss_stand() {
     }
 }
 
+// Print the stand on its side so the triangular ribs and foot build upward
+// without large horizontal bridges/supports. Translation keeps the rotated STL
+// on z >= 0 for predictable slicer placement.
+module centre_boss_stand_print() {
+    translate([0,0,stand_w])
+        rotate([0,90,0])
+            centre_boss_stand();
+}
+
 module mount_pattern_template() {
     template_t = 2;
     band_h = 20;
@@ -472,5 +481,5 @@ else if (part == "power_mount") power_distribution_mount();
 else if (part == "cable_clip") cable_clip();
 else if (part == "slot_coupon") mounting_slot_coupon();
 else if (part == "mount_pattern_template") mount_pattern_template();
-else if (part == "centre_boss_stand") centre_boss_stand();
+else if (part == "centre_boss_stand") centre_boss_stand_print();
 else if (part != "__library__") assert(false, str("Unknown part: ",part));
