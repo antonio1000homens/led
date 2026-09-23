@@ -32,8 +32,18 @@ $fn = 48;
 // `part` is intentionally not assigned here: command-line -D and the per-part
 // wrapper SCAD files may set it. If undefined, the default render is backplane.
 
+// Nominal front-panel envelope / panel-to-panel pitch.
 module_w = 256;
 module_h = 128;
+
+// The moulded rear of the physical LED module is slightly smaller than the
+// 256 x 128 mm illuminated/front envelope. Keep all measured boss coordinates
+// in the nominal panel coordinate system, but inset the printed backplane by
+// 0.5 mm on every edge: 255 x 127 mm overall.
+backplane_edge_inset = 0.5;
+backplane_w = module_w - 2*backplane_edge_inset;
+backplane_h = module_h - 2*backplane_edge_inset;
+
 depth = 16;
 frame = 16;
 
@@ -128,17 +138,51 @@ module rod_bore(y) {
 
 module backplane_body(with_right_tongues=true) {
     union() {
-        cube([module_w,frame,depth]);
-        translate([0,module_h-frame,0]) cube([module_w,frame,depth]);
-        translate([0,frame,0]) cube([frame,module_h-2*frame,depth]);
-        translate([module_w-frame,frame,0]) cube([frame,module_h-2*frame,depth]);
+        // Rear frame is centred inside the nominal 256 x 128 front-panel
+        // envelope, leaving 0.5 mm clearance on every outside edge.
+        translate([backplane_edge_inset,backplane_edge_inset,0])
+            cube([backplane_w,frame,depth]);
+        translate([
+            backplane_edge_inset,
+            module_h-backplane_edge_inset-frame,
+            0
+        ]) cube([backplane_w,frame,depth]);
+        translate([
+            backplane_edge_inset,
+            backplane_edge_inset+frame,
+            0
+        ]) cube([frame,backplane_h-2*frame,depth]);
+        translate([
+            module_w-backplane_edge_inset-frame,
+            backplane_edge_inset+frame,
+            0
+        ]) cube([frame,backplane_h-2*frame,depth]);
 
-        translate([0,rod_y_bottom-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
-        translate([0,rod_y_top-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
+        translate([
+            backplane_edge_inset,
+            rod_y_bottom-rod_beam_h/2,
+            0
+        ]) cube([backplane_w,rod_beam_h,depth]);
+        translate([
+            backplane_edge_inset,
+            rod_y_top-rod_beam_h/2,
+            0
+        ]) cube([backplane_w,rod_beam_h,depth]);
 
         if (with_right_tongues)
             for (yy=[joint_y1,joint_y2])
-                translate([module_w-0.6,yy,joint_z]) cube([joint_len+0.6,joint_w,joint_h]);
+                // Preserve 0.6 mm attachment into this backplane, bridge the
+                // 1 mm rear-frame gap at a panel seam, then retain the original
+                // 6 mm engagement into the neighbouring socket.
+                translate([
+                    module_w-backplane_edge_inset-0.6,
+                    yy,
+                    joint_z
+                ]) cube([
+                    joint_len + 2*backplane_edge_inset + 0.6,
+                    joint_w,
+                    joint_h
+                ]);
     }
 }
 
@@ -172,8 +216,18 @@ module backplane(right_end=false) {
                 translate([x,y,-0.5]) cylinder(d=panel_locator_clearance_d,h=depth+1);
 
         for (yy=[joint_y1,joint_y2])
-            translate([-0.1,yy-joint_clear/2,joint_z-joint_clear/2])
-                cube([joint_len+0.2,joint_w+joint_clear,joint_h+joint_clear]);
+            // Socket begins just outside the inset rear-frame edge and keeps
+            // the original 6 mm tongue engagement inside the neighbour.
+            translate([
+                backplane_edge_inset-0.1,
+                yy-joint_clear/2,
+                joint_z-joint_clear/2
+            ])
+                cube([
+                    joint_len+0.2,
+                    joint_w+joint_clear,
+                    joint_h+joint_clear
+                ]);
 
         joiner_recesses(!right_end);
 
@@ -422,7 +476,11 @@ module centre_boss_stand() {
             // underneath the display and 60 mm rearward. The forward toe gives
             // the stand a front reaction point instead of letting the display
             // pivot forward around the lower boss.
-            translate([0,-stand_foot_t,-stand_front_toe_len])
+            translate([
+                0,
+                backplane_edge_inset-stand_foot_t,
+                -stand_front_toe_len
+            ])
                 cube([
                     stand_w,
                     stand_foot_t,
@@ -434,13 +492,21 @@ module centre_boss_stand() {
                 hull() {
                     translate([xx,0,0])
                         cube([stand_rib_t,stand_plate_h,stand_plate_t]);
-                    translate([xx,-stand_foot_t,stand_rear_foot_len-10])
+                    translate([
+                        xx,
+                        backplane_edge_inset-stand_foot_t,
+                        stand_rear_foot_len-10
+                    ])
                         cube([stand_rib_t,stand_foot_t,10]);
                 }
 
             // Anti-rotation lip: wraps 5 mm under the rear of the backplane edge
             // without reaching the LED-panel-facing plane.
-            translate([0,-stand_edge_hook_h,-stand_edge_hook_depth])
+            translate([
+                0,
+                backplane_edge_inset-stand_edge_hook_h,
+                -stand_edge_hook_depth
+            ])
                 cube([
                     stand_w,
                     stand_edge_hook_h,
