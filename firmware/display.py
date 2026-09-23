@@ -6,15 +6,12 @@ import board
 
 from matrix_config import (
     MATRIX_ANIMATION_PROFILE,
+    MATRIX_ANIMATION_PROFILES,
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
     MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
     MATRIX_STATS_INTERVAL_SECONDS,
-    DEPARTURES_CALLING_FPS,
-    HEADER_SLIDE_FPS,
-    TODOIST_MARQUEE_FPS,
-    TODOIST_PAGE_SLIDE_FPS,
     TODOIST_MARQUEE_PAUSE_SECONDS,
     TODOIST_MARQUEE_SPEED,
 )
@@ -363,6 +360,15 @@ class MatrixDisplay:
         self._stats_refresh_max = 0.0
         self._stats_fetch_overlap = 0
         self._stats_cadence_switches = 0
+        self._stats_animation_classes = {
+            name: {"ticks": 0, "changed": 0}
+            for name in (
+                "todoist_marquee",
+                "todoist_page_slide",
+                "header_slide",
+                "departures_calling",
+            )
+        }
         print(
             "MATRIX PRESENTATION preset={} animation_profile={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
                 MATRIX_EXPERIMENT_PRESET,
@@ -465,7 +471,11 @@ class MatrixDisplay:
             "heap_start={} heap_end={} animation_ticks={} todoist_ticks={} "
             "todoist_changed={} rail_ticks={} rail_changed={} "
             "update_avg={} update_max={} refresh_avg={} refresh_max={} "
-            "fetch_overlap={} cadence_switches={}".format(
+            "fetch_overlap={} cadence_switches={} "
+            "todoist_marquee_ticks={} todoist_marquee_changed={} "
+            "todoist_page_slide_ticks={} todoist_page_slide_changed={} "
+            "header_slide_ticks={} header_slide_changed={} "
+            "departures_calling_ticks={} departures_calling_changed={}".format(
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 elapsed,
@@ -496,6 +506,14 @@ class MatrixDisplay:
                 "{:.4f}".format(self._stats_refresh_max),
                 self._stats_fetch_overlap,
                 self._stats_cadence_switches,
+                self._stats_animation_classes["todoist_marquee"]["ticks"],
+                self._stats_animation_classes["todoist_marquee"]["changed"],
+                self._stats_animation_classes["todoist_page_slide"]["ticks"],
+                self._stats_animation_classes["todoist_page_slide"]["changed"],
+                self._stats_animation_classes["header_slide"]["ticks"],
+                self._stats_animation_classes["header_slide"]["changed"],
+                self._stats_animation_classes["departures_calling"]["ticks"],
+                self._stats_animation_classes["departures_calling"]["changed"],
             )
         )
         self._stats_last_report = now
@@ -507,28 +525,34 @@ class MatrixDisplay:
     def note_cadence_switch(self):
         self._stats_cadence_switches += 1
 
+    def _animation_class(self, screen, phase):
+        """Return the active animation class without changing its cadence."""
+        if not isinstance(screen, dict):
+            return None
+        kind = screen.get("kind")
+        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+            if self._todoist_rows and self._todoist_page_slide_active(phase):
+                return "todoist_page_slide"
+            if _header_slide_active(phase, screen.get("weather")):
+                return "header_slide"
+            if self._todoist_rows and self._todoist_titles_moving(phase):
+                return "todoist_marquee"
+            return None
+        if kind == "rail_combined":
+            if _header_slide_active(phase, screen.get("weather")):
+                return "header_slide"
+            if self._departures_calling_moving(screen, phase):
+                return "departures_calling"
+        return None
+
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
         if MATRIX_ANIMATION_PROFILE == "baseline":
             return MATRIX_REFRESH_FPS
-        if not isinstance(screen, dict):
+        animation_class = self._animation_class(screen, phase)
+        if animation_class is None:
             return 0
-        kind = screen.get("kind")
-        if kind == "calendar_agenda" and screen.get("source") == "todoist":
-            if self._todoist_rows and self._todoist_page_slide_active(phase):
-                return TODOIST_PAGE_SLIDE_FPS
-            if _header_slide_active(phase, screen.get("weather")):
-                return HEADER_SLIDE_FPS
-            if self._todoist_rows and self._todoist_titles_moving(phase):
-                return TODOIST_MARQUEE_FPS
-            return 0
-        if kind == "rail_combined":
-            if _header_slide_active(phase, screen.get("weather")):
-                return HEADER_SLIDE_FPS
-            if self._departures_calling_moving(screen, phase):
-                return DEPARTURES_CALLING_FPS
-            return 0
-        return 0
+        return MATRIX_ANIMATION_PROFILES[MATRIX_ANIMATION_PROFILE][animation_class]
 
     def animation_sleep_seconds(self, screen, phase):
         """Return a conservative sleep until the next known animation boundary."""
@@ -604,7 +628,7 @@ class MatrixDisplay:
                 return True
         return False
 
-    def _record_animation_update(self, scene, changed, duration):
+    def _record_animation_update(self, scene, changed, duration, animation_class=None):
         self._stats_animation_ticks += 1
         self._stats_update_total += duration
         self._stats_update_max = max(self._stats_update_max, duration)
@@ -616,6 +640,11 @@ class MatrixDisplay:
             self._stats_rail_ticks += 1
             if changed:
                 self._stats_rail_changed += 1
+        if animation_class in self._stats_animation_classes:
+            counters = self._stats_animation_classes[animation_class]
+            counters["ticks"] += 1
+            if changed:
+                counters["changed"] += 1
 
     def _refresh(self):
         """Present one changed scene according to the issue #70 test mode."""
@@ -793,7 +822,12 @@ class MatrixDisplay:
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
             changed = True
-        self._record_animation_update("rail", changed, time.monotonic() - update_started)
+        self._record_animation_update(
+            "rail",
+            changed,
+            time.monotonic() - update_started,
+            self._animation_class(screen, phase),
+        )
         if changed:
             self._refresh()
 
@@ -1129,7 +1163,12 @@ class MatrixDisplay:
         if self.display.root_group is not self._todoist_group:
             self.display.root_group = self._todoist_group
             changed = True
-        self._record_animation_update("todoist", changed, time.monotonic() - update_started)
+        self._record_animation_update(
+            "todoist",
+            changed,
+            time.monotonic() - update_started,
+            self._animation_class(screen, phase),
+        )
         if changed:
             self._refresh()
 

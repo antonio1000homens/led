@@ -273,3 +273,33 @@ After testing, restore the production application with:
 bash scripts/install-firmware.sh /Volumes/CIRCUITPY
 cp settings_local.py /Volumes/CIRCUITPY/
 ```
+
+
+## Short-transition cadence experiment
+
+Issue #94 adds explicit application-cadence profiles for matched physical
+comparisons. The checked-in and production default is `baseline` (fixed B8).
+The opt-in candidates are:
+
+- `adaptive`: current P1 behaviour, with 12 Hz page/header/departures
+  transitions and the Todoist marquee at 8 Hz;
+- `transition_15`: P2, with only Todoist page/header transitions at 15 Hz;
+- `transition_20`: P3, with only Todoist page/header transitions at 20 Hz.
+
+Set one value in the ignored board-local `settings_local.py`, then install the
+current application and reload CircuitPython:
+
+```python
+MATRIX_ANIMATION_PROFILE = "transition_15"
+```
+
+```sh
+bash scripts/install-firmware.sh /Volumes/CIRCUITPY
+```
+
+Capture `MATRIX PRESENTATION`, `MATRIX STATS`, and `FRAME PACE` serial lines
+for matched runs. The class counters in `MATRIX STATS` distinguish Todoist
+marquee, Todoist page slide, header slide, and departures calling updates.
+Do not change marquee speed, slide duration, presentation mode, or the
+production default as part of this comparison. Restore `baseline` after the
+run and verify a clean boot before treating a candidate as deployable.

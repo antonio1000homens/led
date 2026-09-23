@@ -11,6 +11,7 @@ from matrix_config import (
     DEPARTURES_CALLING_FPS,
     HEADER_SLIDE_FPS,
     MATRIX_PRESENTATION_MODE,
+    MATRIX_ANIMATION_PROFILES,
     MATRIX_REFRESH_FPS,
     TODOIST_MARQUEE_FPS,
     TODOIST_PAGE_SLIDE_FPS,
@@ -172,6 +173,31 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
     def test_marquee_speed_does_not_exceed_update_cadence(self):
         self.assertLessEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
+
+    def test_transition_profiles_only_raise_short_transition_cadence(self):
+        self.assertEqual(MATRIX_ANIMATION_PROFILES["baseline"]["todoist_page_slide"], MATRIX_REFRESH_FPS)
+        self.assertEqual(MATRIX_ANIMATION_PROFILES["adaptive"]["todoist_page_slide"], 12)
+        self.assertEqual(MATRIX_ANIMATION_PROFILES["transition_15"]["todoist_page_slide"], 15)
+        self.assertEqual(MATRIX_ANIMATION_PROFILES["transition_20"]["todoist_page_slide"], 20)
+        for profile in ("baseline", "adaptive", "transition_15", "transition_20"):
+            self.assertEqual(MATRIX_ANIMATION_PROFILES[profile]["todoist_marquee"], 8)
+        self.assertEqual(MATRIX_ANIMATION_PROFILES["baseline"]["departures_calling"], 8)
+        for profile in ("adaptive", "transition_15", "transition_20"):
+            self.assertEqual(MATRIX_ANIMATION_PROFILES[profile]["departures_calling"], 12)
+
+    def test_transition_profiles_select_only_page_and_header_cadence(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            transition_at = display._todoist_page_transition_at(3)
+
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_15"):
+                self.assertEqual(display.animation_cadence(screen, transition_at + 0.2), 15)
+                self.assertEqual(display.animation_cadence(screen, 1.0), 8)
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_20"):
+                self.assertEqual(display.animation_cadence(screen, transition_at + 0.2), 20)
+                self.assertEqual(display.animation_cadence(screen, 1.0), 8)
 
     def test_consecutive_todoist_frames_reuse_root_and_move_title_group(self):
         with patch.dict(sys.modules, fake_modules()):

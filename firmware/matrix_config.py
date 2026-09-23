@@ -39,13 +39,44 @@ except KeyError:
 MATRIX_BIT_DEPTH = 1
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
 
-# Issue #91 adaptive partial-scene cadence. These are animation update
+# Issue #91/#94 adaptive partial-scene cadence. These are animation update
 # cadences, not framebuffer refresh modes; Mode B remains the presentation
 # strategy and only changed persistent-scene state is presented.
 TODOIST_MARQUEE_FPS = 8
 TODOIST_PAGE_SLIDE_FPS = 12
 HEADER_SLIDE_FPS = 12
 DEPARTURES_CALLING_FPS = 12
+
+# Keep the experiment profiles in one table so cadence comparisons cannot
+# accidentally change animation speed or the lower-level presentation mode.
+# ``baseline`` is the production control. The other profiles are opt-in board
+# experiments for issue #94.
+MATRIX_ANIMATION_PROFILES = {
+    "baseline": {
+        "todoist_marquee": MATRIX_REFRESH_FPS,
+        "todoist_page_slide": MATRIX_REFRESH_FPS,
+        "header_slide": MATRIX_REFRESH_FPS,
+        "departures_calling": MATRIX_REFRESH_FPS,
+    },
+    "adaptive": {
+        "todoist_marquee": TODOIST_MARQUEE_FPS,
+        "todoist_page_slide": TODOIST_PAGE_SLIDE_FPS,
+        "header_slide": HEADER_SLIDE_FPS,
+        "departures_calling": DEPARTURES_CALLING_FPS,
+    },
+    "transition_15": {
+        "todoist_marquee": TODOIST_MARQUEE_FPS,
+        "todoist_page_slide": 15,
+        "header_slide": 15,
+        "departures_calling": DEPARTURES_CALLING_FPS,
+    },
+    "transition_20": {
+        "todoist_marquee": TODOIST_MARQUEE_FPS,
+        "todoist_page_slide": 20,
+        "header_slide": 20,
+        "departures_calling": DEPARTURES_CALLING_FPS,
+    },
+}
 
 # Keep the pre-#91 fixed B8 scheduling model reproducible until a physical
 # comparison demonstrates a clear visual improvement. A board-local
@@ -60,8 +91,12 @@ try:
     )
 except ImportError:
     pass
-if MATRIX_ANIMATION_PROFILE not in ("baseline", "adaptive"):
-    raise ValueError("MATRIX_ANIMATION_PROFILE must be baseline or adaptive")
+if MATRIX_ANIMATION_PROFILE not in MATRIX_ANIMATION_PROFILES:
+    raise ValueError(
+        "MATRIX_ANIMATION_PROFILE must be one of {}".format(
+            ", ".join(sorted(MATRIX_ANIMATION_PROFILES))
+        )
+    )
 
 # Aggregate serial summaries are deliberately infrequent so measurement does
 # not materially change MatrixPortal timing.
