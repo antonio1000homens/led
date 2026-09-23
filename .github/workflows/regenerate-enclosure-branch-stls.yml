@@ -63,4 +63,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add hardware/enclosure/direct-mount/*.stl
           git commit -m "Regenerate corrected enclosure STLs"
+          # The branch may have received documentation/source commits while
+          # OpenSCAD was rendering; replay the STL commit onto the latest tip.
+          git pull --rebase origin fix/p4-boss-inset-and-centre-stand
           git push origin HEAD:fix/p4-boss-inset-and-centre-stand
