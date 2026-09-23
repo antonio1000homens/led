@@ -21,9 +21,9 @@
 // Design intent:
 // - Print four identical backplane modules and bolt each LED module directly to one backplane.
 // - All printed structure remains BEHIND the LED face; nothing masks the 256 x 128 mm front.
-// - Two 1000 x 8 mm round reinforcement bars pass through all four modules.
+// - Two 1000 x 6 mm round reinforcement bars pass through all four modules.
 // - Bars are offset from the measured panel mounting rows and locator clearances.
-// - Neighbouring modules align with tongue/socket keys and are locked with rear M3 joiner plates.
+// - Neighbouring modules align with narrowed tongue/socket keys and are locked with two recessed M3 seam straps, leaving a central cable corridor.
 // - Each 4 mm joiner sits in matching rear recesses so its outside face is almost flush with the backplanes.
 // - The LED-panel-facing side of every backplane stays flat and unchanged.
 // - Rear electronics carriers use blind M3 heat-set-insert pockets.
@@ -76,30 +76,50 @@ rod_y_bottom = 24;
 rod_y_top = module_h-24;
 rod_beam_h = 12;
 
+// Keep the centre of each panel seam clear for HUB75/power cabling.
+// The previous 11.5 mm alignment tongues occupied too much of the seam;
+// PRINT_4 uses narrower 8 mm tongues moved towards the structural rod zones.
 joint_len = 6;
-joint_w = 11.5;
+joint_w = 8;
 joint_h = 7.2;
 joint_z = 4;
 joint_clear = 0.35;
-joint_y1 = 37;
-joint_y2 = 79;
+joint_y1 = 34;
+joint_y2 = 86;
 
+// Full-depth cable opening through both vertical seam rails.
+seam_cable_y_min = 46;
+seam_cable_y_max = 82;
+seam_cable_h = seam_cable_y_max - seam_cable_y_min;
+
+// The seam lock is now a PAIR of recessed straps in one STL/set. The clear
+// 36 mm space between them aligns with the full-depth cable opening above.
+joiner_origin_y = 32;
 joiner_insert_x = 8;
-joiner_insert_y1 = 50;
-joiner_insert_y2 = 78;
+joiner_insert_y1 = 39;
+joiner_insert_y2 = 89;
 joiner_w = 32;
-joiner_h = 48;
+joiner_h = 64;
+joiner_strap_h = 14;
 joiner_t = 4;
-joiner_hole_y_inset = 10;
+joiner_hole_y_inset = 7;
 joiner_countersink_d = 6.4;
 joiner_countersink_depth = 1.7;
 joiner_clear_xy = 0.25;
 joiner_clear_z = 0.20;
 joiner_recess_depth = joiner_t + joiner_clear_z;
 joiner_recess_half_w = joiner_w/2 + joiner_clear_xy;
-joiner_recess_y = joiner_insert_y1 - joiner_hole_y_inset - joiner_clear_xy;
-joiner_recess_h = joiner_h + 2*joiner_clear_xy;
+joiner_recess_strap_h = joiner_strap_h + 2*joiner_clear_xy;
 joiner_recess_surface_z = depth - joiner_recess_depth;
+
+// Dedicated rear-lid snap sockets. These deliberately do NOT reuse the 6 mm
+// reinforcement-bar bores because those bores are occupied by the bars.
+lid_lock_x = [64, 192];
+lid_lock_y = [8, 120];
+lid_socket_depth = 5.0;
+lid_socket_throat_h = 1.8;
+lid_socket_throat_d = 5.8;
+lid_socket_chamber_d = 6.5;
 // M3 x 6 x 4.5 mm brass heat-set insert target.
 // 4.0 mm is the nominal printed pilot; verify with the coupon for the chosen filament/printer before structural prints.
 insert_d = 4.0;
@@ -191,14 +211,76 @@ module backplane_body(with_right_tongues=true) {
 }
 
 module joiner_recesses(include_right_side=true) {
-    // The 32 mm joiner is centred on a module seam, so each backplane
-    // provides half of the pocket. Extra XY/Z clearance prevents a
-    // printed joiner from holding either backplane off the LED PCB.
-    translate([-0.01,joiner_recess_y,joiner_recess_surface_z])
-        cube([joiner_recess_half_w+0.01,joiner_recess_h,joiner_recess_depth+0.01]);
-    if (include_right_side)
-        translate([module_w-joiner_recess_half_w,joiner_recess_y,joiner_recess_surface_z])
-            cube([joiner_recess_half_w+0.01,joiner_recess_h,joiner_recess_depth+0.01]);
+    // Two independent strap pockets leave the centre of the seam completely
+    // open for cables. Each neighbouring backplane contributes half the width.
+    for (yy=[
+        joiner_origin_y,
+        joiner_origin_y + joiner_h - joiner_strap_h
+    ]) {
+        translate([
+            -0.01,
+            yy-joiner_clear_xy,
+            joiner_recess_surface_z
+        ])
+            cube([
+                joiner_recess_half_w+0.01,
+                joiner_recess_strap_h,
+                joiner_recess_depth+0.01
+            ]);
+
+        if (include_right_side)
+            translate([
+                module_w-joiner_recess_half_w,
+                yy-joiner_clear_xy,
+                joiner_recess_surface_z
+            ])
+                cube([
+                    joiner_recess_half_w+0.01,
+                    joiner_recess_strap_h,
+                    joiner_recess_depth+0.01
+                ]);
+    }
+}
+
+module seam_cable_openings() {
+    // Remove the centre of both vertical seam rails through the complete depth.
+    // This creates a 36 mm high panel-to-panel cable corridor.
+    translate([
+        -0.1,
+        seam_cable_y_min,
+        -0.5
+    ])
+        cube([
+            backplane_edge_inset + frame + 0.2,
+            seam_cable_h,
+            depth + 1
+        ]);
+
+    translate([
+        module_w-backplane_edge_inset-frame-0.1,
+        seam_cable_y_min,
+        -0.5
+    ])
+        cube([
+            backplane_edge_inset + frame + 0.2,
+            seam_cable_h,
+            depth + 1
+        ]);
+}
+
+module lid_lock_socket(x,y) {
+    // Wider blind chamber plus a smaller rear throat gives the matching split
+    // PETG peg a positive detent rather than a simple friction fit.
+    translate([x,y,depth-lid_socket_depth])
+        cylinder(
+            d=lid_socket_chamber_d,
+            h=lid_socket_depth-lid_socket_throat_h+0.1
+        );
+    translate([x,y,depth-lid_socket_throat_h])
+        cylinder(
+            d=lid_socket_throat_d,
+            h=lid_socket_throat_h+0.2
+        );
 }
 
 module backplane(right_end=false) {
@@ -233,7 +315,13 @@ module backplane(right_end=false) {
                     joint_h+joint_clear
                 ]);
 
+        seam_cable_openings();
         joiner_recesses(!right_end);
+
+        // Four dedicated snap sockets for the removable rear lid.
+        for (xx=lid_lock_x)
+            for (yy=lid_lock_y)
+                lid_lock_socket(xx,yy);
 
         // Keep the full heat-set-insert depth, measured from the new recess floor.
         // The right-end module has no unused outer seam hardware.
@@ -247,14 +335,25 @@ module backplane(right_end=false) {
 }
 
 module module_joiner() {
+    // One exported STL contains two separate recessed straps. Install both
+    // straps at each seam so the 36 mm centre corridor remains unobstructed.
     difference() {
-        cube([joiner_w,joiner_h,joiner_t]);
+        union() {
+            cube([joiner_w,joiner_strap_h,joiner_t]);
+            translate([0,joiner_h-joiner_strap_h,0])
+                cube([joiner_w,joiner_strap_h,joiner_t]);
+        }
+
         for (xx=[joiner_insert_x,joiner_w-joiner_insert_x])
             for (yy=[joiner_hole_y_inset,joiner_h-joiner_hole_y_inset]) {
                 translate([xx,yy,-0.5]) cylinder(d=3.5,h=joiner_t+1);
                 // 90-degree countersink for a flush M3 flat-head screw.
                 translate([xx,yy,joiner_t-joiner_countersink_depth])
-                    cylinder(d1=3.5,d2=joiner_countersink_d,h=joiner_countersink_depth+0.1);
+                    cylinder(
+                        d1=3.5,
+                        d2=joiner_countersink_d,
+                        h=joiner_countersink_depth+0.1
+                    );
             }
     }
 }
@@ -535,6 +634,84 @@ module centre_boss_stand_print() {
             centre_boss_stand();
 }
 
+// Modular snap-on rear lid. This is intentionally an open-sided protective
+// cover rather than a sealed box: the open perimeter preserves cooling,
+// MatrixPortal side access and the new seam cable corridor.
+//
+// PETG is the preferred material for the split snap pegs because it tolerates
+// repeated flexing better than PLA. PLA is acceptable for dimensional test
+// prints but is more likely to fatigue at the snap slots.
+lid_origin_x = backplane_edge_inset + 1.5;
+lid_origin_y = backplane_edge_inset + 1.5;
+lid_w = backplane_w - 3;
+lid_h = backplane_h - 3;
+lid_plate_t = 2.4;
+lid_clearance_h = 18;
+lid_post_d = 8;
+lid_snap_shaft_d = 5.2;
+lid_snap_detent_d = 6.1;
+lid_snap_len = lid_socket_depth;
+lid_snap_slot_w = 1.0;
+
+module lid_snap_post_print(x,y) {
+    post_h = lid_clearance_h;
+    translate([x,y,lid_plate_t]) {
+        cylinder(d=lid_post_d,h=post_h);
+
+        translate([0,0,post_h])
+            difference() {
+                union() {
+                    cylinder(d=lid_snap_shaft_d,h=lid_snap_len);
+                    translate([0,0,0.8])
+                        cylinder(
+                            d1=lid_snap_shaft_d,
+                            d2=lid_snap_detent_d,
+                            h=1.0
+                        );
+                    translate([0,0,1.8])
+                        cylinder(
+                            d1=lid_snap_detent_d,
+                            d2=lid_snap_shaft_d,
+                            h=1.0
+                        );
+                }
+
+                // Split the snap section so the detent compresses through the
+                // 5.8 mm socket throat and expands in the 6.5 mm chamber.
+                translate([
+                    -lid_snap_slot_w/2,
+                    -lid_snap_detent_d,
+                    -0.1
+                ])
+                    cube([
+                        lid_snap_slot_w,
+                        2*lid_snap_detent_d,
+                        lid_snap_len+0.2
+                    ]);
+            }
+    }
+}
+
+module rear_lid_print() {
+    // Rear plate prints flat on the bed; posts and snap pegs grow upward.
+    // Installed, the part is simply flipped so the pegs face the backplane.
+    difference() {
+        cube([lid_w,lid_h,lid_plate_t]);
+
+        // Ventilation slots. Keep broad solid margins around the snap posts.
+        for (xx=[42,84,126,168,210])
+            translate([xx-12,lid_h/2-3,-0.1])
+                cube([24,6,lid_plate_t+0.2]);
+    }
+
+    for (xx=lid_lock_x)
+        for (yy=lid_lock_y)
+            lid_snap_post_print(
+                xx-lid_origin_x,
+                yy-lid_origin_y
+            );
+}
+
 module mount_pattern_template() {
     template_t = 2;
     band_h = 20;
@@ -566,4 +743,5 @@ else if (part == "cable_clip") cable_clip();
 else if (part == "slot_coupon") mounting_slot_coupon();
 else if (part == "mount_pattern_template") mount_pattern_template();
 else if (part == "centre_boss_stand") centre_boss_stand_print();
+else if (part == "rear_lid") rear_lid_print();
 else if (part != "__library__") assert(false, str("Unknown part: ",part));

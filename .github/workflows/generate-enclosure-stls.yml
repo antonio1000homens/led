@@ -54,7 +54,7 @@ jobs:
           declare -A parts=(
             [backplane]=01_backplane_module_PRINT_3.stl
             [backplane_right]=01b_backplane_right_end_PRINT_1.stl
-            [joiner]=02_module_joiner_PRINT_3.stl
+            [joiner]=02_module_joiner_PRINT_4.stl
             [rod_plug]=03_rod_end_plug_PRINT_4.stl
             [matrixportal_mount]=04_matrixportal_mount_PRINT_1.stl
             [power_mount]=05_power_distribution_mount_PRINT_1.stl
@@ -62,6 +62,7 @@ jobs:
             [slot_coupon]=07_mounting_slot_coupon_PRINT_1.stl
             [mount_pattern_template]=08_mount_pattern_template_PRINT_1.stl
             [centre_boss_stand]=09_centre_boss_desk_stand_PRINT_3.stl
+            [rear_lid]=10_rear_lid_PRINT_4.stl
           )
 
           for part in "${!parts[@]}"; do
@@ -139,7 +140,7 @@ jobs:
           declare -A entrypoints=(
             [01_backplane_module_PRINT_3.scad]=01_backplane_module_PRINT_3.stl
             [01b_backplane_right_end_PRINT_1.scad]=01b_backplane_right_end_PRINT_1.stl
-            [02_module_joiner_PRINT_3.scad]=02_module_joiner_PRINT_3.stl
+            [02_module_joiner_PRINT_4.scad]=02_module_joiner_PRINT_4.stl
             [03_rod_end_plug_PRINT_4.scad]=03_rod_end_plug_PRINT_4.stl
             [04_matrixportal_mount_PRINT_1.scad]=04_matrixportal_mount_PRINT_1.stl
             [05_power_distribution_mount_PRINT_1.scad]=05_power_distribution_mount_PRINT_1.stl
@@ -147,6 +148,7 @@ jobs:
             [07_mounting_slot_coupon_PRINT_1.scad]=07_mounting_slot_coupon_PRINT_1.stl
             [08_mount_pattern_template_PRINT_1.scad]=08_mount_pattern_template_PRINT_1.stl
             [09_centre_boss_desk_stand_PRINT_3.scad]=09_centre_boss_desk_stand_PRINT_3.stl
+            [10_rear_lid_PRINT_4.scad]=10_rear_lid_PRINT_4.stl
           )
 
           canonical_hash() {
