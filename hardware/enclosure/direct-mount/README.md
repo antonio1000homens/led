@@ -80,7 +80,7 @@ Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass ins
 | `06_cable_clip_PRINT_8.stl` | 8 | M3 screw-down rear cable clips |
 | `07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
 | `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six corrected brass-boss centres plus locating-pin clearances |
-| `09_centre_boss_desk_stand_PRINT_2.stl` | 2 | Separate rear desk stands; each shares a lower-centre panel boss screw and keys against the backplane lower edge |
+| `09_centre_boss_desk_stand_PRINT_3.stl` | 2 | Separate centre-boss desk stands with a thinner 3 mm screw stack and 15 mm forward anti-tip toe |
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
@@ -130,7 +130,7 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 - `06_cable_clip_PRINT_8.scad`
 - `07_mounting_slot_coupon_PRINT_1.scad`
 - `08_mount_pattern_template_PRINT_1.scad`
-- `09_centre_boss_desk_stand_PRINT_2.scad`
+- `09_centre_boss_desk_stand_PRINT_3.scad`
 
 The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 
@@ -162,7 +162,7 @@ The corrected brass-insert rows are **8.4 mm from the top/bottom edges** after t
 - 4 × M2.5 screws/nuts for the MatrixPortal S3 carrier; verify the physical board
 - 1 × short 16-way / 2×8 HUB75 IDC ribbon cable from the MatrixPortal component-side HUB75 connector to Panel 1 input
 - panel mounting screws/washers to match the actual P4 panel bosses
-- for each desk stand, one panel-mount screw approximately **5 mm longer** than the normal lower-centre boss screw, while preserving safe thread engagement
+- for each desk stand, one panel-mount screw approximately **3 mm longer** than the normal lower-centre boss screw, while preserving safe thread engagement
 - fused 5 V distribution hardware and appropriately rated 5 V input connector/cable
 
 ### Heat-set insert purchasing spec
@@ -218,16 +218,17 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 
 ## Separate centre-boss desk stand
 
-`09_centre_boss_desk_stand_PRINT_2.stl` is an optional, separately printed rear desk stand. Each stand:
+`09_centre_boss_desk_stand_PRINT_3.stl` is an optional, separately printed rear desk stand. Each stand:
 
 - attaches at the **lower centre boss** (x = 128 mm, y = 8.4 mm);
 - shares that panel/backplane mounting screw rather than adding a new panel hole;
-- uses a 32 mm wide rear mounting plate and a 60 mm rearward foot;
+- uses a 32 mm wide **3 mm mounting plate**, reduced from 5 mm so the shared boss screw only needs about 3 mm of extra length;
+- retains the **60 mm rearward foot** and adds a **15 mm forward toe underneath the display** so the support footprint straddles the panel plane and resists forward tipping;
 - includes an underside anti-rotation lip that keys against the **rear portion** of the backplane lower edge without reaching the LED-panel-facing plane;
 - lifts the panel/backplane lower edge by approximately 6 mm when the foot is resting on a desk;
 - is exported **pre-oriented on its side** so the ribs/foot can be printed with minimal support rather than as an installed-orientation L shape.
 
-For the complete four-panel display, print **two stands** and fit them to the lower-centre bosses of Panels 1 and 4. Use the same screw family as the panel boss but approximately 5 mm longer to account for the stand mounting plate. Confirm the actual screw thread and safe engagement depth before use.
+For the complete four-panel display, print **two stands** and fit them to the lower-centre bosses of Panels 1 and 4. Use the same screw family as the panel boss but approximately 3 mm longer to account for the thinner stand mounting plate. Confirm the actual screw thread and safe engagement depth before use. The 15 mm toe sits below the panel/LED face; it should not obscure the display.
 
 The stand is deliberately not fused into the backplane, so it can be omitted for wall mounting or reprinted independently if a different desk angle/foot length is later preferred.
 
