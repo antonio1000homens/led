@@ -21,9 +21,9 @@
 // Design intent:
 // - Print four identical backplane modules and bolt each LED module directly to one backplane.
 // - All printed structure remains BEHIND the LED face; nothing masks the 256 x 128 mm front.
-// - Two 1000 x 8 mm round reinforcement bars pass through all four modules.
+// - Two 1000 x 6 mm round reinforcement bars pass through all four modules.
 // - Bars are offset from the measured panel mounting rows and locator clearances.
-// - Neighbouring modules align with tongue/socket keys and are locked with rear M3 joiner plates.
+// - Neighbouring modules align with narrowed tongue/socket keys and are locked with two recessed M3 seam straps, leaving a central cable corridor.
 // - Each 4 mm joiner sits in matching rear recesses so its outside face is almost flush with the backplanes.
 // - The LED-panel-facing side of every backplane stays flat and unchanged.
 // - Rear electronics carriers use blind M3 heat-set-insert pockets.
