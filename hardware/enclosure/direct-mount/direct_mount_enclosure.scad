@@ -1,19 +1,25 @@
 // Modular direct-mount enclosure/backplane for four 256 x 128 mm P4 HUB75 panels.
 // Issue #53 - antonio1000homens/led
 //
-// Mount pattern reference:
-// The user supplied "Hub75 2.5mm Panel v7.stl" is 160 x 80 mm.
-// Four symmetric rear mounting positions were measured from that reference at:
-//   (16.69, 7.50), (143.31, 7.50), (16.69, 72.50), (143.31, 72.50) mm.
-// Scaling by 256/160 = 128/80 = 1.6 gives the EXPECTED P4 256 x 128 positions:
-//   (26.704, 12.0), (229.296, 12.0), (26.704, 116.0), (229.296, 116.0) mm.
-// This is an expected/reference pattern, not a vendor mechanical drawing. Verify one real P4 panel.
+// P4 physical-panel geometry:
+// A calibrated 1:1 ruler photograph plus an independent Kiri Engine scan show
+// six brass mounting inserts in a symmetric 3 x 2 pattern:
+//   x = 6.4, 128.0, 249.6 mm
+//   y = 6.4, 121.6 mm
+// These replace the obsolete four-point pattern inferred from a scaled P2.5 panel.
+//
+// The previously inferred four-point centres (26.704/229.296 x 12/116 mm)
+// are retained only as clearance centres for protruding moulded locating pins.
+// The physical test print showed at least one of those panel locators entering
+// the old slot. A 10 mm round clearance intentionally overlaps the 16 mm frame
+// opening by 1 mm, avoiding a fragile/tangent zero-thickness boundary.
+// Final acceptance remains a physical fit test against the real P4 panel.
 //
 // Design intent:
 // - Print four identical backplane modules and bolt each LED module directly to one backplane.
 // - All printed structure remains BEHIND the LED face; nothing masks the 256 x 128 mm front.
 // - Two 1000 x 8 mm round reinforcement bars pass through all four modules.
-// - Bars are offset from the expected panel mounting rows to avoid the mounting slots.
+// - Bars are offset from the measured panel mounting rows and locator clearances.
 // - Neighbouring modules align with tongue/socket keys and are locked with rear M3 joiner plates.
 // - Each 4 mm joiner sits in matching rear recesses so its outside face is almost flush with the backplanes.
 // - The LED-panel-facing side of every backplane stays flat and unchanged.
@@ -28,15 +34,16 @@ module_h = 128;
 depth = 16;
 frame = 16;
 
-reference_w = 160;
-reference_h = 80;
-reference_scale = module_w/reference_w;
-reference_mount_x = 16.69;
-reference_mount_y = 7.50;
-mount_x_left = reference_mount_x * reference_scale;
-mount_x_right = module_w - mount_x_left;
-mount_y_bottom = reference_mount_y * reference_scale;
-mount_y_top = module_h - mount_y_bottom;
+// Measured/scan-validated P4 brass insert centres.
+panel_mount_x = [6.4, 128.0, 249.6];
+panel_mount_y = [6.4, 121.6];
+panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolerance.
+
+// Moulded locating-pin clearance. These four centres correspond to the old
+// provisional P2.5-derived slots; they are NOT panel screw locations.
+panel_locator_x = [26.704, 229.296];
+panel_locator_y = [12.0, 116.0];
+panel_locator_clearance_d = 10.0;
 
 slot_len = 10;
 slot_w = 4.2;
@@ -123,11 +130,6 @@ module backplane_body(with_right_tongues=true) {
         translate([0,rod_y_bottom-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
         translate([0,rod_y_top-rod_beam_h/2,0]) cube([module_w,rod_beam_h,depth]);
 
-        for (x=[mount_x_left,mount_x_right]) {
-            translate([x-9,0,0]) cube([18,20,depth]);
-            translate([x-9,module_h-20,0]) cube([18,20,depth]);
-        }
-
         if (with_right_tongues)
             for (yy=[joint_y1,joint_y2])
                 translate([module_w-0.6,yy,joint_z]) cube([joint_len+0.6,joint_w,joint_h]);
@@ -151,8 +153,17 @@ module backplane(right_end=false) {
 
         for (yy=[rod_y_bottom,rod_y_top]) rod_bore(yy);
 
-        for (x=[mount_x_left,mount_x_right])
-            for (y=[mount_y_bottom,mount_y_top]) cross_slot(x,y);
+        // Six real P4 mounting holes: three along each long edge.
+        for (x=panel_mount_x)
+            for (y=panel_mount_y)
+                translate([x,y,-0.5]) cylinder(d=panel_mount_hole_d,h=depth+1);
+
+        // Clearance for the panel's protruding moulded locating pins.
+        // Kept separate from the brass mounting holes so the two functions
+        // cannot be confused during assembly.
+        for (x=panel_locator_x)
+            for (y=panel_locator_y)
+                translate([x,y,-0.5]) cylinder(d=panel_locator_clearance_d,h=depth+1);
 
         for (yy=[joint_y1,joint_y2])
             translate([-0.1,yy-joint_clear/2,joint_z-joint_clear/2])
@@ -385,8 +396,13 @@ module mount_pattern_template() {
             cube([side_w,module_h,template_t]);
             translate([module_w-side_w,0,0]) cube([side_w,module_h,template_t]);
         }
-        for (x=[mount_x_left,mount_x_right])
-            for (y=[mount_y_bottom,mount_y_top]) cross_slot(x,y,template_t+1);
+        for (x=panel_mount_x)
+            for (y=panel_mount_y)
+                translate([x,y,-0.5]) cylinder(d=panel_mount_hole_d,h=template_t+1);
+
+        for (x=panel_locator_x)
+            for (y=panel_locator_y)
+                translate([x,y,-0.5]) cylinder(d=panel_locator_clearance_d,h=template_t+1);
     }
 }
 

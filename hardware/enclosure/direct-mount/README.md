@@ -32,27 +32,40 @@ HUB75 data direction: MatrixPortal → Panel 1 → Panel 2 → Panel 3 → Panel
 
 When working from the rear of the assembled display, remember that the apparent left/right order is reversed relative to this front-view numbering. Connect the MatrixPortal HUB75 output to the input connector of Panel 1, then daisy-chain the panel outputs in numerical order through Panel 4.
 
-## Expected LED-panel mounting pattern
+## Measured P4 panel mounting pattern
 
-A supplied reference model, `Hub75 2.5mm Panel v7.stl`, measures 160 × 80 mm. Its four symmetric rear mounting centres were measured as:
+The production backplane no longer derives its screw positions from the historical 160 × 80 mm P2.5 reference model.
 
-| Reference 160 × 80 position | Scaled 256 × 128 position |
-| --- | --- |
-| 16.69, 7.50 mm | **26.704, 12.0 mm** |
-| 143.31, 7.50 mm | **229.296, 12.0 mm** |
-| 16.69, 72.50 mm | **26.704, 116.0 mm** |
-| 143.31, 72.50 mm | **229.296, 116.0 mm** |
+A calibrated 1:1 ruler photograph of the real P4 panel, cross-checked against the supplied Kiri Engine scan, shows **six brass mounting inserts in a symmetric 3 × 2 pattern**:
 
-The scale factor is exactly **1.6** in both axes because 160 × 80 → 256 × 128.
+| X (mm) | Y (mm) |
+| ---: | ---: |
+| 6.4 | 6.4 |
+| 128.0 | 6.4 |
+| 249.6 | 6.4 |
+| 6.4 | 121.6 |
+| 128.0 | 121.6 |
+| 249.6 | 121.6 |
 
-Expected mounting-centre spacing:
+This gives:
+- **6.4 mm nominal edge inset** on all four sides;
+- a centre mounting column at **x = 128.0 mm**;
+- outer-column spacing of **121.6 mm** either side of centre;
+- vertical row spacing of **115.2 mm**.
 
-- **202.592 mm horizontally**
-- **104.0 mm vertically**
+The production CAD uses **4.5 mm round through-holes** at these six centres. This provides practical clearance for the panel screws while keeping substantially more edge material than the old 10 mm cross-slots.
 
-The CAD now uses those centres with short 10 × 4.2 mm cross-slots for a small amount of tolerance. This is still an expected pattern rather than a vendor mechanical drawing for the purchased P4 modules.
+### Moulded locating-pin clearance
 
-Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real panel before printing four structural backplanes.
+The failed physical backplane fit also showed a protruding moulded locating pin entering one of the old four provisional P2.5-derived slots. Those old centres are therefore retained **only as locating-pin clearance positions**, not mounting points:
+
+- X = **26.704 / 229.296 mm**
+- Y = **12.0 / 116.0 mm**
+- clearance diameter = **10.0 mm**
+
+The screw holes and locating-pin clearances are intentionally different shapes so their purpose is obvious.
+
+Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass inserts **and** the locating-pin clearances against the real panel before printing the remaining structural backplanes.
 
 ## Printable parts
 
@@ -66,7 +79,7 @@ Print `08_mount_pattern_template_PRINT_1.stl` and place it against one real pane
 | `05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
 | `06_cable_clip_PRINT_8.stl` | 8 | M3 screw-down rear cable clips |
 | `07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
-| `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all four panel mounting centres |
+| `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six brass inserts plus locating-pin clearances |
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
@@ -136,7 +149,7 @@ The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Us
 
 ## Reinforcement-bar change
 
-The expected panel mounting rows are only 12 mm from the top/bottom edges. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
+The measured brass-insert rows are **6.4 mm from the top/bottom edges**. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
 
 ## Non-printed hardware
 
@@ -202,8 +215,8 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 
 ## Recommended validation sequence
 
-1. Print the full-pattern template and verify the four expected mounting centres on one physical panel.
-2. Print one complete backplane and verify connector/component clearance.
+1. Print the full-pattern template and verify all **six brass mounting centres** plus the four 10 mm locating-pin clearances on one physical panel.
+2. Print one complete replacement backplane and verify all six screw holes, locating-pin clearance, connector/component clearance and flat seating.
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
 5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
@@ -212,13 +225,14 @@ The rod-end plug is now a split, tapered friction/detent design sized for the 9.
 
 ## Validation still required
 
-The reference STL gives a much better expected mounting pattern, but it is a **P2.5 160 × 80 model**, while the purchased panels are P4 256 × 128 modules. The pattern is therefore scaled and must still be checked against one physical P4 panel.
+The six-point mounting pattern is now based on the calibrated real-panel photograph and independently supported by the 3D scan, rather than by P2.5 scaling. The replacement is still not considered production-accepted until the revised template/backplane is physically fitted.
 
-Before printing all four backplanes, confirm:
+Before printing the remaining backplanes, confirm:
 
-- exact PCB width and height
-- the four scaled mounting centres
-- screw/boss diameter and thread
-- maximum rear component/connector depth
-- HUB75 and power connector keep-out zones
-- MatrixPortal left-side button/USB access with the real PCB and any final side cover fitted
+- the six brass mounting holes accept screws without forcing or drilling;
+- the moulded locating pins enter the new 10 mm clearances without contacting the backplane;
+- the panel/backplane sits flat;
+- screw/boss diameter and thread are correct for the selected fasteners;
+- maximum rear component/connector depth remains clear;
+- HUB75 and power connector keep-out zones remain accessible;
+- MatrixPortal left-side button/USB access works with the real PCB and any final side cover fitted.
