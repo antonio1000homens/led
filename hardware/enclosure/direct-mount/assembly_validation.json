@@ -309,7 +309,7 @@
     },
     {
       "name": "P4 moulded locator clearance",
-      "reason": "The failed print showed at least one protruding moulded panel locator entering an old provisional slot. The replacement provides 8 mm round clearances at all four old symmetric centres; confirm every real locator clears and the panel seats flat.",
+      "reason": "The failed print showed at least one protruding moulded panel locator entering an old provisional slot. The replacement provides 10 mm round clearances at all four old symmetric centres; each clearance deliberately overlaps the frame opening by 1 mm to avoid a tangent/non-manifold edge. Confirm every real locator clears and the panel seats flat.",
       "issue": "#76"
     },
     {
@@ -490,7 +490,7 @@
         116
       ]
     ],
-    "moulded_locator_clearance_d_mm": 8,
+    "moulded_locator_clearance_d_mm": 10,
     "physical_fit_status": "pending revised template/backplane fit"
   }
 }
