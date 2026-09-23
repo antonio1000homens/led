@@ -457,15 +457,16 @@
       return RAIL_MARQUEE_GAP;
     }
     function callingMarqueeState(value, phase, speed, gap) {
-      if (phase < RAIL_MARQUEE_DELAY_SECONDS) return null;
       const text = String(value || '');
       const stations = text.startsWith(CALLING_LABEL) ? text.slice(CALLING_LABEL.length) : text;
       const prefixWidth = measureLedText(CALLING_LABEL).width;
       const width = measureLedText(stations).width;
       const availableWidth = Math.max(1, 1024 - prefixWidth);
-      if (width <= availableWidth) return { stations, offset: 0, width, prefixWidth };
-      const movingElapsed = Math.max(0, phase - RAIL_MARQUEE_DELAY_SECONDS - CALLING_MARQUEE_PAUSE_SECONDS);
-      const offset = -((movingElapsed * speed) % (width + gap));
+      const elapsed = Math.max(0, Number(phase) || 0);
+      const stationX = width <= availableWidth
+        ? Math.max(prefixWidth, 1024 - elapsed * speed)
+        : 1024 - ((elapsed * speed) % (1024 - prefixWidth + width + gap));
+      const offset = stationX - prefixWidth;
       return { stations, offset, width, prefixWidth };
     }
     function marquee(value, y, phase, color = '#ffffff', speed = RAIL_MARQUEE_SPEED, delaySeconds = 0, gap = RAIL_MARQUEE_GAP) {

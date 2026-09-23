@@ -157,11 +157,11 @@ def calling_marquee_x(
     gap=RAIL_MARQUEE_GAP,
     pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS,
 ):
-    """Return the station-text x position while keeping ``CALLING AT:`` fixed.
+    """Return station-text x while keeping ``CALLING AT:`` fixed.
 
-    ``None`` means the calling row must remain hidden. Once visible, the fixed
-    label stays at x=0 while long station text scrolls in the remaining space.
-    Each loop pauses with the first station beside the label.
+    The row starts with only the fixed label visible. Station text enters from
+    the right immediately; long text continues into a seamless marquee.
+    Legacy delay and pause arguments remain accepted for caller compatibility.
     """
     try:
         phase = max(0.0, float(phase or 0))
@@ -173,19 +173,17 @@ def calling_marquee_x(
         delay_seconds = RAIL_MARQUEE_DELAY_SECONDS
         speed = RAIL_MARQUEE_SPEED
         pause_seconds = CALLING_MARQUEE_PAUSE_SECONDS
-    if phase < delay_seconds:
-        return None
     text = str(text or "")
     prefix_width = len(CALLING_LABEL) * int(font_width)
     stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
     visible_width = max(1, int(display_width) - prefix_width)
     text_width = len(stations) * int(font_width)
+    phase = max(0.0, phase)
     if text_width <= visible_width:
-        return prefix_width
-    elapsed = phase - delay_seconds
-    moving_elapsed = max(0.0, elapsed - pause_seconds)
-    cycle_width = text_width + max(0, int(gap or 0))
-    return prefix_width - int((moving_elapsed * speed) % cycle_width)
+        return max(prefix_width, display_width - int(phase * speed))
+    travel_width = display_width - prefix_width + text_width
+    cycle_width = travel_width + max(0, int(gap or 0))
+    return display_width - int((phase * speed) % cycle_width)
 
 
 def _iso_date_parts(value):

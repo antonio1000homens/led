@@ -371,13 +371,13 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             screen = departures_screen()
             display.show(screen, clock_time="19:40", phase=0)
 
-            self.assertEqual(display.animation_cadence(screen, 8.1), 0)
+            self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(screen, 4.2), HEADER_SLIDE_FPS)
             self.assertEqual(display.animation_cadence(screen, 0.5), 0)
             self.assertGreater(display.animation_sleep_seconds(screen, 0.5), 0)
 
             long_screen = departures_screen(long_calling=True)
-            self.assertEqual(display.animation_cadence(long_screen, 10.0), 0)
+            self.assertEqual(display.animation_cadence(long_screen, 10.0), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(long_screen, 12.5), DEPARTURES_CALLING_FPS)
 
     def test_boundary_sleep_uses_earliest_header_event(self):
