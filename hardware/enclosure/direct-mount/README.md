@@ -91,7 +91,7 @@ Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass ins
 | --- | ---: | --- |
 | `01_backplane_module_PRINT_3.stl` | 3 | Standard centred 255 × 127 mm rear structure on a 256 × 128 mm panel pitch, with seam alignment tongues |
 | `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost 255 × 127 mm backplane; omits unused outer tongues/recess/insert pockets |
-| `02_module_joiner_PRINT_3.stl` | 3 | Locks each module seam from the rear with flush countersunk M3 screws |
+| `02_module_joiner_PRINT_4.stl` | 3 sets | Each STL contains the two recessed seam straps needed for one panel seam, leaving the centre open for cables |
 | `03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
 | `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier for the rear of Panel 1 / `backplane_1` |
 | `05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
@@ -99,6 +99,7 @@ Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass ins
 | `07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
 | `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six corrected brass-boss centres plus locating-pin clearances |
 | `09_centre_boss_desk_stand_PRINT_3.stl` | 2 | Separate centre-boss desk stands with a thinner 3 mm screw stack and 15 mm forward anti-tip toe |
+| `10_rear_lid_PRINT_4.stl` | 4 | Open-sided snap-on rear lids with ventilation slots and four dedicated round locking pegs |
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
@@ -108,7 +109,7 @@ Open `00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear str
 
 - Panels/backplanes 1–4 at x = 0, 256, 512 and 768 mm;
 - the dedicated right-end backplane on Panel 4;
-- all three recessed seam joiners;
+- all three recessed seam-strap sets, with the cable corridor left open;
 - both 1000 × 6 mm reinforcement rods;
 - the MatrixPortal carrier on Panel 1, including the simplified PCB reference and left-side service overhang;
 - the power-distribution carrier on Panel 2;
@@ -141,7 +142,7 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 
 - `01_backplane_module_PRINT_3.scad`
 - `01b_backplane_right_end_PRINT_1.scad`
-- `02_module_joiner_PRINT_3.scad`
+- `02_module_joiner_PRINT_4.scad`
 - `03_rod_end_plug_PRINT_4.scad`
 - `04_matrixportal_mount_PRINT_1.scad`
 - `05_power_distribution_mount_PRINT_1.scad`
@@ -149,23 +150,33 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 - `07_mounting_slot_coupon_PRINT_1.scad`
 - `08_mount_pattern_template_PRINT_1.scad`
 - `09_centre_boss_desk_stand_PRINT_3.scad`
+- `10_rear_lid_PRINT_4.scad`
 
 The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 
-## Recessed seam joiners
+## Seam cable corridor and recessed joiner straps
 
-Each `02_module_joiner_PRINT_3.stl` is **32 × 48 × 4 mm** and is centred across a panel seam. The rear face of each neighbouring backplane now provides half of a matching recess:
+The original seam geometry left too much material in the route used by the inter-panel HUB75/power cables. PRINT_4 makes the cable route an explicit mechanical feature rather than relying on cables squeezing around the joiner.
 
-- **16.25 mm** pocket width per backplane, giving 0.25 mm lateral clearance on each outer joiner edge
-- **48.5 mm** pocket height, giving 0.25 mm clearance at each end
-- **4.2 mm** pocket depth for the 4 mm joiner, leaving 0.2 mm depth clearance
-- the joiner M3 heat-set pockets retain their full **6.2 mm** depth measured from the recess floor
+Each seam now has a **36 mm high full-depth opening**, from **y=46 mm to y=82 mm**, cut through both vertical rear-frame rails. The two alignment tongues are also reduced from 11.5 mm to **8 mm wide** and moved outward to **y=34 mm** and **y=86 mm**, keeping them away from the central cable route.
 
-The panel-facing surface is unchanged, so the backplane still sits directly and flush against the rear mounting face of the LED panel. When two backplanes meet, the joiner is recessed into their rear faces rather than being trapped between a backplane and the LED PCB.
+`02_module_joiner_PRINT_4.stl` contains **two separate 32 × 14 × 4 mm straps** for one seam. Install both straps:
 
-The alignment tongues are now 7.2 mm high from z=4 mm, finishing at z=11.2 mm. The joiner pocket floor is z=11.8 mm, leaving **0.6 mm nominal Z clearance** between each tongue and the installed joiner.
+- lower strap: nominal y = **32–46 mm**
+- cable corridor: nominal y = **46–82 mm**
+- upper strap: nominal y = **82–96 mm**
+- four countersunk M3 screws total per seam
+- screw/insert rows move to **y=39 mm** and **y=89 mm**
+- the recess remains **4.2 mm deep** for a 4 mm strap, preserving 0.2 mm depth clearance
+- the joiner M3 heat-set pockets retain their full **6.2 mm** depth from the recess floor
 
-The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Use M3 flat-head/countersunk screws whose heads fit fully within that envelope so no screw head stands proud into an electronics carrier.
+The panel-facing surface remains unchanged. The straps sit in separate rear recesses, while the centre of the seam stays physically open from one panel enclosure to the next.
+
+The alignment tongues remain 7.2 mm high from z=4 mm, finishing at z=11.2 mm. The strap pocket floor remains z=11.8 mm, leaving **0.6 mm nominal Z clearance** between a tongue and an installed strap.
+
+The strap through-holes retain the **6.4 mm × 1.7 mm 90° countersink**. Use M3 flat-head/countersunk screws whose heads fit fully within that envelope.
+
+The 36 mm corridor is intended to accommodate the real inter-panel ribbon/power wiring, but it is still a physical validation item: route the actual cable bundle through one assembled seam before printing all modules.
 
 ## Reinforcement-bar change
 
@@ -234,11 +245,37 @@ The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits
 
 The rod-end plug is now a split, tapered friction/detent design sized for the 7.2 mm bore used by the 6 mm reinforcement bars. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
 
+## Snap-on rear lid
+
+`10_rear_lid_PRINT_4.stl` is a separately printed lid for each 255 × 127 mm rear module. It is intentionally **open-sided** rather than a sealed box: this protects the electronics from direct rear contact while preserving airflow, the MatrixPortal side-service access and the inter-panel cable corridor.
+
+The lid sits approximately **18 mm behind the rear face of the backplane** and uses a 2.4 mm vented plate. It requires no screws.
+
+Four dedicated stepped round sockets are added to each backplane at:
+
+- x = **64 / 192 mm**
+- y = **8 / 120 mm**
+
+These are **not** the 6 mm reinforcement-bar holes. The bar bores are occupied by the reinforcement rods, so using them as lid catches would make the two functions mechanically incompatible.
+
+Each lid has four matching split snap pegs:
+
+- socket throat: **5.8 mm**
+- internal socket chamber: **6.5 mm**
+- peg shaft: **5.2 mm**
+- peg detent: **6.1 mm**
+
+The split detent compresses through the smaller throat and expands in the larger blind chamber, giving a positive snap rather than relying only on friction.
+
+**Material:** PETG is preferred for the lid because the snap fingers must flex repeatedly. PLA is suitable for an initial dimensional test but is more brittle and is not the preferred material for frequent removal/refitting.
+
+Before printing all four lids, print/test one and confirm snap force, removal force, clearance over the MatrixPortal/power hardware, ventilation and cable egress.
+
 ## Separate centre-boss desk stand
 
 `09_centre_boss_desk_stand_PRINT_3.stl` is an optional, separately printed rear desk stand. Each stand:
 
-- attaches at the **lower centre boss** (x = 128 mm, y = 8.4 mm);
+- attaches at the **lower centre boss** (x = 128 mm, y = 7.9 mm);
 - shares that panel/backplane mounting screw rather than adding a new panel hole;
 - uses a 32 mm wide **3 mm mounting plate**, reduced from 5 mm so the shared boss screw only needs about 3 mm of extra length;
 - retains the **60 mm rearward foot** and adds a **15 mm forward toe underneath the display** so the support footprint straddles the panel plane and resists forward tipping;
@@ -256,10 +293,11 @@ The stand is deliberately not fused into the backplane, so it can be omitted for
 2. Only after the revised template fits, print one complete replacement backplane and verify all six screw holes, locating-pin clearance, connector/component clearance and flat seating.
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
-5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
+5. Join neighbouring backplanes with the narrowed alignment tongues/sockets and the two recessed PRINT_4 seam straps, then route the real inter-panel cable bundle through the 36 mm centre corridor.
 6. Insert and centre the two 1 m × 6 mm reinforcement bars.
 7. If desk-standing is required, fit two centre-boss stands to the lower-centre bosses of Panels 1 and 4 and verify that the anti-rotation lips seat correctly and the assembled display is stable.
 8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
+9. Print one `10_rear_lid_PRINT_4.stl` in PETG and verify all four snap locks, electronics clearance, ventilation and cable egress before printing the remaining three lids.
 
 ## Validation still required
 
@@ -273,4 +311,7 @@ Before printing the remaining backplanes, confirm:
 - screw/boss diameter and thread are correct for the selected fasteners;
 - maximum rear component/connector depth remains clear;
 - HUB75 and power connector keep-out zones remain accessible;
-- MatrixPortal left-side button/USB access works with the real PCB and any final side cover fitted.
+- the actual inter-panel HUB75/power cable bundle crosses each 36 mm seam corridor without pinching;
+- the PRINT_4 seam straps and 8 mm alignment tongues do not interfere with the cable route;
+- one PETG rear lid snaps in/out without cracking, excessive force or electronics contact;
+- MatrixPortal left-side button/USB access remains usable with the lid fitted.
