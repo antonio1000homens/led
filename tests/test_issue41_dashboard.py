@@ -78,9 +78,9 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('function ordinalLabel(number)', self.simulator_source)
 
     def test_platforms_use_a_stable_column_in_hardware_and_simulator(self):
-        self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*132')
+        self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*152')
         self.assertIn('platform_x = RAIL_PLATFORM_X', self.display_source)
-        self.assertRegex(self.simulator_source, r'const RAIL_PLATFORM_X\s*=\s*528;')
+        self.assertRegex(self.simulator_source, r'const RAIL_PLATFORM_X\s*=\s*608;')
         self.assertIn('let platformX = RAIL_PLATFORM_X;', self.simulator_source)
 
 
