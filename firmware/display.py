@@ -556,7 +556,10 @@ class MatrixDisplay:
 
     def animation_sleep_seconds(self, screen, phase):
         """Return a conservative sleep until the next known animation boundary."""
-        if MATRIX_ANIMATION_PROFILE != "adaptive":
+        # Every adaptive experiment profile must wake at the next animation
+        # boundary. Restricting this to the literal "adaptive" profile lets
+        # the 15/20 Hz candidates sleep through page/header transitions.
+        if MATRIX_ANIMATION_PROFILE == "baseline":
             return None
         if not isinstance(screen, dict):
             return None

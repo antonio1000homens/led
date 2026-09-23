@@ -199,6 +199,36 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 self.assertEqual(display.animation_cadence(screen, transition_at + 0.2), 20)
                 self.assertEqual(display.animation_cadence(screen, 1.0), 8)
 
+    def test_transition_profiles_keep_boundary_driven_wakeups(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            transition_at = display._todoist_page_transition_at(3)
+
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "adaptive"):
+                adaptive_sleep = display.animation_sleep_seconds(screen, 0.5)
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_15"):
+                transition_15_sleep = display.animation_sleep_seconds(screen, 0.5)
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_20"):
+                transition_20_sleep = display.animation_sleep_seconds(screen, 0.5)
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
+                baseline_sleep = display.animation_sleep_seconds(screen, 0.5)
+
+            self.assertEqual(adaptive_sleep, transition_15_sleep)
+            self.assertEqual(adaptive_sleep, transition_20_sleep)
+            self.assertGreater(adaptive_sleep, 0)
+            self.assertLessEqual(adaptive_sleep, transition_at - 0.5)
+            self.assertIsNone(baseline_sleep)
+
+            # Once the boundary is reached, each candidate selects its own
+            # transition cadence rather than remaining asleep at the control
+            # profile's boundary.
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_15"):
+                self.assertEqual(display.animation_cadence(screen, transition_at + 0.01), 15)
+            with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_20"):
+                self.assertEqual(display.animation_cadence(screen, transition_at + 0.01), 20)
+
     def test_consecutive_todoist_frames_reuse_root_and_move_title_group(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
