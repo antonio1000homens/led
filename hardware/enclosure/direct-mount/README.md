@@ -109,7 +109,7 @@ Open `00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear str
 - Panels/backplanes 1–4 at x = 0, 256, 512 and 768 mm;
 - the dedicated right-end backplane on Panel 4;
 - all three recessed seam joiners;
-- both 1000 × 8 mm reinforcement rods;
+- both 1000 × 6 mm reinforcement rods;
 - the MatrixPortal carrier on Panel 1, including the simplified PCB reference and left-side service overhang;
 - the power-distribution carrier on Panel 2;
 - translucent guide planes at the three nominal panel seams.
@@ -169,11 +169,11 @@ The joiner through-holes now include a **6.4 mm × 1.7 mm 90° countersink**. Us
 
 ## Reinforcement-bar change
 
-The current brass-insert rows are **7.9 mm from the top/bottom edges** after the second physical fit moved the first correction 0.5 mm back outward. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **9.2 mm** for the nominal 8 mm rods, giving 0.6 mm radial nominal clearance, and each module has a **10.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
+The current brass-insert rows are **7.9 mm from the top/bottom edges** after the second physical fit moved the first correction 0.5 mm back outward. The locating-pin clearance rows are at 12/116 mm. The bar centres remain at **y=24 mm and y=104 mm**. The bores are now **7.2 mm** for nominal **6 mm rods**, preserving 0.6 mm radial nominal clearance, and each module has an **8.4 mm lead-in chamfer** to reduce snagging across four separately printed modules. Narrow printed beams support the bores while leaving the central connector-access area open.
 
 ## Non-printed hardware
 
-- 2 × 1000 mm × 8 mm round steel/aluminium bars
+- 2 × 1000 mm × 6 mm round steel/aluminium bars
 - **M3 heat-set inserts: M3 × 6 mm long × 4.5 mm outside diameter**
 - M3 × 10 mm **flat-head/countersunk** screws for the three seam joiners (head must fit the 6.4 mm countersink)
 - M3 × 8–10 mm screws for the electronics carriers
@@ -232,7 +232,7 @@ For a visual mechanical check, open `04_matrixportal_side_access_ASSEMBLY.scad`.
 
 The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
 
-The rod-end plug is now a split, tapered friction/detent design sized for the 9.2 mm bore. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
+The rod-end plug is now a split, tapered friction/detent design sized for the 7.2 mm bore used by the 6 mm reinforcement bars. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
 
 ## Separate centre-boss desk stand
 
@@ -257,7 +257,7 @@ The stand is deliberately not fused into the backplane, so it can be omitted for
 3. Heat-set the M3 inserts from the rear.
 4. Bolt the panels to three standard backplanes plus the dedicated right-end backplane using the existing rear mounting points.
 5. Join neighbouring backplanes with the alignment tongues/sockets and recessed joiner plates using flush countersunk M3 screws.
-6. Insert and centre the two 1 m × 8 mm reinforcement bars.
+6. Insert and centre the two 1 m × 6 mm reinforcement bars.
 7. If desk-standing is required, fit two centre-boss stands to the lower-centre bosses of Panels 1 and 4 and verify that the anti-rotation lips seat correctly and the assembled display is stable.
 8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
 
