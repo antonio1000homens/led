@@ -10,14 +10,16 @@ The superseded side-loading concept has been removed.
 
 See [`direct-mount/README.md`](direct-mount/README.md) for the expected mounting geometry, printable parts, hardware BOM and validation sequence.
 
-## Current expected mounting geometry
+## Current measured / physically corrected mounting geometry
 
-The supplied 160 × 80 mm P2.5 reference STL has four symmetric mounting centres at 16.69 / 143.31 mm horizontally and 7.50 / 72.50 mm vertically. Scaling by 1.6 to the 256 × 128 mm P4 envelope gives expected centres at:
+The production mounting geometry no longer derives from the historical P2.5 reference model. A calibrated photograph and Kiri scan established a six-boss P4 layout, and the **first printed 1:1 template** then showed the outer boss centres needed to move **2 mm inward from every panel edge**.
 
-- x = **26.704 mm** and **229.296 mm**
-- y = **12.0 mm** and **116.0 mm**
+The corrected six boss centres are:
 
-The direct-mount CAD now uses those values. A low-material full-pattern test template is included so the pattern can be verified against one real P4 panel before the four structural backplanes are printed.
+- x = **8.4, 128.0 and 247.6 mm**
+- y = **8.4 and 119.6 mm**
+
+The old P2.5-derived positions are retained only as separate moulded-locator clearance positions. Print the revised low-material template and verify it physically before printing a structural backplane.
 
 ## Source and generated STLs
 
@@ -31,9 +33,10 @@ The direct-mount CAD now uses those values. A low-material full-pattern test tem
 - `direct-mount/06_cable_clip_PRINT_8.stl` — rear cable-management clips.
 - `direct-mount/07_mounting_slot_coupon_PRINT_1.stl` — slot test plus production-depth blind insert pocket.
 - `direct-mount/08_mount_pattern_template_PRINT_1.stl` — full 256 × 128 mounting-pattern verification template.
+- `direct-mount/09_centre_boss_desk_stand_PRINT_2.stl` — separately printed rear desk stand; print two for the complete display and attach them at the lower-centre bosses.
 
 ## Regenerating STLs
 
 The repository workflow **Generate enclosure STLs** regenerates every checked-in STL from the OpenSCAD source.
 
-The P4 mounting pattern is still an expected/scaled reference rather than a vendor mechanical drawing. Verify the pattern template and one backplane against the physical panel before printing all four modules.
+The six-boss P4 pattern has been corrected from the first physical template fit, but the revised template and one corrected backplane must still be physically verified before printing all four modules. The optional desk stand also requires a physical stability and screw-engagement check.
