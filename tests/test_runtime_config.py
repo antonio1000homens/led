@@ -57,7 +57,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertFalse(config["feeds"]["thorpe_park"]["enabled"])
         self.assertFalse(config["feeds"]["weather"]["enabled"])
         self.assertTrue(config["feeds"]["calendar"]["enabled"])
-        self.assertEqual(config["feeds"]["calendar"]["visible_task_count"], 3)
+        self.assertEqual(config["feeds"]["calendar"]["visible_task_count"], 6)
         self.assertEqual(config["feeds"]["departures"]["poll_seconds"], 60)
         self.assertEqual(config["feeds"]["departures"]["no_services_duration_seconds"], DEFAULT_NO_SERVICES_DURATION_SECONDS)
         self.assertEqual(config["feeds"]["departures"]["station_scroll_speed"], 30)
@@ -92,13 +92,17 @@ class RuntimeConfigTests(unittest.TestCase):
             validate_feed_patch("calendar", {"visible_task_count": 2}),
             {"visible_task_count": 2},
         )
+        self.assertEqual(
+            validate_feed_patch("calendar", {"visible_task_count": 6}),
+            {"visible_task_count": 6},
+        )
         with self.assertRaises(RuntimeConfigValidationError):
-            validate_feed_patch("calendar", {"visible_task_count": 4})
+            validate_feed_patch("calendar", {"visible_task_count": 7})
         legacy = default_runtime_config({})
         del legacy["feeds"]["calendar"]["visible_task_count"]
         self.assertEqual(
             validate_runtime_config(legacy)["feeds"]["calendar"]["visible_task_count"],
-            3,
+            6,
         )
 
     def test_no_services_duration_is_bounded_and_backfilled_for_existing_config(self):

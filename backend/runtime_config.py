@@ -40,9 +40,9 @@ DEFAULT_QUEUE_SCREEN_DURATION_SECONDS = 16
 DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
 MIN_FLASH_SCREEN_DURATION_SECONDS = 2
 MAX_FLASH_SCREEN_DURATION_SECONDS = 60
-MIN_CALENDAR_VISIBLE_TASKS = 1
-MAX_CALENDAR_VISIBLE_TASKS = 3
-DEFAULT_CALENDAR_VISIBLE_TASKS = 3
+MIN_CALENDAR_TASKS = 1
+MAX_CALENDAR_TASKS = 6
+DEFAULT_CALENDAR_TASKS = 6
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -87,9 +87,9 @@ QUEUE_TIMES_NUMERIC_FIELDS = {
 
 CALENDAR_NUMERIC_FIELDS = {
     "visible_task_count": {
-        "minimum": MIN_CALENDAR_VISIBLE_TASKS,
-        "maximum": MAX_CALENDAR_VISIBLE_TASKS,
-        "default": DEFAULT_CALENDAR_VISIBLE_TASKS,
+        "minimum": MIN_CALENDAR_TASKS,
+        "maximum": MAX_CALENDAR_TASKS,
+        "default": DEFAULT_CALENDAR_TASKS,
     },
 }
 
@@ -297,9 +297,9 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "visible_task_count": _int_env(
                     env,
                     "LED_TODOIST_VISIBLE_TASKS",
-                    DEFAULT_CALENDAR_VISIBLE_TASKS,
-                    minimum=MIN_CALENDAR_VISIBLE_TASKS,
-                    maximum=MAX_CALENDAR_VISIBLE_TASKS,
+                    DEFAULT_CALENDAR_TASKS,
+                    minimum=MIN_CALENDAR_TASKS,
+                    maximum=MAX_CALENDAR_TASKS,
                 ),
             },
             "flash": {

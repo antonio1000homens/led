@@ -362,20 +362,21 @@ class Publisher:
 
         if config_feeds["calendar"]["enabled"]:
             calendar = feeds.get("calendar") or {}
-            visible_tasks = max(1, int(config_feeds["calendar"].get("visible_task_count", 3)))
+            task_count = max(1, int(config_feeds["calendar"].get("visible_task_count", 6)))
+            visible_rows = 3
             data = calendar.get("data")
             calendar_events = []
             if data is not None:
                 calendar_events = data.get("events") or []
                 if data.get("source") == "todoist":
-                    calendar_events = copy.deepcopy(calendar_events[:self.config.calendar_max_events])
+                    calendar_events = copy.deepcopy(calendar_events[:min(self.config.calendar_max_events, task_count)])
                     local_date = now.astimezone(ZoneInfo(self.config.calendar_timezone)).date().isoformat()
                     duration_seconds = todoist_effective_duration(
                         config_feeds["calendar"]["screen_duration_seconds"],
                         calendar_events,
                         page_seconds=self.config.calendar_page_seconds,
                         current_date=local_date,
-                        visible_rows=visible_tasks,
+                        visible_rows=visible_rows,
                         step_rows=1,
                     )
                 else:
@@ -388,9 +389,9 @@ class Publisher:
                 "title": "UPCOMING" if data is not None else "Calendar unavailable",
                 "source": data.get("source", "todoist") if data is not None else "unavailable",
                 "stale": bool(calendar.get("stale")) if data is not None else True,
-                "viewport_size": visible_tasks, "page_step": 1,
+                "viewport_size": visible_rows, "page_step": 1,
                 "page_seconds": self.config.calendar_page_seconds,
-                "events": copy.deepcopy(calendar_events[:self.config.calendar_max_events]),
+                "events": copy.deepcopy(calendar_events[:task_count]),
             })
         if config_feeds["weather"]["enabled"]:
             weather = feeds.get("weather") or {}
