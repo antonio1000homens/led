@@ -92,6 +92,8 @@ Closed-position envelope:
 - usable cavity depth is approximately **39.4 mm at the lower zone** and **25.4 mm at the top**, measured from the 2.6 mm closing rim;
 - rear foot still extends to **z=60 mm** at the bottom for desk stability.
 
+For the intended flat print orientation, the hinge sweep relief stops at the pivot line instead of cutting through the rear half of the lower wall. That leaves continuous material underneath every moving knuckle from the first printable layers upward, avoiding Bambu Studio **floating region** warnings while keeping the external base flush. Fixed-knuckle locations still use their dedicated front-entry clearance pockets.
+
 The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 
 - M3 hardware with washers/nuts;
@@ -111,7 +113,7 @@ The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wi
 
 The lower rear foot beam and four diagonal ribs keep the bottom/base deep and stable. Above the lower wiring/equipment zone, both the side outline and the rear depth taper inward. This removes a substantial amount of material and rear protrusion from the top while preserving the deeper lower area for the PSU and power wiring.
 
-The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=1…14 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The LED-facing rim still begins at the pivot for opening clearance, but a full-width rear lower shroud continues to y=0.5 mm behind the hinge. This keeps the closed base visually flush rather than using the hinge barrel as the lower outside edge. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
+The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=5…18 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The continuous lower apron reaches y=0.5 mm and remains intact behind the pivot, so the closed base stays flush and the moving knuckles remain printable from the build plate. Only the front side of the pivot is relieved for the opening sweep. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
 
 ## Top closure
 
