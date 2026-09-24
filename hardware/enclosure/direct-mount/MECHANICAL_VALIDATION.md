@@ -23,7 +23,7 @@ An STL describes triangle surfaces. It does not say:
 - where rods, fastener heads or other non-printed hardware occupy space;
 - which checks still require a physical part.
 
-`assembly_validation.json` supplies that missing assembly intent for CI.
+`assembly_validation.json` supplies that missing assembly intent for CI. Printable meshes are stored under `stl/`; non-printing assembly/reference views are stored under `schematics/`.
 
 ## Automated checks
 
@@ -34,14 +34,13 @@ Manifold boolean engine to check:
    volume;
 2. neighbouring backplanes do not occupy the same solid volume;
 3. seam joiners fit the declared recesses without unintended solid overlap;
-4. nominal 8 mm reinforcement rods pass through all four backplanes;
+4. nominal 6 mm reinforcement rods pass through all four backplanes;
 5. electronics carriers nominally seat on the backplane;
 6. installed recessed joiners remain clear of the electronics carriers;
-7. the assembled backplane envelope remains within declared bounds.
+7. the assembled backplane envelope remains within declared bounds;
+8. key screw/peg interfaces are checked point-for-point, including seam-joiner screw rows, MatrixPortal/power-carrier M3 centres, and rear-lid peg/socket centres.
 
-The GitHub Actions workflow first regenerates the STLs from OpenSCAD and
-verifies that the checked-in meshes are current, then runs these mechanical
-checks.
+The GitHub Actions workflow first regenerates the STLs from OpenSCAD and verifies that the checked-in meshes under `stl/` are current, then renders the files under `schematics/` and runs these mechanical checks.
 
 ## Resolved automated findings
 
@@ -69,8 +68,20 @@ manual validation gates for:
 
 - the real P4 panel mounting pattern;
 - rear LED-panel component and connector keep-outs;
-- insertion of the real 1 m x 8 mm rods through four printed modules;
+- insertion of the real 1 m x 6 mm rods through four printed modules;
 - MatrixPortal and power-distribution hardware fit;
 - split rod-end plug retention in the chosen filament/printer.
 
 These physical gates remain part of issues #76 and #81.
+
+## Alignment interfaces added for issue #76
+
+The current manifest records the mating coordinates that are easy to miss in a visual STL review:
+
+- panel mounting template and structural backplane share the same six boss coordinates and four locator-clearance coordinates from the common SCAD;
+- each PRINT_4 seam-strap screw row lands on the matching heat-set insert row in the two neighbouring backplanes;
+- MatrixPortal and power-carrier mounting holes land on the four accessory inserts of their assigned panel;
+- rear-lid snap pegs and backplane sockets use identical XY coordinates;
+- the desk-stand screw is tied to the lower-centre panel boss.
+
+The MatrixPortal reference is also explicitly oriented **63.5 × 44.45 mm landscape**, with the short USB/button edge facing the outside of Panel 1.
