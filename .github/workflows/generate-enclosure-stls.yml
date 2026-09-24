@@ -138,6 +138,7 @@ jobs:
           tracked=hardware/enclosure/direct-mount
           stl_dir="$tracked/stl"
           schematics="$tracked/schematics"
+          assembly=hardware/enclosure/complete_enclosure
           generated="$(mktemp -d)"
 
           declare -A entrypoints=(
