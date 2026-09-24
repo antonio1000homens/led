@@ -30,12 +30,15 @@ hinge_rail_d = 6;
 hinge_bore_d = 7.2;         // same 0.6 mm radial clearance as the production rod bores
 hinge_outer_d = 13;
 // Fully internal concealed edge hinge:
-// - y=7.5 puts the 13 mm barrel envelope at y=1..14 mm, leaving the
-//   enclosure's outer/base edge free to continue down to y=0.5 mm;
+// - y=11.5 puts the 13 mm barrel envelope at y=5..18 mm, leaving a full
+//   4.5 mm of enclosure/base material between the barrel and the y=0.5 outer
+//   edge. The rail and both sets of knuckles therefore sit completely inside
+//   the closed enclosure footprint rather than defining its bottom silhouette.
 // - z=10.5 keeps the complete barrel behind the 2 mm fixed template.
-// The moving FRONT rim still begins at the pivot so it can swing freely, while
-// a rear lower skirt continues past the pivot to keep the closed base flush.
-hinge_axis_y = 7.5;
+// The moving front rim still begins at the pivot for opening clearance. A
+// continuous lower apron runs to the normal y=0.5 enclosure edge, with only an
+// internal front-quadrant sweep relief around the pivot.
+hinge_axis_y = 11.5;
 hinge_axis_z = 10.5;
 hinge_radius = hinge_outer_d/2;
 hinge_pocket_clearance = 0.6;
@@ -72,8 +75,8 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
 fixed_template_t = 2;
 fixed_band_h = 20;
 fixed_side_w = 8;
-fixed_hinge_root_y = 0.5;
-fixed_hinge_root_h = 13.5; // y=0.5..14: local root only around the concealed barrel
+fixed_hinge_root_y = hinge_axis_y-hinge_radius;
+fixed_hinge_root_h = hinge_outer_d; // root follows the fully internal barrel envelope
 fixed_hinge_root_t = 8;
 
 module hinge_mount_pattern_template() {
@@ -127,11 +130,11 @@ service_top_y = backplane_edge_inset + backplane_h;
 service_w = backplane_w;
 service_h = service_top_y - service_y;
 
-// Rear skirt starts behind the complete hinge/pocket envelope, so it can extend
-// below the pivot without participating in the opening collision sweep.
-hinge_shroud_front_z =
-    hinge_axis_z + hinge_radius + hinge_pocket_clearance + 0.6;
+// The lower apron reaches the normal outer/base edge. The front/lower quadrant
+// around the internal pivot is relieved separately so the moving half can swing
+// without the hinge or its clearance pocket protruding below the enclosure.
 hinge_shroud_overlap_y = 0.8;
+hinge_sweep_relief_back_z = hinge_axis_z + 0.6;
 
 // The front rim closes almost flush against the 2 mm fixed template: 0.6 mm
 // clearance avoids printed faces rubbing while keeping the hinge hidden inside.
@@ -365,26 +368,51 @@ module fixed_knuckle_clearance_pockets() {
 
 module moving_hinge_barrels() {
     for (segment=moving_knuckles)
-        // At the concealed lower edge the barrel overlaps the moving lower
-        // wall directly. The alternating fixed knuckles sit in the pockets
-        // removed from the moving shell.
+        // The rear half of each barrel keys directly into the lower apron.
+        // The alternating fixed knuckles sit in pockets removed from the shell.
         rail_hinge_barrel(segment[0],segment[1]);
 }
 
+module moving_hinge_bores() {
+    // The moving barrel is merged into the lower apron, so cut the rail bore
+    // again after the union. Without this, overlapping apron material could
+    // partially fill the nominal 7.2 mm passage.
+    for (segment=moving_knuckles)
+        translate([segment[0]-0.2,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=hinge_bore_d,h=segment[1]+0.4);
+}
+
+module hinge_front_sweep_relief() {
+    // Concealed-hinge opening relief. Only the LED-facing/front-lower quadrant
+    // of the apron is removed. The rear/bottom exterior remains continuous all
+    // the way to service_base_y, so the closed enclosure has a flush base while
+    // the 13 mm barrels remain entirely inside that outer envelope.
+    translate([
+        service_x-1,
+        service_base_y-1,
+        service_front_z-1
+    ])
+        cube([
+            service_w+2,
+            hinge_axis_y+hinge_radius+hinge_pocket_clearance-service_base_y+2,
+            hinge_sweep_relief_back_z-service_front_z+1
+        ]);
+}
+
 module lower_flush_hinge_shroud() {
-    // Full-width rear skirt from the validated lower backplane edge up into the
-    // normal moving wall. It hides the hinge from the rear/bottom silhouette
-    // and keeps the closed enclosure/base flush, while staying behind the
-    // hinge's rotational envelope.
+    // Full-depth lower apron from the validated y=0.5 rear-enclosure edge to
+    // just past the pivot line. The internal sweep relief is cut later from the
+    // LED-facing side, so no hinge barrel or special boss protrudes below it.
     translate([
         service_x,
         service_base_y,
-        hinge_shroud_front_z
+        service_front_z
     ])
         cube([
             service_w,
             service_y-service_base_y+hinge_shroud_overlap_y,
-            service_back_z_bottom+service_plate_t-hinge_shroud_front_z
+            service_back_z_bottom+service_plate_t-service_front_z
         ]);
 }
 
@@ -447,12 +475,17 @@ module service_tray_shell_body() {
 }
 
 module hinged_equipment_enclosure() {
-    union() {
-        difference() {
-            service_tray_shell_body();
+    difference() {
+        union() {
+            difference() {
+                service_tray_shell_body();
 
-            // Recess the fixed hinge half inside the closed enclosure.
-            fixed_knuckle_clearance_pockets();
+                // Keep the enclosure/base outer edge flush while removing only
+                // the internal front quadrant needed for hinge rotation.
+                hinge_front_sweep_relief();
+
+                // Recess the fixed hinge half inside the closed enclosure.
+                fixed_knuckle_clearance_pockets();
 
             // Universal M3 / cable-tie slot grid. Use a long cutter so slots
             // pass through both the deep lower plate and the shallower sloped
@@ -494,13 +527,17 @@ module hinged_equipment_enclosure() {
             // Matching U-shaped notches on both lower sides let fixed panel-to-
             // panel power/data cables remain in place while the enclosure opens.
             side_cable_notch(service_x-1);
-            side_cable_notch(service_x+service_w-service_wall-1);
+                side_cable_notch(service_x+service_w-service_wall-1);
 
+            }
+
+            // Moving knuckles are integral to the moving shell. Only the FIXED
+            // knuckle positions are pocketed above.
+            moving_hinge_barrels();
         }
 
-        // Moving knuckles are integral to the moving shell. Only the FIXED
-        // knuckle positions are pocketed above.
-        moving_hinge_barrels();
+        // Preserve a clear 7.2 mm rail passage through apron/barrel overlaps.
+        moving_hinge_bores();
     }
 }
 
