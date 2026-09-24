@@ -1,5 +1,5 @@
 name: Enclosure / Regenerate hinge version
-# rerun after hinge-root reinforcement
+# rerun after hinge-root reinforcement v2
 
 on:
   push:
