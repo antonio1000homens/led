@@ -113,7 +113,9 @@ joiner_w = 32;
 joiner_h = 60;
 joiner_strap_h = 18;
 joiner_t = 4;
-joiner_hole_y_inset = 7;
+// 9 mm puts the PRINT_4 strap screw rows at global y=43/85 when the
+// joiner set is installed at y=34, exactly matching the backplane inserts.
+joiner_hole_y_inset = 9;
 joiner_countersink_d = 6.4;
 joiner_countersink_depth = 1.7;
 joiner_clear_xy = 0.25;
@@ -361,7 +363,7 @@ module backplane(right_end=false) {
 
 module module_joiner() {
     // One exported STL contains two separate recessed straps. Install both
-    // straps at each seam so the 36 mm centre corridor remains unobstructed.
+    // straps at each seam so the shallow centre ribbon notch remains unobstructed.
     difference() {
         union() {
             cube([joiner_w,joiner_strap_h,joiner_t]);
@@ -409,26 +411,36 @@ carrier_hole_y = 6;
 //
 // Panel 1 uses the standard #82/#83 four-point carrier-to-backplane interface,
 // so the carrier itself still sits at x=6..250 on the 256 mm backplane.
-// The MatrixPortal PCB is shifted left within the carrier so its physical left
-// edge sits 10 mm beyond the Panel 1 PCB/backplane edge:
+//
+// IMPORTANT ORIENTATION:
+// The physical MatrixPortal is approximately 63.5 x 44.45 mm. The USB-C and
+// Reset/Up/Down controls are on the board's SHORT edge. The installed carrier
+// therefore uses the board in landscape orientation:
+//   x = 63.50 mm (long dimension)
+//   y = 44.45 mm (short dimension)
+// with the 44.45 mm service edge facing Panel 1's outside/left edge.
+//
+// The PCB is shifted left within the carrier so that service edge sits 10 mm
+// beyond the Panel 1 PCB/backplane edge:
 //   global board left = carrier global x (6) + matrixportal_pcb_x (-16) = -10 mm.
 //
-// Adafruit places the MatrixPortal over the matrix edge to keep the left-edge
-// USB-C and Reset/Up/Down buttons reachable. This design uses the component-side
-// HUB75 IDC connector and a short ribbon cable instead of requiring the board to
-// line up with the panel's rear HUB75 connector.
-matrixportal_pcb_w = 44.45;
-matrixportal_pcb_h = 63.50;
+// The component-side HUB75 IDC connector uses a short ribbon cable to Panel 1
+// input; the controller PCB does not need to line up directly with the panel's
+// rear HUB75 connector.
+matrixportal_pcb_w = 63.50;
+matrixportal_pcb_h = 44.45;
 matrixportal_pcb_x = -16.0;
 matrixportal_pcb_y = (carrier_h-matrixportal_pcb_h)/2;
 matrixportal_side_overhang_global = 10.0;
 
-// Hole offsets within the MatrixPortal PCB, derived from the existing official
-// PCB mounting geometry used by PR #84.
-matrixportal_hole_x1 = 15.875;
-matrixportal_hole_x2 = 35.560;
-matrixportal_hole_y1 = 15.240;
-matrixportal_hole_y2 = 55.880;
+// Hole offsets after rotating the official 44.45 x 63.50 PCB pattern 90° into
+// landscape orientation. Spacing is 40.640 mm along X and 19.685 mm along Y.
+// This is the same physical four-hole pattern used by PR #84, only correctly
+// oriented so the short control edge faces the enclosure side.
+matrixportal_hole_x1 = 15.240;
+matrixportal_hole_x2 = 55.880;
+matrixportal_hole_y1 = 8.890;
+matrixportal_hole_y2 = 28.575;
 
 matrixportal_standoff_d = 8;
 matrixportal_standoff_z = 2;
@@ -490,10 +502,10 @@ module matrixportal_carrier_frame() {
 }
 
 module matrixportal_post_supports() {
-    // Each row is tied into the existing left rail. The outer PCB standoff is
-    // allowed to sit slightly left of the carrier origin; its 8 mm boss still
-    // overlaps the x=0..12 carrier rail and remains entirely inside Panel 1
-    // once the carrier is translated +6 mm onto the backplane.
+    // Each landscape PCB row is tied into the existing left rail. The outer
+    // standoff is allowed to sit slightly left of the carrier origin; its 8 mm
+    // boss overlaps the x=0..12 carrier rail and remains structurally tied to
+    // the carrier once installed on Panel 1.
     for (row_y=[
         matrixportal_pcb_y + matrixportal_hole_y1,
         matrixportal_pcb_y + matrixportal_hole_y2
@@ -666,10 +678,13 @@ module centre_boss_stand_print() {
 // PETG is the preferred material for the split snap pegs because it tolerates
 // repeated flexing better than PLA. PLA is acceptable for dimensional test
 // prints but is more likely to fatigue at the snap slots.
-lid_origin_x = backplane_edge_inset + 1.5;
-lid_origin_y = backplane_edge_inset + 1.5;
-lid_w = backplane_w - 3;
-lid_h = backplane_h - 3;
+// Use the same XY coordinate system and outer footprint as the rear backplane.
+// This removes the previous hidden +2 mm installation offset: a lid pin at
+// [64,8] is now literally at the same XY coordinate as the [64,8] socket.
+lid_origin_x = backplane_edge_inset;
+lid_origin_y = backplane_edge_inset;
+lid_w = backplane_w;
+lid_h = backplane_h;
 lid_plate_t = 2.4;
 lid_clearance_h = 18;
 lid_post_d = 8;
@@ -731,22 +746,37 @@ module lid_snap_post_print(x,y) {
 
 module rear_lid_print() {
     // Rear plate prints flat on the bed; posts and snap pegs grow upward.
-    // Installed, the part is simply flipped so the pegs face the backplane.
+    // Its XY coordinates deliberately match the backplane's nominal panel
+    // coordinate system so the four pins can be audited directly against the
+    // four backplane sockets.
     difference() {
-        cube([lid_w,lid_h,lid_plate_t]);
+        translate([lid_origin_x,lid_origin_y,0])
+            cube([lid_w,lid_h,lid_plate_t]);
 
         // Ventilation slots. Keep broad solid margins around the snap posts.
         for (xx=[42,84,126,168,210])
-            translate([xx-12,lid_h/2-3,-0.1])
+            translate([xx-12,module_h/2-3,-0.1])
                 cube([24,6,lid_plate_t+0.2]);
     }
 
+    // Exact same XY centres as lid_lock_socket() in the backplane.
     for (xx=lid_lock_x)
         for (yy=lid_lock_y)
-            lid_snap_post_print(
-                xx-lid_origin_x,
-                yy-lid_origin_y
-            );
+            lid_snap_post_print(xx,yy);
+}
+
+// Installed orientation for assembly/schematic previews.
+// Print orientation has pegs pointing +Z; installation flips the lid around X
+// so the snap tips enter the rear-facing sockets. The Y socket set is symmetric
+// (8/120 about y=64), so the flipped peg centres remain exactly on the sockets.
+module rear_lid_installed() {
+    translate([
+        0,
+        module_h,
+        depth + lid_clearance_h + lid_plate_t
+    ])
+        rotate([180,0,0])
+            rear_lid_print();
 }
 
 module mount_pattern_template() {

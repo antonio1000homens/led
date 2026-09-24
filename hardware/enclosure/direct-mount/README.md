@@ -28,7 +28,7 @@ LEFT                                                        RIGHT
 HUB75 data direction: MatrixPortal → Panel 1 → Panel 2 → Panel 3 → Panel 4
 ```
 
-**Panel 1 is the leftmost panel when looking at the illuminated LED face from the front.** The `04_matrixportal_mount_PRINT_1.stl` carrier attaches to the rear of Panel 1 / `backplane_1`. The MatrixPortal PCB is intentionally shifted to the left so its button/USB edge overhangs the Panel 1 side by about **10 mm**. Panel 4 is the rightmost panel and uses `01b_backplane_right_end_PRINT_1.stl`.
+**Panel 1 is the leftmost panel when looking at the illuminated LED face from the front.** The `stl/04_matrixportal_mount_PRINT_1.stl` carrier attaches to the rear of Panel 1 / `backplane_1`. The MatrixPortal PCB is intentionally shifted to the left so its button/USB edge overhangs the Panel 1 side by about **10 mm**. Panel 4 is the rightmost panel and uses `stl/01b_backplane_right_end_PRINT_1.stl`.
 
 When working from the rear of the assembled display, remember that the apparent left/right order is reversed relative to this front-view numbering. Connect the MatrixPortal HUB75 output to the input connector of Panel 1, then daisy-chain the panel outputs in numerical order through Panel 4.
 
@@ -55,7 +55,7 @@ This gives:
 - outer-column spacing of **120.1 mm** either side of centre;
 - vertical row spacing of **112.2 mm**.
 
-The production CAD uses **4.5 mm round through-holes** at these six centres. On the structural backplane, each mounting hole now has an **10 mm diameter rear screw well** that is **11 mm deep**, leaving only **5 mm of plastic** between the recessed screw head and the LED-panel boss. This substantially reduces the extra screw length required compared with passing through the full 16 mm backplane, and keeps normal screw heads below the rear surface so they do not interfere with the snap-on lid.
+The production CAD uses **4.5 mm round through-holes** at these six centres. On the structural backplane, each mounting hole now has a **10 mm diameter rear screw well** that is **11 mm deep**, leaving only **5 mm of plastic** between the recessed screw head and the LED-panel boss. This substantially reduces the extra screw length required compared with passing through the full 16 mm backplane, and keeps normal screw heads below the rear surface so they do not interfere with the snap-on lid.
 
 The 1:1 mounting template remains thin and does not reproduce these screw wells; its job is only to verify the six boss centres and locating-pin clearances. The revised template must still be physically rechecked before the structural backplane is accepted.
 
@@ -85,23 +85,36 @@ The failed physical backplane fit also showed a protruding moulded locating pin 
 
 The screw holes and locating-pin clearances are intentionally different shapes so their purpose is obvious.
 
-Print `08_mount_pattern_template_PRINT_1.stl` first and verify all six brass inserts **and** the locating-pin clearances against the real panel before printing the remaining structural backplanes.
+Print `stl/08_mount_pattern_template_PRINT_1.stl` first and verify all six brass inserts **and** the locating-pin clearances against the real panel before printing the remaining structural backplanes.
+
+## Directory layout
+
+The direct-mount enclosure is now separated by purpose:
+
+- `direct_mount_enclosure.scad` — shared parametric source of truth.
+- `*_PRINT_*.scad` — thin printable-part entrypoints kept in this directory.
+- `stl/` — generated manufacturing meshes only; do not edit these by hand.
+- `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).\n- `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
+- `assembly_validation.json` and `validate_*.py` — machine-readable assembly intent and CI validation.
+- `README.md` / `MECHANICAL_VALIDATION.md` — physical-fit and validation documentation.
+
+This keeps the files you send to the slicer separate from the editable CAD and from the assembly drawings.
 
 ## Printable parts
 
 | File | Qty | Purpose |
 | --- | ---: | --- |
-| `01_backplane_module_PRINT_3.stl` | 3 | Standard centred 255 × 127 mm rear structure on a 256 × 128 mm panel pitch, with seam alignment tongues |
-| `01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost 255 × 127 mm backplane; omits unused outer tongues/recess/insert pockets |
-| `02_module_joiner_PRINT_4.stl` | 3 sets | Each STL contains the two recessed seam straps needed for one panel seam, leaving the centre open for cables |
-| `03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
-| `04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier for the rear of Panel 1 / `backplane_1` |
-| `05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
-| `06_cable_clip_PRINT_8.stl` | 8 | M3 screw-down rear cable clips |
-| `07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
-| `08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six corrected brass-boss centres plus locating-pin clearances |
-| `09_centre_boss_desk_stand_PRINT_3.stl` | 2 | Separate centre-boss desk stands with a thinner 3 mm screw stack and 15 mm forward anti-tip toe |
-| `10_rear_lid_PRINT_4.stl` | 4 | Open-sided snap-on rear lids with ventilation slots and four dedicated round locking pegs |
+| `stl/01_backplane_module_PRINT_3.stl` | 3 | Standard centred 255 × 127 mm rear structure on a 256 × 128 mm panel pitch, with seam alignment tongues |
+| `stl/01b_backplane_right_end_PRINT_1.stl` | 1 | Rightmost 255 × 127 mm backplane; omits unused outer tongues/recess/insert pockets |
+| `stl/02_module_joiner_PRINT_4.stl` | 3 sets | Each STL contains the two recessed seam straps needed for one panel seam, leaving the centre open for cables |
+| `stl/03_rod_end_plug_PRINT_4.stl` | 4 | Retains both 1 m reinforcement bars at both ends |
+| `stl/04_matrixportal_mount_PRINT_1.stl` | 1 | Removable MatrixPortal S3 carrier for the rear of Panel 1 / `backplane_1` |
+| `stl/05_power_distribution_mount_PRINT_1.stl` | 1 | Removable universal fused 5 V distribution carrier |
+| `stl/06_cable_clip_PRINT_8.stl` | 8 | M3 screw-down rear cable clips |
+| `stl/07_mounting_slot_coupon_PRINT_1.stl` | 1 | Small fit test for slot / insert dimensions |
+| `stl/08_mount_pattern_template_PRINT_1.stl` | 1 | Low-material 256 × 128 template to verify all six corrected brass-boss centres plus locating-pin clearances |
+| `stl/09_centre_boss_desk_stand_PRINT_3.stl` | 2 | Separate centre-boss desk stands with a thinner 3 mm screw stack and 15 mm forward anti-tip toe |
+| `stl/10_rear_lid_PRINT_4.stl` | 4 | Open-sided snap-on rear lids with ventilation slots and four dedicated round locking pegs |
 
 All STLs are generated from `direct_mount_enclosure.scad`.
 
@@ -154,7 +167,7 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 - `09_centre_boss_desk_stand_PRINT_3.scad`
 - `10_rear_lid_PRINT_4.scad`
 
-The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
+The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `schematics/matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `schematics/04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 
 ## Seam cable corridor and recessed joiner straps
 
@@ -171,7 +184,7 @@ A typical 16-way HUB75 ribbon is around 20 mm wide but only a small fraction of 
 
 CI explicitly requires both standard and right-end backplane STLs to contain **exactly one connected component**, preventing another full-depth seam cut from silently splitting the module.
 
-`02_module_joiner_PRINT_4.stl` still contains two recessed straps for one seam:
+`stl/02_module_joiner_PRINT_4.stl` still contains two recessed straps for one seam:
 
 - lower strap: nominal y = **34–52 mm**
 - ribbon notch: nominal y = **52–76 mm**
@@ -183,6 +196,8 @@ CI explicitly requires both standard and right-end backplane STLs to contain **e
 - joiner M3 heat-set pockets retain their full **6.2 mm** depth from the recess floor
 
 The alignment tongues remain 7.2 mm high from z=4 mm, finishing at z=11.2 mm. The strap pocket floor remains z=11.8 mm, leaving **0.6 mm nominal Z clearance** between a tongue and an installed strap.
+
+The strap screw-hole rows are now explicitly aligned to the backplane insert rows: with the joiner set installed at y=34 mm, local hole rows y=9/51 mm land at global **y=43/85 mm**, exactly matching the backplane heat-set-insert centres. CI validates this point-for-point.
 
 The strap through-holes retain the **6.4 mm × 1.7 mm 90° countersink**. Use M3 flat-head/countersunk screws whose heads fit fully within that envelope.
 
@@ -218,7 +233,7 @@ Use brass, knurled heat-set inserts intended for thermoplastic/3D-printed parts 
 
 For the pictured mixed screw/insert kits, this is the **M3 B** family, specifically the compartment labelled **M3*6*4.5**. The M3 A inserts shown as **M3*6*4.2** are a smaller outside-diameter family and are not the selected project standard.
 
-**CAD fit:** the OpenSCAD source uses a **4.0 mm nominal pilot** (`insert_d = 4.0`) and **6.2 mm blind-pocket depth** for the selected M3 × 6 × 4.5 mm insert. The revised `07_mounting_slot_coupon_PRINT_1.stl` is 8 mm thick and reproduces that exact blind pocket, leaving 1.8 mm of material beneath it. Print the coupon first and verify the fit with the actual insert and chosen filament before committing to the structural backplanes. If the insert is excessively tight or loose on the real printer, adjust the pilot in small increments (for example 0.1 mm) and regenerate the STLs.
+**CAD fit:** the OpenSCAD source uses a **4.0 mm nominal pilot** (`insert_d = 4.0`) and **6.2 mm blind-pocket depth** for the selected M3 × 6 × 4.5 mm insert. The revised `stl/07_mounting_slot_coupon_PRINT_1.stl` is 8 mm thick and reproduces that exact blind pocket, leaving 1.8 mm of material beneath it. Print the coupon first and verify the fit with the actual insert and chosen filament before committing to the structural backplanes. If the insert is excessively tight or loose on the real printer, adjust the pilot in small increments (for example 0.1 mm) and regenerate the STLs.
 
 Do not populate every optional insert pocket automatically. Install inserts only where the selected joiners, carrier or cable-management hardware needs them, and keep spare inserts for fit testing/rework.
 
@@ -228,62 +243,70 @@ The removable carrier attachment points are now **12 mm from each backplane edge
 
 ### MatrixPortal S3 carrier — left-side service access
 
-The MatrixPortal carrier keeps the same **244 × 72 mm** four-point M3 attachment interface introduced by #82/#83, but the PCB itself is no longer centred on the carrier. It is shifted to the **left end of Panel 1** so the physical PCB edge containing USB-C and the user buttons is accessible from the enclosure side.
+The MatrixPortal carrier keeps the **244 × 72 mm** four-point M3 attachment interface introduced by #82/#83. Its four carrier holes are at local **x=6/238 mm, y=6/66 mm**. With the carrier installed at **[6, 28, 16]** on Panel 1, those become global **x=12/244 mm, y=34/94 mm**, exactly matching the four backplane accessory inserts. CI now checks these point coordinates explicitly.
 
-The MatrixPortal PCB envelope remains **44.45 × 63.50 mm** in portrait orientation. Within the carrier its PCB origin is now `x=-16.0 mm`, `y=4.25 mm`. Because the complete carrier is installed at `x=+6 mm` on Panel 1, the PCB's left edge lands at **x=-10 mm relative to the Panel 1/backplane edge**. The printed carrier/standoffs remain within the Panel 1 structural envelope; only the electronics board overhangs.
+The earlier enclosure model had the MatrixPortal rotated incorrectly. The physical board is approximately **63.50 × 44.45 mm**, and the USB-C plus Reset/Up/Down/Boot controls are on the **44.45 mm short edge**. The carrier now models it in **landscape orientation**:
 
-The four carrier-local PCB mounting centres are therefore:
+- long board dimension: **63.50 mm along X**;
+- short board dimension: **44.45 mm along Y**;
+- the short control edge faces the outside/left edge of Panel 1;
+- PCB origin in the carrier: **x=-16.0 mm, y=13.775 mm**;
+- installed PCB bounds: approximately **x=-10..53.5 mm, y=41.775..86.225 mm**.
+
+The four carrier-local PCB mounting centres after the 90° orientation correction are:
 
 | x (mm) | y (mm) |
 | ---: | ---: |
-| -0.125 | 19.490 |
-| 19.560 | 19.490 |
-| -0.125 | 60.130 |
-| 19.560 | 60.130 |
+| -0.760 | 22.665 |
+| 39.880 | 22.665 |
+| -0.760 | 42.350 |
+| 39.880 | 42.350 |
 
-The carrier uses **round 2.8 mm M2.5 clearance holes** with captive M2.5 hex-nut pockets accessible from the underside. Low 2 mm ribs tie the four 8 mm standoffs into the existing left carrier rail. The two outer standoffs slightly cross the carrier-local x=0 plane but, after the carrier's +6 mm backplane offset, still remain behind the Panel 1 footprint.
+These retain the physical **40.640 × 19.685 mm** MatrixPortal hole spacing; only the board orientation changed.
 
-Do **not** make three separate button holes in a future side cover. Leave one continuous side-service opening for the MatrixPortal's left edge so USB-C plus Reset/Up/Down/Boot remain reachable despite small production tolerances and connector protrusion. The current target is to keep at least the PCB's **10 mm side overhang** unobstructed.
+The carrier uses **round 2.8 mm M2.5 clearance holes** with captive M2.5 hex-nut pockets accessible from the underside. Low support ribs tie the standoffs into the left carrier rail.
 
-For this side-access arrangement use the MatrixPortal's **component-side 2×8 HUB75 IDC connector** and a short ribbon cable to Panel 1 input. This avoids making the carrier depend on the still-unmeasured position of the physical panel's rear HUB75 connector.
+Do **not** make separate button apertures in a future side wall. Keep the complete MatrixPortal short service edge unobstructed so USB-C plus Reset/Up/Down/Boot remain reachable. The board still overhangs Panel 1 by approximately **10 mm** at this edge.
 
-The MatrixPortal carrier remains removable from the same four M3 backplane attachment points introduced by #82; no backplane insert positions are changed. **For the assembled display it is assigned specifically to Panel 1 / `backplane_1`, the HUB75 input end of the chain.** CI verifies that the generated MatrixPortal STL is one connected component reaching the z=0 print plane.
+For this side-access arrangement use the MatrixPortal's **component-side 2×8 HUB75 IDC connector** and a short ribbon cable to Panel 1 input. The controller therefore does not depend on the exact rear-panel HUB75 connector position.
 
-For a visual mechanical check, open `04_matrixportal_side_access_ASSEMBLY.scad`. It shows Panel 1, the printed carrier, a simplified MatrixPortal PCB reference, and the x=0 panel side plane.
+For a visual check, open `schematics/04_matrixportal_side_access_ASSEMBLY.scad`. The short service edge is highlighted and the four carrier-to-backplane M3 centres are shown in blue.
 
-The fourth/rightmost module uses `01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
+The fourth/rightmost module uses `stl/01b_backplane_right_end_PRINT_1.stl`. It omits the unused right-side alignment tongues and unused outer seam recess/insert pockets, so the assembled printed structure ends at the nominal **1024 mm** display envelope.
 
 The rod-end plug is now a split, tapered friction/detent design sized for the 7.2 mm bore used by the 6 mm reinforcement bars. Print and test one plug before relying on it for transport retention; filament stiffness and printer calibration still affect the final grip.
 
 ## Snap-on rear lid
 
-`10_rear_lid_PRINT_4.stl` is a separately printed lid for each 255 × 127 mm rear module. It is intentionally **open-sided** rather than a sealed box: this protects the electronics from direct rear contact while preserving airflow, the MatrixPortal side-service access and the inter-panel cable corridor.
+`stl/10_rear_lid_PRINT_4.stl` is a separately printed lid for each 255 × 127 mm rear module. It is intentionally **open-sided** rather than a sealed box so airflow, MatrixPortal side access and the panel-to-panel ribbon route remain available.
 
-The lid sits approximately **18 mm behind the rear face of the backplane** and uses a 2.4 mm vented plate. It requires no screws.
+The lid now uses **the exact same XY coordinate system and 255 × 127 mm outer footprint as the rear backplane**. The previous design hid a +2 mm placement offset in the lid-local coordinates, which made the pin/socket relationship difficult to inspect and easy to misread.
 
-Four dedicated stepped round sockets are added to each backplane at:
+The four backplane socket centres and the four lid peg centres are now literally identical:
 
 - x = **64 / 192 mm**
 - y = **8 / 120 mm**
 
-These are **not** the 6 mm reinforcement-bar holes. The bar bores are occupied by the reinforcement rods, so using them as lid catches would make the two functions mechanically incompatible.
+No installation offset is required to make the pins line up. CI records this as an explicit alignment interface, and `schematics/10_rear_lid_alignment_ASSEMBLY.scad` overlays the installed lid on a backplane with the common centres highlighted.
 
-Each lid has four matching split snap pegs:
+The lid plate sits approximately **18 mm behind the rear face of the backplane** and is 2.4 mm thick. It requires no screws.
+
+These lid sockets are **not** the 6 mm reinforcement-bar holes; the reinforcement bores are occupied by the bars.
+
+Snap geometry:
 
 - socket throat: **5.8 mm**
 - internal socket chamber: **6.5 mm**
 - peg shaft: **5.2 mm**
 - peg detent: **6.1 mm**
 
-The split detent compresses through the smaller throat and expands in the larger blind chamber, giving a positive snap rather than relying only on friction.
+The split detent compresses through the throat and expands in the blind chamber. **PETG is preferred** because the snap fingers flex repeatedly. PLA remains useful for an initial dimensional test but is less suitable for repeated removal/refitting.
 
-**Material:** PETG is preferred for the lid because the snap fingers must flex repeatedly. PLA is suitable for an initial dimensional test but is more brittle and is not the preferred material for frequent removal/refitting.
-
-Before printing all four lids, print/test one and confirm snap force, removal force, clearance over the MatrixPortal/power hardware, ventilation and cable egress.
+Before printing all four lids, test one and confirm snap force, removal force, MatrixPortal/power clearance, ventilation and cable egress.
 
 ## Separate centre-boss desk stand
 
-`09_centre_boss_desk_stand_PRINT_3.stl` is an optional, separately printed rear desk stand. Each stand:
+`stl/09_centre_boss_desk_stand_PRINT_3.stl` is an optional, separately printed rear desk stand. Each stand:
 
 - attaches at the **lower centre boss** (x = 128 mm, y = 7.9 mm);
 - shares that panel/backplane mounting screw rather than adding a new panel hole;
@@ -308,8 +331,8 @@ The new recessed panel screw wells reduce screw length for **ordinary panel moun
 5. Join neighbouring backplanes with the narrowed alignment tongues/sockets and the two recessed PRINT_4 seam straps, then route the real flat ribbon through the 24 mm-high × 5 mm-deep rear notch.
 6. Insert and centre the two 1 m × 6 mm reinforcement bars.
 7. If desk-standing is required, fit two centre-boss stands to the lower-centre bosses of Panels 1 and 4 and verify that the anti-rotation lips seat correctly and the assembled display is stable.
-8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the PCB overhang gives comfortable access to USB-C and all left-edge buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
-9. Print one `10_rear_lid_PRINT_4.stl` in PETG and verify all four snap locks, electronics clearance, ventilation and cable egress before printing the remaining three lids.
+8. Fit the MatrixPortal carrier to the rear of Panel 1 / `backplane_1`; confirm the **short 44.45 mm service edge** overhang gives comfortable access to USB-C and all buttons. Connect the MatrixPortal component-side HUB75 connector to Panel 1 input with a short 2×8 IDC ribbon, then daisy-chain Panels 1 → 2 → 3 → 4. Fit the rod-end plugs, power-distribution carrier and cable clips.
+9. Print one `stl/10_rear_lid_PRINT_4.stl` in PETG and verify all four snap locks, electronics clearance, ventilation and cable egress before printing the remaining three lids.
 
 ## Validation still required
 
@@ -320,7 +343,7 @@ Before printing the remaining backplanes, confirm:
 - the six brass mounting holes accept screws without forcing or drilling;
 - the moulded locating pins enter the new 10 mm clearances without contacting the backplane;
 - the panel/backplane sits flat;
-- the 11 mm rear screw wells accept the actual panel screw heads, leave the heads below the rear/lid plane, and the selected screws still achieve safe boss engagement without bottoming out;
+- the 10 mm rear screw wells accept the actual panel screw heads, leave the heads below the rear/lid plane, and the selected screws still achieve safe boss engagement without bottoming out;
 - maximum rear component/connector depth remains clear;
 - HUB75 and power connector keep-out zones remain accessible;
 - the actual inter-panel flat ribbon crosses each 24 mm-high × 5 mm-deep rear seam notch without pinching;

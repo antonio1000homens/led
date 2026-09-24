@@ -9,7 +9,7 @@
 
 part = "__library__";
 include <../direct-mount/direct_mount_enclosure.scad>;
-include <../direct-mount/matrixportal_s3_REFERENCE.scad>;
+include <../direct-mount/schematics/matrixportal_s3_REFERENCE.scad>;
 
 panel_pitch = 256;
 joiner_z = 11.8;

@@ -49,6 +49,7 @@ jobs:
           set -euo pipefail
           src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
           tracked=hardware/enclosure/direct-mount
+          stl_dir="$tracked/stl"
           generated="$(mktemp -d)"
 
           declare -A parts=(
@@ -72,7 +73,7 @@ jobs:
           expected_list="$generated/expected.txt"
           actual_list="$generated/actual.txt"
           printf '%s\n' "${parts[@]}" | sort > "$expected_list"
-          find "$tracked" -maxdepth 1 -type f -name '*.stl' -printf '%f\n' | sort > "$actual_list"
+          find "$stl_dir" -maxdepth 1 -type f -name '*.stl' -printf '%f\n' | sort > "$actual_list"
 
           if ! diff -u "$expected_list" "$actual_list"; then
             echo 'Checked-in STL file set does not match the expected generated set.' >&2
@@ -110,13 +111,13 @@ jobs:
 
           status=0
           for filename in "${parts[@]}"; do
-            tracked_hash="$(canonical_hash "$tracked/$filename")"
+            tracked_hash="$(canonical_hash "$stl_dir/$filename")"
             generated_hash="$(canonical_hash "$generated/$filename")"
             if [ "$tracked_hash" != "$generated_hash" ]; then
-              echo "STALE: $tracked/$filename" >&2
+              echo "STALE: $stl_dir/$filename" >&2
               status=1
             else
-              echo "OK: $tracked/$filename"
+              echo "OK: $stl_dir/$filename"
             fi
           done
 
@@ -135,6 +136,8 @@ jobs:
         run: |
           set -euo pipefail
           tracked=hardware/enclosure/direct-mount
+          stl_dir="$tracked/stl"
+          schematics="$tracked/schematics"
           assembly=hardware/enclosure/complete_enclosure
           generated="$(mktemp -d)"
 
@@ -179,7 +182,7 @@ jobs:
           for scad in "${!entrypoints[@]}"; do
             stl="${entrypoints[$scad]}"
             openscad -o "$generated/$stl" "$tracked/$scad"
-            if [ "$(canonical_hash "$generated/$stl")" != "$(canonical_hash "$tracked/$stl")" ]; then
+            if [ "$(canonical_hash "$generated/$stl")" != "$(canonical_hash "$stl_dir/$stl")" ]; then
               echo "Entry point $scad does not reproduce $stl" >&2
               exit 1
             fi
@@ -189,7 +192,9 @@ jobs:
           # Parse/render assembly previews as CSG so their geometry/placement files
           # remain syntactically valid in CI without producing extra printable STLs.
           openscad -o "$generated/matrixportal_side_access_preview.csg" \
-            "$tracked/04_matrixportal_side_access_ASSEMBLY.scad"
+            "$schematics/04_matrixportal_side_access_ASSEMBLY.scad"
+          openscad -o "$generated/rear_lid_alignment_preview.csg" \
+            "$schematics/10_rear_lid_alignment_ASSEMBLY.scad"
           openscad -o "$generated/complete_enclosure_assembly.csg" \
             "$assembly/00_complete_enclosure_ASSEMBLY.scad"
 
