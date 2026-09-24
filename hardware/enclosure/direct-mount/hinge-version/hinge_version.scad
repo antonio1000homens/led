@@ -154,7 +154,6 @@ service_wall = 16;
 base_rear_z = 60;
 base_beam_t = 6;
 base_y_h = 18;
-base_rib_w = 8;
 
 // Middle-enclosure shape and cable routing.
 //
@@ -438,43 +437,40 @@ module service_tray_shell_body() {
             service_depth_envelope();
         }
 
-        // Full-width rear foot beam.
-        translate([
-            service_x,
-            service_base_y,
-            base_rear_z-base_beam_t
-        ])
-            cube([
-                service_w,
-                base_y_h + (service_y-service_base_y),
-                base_beam_t
-            ]);
+        // Continuous full-width sloped foot/gusset.
+        //
+        // The earlier version created a full-width beam at z=54 mm but only
+        // supported it with four narrow diagonal ribs. Although the final STL
+        // was one connected component, slicers correctly treated most of that
+        // beam as a floating/unsupported region when it first appeared.
+        //
+        // Hull the existing full-width lower equipment plate into the rear
+        // foot instead. Every successive print layer now expands gradually
+        // toward y=0.5, so the 60 mm-deep base is self-supporting in the
+        // intended flat orientation and no full-width island starts in mid-air.
+        hull() {
+            translate([
+                service_x,
+                service_y-0.5,
+                service_back_z_bottom
+            ])
+                cube([
+                    service_w,
+                    base_y_h+0.5,
+                    service_plate_t
+                ]);
 
-        // Four diagonal ribs connect the deep lower plate to the rear foot beam.
-        for (xx=[
-            service_x,
-            service_x+80,
-            service_x+160,
-            service_x+service_w-base_rib_w
-        ])
-            hull() {
-                translate([
-                    xx,
-                    service_y-0.5,
-                    service_back_z_bottom
-                ])
-                    cube([base_rib_w,base_y_h+0.5,service_plate_t]);
-                translate([
-                    xx,
-                    service_base_y,
-                    base_rear_z-base_beam_t
-                ])
-                    cube([
-                        base_rib_w,
-                        base_y_h + (service_y-service_base_y),
-                        base_beam_t
-                    ]);
-            }
+            translate([
+                service_x,
+                service_base_y,
+                base_rear_z-base_beam_t
+            ])
+                cube([
+                    service_w,
+                    base_y_h + (service_y-service_base_y),
+                    base_beam_t
+                ]);
+        }
     }
 }
 
