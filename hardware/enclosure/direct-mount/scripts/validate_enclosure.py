@@ -4,10 +4,7 @@
 This script is the single CI entrypoint for enclosure/mechanical validation.
 It intentionally renders each current production STL once from its printable
 wrapper entrypoint, compares that mesh with the checked-in manufacturing STL,
-then runs the remaining assembly and hinge-v2 checks.
-
-The historical hinge-version/ experiment is retained in the repository for
-reference but is no longer rebuilt on every enclosure change.
+then runs assembly, hinge-v2, and experimental hinge-version checks.
 """
 
 from __future__ import annotations
@@ -26,6 +23,13 @@ STL_DIR = DIRECT / "stl"
 SCRIPTS_DIR = DIRECT / "scripts"
 SCHEMATICS_DIR = DIRECT / "schematics"
 ASSEMBLY_DIR = ROOT / "hardware/enclosure/complete_enclosure"
+HINGE_DIR = DIRECT / "hinge-version"
+HINGE_PARTS = {
+    "08_mount_pattern_template_HINGE_PRINT_1.scad":
+        "08_mount_pattern_template_HINGE_PRINT_1.stl",
+    "11_hinged_equipment_enclosure_PRINT_1.scad":
+        "11_hinged_equipment_enclosure_PRINT_1.stl",
+}
 
 PARTS = {
     "01_backplane_module_PRINT_3.scad": "01_backplane_module_PRINT_3.stl",
@@ -172,6 +176,24 @@ def validate_hinge_v2() -> None:
     run(sys.executable, SCRIPTS_DIR / "validate_hinge_v2_stls.py")
 
 
+def validate_hinge_prototype(generated_dir: Path) -> None:
+    tracked_dir = HINGE_DIR / "stl"
+    for scad_name, stl_name in HINGE_PARTS.items():
+        source = HINGE_DIR / scad_name
+        generated = generated_dir / stl_name
+        tracked = tracked_dir / stl_name
+        run("openscad", "-o", generated, source)
+        if canonical_hash(generated) != canonical_hash(tracked):
+            raise SystemExit(
+                f"STALE: {tracked.relative_to(ROOT)}\n"
+                f"Regenerate it from {source.relative_to(ROOT)}."
+            )
+        print(f"OK: hinge-version/{source.name} -> stl/{tracked.name}")
+
+    run("openscad", "-o", generated_dir / "hinge_version_assembly.csg",
+        HINGE_DIR / "00_hinge_version_ASSEMBLY.scad")
+
+
 def validate_nominal_assembly() -> None:
     run(
         sys.executable,
@@ -187,16 +209,14 @@ def main() -> None:
         generated_dir = Path(tmp)
         validate_production_parts(generated_dir)
         validate_reference_views(generated_dir)
+        validate_hinge_prototype(generated_dir)
 
     validate_hinge_v2()
     validate_nominal_assembly()
 
     print()
     print("All current enclosure validation checks passed.")
-    print(
-        "Legacy hinge-version geometry is retained for reference but is not "
-        "part of default CI."
-    )
+    print("Experimental hinge-version meshes and assembly syntax passed validation.")
     print(
         "Bambu Studio remains the final authority for slicer-specific support "
         "and floating-cantilever diagnostics."
