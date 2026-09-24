@@ -43,8 +43,8 @@ When the moving enclosure is opened downward:
 - physical hinge rail: **6.0 mm diameter**
 - printed hinge bore: **7.2 mm**
 - printed hinge barrel outside diameter: **13 mm**
-- hinge axis: **y = 6.5 mm, z = 10.5 mm** relative to the panel coordinate system
-- complete 13 mm hinge-barrel envelope: **y = 0…13 mm**, exactly on the lower panel edge
+- hinge axis: **y = 7.5 mm, z = 10.5 mm** relative to the panel coordinate system
+- complete 13 mm hinge-barrel envelope: **y = 1…14 mm**, fully inside the enclosure/base footprint
 - barrel Z envelope: **z = 4…17 mm**, entirely behind the 2 mm fixed template
 
 The 7.2 mm bore deliberately preserves the same 0.6 mm radial clearance currently used for the 6 mm reinforcement bars.
@@ -76,7 +76,8 @@ The moving tray is intentionally generic for this first hinge test rather than m
 
 Closed-position envelope:
 
-- moving enclosure body starts at the **hinge axis y=6.5 mm**, so no moving shell material hangs below the pivot;
+- the LED-facing moving rim starts at the **hinge axis y=7.5 mm** so it can rotate freely;
+- a separate rear lower skirt/base continues down to **y=0.5 mm**, matching the rear enclosure edge and hiding the hinge inside the closed enclosure;
 - top remains at **y=127.5 mm**;
 - the front rim closes at **z=2.6 mm**, only **0.6 mm behind the 2 mm fixed template**, so the base/enclosure read as flush when closed;
 - the fixed hinge knuckles sit in front-entry pockets inside the moving enclosure rather than projecting outside it;
@@ -108,7 +109,7 @@ The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wi
 
 The lower rear foot beam and four diagonal ribs keep the bottom/base deep and stable. Above the lower wiring/equipment zone, both the side outline and the rear depth taper inward. This removes a substantial amount of material and rear protrusion from the top while preserving the deeper lower area for the PSU and power wiring.
 
-The 6 mm rail is now a **concealed edge hinge**. The barrel sits exactly at the lower panel edge (y=0…13 mm) but entirely behind the fixed template in Z. Fixed knuckles nest into matching pockets in the moving enclosure when closed, so there is no external hinge block holding the enclosure away from the template.
+The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=1…14 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The LED-facing rim still begins at the pivot for opening clearance, but a full-width rear lower shroud continues to y=0.5 mm behind the hinge. This keeps the closed base visually flush rather than using the hinge barrel as the lower outside edge. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
 
 ## Top closure
 
