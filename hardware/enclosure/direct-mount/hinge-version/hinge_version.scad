@@ -366,10 +366,16 @@ module fixed_knuckle_clearance_pockets() {
 }
 
 module moving_hinge_barrels() {
-    for (segment=moving_knuckles)
+    for (segment=moving_knuckles) {
         // The rear half of each barrel keys directly into the lower apron.
         // The alternating fixed knuckles sit in pockets removed from the shell.
         rail_hinge_barrel(segment[0],segment[1]);
+
+        // Root each moving knuckle into the tray wall with positive overlap.
+        // Start at z=9 mm to clear the fixed spine while joining the barrel.
+        translate([segment[0],-1.0,9.0])
+            cube([segment[1],6.0,8.0]);
+    }
 }
 
 module moving_hinge_bores() {
