@@ -27,7 +27,7 @@ The direct-mount directory is now organised by purpose:
 
 - editable common source and `*_PRINT_*.scad` entrypoints remain in `direct-mount/`;
 - generated slicer files live in `direct-mount/stl/`;
-- non-printing assembly/reference/projection files live in `direct-mount/schematics/`.
+- direct-mount detail/reference views live in `direct-mount/schematics/`;\n- the complete four-panel assembly and projection views live in `complete_enclosure/` (the organization introduced by PR #102).
 
 
 - `direct-mount/direct_mount_enclosure.scad` — parametric source for all current parts.
@@ -51,11 +51,11 @@ The six-boss P4 pattern has now been refined by two physical fits, including a l
 
 ## Alignment schematics
 
-Useful non-printing checks are under `direct-mount/schematics/`:
+Useful non-printing views are split by scope:
 
-- `00_complete_enclosure_ASSEMBLY.scad` — complete four-panel rear assembly;
+- `complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` — complete four-panel rear assembly;
 - `04_matrixportal_side_access_ASSEMBLY.scad` — MatrixPortal orientation plus carrier/backplane attachment points;
 - `10_rear_lid_alignment_ASSEMBLY.scad` — lid peg/socket overlay;
-- front/back/side/top/bottom projection wrappers for 2D SVG export.
+- `complete_enclosure/00_complete_enclosure_*_VIEW_SVG.scad` — front/back/side/top/bottom projection wrappers for 2D SVG export.
 
 The MatrixPortal carrier M3 holes and seam-joiner screw rows are also checked point-for-point in CI, not only for collision/interference.

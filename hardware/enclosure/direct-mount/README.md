@@ -94,7 +94,7 @@ The direct-mount enclosure is now separated by purpose:
 - `direct_mount_enclosure.scad` — shared parametric source of truth.
 - `*_PRINT_*.scad` — thin printable-part entrypoints kept in this directory.
 - `stl/` — generated manufacturing meshes only; do not edit these by hand.
-- `schematics/` — non-printing assembly/reference/projection OpenSCAD files.
+- `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).\n- `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
 - `assembly_validation.json` and `validate_*.py` — machine-readable assembly intent and CI validation.
 - `README.md` / `MECHANICAL_VALIDATION.md` — physical-fit and validation documentation.
 
@@ -120,7 +120,7 @@ All STLs are generated from `direct_mount_enclosure.scad`.
 
 ### Complete enclosure assembly preview
 
-Open `schematics/00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear structure rather than a single printable part. It includes:
+Open `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear structure rather than a single printable part. It includes:
 
 - Panels/backplanes 1–4 at x = 0, 256, 512 and 768 mm;
 - the dedicated right-end backplane on Panel 4;
@@ -136,14 +136,14 @@ CI now validates the assembly placement explicitly. The backplane origins must r
 
 ### SVG / 2D projection views
 
-The full assembly is a 3D object, so OpenSCAD cannot export `schematics/00_complete_enclosure_ASSEMBLY.scad` directly as SVG. Use one of these dedicated 2D projection files instead:
+The full assembly is a 3D object, so OpenSCAD cannot export `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` directly as SVG. Use one of these dedicated 2D projection files instead:
 
-- `schematics/00_complete_enclosure_FRONT_VIEW_SVG.scad`
-- `schematics/00_complete_enclosure_BACK_VIEW_SVG.scad`
-- `schematics/00_complete_enclosure_LEFT_SIDE_VIEW_SVG.scad`
-- `schematics/00_complete_enclosure_RIGHT_SIDE_VIEW_SVG.scad`
-- `schematics/00_complete_enclosure_TOP_VIEW_SVG.scad`
-- `schematics/00_complete_enclosure_BOTTOM_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_FRONT_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_BACK_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_LEFT_SIDE_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_RIGHT_SIDE_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_TOP_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_BOTTOM_VIEW_SVG.scad`
 
 Open the desired projection in OpenSCAD, render it, then use **File → Export → Export as SVG**. These files suppress the 3D top-level assembly and apply `projection(cut=false)` from the appropriate viewing direction.
 
@@ -167,7 +167,7 @@ Each printable component now also has its own `.scad` entry file. These wrappers
 - `09_centre_boss_desk_stand_PRINT_3.scad`
 - `10_rear_lid_PRINT_4.scad`
 
-The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `schematics/matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `schematics/04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `schematics/00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
+The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `schematics/matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `schematics/04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 
 ## Seam cable corridor and recessed joiner straps
 

@@ -8,8 +8,8 @@
 // rotate the OpenSCAD camera as needed rather than renumbering the modules.
 
 part = "__library__";
-include <../direct_mount_enclosure.scad>;
-include <matrixportal_s3_REFERENCE.scad>;
+include <../direct-mount/direct_mount_enclosure.scad>;
+include <../direct-mount/schematics/matrixportal_s3_REFERENCE.scad>;
 
 panel_pitch = 256;
 joiner_z = 11.8;

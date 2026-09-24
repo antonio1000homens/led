@@ -1,6 +1,6 @@
 # Enclosure schematics and assembly views
 
-These OpenSCAD files are **non-printing views/references**. Printable part entrypoints remain one directory above and generated meshes live in `../stl/`.
+These OpenSCAD files are **non-printing direct-mount detail views/references**. Printable part entrypoints remain one directory above and generated meshes live in `../stl/`. The full four-panel assembly and projection views are intentionally kept in `../../complete_enclosure/` by PR #102.
 
 Key files:
 

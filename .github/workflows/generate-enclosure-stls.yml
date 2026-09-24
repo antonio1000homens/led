@@ -195,7 +195,7 @@ jobs:
           openscad -o "$generated/rear_lid_alignment_preview.csg" \
             "$schematics/10_rear_lid_alignment_ASSEMBLY.scad"
           openscad -o "$generated/complete_enclosure_assembly.csg" \
-            "$schematics/00_complete_enclosure_ASSEMBLY.scad"
+            "$assembly/00_complete_enclosure_ASSEMBLY.scad"
 
           declare -a svg_views=(
             00_complete_enclosure_FRONT_VIEW_SVG.scad
@@ -208,7 +208,7 @@ jobs:
 
           for view in "${svg_views[@]}"; do
             out="$generated/${view%.scad}.svg"
-            openscad -o "$out" "$schematics/$view"
+            openscad -o "$out" "$assembly/$view"
             test -s "$out"
             grep -q '<svg' "$out"
             echo "OK: $view -> SVG"

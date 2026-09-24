@@ -23,7 +23,7 @@ An STL describes triangle surfaces. It does not say:
 - where rods, fastener heads or other non-printed hardware occupy space;
 - which checks still require a physical part.
 
-`assembly_validation.json` supplies that missing assembly intent for CI. Printable meshes are stored under `stl/`; non-printing assembly/reference views are stored under `schematics/`.
+`assembly_validation.json` supplies that missing assembly intent for CI. Printable meshes are stored under `stl/`; direct-mount detail/reference views are stored under `schematics/`; the complete four-panel assembly/projections live in `../complete_enclosure/`.
 
 ## Automated checks
 
@@ -40,7 +40,7 @@ Manifold boolean engine to check:
 7. the assembled backplane envelope remains within declared bounds;
 8. key screw/peg interfaces are checked point-for-point, including seam-joiner screw rows, MatrixPortal/power-carrier M3 centres, and rear-lid peg/socket centres.
 
-The GitHub Actions workflow first regenerates the STLs from OpenSCAD and verifies that the checked-in meshes under `stl/` are current, then renders the files under `schematics/` and runs these mechanical checks.
+The GitHub Actions workflow first regenerates the STLs from OpenSCAD and verifies that the checked-in meshes under `stl/` are current, then renders the direct-mount detail views under `schematics/`, the full assembly/projections under `../complete_enclosure/`, and runs these mechanical checks.
 
 ## Resolved automated findings
 
