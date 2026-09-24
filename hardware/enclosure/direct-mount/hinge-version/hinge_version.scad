@@ -99,9 +99,12 @@ module hinge_mount_pattern_template() {
 // Closed-position coordinates: this tray sits behind the LED panel. The tray is
 // open toward the LED board; its solid equipment plate is at the rear.
 service_x = backplane_edge_inset;
-service_y = backplane_edge_inset;
+// Raise the moving tray 1 mm above the nominal rear-frame bottom edge.
+// The fixed hinge barrels reach y ~= 0.7 mm; y=1.5 gives ~0.8 mm closed
+// clearance over those fixed knuckle sections while preserving top y=127.5.
+service_y = backplane_edge_inset + 1.0;
 service_w = backplane_w;
-service_h = backplane_h;
+service_h = backplane_h - 1.0;
 
 service_front_z = 12;       // front lip of tray, near the LED board
 service_back_z = 42;        // inside face of equipment mounting plate
