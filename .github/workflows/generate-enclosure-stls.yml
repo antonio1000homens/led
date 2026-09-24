@@ -214,5 +214,5 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m venv .venv-mechanical
-          .venv-mechanical/bin/python -m pip install --disable-pip-version-check --quiet trimesh manifold3d numpy
+          .venv-mechanical/bin/python -m pip install --disable-pip-version-check --quiet trimesh manifold3d numpy networkx
           .venv-mechanical/bin/python hardware/enclosure/direct-mount/validate_assembly.py hardware/enclosure/direct-mount/assembly_validation.json
