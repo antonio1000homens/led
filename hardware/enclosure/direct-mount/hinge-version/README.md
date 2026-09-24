@@ -95,7 +95,7 @@ Closed-position envelope:
 
 The standalone moving-enclosure STL is intentionally **not** exported open-face-down. In that orientation the rear equipment plate would begin around 42 mm above the build plate and behave like a large ceiling/bridge. The print STL is rotated onto its left side instead, giving an approximately **57.4 × 127 mm** footprint and **255 mm** height. This keeps the equipment plate vertical while printing. The assembly SCAD files continue to use the normal physical orientation.
 
-The hinge sweep relief also stops at the pivot line instead of cutting through the rear half of the lower wall, so the moving knuckles remain structurally tied into the lower apron. Fixed-knuckle locations still use their dedicated front-entry clearance pockets.
+The hinge sweep relief stops at the pivot line instead of cutting through the rear half of the lower wall. That leaves continuous material underneath every moving knuckle and avoids the earlier Bambu Studio **floating region** warnings while keeping the base flush. Fixed-knuckle locations still use their dedicated front-entry clearance pockets.
 
 The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 
@@ -116,7 +116,7 @@ The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wi
 
 The lower rear foot is now a **continuous full-width sloped gusset** from the lower equipment plate to the 60 mm rear extent. The previous full-width beam began at z=54 mm while only four narrow ribs existed underneath it, which produced another large floating/unsupported start surface in Bambu Studio. The sloped gusset grows progressively instead. Above the lower wiring/equipment zone, both the side outline and the rear depth taper inward to reduce material and rear protrusion.
 
-The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=5…18 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The continuous lower apron reaches y=0.5 mm and remains intact behind the pivot, so the closed base stays flush. Only the front side of the pivot is relieved for the opening sweep. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
+The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=5…18 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The continuous lower apron reaches y=0.5 mm and remains intact behind the pivot, so the closed base stays flush and the moving knuckles remain printable from the build plate. Only the front side of the pivot is relieved for the opening sweep. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
 
 ## Top closure
 
