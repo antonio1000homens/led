@@ -43,8 +43,9 @@ When the moving enclosure is opened downward:
 - physical hinge rail: **6.0 mm diameter**
 - printed hinge bore: **7.2 mm**
 - printed hinge barrel outside diameter: **13 mm**
-- hinge axis: **y = 7.5 mm, z = 10.5 mm** relative to the panel coordinate system
-- complete 13 mm hinge-barrel envelope: **y = 1…14 mm**, fully inside the enclosure/base footprint
+- hinge axis: **y = 11.5 mm, z = 10.5 mm** relative to the panel coordinate system
+- complete 13 mm hinge-barrel envelope: **y = 5…18 mm**, fully inside the enclosure/base footprint
+- the nearest barrel surface is **4.5 mm inboard** from the enclosure's y=0.5 mm lower edge
 - barrel Z envelope: **z = 4…17 mm**, entirely behind the 2 mm fixed template
 
 The 7.2 mm bore deliberately preserves the same 0.6 mm radial clearance currently used for the 6 mm reinforcement bars.
@@ -76,8 +77,9 @@ The moving tray is intentionally generic for this first hinge test rather than m
 
 Closed-position envelope:
 
-- the LED-facing moving rim starts at the **hinge axis y=7.5 mm** so it can rotate freely;
-- a separate rear lower skirt/base continues down to **y=0.5 mm**, matching the rear enclosure edge and hiding the hinge inside the closed enclosure;
+- the LED-facing moving rim starts at the **hinge axis y=11.5 mm** so it can rotate freely;
+- a continuous lower apron continues down to the normal **y=0.5 mm** enclosure edge, so the closed base remains flush;
+- only the apron’s internal LED-facing/front-lower quadrant is relieved for the hinge sweep; the rail and both knuckle sets stay behind the outer base silhouette;
 - top remains at **y=127.5 mm**;
 - the front rim closes at **z=2.6 mm**, only **0.6 mm behind the 2 mm fixed template**, so the base/enclosure read as flush when closed;
 - the fixed hinge knuckles sit in front-entry pockets inside the moving enclosure rather than projecting outside it;
