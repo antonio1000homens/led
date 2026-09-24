@@ -107,7 +107,7 @@ module template_snap_latch() {
     translate([
         latch_x-latch_w/2,
         latch_root_y+latch_riser_y/2+latch_beam_len-latch_detent_r,
-        latch_beam_z+latch_beam_t
+        latch_beam_z+latch_beam_t+0.7
     ])
         rotate([0,90,0])
             cylinder(r=latch_detent_r,h=latch_w);
@@ -265,12 +265,13 @@ module moving_hinge_barrels() {
 }
 
 module enclosure_latch_catch() {
-    // Leave a shallow front lip (z=12..13.4) for the rounded detent to snap
-    // behind. The pocket is internal and does not alter the external envelope.
+    // Leave a shallow front lip (z=12..13.0) for the rounded detent to flex
+    // past and snap behind. The pocket is internal and does not alter the
+    // external envelope.
     translate([
         latch_x-latch_w/2-latch_catch_clearance,
         latch_root_y+latch_riser_y/2+latch_beam_len-2*latch_detent_r-latch_catch_clearance,
-        service_front_z+1.4
+        service_front_z+1.0
     ])
         cube([
             latch_w+2*latch_catch_clearance,
