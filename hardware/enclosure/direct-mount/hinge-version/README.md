@@ -52,19 +52,22 @@ The knuckles alternate:
 
 ### Fixed template
 
-- x = 20–48 mm
-- x = 90–118 mm
-- x = 160–188 mm
-
-These positions deliberately avoid the panel screw columns at x = 7.9 / 128 / 248.1 mm.
+- x = 36–60 mm
+- x = 92–118 mm
+- x = 166–194 mm
 
 ### Moving enclosure
 
-- x = 50–88 mm
-- x = 120–158 mm
-- x = 190–228 mm
+- x = 62–90 mm
+- x = 136–164 mm
+- x = 196–220 mm
 
-This leaves approximately 2 mm axial clearance between neighbouring printed knuckles.
+Both halves now deliberately avoid **all lower critical X columns**:
+
+- panel screws at x = 7.9 / 128 / 248.1 mm;
+- moulded locator clearances at x = 26.704 / 229.296 mm.
+
+The centre panel screw gets a deliberately wider **x=118…136 mm service gap** so neither hinge half blocks the screw head or screwdriver access. Normal adjacent knuckle gaps remain approximately 2 mm.
 
 ## Moving equipment enclosure
 
@@ -90,6 +93,8 @@ The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 - cable-management clips.
 
 The two larger wiring/ribbon slots in the rear equipment plate are now kept in the **lower wiring zone** instead of near the top.
+
+Dedicated ventilation is only added to the **upper tapered region** of the rear equipment plate. It uses rounded 24 × 5 mm slots on three rows (y=84 / 101 / 118 mm). There are **no dedicated ventilation openings in the lower wiring/base zone**, keeping the bottom stronger and less exposed.
 
 Because this specific tray is intended to be a **middle enclosure**, both lower side walls contain matching **U-shaped cable notches**. Each notch is open toward the LED-panel/front side rather than forming a closed hole. Panel-to-panel power and HUB75/data cables can therefore remain connected to the fixed LED panels while the moving tray swings down and away from them.
 
@@ -148,6 +153,8 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 10. Power and HUB75/data cables sit comfortably in both 30 × 22 mm U-notches without being pinched.
 11. Open the tray while panel-to-panel cables remain connected and verify that the U-notches disengage cleanly without pulling the cables.
 12. Verify the 8 mm-per-side upper taper leaves useful clearance between neighbouring enclosures without interfering with the equipment mounted inside.
+13. Verify the upper-only ventilation pattern provides useful airflow while the lower base/wiring area remains solid.
+14. Confirm the wider centre hinge gap leaves the lower-centre panel screw accessible with the actual screwdriver/bit you plan to use.
 
 ## Not yet finalised
 
