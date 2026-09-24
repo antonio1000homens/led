@@ -94,7 +94,7 @@ Then connect panel 1 **OUT** to panel 2 **IN**, panel 2 **OUT** to panel 3
 proper 5 V power connection.
 
 The smoke test intentionally uses the same MatrixPortal S3 pin setup as
-`firmware/display.py`:
+`hardware/matrixportal/firmware/display.py`:
 
 ```python
 addr_pins=board.MTX_ADDRESS[:4],
@@ -131,10 +131,10 @@ screen data from `/api/screens`.
 From the repository root, create an uncommitted local settings file if needed:
 
 ```sh
-cp firmware/settings_local.py.example settings_local.py
+cp hardware/matrixportal/firmware/settings_local.py.example settings_local.py
 ```
 
-Then stage and install the application. The install helper flattens `firmware/`
+Then stage and install the application. The install helper flattens `hardware/matrixportal/firmware/`
 and `shared/` into the layout CircuitPython expects while leaving an existing
 `settings_local.py` and `lib/` directory untouched:
 

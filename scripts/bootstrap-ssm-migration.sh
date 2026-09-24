@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
-default_config_file="${repo_root}/config/bootstrap-ssm-migration.env"
+default_config_file="${repo_root}/scripts/config/bootstrap-ssm-migration.env"
 CONFIG_FILE="${BOOTSTRAP_CONFIG:-${default_config_file}}"
 config_explicit=false
 
@@ -49,7 +49,7 @@ existing GitHubActionsLedDeployRole through OIDC.
 By default the script loads local configuration from:
   ${default_config_file}
 
-Copy config/bootstrap-ssm-migration.env.example to that path and fill in any
+Copy scripts/config/bootstrap-ssm-migration.env.example to that path and fill in any
 local authentication/profile settings or Bitwarden secret-ID overrides. The
 populated file is gitignored.
 

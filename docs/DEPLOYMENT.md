@@ -124,7 +124,7 @@ The repository includes an idempotent migration helper based on the recordings r
 
 ```text
 scripts/bootstrap-ssm-migration.sh
-config/bootstrap-ssm-migration.env.example
+scripts/config/bootstrap-ssm-migration.env.example
 ```
 
 Prerequisites are authenticated `aws`, `gh` and `bws` CLIs plus `jq`.
@@ -132,7 +132,7 @@ Prerequisites are authenticated `aws`, `gh` and `bws` CLIs plus `jq`.
 Create the ignored local config if desired:
 
 ```bash
-cp config/bootstrap-ssm-migration.env.example config/bootstrap-ssm-migration.env
+cp scripts/config/bootstrap-ssm-migration.env.example scripts/config/bootstrap-ssm-migration.env
 ```
 
 The script normally discovers the Bitwarden logical keys `NATIONAL_RAIL_TOKEN` and `CF_DEPLOY_API_TOKEN`. If discovery is ambiguous, set the existing Bitwarden secret UUIDs locally with `BW_NATIONAL_RAIL_TOKEN` and `BW_CF_DEPLOY_API_TOKEN`. Those variables are IDs only, never secret values.

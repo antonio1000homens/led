@@ -25,9 +25,13 @@ The old P2.5-derived positions are retained only as separate moulded-locator cle
 
 The direct-mount directory is now organised by purpose:
 
-- editable common source and `*_PRINT_*.scad` entrypoints remain in `direct-mount/`;
+- editable common source remains in `direct-mount/`;
+- individual printable `*_PRINT_*.scad` launchers live in `direct-mount/parts/`;
+- validation Python/JSON lives in `direct-mount/scripts/`;
+- non-README mechanical notes live in `direct-mount/docs/`;
 - generated slicer files live in `direct-mount/stl/`;
-- direct-mount detail/reference views live in `direct-mount/schematics/`;\n- the complete four-panel assembly and projection views live in `complete_enclosure/` (the organization introduced by PR #102).
+- direct-mount detail/reference views live in `direct-mount/schematics/`;
+- the complete four-panel assembly and projection views live in `complete_enclosure/` (the organization introduced by PR #102).
 
 
 - `direct-mount/direct_mount_enclosure.scad` — parametric source for all current parts.
@@ -54,8 +58,8 @@ The six-boss P4 pattern has now been refined by two physical fits, including a l
 Useful non-printing views are split by scope:
 
 - `complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` — complete four-panel rear assembly;
-- `04_matrixportal_side_access_ASSEMBLY.scad` — MatrixPortal orientation plus carrier/backplane attachment points;
-- `10_rear_lid_alignment_ASSEMBLY.scad` — lid peg/socket overlay;
+- `direct-mount/schematics/04_matrixportal_side_access_ASSEMBLY.scad` — MatrixPortal orientation plus carrier/backplane attachment points;
+- `direct-mount/schematics/10_rear_lid_alignment_ASSEMBLY.scad` — lid peg/socket overlay;
 - `complete_enclosure/00_complete_enclosure_*_VIEW_SVG.scad` — front/back/side/top/bottom projection wrappers for 2D SVG export.
 
 The MatrixPortal carrier M3 holes and seam-joiner screw rows are also checked point-for-point in CI, not only for collision/interference.

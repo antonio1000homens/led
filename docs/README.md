@@ -1,15 +1,19 @@
 # Documentation
 
-This directory contains durable architecture notes and experiment conclusions for
-the LED information board.
+Cross-cutting repository documentation lives here. Hardware-specific documentation
+lives beside the hardware it describes.
 
-## MatrixPortal
+## Repository
 
-- [MatrixPortal performance and refresh architecture](matrixportal-performance.md) —
-  consolidated findings from the physical refresh/pacing experiments, including
-  issues #70, #91 and #92, plus the follow-up experiment in #94.
+- [Deployment](DEPLOYMENT.md) — AWS, CloudFront, Cloudflare, SSM and production rollout.
+- [Control plane](CONTROL_PLANE.md) — admin/control API architecture and security boundaries.
+- [GitHub Actions ownership](WORKFLOWS.md) — path-scoped CI/CD responsibilities.
 
-Historical experiment procedures may still live beside the code they exercised
-(for example `HARDWARE_REFRESH_EXPERIMENT.md`). The documents in this directory
-record the current conclusions and design constraints that should survive after
-individual experiment tickets are closed.
+## Hardware documentation
+
+- [MatrixPortal S3](../hardware/matrixportal/README.md)
+  - [Performance and refresh architecture](../hardware/matrixportal/docs/matrixportal-performance.md)
+  - [Hardware refresh experiment record](../hardware/matrixportal/docs/HARDWARE_REFRESH_EXPERIMENT.md)
+  - [MQTT hardware validation](../hardware/matrixportal/docs/MQTT_HARDWARE_VALIDATION.md)
+- [Enclosure](../hardware/enclosure/README.md)
+  - Direct-mount design docs are under `hardware/enclosure/direct-mount/docs/`.

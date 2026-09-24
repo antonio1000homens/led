@@ -18,12 +18,12 @@ Application Python is grouped by runtime rather than kept flat at the repository
 
 ```text
 code.py       CircuitPython/Wokwi entrypoint
-firmware/     MatrixPortal implementation
+hardware/matrixportal/firmware/  MatrixPortal implementation
 backend/      local CPython server and Lambda implementation
 shared/       renderer/fixture modules used by both runtimes
 scripts/      build, test, deployment and maintenance tooling
 tests/        host-side regression tests
-docs/         architecture decisions and consolidated experiment findings
+docs/         cross-cutting architecture/deployment documentation
 ```
 
 The root `code.py` is intentional because Wokwi/CircuitPython uses that
@@ -58,13 +58,13 @@ Cloudflare remains the authoritative DNS provider and points the DNS-only `led.a
 
 GitHub Actions uses AWS OIDC and stores only non-secret deployment configuration. The National Rail and Windsor Cloudflare deployment secrets are Standard `SecureString` parameters under `/led/deploy/*`; the workflow assumes `GitHubActionsLedDeployRole` first, then decrypts and masks those two values. Todoist is separate because its OAuth refresh token rotates at runtime: its client credentials plus access/refresh tokens remain in `/led/todoist/oauth`, which only the publisher runtime can read and update.
 
-See [`DEPLOYMENT.md`](DEPLOYMENT.md) for first-time AWS bootstrap, the Bitwarden-to-SSM migration helper, deployment-secret rotation, Todoist OAuth bootstrap, GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for first-time AWS bootstrap, the Bitwarden-to-SSM migration helper, deployment-secret rotation, Todoist OAuth bootstrap, GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
 
 ## Hardware notes
 
 For the current MatrixPortal refresh/pacing architecture, measured performance
 results, and the decisions from issues #70, #91, #92 and #94, see
-[`docs/matrixportal-performance.md`](docs/matrixportal-performance.md).
+[`hardware/matrixportal/docs/matrixportal-performance.md`](hardware/matrixportal/docs/matrixportal-performance.md).
 
 The four panels must have an appropriate HUB75 data chain and a separate, correctly sized 5 V power supply. Do not attempt to power four panels from the MatrixPortal or USB alone. Confirm the panel scan/pin wiring against the actual panel before purchase; the software assumes the MatrixPortal S3 `MTX_*` pin definitions and 1/32-scan 64×32 panels.
 
@@ -277,7 +277,7 @@ WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
 ```
 
-For local development instead, copy `firmware/settings_local.py.example` to the ignored root `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `scripts/run-server.sh`, for example `http://192.168.1.123:8000`.
+For local development instead, copy `hardware/matrixportal/firmware/settings_local.py.example` to the ignored root `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `scripts/run-server.sh`, for example `http://192.168.1.123:8000`.
 
 The MatrixPortal does not need provider credentials or direct upstream API clients. It makes only the same `/api/screens` request regardless of which server-side feeds are enabled.
 

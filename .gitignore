@@ -7,4 +7,4 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 wokwi.vcd
-config/bootstrap-ssm-migration.env
+scripts/config/bootstrap-ssm-migration.env

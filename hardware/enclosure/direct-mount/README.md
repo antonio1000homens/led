@@ -92,11 +92,12 @@ Print `stl/08_mount_pattern_template_PRINT_1.stl` first and verify all six brass
 The direct-mount enclosure is now separated by purpose:
 
 - `direct_mount_enclosure.scad` — shared parametric source of truth.
-- `*_PRINT_*.scad` — thin printable-part entrypoints kept in this directory.
+- `parts/*_PRINT_*.scad` — thin printable-part entrypoints grouped away from the shared library.
 - `stl/` — generated manufacturing meshes only; do not edit these by hand.
-- `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).\n- `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
-- `assembly_validation.json` and `validate_*.py` — machine-readable assembly intent and CI validation.
-- `README.md` / `MECHANICAL_VALIDATION.md` — physical-fit and validation documentation.
+- `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).
+- `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
+- `scripts/assembly_validation.json` and `scripts/validate_*.py` — machine-readable assembly intent and CI validation.
+- `README.md` plus `docs/*.md` — physical-fit and validation documentation.
 
 This keeps the files you send to the slicer separate from the editable CAD and from the assembly drawings.
 
@@ -116,7 +117,7 @@ This keeps the files you send to the slicer separate from the editable CAD and f
 | `stl/09_centre_boss_desk_stand_PRINT_3.stl` | 2 | Separate centre-boss desk stands with a thinner 3 mm screw stack and 15 mm forward anti-tip toe |
 | `stl/10_rear_lid_PRINT_4.stl` | 4 | Open-sided snap-on rear lids with ventilation slots and four dedicated round locking pegs |
 
-All STLs are generated from `direct_mount_enclosure.scad`.
+All STLs are generated from `direct_mount_enclosure.scad`. Individual printable launchers are under `parts/`, validators/manifests under `scripts/`, and non-README mechanical notes under `docs/`.
 
 ### Complete enclosure assembly preview
 
@@ -155,17 +156,17 @@ CI exports every one of these projection files to an actual SVG and checks that 
 
 Each printable component now also has its own `.scad` entry file. These wrappers select the matching module from the common parametric source so you can open or export one part directly in OpenSCAD without editing the master file:
 
-- `01_backplane_module_PRINT_3.scad`
-- `01b_backplane_right_end_PRINT_1.scad`
-- `02_module_joiner_PRINT_4.scad`
-- `03_rod_end_plug_PRINT_4.scad`
-- `04_matrixportal_mount_PRINT_1.scad`
-- `05_power_distribution_mount_PRINT_1.scad`
-- `06_cable_clip_PRINT_8.scad`
-- `07_mounting_slot_coupon_PRINT_1.scad`
-- `08_mount_pattern_template_PRINT_1.scad`
-- `09_centre_boss_desk_stand_PRINT_3.scad`
-- `10_rear_lid_PRINT_4.scad`
+- `parts/01_backplane_module_PRINT_3.scad`
+- `parts/01b_backplane_right_end_PRINT_1.scad`
+- `parts/02_module_joiner_PRINT_4.scad`
+- `parts/03_rod_end_plug_PRINT_4.scad`
+- `parts/04_matrixportal_mount_PRINT_1.scad`
+- `parts/05_power_distribution_mount_PRINT_1.scad`
+- `parts/06_cable_clip_PRINT_8.scad`
+- `parts/07_mounting_slot_coupon_PRINT_1.scad`
+- `parts/08_mount_pattern_template_PRINT_1.scad`
+- `parts/09_centre_boss_desk_stand_PRINT_3.scad`
+- `parts/10_rear_lid_PRINT_4.scad`
 
 The shared geometry remains in `direct_mount_enclosure.scad`; the per-part files are intentionally thin entrypoints rather than independent copies. `schematics/matrixportal_s3_REFERENCE.scad` is a non-printing simplified electronics reference, `schematics/04_matrixportal_side_access_ASSEMBLY.scad` is the Panel 1 controller-detail preview, and `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` is the full four-panel assembly preview.
 

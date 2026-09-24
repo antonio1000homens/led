@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 env:
-  PYTHONPATH: firmware:backend:shared
+  PYTHONPATH: hardware/matrixportal/firmware:backend:shared
   AWS_REGION: eu-west-2
   STACK_NAME: led-serverless
   AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}

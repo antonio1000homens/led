@@ -152,7 +152,7 @@ disabled by default and does not make the backend ingest Alexa reminders. The
 future Home Assistant publisher owns the event payload and will publish it to
 the board's configured MQTT topic after issue #3 is complete. The board-side
 MQTT connection currently requires both `MQTT_ENABLED` and the explicit
-`MQTT_ENABLE_EXPERIMENTAL` safety gate; both are false in `firmware/settings.py`.
+`MQTT_ENABLE_EXPERIMENTAL` safety gate; both are false in `hardware/matrixportal/firmware/settings.py`.
 The public `/api/screens` response carries the effective non-secret `flash`
 settings so the board can apply admin changes on its normal HTTP refresh path;
 it never carries broker credentials or reminder payloads.

@@ -7,7 +7,6 @@ on:
       - 'code.py'
       - 'font5x7.pcf'
       - 'gtsr4.pem'
-      - 'firmware/**'
       - 'shared/**'
       - 'requirements.txt'
       - 'diagram.json'
@@ -33,7 +32,6 @@ on:
       - 'code.py'
       - 'font5x7.pcf'
       - 'gtsr4.pem'
-      - 'firmware/**'
       - 'shared/**'
       - 'requirements.txt'
       - 'diagram.json'
@@ -46,7 +44,7 @@ permissions:
   contents: read
 
 env:
-  PYTHONPATH: firmware:backend:shared
+  PYTHONPATH: hardware/matrixportal/firmware:backend:shared
 
 jobs:
   validate:
@@ -73,7 +71,7 @@ jobs:
           test -f /tmp/circuitpy/gtsr4.pem
 
       - name: Compile CircuitPython-compatible source
-        run: python -m compileall -q code.py firmware shared hardware/matrixportal
+        run: python -m compileall -q code.py hardware/matrixportal shared
 
       - name: Run firmware and shared-renderer unit tests
         shell: bash

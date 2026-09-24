@@ -2,51 +2,51 @@
   "schema_version": 1,
   "parts": {
     "backplane": {
-      "file": "stl/01_backplane_module_PRINT_3.stl",
-      "source_scad": "01_backplane_module_PRINT_3.scad",
+      "file": "../stl/01_backplane_module_PRINT_3.stl",
+      "source_scad": "../parts/01_backplane_module_PRINT_3.scad",
       "expected_components": 1
     },
     "joiner": {
-      "file": "stl/02_module_joiner_PRINT_4.stl",
-      "source_scad": "02_module_joiner_PRINT_4.scad",
+      "file": "../stl/02_module_joiner_PRINT_4.stl",
+      "source_scad": "../parts/02_module_joiner_PRINT_4.scad",
       "expected_components": 2
     },
     "rod_plug": {
-      "file": "stl/03_rod_end_plug_PRINT_4.stl",
-      "source_scad": "03_rod_end_plug_PRINT_4.scad"
+      "file": "../stl/03_rod_end_plug_PRINT_4.stl",
+      "source_scad": "../parts/03_rod_end_plug_PRINT_4.scad"
     },
     "matrixportal_mount": {
-      "file": "stl/04_matrixportal_mount_PRINT_1.stl",
-      "source_scad": "04_matrixportal_mount_PRINT_1.scad"
+      "file": "../stl/04_matrixportal_mount_PRINT_1.stl",
+      "source_scad": "../parts/04_matrixportal_mount_PRINT_1.scad"
     },
     "power_mount": {
-      "file": "stl/05_power_distribution_mount_PRINT_1.stl",
-      "source_scad": "05_power_distribution_mount_PRINT_1.scad"
+      "file": "../stl/05_power_distribution_mount_PRINT_1.stl",
+      "source_scad": "../parts/05_power_distribution_mount_PRINT_1.scad"
     },
     "cable_clip": {
-      "file": "stl/06_cable_clip_PRINT_8.stl",
-      "source_scad": "06_cable_clip_PRINT_8.scad"
+      "file": "../stl/06_cable_clip_PRINT_8.stl",
+      "source_scad": "../parts/06_cable_clip_PRINT_8.scad"
     },
     "slot_coupon": {
-      "file": "stl/07_mounting_slot_coupon_PRINT_1.stl",
-      "source_scad": "07_mounting_slot_coupon_PRINT_1.scad"
+      "file": "../stl/07_mounting_slot_coupon_PRINT_1.stl",
+      "source_scad": "../parts/07_mounting_slot_coupon_PRINT_1.scad"
     },
     "mount_pattern_template": {
-      "file": "stl/08_mount_pattern_template_PRINT_1.stl",
-      "source_scad": "08_mount_pattern_template_PRINT_1.scad"
+      "file": "../stl/08_mount_pattern_template_PRINT_1.stl",
+      "source_scad": "../parts/08_mount_pattern_template_PRINT_1.scad"
     },
     "backplane_right": {
-      "file": "stl/01b_backplane_right_end_PRINT_1.stl",
-      "source_scad": "01b_backplane_right_end_PRINT_1.scad",
+      "file": "../stl/01b_backplane_right_end_PRINT_1.stl",
+      "source_scad": "../parts/01b_backplane_right_end_PRINT_1.scad",
       "expected_components": 1
     },
     "centre_boss_stand": {
-      "file": "stl/09_centre_boss_desk_stand_PRINT_3.stl",
-      "source_scad": "09_centre_boss_desk_stand_PRINT_3.scad"
+      "file": "../stl/09_centre_boss_desk_stand_PRINT_3.stl",
+      "source_scad": "../parts/09_centre_boss_desk_stand_PRINT_3.scad"
     },
     "rear_lid": {
-      "file": "stl/10_rear_lid_PRINT_4.stl",
-      "source_scad": "10_rear_lid_PRINT_4.scad",
+      "file": "../stl/10_rear_lid_PRINT_4.stl",
+      "source_scad": "../parts/10_rear_lid_PRINT_4.scad",
       "expected_components": 1
     }
   },
