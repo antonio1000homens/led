@@ -10,7 +10,7 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
         self.template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
         self.workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         self.admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
-        self.docs = (ROOT / "CONTROL_PLANE.md").read_text(encoding="utf-8")
+        self.docs = (ROOT / "docs" / "CONTROL_PLANE.md").read_text(encoding="utf-8")
 
     def test_runtime_config_is_on_demand_encrypted_dynamodb(self):
         self.assertIn("RuntimeConfigTable:", self.template)

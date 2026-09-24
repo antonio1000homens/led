@@ -165,13 +165,13 @@ class Issue38SsmMigrationTests(unittest.TestCase):
         self.assertIn("BW_CF_DEPLOY_API_TOKEN", help_result.stdout)
 
     def test_local_bootstrap_config_is_exampled_and_gitignored(self):
-        example = ROOT / "config" / "bootstrap-ssm-migration.env.example"
+        example = ROOT / "scripts" / "config" / "bootstrap-ssm-migration.env.example"
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
         self.assertTrue(example.exists())
         example_text = example.read_text(encoding="utf-8")
         self.assertIn("SSM_PREFIX=/led/deploy", example_text)
-        self.assertIn("config/bootstrap-ssm-migration.env", gitignore)
+        self.assertIn("scripts/config/bootstrap-ssm-migration.env", gitignore)
         self.assertNotIn("BW_ACCESS_TOKEN=", example_text)
 
 
