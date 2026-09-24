@@ -73,7 +73,9 @@ latch_w = 12;
 latch_root_y = module_h - fixed_band_h + 2;
 latch_riser_y = 4;
 latch_beam_len = 14;
-latch_beam_z = 9.5;
+// Raise the flexible beam so its rounded detent can snap behind a front-entry
+// slot in the moving enclosure rather than into a sealed internal cavity.
+latch_beam_z = 15.0;
 latch_beam_t = 2.2;
 latch_detent_r = 1.4;
 latch_catch_clearance = 0.5;
@@ -274,18 +276,27 @@ module moving_hinge_barrels() {
 }
 
 module enclosure_latch_catch() {
-    // Leave a shallow front lip (z=12..13.0) for the rounded detent to flex
-    // past and snap behind. The pocket is internal and does not alter the
-    // external envelope.
+    // Front/top-entry latch slot. The old prototype used a completely enclosed
+    // pocket, which was geometrically valid but physically inaccessible.
+    //
+    // This slot opens through the LED-facing edge (z < service_front_z) and
+    // through the top edge of the enclosure. The raised PETG detent flexes past
+    // the rear edge at z ~= 18.2 mm and snaps behind it. Pressing the tongue
+    // toward the LED panel releases the detent.
+    latch_slot_y =
+        latch_root_y + latch_riser_y/2 + latch_beam_len
+        - 2*latch_detent_r - latch_catch_clearance;
+    latch_slot_z_rear = 18.2;
+
     translate([
         latch_x-latch_w/2-latch_catch_clearance,
-        latch_root_y+latch_riser_y/2+latch_beam_len-2*latch_detent_r-latch_catch_clearance,
-        service_front_z+1.0
+        latch_slot_y,
+        service_front_z-0.6
     ])
         cube([
             latch_w+2*latch_catch_clearance,
-            2*latch_detent_r+2*latch_catch_clearance,
-            5
+            service_y+service_h-latch_slot_y+1.0,
+            latch_slot_z_rear-service_front_z+0.6
         ]);
 }
 
