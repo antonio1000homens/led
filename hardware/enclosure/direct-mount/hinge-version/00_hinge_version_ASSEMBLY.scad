@@ -1,4 +1,2 @@
-hinge_part = "__preview__";
+hinge_part = "assembly";
 include <hinge_version.scad>;
-
-hinge_version_assembly(72);
