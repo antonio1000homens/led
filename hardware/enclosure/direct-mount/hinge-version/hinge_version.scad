@@ -118,6 +118,16 @@ base_beam_t = 6;
 base_y_h = 18;
 base_rib_w = 8;
 
+// Middle-enclosure cable passages. This specific moving tray is intended for a
+// module between two neighbours, so wiring must be able to continue through
+// both the left and right side walls. Keep the dimensions parametric for easy
+// adjustment after the first physical cable-fit test.
+side_cable_gap_y = 44;
+side_cable_gap_z = 20;
+side_cable_gap_corner_r = 4;
+side_cable_gap_center_y = service_y + service_h/2;
+side_cable_gap_center_z = service_front_z + 15;
+
 // Universal equipment slots through the rear mounting plate.
 equipment_slot_len = 16;
 equipment_slot_w = 4.2;
@@ -129,6 +139,27 @@ module equipment_slot_2d(len=equipment_slot_len,w=equipment_slot_w) {
         translate([-(len-w)/2,0]) circle(d=w);
         translate([(len-w)/2,0]) circle(d=w);
     }
+}
+
+module side_cable_passage(x0) {
+    assert(side_cable_gap_y > 2*side_cable_gap_corner_r);
+    assert(side_cable_gap_z > 2*side_cable_gap_corner_r);
+
+    // Rounded rectangular opening extruded through one side wall. Retaining a
+    // frame around the opening preserves considerably more rigidity than
+    // removing the side wall completely and avoids sharp cable-contact corners.
+    hull()
+        for (yy=[
+            side_cable_gap_center_y-(side_cable_gap_y/2-side_cable_gap_corner_r),
+            side_cable_gap_center_y+(side_cable_gap_y/2-side_cable_gap_corner_r)
+        ])
+            for (zz=[
+                side_cable_gap_center_z-(side_cable_gap_z/2-side_cable_gap_corner_r),
+                side_cable_gap_center_z+(side_cable_gap_z/2-side_cable_gap_corner_r)
+            ])
+                translate([x0,yy,zz])
+                    rotate([0,90,0])
+                        cylinder(r=side_cable_gap_corner_r,h=service_wall+2);
 }
 
 module moving_hinge_barrels() {
@@ -225,6 +256,12 @@ module hinged_equipment_enclosure() {
         for (xx=[54,184])
             translate([xx,service_h-17,service_back_z-0.5])
                 cube([18,6,service_plate_t+1]);
+
+        // This part is the middle enclosure: provide the same rounded cable
+        // passage on both sides so power/data wiring can enter from either
+        // neighbour and continue across the display.
+        side_cable_passage(service_x-1);
+        side_cable_passage(service_x+service_w-service_wall-1);
     }
 }
 
