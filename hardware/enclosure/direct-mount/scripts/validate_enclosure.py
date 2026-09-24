@@ -192,6 +192,8 @@ def validate_hinge_prototype(generated_dir: Path) -> None:
 
     run("openscad", "-o", generated_dir / "hinge_version_assembly.csg",
         HINGE_DIR / "00_hinge_version_ASSEMBLY.scad")
+    run("openscad", "-o", generated_dir / "hinge_version_closed_assembly.csg",
+        HINGE_DIR / "00_hinge_version_CLOSED_ASSEMBLY.scad")
 
 
 def validate_nominal_assembly() -> None:
