@@ -129,8 +129,15 @@ module equipment_slot_2d(len=equipment_slot_len,w=equipment_slot_w) {
 }
 
 module moving_hinge_barrels() {
-    for (segment=moving_knuckles)
+    for (segment=moving_knuckles) {
         rail_hinge_barrel(segment[0],segment[1]);
+
+        // Give every moving knuckle a positive-volume root into the tray wall.
+        // Keep this at z >= 12 mm so it clears the fixed template's lower
+        // hinge spine (which ends at z=8 mm) when the enclosure is closed.
+        translate([segment[0],-0.2,service_front_z])
+            cube([segment[1],5.0,5.0]);
+    }
 }
 
 module service_tray_shell() {
