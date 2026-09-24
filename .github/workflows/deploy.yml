@@ -17,7 +17,7 @@ on:
       - 'scripts/package-lambda.sh'
       - 'scripts/run-server.sh'
       - 'scripts/run-tests.sh'
-      - 'config/**'
+      - 'scripts/config/**'
       - '.env.example'
       - 'tests/test_combined_queue_admin.py'
       - 'tests/test_config_api.py'
@@ -53,7 +53,7 @@ permissions:
   contents: read
 
 env:
-  PYTHONPATH: firmware:backend:shared
+  PYTHONPATH: hardware/matrixportal/firmware:backend:shared
   AWS_REGION: eu-west-2
   STACK_NAME: led-serverless
   DOMAIN_NAME: ${{ vars.LED_DOMAIN_NAME || 'led.alf-broadcast.co.uk' }}
