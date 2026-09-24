@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class Issue41DashboardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.display_source = (ROOT / "firmware" / "display.py").read_text()
+        cls.display_source = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text()
         cls.formatting_source = (ROOT / "shared" / "formatting.py").read_text()
         cls.simulator_source = (ROOT / "simulator" / "index.html").read_text()
         cls.admin_source = (ROOT / "simulator" / "admin.html").read_text()
