@@ -1,0 +1,49 @@
+name: Temporary / Regenerate hinge STLs
+
+on:
+  push:
+    branches:
+      - feat/6mm-rail-hinge-version
+    paths:
+      - 'hardware/enclosure/direct-mount/hinge-version/hinge_version.scad'
+      - '.github/workflows/tmp-regenerate-hinge-stls.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: feat/6mm-rail-hinge-version
+
+      - name: Install OpenSCAD
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate hinge STLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir=hardware/enclosure/direct-mount/hinge-version
+          openscad -o "$dir/stl/08_mount_pattern_template_HINGE_PRINT_1.stl"             "$dir/08_mount_pattern_template_HINGE_PRINT_1.scad"
+          openscad -o "$dir/stl/11_hinged_equipment_enclosure_PRINT_1.stl"             "$dir/11_hinged_equipment_enclosure_PRINT_1.scad"
+
+      - name: Commit regenerated meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/direct-mount/hinge-version/stl/*.stl
+          if git diff --cached --quiet; then
+            echo "STLs already match source"
+            exit 0
+          fi
+          git commit -m "Regenerate supported concealed-hinge STLs [skip ci]"
+          git push origin HEAD:feat/6mm-rail-hinge-version
