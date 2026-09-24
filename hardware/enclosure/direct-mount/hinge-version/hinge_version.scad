@@ -60,7 +60,7 @@ fixed_template_t = 2;
 fixed_band_h = 20;
 fixed_side_w = 8;
 fixed_hinge_root_y = hinge_axis_y - 6;
-fixed_hinge_root_h = 12;
+fixed_hinge_root_h = fixed_band_h - fixed_hinge_root_y; // ends exactly at y=20
 fixed_hinge_root_t = 8;
 
 // Internal snap-latch prototype. The template carries the flexible tongue and
