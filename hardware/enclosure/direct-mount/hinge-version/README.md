@@ -65,7 +65,7 @@ The moving tray is intentionally generic for this first hinge test rather than m
 
 Closed-position envelope:
 
-- nominal rear footprint: **255 × 127 mm**
+- moving tray footprint: **255 × 126 mm** (y=1.5…127.5 mm), intentionally raised 1 mm to clear the fixed hinge barrels
 - tray front lip: **z = 12 mm**
 - inside face of rear mounting plate: **z = 42 mm**
 - rear plate thickness: **3 mm**
@@ -81,7 +81,7 @@ The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 
 Two larger slots near the top are intended for wiring/ribbon passthrough.
 
-The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot.
+The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot. The moving tray body starts at y=1.5 mm, leaving about 0.8 mm nominal clearance above the fixed hinge-barrel envelope.
 
 ## Assembly preview
 
