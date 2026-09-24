@@ -32,7 +32,8 @@ When the moving enclosure is opened downward:
   - complementary hinge knuckles;
   - 30 mm internal tray depth between the front lip and equipment mounting plate;
   - full-size slotted equipment mounting plate for PSU/controller/cable ties;
-  - mirrored rounded cable pass-throughs in the left and right side walls for use as a middle enclosure;
+  - full-width lower wiring zone, then an 8 mm-per-side taper toward the top;
+  - mirrored U-shaped cable notches, open toward the LED panel, for use as a middle enclosure;
   - full-width rear foot beam and diagonal ribs at the lower edge to increase desk footprint.
 
 ## Hinge dimensions
@@ -66,7 +67,9 @@ The moving tray is intentionally generic for this first hinge test rather than m
 
 Closed-position envelope:
 
-- moving tray footprint: **255 × 126 mm** (y=1.5…127.5 mm), intentionally raised 1 mm to clear the fixed hinge barrels
+- lower moving-tray footprint: **255 mm wide × 126 mm high** (y=1.5…127.5 mm), intentionally raised 1 mm to clear the fixed hinge barrels
+- lower **52 mm** wiring zone remains full-width
+- above that zone, each side tapers inward by **8 mm**, giving a **239 mm** top width
 - tray front lip: **z = 12 mm**
 - inside face of rear mounting plate: **z = 42 mm**
 - rear plate thickness: **3 mm**
@@ -80,11 +83,13 @@ The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 - cable ties;
 - cable-management clips.
 
-Two larger slots near the top are intended for wiring/ribbon passthrough.
+The two larger wiring/ribbon slots in the rear equipment plate are now kept in the **lower wiring zone** instead of near the top.
 
-Because this specific tray is intended to be a **middle enclosure**, both side walls also contain matching rounded cable passages so power and HUB75/data wiring can continue between neighbouring modules. The prototype side opening is **44 mm high × 20 mm deep** with **4 mm corner radii**. It is centred in the usable side-wall span and leaves material around the opening instead of removing the complete side wall, preserving more enclosure rigidity and avoiding sharp cable-contact corners.
+Because this specific tray is intended to be a **middle enclosure**, both lower side walls contain matching **U-shaped cable notches**. Each notch is open toward the LED-panel/front side rather than forming a closed hole. Panel-to-panel power and HUB75/data cables can therefore remain connected to the fixed LED panels while the moving tray swings down and away from them.
 
-These dimensions are parameters in `hinge_version.scad` (`side_cable_gap_y`, `side_cable_gap_z`, and `side_cable_gap_corner_r`) so they can be adjusted after a physical cable-fit test.
+The prototype notch is **30 mm high × 22 mm deep** with **4 mm rounded rear corners**. It begins immediately above the lower perimeter wall, preserving the hinge/base structure underneath. The upper enclosure simultaneously tapers inward by **8 mm per side** above the 52 mm lower wiring zone, increasing the gap between neighbouring enclosures where no cable width is needed.
+
+The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wiring_zone_h`, `upper_side_inset`, `side_cable_notch_y`, `side_cable_notch_depth`, and `side_cable_notch_corner_r`) so they can be adjusted after a physical cable-fit test.
 
 The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot. The moving tray body starts at y=1.5 mm, leaving about 0.8 mm nominal clearance above the fixed hinge-barrel envelope.
 
@@ -120,8 +125,9 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 5. The tray clears the actual rear LED components when closed.
 6. The 30 mm cavity is sufficient for the chosen PSU/controller.
 7. The rear foot gives the intended desk stability.
-8. Power and HUB75/data connectors pass comfortably through both 44 × 20 mm side openings without being pinched.
-9. Cables have enough service loop to open the tray without pulling connectors.
+8. Power and HUB75/data cables sit comfortably in both 30 × 22 mm U-notches without being pinched.
+9. Open the tray while panel-to-panel cables remain connected and verify that the U-notches disengage cleanly without pulling the cables.
+10. Verify the 8 mm-per-side upper taper leaves useful clearance between neighbouring enclosures without interfering with the equipment mounted inside.
 
 ## Not yet finalised
 
