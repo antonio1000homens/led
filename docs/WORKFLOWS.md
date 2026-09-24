@@ -81,3 +81,32 @@ Lambda packaging follows the same principle: source lives under `backend/`
 and `shared/`, while `scripts/package-lambda.sh` flattens the selected
 runtime modules into the deployment ZIP so existing Lambda import and handler
 names remain unchanged.
+
+
+## Workflow-generated commits and approval loops
+
+Pull-request workflows should be validation-only by default. Generated files
+should normally be produced locally or exposed as workflow artifacts rather
+than committed back to an open pull-request branch.
+
+If a temporary or manually dispatched workflow genuinely needs to commit
+generated files back to a branch, its commit message **must** contain
+`[skip ci]`, for example:
+
+```text
+Regenerate enclosure STLs [skip ci]
+```
+
+This prevents the resulting `github-actions[bot]` commit from creating a new
+`pull_request` synchronization run. Without the skip marker, GitHub can treat
+the bot-authored update as a separate contributor-triggered run and leave it in
+`action_required` awaiting maintainer approval, even when the repository has
+only one human collaborator.
+
+Do not solve this by weakening repository-wide Actions approval settings.
+Validation workflows should keep `contents: read`; any temporary generator
+that needs `contents: write` should be manually scoped, use `[skip ci]` for
+its generated commit, and be removed when it is no longer needed.
+
+`.github/workflows/workflow-policy.yml` enforces the skip-marker rule for any
+checked-in workflow containing a direct `git commit` command.
