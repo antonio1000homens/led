@@ -26,7 +26,7 @@ When the moving enclosure is opened downward:
   - six panel boss holes remain x = 7.9 / 128 / 248.1 mm and y = 7.9 / 120.1 mm;
   - four moulded-locator clearances remain unchanged;
   - alternating fixed hinge knuckles sit on local reinforcement pads inside the lower template band;
-  - a small internal PETG snap latch is integrated into the upper template band.
+  - no integrated top latch/cantilever is present, keeping this part support-free when printed flat.
 
 - `11_hinged_equipment_enclosure_PRINT_1.scad`
 - `stl/11_hinged_equipment_enclosure_PRINT_1.stl`
@@ -36,7 +36,7 @@ When the moving enclosure is opened downward:
   - full-width lower wiring zone, then an 8 mm-per-side taper toward the top;
   - mirrored U-shaped cable notches, open toward the LED panel, for use as a middle enclosure;
   - full-width rear foot beam and diagonal ribs at the lower edge to increase desk footprint;
-  - an internal catch pocket for the template-mounted snap latch.
+  - no matching latch pocket is included in this print-first hinge prototype.
 
 ## Hinge dimensions
 
@@ -110,17 +110,20 @@ The lower rear foot beam and four diagonal ribs keep the bottom/base deep and st
 
 The 6 mm rail is now a **concealed edge hinge**. The barrel sits exactly at the lower panel edge (y=0…13 mm) but entirely behind the fixed template in Z. Fixed knuckles nest into matching pockets in the moving enclosure when closed, so there is no external hinge block holding the enclosure away from the template.
 
-## Internal snap latch
+## Top closure
 
-The fixed template now includes a small prototype snap latch at **x = 96 mm**, positioned away from the panel screw columns. The latch consists of:
+The integrated snap latch has been **removed from this prototype** because its cantilever was floating above the print bed when the fixed template was printed flat.
 
-- a short riser from the template;
-- a **12 mm wide PETG cantilever tongue**;
-- a rounded detent at the free end.
+That keeps the fixed hinged template support-free in its intended print orientation.
 
-The moving enclosure has a matching shallow internal catch pocket behind its front lip. As the enclosure closes, the rounded detent flexes the tongue slightly toward the LED panel, then snaps behind the lip into the pocket.
+After the hinge, closed clearance and equipment depth are physically confirmed, the top closure should be added as a **separate printable part** rather than fused into the template. Good candidates are:
 
-The latch is entirely inside the enclosure envelope and does not add height or an external protrusion. PETG is recommended for this feature because the tongue is intended to flex repeatedly.
+- a small PETG clip that snaps over the two closed edges;
+- a pivoting printed latch retained by an M3 screw;
+- a captive thumbscrew latch;
+- or a small magnetic catch.
+
+This lets the template remain flat-printable and means the latch can be reprinted/tuned independently.
 
 ## Assembly preview
 
@@ -152,7 +155,7 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 3. The knuckles rotate freely without excessive vertical play.
 4. The local hinge-root pads are stiff enough when the tray is loaded.
 5. The concealed edge hinge rotates through the required service angle without the moving shell fouling the fixed template.
-6. The internal snap latch engages and releases without excessive force or permanent deformation.
+6. Confirm the fixed template prints flat without supports or floating cantilevers.
 7. The tray clears the actual rear LED components when closed.
 8. The chosen PSU fits in the deeper lower zone and the controller fits within the shallower tapered upper zone.
 9. The rear foot gives the intended desk stability.
@@ -164,4 +167,5 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 
 ## Not yet finalised
 
-The internal printed snap latch is now included as a **prototype**. Its engagement depth and release force should be confirmed on the first physical print before printing all four modules. If the printed latch proves too stiff or too loose, the latch dimensions can be tuned without moving the hinge axis or changing the corrected panel-template coordinates.
+The top closure/latch is intentionally deferred until the first physical hinge test. It should be implemented as a **separate support-free part**, so latch tuning does not require reprinting the fixed template.
+
