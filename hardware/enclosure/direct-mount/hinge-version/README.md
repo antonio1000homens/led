@@ -43,8 +43,9 @@ When the moving enclosure is opened downward:
 - physical hinge rail: **6.0 mm diameter**
 - printed hinge bore: **7.2 mm**
 - printed hinge barrel outside diameter: **13 mm**
-- hinge axis: **y = 16 mm, z = 8 mm** relative to the panel coordinate system
-- complete 13 mm hinge-barrel envelope: **y = 9.5…22.5 mm**, fully inside the 0…128 mm panel footprint
+- hinge axis: **y = 6.5 mm, z = 10.5 mm** relative to the panel coordinate system
+- complete 13 mm hinge-barrel envelope: **y = 0…13 mm**, exactly on the lower panel edge
+- barrel Z envelope: **z = 4…17 mm**, entirely behind the 2 mm fixed template
 
 The 7.2 mm bore deliberately preserves the same 0.6 mm radial clearance currently used for the 6 mm reinforcement bars.
 
@@ -75,15 +76,18 @@ The moving tray is intentionally generic for this first hinge test rather than m
 
 Closed-position envelope:
 
-- lower moving-tray footprint: **255 mm wide × 126 mm high** (y=1.5…127.5 mm)
-- hinge axis at **y=16 mm**, contained inside this footprint
-- lower **52 mm** wiring zone remains full-width
-- above that zone, each side tapers inward by **8 mm**, giving a **239 mm** top width
-- tray front lip: **z = 12 mm**
-- inside face of rear mounting plate: **z = 42 mm**
-- rear plate thickness: **3 mm**
-- usable cavity depth: approximately **30 mm**
-- rear foot extends to **z = 60 mm**
+- moving enclosure body starts at the **hinge axis y=6.5 mm**, so no moving shell material hangs below the pivot;
+- top remains at **y=127.5 mm**;
+- the front rim closes at **z=2.6 mm**, only **0.6 mm behind the 2 mm fixed template**, so the base/enclosure read as flush when closed;
+- the fixed hinge knuckles sit in front-entry pockets inside the moving enclosure rather than projecting outside it;
+- lower **46 mm** wiring/equipment zone remains full-width;
+- above that zone, each side tapers inward by **8 mm**, giving a **239 mm** top width;
+- lower equipment-plate depth: **z=42 mm**;
+- upper equipment-plate depth: **z=28 mm**;
+- the rear surface slopes continuously between those values, making the top about **14 mm shallower** than the bottom equipment zone;
+- rear plate thickness: **3 mm**;
+- usable cavity depth is approximately **39.4 mm at the lower zone** and **25.4 mm at the top**, measured from the 2.6 mm closing rim;
+- rear foot still extends to **z=60 mm** at the bottom for desk stability.
 
 The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 
@@ -102,7 +106,9 @@ The prototype notch is **30 mm high × 22 mm deep** with **4 mm rounded rear cor
 
 The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wiring_zone_h`, `upper_side_inset`, `side_cable_notch_y`, `side_cable_notch_depth`, and `side_cable_notch_corner_r`) so they can be adjusted after a physical cable-fit test.
 
-The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot. The 6 mm rail hinge now sits inside the lower enclosure perimeter instead of extending below it.
+The lower rear foot beam and four diagonal ribs keep the bottom/base deep and stable. Above the lower wiring/equipment zone, both the side outline and the rear depth taper inward. This removes a substantial amount of material and rear protrusion from the top while preserving the deeper lower area for the PSU and power wiring.
+
+The 6 mm rail is now a **concealed edge hinge**. The barrel sits exactly at the lower panel edge (y=0…13 mm) but entirely behind the fixed template in Z. Fixed knuckles nest into matching pockets in the moving enclosure when closed, so there is no external hinge block holding the enclosure away from the template.
 
 ## Internal snap latch
 
@@ -124,7 +130,7 @@ Open:
 
 The preview shows the moving enclosure opened approximately 72 degrees around the hinge rail.
 
-`hinged_equipment_enclosure_at_angle(0)` is closed.
+`hinged_equipment_enclosure_at_angle(0)` is closed. A separate `00_hinge_version_CLOSED_ASSEMBLY.scad` view is provided specifically to inspect the flush closed position and concealed hinge pockets.
 
 A positive angle rotates the equipment enclosure downward.
 
@@ -145,14 +151,14 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 2. A real 6 mm rail passes through all alternating 7.2 mm knuckles without forcing.
 3. The knuckles rotate freely without excessive vertical play.
 4. The local hinge-root pads are stiff enough when the tray is loaded.
-5. The internal hinge rotates without fouling the LED panel or lower enclosure wall.
+5. The concealed edge hinge rotates through the required service angle without the moving shell fouling the fixed template.
 6. The internal snap latch engages and releases without excessive force or permanent deformation.
 7. The tray clears the actual rear LED components when closed.
-8. The 30 mm cavity is sufficient for the chosen PSU/controller.
+8. The chosen PSU fits in the deeper lower zone and the controller fits within the shallower tapered upper zone.
 9. The rear foot gives the intended desk stability.
 10. Power and HUB75/data cables sit comfortably in both 30 × 22 mm U-notches without being pinched.
 11. Open the tray while panel-to-panel cables remain connected and verify that the U-notches disengage cleanly without pulling the cables.
-12. Verify the 8 mm-per-side upper taper leaves useful clearance between neighbouring enclosures without interfering with the equipment mounted inside.
+12. Verify both the 8 mm-per-side width taper and the 42→28 mm rear-depth taper leave useful clearance without interfering with mounted equipment.
 13. Verify the upper-only ventilation pattern provides useful airflow while the lower base/wiring area remains solid.
 14. Confirm the wider centre hinge gap leaves the lower-centre panel screw accessible with the actual screwdriver/bit you plan to use.
 
