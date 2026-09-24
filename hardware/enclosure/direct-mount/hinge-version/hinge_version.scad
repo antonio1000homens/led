@@ -118,15 +118,22 @@ base_beam_t = 6;
 base_y_h = 18;
 base_rib_w = 8;
 
-// Middle-enclosure cable passages. This specific moving tray is intended for a
-// module between two neighbours, so wiring must be able to continue through
-// both the left and right side walls. Keep the dimensions parametric for easy
-// adjustment after the first physical cable-fit test.
-side_cable_gap_y = 44;
-side_cable_gap_z = 20;
-side_cable_gap_corner_r = 4;
-side_cable_gap_center_y = service_y + service_h/2;
-side_cable_gap_center_z = service_front_z + 15;
+// Middle-enclosure shape and cable routing.
+//
+// Keep the lower portion full-width because this is where inter-panel wiring
+// now runs. Above the wiring zone the enclosure tapers inward on both sides,
+// leaving more clearance between neighbouring enclosures.
+lower_wiring_zone_h = 52;
+upper_side_inset = 8;
+
+// Panel-to-panel cables must not be captured by the moving enclosure. Each
+// lower side therefore has a U-shaped notch that is OPEN toward the LED panel
+// (service_front_z). When the tray swings down, it moves away from the fixed
+// cable rather than dragging the cable through a closed hole.
+side_cable_notch_y = 30;
+side_cable_notch_depth = 22;
+side_cable_notch_corner_r = 4;
+side_cable_notch_center_y = service_y + service_wall + side_cable_notch_y/2;
 
 // Universal equipment slots through the rear mounting plate.
 equipment_slot_len = 16;
@@ -141,25 +148,58 @@ module equipment_slot_2d(len=equipment_slot_len,w=equipment_slot_w) {
     }
 }
 
-module side_cable_passage(x0) {
-    assert(side_cable_gap_y > 2*side_cable_gap_corner_r);
-    assert(side_cable_gap_z > 2*side_cable_gap_corner_r);
+module service_outline_2d() {
+    // Full-width through the lower wiring zone, then continuously narrower
+    // toward the top. A taper avoids a sharp external shoulder between modules.
+    polygon(points=[
+        [service_x, service_y],
+        [service_x+service_w, service_y],
+        [service_x+service_w, service_y+lower_wiring_zone_h],
+        [service_x+service_w-upper_side_inset, service_y+service_h],
+        [service_x+upper_side_inset, service_y+service_h],
+        [service_x, service_y+lower_wiring_zone_h]
+    ]);
+}
 
-    // Rounded rectangular opening extruded through one side wall. Retaining a
-    // frame around the opening preserves considerably more rigidity than
-    // removing the side wall completely and avoids sharp cable-contact corners.
-    hull()
-        for (yy=[
-            side_cable_gap_center_y-(side_cable_gap_y/2-side_cable_gap_corner_r),
-            side_cable_gap_center_y+(side_cable_gap_y/2-side_cable_gap_corner_r)
+module service_wall_ring_2d() {
+    difference() {
+        service_outline_2d();
+        offset(delta=-service_wall)
+            service_outline_2d();
+    }
+}
+
+module side_cable_notch(x0) {
+    assert(side_cable_notch_y > 2*side_cable_notch_corner_r);
+    assert(side_cable_notch_depth > side_cable_notch_corner_r);
+
+    // Open U-notch in the Y/Z side-wall plane. The mouth deliberately extends
+    // beyond the front edge (toward the LED panel), while the two rear corners
+    // are rounded to reduce cable abrasion and stress concentration.
+    union() {
+        translate([
+            x0,
+            side_cable_notch_center_y-side_cable_notch_y/2,
+            service_front_z-1
         ])
-            for (zz=[
-                side_cable_gap_center_z-(side_cable_gap_z/2-side_cable_gap_corner_r),
-                side_cable_gap_center_z+(side_cable_gap_z/2-side_cable_gap_corner_r)
+            cube([
+                service_wall+2,
+                side_cable_notch_y,
+                side_cable_notch_depth-side_cable_notch_corner_r+1
+            ]);
+
+        for (yy=[
+            side_cable_notch_center_y-(side_cable_notch_y/2-side_cable_notch_corner_r),
+            side_cable_notch_center_y+(side_cable_notch_y/2-side_cable_notch_corner_r)
+        ])
+            translate([
+                x0,
+                yy,
+                service_front_z+side_cable_notch_depth-side_cable_notch_corner_r
             ])
-                translate([x0,yy,zz])
-                    rotate([0,90,0])
-                        cylinder(r=side_cable_gap_corner_r,h=service_wall+2);
+                rotate([0,90,0])
+                    cylinder(r=side_cable_notch_corner_r,h=service_wall+2);
+    }
 }
 
 module moving_hinge_barrels() {
@@ -179,39 +219,16 @@ module service_tray_shell() {
     // The open face is at service_front_z. Equipment mounts to the inner face
     // of the rear plate at service_back_z.
     union() {
-        // Rear equipment plate.
-        translate([service_x,service_y,service_back_z])
-            cube([service_w,service_h,service_plate_t]);
+        // Rear equipment plate follows the tapered outline.
+        translate([0,0,service_back_z])
+            linear_extrude(height=service_plate_t)
+                service_outline_2d();
 
-        // Perimeter walls.
-        translate([service_x,service_y,service_front_z])
-            cube([service_w,service_wall,service_back_z-service_front_z]);
-        translate([
-            service_x,
-            service_y+service_h-service_wall,
-            service_front_z
-        ])
-            cube([service_w,service_wall,service_back_z-service_front_z]);
-        translate([
-            service_x,
-            service_y+service_wall,
-            service_front_z
-        ])
-            cube([
-                service_wall,
-                service_h-2*service_wall,
-                service_back_z-service_front_z
-            ]);
-        translate([
-            service_x+service_w-service_wall,
-            service_y+service_wall,
-            service_front_z
-        ])
-            cube([
-                service_wall,
-                service_h-2*service_wall,
-                service_back_z-service_front_z
-            ]);
+        // Perimeter wall ring follows the same outline. The lower section stays
+        // full-width for wiring; the upper side walls taper inward.
+        translate([0,0,service_front_z])
+            linear_extrude(height=service_back_z-service_front_z)
+                service_wall_ring_2d();
 
         // Full-width rear foot beam.
         translate([
@@ -257,11 +274,11 @@ module hinged_equipment_enclosure() {
             translate([xx,service_h-17,service_back_z-0.5])
                 cube([18,6,service_plate_t+1]);
 
-        // This part is the middle enclosure: provide the same rounded cable
-        // passage on both sides so power/data wiring can enter from either
-        // neighbour and continue across the display.
-        side_cable_passage(service_x-1);
-        side_cable_passage(service_x+service_w-service_wall-1);
+        // This part is the middle enclosure: matching U-shaped notches on both
+        // lower sides let fixed panel-to-panel power/data cables remain in place
+        // while the enclosure swings away from them.
+        side_cable_notch(service_x-1);
+        side_cable_notch(service_x+service_w-service_wall-1);
     }
 }
 
