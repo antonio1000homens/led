@@ -254,7 +254,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertIs(root[-1], display._brightness_overlay)
             self.assertEqual(len(display.display.refresh_targets), refreshes + 1)
             blocked = sum(1 for value in display._brightness_bitmap.values.values() if value == 1)
-            self.assertEqual(blocked, (DISPLAY_WIDTH * 32) // 4)
+            self.assertEqual(blocked, (led_display.DISPLAY_WIDTH * 32) // 4)
 
     def test_consecutive_todoist_frames_reuse_root_and_move_title_group(self):
         with patch.dict(sys.modules, fake_modules()):
