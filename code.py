@@ -242,6 +242,9 @@ while True:
     if mqtt is not None:
         mqtt.poll(now)
     for event in buttons.poll(now) if buttons is not None else ():
+        if runtime_mode.mode == "normal" and event in ("up", "down"):
+            display.adjust_brightness(1 if event == "up" else -1)
+            continue
         if runtime_mode.handle(event, rotation, now):
             rendered_diagnostic_index = None
 
