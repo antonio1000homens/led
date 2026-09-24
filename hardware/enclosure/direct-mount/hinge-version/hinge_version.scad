@@ -6,7 +6,8 @@
 //
 // 1. A thin fixed frame derived from the validated 08 mounting template stays
 //    bolted to the LED panel.
-// 2. Alternating printed hinge knuckles are integrated below that frame.
+// 2. Alternating printed hinge knuckles sit inside the panel footprint on the
+//    lower template band; the hinge no longer extends below the enclosure.
 // 3. A 6 mm metal rail/bar passes through 7.2 mm bores and becomes the hinge pin.
 // 4. A complementary equipment tray/backplane swings down around that rail.
 // 5. The moving tray has a deeper rear foot at the bottom so the closed display
@@ -26,21 +27,21 @@ $fn = 48;
 hinge_rail_d = 6;
 hinge_bore_d = 7.2;         // same 0.6 mm radial clearance as the production rod bores
 hinge_outer_d = 13;
-hinge_axis_y = -5.8;        // below nominal 0 mm panel edge; 0.7 mm barrel overlap into frame
+hinge_axis_y = 16;          // fully inside the 0..128 mm panel/enclosure footprint
 hinge_axis_z = 8;
 
-// Keep enough empty space at the ends for a 1000 mm rail across four 256 mm
-// modules. A 1 m rail placed at global x ~= 12..1012 covers all knuckles.
+// Keep the fixed knuckles away from the x=7.9/128/248.1 panel fastener columns.
+// Moving knuckles alternate between them with ~2 mm axial clearance.
 fixed_knuckles = [
-    [16,32],
-    [96,32],
-    [176,32]
+    [20,28],
+    [90,28],
+    [160,28]
 ];
 
 moving_knuckles = [
-    [50,44],
-    [130,44],
-    [210,30]
+    [50,38],
+    [120,38],
+    [190,38]
 ];
 
 module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
@@ -58,8 +59,59 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
 fixed_template_t = 2;
 fixed_band_h = 20;
 fixed_side_w = 8;
-fixed_hinge_spine_h = 6;
-fixed_hinge_spine_t = 8;
+fixed_hinge_root_y = hinge_axis_y - 6;
+fixed_hinge_root_h = 12;
+fixed_hinge_root_t = 8;
+
+// Internal snap-latch prototype. The template carries the flexible tongue and
+// rounded detent; the moving enclosure has a shallow catch pocket behind its
+// front lip. Keep it away from the top centre panel fastener.
+latch_x = 96;
+latch_w = 12;
+latch_root_y = module_h - fixed_band_h + 2;
+latch_riser_y = 4;
+latch_beam_len = 14;
+latch_beam_z = 9.5;
+latch_beam_t = 2.2;
+latch_detent_r = 1.4;
+latch_catch_clearance = 0.5;
+
+module template_snap_latch() {
+    // Riser lifts the latch beam from the 2 mm template into the enclosure.
+    translate([
+        latch_x-latch_w/2,
+        latch_root_y,
+        fixed_template_t
+    ])
+        cube([
+            latch_w,
+            latch_riser_y,
+            latch_beam_z+latch_beam_t-fixed_template_t
+        ]);
+
+    // PETG cantilever beam. It flexes toward the panel (negative z) as the
+    // enclosure's front lip passes over the rounded detent.
+    translate([
+        latch_x-latch_w/2,
+        latch_root_y+latch_riser_y/2,
+        latch_beam_z
+    ])
+        cube([
+            latch_w,
+            latch_beam_len,
+            latch_beam_t
+        ]);
+
+    // Rounded detent at the free end reduces insertion force and snaps into the
+    // enclosure catch pocket.
+    translate([
+        latch_x-latch_w/2,
+        latch_root_y+latch_riser_y/2+latch_beam_len-latch_detent_r,
+        latch_beam_z+latch_beam_t
+    ])
+        rotate([0,90,0])
+            cylinder(r=latch_detent_r,h=latch_w);
+}
 
 module hinge_mount_pattern_template() {
     difference() {
@@ -72,25 +124,28 @@ module hinge_mount_pattern_template() {
             translate([module_w-fixed_side_w,0,0])
                 cube([fixed_side_w,module_h,fixed_template_t]);
 
-            // Full-width lower spine transfers hinge load into the template
-            // without thickening the screw-bearing centre at y=7.9 mm.
-            cube([module_w,fixed_hinge_spine_h,fixed_hinge_spine_t]);
-
-            for (segment=fixed_knuckles)
+            // Each fixed knuckle is rooted into a local pad sitting on the
+            // lower template band. Nothing projects below y=0.
+            for (segment=fixed_knuckles) {
+                translate([segment[0],fixed_hinge_root_y,0])
+                    cube([segment[1],fixed_hinge_root_h,fixed_hinge_root_t]);
                 rail_hinge_barrel(segment[0],segment[1]);
+            }
+
+            template_snap_latch();
         }
 
         // Reuse the physically validated six panel-boss centres directly.
         for (x=panel_mount_x)
             for (y=panel_mount_y)
                 translate([x,y,-0.5])
-                    cylinder(d=panel_mount_hole_d,h=fixed_hinge_spine_t+1);
+                    cylinder(d=panel_mount_hole_d,h=fixed_hinge_root_t+1);
 
         // Reuse the current conservative moulded-locator clearances directly.
         for (x=panel_locator_x)
             for (y=panel_locator_y)
                 translate([x,y,-0.5])
-                    cylinder(d=panel_locator_clearance_d,h=fixed_hinge_spine_t+1);
+                    cylinder(d=panel_locator_clearance_d,h=fixed_hinge_root_t+1);
     }
 }
 
@@ -99,9 +154,8 @@ module hinge_mount_pattern_template() {
 // Closed-position coordinates: this tray sits behind the LED panel. The tray is
 // open toward the LED board; its solid equipment plate is at the rear.
 service_x = backplane_edge_inset;
-// Raise the moving tray 1 mm above the nominal rear-frame bottom edge.
-// The fixed hinge barrels reach y ~= 0.7 mm; y=1.5 gives ~0.8 mm closed
-// clearance over those fixed knuckle sections while preserving top y=127.5.
+// Keep the moving tray entirely within the nominal panel footprint. The hinge
+// itself is now internal at y=16 mm rather than hanging below the panel.
 service_y = backplane_edge_inset + 1.0;
 service_w = backplane_w;
 service_h = backplane_h - 1.0;
@@ -204,16 +258,25 @@ module side_cable_notch(x0) {
 }
 
 module moving_hinge_barrels() {
-    for (segment=moving_knuckles) {
+    for (segment=moving_knuckles)
+        // At y=16 the barrel overlaps the lower perimeter wall directly, so the
+        // hinge is internal and needs no external/root extension below y=0.
         rail_hinge_barrel(segment[0],segment[1]);
+}
 
-        // Give every moving knuckle a positive-volume root into the tray wall.
-        // The root starts at z=9 mm: 1 mm behind the fixed spine (ends at z=8)
-        // but low enough to overlap the circular barrel before it rises into
-        // the moving tray wall at z=12 mm.
-        translate([segment[0],-1.0,9.0])
-            cube([segment[1],6.0,8.0]);
-    }
+module enclosure_latch_catch() {
+    // Leave a shallow front lip (z=12..13.4) for the rounded detent to snap
+    // behind. The pocket is internal and does not alter the external envelope.
+    translate([
+        latch_x-latch_w/2-latch_catch_clearance,
+        latch_root_y+latch_riser_y/2+latch_beam_len-2*latch_detent_r-latch_catch_clearance,
+        service_front_z+1.4
+    ])
+        cube([
+            latch_w+2*latch_catch_clearance,
+            2*latch_detent_r+2*latch_catch_clearance,
+            5
+        ]);
 }
 
 module service_tray_shell() {
@@ -281,6 +344,9 @@ module hinged_equipment_enclosure() {
         // while the enclosure swings away from them.
         side_cable_notch(service_x-1);
         side_cable_notch(service_x+service_w-service_wall-1);
+
+        // Internal catch pocket for the template-mounted snap latch.
+        enclosure_latch_catch();
     }
 }
 
