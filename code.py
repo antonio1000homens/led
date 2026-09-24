@@ -91,6 +91,29 @@ if settings.DISPLAY_BACKEND == "matrix":
     from button_control import MatrixButtons
 
     buttons = MatrixButtons()
+
+_pending_button_events = []
+_BUTTON_POLL_SECONDS = 0.05
+
+
+def _sleep_interruptible(seconds):
+    """Sleep without changing render cadence, waking early for button gestures."""
+    seconds = max(0.0, float(seconds or 0))
+    if buttons is None:
+        time.sleep(seconds)
+        return
+    deadline = time.monotonic() + seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(_BUTTON_POLL_SECONDS, remaining))
+        events = buttons.poll(time.monotonic())
+        if events:
+            _pending_button_events.extend(events)
+            return
+
+
 next_fetch = 0
 transport_stale = False
 fixture_clock_synced = False
@@ -241,7 +264,11 @@ while True:
     now = time.monotonic()
     if mqtt is not None:
         mqtt.poll(now)
-    for event in buttons.poll(now) if buttons is not None else ():
+    button_events = list(_pending_button_events)
+    _pending_button_events[:] = []
+    if buttons is not None:
+        button_events.extend(buttons.poll(now))
+    for event in button_events:
         if runtime_mode.mode == "normal" and event in ("up", "down"):
             display.adjust_brightness(1 if event == "up" else -1)
             continue
@@ -254,7 +281,7 @@ while True:
             print("DIAGNOSTIC", name)
             display.show_diagnostic(color)
             rendered_diagnostic_index = runtime_mode.diagnostic_index
-        time.sleep(settings.FRAME_SECONDS)
+        _sleep_interruptible(settings.FRAME_SECONDS)
         continue
 
     should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
@@ -359,7 +386,7 @@ while True:
             duration = max(1, int(screen.get("duration_seconds") or 8))
             until_rotation = max(0.05, duration - max(0, phase))
             until_fetch = max(0.05, next_fetch - time.monotonic())
-            time.sleep(earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep))
+            _sleep_interruptible(earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep))
             continue
         cadence_changed = animation_cadence != desired_cadence
         if cadence_changed:
@@ -393,7 +420,7 @@ while True:
             # absolute deadline to avoid accumulating render-time drift.
             if remaining > 0:
                 pace_late_streak = 0
-                time.sleep(remaining)
+                _sleep_interruptible(remaining)
             else:
                 pace_late_frames += 1
                 pace_late_streak += 1
@@ -404,7 +431,7 @@ while True:
             remaining = frame_seconds - (after_render - frame_started)
             if remaining > 0:
                 pace_late_streak = 0
-                time.sleep(remaining)
+                _sleep_interruptible(remaining)
             else:
                 pace_late_frames += 1
                 pace_late_streak += 1
@@ -420,7 +447,7 @@ while True:
         frame_seconds = settings.FRAME_SECONDS
         remaining = frame_seconds - (time.monotonic() - frame_started)
         if remaining > 0:
-            time.sleep(remaining)
+            _sleep_interruptible(remaining)
     else:
         pace_active = False
         animation_cadence = None
@@ -432,4 +459,4 @@ while True:
         duration = max(1, int(screen.get("duration_seconds") or 8))
         until_rotation = max(0.05, duration - max(0, phase))
         until_fetch = max(0.05, next_fetch - time.monotonic())
-        time.sleep(min(until_rotation, until_fetch))
+        _sleep_interruptible(min(until_rotation, until_fetch))
