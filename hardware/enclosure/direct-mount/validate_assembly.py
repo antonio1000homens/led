@@ -223,6 +223,42 @@ def main() -> int:
                         f"{axis_name} values={values}, expected={expected}, "
                         f"max delta={max(deltas, default=0.0):.6f} mm"
                     )
+                elif kind == "translated_points_equal":
+                    instance_name = check["instance"]
+                    local = np.asarray(check["local_points"], dtype=float)
+                    expected = np.asarray(check["expected_points"], dtype=float)
+                    if local.shape != expected.shape:
+                        raise ValueError(
+                            f"local/expected point shapes differ: "
+                            f"{local.shape} != {expected.shape}"
+                        )
+                    if local.ndim != 2 or local.shape[1] not in (2, 3):
+                        raise ValueError(
+                            "translated_points_equal requires Nx2 or Nx3 points"
+                        )
+                    translation = translations[instance_name][: local.shape[1]]
+                    actual = local + translation
+                    delta = np.abs(actual - expected)
+                    ok = bool(np.all(delta <= tolerance))
+                    detail = (
+                        f"{instance_name} translated points={actual.tolist()}, "
+                        f"expected={expected.tolist()}, "
+                        f"max delta={float(delta.max(initial=0.0)):.6f} mm"
+                    )
+                elif kind == "point_sets_equal":
+                    actual = np.asarray(check["actual_points"], dtype=float)
+                    expected = np.asarray(check["expected_points"], dtype=float)
+                    if actual.shape != expected.shape:
+                        raise ValueError(
+                            f"actual/expected point shapes differ: "
+                            f"{actual.shape} != {expected.shape}"
+                        )
+                    delta = np.abs(actual - expected)
+                    ok = bool(np.all(delta <= tolerance))
+                    detail = (
+                        f"actual={actual.tolist()}, expected={expected.tolist()}, "
+                        f"max delta={float(delta.max(initial=0.0)):.6f} mm"
+                    )
                 else:
                     raise ValueError(f"Unsupported layout check type: {kind}")
             except Exception as exc:
