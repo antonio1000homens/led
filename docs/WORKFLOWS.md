@@ -89,9 +89,7 @@ names remain unchanged.
 
 `hardware/enclosure/direct-mount/scripts/validate_enclosure.py`
 
-That script is the single orchestration point for current mechanical CI. Production printable wrapper SCADs are rendered **once** per run and compared with their checked-in manufacturing STLs; the same run also renders assembly/reference views, validates hinge prototype v2, and runs mesh/interface validation.
-
-The older `hardware/enclosure/direct-mount/hinge-version/` experiment is retained for reference but is no longer rebuilt on every enclosure change. The active hinged design is `hinge-prototype-v2/`.
+That script is the single orchestration point for current mechanical CI. Production printable wrapper SCADs are rendered **once** per run and compared with their checked-in manufacturing STLs; the same run also renders assembly/reference views, validates hinge prototype v2 and the retained hinge-version meshes, then runs mesh/interface validation.
 
 Hinge-v2 validation includes a coarse voxel/layer **floating-island proxy**. It rejects an elevated XY slice component that appears without nearby material in the preceding slice. This targets detached starts such as the roof cantilever found by Bambu Studio, but it is not a replacement for final slicing in Bambu Studio.
 

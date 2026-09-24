@@ -1,11 +1,12 @@
 name: Enclosure / Validate
 
 # Validation-only by design. CI never commits generated STL files.
+# If a temporary/manual workflow must commit generated files, its commit message
+# must contain [skip ci] so github-actions[bot] does not re-trigger PR workflows.
 #
 # All enclosure checks are orchestrated by validate_enclosure.py so the exact
 # same validation can be run locally and production meshes are rendered only
-# once per CI run. The historical hinge-version experiment is retained in the
-# repository but is not part of default validation.
+# once per CI run.
 
 on:
   pull_request:
