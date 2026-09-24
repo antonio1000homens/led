@@ -107,7 +107,7 @@ All STLs are generated from `direct_mount_enclosure.scad`.
 
 ### Complete enclosure assembly preview
 
-Open `00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear structure rather than a single printable part. It includes:
+Open `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` to see the nominal assembled rear structure rather than a single printable part. It includes:
 
 - Panels/backplanes 1–4 at x = 0, 256, 512 and 768 mm;
 - the dedicated right-end backplane on Panel 4;
@@ -123,14 +123,14 @@ CI now validates the assembly placement explicitly. The backplane origins must r
 
 ### SVG / 2D projection views
 
-The full assembly is a 3D object, so OpenSCAD cannot export `00_complete_enclosure_ASSEMBLY.scad` directly as SVG. Use one of these dedicated 2D projection files instead:
+The full assembly is a 3D object, so OpenSCAD cannot export `../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` directly as SVG. Use one of these dedicated 2D projection files instead:
 
-- `00_complete_enclosure_FRONT_VIEW_SVG.scad`
-- `00_complete_enclosure_BACK_VIEW_SVG.scad`
-- `00_complete_enclosure_LEFT_SIDE_VIEW_SVG.scad`
-- `00_complete_enclosure_RIGHT_SIDE_VIEW_SVG.scad`
-- `00_complete_enclosure_TOP_VIEW_SVG.scad`
-- `00_complete_enclosure_BOTTOM_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_FRONT_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_BACK_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_LEFT_SIDE_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_RIGHT_SIDE_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_TOP_VIEW_SVG.scad`
+- `../complete_enclosure/00_complete_enclosure_BOTTOM_VIEW_SVG.scad`
 
 Open the desired projection in OpenSCAD, render it, then use **File → Export → Export as SVG**. These files suppress the 3D top-level assembly and apply `projection(cut=false)` from the appropriate viewing direction.
 
