@@ -114,10 +114,10 @@ jobs:
             tracked_hash="$(canonical_hash "$stl_dir/$filename")"
             generated_hash="$(canonical_hash "$generated/$filename")"
             if [ "$tracked_hash" != "$generated_hash" ]; then
-              echo "STALE: $tracked/$filename" >&2
+              echo "STALE: $stl_dir/$filename" >&2
               status=1
             else
-              echo "OK: $tracked/$filename"
+              echo "OK: $stl_dir/$filename"
             fi
           done
 
