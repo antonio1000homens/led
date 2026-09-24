@@ -110,7 +110,7 @@ Dedicated ventilation is only added to the **upper tapered region** of the rear 
 
 Because this specific tray is intended to be a **middle enclosure**, both lower side walls contain matching **U-shaped cable notches**. Each notch is open toward the LED-panel/front side rather than forming a closed hole. Panel-to-panel power and HUB75/data cables can therefore remain connected to the fixed LED panels while the moving tray swings down and away from them.
 
-The prototype notch is **30 mm high × 22 mm deep** with **4 mm rounded rear corners**. It begins immediately above the lower perimeter wall, preserving the hinge/base structure underneath. The upper enclosure simultaneously tapers inward by **8 mm per side** above the 52 mm lower wiring zone, increasing the gap between neighbouring enclosures where no cable width is needed.
+The prototype notch is **30 mm high × 22 mm deep** with **4 mm rounded rear corners**. It begins immediately above the lower perimeter wall, preserving the hinge/base structure underneath. The upper enclosure simultaneously tapers inward by **8 mm per side** above the 46 mm lower wiring zone, increasing the gap between neighbouring enclosures where no cable width is needed.
 
 The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wiring_zone_h`, `upper_side_inset`, `side_cable_notch_y`, `side_cable_notch_depth`, and `side_cable_notch_corner_r`) so they can be adjusted after a physical cable-fit test.
 
