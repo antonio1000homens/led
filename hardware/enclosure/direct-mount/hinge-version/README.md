@@ -32,6 +32,7 @@ When the moving enclosure is opened downward:
   - complementary hinge knuckles;
   - 30 mm internal tray depth between the front lip and equipment mounting plate;
   - full-size slotted equipment mounting plate for PSU/controller/cable ties;
+  - mirrored rounded cable pass-throughs in the left and right side walls for use as a middle enclosure;
   - full-width rear foot beam and diagonal ribs at the lower edge to increase desk footprint.
 
 ## Hinge dimensions
@@ -81,6 +82,10 @@ The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 
 Two larger slots near the top are intended for wiring/ribbon passthrough.
 
+Because this specific tray is intended to be a **middle enclosure**, both side walls also contain matching rounded cable passages so power and HUB75/data wiring can continue between neighbouring modules. The prototype side opening is **44 mm high × 20 mm deep** with **4 mm corner radii**. It is centred in the usable side-wall span and leaves material around the opening instead of removing the complete side wall, preserving more enclosure rigidity and avoiding sharp cable-contact corners.
+
+These dimensions are parameters in `hinge_version.scad` (`side_cable_gap_y`, `side_cable_gap_z`, and `side_cable_gap_corner_r`) so they can be adjusted after a physical cable-fit test.
+
 The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot. The moving tray body starts at y=1.5 mm, leaving about 0.8 mm nominal clearance above the fixed hinge-barrel envelope.
 
 ## Assembly preview
@@ -115,7 +120,8 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 5. The tray clears the actual rear LED components when closed.
 6. The 30 mm cavity is sufficient for the chosen PSU/controller.
 7. The rear foot gives the intended desk stability.
-8. Cables have enough service loop to open the tray without pulling connectors.
+8. Power and HUB75/data connectors pass comfortably through both 44 × 20 mm side openings without being pinched.
+9. Cables have enough service loop to open the tray without pulling connectors.
 
 ## Not yet finalised
 
