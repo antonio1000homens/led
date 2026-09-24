@@ -1,0 +1,44 @@
+name: Enclosure / Regenerate rooted rear lid
+
+on:
+  push:
+    branches:
+      - fix/backplane-single-piece-cable-channel
+    paths:
+      - '.github/workflows/regenerate-lid-root.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/backplane-single-piece-cable-channel
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate rear lid STL
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
+          out=hardware/enclosure/direct-mount/10_rear_lid_PRINT_4.stl
+          openscad -D 'part="rear_lid"' -o "$out" "$src"
+
+      - name: Commit regenerated lid
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/direct-mount/10_rear_lid_PRINT_4.stl
+          git commit -m "Regenerate rooted rear lid STL"
+          git push origin HEAD:fix/backplane-single-piece-cable-channel
