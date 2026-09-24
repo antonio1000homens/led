@@ -219,6 +219,54 @@ jobs:
             echo "OK: $view -> SVG"
           done
 
+      - name: Validate 6 mm rail hinge prototype
+        shell: bash
+        run: |
+          set -euo pipefail
+          hinge_dir=hardware/enclosure/direct-mount/hinge-version
+          generated="$(mktemp -d)"
+
+          canonical_hash() {
+            python - "$1" <<'PY'
+          import hashlib
+          import sys
+
+          triangles = []
+          vertices = []
+          with open(sys.argv[1], encoding="utf-8", errors="strict") as handle:
+              for raw in handle:
+                  line = raw.strip()
+                  if not line.startswith("vertex "):
+                      continue
+                  _, xs, ys, zs = line.split()
+                  vertex = tuple(round(float(value), 6) for value in (xs, ys, zs))
+                  vertices.append(vertex)
+                  if len(vertices) == 3:
+                      triangles.append(tuple(sorted(vertices)))
+                      vertices = []
+          if vertices:
+              raise SystemExit(f"incomplete triangle data in {sys.argv[1]}")
+          print(hashlib.sha256(repr(sorted(triangles)).encode()).hexdigest())
+          PY
+          }
+
+          declare -A hinge_parts=(
+            [08_mount_pattern_template_HINGE_PRINT_1.scad]=08_mount_pattern_template_HINGE_PRINT_1.stl
+            [11_hinged_equipment_enclosure_PRINT_1.scad]=11_hinged_equipment_enclosure_PRINT_1.stl
+          )
+
+          for scad in "${!hinge_parts[@]}"; do
+            stl="${hinge_parts[$scad]}"
+            openscad -o "$generated/$stl" "$hinge_dir/$scad"
+            if [ "$(canonical_hash "$generated/$stl")" != "$(canonical_hash "$hinge_dir/stl/$stl")" ]; then
+              echo "Hinge prototype entry point $scad does not reproduce $stl" >&2
+              exit 1
+            fi
+            echo "OK: hinge-version/$scad -> stl/$stl"
+          done
+
+          openscad -o "$generated/hinge_version_assembly.csg"             "$hinge_dir/00_hinge_version_ASSEMBLY.scad"
+
       - name: Validate mesh health and nominal assembly interfaces
         shell: bash
         run: |
