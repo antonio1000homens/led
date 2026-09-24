@@ -21,17 +21,15 @@ class RuntimeMode:
         """Handle one debounced button event.
 
         Return ``True`` when the displayed mode/diagnostic colour changed.
-        ``rotation`` is only used for DOWN in normal mode.
+        Long UP toggles diagnostics; long DOWN advances the normal rotation.
         """
-        if event == "up":
+        if event == "up_long":
             self.mode = "diagnostic" if self.mode == "normal" else "normal"
             return True
-        if event != "down":
-            return False
-        if self.mode == "diagnostic":
+        if event == "down" and self.mode == "diagnostic":
             self.diagnostic_index = (self.diagnostic_index + 1) % len(DIAGNOSTIC_COLORS)
             return True
-        if rotation is not None:
+        if event == "down_long" and self.mode == "normal" and rotation is not None:
             rotation.next(now)
         return False
 
