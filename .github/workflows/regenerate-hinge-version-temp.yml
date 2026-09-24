@@ -1,0 +1,45 @@
+name: Enclosure / Regenerate hinge version temp
+
+on:
+  push:
+    branches:
+      - feat/6mm-rail-hinge-version
+    paths:
+      - '.github/workflows/regenerate-hinge-version-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: feat/6mm-rail-hinge-version
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate hinge-version STLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir=hardware/enclosure/direct-mount/hinge-version
+          openscad -o "$dir/stl/08_mount_pattern_template_HINGE_PRINT_1.stl" "$dir/08_mount_pattern_template_HINGE_PRINT_1.scad"
+          openscad -o "$dir/stl/11_hinged_equipment_enclosure_PRINT_1.stl" "$dir/11_hinged_equipment_enclosure_PRINT_1.scad"
+          openscad -o /tmp/hinge_version_assembly.csg "$dir/00_hinge_version_ASSEMBLY.scad"
+
+      - name: Commit generated STLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/direct-mount/hinge-version/stl
+          git commit -m "Regenerate internal hinge and latch STLs"
+          git push origin HEAD:feat/6mm-rail-hinge-version
