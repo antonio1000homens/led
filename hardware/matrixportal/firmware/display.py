@@ -16,6 +16,8 @@ from matrix_config import (
     TODOIST_MARQUEE_SPEED,
 )
 
+from brightness import BrightnessState, pixel_is_blocked
+
 from formatting import (
     AGENDA_SLIDE_SECONDS,
     AGENDA_TITLE_X,
@@ -303,7 +305,7 @@ def _calendar_due_layout(screen, clock_date, clock_time):
 
 
 class MatrixDisplay:
-    def __init__(self):
+    def __init__(self, brightness_percent=100):
         import displayio
         import framebufferio
         import rgbmatrix
@@ -335,6 +337,20 @@ class MatrixDisplay:
         )
         self.display.root_group = displayio.Group()
         self._refresh_misses = 0
+
+        self._brightness = BrightnessState(brightness_percent)
+        self._brightness_bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 2)
+        self._brightness_palette = displayio.Palette(2)
+        self._brightness_palette[0] = 0x000000
+        self._brightness_palette.make_transparent(0)
+        self._brightness_palette[1] = 0x000000
+        self._brightness_overlay = displayio.TileGrid(
+            self._brightness_bitmap,
+            pixel_shader=self._brightness_palette,
+        )
+        self._brightness_overlay_parent = None
+        self._render_brightness_overlay()
+
         self.label_type = label.Label
         self.font = bitmap_font.load_font("/font5x7.pcf")
 
@@ -416,6 +432,49 @@ class MatrixDisplay:
         self._rail_clock_group = None
         self._rail_clock_label = None
         self._rail_weather_group = None
+
+    @property
+    def brightness_percent(self):
+        return self._brightness.percent
+
+    def _render_brightness_overlay(self):
+        percent = self._brightness.percent
+        if percent >= 100:
+            self._brightness_bitmap.fill(0)
+            return
+        for y in range(32):
+            for x in range(DISPLAY_WIDTH):
+                self._brightness_bitmap[x, y] = 1 if pixel_is_blocked(x, y, percent) else 0
+
+    def _attach_brightness_overlay(self, group, bring_to_front=False):
+        parent = self._brightness_overlay_parent
+        if parent is group:
+            if bring_to_front:
+                try:
+                    group.remove(self._brightness_overlay)
+                except ValueError:
+                    pass
+                group.append(self._brightness_overlay)
+            return
+
+        if parent is not None:
+            try:
+                parent.remove(self._brightness_overlay)
+            except ValueError:
+                pass
+        group.append(self._brightness_overlay)
+        self._brightness_overlay_parent = group
+
+    def adjust_brightness(self, direction):
+        """Adjust apparent brightness without changing HUB75 scan timing."""
+        percent, changed = self._brightness.adjust(direction)
+        if not changed:
+            return percent
+        self._render_brightness_overlay()
+        if self._brightness_overlay_parent is not None:
+            self._refresh()
+        print("BRIGHTNESS {}%".format(percent))
+        return percent
 
     def _label(self, group, text, color, x, y):
         item = self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y))
@@ -677,6 +736,7 @@ class MatrixDisplay:
 
     def _present(self, group):
         """Publish one fully-built frame to the matrix."""
+        self._attach_brightness_overlay(group, bring_to_front=True)
         self.display.root_group = group
         # Pace frame publication through framebufferio. This waits for the
         # display refresh scheduler rather than swapping a frame mid-cycle.
@@ -823,6 +883,7 @@ class MatrixDisplay:
             self._build_rail_scene(screen, clock_time, phase)
         update_started = time.monotonic()
         changed = self._update_rail_scene(screen, clock_time, phase)
+        self._attach_brightness_overlay(self._rail_group)
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
             changed = True
@@ -1186,6 +1247,7 @@ class MatrixDisplay:
 
         update_started = time.monotonic()
         changed = self._update_todoist_scene(screen, clock_time, phase)
+        self._attach_brightness_overlay(self._todoist_group)
         if self.display.root_group is not self._todoist_group:
             self.display.root_group = self._todoist_group
             changed = True
@@ -1501,4 +1563,6 @@ class FixtureDisplay:
 
 
 def create(settings):
-    return MatrixDisplay() if settings.DISPLAY_BACKEND == "matrix" else FixtureDisplay()
+    if settings.DISPLAY_BACKEND == "matrix":
+        return MatrixDisplay(getattr(settings, "MATRIX_BRIGHTNESS_PERCENT", 100))
+    return FixtureDisplay()

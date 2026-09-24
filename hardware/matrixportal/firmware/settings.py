@@ -13,6 +13,9 @@ ANIMATE = True
 ANIMATION_SECONDS = 8
 FRAME_SECONDS = 0.2
 
+# MatrixPortal boot brightness. Runtime button changes are session-local.
+MATRIX_BRIGHTNESS_PERCENT = 100
+
 # Issue #74 remains dormant until Home Assistant issue #3 and the broker path
 # are approved. Both flags are required so a local settings file cannot
 # accidentally enable a broker connection by supplying credentials alone.

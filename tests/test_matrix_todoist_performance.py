@@ -36,10 +36,18 @@ class FakeBitmap:
     def __setitem__(self, key, value):
         self.values[key] = value
 
+    def fill(self, value):
+        self.values = {}
+        self.fill_value = value
+
 
 class FakePalette(list):
     def __init__(self, size):
         super().__init__([0] * size)
+        self.transparent = set()
+
+    def make_transparent(self, index):
+        self.transparent.add(index)
 
 
 class FakeTileGrid:
@@ -228,6 +236,25 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 self.assertEqual(display.animation_cadence(screen, transition_at + 0.01), 15)
             with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "transition_20"):
                 self.assertEqual(display.animation_cadence(screen, transition_at + 0.01), 20)
+
+    def test_brightness_adjustment_keeps_root_and_refreshes_once(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(3)
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+
+            root = display.display.root_group
+            refreshes = len(display.display.refresh_targets)
+            self.assertEqual(display.brightness_percent, 100)
+            self.assertIs(root[-1], display._brightness_overlay)
+
+            self.assertEqual(display.adjust_brightness(-1), 75)
+            self.assertEqual(display.brightness_percent, 75)
+            self.assertIs(display.display.root_group, root)
+            self.assertIs(root[-1], display._brightness_overlay)
+            self.assertEqual(len(display.display.refresh_targets), refreshes + 1)
+            blocked = sum(1 for value in display._brightness_bitmap.values.values() if value == 1)
+            self.assertEqual(blocked, (led_display.DISPLAY_WIDTH * 32) // 4)
 
     def test_consecutive_todoist_frames_reuse_root_and_move_title_group(self):
         with patch.dict(sys.modules, fake_modules()):
