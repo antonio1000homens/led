@@ -1,4 +1,3 @@
-hinge_part = "__preview__";
 include <hinge_version.scad>;
 
 // Closed-position inspection:
