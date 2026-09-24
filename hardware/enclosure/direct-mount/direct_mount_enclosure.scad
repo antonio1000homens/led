@@ -681,6 +681,7 @@ lid_snap_slot_w = 1.0;
 module lid_snap_post_print(x,y) {
     post_h = lid_clearance_h;
     post_plate_overlap = 0.2;
+    snap_post_overlap = 0.4;
     // Overlap the post into the lid plate so the exported STL is one robust
     // connected solid rather than relying on coplanar face contact.
     translate([x,y,lid_plate_t-post_plate_overlap]) {
@@ -690,7 +691,14 @@ module lid_snap_post_print(x,y) {
         translate([0,0,post_h+post_plate_overlap])
             difference() {
                 union() {
-                    cylinder(d=lid_snap_shaft_d,h=lid_snap_len);
+                    // Extend the shaft 0.4 mm into the support post. The split
+                    // starts at -0.1 mm, leaving a short unsplit root that
+                    // joins both flexing fingers to the post as one solid.
+                    translate([0,0,-snap_post_overlap])
+                        cylinder(
+                            d=lid_snap_shaft_d,
+                            h=lid_snap_len+snap_post_overlap
+                        );
                     translate([0,0,0.8])
                         cylinder(
                             d1=lid_snap_shaft_d,
