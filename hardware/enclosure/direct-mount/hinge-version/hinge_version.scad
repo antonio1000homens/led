@@ -384,10 +384,14 @@ module moving_hinge_bores() {
 }
 
 module hinge_front_sweep_relief() {
-    // Concealed-hinge opening relief. Only the LED-facing/front-lower quadrant
-    // of the apron is removed. The rear/bottom exterior remains continuous all
-    // the way to service_base_y, so the closed enclosure has a flush base while
-    // the 13 mm barrels remain entirely inside that outer envelope.
+    // Concealed-hinge opening relief. Remove material only on the FRONT side
+    // of the pivot (y < hinge_axis_y). Do not cut behind the axis: the rear
+    // half of the normal lower wall then remains under the moving knuckles from
+    // the first printable layers upward, eliminating slicer "floating region"
+    // warnings while preserving the same closed outer/base silhouette.
+    //
+    // Fixed-knuckle positions still get their own cylindrical/front-entry
+    // clearance pockets below, so the two hinge halves can interleave.
     translate([
         service_x-1,
         service_base_y-1,
@@ -395,7 +399,7 @@ module hinge_front_sweep_relief() {
     ])
         cube([
             service_w+2,
-            hinge_axis_y+hinge_radius+hinge_pocket_clearance-service_base_y+2,
+            hinge_axis_y-service_base_y+1,
             hinge_sweep_relief_back_z-service_front_z+1
         ]);
 }
