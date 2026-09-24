@@ -29,12 +29,13 @@ $fn = 48;
 hinge_rail_d = 6;
 hinge_bore_d = 7.2;         // same 0.6 mm radial clearance as the production rod bores
 hinge_outer_d = 13;
-// Concealed edge hinge:
-// - y=6.5 puts the 13 mm barrel envelope exactly at y=0..13 mm;
-// - z=10.5 puts the complete barrel behind the 2 mm fixed template.
-// This is close enough to the lower edge for the enclosure to swing downward
-// without the old lower corner sweeping through the fixed template.
-hinge_axis_y = 6.5;
+// Fully internal concealed edge hinge:
+// - y=7.5 puts the 13 mm barrel envelope at y=1..14 mm, leaving the
+//   enclosure's outer/base edge free to continue down to y=0.5 mm;
+// - z=10.5 keeps the complete barrel behind the 2 mm fixed template.
+// The moving FRONT rim still begins at the pivot so it can swing freely, while
+// a rear lower skirt continues past the pivot to keep the closed base flush.
+hinge_axis_y = 7.5;
 hinge_axis_z = 10.5;
 hinge_radius = hinge_outer_d/2;
 hinge_pocket_clearance = 0.6;
@@ -115,13 +116,22 @@ module hinge_mount_pattern_template() {
 // Closed-position coordinates: this tray sits behind the LED panel. The tray is
 // open toward the LED board; its solid equipment plate is at the rear.
 service_x = backplane_edge_inset;
-// The moving enclosure body begins ON the hinge axis. Nothing on the moving
-// shell extends below the pivot, so opening motion carries the shell away from
-// the fixed template instead of sweeping a lower corner through it.
+// Outer/base edge matches the validated rear backplane lower edge.
+service_base_y = backplane_edge_inset;
+
+// The LED-facing/front wall begins on the hinge axis so opening motion still
+// carries it away from the fixed template. A rear skirt added below extends to
+// service_base_y, hiding the hinge inside the closed enclosure.
 service_y = hinge_axis_y;
 service_top_y = backplane_edge_inset + backplane_h;
 service_w = backplane_w;
 service_h = service_top_y - service_y;
+
+// Rear skirt starts behind the complete hinge/pocket envelope, so it can extend
+// below the pivot without participating in the opening collision sweep.
+hinge_shroud_front_z =
+    hinge_axis_z + hinge_radius + hinge_pocket_clearance + 0.6;
+hinge_shroud_overlap_y = 0.8;
 
 // The front rim closes almost flush against the 2 mm fixed template: 0.6 mm
 // clearance avoids printed faces rubbing while keeping the hinge hidden inside.
@@ -361,11 +371,29 @@ module moving_hinge_barrels() {
         rail_hinge_barrel(segment[0],segment[1]);
 }
 
+module lower_flush_hinge_shroud() {
+    // Full-width rear skirt from the validated lower backplane edge up into the
+    // normal moving wall. It hides the hinge from the rear/bottom silhouette
+    // and keeps the closed enclosure/base flush, while staying behind the
+    // hinge's rotational envelope.
+    translate([
+        service_x,
+        service_base_y,
+        hinge_shroud_front_z
+    ])
+        cube([
+            service_w,
+            service_y-service_base_y+hinge_shroud_overlap_y,
+            service_back_z_bottom+service_plate_t-hinge_shroud_front_z
+        ]);
+}
+
 module service_tray_shell_body() {
     // Open face is at service_front_z. The lower shell stays deep for PSU and
     // wiring; the top is trimmed to the shallower service_back_z_top envelope.
     union() {
         tapered_rear_equipment_plate();
+        lower_flush_hinge_shroud();
 
         intersection() {
             translate([0,0,service_front_z])
@@ -381,10 +409,14 @@ module service_tray_shell_body() {
         // Full-width rear foot beam.
         translate([
             service_x,
-            service_y,
+            service_base_y,
             base_rear_z-base_beam_t
         ])
-            cube([service_w,base_y_h,base_beam_t]);
+            cube([
+                service_w,
+                base_y_h + (service_y-service_base_y),
+                base_beam_t
+            ]);
 
         // Four diagonal ribs connect the deep lower plate to the rear foot beam.
         for (xx=[
@@ -394,10 +426,22 @@ module service_tray_shell_body() {
             service_x+service_w-base_rib_w
         ])
             hull() {
-                translate([xx,service_y,service_back_z_bottom])
-                    cube([base_rib_w,base_y_h,service_plate_t]);
-                translate([xx,service_y,base_rear_z-base_beam_t])
-                    cube([base_rib_w,base_y_h,base_beam_t]);
+                translate([
+                    xx,
+                    service_y-0.5,
+                    service_back_z_bottom
+                ])
+                    cube([base_rib_w,base_y_h+0.5,service_plate_t]);
+                translate([
+                    xx,
+                    service_base_y,
+                    base_rear_z-base_beam_t
+                ])
+                    cube([
+                        base_rib_w,
+                        base_y_h + (service_y-service_base_y),
+                        base_beam_t
+                    ]);
             }
     }
 }
