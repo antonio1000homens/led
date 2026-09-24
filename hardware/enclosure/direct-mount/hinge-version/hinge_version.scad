@@ -13,6 +13,8 @@
 // 5. The moving tray has a deeper rear foot at the bottom so the closed display
 //    gains a wider desk base.
 // 6. The moving tray has a universal slot grid for PSU/controller/wiring mounts.
+// 7. No integrated top latch is included in this print-first hinge prototype;
+//    closure will be a separate support-free part after hinge fit is confirmed.
 //
 // The dimensions below are prototype defaults. The panel boss/locator positions
 // are NOT duplicated here; they come directly from the validated main source.
@@ -73,58 +75,6 @@ fixed_hinge_root_y = 0.5;
 fixed_hinge_root_h = 13.5; // y=0.5..14: local root only around the concealed barrel
 fixed_hinge_root_t = 8;
 
-// Internal snap-latch prototype. The template carries the flexible tongue and
-// rounded detent; the moving enclosure has a shallow catch pocket behind its
-// front lip. Keep it away from the top centre panel fastener.
-latch_x = 96;
-latch_w = 12;
-latch_root_y = module_h - fixed_band_h + 2;
-latch_riser_y = 4;
-latch_beam_len = 14;
-// Raise the flexible beam so its rounded detent can snap behind a front-entry
-// slot in the moving enclosure rather than into a sealed internal cavity.
-latch_beam_z = 15.0;
-latch_beam_t = 2.2;
-latch_detent_r = 1.4;
-latch_catch_clearance = 0.5;
-
-module template_snap_latch() {
-    // Riser lifts the latch beam from the 2 mm template into the enclosure.
-    translate([
-        latch_x-latch_w/2,
-        latch_root_y,
-        fixed_template_t
-    ])
-        cube([
-            latch_w,
-            latch_riser_y,
-            latch_beam_z+latch_beam_t-fixed_template_t
-        ]);
-
-    // PETG cantilever beam. It flexes toward the panel (negative z) as the
-    // enclosure's front lip passes over the rounded detent.
-    translate([
-        latch_x-latch_w/2,
-        latch_root_y+latch_riser_y/2,
-        latch_beam_z
-    ])
-        cube([
-            latch_w,
-            latch_beam_len,
-            latch_beam_t
-        ]);
-
-    // Rounded detent at the free end reduces insertion force and snaps into the
-    // enclosure catch pocket.
-    translate([
-        latch_x-latch_w/2,
-        latch_root_y+latch_riser_y/2+latch_beam_len-latch_detent_r,
-        latch_beam_z+latch_beam_t+0.7
-    ])
-        rotate([0,90,0])
-            cylinder(r=latch_detent_r,h=latch_w);
-}
-
 module hinge_mount_pattern_template() {
     difference() {
         union() {
@@ -144,7 +94,6 @@ module hinge_mount_pattern_template() {
                 rail_hinge_barrel(segment[0],segment[1]);
             }
 
-            template_snap_latch();
         }
 
         // Reuse the physically validated six panel-boss centres directly.
@@ -412,31 +361,6 @@ module moving_hinge_barrels() {
         rail_hinge_barrel(segment[0],segment[1]);
 }
 
-module enclosure_latch_catch() {
-    // Front/top-entry latch slot. The old prototype used a completely enclosed
-    // pocket, which was geometrically valid but physically inaccessible.
-    //
-    // This slot opens through the LED-facing edge (z < service_front_z) and
-    // through the top edge of the enclosure. The raised PETG detent flexes past
-    // the rear edge at z ~= 18.2 mm and snaps behind it. Pressing the tongue
-    // toward the LED panel releases the detent.
-    latch_slot_y =
-        latch_root_y + latch_riser_y/2 + latch_beam_len
-        - 2*latch_detent_r - latch_catch_clearance;
-    latch_slot_z_rear = 18.2;
-
-    translate([
-        latch_x-latch_w/2-latch_catch_clearance,
-        latch_slot_y,
-        service_front_z-0.6
-    ])
-        cube([
-            latch_w+2*latch_catch_clearance,
-            service_y+service_h-latch_slot_y+1.0,
-            latch_slot_z_rear-service_front_z+0.6
-        ]);
-}
-
 module service_tray_shell_body() {
     // Open face is at service_front_z. The lower shell stays deep for PSU and
     // wiring; the top is trimmed to the shallower service_back_z_top envelope.
@@ -528,8 +452,6 @@ module hinged_equipment_enclosure() {
             side_cable_notch(service_x-1);
             side_cable_notch(service_x+service_w-service_wall-1);
 
-            // Internal catch pocket for the template-mounted snap latch.
-            enclosure_latch_catch();
         }
 
         // Moving knuckles are integral to the moving shell. Only the FIXED
