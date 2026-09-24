@@ -102,9 +102,10 @@ CI installs OpenSCAD plus the Python mechanical dependencies and then runs that 
 - validates the MatrixPortal carrier;
 - renders assembly/reference CSG and SVG entrypoints;
 - validates the active `hinge-prototype-v2/` print geometry, including a coarse floating-layer/island proxy;
+- validates experimental `hinge-version/` meshes and assembly syntax;
 - runs mesh-health and nominal assembly-interface checks.
 
-The older `hinge-version/` experiment remains available for reference but is not part of default CI. Bambu Studio remains the final check for slicer-specific overhang/support diagnostics.
+Bambu Studio remains the final check for slicer-specific overhang/support diagnostics.
 
 ## 6 mm rail hinge prototype
 
@@ -114,14 +115,13 @@ An experimental clamshell/service-tray variant now lives under:
 
 This variant does **not** replace the production direct-mount parts. It reuses the same corrected panel boss and locator coordinates from `direct_mount_enclosure.scad`, but adds:
 
-- a fixed version of the corrected 08 mounting template with alternating hinge knuckles along the bottom;
+- a fixed version of the corrected 08 mounting template with alternating hinge knuckles;
 - a complementary moving equipment enclosure with the matching knuckles;
 - a **6 mm metal rail** through 7.2 mm printed bores as the hinge pin;
-- a 30 mm-deep equipment cavity with a universal M3/cable-tie slot grid;
-- a deeper full-width lower foot for desk stability;
+- a generic slotted equipment tray, with concealed hinge, cable routing, and tapered upper geometry;
 - an assembly preview showing the enclosure opening downward.
 
-See `hinge-version/README.md` for dimensions and the physical validation sequence.
+See `hinge-version/README.md` for current dimensions, print orientation, and the physical validation sequence. This remains an experimental design and does not replace the production direct-mount parts.
 
 ## Directory layout
 
