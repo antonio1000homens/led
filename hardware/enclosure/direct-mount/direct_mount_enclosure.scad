@@ -680,10 +680,14 @@ lid_snap_slot_w = 1.0;
 
 module lid_snap_post_print(x,y) {
     post_h = lid_clearance_h;
-    translate([x,y,lid_plate_t]) {
-        cylinder(d=lid_post_d,h=post_h);
+    post_plate_overlap = 0.2;
+    // Overlap the post into the lid plate so the exported STL is one robust
+    // connected solid rather than relying on coplanar face contact.
+    translate([x,y,lid_plate_t-post_plate_overlap]) {
+        cylinder(d=lid_post_d,h=post_h+post_plate_overlap);
 
-        translate([0,0,post_h])
+        // Preserve the original snap height despite the plate overlap.
+        translate([0,0,post_h+post_plate_overlap])
             difference() {
                 union() {
                     cylinder(d=lid_snap_shaft_d,h=lid_snap_len);
