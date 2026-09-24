@@ -30,18 +30,20 @@ hinge_outer_d = 13;
 hinge_axis_y = 16;          // fully inside the 0..128 mm panel/enclosure footprint
 hinge_axis_z = 8;
 
-// Keep the fixed knuckles away from the x=7.9/128/248.1 panel fastener columns.
-// Moving knuckles alternate between them with ~2 mm axial clearance.
+// Keep BOTH fixed and moving knuckles away from the lower panel fastener and
+// locator columns. Critical lower X positions are 7.9 / 26.704 / 128 /
+// 229.296 / 248.1 mm. The centre screw therefore has a deliberately wider
+// clear zone from x=118..136 mm for screw-head/tool access.
 fixed_knuckles = [
-    [20,28],
-    [90,28],
-    [160,28]
+    [36,24],   // x=36..60
+    [92,26],   // x=92..118
+    [166,28]   // x=166..194
 ];
 
 moving_knuckles = [
-    [50,38],
-    [120,38],
-    [190,38]
+    [62,28],   // x=62..90
+    [136,28],  // x=136..164
+    [196,24]   // x=196..220
 ];
 
 module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
@@ -195,6 +197,13 @@ equipment_slot_w = 4.2;
 equipment_slot_x = [28,64,100,136,172,208,236];
 equipment_slot_y = [30,54,78,102];
 
+// Dedicated ventilation is restricted to the tapered upper region. There are
+// deliberately NO ventilation slots in the lower wiring/base area.
+upper_vent_slot_len = 24;
+upper_vent_slot_w = 5;
+upper_vent_x = [48,88,128,168,208];
+upper_vent_y = [84,101,118];
+
 module equipment_slot_2d(len=equipment_slot_len,w=equipment_slot_w) {
     hull() {
         translate([-(len-w)/2,0]) circle(d=w);
@@ -333,6 +342,17 @@ module hinged_equipment_enclosure() {
                 translate([xx,yy,service_back_z-0.5])
                     linear_extrude(height=service_plate_t+1)
                         equipment_slot_2d();
+
+        // Rounded ventilation slots only in the tapered upper region.
+        // No dedicated ventilation holes are cut in the lower wiring/base zone.
+        for (xx=upper_vent_x)
+            for (yy=upper_vent_y)
+                translate([xx,yy,service_back_z-0.5])
+                    linear_extrude(height=service_plate_t+1)
+                        equipment_slot_2d(
+                            upper_vent_slot_len,
+                            upper_vent_slot_w
+                        );
 
         // Keep the larger equipment-plate cable slots in the same lower wiring
         // zone as the side notches rather than routing wiring back to the top.
