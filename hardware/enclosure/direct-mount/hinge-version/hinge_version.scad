@@ -447,7 +447,7 @@ module service_tray_shell_body() {
         // Hull the existing full-width lower equipment plate into the rear
         // foot instead. Every successive print layer now expands gradually
         // toward y=0.5, so the 60 mm-deep base is self-supporting in the
-        // intended flat orientation and no full-width island starts in mid-air.
+        // standalone print orientation and no full-width island starts in mid-air.
         hull() {
             translate([
                 service_x,
@@ -541,6 +541,30 @@ module hinged_equipment_enclosure() {
     }
 }
 
+// Print-oriented moving enclosure.
+//
+// The raw assembly coordinates are intentionally kept unchanged above. Export
+// the standalone moving enclosure on its LEFT side instead of open-face-down.
+// In raw coordinates the large rear equipment plate is at z=28..45 mm; printing
+// open-face-down therefore makes that plate start as a large mid-air ceiling.
+// Rotating -90 degrees about Y makes original X the build direction:
+//   print footprint ~= 57.4 x 127 mm
+//   print height    ~= 255 mm
+// The rear plate, top/bottom walls and concealed hinge then grow vertically
+// rather than appearing as full-area floating layers.
+//
+// Translation moves the rotated bounds onto the positive build plate with the
+// original x=0.5 side at print Z=0.
+module hinged_equipment_enclosure_print() {
+    translate([
+        base_rear_z,
+        -service_base_y,
+        -service_x
+    ])
+        rotate([0,-90,0])
+            hinged_equipment_enclosure();
+}
+
 // Rotate the moving enclosure around the real 6 mm rail for assembly previews.
 // angle=0 is closed; positive angles swing the tray downward.
 module hinged_equipment_enclosure_at_angle(angle=0) {
@@ -571,7 +595,7 @@ if (!is_undef(hinge_part)) {
     if (hinge_part == "fixed_template")
         hinge_mount_pattern_template();
     else if (hinge_part == "equipment_enclosure")
-        hinged_equipment_enclosure();
+        hinged_equipment_enclosure_print();
     else if (hinge_part == "assembly")
         hinge_version_assembly();
     else
