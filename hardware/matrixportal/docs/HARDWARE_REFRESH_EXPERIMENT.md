@@ -2,7 +2,7 @@
 
 > **Historical experiment record.** For the current consolidated conclusions and
 > design rules from #70, #91, #92 and #94, see
-> [`docs/matrixportal-performance.md`](docs/matrixportal-performance.md).
+> [`matrixportal-performance.md`](matrixportal-performance.md).
 
 This branch is intended to be copied directly to the physical MatrixPortal S3.
 
@@ -27,7 +27,7 @@ The retained Todoist scene is identical across the primary test modes. Only the 
 
 For each run:
 
-1. Edit **one line** in `firmware/matrix_config.py`:
+1. Edit **one line** in `hardware/matrixportal/firmware/matrix_config.py`:
 
    ```python
    MATRIX_EXPERIMENT_PRESET = "A7"

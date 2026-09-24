@@ -49,6 +49,8 @@ jobs:
           set -euo pipefail
           src=hardware/enclosure/direct-mount/direct_mount_enclosure.scad
           tracked=hardware/enclosure/direct-mount
+          parts_dir="$tracked/parts"
+          scripts_dir="$tracked/scripts"
           stl_dir="$tracked/stl"
           generated="$(mktemp -d)"
 
@@ -128,7 +130,7 @@ jobs:
             exit "$status"
           fi
 
-          python3 hardware/enclosure/direct-mount/validate_matrixportal_stl.py \
+          python3 "$scripts_dir/validate_matrixportal_stl.py" \
             "$generated/04_matrixportal_mount_PRINT_1.stl"
 
       - name: Verify individual OpenSCAD component entrypoints
@@ -136,6 +138,8 @@ jobs:
         run: |
           set -euo pipefail
           tracked=hardware/enclosure/direct-mount
+          parts_dir="$tracked/parts"
+          scripts_dir="$tracked/scripts"
           stl_dir="$tracked/stl"
           schematics="$tracked/schematics"
           assembly=hardware/enclosure/complete_enclosure
@@ -181,7 +185,7 @@ jobs:
 
           for scad in "${!entrypoints[@]}"; do
             stl="${entrypoints[$scad]}"
-            openscad -o "$generated/$stl" "$tracked/$scad"
+            openscad -o "$generated/$stl" "$parts_dir/$scad"
             if [ "$(canonical_hash "$generated/$stl")" != "$(canonical_hash "$stl_dir/$stl")" ]; then
               echo "Entry point $scad does not reproduce $stl" >&2
               exit 1
@@ -221,4 +225,4 @@ jobs:
           set -euo pipefail
           python3 -m venv .venv-mechanical
           .venv-mechanical/bin/python -m pip install --disable-pip-version-check --quiet trimesh manifold3d numpy networkx
-          .venv-mechanical/bin/python hardware/enclosure/direct-mount/validate_assembly.py hardware/enclosure/direct-mount/assembly_validation.json
+          .venv-mechanical/bin/python hardware/enclosure/direct-mount/scripts/validate_assembly.py hardware/enclosure/direct-mount/scripts/assembly_validation.json

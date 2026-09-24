@@ -7,7 +7,7 @@ that owns that area.
 | Area | Primary paths | Pull request behaviour | Push to `master` |
 | --- | --- | --- | --- |
 | Enclosure / mechanical | `hardware/enclosure/**` | Regenerate/compare STLs, render assembly/SVG entrypoints, validate meshes and interfaces | Repeat the same validation; no deployment |
-| CircuitPython / MatrixPortal | `code.py`, `firmware/**`, `shared/**`, plus `hardware/matrixportal/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
+| CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
 | Backend / AWS | `backend/**`, `shared/**`, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
 | Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
 | Static web | `simulator/**`, `scripts/deploy-static.sh` | Run simulator/admin regression tests | Upload simulator/admin assets and invalidate CloudFront |
@@ -60,7 +60,7 @@ Python sources are grouped by runtime ownership:
 
 ```text
 code.py                  # Wokwi/CircuitPython entrypoint only
-firmware/                # MatrixPortal implementation modules
+hardware/matrixportal/firmware/  # MatrixPortal implementation modules
 backend/                 # CPython local server and Lambda modules
 shared/                  # modules imported by both runtimes
 simulator/
@@ -71,7 +71,7 @@ tests/
 ```
 
 Wokwi requires `code.py` at the CircuitPython project root, so that single
-entrypoint intentionally remains there. It adds `firmware/` and `shared/`
+entrypoint intentionally remains there. It adds `hardware/matrixportal/firmware/` and `shared/`
 to the import path for repository/Wokwi execution. `scripts/stage-firmware.sh`
 flattens those modules into `.build/circuitpy/`, and
 `scripts/install-firmware.sh` copies the staged application onto a mounted

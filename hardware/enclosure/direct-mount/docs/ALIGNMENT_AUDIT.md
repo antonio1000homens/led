@@ -11,17 +11,17 @@ The distinction is important:
 
 | Part | Interface checked | CAD status | Physical status |
 | --- | --- | --- | --- |
-| `stl/01_backplane_module_PRINT_3.stl` | P4 bosses, locator clearances, seam tongues, joiner inserts, accessory inserts, lid sockets | Aligned to current source | One real backplane still required |
-| `stl/01b_backplane_right_end_PRINT_1.stl` | Same as standard backplane, without unused outer seam features | Aligned to current source | One real fit still required |
-| `stl/02_module_joiner_PRINT_4.stl` | Four M3 holes vs neighbouring backplane inserts | **Corrected in this audit**: local y=9/51 at installed y=34 gives global y=43/85 | Print/assemble one seam |
-| `stl/03_rod_end_plug_PRINT_4.stl` | 7.2 mm reinforcement bore | Concentric/sized from common source | Retention fit remains physical |
-| `stl/04_matrixportal_mount_PRINT_1.stl` | Carrier M3 holes vs Panel 1 accessory inserts; MatrixPortal four-hole pattern | Carrier holes align exactly. Board orientation corrected to landscape | Fit real MatrixPortal |
-| `stl/05_power_distribution_mount_PRINT_1.stl` | Carrier M3 holes vs Panel 2 accessory inserts | Aligns exactly | Fit selected power hardware |
-| `stl/06_cable_clip_PRINT_8.stl` | Independent screw-down accessory | No fixed panel coordinate required | Fit cable bundle |
-| `stl/07_mounting_slot_coupon_PRINT_1.stl` | Heat-set insert pilot/depth | Reproduces production insert geometry | Print first for insert fit |
-| `stl/08_mount_pattern_template_PRINT_1.stl` | Six panel bosses + four locator clearances | Uses the same source coordinates as structural backplanes | Current physical template test remains source of truth |
-| `stl/09_centre_boss_desk_stand_PRINT_3.stl` | Lower-centre panel boss | Local stand screw maps to x=128, y=7.9 | Stability/screw length still physical |
-| `stl/10_rear_lid_PRINT_4.stl` | Four snap pegs vs four backplane sockets | **Corrected in this audit**: same XY coordinate system and exact centres | Print one PETG lid |
+| `../stl/01_backplane_module_PRINT_3.stl` | P4 bosses, locator clearances, seam tongues, joiner inserts, accessory inserts, lid sockets | Aligned to current source | One real backplane still required |
+| `../stl/01b_backplane_right_end_PRINT_1.stl` | Same as standard backplane, without unused outer seam features | Aligned to current source | One real fit still required |
+| `../stl/02_module_joiner_PRINT_4.stl` | Four M3 holes vs neighbouring backplane inserts | **Corrected in this audit**: local y=9/51 at installed y=34 gives global y=43/85 | Print/assemble one seam |
+| `../stl/03_rod_end_plug_PRINT_4.stl` | 7.2 mm reinforcement bore | Concentric/sized from common source | Retention fit remains physical |
+| `../stl/04_matrixportal_mount_PRINT_1.stl` | Carrier M3 holes vs Panel 1 accessory inserts; MatrixPortal four-hole pattern | Carrier holes align exactly. Board orientation corrected to landscape | Fit real MatrixPortal |
+| `../stl/05_power_distribution_mount_PRINT_1.stl` | Carrier M3 holes vs Panel 2 accessory inserts | Aligns exactly | Fit selected power hardware |
+| `../stl/06_cable_clip_PRINT_8.stl` | Independent screw-down accessory | No fixed panel coordinate required | Fit cable bundle |
+| `../stl/07_mounting_slot_coupon_PRINT_1.stl` | Heat-set insert pilot/depth | Reproduces production insert geometry | Print first for insert fit |
+| `../stl/08_mount_pattern_template_PRINT_1.stl` | Six panel bosses + four locator clearances | Uses the same source coordinates as structural backplanes | Current physical template test remains source of truth |
+| `../stl/09_centre_boss_desk_stand_PRINT_3.stl` | Lower-centre panel boss | Local stand screw maps to x=128, y=7.9 | Stability/screw length still physical |
+| `../stl/10_rear_lid_PRINT_4.stl` | Four snap pegs vs four backplane sockets | **Corrected in this audit**: same XY coordinate system and exact centres | Print one PETG lid |
 
 ## Key coordinate checks
 
@@ -83,11 +83,11 @@ Backplane socket centres:
 
 Lid snap-peg centres are now exactly the same values. The lid also uses the same 255 × 127 mm rear footprint coordinate system, removing the former hidden +2 mm placement offset.
 
-See `schematics/10_rear_lid_alignment_ASSEMBLY.scad`.
+See `../schematics/10_rear_lid_alignment_ASSEMBLY.scad`.
 
 ## CI coverage
 
-`assembly_validation.json` now includes point-level checks for:
+`../scripts/assembly_validation.json` now includes point-level checks for:
 
 - all three seam-joiner screw patterns;
 - MatrixPortal carrier M3 holes vs Panel 1 accessory inserts;

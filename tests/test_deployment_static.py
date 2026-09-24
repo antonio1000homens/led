@@ -46,7 +46,7 @@ class DeploymentStaticTests(unittest.TestCase):
 
     def test_todoist_due_labels_are_day_only_and_row_level(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        display = (ROOT / "firmware" / "display.py").read_text(encoding="utf-8")
+        display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
         self.assertIn("function todoistDueLabel(event, now = new Date())", simulator)
         self.assertIn("return 'TODAY';", simulator)
         self.assertIn("screen.source === 'todoist'", simulator)
@@ -113,7 +113,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertNotIn("context.font = '24px monospace';", simulator)
 
     def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
-        display = (ROOT / "firmware" / "display.py").read_text(encoding="utf-8")
+        display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
         self.assertIn("RAIL_ROW_Y", display)
         self.assertIn("rail_rows(services, phase)", display)
         self.assertIn('self._label(group, "DEPARTURES", 0xFFAA00, 0, y)', display)
@@ -122,7 +122,7 @@ class DeploymentStaticTests(unittest.TestCase):
 
     def test_no_services_page_suppresses_normal_departure_chrome(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        display = (ROOT / "firmware" / "display.py").read_text(encoding="utf-8")
+        display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn("if (screen.empty_state) {", simulator)
         self.assertIn("suppressHeader = true;", simulator)
