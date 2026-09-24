@@ -1,5 +1,9 @@
 name: Enclosure / Validate
 
+# Validation-only by design. Do not commit generated artifacts from this PR workflow.
+# If a temporary/manual workflow must commit generated files, its commit message
+# must contain [skip ci] so github-actions[bot] does not re-trigger PR workflows.
+
 on:
   pull_request:
     paths:
