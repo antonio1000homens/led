@@ -176,6 +176,77 @@ def validate_hinge_v2() -> None:
     run(sys.executable, SCRIPTS_DIR / "validate_hinge_v2_stls.py")
 
 
+def validate_hinge_print_orientation(mesh: Path) -> None:
+    import math
+    from collections import defaultdict
+
+    triangles = []
+    tri = []
+    mins = [float("inf")] * 3
+    maxs = [float("-inf")] * 3
+
+    with mesh.open(encoding="utf-8", errors="strict") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line.startswith("vertex "):
+                continue
+            _, xs, ys, zs = line.split()
+            vertex = tuple(float(value) for value in (xs, ys, zs))
+            for axis, value in enumerate(vertex):
+                mins[axis] = min(mins[axis], value)
+                maxs[axis] = max(maxs[axis], value)
+            tri.append(vertex)
+            if len(tri) == 3:
+                triangles.append(tuple(tri))
+                tri = []
+
+    if tri or not triangles:
+        raise SystemExit(f"invalid or empty hinge STL: {mesh}")
+
+    dims = tuple(maxs[i] - mins[i] for i in range(3))
+    expected = (57.4, 127.0, 255.0)
+    if any(abs(actual - target) > 0.25 for actual, target in zip(dims, expected)):
+        raise SystemExit(
+            f"moving enclosure is no longer in side-print orientation: "
+            f"dimensions={dims}, expected~={expected}"
+        )
+    if abs(mins[2]) > 0.05:
+        raise SystemExit(f"moving enclosure does not sit on print Z=0: min_z={mins[2]}")
+
+    def sub(a, b):
+        return tuple(a[i] - b[i] for i in range(3))
+
+    def cross(a, b):
+        return (
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        )
+
+    downward_by_z = defaultdict(float)
+    for a, b, c in triangles:
+        normal = cross(sub(b, a), sub(c, a))
+        magnitude = math.sqrt(sum(value * value for value in normal))
+        if not magnitude:
+            continue
+        if normal[2] / magnitude < -0.9999:
+            z = round((a[2] + b[2] + c[2]) / 3.0, 3)
+            if z > 0.05:
+                downward_by_z[z] += magnitude / 2.0
+
+    largest = max(downward_by_z.values(), default=0.0)
+    if largest > 1000.0:
+        raise SystemExit(
+            "moving enclosure has a large downward horizontal start surface: "
+            f"{largest:.1f} mm^2 (limit 1000 mm^2)"
+        )
+    print(
+        "OK: moving enclosure print orientation "
+        f"{dims[0]:.1f} x {dims[1]:.1f} x {dims[2]:.1f} mm; "
+        f"largest elevated downward-horizontal surface {largest:.1f} mm^2"
+    )
+
+
 def validate_hinge_prototype(generated_dir: Path) -> None:
     tracked_dir = HINGE_DIR / "stl"
     for scad_name, stl_name in HINGE_PARTS.items():
@@ -189,6 +260,8 @@ def validate_hinge_prototype(generated_dir: Path) -> None:
                 f"Regenerate it from {source.relative_to(ROOT)}."
             )
         print(f"OK: hinge-version/{source.name} -> stl/{tracked.name}")
+        if scad_name == "11_hinged_equipment_enclosure_PRINT_1.scad":
+            validate_hinge_print_orientation(generated)
 
     run("openscad", "-o", generated_dir / "hinge_version_assembly.csg",
         HINGE_DIR / "00_hinge_version_ASSEMBLY.scad")
