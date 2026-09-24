@@ -87,6 +87,23 @@ The screw holes and locating-pin clearances are intentionally different shapes s
 
 Print `stl/08_mount_pattern_template_PRINT_1.stl` first and verify all six brass inserts **and** the locating-pin clearances against the real panel before printing the remaining structural backplanes.
 
+## 6 mm rail hinge prototype
+
+An experimental clamshell/service-tray variant now lives under:
+
+`hinge-version/`
+
+This variant does **not** replace the production direct-mount parts. It reuses the same corrected panel boss and locator coordinates from `direct_mount_enclosure.scad`, but adds:
+
+- a fixed version of the corrected 08 mounting template with alternating hinge knuckles along the bottom;
+- a complementary moving equipment enclosure with the matching knuckles;
+- a **6 mm metal rail** through 7.2 mm printed bores as the hinge pin;
+- a 30 mm-deep equipment cavity with a universal M3/cable-tie slot grid;
+- a deeper full-width lower foot for desk stability;
+- an assembly preview showing the enclosure opening downward.
+
+See `hinge-version/README.md` for dimensions and the physical validation sequence.
+
 ## Directory layout
 
 The direct-mount enclosure is now separated by purpose:
