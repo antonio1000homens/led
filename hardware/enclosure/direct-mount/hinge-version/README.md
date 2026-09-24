@@ -35,7 +35,8 @@ When the moving enclosure is opened downward:
   - full-size slotted equipment mounting plate for PSU/controller/cable ties;
   - full-width lower wiring zone, then an 8 mm-per-side taper toward the top;
   - mirrored U-shaped cable notches, open toward the LED panel, for use as a middle enclosure;
-  - full-width rear foot beam and diagonal ribs at the lower edge to increase desk footprint;
+  - continuous full-width sloped rear-foot gusset to increase desk footprint without a floating beam;
+  - STL is exported on its side for printing: approximately **57.4 × 127 mm** bed footprint and **255 mm** print height;
   - no matching latch pocket is included in this print-first hinge prototype.
 
 ## Hinge dimensions
@@ -92,7 +93,9 @@ Closed-position envelope:
 - usable cavity depth is approximately **39.4 mm at the lower zone** and **25.4 mm at the top**, measured from the 2.6 mm closing rim;
 - rear foot still extends to **z=60 mm** at the bottom for desk stability.
 
-For the intended flat print orientation, the hinge sweep relief stops at the pivot line instead of cutting through the rear half of the lower wall. That leaves continuous material underneath every moving knuckle from the first printable layers upward, avoiding Bambu Studio **floating region** warnings while keeping the external base flush. Fixed-knuckle locations still use their dedicated front-entry clearance pockets.
+The standalone moving-enclosure STL is intentionally **not** exported open-face-down. In that orientation the rear equipment plate would begin around 42 mm above the build plate and behave like a large ceiling/bridge. The print STL is rotated onto its left side instead, giving an approximately **57.4 × 127 mm** footprint and **255 mm** height. This keeps the equipment plate vertical while printing. The assembly SCAD files continue to use the normal physical orientation.
+
+The hinge sweep relief also stops at the pivot line instead of cutting through the rear half of the lower wall, so the moving knuckles remain structurally tied into the lower apron. Fixed-knuckle locations still use their dedicated front-entry clearance pockets.
 
 The equipment plate includes repeated **16 × 4.2 mm slots** suitable for:
 
@@ -111,9 +114,9 @@ The prototype notch is **30 mm high × 22 mm deep** with **4 mm rounded rear cor
 
 The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wiring_zone_h`, `upper_side_inset`, `side_cable_notch_y`, `side_cable_notch_depth`, and `side_cable_notch_corner_r`) so they can be adjusted after a physical cable-fit test.
 
-The lower rear foot beam and four diagonal ribs keep the bottom/base deep and stable. Above the lower wiring/equipment zone, both the side outline and the rear depth taper inward. This removes a substantial amount of material and rear protrusion from the top while preserving the deeper lower area for the PSU and power wiring.
+The lower rear foot is now a **continuous full-width sloped gusset** from the lower equipment plate to the 60 mm rear extent. The previous full-width beam began at z=54 mm while only four narrow ribs existed underneath it, which produced another large floating/unsupported start surface in Bambu Studio. The sloped gusset grows progressively instead. Above the lower wiring/equipment zone, both the side outline and the rear depth taper inward to reduce material and rear protrusion.
 
-The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=5…18 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The continuous lower apron reaches y=0.5 mm and remains intact behind the pivot, so the closed base stays flush and the moving knuckles remain printable from the build plate. Only the front side of the pivot is relieved for the opening sweep. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
+The 6 mm rail is now a **fully internal concealed hinge**. The barrel sits at y=5…18 mm and z=4…17 mm, entirely inside the moving enclosure/base envelope. The continuous lower apron reaches y=0.5 mm and remains intact behind the pivot, so the closed base stays flush. Only the front side of the pivot is relieved for the opening sweep. Fixed knuckles nest into matching front-entry pockets in the moving enclosure.
 
 ## Top closure
 
