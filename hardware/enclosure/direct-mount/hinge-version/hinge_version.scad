@@ -188,17 +188,18 @@ module side_cable_notch(x0) {
                 side_cable_notch_depth-side_cable_notch_corner_r+1
             ]);
 
-        for (yy=[
-            side_cable_notch_center_y-(side_cable_notch_y/2-side_cable_notch_corner_r),
-            side_cable_notch_center_y+(side_cable_notch_y/2-side_cable_notch_corner_r)
-        ])
-            translate([
-                x0,
-                yy,
-                service_front_z+side_cable_notch_depth-side_cable_notch_corner_r
+        hull()
+            for (yy=[
+                side_cable_notch_center_y-(side_cable_notch_y/2-side_cable_notch_corner_r),
+                side_cable_notch_center_y+(side_cable_notch_y/2-side_cable_notch_corner_r)
             ])
-                rotate([0,90,0])
-                    cylinder(r=side_cable_notch_corner_r,h=service_wall+2);
+                translate([
+                    x0,
+                    yy,
+                    service_front_z+side_cable_notch_depth-side_cable_notch_corner_r
+                ])
+                    rotate([0,90,0])
+                        cylinder(r=side_cable_notch_corner_r,h=service_wall+2);
     }
 }
 
@@ -269,9 +270,10 @@ module hinged_equipment_enclosure() {
                     linear_extrude(height=service_plate_t+1)
                         equipment_slot_2d();
 
-        // Two larger cable-pass slots near the top of the mounting plate.
+        // Keep the larger equipment-plate cable slots in the same lower wiring
+        // zone as the side notches rather than routing wiring back to the top.
         for (xx=[54,184])
-            translate([xx,service_h-17,service_back_z-0.5])
+            translate([xx,service_y+42,service_back_z-0.5])
                 cube([18,6,service_plate_t+1]);
 
         // This part is the middle enclosure: matching U-shaped notches on both
