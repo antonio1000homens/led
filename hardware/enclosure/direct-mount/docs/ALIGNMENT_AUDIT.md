@@ -87,7 +87,7 @@ See `../schematics/10_rear_lid_alignment_ASSEMBLY.scad`.
 
 ## CI coverage
 
-`assembly_validation.json` now includes point-level checks for:
+`../scripts/assembly_validation.json` now includes point-level checks for:
 
 - all three seam-joiner screw patterns;
 - MatrixPortal carrier M3 holes vs Panel 1 accessory inserts;

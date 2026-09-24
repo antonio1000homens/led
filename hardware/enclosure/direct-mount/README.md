@@ -92,11 +92,12 @@ Print `stl/08_mount_pattern_template_PRINT_1.stl` first and verify all six brass
 The direct-mount enclosure is now separated by purpose:
 
 - `direct_mount_enclosure.scad` — shared parametric source of truth.
-- `*_PRINT_*.scad` — thin printable-part entrypoints kept in this directory.
+- `parts/*_PRINT_*.scad` — thin printable-part entrypoints grouped away from the shared library.
 - `stl/` — generated manufacturing meshes only; do not edit these by hand.
-- `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).\n- `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
-- `assembly_validation.json` and `validate_*.py` — machine-readable assembly intent and CI validation.
-- `README.md` / `MECHANICAL_VALIDATION.md` — physical-fit and validation documentation.
+- `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).
+- `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
+- `scripts/assembly_validation.json` and `scripts/validate_*.py` — machine-readable assembly intent and CI validation.
+- `README.md` plus `docs/*.md` — physical-fit and validation documentation.
 
 This keeps the files you send to the slicer separate from the editable CAD and from the assembly drawings.
 
