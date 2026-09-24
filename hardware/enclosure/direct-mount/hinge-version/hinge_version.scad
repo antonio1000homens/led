@@ -133,10 +133,11 @@ module moving_hinge_barrels() {
         rail_hinge_barrel(segment[0],segment[1]);
 
         // Give every moving knuckle a positive-volume root into the tray wall.
-        // Keep this at z >= 12 mm so it clears the fixed template's lower
-        // hinge spine (which ends at z=8 mm) when the enclosure is closed.
-        translate([segment[0],-0.2,service_front_z])
-            cube([segment[1],5.0,5.0]);
+        // The root starts at z=9 mm: 1 mm behind the fixed spine (ends at z=8)
+        // but low enough to overlap the circular barrel before it rises into
+        // the moving tray wall at z=12 mm.
+        translate([segment[0],-1.0,9.0])
+            cube([segment[1],6.0,8.0]);
     }
 }
 
