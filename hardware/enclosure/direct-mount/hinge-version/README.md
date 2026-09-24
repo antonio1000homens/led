@@ -10,7 +10,7 @@ The fixed half is derived from the corrected `08_mount_pattern_template_PRINT_1`
 
 The moving half is a deeper equipment enclosure/tray. A continuous **6 mm metal rail** passes through alternating printed hinge knuckles on both halves and becomes the hinge pin.
 
-With four modules side-by-side, the intention is that a single 1000 mm × 6 mm rail can pass through the bottom knuckles across the display.
+With four modules side-by-side, the intention is that a single 1000 mm × 6 mm rail can pass through the internal lower knuckles across the display. The hinge axis stays inside the 256 × 128 mm panel footprint, so the hinge does not add height below the enclosure.
 
 When the moving enclosure is opened downward:
 
@@ -25,7 +25,8 @@ When the moving enclosure is opened downward:
   - corrected 256 × 128 mm template geometry;
   - six panel boss holes remain x = 7.9 / 128 / 248.1 mm and y = 7.9 / 120.1 mm;
   - four moulded-locator clearances remain unchanged;
-  - alternating fixed hinge knuckles are integrated below the bottom edge.
+  - alternating fixed hinge knuckles sit on local reinforcement pads inside the lower template band;
+  - a small internal PETG snap latch is integrated into the upper template band.
 
 - `11_hinged_equipment_enclosure_PRINT_1.scad`
 - `stl/11_hinged_equipment_enclosure_PRINT_1.stl`
@@ -34,14 +35,16 @@ When the moving enclosure is opened downward:
   - full-size slotted equipment mounting plate for PSU/controller/cable ties;
   - full-width lower wiring zone, then an 8 mm-per-side taper toward the top;
   - mirrored U-shaped cable notches, open toward the LED panel, for use as a middle enclosure;
-  - full-width rear foot beam and diagonal ribs at the lower edge to increase desk footprint.
+  - full-width rear foot beam and diagonal ribs at the lower edge to increase desk footprint;
+  - an internal catch pocket for the template-mounted snap latch.
 
 ## Hinge dimensions
 
 - physical hinge rail: **6.0 mm diameter**
 - printed hinge bore: **7.2 mm**
 - printed hinge barrel outside diameter: **13 mm**
-- hinge axis: **y = -5.8 mm, z = 8 mm** relative to the panel coordinate system
+- hinge axis: **y = 16 mm, z = 8 mm** relative to the panel coordinate system
+- complete 13 mm hinge-barrel envelope: **y = 9.5…22.5 mm**, fully inside the 0…128 mm panel footprint
 
 The 7.2 mm bore deliberately preserves the same 0.6 mm radial clearance currently used for the 6 mm reinforcement bars.
 
@@ -49,15 +52,17 @@ The knuckles alternate:
 
 ### Fixed template
 
-- x = 16–48 mm
-- x = 96–128 mm
-- x = 176–208 mm
+- x = 20–48 mm
+- x = 90–118 mm
+- x = 160–188 mm
+
+These positions deliberately avoid the panel screw columns at x = 7.9 / 128 / 248.1 mm.
 
 ### Moving enclosure
 
-- x = 50–94 mm
-- x = 130–174 mm
-- x = 210–240 mm
+- x = 50–88 mm
+- x = 120–158 mm
+- x = 190–228 mm
 
 This leaves approximately 2 mm axial clearance between neighbouring printed knuckles.
 
@@ -67,7 +72,8 @@ The moving tray is intentionally generic for this first hinge test rather than m
 
 Closed-position envelope:
 
-- lower moving-tray footprint: **255 mm wide × 126 mm high** (y=1.5…127.5 mm), intentionally raised 1 mm to clear the fixed hinge barrels
+- lower moving-tray footprint: **255 mm wide × 126 mm high** (y=1.5…127.5 mm)
+- hinge axis at **y=16 mm**, contained inside this footprint
 - lower **52 mm** wiring zone remains full-width
 - above that zone, each side tapers inward by **8 mm**, giving a **239 mm** top width
 - tray front lip: **z = 12 mm**
@@ -91,7 +97,19 @@ The prototype notch is **30 mm high × 22 mm deep** with **4 mm rounded rear cor
 
 The taper and notch dimensions are parameters in `hinge_version.scad` (`lower_wiring_zone_h`, `upper_side_inset`, `side_cable_notch_y`, `side_cable_notch_depth`, and `side_cable_notch_corner_r`) so they can be adjusted after a physical cable-fit test.
 
-The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot. The moving tray body starts at y=1.5 mm, leaving about 0.8 mm nominal clearance above the fixed hinge-barrel envelope.
+The lower rear foot beam and four diagonal ribs make the enclosure substantially deeper at the bottom than at the main mounting plate. In the closed/upright position this acts as a rear desk foot. The 6 mm rail hinge now sits inside the lower enclosure perimeter instead of extending below it.
+
+## Internal snap latch
+
+The fixed template now includes a small prototype snap latch at **x = 96 mm**, positioned away from the panel screw columns. The latch consists of:
+
+- a short riser from the template;
+- a **12 mm wide PETG cantilever tongue**;
+- a rounded detent at the free end.
+
+The moving enclosure has a matching shallow internal catch pocket behind its front lip. As the enclosure closes, the rounded detent flexes the tongue slightly toward the LED panel, then snaps behind the lip into the pocket.
+
+The latch is entirely inside the enclosure envelope and does not add height or an external protrusion. PETG is recommended for this feature because the tongue is intended to flex repeatedly.
 
 ## Assembly preview
 
@@ -121,20 +139,16 @@ Print **one fixed hinge template and one moving enclosure first** and check:
 1. The corrected six boss holes and four locator clearances still fit the real panel.
 2. A real 6 mm rail passes through all alternating 7.2 mm knuckles without forcing.
 3. The knuckles rotate freely without excessive vertical play.
-4. The lower hinge spine is stiff enough when the tray is loaded.
-5. The tray clears the actual rear LED components when closed.
-6. The 30 mm cavity is sufficient for the chosen PSU/controller.
-7. The rear foot gives the intended desk stability.
-8. Power and HUB75/data cables sit comfortably in both 30 × 22 mm U-notches without being pinched.
-9. Open the tray while panel-to-panel cables remain connected and verify that the U-notches disengage cleanly without pulling the cables.
-10. Verify the 8 mm-per-side upper taper leaves useful clearance between neighbouring enclosures without interfering with the equipment mounted inside.
+4. The local hinge-root pads are stiff enough when the tray is loaded.
+5. The internal hinge rotates without fouling the LED panel or lower enclosure wall.
+6. The internal snap latch engages and releases without excessive force or permanent deformation.
+7. The tray clears the actual rear LED components when closed.
+8. The 30 mm cavity is sufficient for the chosen PSU/controller.
+9. The rear foot gives the intended desk stability.
+10. Power and HUB75/data cables sit comfortably in both 30 × 22 mm U-notches without being pinched.
+11. Open the tray while panel-to-panel cables remain connected and verify that the U-notches disengage cleanly without pulling the cables.
+12. Verify the 8 mm-per-side upper taper leaves useful clearance between neighbouring enclosures without interfering with the equipment mounted inside.
 
 ## Not yet finalised
 
-This first prototype deliberately does **not** bake in a final top latch. Once the hinge spacing, closed tray depth and equipment clearances are physically confirmed, the next revision can add the preferred top closure:
-
-- printed PETG snap latch;
-- captive M3 thumbscrew/latch;
-- or a small magnetic latch.
-
-The hinge axis and corrected panel-template coordinates should remain unchanged when adding that latch.
+The internal printed snap latch is now included as a **prototype**. Its engagement depth and release force should be confirmed on the first physical print before printing all four modules. If the printed latch proves too stiff or too loose, the latch dimensions can be tuned without moving the hinge axis or changing the corrected panel-template coordinates.
