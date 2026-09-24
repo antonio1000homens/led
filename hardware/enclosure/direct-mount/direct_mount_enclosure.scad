@@ -54,6 +54,11 @@ frame = 16;
 panel_mount_x = [7.9, 128.0, 248.1];
 panel_mount_y = [7.9, 120.1];
 panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolerance.
+// Rear counterbores reduce the screw-through plastic stack from 16 mm to 5 mm.
+// Normal screw heads therefore sit recessed below the rear surface/lid plane.
+panel_mount_local_t = 5;
+panel_mount_head_recess_d = 10;
+panel_mount_head_recess_depth = depth - panel_mount_local_t;
 
 // Moulded locating-pin clearance. These four centres correspond to the old
 // provisional P2.5-derived slots; they are NOT panel screw locations.
@@ -88,19 +93,25 @@ joint_y1 = 34;
 joint_y2 = 86;
 
 // Full-depth cable opening through both vertical seam rails.
-seam_cable_y_min = 46;
-seam_cable_y_max = 82;
+// A 16-way HUB75 ribbon is thin but about 20 mm wide, so use a shallow,
+// centred 24 mm opening rather than the original 36 mm full-depth cut.
+seam_cable_y_min = 52;
+seam_cable_y_max = 76;
 seam_cable_h = seam_cable_y_max - seam_cable_y_min;
+// Only notch the rear 5 mm of the rail. The remaining 11 mm front web makes
+// the seam rail substantially stronger while still clearing a flat ribbon.
+seam_cable_rear_depth = 5;
+seam_cable_front_web_t = depth - seam_cable_rear_depth;
 
-// The seam lock is now a PAIR of recessed straps in one STL/set. The clear
-// 36 mm space between them aligns with the full-depth cable opening above.
-joiner_origin_y = 32;
+// The seam lock remains a PAIR of recessed straps in one STL/set. The clear
+// 24 mm centre gap aligns with the shallow flat-ribbon notch.
+joiner_origin_y = 34;
 joiner_insert_x = 8;
-joiner_insert_y1 = 39;
-joiner_insert_y2 = 89;
+joiner_insert_y1 = 43;
+joiner_insert_y2 = 85;
 joiner_w = 32;
-joiner_h = 64;
-joiner_strap_h = 14;
+joiner_h = 60;
+joiner_strap_h = 18;
 joiner_t = 4;
 joiner_hole_y_inset = 7;
 joiner_countersink_d = 6.4;
@@ -242,30 +253,34 @@ module joiner_recesses(include_right_side=true) {
     }
 }
 
-module seam_cable_openings() {
-    // Remove the centre of both vertical seam rails through the complete depth.
-    // This creates a 36 mm high panel-to-panel cable corridor.
+module seam_cable_openings(include_right_side=true) {
+    // Rear-side cable channels through the vertical seam rails.
+    //
+    // The 24 mm opening accommodates the ribbon width; only the rear 5 mm
+    // is notched because the ribbon itself is thin. The remaining 11 mm front
+    // web keeps upper/lower frame sections strongly connected.
     translate([
         -0.1,
         seam_cable_y_min,
-        -0.5
+        seam_cable_front_web_t
     ])
         cube([
             backplane_edge_inset + frame + 0.2,
             seam_cable_h,
-            depth + 1
+            seam_cable_rear_depth + 0.5
         ]);
 
-    translate([
-        module_w-backplane_edge_inset-frame-0.1,
-        seam_cable_y_min,
-        -0.5
-    ])
-        cube([
-            backplane_edge_inset + frame + 0.2,
-            seam_cable_h,
-            depth + 1
-        ]);
+    if (include_right_side)
+        translate([
+            module_w-backplane_edge_inset-frame-0.1,
+            seam_cable_y_min,
+            seam_cable_front_web_t
+        ])
+            cube([
+                backplane_edge_inset + frame + 0.2,
+                seam_cable_h,
+                seam_cable_rear_depth + 0.5
+            ]);
 }
 
 module lid_lock_socket(x,y) {
@@ -290,9 +305,19 @@ module backplane(right_end=false) {
         for (yy=[rod_y_bottom,rod_y_top]) rod_bore(yy);
 
         // Six real P4 mounting holes: three along each long edge.
+        // Each hole has a 10 mm rear counterbore, leaving only 5 mm of local
+        // plastic between the screw head and LED-panel boss. This avoids the
+        // need for unusually long screws and keeps heads below the lid plane.
         for (x=panel_mount_x)
-            for (y=panel_mount_y)
-                translate([x,y,-0.5]) cylinder(d=panel_mount_hole_d,h=depth+1);
+            for (y=panel_mount_y) {
+                translate([x,y,-0.5])
+                    cylinder(d=panel_mount_hole_d,h=depth+1);
+                translate([x,y,panel_mount_local_t])
+                    cylinder(
+                        d=panel_mount_head_recess_d,
+                        h=panel_mount_head_recess_depth+0.5
+                    );
+            }
 
         // Clearance for the panel's protruding moulded locating pins.
         // Kept separate from the brass mounting holes so the two functions
@@ -315,7 +340,7 @@ module backplane(right_end=false) {
                     joint_h+joint_clear
                 ]);
 
-        seam_cable_openings();
+        seam_cable_openings(!right_end);
         joiner_recesses(!right_end);
 
         // Four dedicated snap sockets for the removable rear lid.
@@ -655,13 +680,25 @@ lid_snap_slot_w = 1.0;
 
 module lid_snap_post_print(x,y) {
     post_h = lid_clearance_h;
-    translate([x,y,lid_plate_t]) {
-        cylinder(d=lid_post_d,h=post_h);
+    post_plate_overlap = 0.2;
+    snap_post_overlap = 0.4;
+    // Overlap the post into the lid plate so the exported STL is one robust
+    // connected solid rather than relying on coplanar face contact.
+    translate([x,y,lid_plate_t-post_plate_overlap]) {
+        cylinder(d=lid_post_d,h=post_h+post_plate_overlap);
 
-        translate([0,0,post_h])
+        // Preserve the original snap height despite the plate overlap.
+        translate([0,0,post_h+post_plate_overlap])
             difference() {
                 union() {
-                    cylinder(d=lid_snap_shaft_d,h=lid_snap_len);
+                    // Extend the shaft 0.4 mm into the support post. The split
+                    // starts at -0.1 mm, leaving a short unsplit root that
+                    // joins both flexing fingers to the post as one solid.
+                    translate([0,0,-snap_post_overlap])
+                        cylinder(
+                            d=lid_snap_shaft_d,
+                            h=lid_snap_len+snap_post_overlap
+                        );
                     translate([0,0,0.8])
                         cylinder(
                             d1=lid_snap_shaft_d,

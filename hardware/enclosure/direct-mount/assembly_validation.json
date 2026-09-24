@@ -3,11 +3,13 @@
   "parts": {
     "backplane": {
       "file": "01_backplane_module_PRINT_3.stl",
-      "source_scad": "01_backplane_module_PRINT_3.scad"
+      "source_scad": "01_backplane_module_PRINT_3.scad",
+      "expected_components": 1
     },
     "joiner": {
       "file": "02_module_joiner_PRINT_4.stl",
-      "source_scad": "02_module_joiner_PRINT_4.scad"
+      "source_scad": "02_module_joiner_PRINT_4.scad",
+      "expected_components": 2
     },
     "rod_plug": {
       "file": "03_rod_end_plug_PRINT_4.stl",
@@ -35,7 +37,8 @@
     },
     "backplane_right": {
       "file": "01b_backplane_right_end_PRINT_1.stl",
-      "source_scad": "01b_backplane_right_end_PRINT_1.scad"
+      "source_scad": "01b_backplane_right_end_PRINT_1.scad",
+      "expected_components": 1
     },
     "centre_boss_stand": {
       "file": "09_centre_boss_desk_stand_PRINT_3.stl",
@@ -43,7 +46,8 @@
     },
     "rear_lid": {
       "file": "10_rear_lid_PRINT_4.stl",
-      "source_scad": "10_rear_lid_PRINT_4.scad"
+      "source_scad": "10_rear_lid_PRINT_4.scad",
+      "expected_components": 1
     }
   },
   "instances": {
@@ -85,7 +89,7 @@
       "part": "joiner",
       "translate": [
         240,
-        32,
+        34,
         11.8
       ]
     },
@@ -93,7 +97,7 @@
       "part": "joiner",
       "translate": [
         496,
-        32,
+        34,
         11.8
       ]
     },
@@ -101,7 +105,7 @@
       "part": "joiner",
       "translate": [
         752,
-        32,
+        34,
         11.8
       ]
     },
@@ -357,12 +361,17 @@
     },
     {
       "name": "panel-to-panel seam cable corridor",
-      "reason": "PRINT_4 moves/narrows the two alignment tongues and splits each seam joiner into two recessed straps, leaving a nominal 36 mm full-depth rail opening and 36 mm clear joiner corridor. Physically verify the real HUB75 ribbon and power wiring can cross each seam without being pinched or forced against the joiner/tongues.",
+      "reason": "The seam route is a 24 mm-high notch through only the rear 5 mm of each 16 mm vertical rail, preserving an 11 mm panel-facing structural web. Verify the real flat HUB75 ribbon crosses naturally without pinching against the web, seam straps or alignment tongues.",
       "issue": "#76"
     },
     {
       "name": "snap-on rear lid fit and retention",
       "reason": "The lid uses four dedicated stepped round sockets in the rear frame and matching split snap pegs. PETG is preferred for repeated flexing. Verify snap force, removal force, electronics clearance, MatrixPortal side access, ventilation and cable egress before relying on the lid.",
+      "issue": "#76"
+    },
+    {
+      "name": "panel mounting screw-well fit",
+      "reason": "Each panel mount has a 10 mm diameter rear counterbore leaving 5 mm of local plastic. Verify the actual screw head fits inside the recess, remains below the rear/lid plane, and still provides safe thread engagement in the panel boss without bottoming out.",
       "issue": "#76"
     }
   ],
@@ -421,7 +430,7 @@
       "tolerance_mm": 0.001
     },
     {
-      "name": "joiner strap sets share y=32",
+      "name": "joiner strap sets share y=34",
       "type": "translation_axis_equal",
       "instances": [
         "joiner_12",
@@ -429,7 +438,7 @@
         "joiner_34"
       ],
       "axis": "y",
-      "value": 32,
+      "value": 34,
       "tolerance_mm": 0.001
     },
     {
@@ -536,16 +545,18 @@
     "note": "Bar centre positions are unchanged from the previous 8 mm-bar design."
   },
   "seam_cable_corridor": {
-    "y_min_mm": 46,
-    "y_max_mm": 82,
-    "clear_height_mm": 36,
+    "y_min_mm": 52,
+    "y_max_mm": 76,
+    "clear_height_mm": 24,
     "alignment_tongue_width_mm": 8,
     "lower_tongue_y_mm": 34,
     "upper_tongue_y_mm": 86,
-    "joiner_origin_y_mm": 32,
-    "joiner_overall_height_mm": 64,
-    "joiner_strap_height_mm": 14,
-    "note": "Each seam uses two recessed straps from one PRINT_4 STL/set, leaving the centre corridor open."
+    "joiner_origin_y_mm": 34,
+    "joiner_overall_height_mm": 60,
+    "joiner_strap_height_mm": 18,
+    "front_structural_web_mm": 11,
+    "rear_channel_depth_mm": 5,
+    "note": "The shallow rear notch is sized for the width of a flat 16-way HUB75 ribbon while preserving an 11 mm panel-facing structural web. PRINT_4 joiner straps remain above/below the notch."
   },
   "rear_lid": {
     "quantity": 4,
@@ -573,5 +584,12 @@
     "socket_throat_d_mm": 5.8,
     "socket_chamber_d_mm": 6.5,
     "note": "Dedicated lid sockets do not reuse the occupied reinforcement-bar bores."
+  },
+  "panel_mount_screw_wells": {
+    "through_hole_diameter_mm": 4.5,
+    "rear_counterbore_diameter_mm": 10,
+    "remaining_local_backplane_thickness_mm": 5,
+    "counterbore_depth_mm": 11,
+    "note": "Rear counterbores reduce the required screw length and keep normal M3/M4 screw heads below the 16 mm rear surface so they do not interfere with the lid."
   }
 }

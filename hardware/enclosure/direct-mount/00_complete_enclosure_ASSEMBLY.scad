@@ -26,7 +26,7 @@ module complete_enclosure_assembly(show_guides=true) {
     color([0.24,0.24,0.26])
         translate([3*panel_pitch,0,0]) backplane(true);
 
-    // ---------- Recessed seam strap pairs / clear cable corridor ----------
+    // ---------- Recessed seam strap pairs / shallow 24 mm flat-ribbon notch ----------
     for (x=[240,496,752])
         color([0.55,0.55,0.58])
             translate([x,joiner_origin_y,joiner_z]) module_joiner();
