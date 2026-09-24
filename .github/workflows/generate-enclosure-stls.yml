@@ -269,7 +269,10 @@ jobs:
             echo "OK: hinge-version/$scad -> stl/$stl"
           done
 
-          openscad -o "$generated/hinge_version_assembly.csg"             "$hinge_dir/00_hinge_version_ASSEMBLY.scad"
+          openscad -o "$generated/hinge_version_assembly.csg" \
+            "$hinge_dir/00_hinge_version_ASSEMBLY.scad"
+          openscad -o "$generated/hinge_version_closed_assembly.csg" \
+            "$hinge_dir/00_hinge_version_CLOSED_ASSEMBLY.scad"
 
       - name: Validate mesh health and nominal assembly interfaces
         shell: bash
