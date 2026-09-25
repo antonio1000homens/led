@@ -1,6 +1,6 @@
 # Support-free 6 mm hinge prototype v2
 
-This prototype isolates the mechanics for the hinged LED display before PSU/controller mounts, cable management and the final outer-end closures are added.
+This prototype now covers the complete four-panel stationary enclosure set: one controller end, two identical middle enclosures and one power-cable end.
 
 ## Mechanical concept
 
@@ -22,11 +22,17 @@ Prototype defaults:
 
 The moving template has no full-width lower lip. Only local hinge roots are added behind its existing lower band.
 
-## Middle enclosure prototype
+## Enclosure variants
 
-This revision deliberately models the **two middle enclosure positions** of the final four-panel display.
+The four-panel display now uses three stationary enclosure prints:
 
-The printable middle enclosure is identical for both centre panels, so print the same STL twice.
+- **left/controller end** — one outer closure wall, integrated MatrixPortal S3 standoffs and an exposed service opening for the USB/buttons edge;
+- **middle** — completely open left/right side planes above the floor base for hinge sweep and inter-panel cabling; print this part **twice**;
+- **right/power end** — one solid outer closure wall plus a round rear cable-entry hole for a snap grommet.
+
+All three share the same hinge, rear profile, upper ventilation and top landing geometry.
+
+### Middle enclosure
 
 ### Open cable sides and ventilation
 
@@ -50,7 +56,29 @@ Ventilation exists only in the upper tapered section, using a fine slotted grill
 
 This gives a mesh-like appearance and airflow without the fragile small intersections of a true printed mesh. It should also be easier for Bambu Studio to slice consistently.
 
-The final two outer/end enclosures can later add one solid outside wall each; that is intentionally out of scope for this prototype.
+### Left/controller end
+
+The left end wall is placed primarily **outside the LED/template footprint** so it closes the display without blocking the moving panel's swing.
+
+The MatrixPortal S3 is mounted parallel to the LED plane inside the lower 60 mm orthogonal cavity. Its PCB position is based on the existing validated MatrixPortal dimensions and M2.5 mounting-hole offsets from `direct_mount_enclosure.scad`.
+
+Rather than individual button holes, the outer wall has one generous service opening exposing the complete short MatrixPortal edge. This gives direct access to USB-C and the hardware controls while allowing tolerance for the real PCB/connectors.
+
+Four integrated **8 mm standoffs with 2.8 mm M2.5 clearance holes** support the controller from the flat lower rear wall.
+
+### Right/power end
+
+The right enclosure gets a solid outer closure wall, also positioned primarily outside the LED/template footprint.
+
+A rear cable-entry hole is cut through the orthogonal lower rear wall:
+
+- prototype hole diameter: **14 mm**
+- location: low on the rear of the right-end enclosure
+- intended use: pass the incoming power cable through a snap grommet
+
+The **14 mm value is only a prototype default**. Before the final print, set `power_grommet_hole_d` to the panel cut-out diameter specified by the actual grommet.
+
+Both outer walls include a **7.2 mm hinge-rod pass-through** aligned to the continuous 6 mm hinge rail.
 
 ### Lower orthogonal section + taper
 
@@ -84,11 +112,13 @@ Expected envelope is approximately:
 
 - **256 × 128 × 16 mm**
 
-### Middle stationary enclosure/base
+### Stationary enclosure/base variants
 
-`02_middle_stationary_enclosure_HINGE_TEST.scad`
+- `02_middle_stationary_enclosure_HINGE_TEST.scad`
+- `03_left_controller_end_enclosure_HINGE_TEST.scad`
+- `04_right_power_end_enclosure_HINGE_TEST.scad`
 
-The enclosure prints **upright on its actual floor base**.
+All stationary variants print **upright on their actual floor base**.
 
 That orientation is intentional:
 
@@ -103,9 +133,11 @@ That orientation is intentional:
 
 Expected envelope is approximately:
 
-- **255 × 68 × 148 mm**
+- middle: **255 × 68 × 148 mm**
+- left/controller end: **~258 × 68 × 148 mm**
+- right/power end: **~258 × 68 × 148 mm**
 
-The 68 mm footprint is approximately 25 mm forward of the LED plane plus 40 mm rear depth and small offsets.
+The end variants are slightly wider because the outer closure wall sits primarily outside the 256 mm LED/template footprint.
 
 ## Assembly preview orientation
 
@@ -127,8 +159,10 @@ This changes only the assembly view. Printable part coordinates and mounting geo
 - `00_OPEN_ASSEMBLY.scad` — one middle module at 90°
 - `00_TWO_MIDDLE_CLOSED_ASSEMBLY.scad` — both centre modules adjacent
 - `00_TWO_MIDDLE_OPEN_ASSEMBLY.scad` — both centre modules opened to expose the cable-side geometry
+- `00_FOUR_PANEL_CLOSED_ASSEMBLY.scad` — controller end + two middle + power end, closed
+- `00_FOUR_PANEL_OPEN_ASSEMBLY.scad` — all four moving LED/templates opened
 
-The two-middle preview uses one continuous 6 mm rod across both adjacent hinge sets.
+The four-panel preview uses one continuous 6 mm rod across the complete enclosure set and shows a reference MatrixPortal PCB at the controller end.
 
 ## Printable/generated files
 
@@ -136,6 +170,10 @@ The two-middle preview uses one continuous 6 mm rod across both adjacent hinge s
 - `02_middle_stationary_enclosure_HINGE_TEST.scad`
 - `stl/01_moving_panel_template_HINGE_TEST.stl`
 - `stl/02_middle_stationary_enclosure_HINGE_TEST.stl`
+- `03_left_controller_end_enclosure_HINGE_TEST.scad`
+- `stl/03_left_controller_end_enclosure_HINGE_TEST.stl`
+- `04_right_power_end_enclosure_HINGE_TEST.scad`
+- `stl/04_right_power_end_enclosure_HINGE_TEST.stl`
 
 The SCAD files are the source of truth. The STL files are checked in for direct Bambu Studio use.
 
@@ -146,14 +184,14 @@ The SCAD files are the source of truth. The STL files are checked in for direct 
 1. Slice both generated STLs in Bambu Studio.
 2. Confirm neither reports floating regions / floating cantilevers.
 3. Print the moving template and reconfirm its fit on a real LED panel.
-4. Print **two copies** of the middle stationary enclosure.
-5. Place them one panel pitch apart and confirm the open side planes leave the hinge sweep unobstructed.
-6. Insert the 6 mm rod through the hinge barrels.
-7. Check that cable bundles can pass freely across the open side seam.
-8. Fit the moving template(s) and verify the full hinge motion without side-wall collision.
-9. Verify the enclosure/base remains stationary while the LED/template opens forward/down.
-10. Check the 20 mm closed floor clearance with the real LED-panel thickness.
-11. Check stability with the moving panel fully open.
-12. Only then add the two outer-end enclosure variants, PSU/controller mounts, top retention/latch features and final cable guides.
+4. Print one controller end, **two middle enclosures**, and one power end.
+5. Assemble them on the nominal 256 mm panel pitch and insert the continuous 6 mm hinge rod.
+6. Verify all four LED/templates sweep freely and the outer walls remain clear of the moving panels.
+7. Check that cable bundles pass freely through the open middle seams.
+8. Fit the MatrixPortal to the controller-end standoffs and verify USB/button access through the service opening.
+9. Test-fit the chosen power-cable grommet in the rear hole before routing the cable.
+10. Verify the enclosure/base remains stationary while the LED/templates open forward/down.
+11. Check the 20 mm closed floor clearance with the real LED-panel thickness.
+12. Check stability with all moving panels open.
 
 PETG is preferred for repeated hinge testing; PLA is acceptable for a dimensional-only prototype.
