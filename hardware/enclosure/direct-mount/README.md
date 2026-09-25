@@ -87,6 +87,25 @@ The screw holes and locating-pin clearances are intentionally different shapes s
 
 Print `stl/08_mount_pattern_template_PRINT_1.stl` first and verify all six brass inserts **and** the locating-pin clearances against the real panel before printing the remaining structural backplanes.
 
+## Mechanical validation
+
+The current enclosure validation is orchestrated by one repo script:
+
+```bash
+python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
+```
+
+CI installs OpenSCAD plus the Python mechanical dependencies and then runs that command. The validator:
+
+- renders every current production printable wrapper exactly once;
+- compares each generated mesh with the checked-in manufacturing STL;
+- validates the MatrixPortal carrier;
+- renders assembly/reference CSG and SVG entrypoints;
+- validates the active `hinge-prototype-v2/` print geometry, including a coarse floating-layer/island proxy;
+- runs mesh-health and nominal assembly-interface checks.
+
+The older `hinge-version/` experiment remains available for reference but is not part of default CI. Bambu Studio remains the final check for slicer-specific overhang/support diagnostics.
+
 ## 6 mm rail hinge prototype
 
 An experimental clamshell/service-tray variant now lives under:
