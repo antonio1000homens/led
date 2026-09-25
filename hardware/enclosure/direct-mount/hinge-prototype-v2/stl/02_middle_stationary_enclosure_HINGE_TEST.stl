@@ -10373,6 +10373,48 @@ solid OpenSCAD_Model
       vertex 196 -12.5692 27.4699
     endloop
   endfacet
+  facet normal 0 -0.75189 -0.659289
+    outer loop
+      vertex 62 -6.14393 29.1915
+      vertex 90 -6.45442 29.5456
+      vertex 62 -6.45442 29.5456
+    endloop
+  endfacet
+  facet normal 0 -0.75189 -0.659289
+    outer loop
+      vertex 90 -6.45442 29.5456
+      vertex 62 -6.14393 29.1915
+      vertex 90 -6.14393 29.1915
+    endloop
+  endfacet
+  facet normal 0 -0.75189 -0.659289
+    outer loop
+      vertex 136 -6.14393 29.1915
+      vertex 164 -6.45442 29.5456
+      vertex 136 -6.45442 29.5456
+    endloop
+  endfacet
+  facet normal 0 -0.75189 -0.659289
+    outer loop
+      vertex 164 -6.45442 29.5456
+      vertex 136 -6.14393 29.1915
+      vertex 164 -6.14393 29.1915
+    endloop
+  endfacet
+  facet normal 0 -0.75189 -0.659289
+    outer loop
+      vertex 196 -6.14393 29.1915
+      vertex 220 -6.45442 29.5456
+      vertex 196 -6.45442 29.5456
+    endloop
+  endfacet
+  facet normal 0 -0.75189 -0.659289
+    outer loop
+      vertex 220 -6.45442 29.5456
+      vertex 196 -6.14393 29.1915
+      vertex 220 -6.14393 29.1915
+    endloop
+  endfacet
   facet normal -0 0.659301 0.751879
     outer loop
       vertex 62 -11.1915 24.1439
@@ -10455,48 +10497,6 @@ solid OpenSCAD_Model
       vertex 220 -6.45442 29.5456
       vertex 196 -6.80846 29.8561
       vertex 196 -6.45442 29.5456
-    endloop
-  endfacet
-  facet normal 0 -0.75189 -0.659289
-    outer loop
-      vertex 62 -6.14393 29.1915
-      vertex 90 -6.45442 29.5456
-      vertex 62 -6.45442 29.5456
-    endloop
-  endfacet
-  facet normal 0 -0.75189 -0.659289
-    outer loop
-      vertex 90 -6.45442 29.5456
-      vertex 62 -6.14393 29.1915
-      vertex 90 -6.14393 29.1915
-    endloop
-  endfacet
-  facet normal 0 -0.75189 -0.659289
-    outer loop
-      vertex 136 -6.14393 29.1915
-      vertex 164 -6.45442 29.5456
-      vertex 136 -6.45442 29.5456
-    endloop
-  endfacet
-  facet normal 0 -0.75189 -0.659289
-    outer loop
-      vertex 164 -6.45442 29.5456
-      vertex 136 -6.14393 29.1915
-      vertex 164 -6.14393 29.1915
-    endloop
-  endfacet
-  facet normal 0 -0.75189 -0.659289
-    outer loop
-      vertex 196 -6.14393 29.1915
-      vertex 220 -6.45442 29.5456
-      vertex 196 -6.45442 29.5456
-    endloop
-  endfacet
-  facet normal 0 -0.75189 -0.659289
-    outer loop
-      vertex 220 -6.45442 29.5456
-      vertex 196 -6.14393 29.1915
-      vertex 220 -6.14393 29.1915
     endloop
   endfacet
   facet normal 0 0.0654069 -0.997859
