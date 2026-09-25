@@ -151,15 +151,16 @@ module middle_floor_base() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Each fixed hinge knuckle grows diagonally from material already connected
-    // to the floor/rear structure. There is no horizontal floating shelf.
+    // Each stationary hinge knuckle rises directly from the floor base under
+    // the pivot. In the upright print this is a continuous bed-supported root,
+    // and it does not require a solid side wall or a floating lower shelf.
     hull() {
         translate([
             x0,
             base_thickness_y-0.5,
-            rear_z_bottom-box_rear_t
+            hinge_axis_z-hinge_r
         ])
-            cube([len,2,box_rear_t]);
+            cube([len,2,2*hinge_r]);
 
         translate([x0,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
