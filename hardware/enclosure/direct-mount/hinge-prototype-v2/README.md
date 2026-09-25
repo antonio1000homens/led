@@ -28,22 +28,32 @@ This revision deliberately models the **two middle enclosure positions** of the 
 
 The printable middle enclosure is identical for both centre panels, so print the same STL twice.
 
-### Open cable sides
+### Open cable sides and ventilation
 
 The middle enclosure does **not** have solid left or right walls.
 
 Above the 5 mm floor base, both side planes are open so HUB75 ribbons and power cables can pass directly from one panel cavity into the next.
 
-The sloping rear plate provides the main enclosure structure. The final two outer/end enclosures can later add one solid outside wall each; that is intentionally out of scope for this prototype.
+The rear plate provides the main enclosure structure. It now contains repeated **9 mm-wide vertical ventilation slots** in two zones:
 
-### Taper
+- a lower vent zone within the orthogonal 40 mm-deep section
+- an upper vent zone within the tapered section
 
-Requested equipment depth is implemented behind the LED plane as:
+A solid horizontal band is deliberately left around the 60 mm taper transition for strength.
 
-- **40 mm at the bottom**
-- **10 mm at the top**
+Vertical slots were chosen instead of long horizontal slots because, in the upright print orientation, their top edges only require short bridges rather than a very wide unsupported span.
 
-The rear plate therefore slopes continuously toward the LED as it rises.
+The final two outer/end enclosures can later add one solid outside wall each; that is intentionally out of scope for this prototype.
+
+### Lower orthogonal section + taper
+
+The enclosure profile is now intentionally two-stage:
+
+- from the floor to **60 mm high**: the rear wall stays vertical/orthogonal at the full **40 mm depth**
+- above **60 mm**: the rear wall begins tapering
+- at the top junction: the enclosure reaches **10 mm depth**
+
+So the taper no longer starts at the base. The first 6 cm remains a conventional rectangular equipment cavity, which is better suited to the PSU/power-distribution area and lower cabling.
 
 At the top, the enclosure now continues forward with a **full-width top link/roof** so the stationary enclosure closes against the rear of the LED-panel template rather than simply ending 10 mm behind it.
 
@@ -51,7 +61,7 @@ The top link stops **0.8 mm behind the template's rear surface** in the closed p
 
 Its underside is a **12 mm-high ramp across the 10 mm top depth**, rather than a flat horizontal cantilever, so it remains self-supporting when the middle enclosure is printed upright.
 
-The lower depth gives space for wiring/power hardware while the top stays much slimmer.
+The lower 60 mm therefore provides a full-depth equipment zone while the upper enclosure becomes progressively slimmer.
 
 ## Print strategy
 
@@ -74,7 +84,9 @@ The enclosure prints **upright on its actual floor base**.
 That orientation is intentional:
 
 - the 5 mm base is a broad Z=0 contact patch;
-- the 40→10 mm rear taper rises gradually and is self-supporting;
+- the lower 60 mm rear wall rises vertically at the full 40 mm depth;
+- the 40→10 mm taper begins only above that point and remains self-supporting;
+- narrow vertical ventilation slots avoid long bridging spans;
 - the top roof ramps forward to meet the LED-template rear plane;
 - the hinge roots rise directly from the base;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
