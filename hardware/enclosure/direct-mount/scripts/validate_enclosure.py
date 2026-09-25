@@ -296,6 +296,10 @@ def main() -> None:
         "Bambu Studio remains the final authority for slicer-specific support "
         "and floating-cantilever diagnostics."
     )
+    print(
+        "Bambu Studio remains the final authority for slicer-specific support "
+        "and floating-cantilever diagnostics."
+    )
 
 
 if __name__ == "__main__":
