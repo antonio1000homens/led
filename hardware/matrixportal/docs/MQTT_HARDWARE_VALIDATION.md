@@ -189,6 +189,26 @@ Local safety-gate toggle smoke test on 2026-09-25:
   comparison. The enabled run later included Todoist marquee activity, so its
   timing is not comparable to the disabled run.
 
+Runtime flash-control hardware smoke test on 2026-09-25:
+
+- Kept both board-local MQTT gates enabled and temporarily served a synthetic
+  `/api/screens` response from the LAN with a one-screen test payload.
+- With `flash.enabled=false` and `screen_duration_seconds=3`, the board fetched
+  the response and stayed subscribed. A valid QoS 1 event received PUBACK but
+  produced no `FLASH START` or `FLASH END` during the six-second observation.
+- With `flash.enabled=true`, a fresh event produced `FLASH START` and the
+  matching end log on the board. After changing
+  `screen_duration_seconds` from 3 to 6 in the served response and waiting for
+  the next fetch, another fresh event also produced the expected start/end
+  transition.
+- The serial output was not timestamped closely enough to claim a precise
+  measured flash interval; this verifies runtime enable/disable and duration
+  updates reached the hardware, while exact visual timing still merits direct
+  inspection.
+- Restored `SCREEN_API_URL=https://led.alf-broadcast.co.uk`; the board
+  reloaded, resubscribed to `led/flash/reminder`, and fetched two public screens
+  successfully. The temporary LAN server was stopped.
+
 Supplemental idle observations on 2026-09-25 after the parser update:
 
 - MQTT enabled, no reminder traffic: at telemetry elapsed 40 seconds, the
@@ -228,7 +248,6 @@ Matched local-fixture comparison on 2026-09-25:
   LAN fixture server was stopped.
 
 Still outstanding: repeated workload-aligned captures that allow CPU use to
-be measured directly, plus visual inspection for tearing; runtime-disabled
-and duration-change tests; a broker outage/reconnect test; and the live Home
-Assistant #4 Alexa recurrence and restart scenarios. Do not close #74 on these
-partial measurements.
+be measured directly, plus visual inspection for tearing; a broker
+outage/reconnect hardware test; and the live Home Assistant #4 Alexa recurrence
+and restart scenarios. Do not close #74 on these partial measurements.
