@@ -13,8 +13,10 @@ ROOT = Path(__file__).resolve().parents[4]
 HINGE_DIR = ROOT / "hardware/enclosure/direct-mount/hinge-prototype-v2"
 
 PARTS = {
-    "01_moving_panel_template_HINGE_TEST.scad": "01_moving_panel_template_HINGE_TEST.stl",
-    "02_stationary_enclosure_HINGE_TEST.scad": "02_stationary_enclosure_HINGE_TEST.stl",
+    "01_moving_panel_template_HINGE_TEST.scad":
+        "01_moving_panel_template_HINGE_TEST.stl",
+    "02_middle_stationary_enclosure_HINGE_TEST.scad":
+        "02_middle_stationary_enclosure_HINGE_TEST.stl",
 }
 
 
@@ -96,25 +98,28 @@ def main() -> None:
         template = generated_dir / PARTS["01_moving_panel_template_HINGE_TEST.scad"]
         template_dims = assert_on_bed("moving panel template", template)
 
-        # The moving panel leaf must remain a flat-print part without the old
-        # full-width support tongue. Local hinge roots may rise behind it, but
-        # the complete part should stay compact in Z.
         if template_dims[2] > 18.0:
             raise SystemExit(
                 "moving panel template gained excessive rear/lip geometry: "
                 f"height={template_dims[2]:.1f} mm (expected <= 18 mm)"
             )
 
-        enclosure = generated_dir / PARTS["02_stationary_enclosure_HINGE_TEST.scad"]
-        enclosure_dims = assert_on_bed("stationary enclosure", enclosure)
+        enclosure = generated_dir / PARTS[
+            "02_middle_stationary_enclosure_HINGE_TEST.scad"
+        ]
+        enclosure_dims = assert_on_bed("middle stationary enclosure", enclosure)
 
-        # Rear-face-down print includes the 25 mm front floor-base extension,
-        # so roughly 52 mm build height is expected. Guard against accidental
-        # reversion to a ~255 mm side-standing print.
-        if enclosure_dims[2] > 60.0:
+        # The tapered middle enclosure now prints upright on its real floor base:
+        # X ~= 255 mm, Y ~= 68 mm total front/rear footprint, Z ~= 148 mm.
+        if enclosure_dims[2] > 155.0:
             raise SystemExit(
-                "stationary enclosure print orientation regressed: "
-                f"height={enclosure_dims[2]:.1f} mm (expected <= 60 mm)"
+                "middle stationary enclosure print orientation regressed: "
+                f"height={enclosure_dims[2]:.1f} mm (expected <= 155 mm)"
+            )
+        if enclosure_dims[1] > 72.0:
+            raise SystemExit(
+                "middle stationary enclosure footprint became unexpectedly deep: "
+                f"depth={enclosure_dims[1]:.1f} mm (expected <= 72 mm)"
             )
 
         print(
@@ -122,11 +127,16 @@ def main() -> None:
             f"{template_dims[0]:.1f} x {template_dims[1]:.1f} x {template_dims[2]:.1f} mm"
         )
         print(
-            "OK: stationary enclosure print bounds "
+            "OK: middle enclosure print bounds "
             f"{enclosure_dims[0]:.1f} x {enclosure_dims[1]:.1f} x {enclosure_dims[2]:.1f} mm"
         )
 
-        for preview in ("00_CLOSED_ASSEMBLY.scad", "00_OPEN_ASSEMBLY.scad"):
+        for preview in (
+            "00_CLOSED_ASSEMBLY.scad",
+            "00_OPEN_ASSEMBLY.scad",
+            "00_TWO_MIDDLE_CLOSED_ASSEMBLY.scad",
+            "00_TWO_MIDDLE_OPEN_ASSEMBLY.scad",
+        ):
             subprocess.run(
                 [
                     "openscad",
