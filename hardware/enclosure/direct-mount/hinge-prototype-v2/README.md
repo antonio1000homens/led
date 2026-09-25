@@ -34,14 +34,18 @@ The middle enclosure does **not** have solid left or right walls.
 
 Above the 5 mm floor base, both side planes are open so HUB75 ribbons and power cables can pass directly from one panel cavity into the next.
 
-The rear plate provides the main enclosure structure. It now contains repeated **9 mm-wide vertical ventilation slots** in two zones:
+The rear plate provides the main enclosure structure.
 
-- a lower vent zone within the orthogonal 40 mm-deep section
-- an upper vent zone within the tapered section
+The **entire lower 60 mm orthogonal section is now solid** with no ventilation openings.
 
-A solid horizontal band is deliberately left around the 60 mm taper transition for strength.
+Ventilation exists only in the upper tapered section, using a fine slotted grille:
 
-Vertical slots were chosen instead of long horizontal slots because, in the upright print orientation, their top edges only require short bridges rather than a very wide unsupported span.
+- **3 mm-wide vertical openings**
+- **8 mm pitch**
+- therefore **5 mm solid ribs** between slots
+- vent field starts 10 mm above the taper transition
+
+This gives a mesh-like appearance and airflow without the fragile small intersections of a true printed mesh. It should also be easier for Bambu Studio to slice consistently.
 
 The final two outer/end enclosures can later add one solid outside wall each; that is intentionally out of scope for this prototype.
 
@@ -84,9 +88,9 @@ The enclosure prints **upright on its actual floor base**.
 That orientation is intentional:
 
 - the 5 mm base is a broad Z=0 contact patch;
-- the lower 60 mm rear wall rises vertically at the full 40 mm depth;
+- the lower 60 mm rear wall rises vertically at the full 40 mm depth and is completely solid;
 - the 40→10 mm taper begins only above that point and remains self-supporting;
-- narrow vertical ventilation slots avoid long bridging spans;
+- only the upper tapered wall is ventilated, using fine 3 mm slits with 5 mm ribs;
 - the top roof ramps forward to meet the LED-template rear plane;
 - the hinge roots rise directly from the base;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
