@@ -174,6 +174,24 @@ a payload with fractional-second ISO 8601 timestamps also flashed and ended
 normally. These focused runs verify event handling but are not matched
 performance samples.
 
+Supplemental idle observations on 2026-09-25 after the parser update:
+
+- MQTT enabled, no reminder traffic: at telemetry elapsed 40 seconds, the
+  frame-pacing sample recorded 9.32 tick FPS, 95 late frames, maximum late
+  streak 27, 17 successful fetches, and six over-budget scene renders. At
+  elapsed 448.8 seconds the matrix summary reported 7.58 presented FPS, a
+  5.1504-second maximum interval, zero refresh failures, and heap
+  1,959,184/1,609,600 bytes.
+- MQTT disabled locally for comparison: after 82.4 seconds the matrix summary
+  reported 7.09 presented FPS, a 4.3438-second maximum interval, zero refresh
+  failures, and heap 1,959,232/1,807,088 bytes. HTTP fetches succeeded, but
+  Todoist marquee ticks remained zero.
+
+These captures are not workload-matched: the enabled run had Todoist marquee
+activity, the disabled run did not, and both include different startup/fetch
+conditions. They are recorded as supplemental evidence only and do not show a
+causal performance difference.
+
 Still outstanding: same-duration paired idle captures with active Todoist
 marquee content and visual inspection for tearing; runtime-disabled and
 duration-change tests; a broker outage/reconnect test; and the live Home
