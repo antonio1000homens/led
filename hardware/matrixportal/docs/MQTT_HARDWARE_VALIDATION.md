@@ -207,8 +207,28 @@ activity, the disabled run did not, and both include different startup/fetch
 conditions. They are recorded as supplemental evidence only and do not show a
 causal performance difference.
 
-Still outstanding: same-duration paired idle captures with active Todoist
-marquee content and visual inspection for tearing; runtime-disabled and
-duration-change tests; a broker outage/reconnect test; and the live Home
+Matched local-fixture comparison on 2026-09-25:
+
+- The board fetched the same two-screen payload from a temporary LAN fixture
+  server in both runs. MQTT gates were the only setting changed between runs.
+- MQTT disabled: 120.4 seconds, 83 matrix refreshes, 0 refresh failures,
+  0.69 presented FPS, 1.4146-second average refresh interval, and 6.1 ms
+  average scene update time.
+- MQTT enabled and idle: 121.7 seconds, 53 matrix refreshes, 0 refresh
+  failures, 0.44 presented FPS, 2.1836-second average refresh interval, and
+  4.1 ms average scene update time.
+- The animation phase differed between captures, so refresh counts, interval,
+  and update-time differences are not attributable to MQTT. The board logs do
+  not measure whole-device CPU utilization; this comparison cannot establish
+  a CPU saving from changing the two-second MQTT service interval to one
+  minute. Both runs continued HTTP fetches without matrix refresh failures.
+- The board was restored to `https://led.alf-broadcast.co.uk`, with both
+  local MQTT gates enabled. It reloaded, subscribed to
+  `led/flash/reminder`, and fetched the public API successfully. The temporary
+  LAN fixture server was stopped.
+
+Still outstanding: repeated workload-aligned captures that allow CPU use to
+be measured directly, plus visual inspection for tearing; runtime-disabled
+and duration-change tests; a broker outage/reconnect test; and the live Home
 Assistant #4 Alexa recurrence and restart scenarios. Do not close #74 on these
 partial measurements.
