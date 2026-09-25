@@ -147,14 +147,25 @@ rear_plate_top_band = 1.5;
 // stationary enclosure forward to 0.8 mm behind that rear surface so the two
 // parts visually/structurally close together without binding during rotation.
 //
-// A 12 mm vertical drop over the 10 mm enclosure depth creates a self-supporting
-// ramp in the upright print instead of a flat 10 mm top cantilever.
+// IMPORTANT PRINTING RULE:
+// The roof must NOT begin at the front/template side. In the upright print that
+// creates a detached first roof layer and Bambu Studio reports a floating
+// cantilever.
+//
+// Instead, the roof starts as a small anchor overlapping the already-printed
+// tapered rear wall, then widens forward on successive layers until it becomes
+// a complete top cap at the template junction.
 template_back_z = 2.0;
 top_template_clearance = 0.8;
 top_link_front_z = template_back_z + top_template_clearance; // 2.8 mm
-top_link_drop = 12;
-top_link_front_h = 3;
-top_link_rear_h = 3;
+top_link_start_y = box_top_y - 18;
+top_link_anchor_h = 2;
+top_link_cap_h = 3;
+
+function tapered_rear_z_at_y(y) =
+    rear_z_bottom +
+    (rear_z_top-rear_z_bottom) *
+    ((y-taper_start_y)/(box_top_y-taper_start_y));
 
 module middle_rear_plate_solid() {
     union() {
@@ -223,26 +234,44 @@ module middle_rear_plate() {
 }
 
 module middle_top_link() {
-    // Full-width ramp/roof joining the 10 mm-deep top of the tapered rear
-    // enclosure to the rear of the moving LED template.
+    // Full-width roof joining the tapered rear enclosure to the rear of the
+    // closed LED template.
     //
-    // Both LEFT and RIGHT sides remain open below this roof.
+    // Print sequence in the upright orientation:
+    //   1. first roof layers overlap the existing tapered rear wall;
+    //   2. each higher layer grows progressively forward;
+    //   3. the final layers form a complete top cap from the template junction
+    //      back to the 10 mm-deep rear edge.
+    //
+    // This avoids the old front-first geometry that Bambu Studio correctly
+    // identified as a floating cantilever.
+    anchor_rear_z = tapered_rear_z_at_y(top_link_start_y);
+
     hull() {
-        // Front landing: sits just behind the closed template's upper band.
+        // Bed-connected/previous-layer-connected rear anchor.
         translate([
             box_x,
-            box_top_y-top_link_drop,
+            top_link_start_y,
+            anchor_rear_z-box_rear_t
+        ])
+            cube([
+                box_w,
+                top_link_anchor_h,
+                box_rear_t
+            ]);
+
+        // Complete top cap. Because this is the HIGH end of the hull rather
+        // than the LOW end, all of it has progressively grown material below.
+        translate([
+            box_x,
+            box_top_y-top_link_cap_h,
             top_link_front_z
         ])
-            cube([box_w,top_link_front_h,1.8]);
-
-        // Rear landing: merges directly into the top of the sloping rear plate.
-        translate([
-            box_x,
-            box_top_y-top_link_rear_h,
-            rear_z_top-box_rear_t
-        ])
-            cube([box_w,top_link_rear_h,box_rear_t]);
+            cube([
+                box_w,
+                top_link_cap_h,
+                rear_z_top-top_link_front_z
+            ]);
     }
 }
 
