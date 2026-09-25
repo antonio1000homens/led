@@ -49,6 +49,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS)
     parser.add_argument("--label", default="Manual MQTT test")
+    parser.add_argument("--event-id", help="Reuse an ID to test duplicate suppression")
+    parser.add_argument("--event", choices=("due", "scheduled"), default="due")
+    parser.add_argument("--expires-in-seconds", type=int, default=300)
     args = parser.parse_args()
 
     try:
@@ -64,15 +67,15 @@ def main():
         return 2
 
     now = datetime.now(timezone.utc)
-    event_id = "manual-" + uuid4().hex
+    event_id = args.event_id or "manual-" + uuid4().hex
     payload = {
         "id": event_id,
         "type": "reminder",
-        "event": "due",
+        "event": args.event,
         "label": args.label,
         "due_at": utc_iso(now),
         "published_at": utc_iso(now),
-        "expires_at": utc_iso(now + timedelta(minutes=5)),
+        "expires_at": utc_iso(now + timedelta(seconds=args.expires_in_seconds)),
         "source": "manual-test",
     }
 

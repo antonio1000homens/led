@@ -103,6 +103,21 @@ label, the configured flash duration, `FLASH END`, and normal-screen recovery.
 This is a board transport smoke test; it does not exercise Home Assistant's
 Alexa schedule.
 
+Focused parser/state checks can use explicit IDs and expiry values:
+
+```bash
+# Send this command twice; the second event must not start another flash.
+./.venv/bin/python scripts/publish_mqtt_test_event.py --event-id duplicate-check
+
+# Both messages must be ignored by the board.
+./.venv/bin/python scripts/publish_mqtt_test_event.py --event scheduled --event-id scheduled-check
+./.venv/bin/python scripts/publish_mqtt_test_event.py --expires-in-seconds -60 --event-id expired-check
+```
+
+For replacement, publish two different IDs and labels less than five seconds
+apart. Expect `FLASH START` for A, then `FLASH START` for B before one `FLASH
+END`; the underlying rotation should resume after B.
+
 ## Controlled MQTT-enabled comparison (2026-09-25)
 
 The same attached MatrixPortal S3, B8 presentation profile and target cadence
@@ -149,6 +164,15 @@ CircuitPython prints `Code stopped by auto-reload` when files on the mounted
 `CIRCUITPY` drive change. The observed reloads coincided with the deliberate
 firmware/configuration writes during these tests. Keep all test settings
 changes together and allow the board to finish reloading before measuring.
+
+After this capture, the board was soft-restarted and logged a fresh Wi-Fi
+connection, `MQTT subscribed topic=led/flash/reminder`, then a valid event's
+`FLASH START` and `FLASH END`. Additional hardware checks confirmed one flash
+for two identical IDs, no flash for a scheduled or expired event, and
+replacement of event A by event B before the flash ended. After a parser fix,
+a payload with fractional-second ISO 8601 timestamps also flashed and ended
+normally. These focused runs verify event handling but are not matched
+performance samples.
 
 Still outstanding: same-duration paired idle captures with active Todoist
 marquee content and visual inspection for tearing; runtime-disabled and

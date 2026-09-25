@@ -33,6 +33,19 @@ class FlashEventTests(unittest.TestCase):
         self.assertEqual(event["label"], "Take washing out")
         self.assertIsNone(parse_flash_event(EVENT, 1790010400))
 
+    def test_iso8601_fractional_seconds_keep_the_timezone_offset(self):
+        payload = {
+            **EVENT,
+            "due_at": "2026-09-21T18:00:00.123456+01:00",
+            "expires_at": "2026-09-21T18:05:00.987654+01:00",
+        }
+        self.assertIsNotNone(parse_flash_event(payload, 0))
+        utc_payload = {
+            **EVENT,
+            "expires_at": "2026-09-21T17:05:00.123456Z",
+        }
+        self.assertIsNotNone(parse_flash_event(utc_payload, 0))
+
     def test_home_assistant_contract_with_published_at_and_offset_is_supported(self):
         import json
         payload = {
