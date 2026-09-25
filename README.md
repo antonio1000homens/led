@@ -33,8 +33,9 @@ a mounted `CIRCUITPY` volume.
 
 
 Transient flash events are designed as a separate path: Home Assistant will
-publish normalized reminder events to MQTT, and the MatrixPortal will briefly
-show them before resuming the paused normal rotation. The MQTT path is
+schedule normalized reminder events from Alexa's next-reminder state and
+publish each occurrence to MQTT at its due time. The MatrixPortal will briefly
+show each event before resuming the paused normal rotation. The MQTT path is
 implemented but deliberately disabled in the checked-in firmware while Home
 Assistant issue #3 and the broker safety review are incomplete. No broker
 credentials are committed and no DHCP reservation is required.

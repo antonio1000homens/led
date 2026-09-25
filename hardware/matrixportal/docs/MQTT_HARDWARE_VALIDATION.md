@@ -6,8 +6,9 @@ Home Assistant issue #3 and the broker configuration are approved.
 
 ## Preconditions
 
-- Home Assistant publishes the documented `led/flash/reminder` contract with
-  QoS 1 and `retain: false`.
+- Home Assistant schedules the next Alexa reminder and publishes one
+  `event: "due"` payload to `led/flash/reminder` at its due time with QoS 1 and
+  `retain: false`.
 - A stable broker hostname and uncommitted board credentials are available.
 - `adafruit_minimqtt` has been installed into `CIRCUITPY/lib`.
 - The board is running the current B8 production refresh profile.
@@ -45,6 +46,11 @@ With the idle run stable, publish several test events and verify:
 - a newer event replaces an active flash and restarts its duration;
 - broker disconnect leaves HTTP screen rotation operating;
 - reconnect restores the subscription.
+
+For the Home Assistant end-to-end check, create a reminder a few minutes in
+the future. Confirm discovery only updates the persisted schedule, the MQTT
+message appears at the due time, and each recurring occurrence has a distinct
+ID so the board does not discard later occurrences as duplicates.
 
 Do not enable the production board path or close #74 until these observations
 are recorded against the actual MatrixPortal and the Home Assistant publisher.
