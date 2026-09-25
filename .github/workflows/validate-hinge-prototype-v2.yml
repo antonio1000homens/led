@@ -140,16 +140,38 @@ jobs:
           dir=hardware/enclosure/direct-mount/hinge-prototype-v2
           out="$(mktemp -d)"
 
-          openscad -o "$out/closed-intersection.stl" "$dir/98_closed_intersection_CHECK.scad"
-          if [ -s "$out/closed-intersection.stl" ]; then
-            echo 'Fixed and moving hinge parts intersect in the closed position.' >&2
-            exit 1
-          fi
+          assert_empty_intersection() {
+            local scad="$1"
+            local stl="$2"
+            local label="$3"
+            local log="$out/$(basename "$stl").log"
 
-          openscad -o "$out/sweep-intersection.stl" "$dir/99_collision_sweep_CHECK.scad"
-          if [ -s "$out/sweep-intersection.stl" ]; then
-            echo 'Fixed and moving hinge parts intersect in the 5..90 degree opening sweep.' >&2
+            # OpenSCAD deliberately exits non-zero when an STL export is empty.
+            # For an intersection check that is the SUCCESS condition, provided
+            # the log explicitly confirms that the top-level object is empty.
+            if openscad -o "$stl" "$scad" >"$log" 2>&1; then
+              if [ -s "$stl" ]; then
+                cat "$log"
+                echo "$label produced collision geometry." >&2
+                exit 1
+              fi
+              cat "$log"
+              echo "$label unexpectedly returned success without an STL." >&2
+              exit 1
+            fi
+
+            if grep -q 'Current top level object is empty' "$log" && [ ! -s "$stl" ]; then
+              echo "OK: $label is empty."
+              return 0
+            fi
+
+            cat "$log"
+            echo "$label failed for a reason other than an empty intersection." >&2
             exit 1
-          fi
+          }
+
+          assert_empty_intersection             "$dir/98_closed_intersection_CHECK.scad"             "$out/closed-intersection.stl"             'closed fixed/moving intersection'
+
+          assert_empty_intersection             "$dir/99_collision_sweep_CHECK.scad"             "$out/sweep-intersection.stl"             '5..90 degree opening-sweep intersection'
 
           echo 'OK: closed position and 5/15/30/45/60/75/90 degree sweep are collision-free.'
