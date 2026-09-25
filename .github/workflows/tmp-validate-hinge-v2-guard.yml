@@ -1,0 +1,36 @@
+name: Temporary / Validate hinge v2 guard
+
+on:
+  push:
+    branches:
+      - flash-events
+    paths:
+      - '.github/workflows/tmp-validate-hinge-v2-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-hinge-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: flash-events
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install mechanical dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y openscad
+          python -m pip install --disable-pip-version-check --quiet trimesh manifold3d numpy networkx scipy
+
+      - name: Validate hinge prototype v2
+        run: python hardware/enclosure/direct-mount/scripts/validate_hinge_v2_stls.py
