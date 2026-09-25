@@ -9,8 +9,9 @@
 //   60 mm above the floor, then tapers to 10 mm depth at the top.
 // - A self-supporting top roof links forward to the rear of the closed
 //   LED-panel template.
-// - Rear ventilation uses narrow vertical slots so the upright print only
-//   needs to bridge short slot widths rather than long horizontal gaps.
+// - The lower 60 mm equipment cavity is completely solid.
+// - Rear ventilation exists only in the upper tapered section and uses very
+//   narrow vertical slits for a fine mesh-like appearance.
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
@@ -115,16 +116,19 @@ rear_z_bottom = box_front_z + enclosure_bottom_depth; // 42.8 mm
 rear_z_top = box_front_z + enclosure_top_depth;       // 12.8 mm
 box_rear_t = 3;
 
-// Rear ventilation slots.
-// Narrow vertical openings are deliberately used so each slot only presents
-// a short printable bridge at its top edge in the upright orientation.
-vent_side_margin = 16;
-vent_slot_w = 9;
-vent_pitch = 22;
-lower_vent_y = 16;
-lower_vent_h = 32;
-upper_vent_y = 72;
-upper_vent_h = 48;
+// Upper-only rear ventilation.
+//
+// Keep the complete lower 60 mm rectangular equipment cavity solid. The tapered
+// upper section gets a fine slotted grille: 3 mm openings on an 8 mm pitch,
+// leaving 5 mm solid ribs between neighbouring openings.
+//
+// This gives a mesh-like visual density without the fragile intersections and
+// tiny unsupported cells of a true printed mesh.
+vent_side_margin = 12;
+vent_slot_w = 3;
+vent_pitch = 8;
+upper_vent_y = taper_start_y + 10;
+upper_vent_h = 50;
 
 // Floor base supports the stationary enclosure.
 base_front_extension = 25;
@@ -188,25 +192,16 @@ module middle_rear_plate_solid() {
 }
 
 module rear_ventilation_cutters() {
-    // Cut fully through the rear wall/taper depth. Two vertically separated
-    // slot zones leave a strong horizontal structural band around the 60 mm
-    // transition where the rear wall changes from orthogonal to tapered.
+    // Cut only the tapered upper rear wall. Nothing below taper_start_y is
+    // ventilated: the full 40 mm-deep lower equipment cavity remains solid.
+    //
+    // The 3 mm slits are intentionally much finer than the earlier 9 mm slots
+    // while still being substantially more robust than a true lattice mesh.
     for (x=[
         box_x+vent_side_margin :
         vent_pitch :
         box_x+box_w-vent_side_margin-vent_slot_w
     ]) {
-        translate([
-            x,
-            lower_vent_y,
-            rear_z_top-box_rear_t-2
-        ])
-            cube([
-                vent_slot_w,
-                lower_vent_h,
-                rear_z_bottom-rear_z_top+box_rear_t+4
-            ]);
-
         translate([
             x,
             upper_vent_y,
