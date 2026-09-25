@@ -1,4 +1,5 @@
 name: Temporary / Generate hinge v2 STLs
+# Final regeneration after reversed-motion cleanup
 
 on:
   push:
