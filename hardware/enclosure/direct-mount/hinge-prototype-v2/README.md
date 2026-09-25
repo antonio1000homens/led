@@ -45,6 +45,12 @@ Requested equipment depth is implemented behind the LED plane as:
 
 The rear plate therefore slopes continuously toward the LED as it rises.
 
+At the top, the enclosure now continues forward with a **full-width top link/roof** so the stationary enclosure closes against the rear of the LED-panel template rather than simply ending 10 mm behind it.
+
+The top link stops **0.8 mm behind the template's rear surface** in the closed position. That gives a visible/structural closure while preserving hinge movement and print tolerance.
+
+Its underside is a **12 mm-high ramp across the 10 mm top depth**, rather than a flat horizontal cantilever, so it remains self-supporting when the middle enclosure is printed upright.
+
 The lower depth gives space for wiring/power hardware while the top stays much slimmer.
 
 ## Print strategy
@@ -69,9 +75,10 @@ That orientation is intentional:
 
 - the 5 mm base is a broad Z=0 contact patch;
 - the 40→10 mm rear taper rises gradually and is self-supporting;
+- the top roof ramps forward to meet the LED-template rear plane;
 - the hinge roots rise directly from the base;
-- there is no horizontal floating shelf;
-- both left/right cable sides remain open.
+- there is no horizontal floating lower shelf or unsupported top cantilever;
+- both left/right cable sides remain open below the top roof.
 
 Expected envelope is approximately:
 
