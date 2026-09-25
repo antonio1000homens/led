@@ -21,6 +21,10 @@ PARTS = {
         "01_moving_panel_template_HINGE_TEST.stl",
     "02_middle_stationary_enclosure_HINGE_TEST.scad":
         "02_middle_stationary_enclosure_HINGE_TEST.stl",
+    "03_left_controller_end_enclosure_HINGE_TEST.scad":
+        "03_left_controller_end_enclosure_HINGE_TEST.stl",
+    "04_right_power_end_enclosure_HINGE_TEST.scad":
+        "04_right_power_end_enclosure_HINGE_TEST.stl",
 }
 
 
@@ -204,43 +208,69 @@ def main() -> None:
                 f"height={template_dims[2]:.1f} mm (expected <= 18 mm)"
             )
 
-        enclosure = generated_dir / PARTS[
-            "02_middle_stationary_enclosure_HINGE_TEST.scad"
-        ]
-        enclosure_dims = assert_on_bed("middle stationary enclosure", enclosure)
-
-        # The tapered middle enclosure now prints upright on its real floor base:
-        # X ~= 255 mm, Y ~= 68 mm total front/rear footprint, Z ~= 148 mm.
-        if enclosure_dims[2] > 155.0:
-            raise SystemExit(
-                "middle stationary enclosure print orientation regressed: "
-                f"height={enclosure_dims[2]:.1f} mm (expected <= 155 mm)"
-            )
-        if enclosure_dims[1] > 72.0:
-            raise SystemExit(
-                "middle stationary enclosure footprint became unexpectedly deep: "
-                f"depth={enclosure_dims[1]:.1f} mm (expected <= 72 mm)"
-            )
+        enclosure_specs = (
+            (
+                "middle stationary enclosure",
+                "02_middle_stationary_enclosure_HINGE_TEST.scad",
+                260.0,
+            ),
+            (
+                "left controller end enclosure",
+                "03_left_controller_end_enclosure_HINGE_TEST.scad",
+                262.0,
+            ),
+            (
+                "right power end enclosure",
+                "04_right_power_end_enclosure_HINGE_TEST.scad",
+                262.0,
+            ),
+        )
 
         print(
             "OK: moving template print bounds "
             f"{template_dims[0]:.1f} x {template_dims[1]:.1f} x {template_dims[2]:.1f} mm"
         )
-        print(
-            "OK: middle enclosure print bounds "
-            f"{enclosure_dims[0]:.1f} x {enclosure_dims[1]:.1f} x {enclosure_dims[2]:.1f} mm"
-        )
 
-        assert_no_floating_layer_islands(
-            "middle stationary enclosure",
-            enclosure,
-        )
+        for name, scad_name, max_width in enclosure_specs:
+            enclosure = generated_dir / PARTS[scad_name]
+            enclosure_dims = assert_on_bed(name, enclosure)
+
+            # All stationary variants print upright on the real floor base:
+            # Y ~= 68 mm total front/rear footprint, Z ~= 148 mm.
+            # End variants are a few mm wider because their closure wall sits
+            # primarily outside the 256 mm LED/template footprint.
+            if enclosure_dims[2] > 155.0:
+                raise SystemExit(
+                    f"{name} print orientation regressed: "
+                    f"height={enclosure_dims[2]:.1f} mm (expected <= 155 mm)"
+                )
+            if enclosure_dims[1] > 72.0:
+                raise SystemExit(
+                    f"{name} footprint became unexpectedly deep: "
+                    f"depth={enclosure_dims[1]:.1f} mm (expected <= 72 mm)"
+                )
+            if enclosure_dims[0] > max_width:
+                raise SystemExit(
+                    f"{name} became unexpectedly wide: "
+                    f"width={enclosure_dims[0]:.1f} mm "
+                    f"(expected <= {max_width:.1f} mm)"
+                )
+
+            print(
+                f"OK: {name} print bounds "
+                f"{enclosure_dims[0]:.1f} x {enclosure_dims[1]:.1f} x "
+                f"{enclosure_dims[2]:.1f} mm"
+            )
+
+            assert_no_floating_layer_islands(name, enclosure)
 
         for preview in (
             "00_CLOSED_ASSEMBLY.scad",
             "00_OPEN_ASSEMBLY.scad",
             "00_TWO_MIDDLE_CLOSED_ASSEMBLY.scad",
             "00_TWO_MIDDLE_OPEN_ASSEMBLY.scad",
+            "00_FOUR_PANEL_CLOSED_ASSEMBLY.scad",
+            "00_FOUR_PANEL_OPEN_ASSEMBLY.scad",
         ):
             subprocess.run(
                 [
