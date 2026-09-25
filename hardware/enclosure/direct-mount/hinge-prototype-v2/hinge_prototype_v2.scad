@@ -20,6 +20,8 @@
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
+// - A thin full-width stationary guard plate runs behind the hinge line on every
+//   enclosure variant, shielding the lower opening when the LED/template closes.
 
 part = "__library__";
 include <../direct_mount_enclosure.scad>;
@@ -190,6 +192,27 @@ base_front_z = -base_front_extension;
 base_rear_z = rear_z_bottom;
 base_thickness_y = 5;
 
+// Full-width lower hinge guard.
+//
+// The LED/template lower edge sits 20 mm above the floor and the hinge barrel
+// is centred at y=27 mm. Without a guard, the low front opening behind the
+// closed panel remains exposed between the floor base and hinge line.
+//
+// Keep this plate on the STATIONARY enclosure, immediately behind the complete
+// hinge-barrel envelope. It spans the full enclosure width on every variant,
+// rises from the base to the hinge centreline, and stays 0.8 mm behind the
+// moving/fixed barrel envelope so the LED/template can rotate forward freely.
+// Small bridge pads at the stationary knuckle segments tie the guard directly
+// into each stationary hinge without intruding into the alternating moving
+// knuckle segments.
+hinge_guard_t = 2;
+hinge_guard_clearance = 0.8;
+hinge_guard_front_z = hinge_axis_z + hinge_r + hinge_guard_clearance;
+hinge_guard_start_y = base_thickness_y - 0.5;
+hinge_guard_top_y = hinge_axis_y;
+hinge_guard_bridge_overlap = 0.5;
+hinge_guard_bridge_h = 2.0;
+
 // Small rear-edge margin used only to give the sloping rear plate a printable,
 // robust edge. It does NOT form a left/right side wall.
 rear_plate_start_y = base_thickness_y-0.5;
@@ -340,6 +363,42 @@ module middle_floor_base() {
         ]);
 }
 
+module lower_hinge_guard() {
+    // Thin continuous shield across the full module width. In the closed state
+    // this blocks direct access through the low opening behind the LED/template.
+    // It is deliberately rearward of the complete 14 mm hinge barrel so the
+    // alternating moving knuckles and the moving template never rub on it.
+    union() {
+        translate([
+            box_x,
+            hinge_guard_start_y,
+            hinge_guard_front_z
+        ])
+            cube([
+                box_w,
+                hinge_guard_top_y-hinge_guard_start_y,
+                hinge_guard_t
+            ]);
+
+        // Tie the continuous plate directly into each STATIONARY knuckle at the
+        // rear-most part of its barrel. There are no bridge pads in the moving
+        // knuckle X ranges, preserving the alternating hinge sweep clearance.
+        for (segment=enclosure_knuckles)
+            translate([
+                segment[0],
+                hinge_axis_y-hinge_guard_bridge_h,
+                hinge_axis_z+hinge_r-hinge_guard_bridge_overlap
+            ])
+                cube([
+                    segment[1],
+                    hinge_guard_bridge_h,
+                    hinge_guard_clearance
+                        + hinge_guard_t
+                        + hinge_guard_bridge_overlap
+                ]);
+    }
+}
+
 module outer_end_wall(side="left", controller_service=false) {
     x0 = side == "left" ? left_end_wall_x : right_end_wall_x;
 
@@ -485,6 +544,7 @@ module stationary_middle_enclosure_installed() {
     difference() {
         union() {
             middle_floor_base();
+            lower_hinge_guard();
             middle_rear_plate();
             middle_top_link();
 

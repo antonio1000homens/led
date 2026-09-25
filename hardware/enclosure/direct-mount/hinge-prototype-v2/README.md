@@ -22,6 +22,8 @@ Prototype defaults:
 
 The moving template has no full-width lower lip. Only local hinge roots are added behind its existing lower band.
 
+Every stationary enclosure now also includes a **2 mm full-width lower hinge guard**. The guard rises from the 5 mm floor/base to the hinge centreline and sits immediately behind the 14 mm hinge-barrel envelope, leaving **0.8 mm clearance** to the moving hinge. It closes the exposed low opening behind the LED/template when the panel is shut, while the open left/right side planes above it remain available for hinge sweep and inter-panel cabling.
+
 ## Enclosure variants
 
 The four-panel display now uses three stationary enclosure prints:
@@ -44,6 +46,10 @@ That open-side geometry is required for two reasons:
 - HUB75 ribbons and power cables need to pass directly between neighbouring panel cavities.
 
 The rear plate provides the main enclosure structure.
+
+A thin stationary **hinge guard plate spans the complete module width** across the lower front opening. It starts with a 0.5 mm overlap into the floor/base for print continuity, rises to the hinge centreline and sits 0.8 mm behind the barrel's rear-most surface. Short bridge pads exist only at the stationary knuckle segments, so the guard is structurally tied to each stationary hinge while the alternating moving-knuckle spans remain unobstructed.
+
+The guard is shared by the controller end, both middle enclosures and the power end. It does **not** recreate the removed side walls: the left/right side planes remain open above the floor base for panel motion and cable routing.
 
 The **entire lower 60 mm orthogonal section is now solid** with no ventilation openings.
 
@@ -128,6 +134,7 @@ That orientation is intentional:
 - only the upper tapered wall is ventilated, using fine 3 mm slits with 5 mm ribs;
 - the top roof ramps forward to meet the LED-template rear plane;
 - the hinge roots rise directly from the base;
+- the 2 mm full-width hinge guard grows continuously from the same base and remains behind the hinge sweep;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
 - both left/right side planes remain open above the floor base so the moving LED/template can swing freely and cables can cross between modules.
 
@@ -191,7 +198,9 @@ The validator checks all four printable variants, their intended print envelopes
 8. Fit the MatrixPortal to the controller-end standoffs and verify USB/button access through the service opening.
 9. Test-fit the chosen power-cable grommet in the rear hole before routing the cable.
 10. Verify the enclosure/base remains stationary while the LED/templates open forward/down.
-11. Check the 20 mm closed floor clearance with the real LED-panel thickness.
-12. Check stability with all moving panels open.
+11. With each LED/template closed, confirm the full-width lower hinge guard blocks direct access into the cavity behind the panel.
+12. Open and close each panel through its full service angle and confirm the 0.8 mm rear hinge clearance prevents rubbing or binding against the guard.
+13. Check the 20 mm closed floor clearance with the real LED-panel thickness.
+14. Check stability with all moving panels open.
 
 PETG is preferred for repeated hinge testing; PLA is acceptable for a dimensional-only prototype.
