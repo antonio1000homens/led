@@ -35,21 +35,22 @@ jobs:
         run: |
           set -euo pipefail
           dir=hardware/enclosure/direct-mount/hinge-prototype-v2
-          out="$(mktemp -d)"
+          out="$RUNNER_TEMP/hinge-v2"
+          mkdir -p "$out"
 
-          openscad -o "$out/fixed.stl" "$dir/01_fixed_backplane_HINGE_V2.scad"
-          openscad -o "$out/moving.stl" "$dir/02_moving_enclosure_HINGE_V2.scad"
-          openscad -o "$out/coupon.stl" "$dir/03_hinge_fit_coupon_HINGE_V2.scad"
+          openscad -o "$out/01_fixed_backplane_HINGE_V2.stl" "$dir/01_fixed_backplane_HINGE_V2.scad"
+          openscad -o "$out/02_moving_enclosure_HINGE_V2.stl" "$dir/02_moving_enclosure_HINGE_V2.scad"
+          openscad -o "$out/03_hinge_fit_coupon_HINGE_V2.stl" "$dir/03_hinge_fit_coupon_HINGE_V2.scad"
           openscad -o "$out/closed.csg" "$dir/00_closed_assembly_HINGE_V2.scad"
           openscad -o "$out/open.csg" "$dir/00_open_assembly_HINGE_V2.scad"
 
-          test -s "$out/fixed.stl"
-          test -s "$out/moving.stl"
-          test -s "$out/coupon.stl"
+          test -s "$out/01_fixed_backplane_HINGE_V2.stl"
+          test -s "$out/02_moving_enclosure_HINGE_V2.stl"
+          test -s "$out/03_hinge_fit_coupon_HINGE_V2.stl"
           test -s "$out/closed.csg"
           test -s "$out/open.csg"
 
-          python - "$out/fixed.stl" "$out/moving.stl" <<'PY'
+          python - "$out/01_fixed_backplane_HINGE_V2.stl" "$out/02_moving_enclosure_HINGE_V2.stl" <<'PY'
           import math
           import sys
           from collections import defaultdict
@@ -175,3 +176,14 @@ jobs:
           assert_empty_intersection             "$dir/99_collision_sweep_CHECK.scad"             "$out/sweep-intersection.stl"             '5..90 degree opening-sweep intersection'
 
           echo 'OK: closed position and 5/15/30/45/60/75/90 degree sweep are collision-free.'
+
+      - name: Upload validated prototype STLs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hinge-prototype-v2-stls
+          path: |
+            ${{ runner.temp }}/hinge-v2/01_fixed_backplane_HINGE_V2.stl
+            ${{ runner.temp }}/hinge-v2/02_moving_enclosure_HINGE_V2.stl
+            ${{ runner.temp }}/hinge-v2/03_hinge_fit_coupon_HINGE_V2.stl
+          if-no-files-found: error
+          retention-days: 14
