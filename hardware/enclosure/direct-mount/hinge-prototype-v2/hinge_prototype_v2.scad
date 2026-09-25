@@ -3,8 +3,13 @@
 // Mechanical intent:
 // - The EQUIPMENT ENCLOSURE remains stationary and vertical.
 // - The LED panel + mounting template is the moving leaf and opens forward/down.
-// - This prototype models a MIDDLE enclosure: both left/right sides stay open
-//   so HUB75 and power cables can pass directly between neighbouring panels.
+// - Three stationary enclosure variants are provided:
+//     * LEFT/controller end: outer closure wall with a MatrixPortal service
+//       opening and integrated PCB standoffs;
+//     * MIDDLE: both side planes stay open for hinge sweep and inter-panel cable;
+//     * RIGHT/power end: solid outer closure wall plus rear grommet cable entry.
+// - All outer walls sit primarily OUTSIDE the LED/template X footprint so they
+//   do not obstruct the moving panel's hinge sweep.
 // - The stationary enclosure stays orthogonal at 40 mm depth for the first
 //   60 mm above the floor, then tapers to 10 mm depth at the top.
 // - A self-supporting top roof links forward to the rear of the closed
@@ -115,6 +120,55 @@ taper_start_y = 60;
 rear_z_bottom = box_front_z + enclosure_bottom_depth; // 42.8 mm
 rear_z_top = box_front_z + enclosure_top_depth;       // 12.8 mm
 box_rear_t = 3;
+
+// ---------- Outer/end enclosure details ----------
+//
+// End walls are intentionally placed primarily OUTSIDE the 0..256 LED/template
+// footprint. A small 0.4 mm overlap ties them into the base/rear/top enclosure
+// geometry without recreating the side-wall hinge obstruction that was removed
+// from the middle variant.
+end_wall_t = 3;
+end_wall_overlap = 0.4;
+left_end_wall_x = box_x-end_wall_t+end_wall_overlap;
+right_end_wall_x = box_x+box_w-end_wall_overlap;
+
+// MatrixPortal S3 controller-end integration.
+//
+// Reuse the measured/validated PCB dimensions and hole offsets from
+// direct_mount_enclosure.scad, but place the PCB entirely in the orthogonal
+// lower cavity so all four standoffs terminate on the flat lower rear wall.
+// The PCB stays parallel to the LED plane and its short USB/button edge
+// protrudes through the LEFT outer service opening.
+controller_pcb_x = -10.0;
+controller_pcb_y = 8.0;
+controller_pcb_rear_z = 31.5;
+controller_pcb_t = 1.6;
+controller_post_d = 8;
+controller_post_h = (rear_z_bottom-box_rear_t)-controller_pcb_rear_z+0.3;
+controller_hole_d = matrixportal_hole_d;
+
+controller_mount_points = [
+    [controller_pcb_x + matrixportal_hole_x1,
+     controller_pcb_y + matrixportal_hole_y1],
+    [controller_pcb_x + matrixportal_hole_x2,
+     controller_pcb_y + matrixportal_hole_y1],
+    [controller_pcb_x + matrixportal_hole_x1,
+     controller_pcb_y + matrixportal_hole_y2],
+    [controller_pcb_x + matrixportal_hole_x2,
+     controller_pcb_y + matrixportal_hole_y2]
+];
+
+controller_service_y_margin = 4;
+controller_service_z_min = controller_pcb_rear_z-controller_pcb_t-5;
+controller_service_z_max = controller_pcb_rear_z+4;
+
+// Rear mains/power-cable entry on the RIGHT end enclosure.
+//
+// 14 mm is a prototype default only. Match this to the PANEL CUT-OUT specified
+// by the actual snap grommet before final printing.
+power_grommet_hole_d = 14;
+power_grommet_x = box_x+box_w-28;
+power_grommet_y = 30;
 
 // Upper-only rear ventilation.
 //
@@ -286,6 +340,129 @@ module middle_floor_base() {
         ]);
 }
 
+module outer_end_wall(side="left", controller_service=false) {
+    x0 = side == "left" ? left_end_wall_x : right_end_wall_x;
+
+    difference() {
+        union() {
+            // Orthogonal/full-depth lower wall, bed-connected through the base.
+            translate([x0,0,box_front_z])
+                cube([
+                    end_wall_t,
+                    taper_start_y,
+                    rear_z_bottom-box_front_z
+                ]);
+
+            // Upper side follows the same 40 -> 10 mm taper as the rear
+            // enclosure and terminates at the top landing.
+            hull() {
+                translate([
+                    x0,
+                    taper_start_y-1,
+                    box_front_z
+                ])
+                    cube([
+                        end_wall_t,
+                        2,
+                        rear_z_bottom-box_front_z
+                    ]);
+
+                translate([
+                    x0,
+                    box_top_y-top_link_cap_h,
+                    top_link_front_z
+                ])
+                    cube([
+                        end_wall_t,
+                        top_link_cap_h,
+                        rear_z_top-top_link_front_z
+                    ]);
+            }
+        }
+
+        // Continuous 6 mm hinge rail exits through both outer walls.
+        translate([
+            x0-0.5,
+            hinge_axis_y,
+            hinge_axis_z
+        ])
+            rotate([0,90,0])
+                cylinder(d=hinge_bore_d,h=end_wall_t+1.0);
+
+        if (controller_service)
+            // Expose the complete short MatrixPortal service edge rather than
+            // attempting individual button/USB cut-outs. This leaves tolerance
+            // for the real board/connectors and guarantees finger access.
+            translate([
+                x0-0.5,
+                controller_pcb_y-controller_service_y_margin,
+                controller_service_z_min
+            ])
+                cube([
+                    end_wall_t+1.0,
+                    matrixportal_pcb_h+2*controller_service_y_margin,
+                    controller_service_z_max-controller_service_z_min
+                ]);
+    }
+}
+
+module controller_mount_standoffs() {
+    // Four M2.5 clearance standoffs grow forward from the lower rear wall.
+    // The LED/template opens forward (towards -Z), while the board remains
+    // well behind it inside the stationary enclosure.
+    difference() {
+        union() {
+            for (point=controller_mount_points)
+                translate([
+                    point[0],
+                    point[1],
+                    controller_pcb_rear_z
+                ])
+                    cylinder(d=controller_post_d,h=controller_post_h);
+        }
+
+        for (point=controller_mount_points)
+            translate([
+                point[0],
+                point[1],
+                controller_pcb_rear_z-0.5
+            ])
+                cylinder(
+                    d=controller_hole_d,
+                    h=controller_post_h+1.0
+                );
+    }
+}
+
+module controller_pcb_preview() {
+    // Reference-only board slab; not part of printable geometry.
+    color([0.10,0.45,0.20,0.75])
+        translate([
+            controller_pcb_x,
+            controller_pcb_y,
+            controller_pcb_rear_z-controller_pcb_t
+        ])
+            cube([
+                matrixportal_pcb_w,
+                matrixportal_pcb_h,
+                controller_pcb_t
+            ]);
+}
+
+module power_grommet_cutter() {
+    // Round rear-wall cut-out for a snap grommet. Axis is normal to the
+    // orthogonal lower rear wall.
+    translate([
+        power_grommet_x,
+        power_grommet_y,
+        rear_z_bottom-box_rear_t-0.5
+    ])
+        cylinder(
+            d=power_grommet_hole_d,
+            h=box_rear_t+1.0
+        );
+}
+
 module stationary_middle_enclosure_root(x0,len) {
     // Each stationary hinge knuckle rises directly from the floor base under
     // the pivot. In the upright print this is a continuous bed-supported root,
@@ -330,6 +507,38 @@ module stationary_middle_enclosure_print() {
     // taper rise directly from the base and remain self-supporting.
     rotate([90,0,0])
         stationary_middle_enclosure_installed();
+}
+
+module stationary_left_controller_enclosure_installed(show_pcb=false) {
+    union() {
+        stationary_middle_enclosure_installed();
+        outer_end_wall("left",true);
+        controller_mount_standoffs();
+
+        if (show_pcb)
+            controller_pcb_preview();
+    }
+}
+
+module stationary_left_controller_enclosure_print() {
+    rotate([90,0,0])
+        stationary_left_controller_enclosure_installed(false);
+}
+
+module stationary_right_power_enclosure_installed() {
+    difference() {
+        union() {
+            stationary_middle_enclosure_installed();
+            outer_end_wall("right",false);
+        }
+
+        power_grommet_cutter();
+    }
+}
+
+module stationary_right_power_enclosure_print() {
+    rotate([90,0,0])
+        stationary_right_power_enclosure_installed();
 }
 
 // ---------- Assembly model coordinates ----------
@@ -381,6 +590,47 @@ module two_middle_assembly_model(open_angle=0) {
     hinge_pin_preview(2*module_w-20,10);
 }
 
+module one_variant_model(
+    variant="middle",
+    open_angle=0,
+    x_offset=0,
+    show_pin=false
+) {
+    translate([x_offset,0,0]) {
+        color([0.18,0.18,0.20])
+            if (variant == "left_controller")
+                stationary_left_controller_enclosure_installed(false);
+            else if (variant == "right_power")
+                stationary_right_power_enclosure_installed();
+            else
+                stationary_middle_enclosure_installed();
+
+        if (variant == "left_controller")
+            controller_pcb_preview();
+
+        if (show_pin)
+            hinge_pin_preview();
+
+        color([0.75,0.75,0.78])
+            translate([0,hinge_axis_y,hinge_axis_z])
+                rotate([-open_angle,0,0])
+                    translate([0,-hinge_axis_y,-hinge_axis_z])
+                        moving_panel_template_installed();
+    }
+}
+
+module four_panel_assembly_model(open_angle=0) {
+    ground_preview(4*module_w);
+
+    one_variant_model("left_controller",open_angle,0,false);
+    one_variant_model("middle",open_angle,module_w,false);
+    one_variant_model("middle",open_angle,2*module_w,false);
+    one_variant_model("right_power",open_angle,3*module_w,false);
+
+    // One continuous 6 mm hinge rail across all four modules.
+    hinge_pin_preview(4*module_w-20,10);
+}
+
 // ---------- Presentation coordinates ----------
 //
 // Internal enclosure geometry deliberately uses the production panel convention:
@@ -391,9 +641,15 @@ module two_middle_assembly_model(open_angle=0) {
 // +90 degrees around X so physical +Y becomes screen/world +Z.
 // Printable part coordinates are not changed.
 
-module assembly_presentation(open_angle=0,two_middle=false) {
+module assembly_presentation(
+    open_angle=0,
+    two_middle=false,
+    four_panel=false
+) {
     rotate([90,0,0]) {
-        if (two_middle)
+        if (four_panel)
+            four_panel_assembly_model(open_angle);
+        else if (two_middle)
             two_middle_assembly_model(open_angle);
         else
             single_middle_assembly_model(open_angle);
@@ -405,6 +661,10 @@ if (!is_undef(hinge_test_part)) {
         moving_panel_template_print();
     else if (hinge_test_part == "middle_enclosure")
         stationary_middle_enclosure_print();
+    else if (hinge_test_part == "left_controller_enclosure")
+        stationary_left_controller_enclosure_print();
+    else if (hinge_test_part == "right_power_enclosure")
+        stationary_right_power_enclosure_print();
     else if (hinge_test_part == "assembly")
         assembly_presentation(0,false);
     else if (hinge_test_part == "assembly_open")
@@ -413,6 +673,10 @@ if (!is_undef(hinge_test_part)) {
         assembly_presentation(0,true);
     else if (hinge_test_part == "two_middle_assembly_open")
         assembly_presentation(75,true);
+    else if (hinge_test_part == "four_panel_assembly")
+        assembly_presentation(0,false,true);
+    else if (hinge_test_part == "four_panel_assembly_open")
+        assembly_presentation(75,false,true);
     else
         assert(false,str("Unknown hinge_test_part: ",hinge_test_part));
 }
