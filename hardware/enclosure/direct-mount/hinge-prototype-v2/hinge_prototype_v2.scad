@@ -12,9 +12,6 @@
 // - The lower 60 mm equipment cavity is completely solid.
 // - Rear ventilation exists only in the upper tapered section and uses very
 //   narrow vertical slits for a fine mesh-like appearance.
-// - Middle enclosures have lower side cheeks from the base to the 60 mm taper
-//   start. Each cheek carries the continuous 6 mm hinge rod through a 7.2 mm
-//   clearance bore; the upper sides remain open for inter-panel cabling.
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
@@ -119,10 +116,6 @@ rear_z_bottom = box_front_z + enclosure_bottom_depth; // 42.8 mm
 rear_z_top = box_front_z + enclosure_top_depth;       // 12.8 mm
 box_rear_t = 3;
 
-// Lower side-cheek thickness. Their Y extent is defined after the floor-base
-// dimensions so they can overlap the base slightly for a robust manifold union.
-lower_side_wall_t = 3;
-
 // Upper-only rear ventilation.
 //
 // Keep the complete lower 60 mm rectangular equipment cavity solid. The tapered
@@ -142,9 +135,6 @@ base_front_extension = 25;
 base_front_z = -base_front_extension;
 base_rear_z = rear_z_bottom;
 base_thickness_y = 5;
-
-lower_side_wall_y0 = base_thickness_y-0.5;
-lower_side_wall_y1 = taper_start_y;
 
 // Small rear-edge margin used only to give the sloping rear plate a printable,
 // robust edge. It does NOT form a left/right side wall.
@@ -296,50 +286,6 @@ module middle_floor_base() {
         ]);
 }
 
-module middle_lower_side_walls() {
-    difference() {
-        union() {
-            // Left lower cheek.
-            translate([
-                box_x,
-                lower_side_wall_y0,
-                box_front_z
-            ])
-                cube([
-                    lower_side_wall_t,
-                    lower_side_wall_y1-lower_side_wall_y0,
-                    rear_z_bottom-box_front_z
-                ]);
-
-            // Right lower cheek.
-            translate([
-                box_x+box_w-lower_side_wall_t,
-                lower_side_wall_y0,
-                box_front_z
-            ])
-                cube([
-                    lower_side_wall_t,
-                    lower_side_wall_y1-lower_side_wall_y0,
-                    rear_z_bottom-box_front_z
-                ]);
-        }
-
-        // One continuous clearance bore through both side cheeks, concentric
-        // with the 6 mm hinge rod. The printed clearance matches the hinge
-        // barrels at 7.2 mm.
-        translate([
-            box_x-0.5,
-            hinge_axis_y,
-            hinge_axis_z
-        ])
-            rotate([0,90,0])
-                cylinder(
-                    d=hinge_bore_d,
-                    h=box_w+1.0
-                );
-    }
-}
-
 module stationary_middle_enclosure_root(x0,len) {
     // Each stationary hinge knuckle rises directly from the floor base under
     // the pivot. In the upright print this is a continuous bed-supported root,
@@ -364,7 +310,6 @@ module stationary_middle_enclosure_installed() {
             middle_floor_base();
             middle_rear_plate();
             middle_top_link();
-            middle_lower_side_walls();
 
             for (segment=enclosure_knuckles)
                 stationary_middle_enclosure_root(segment[0],segment[1]);
@@ -381,9 +326,8 @@ module stationary_middle_enclosure_print() {
     //
     // Map installed +Y (physical up) to print +Z. Installed +Z (rearward)
     // becomes print -Y. The base is therefore a broad flat Z=0 contact patch,
-    // while the vertical 40 mm lower rear wall, lower side cheeks and the
-    // upper 40 -> 10 mm taper rise directly from the base and remain
-    // self-supporting.
+    // while the vertical 40 mm lower rear wall and the upper 40 -> 10 mm
+    // taper rise directly from the base and remain self-supporting.
     rotate([90,0,0])
         stationary_middle_enclosure_installed();
 }
