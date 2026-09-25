@@ -6,7 +6,7 @@ that owns that area.
 
 | Area | Primary paths | Pull request behaviour | Push to `master` |
 | --- | --- | --- | --- |
-| Enclosure / mechanical | `hardware/enclosure/**` | Regenerate/compare STLs, render assembly/SVG entrypoints, validate meshes and interfaces | Repeat the same validation; no deployment |
+| Enclosure / mechanical | `hardware/enclosure/**` | Run the consolidated enclosure validator: render each current production STL once, compare checked-in meshes, render assembly/SVG views, validate hinge-v2 print geometry/floating-layer islands, and validate meshes/interfaces | Repeat the same validation; no deployment |
 | CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
 | Backend / AWS | `backend/**`, `shared/**`, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
 | Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
@@ -82,6 +82,18 @@ and `shared/`, while `scripts/package-lambda.sh` flattens the selected
 runtime modules into the deployment ZIP so existing Lambda import and handler
 names remain unchanged.
 
+
+## Enclosure validation architecture
+
+`.github/workflows/generate-enclosure-stls.yml` intentionally contains only environment setup plus a call to:
+
+`hardware/enclosure/direct-mount/scripts/validate_enclosure.py`
+
+That script is the single orchestration point for current mechanical CI. Production printable wrapper SCADs are rendered **once** per run and compared with their checked-in manufacturing STLs; the same run also renders assembly/reference views, validates hinge prototype v2, and runs mesh/interface validation.
+
+The older `hardware/enclosure/direct-mount/hinge-version/` experiment is retained for reference but is no longer rebuilt on every enclosure change. The active hinged design is `hinge-prototype-v2/`.
+
+Hinge-v2 validation includes a coarse voxel/layer **floating-island proxy**. It rejects an elevated XY slice component that appears without nearby material in the preceding slice. This targets detached starts such as the roof cantilever found by Bambu Studio, but it is not a replacement for final slicing in Bambu Studio.
 
 ## Workflow-generated commits and approval loops
 
