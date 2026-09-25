@@ -28,18 +28,14 @@ This revision deliberately models the **two middle enclosure positions** of the 
 
 The printable middle enclosure is identical for both centre panels, so print the same STL twice.
 
-### Lower side walls, cable corridor and ventilation
+### Open cable sides and ventilation
 
-Each middle enclosure now has a **3 mm lower side wall/cheek on both sides**.
+The middle enclosure has **no fixed left/right side walls above the 5 mm floor base**.
 
-The side cheeks:
+That open-side geometry is required for two reasons:
 
-- overlap the 5 mm floor base so they are part of the same printed solid;
-- rise only to the **60 mm taper start**;
-- span the full 40 mm-deep lower equipment cavity;
-- contain a **7.2 mm pass-through bore** concentric with the continuous **6 mm hinge rod**.
-
-Above 60 mm, both side planes remain open so HUB75 ribbons and power cables can pass directly between neighbouring panel cavities without being trapped by a full-height wall.
+- the LED/template must be able to swivel through its hinge arc without colliding with stationary side walls;
+- HUB75 ribbons and power cables need to pass directly between neighbouring panel cavities.
 
 The rear plate provides the main enclosure structure.
 
@@ -103,8 +99,7 @@ That orientation is intentional:
 - the top roof ramps forward to meet the LED-template rear plane;
 - the hinge roots rise directly from the base;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
-- the lower side cheeks support the base/rod region up to 60 mm;
-- both left/right sides remain open above 60 mm for the cable corridor.
+- both left/right side planes remain open above the floor base so the moving LED/template can swing freely and cables can cross between modules.
 
 Expected envelope is approximately:
 
@@ -152,10 +147,10 @@ The SCAD files are the source of truth. The STL files are checked in for direct 
 2. Confirm neither reports floating regions / floating cantilevers.
 3. Print the moving template and reconfirm its fit on a real LED panel.
 4. Print **two copies** of the middle stationary enclosure.
-5. Place them one panel pitch apart and confirm the lower side cheeks align without collision.
-6. Pass the 6 mm rod through the 7.2 mm side-wall bores and hinge barrels.
-7. Check that cable bundles can still pass freely across the open side seam above the 60 mm side walls.
-8. Fit the moving template(s) and verify the hinge motion.
+5. Place them one panel pitch apart and confirm the open side planes leave the hinge sweep unobstructed.
+6. Insert the 6 mm rod through the hinge barrels.
+7. Check that cable bundles can pass freely across the open side seam.
+8. Fit the moving template(s) and verify the full hinge motion without side-wall collision.
 9. Verify the enclosure/base remains stationary while the LED/template opens forward/down.
 10. Check the 20 mm closed floor clearance with the real LED-panel thickness.
 11. Check stability with the moving panel fully open.
