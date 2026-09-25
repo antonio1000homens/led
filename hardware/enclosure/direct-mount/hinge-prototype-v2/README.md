@@ -14,9 +14,9 @@ The stationary enclosure reaches the floor and provides the support footprint. I
 
 Prototype defaults:
 
-- LED/template bottom edge: **15 mm above ground**
+- LED/template bottom edge: **20 mm above ground**
 - hinge barrel OD: **14 mm**
-- hinge axis: **22 mm above ground**
+- hinge axis: **27 mm above ground**
 - hinge axis depth: **z=9 mm behind the LED/template front plane**
 - floor-base forward extension: **25 mm in front of the LED plane**
 - floor-base thickness: **5 mm**
@@ -35,7 +35,7 @@ This revision therefore:
 - makes the enclosure/base the stationary structure;
 - rotates the panel/template forward and down;
 - adds the requested **2–3 cm floor base** to the enclosure instead;
-- holds the panel/template approximately **1.5 cm above the floor** when closed.
+- holds the panel/template approximately **2 cm above the floor** when closed.
 
 ## Verified panel geometry
 
@@ -67,7 +67,7 @@ The SCAD files are the source of truth. The STL files are intentionally checked 
 - printed bore: **7.2 mm**
 - printed barrel OD: **14 mm**
 - nominal axial knuckle clearance: **1.0 mm**
-- closed hinge axis: **y=22 mm, z=9 mm**
+- closed hinge axis: **y=27 mm, z=9 mm**
 
 The moving and stationary knuckles alternate along X and continue to avoid the lower panel screw/locator columns. The wider central service gap around the lower-centre panel screw is retained.
 
@@ -80,7 +80,7 @@ It extends from the back of the enclosure to **25 mm in front of the LED/templat
 With the display closed:
 
 - the enclosure/base sits on the ground;
-- the LED/template lower edge is 15 mm above ground;
+- the LED/template lower edge is 20 mm above ground;
 - the hinge barrel also remains above ground;
 - the moving panel does not need a lower support lip.
 
@@ -108,7 +108,7 @@ The wrapper places the large rear plate on the build plate. The 25 mm forward fl
 
 Expected prototype print envelope is approximately:
 
-- **255 × 142.5 × 51.8 mm**
+- **255 × 147.5 × 51.8 mm**
 
 This is still much lower-risk than standing the 255 mm enclosure vertically.
 
@@ -121,10 +121,10 @@ Supports should not be required by the intended geometry.
 3. Print the moving template and confirm the unchanged six mounting holes and locator clearances still fit the real LED panel.
 4. Print the stationary enclosure/base.
 5. Interleave both hinge halves and insert the real 6 mm rod.
-6. Close the display and confirm the enclosure/base carries the assembly while the LED/template remains roughly 15 mm above the floor.
+6. Close the display and confirm the enclosure/base carries the assembly while the LED/template remains roughly 20 mm above the floor.
 7. Open the LED/template forward/down to 90° and confirm there is no interference from the base, enclosure lower wall or hinge roots.
 8. Check that the 25 mm forward base gives enough stability.
-9. If required, tune `ground_clearance` between roughly 10–20 mm and `base_front_extension` between 20–30 mm after the physical test.
+9. If required, tune `ground_clearance` down from 20 mm if the real panel thickness permits and `base_front_extension` between 20–30 mm after the physical test.
 10. Only after this motion is proven should PSU/controller mounts, cable openings, ventilation and a top latch be added.
 
 PETG is preferred for repeated hinge testing. PLA is acceptable for a dimensional-only print.
