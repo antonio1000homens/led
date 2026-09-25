@@ -197,6 +197,10 @@ def main() -> None:
         "Legacy hinge-version geometry is retained for reference but is not "
         "part of default CI."
     )
+    print(
+        "Bambu Studio remains the final authority for slicer-specific support "
+        "and floating-cantilever diagnostics."
+    )
 
 
 if __name__ == "__main__":
