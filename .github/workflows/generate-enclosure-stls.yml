@@ -29,6 +29,12 @@ on:
 permissions:
   contents: read
 
+# Mechanical validation is relatively expensive. A newer commit on the same
+# branch/PR makes an older run obsolete, so cancel the superseded run.
+concurrency:
+  group: enclosure-validate-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
