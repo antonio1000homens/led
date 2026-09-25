@@ -1,0 +1,7 @@
+# Copy this file to the root of the CIRCUITPY drive as settings.toml.
+# Keep the real values on the board only; never commit that file.
+CIRCUITPY_WIFI_SSID="your-wifi-name"
+CIRCUITPY_WIFI_PASSWORD="your-wifi-password"
+CIRCUITPY_WEB_API_PASSWORD="choose-a-unique-local-password"
+CIRCUITPY_WEB_API_PORT=80
+CIRCUITPY_WEB_INSTANCE_NAME="matrixportal-s3"

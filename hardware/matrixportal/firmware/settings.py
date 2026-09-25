@@ -4,6 +4,16 @@ Copy this file to settings_local.py for a physical board and override the
 display/provider/network values there. Never commit credentials.
 """
 
+try:
+    import os
+except ImportError:  # pragma: no cover - CircuitPython always provides os
+    os = None
+
+
+def _web_workflow_value(name):
+    """Read a CircuitPython settings.toml value when available."""
+    return os.getenv(name, "") if os is not None else ""
+
 DISPLAY_BACKEND = "fixture"  # fixture or matrix
 SCREEN_SOURCE = "fixture"  # fixture or api
 SCREEN_API_URL = "http://127.0.0.1:8000"
@@ -27,5 +37,5 @@ MQTT_PORT = 1883
 MQTT_USERNAME = ""
 MQTT_PASSWORD = ""
 
-WIFI_SSID = ""
-WIFI_PASSWORD = ""
+WIFI_SSID = _web_workflow_value("CIRCUITPY_WIFI_SSID")
+WIFI_PASSWORD = _web_workflow_value("CIRCUITPY_WIFI_PASSWORD")

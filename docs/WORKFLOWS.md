@@ -7,7 +7,7 @@ that owns that area.
 | Area | Primary paths | Pull request behaviour | Push to `master` |
 | --- | --- | --- | --- |
 | Enclosure / mechanical | `hardware/enclosure/**` | Run the consolidated enclosure validator: render each current production STL once, compare checked-in meshes, render assembly/SVG views, validate hinge-v2 print geometry/floating-layer islands, and validate meshes/interfaces | Repeat the same validation; no deployment |
-| CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
+| CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Application files may be uploaded to a provisioned MatrixPortal over trusted-LAN Web Workflow; CircuitPython UF2 firmware still uses USB |
 | Backend / AWS | `backend/**`, `shared/**`, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
 | Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
 | Static web | `simulator/**`, `scripts/deploy-static.sh` | Run simulator/admin regression tests | Upload simulator/admin assets and invalidate CloudFront |
