@@ -231,6 +231,7 @@ def main() -> None:
             f"{template_dims[0]:.1f} x {template_dims[1]:.1f} x {template_dims[2]:.1f} mm"
         )
 
+
         for name, scad_name, max_width in enclosure_specs:
             enclosure = generated_dir / PARTS[scad_name]
             enclosure_dims = assert_on_bed(name, enclosure)
@@ -263,11 +264,6 @@ def main() -> None:
             )
 
             assert_no_floating_layer_islands(name, enclosure)
-
-        assert_no_floating_layer_islands(
-            "middle stationary enclosure",
-            enclosure,
-        )
 
         for preview in (
             "00_CLOSED_ASSEMBLY.scad",
