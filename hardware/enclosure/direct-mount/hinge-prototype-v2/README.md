@@ -175,9 +175,9 @@ The four-panel preview uses one continuous 6 mm rod across the complete enclosur
 - `04_right_power_end_enclosure_HINGE_TEST.scad`
 - `stl/04_right_power_end_enclosure_HINGE_TEST.stl`
 
-The SCAD files are the source of truth. The STL files are checked in for direct Bambu Studio use.
+The SCAD files are the source of truth. The STL files are checked in for direct Bambu Studio use and are regenerated/compared by `Enclosure / Validate`; a PR fails if any STL is stale relative to its SCAD entrypoint.
 
-`Enclosure / Validate` regenerates both STLs, compares their triangle geometry against the checked-in files, checks the intended print envelopes and parses all four assembly previews.
+The validator checks all four printable variants, their intended print envelopes, the floating-layer proxy for stationary enclosures, and all six assembly previews.
 
 ## Physical test sequence
 
