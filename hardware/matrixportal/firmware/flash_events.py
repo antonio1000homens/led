@@ -57,7 +57,12 @@ def parse_flash_event(payload, now=None):
         return None
     event_id = payload.get("id")
     label = payload.get("label")
-    if not isinstance(event_id, str) or not event_id.strip() or payload.get("type") != "reminder":
+    if (
+        not isinstance(event_id, str)
+        or not event_id.strip()
+        or payload.get("type") != "reminder"
+        or payload.get("event") != "due"
+    ):
         return None
     if not isinstance(label, str) or not label.strip():
         return None

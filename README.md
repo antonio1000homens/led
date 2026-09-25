@@ -36,7 +36,7 @@ Transient flash events are designed as a separate path: Home Assistant will
 publish normalized reminder events to MQTT, and the MatrixPortal will briefly
 show them before resuming the paused normal rotation. The MQTT path is
 implemented but deliberately disabled in the checked-in firmware while Home
-Assistant issue #3 and the broker safety review are incomplete. No broker
+Assistant issue #4 and the broker safety review are incomplete. No broker
 credentials are committed and no DHCP reservation is required.
 
 The MatrixPortal does not hold National Rail, Todoist, Queue-Times or weather-provider credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.

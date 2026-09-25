@@ -163,7 +163,7 @@ circup install -r requirements.txt
 The MQTT dependency is included for the issue #74 listener, but the listener
 is deliberately dormant. `firmware/settings.py` keeps both `MQTT_ENABLED` and
 `MQTT_ENABLE_EXPERIMENTAL` false, with an empty broker setting. Do not copy
-broker credentials or enable either gate until Home Assistant issue #3 and the
+broker credentials or enable either gate until Home Assistant issue #4 and the
 broker path have passed review.
 
 Flash enablement and display duration are runtime values from `/api/screens`;

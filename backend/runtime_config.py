@@ -303,7 +303,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 ),
             },
             "flash": {
-                # This is deliberately disabled until Home Assistant issue #3
+                # This is deliberately disabled until Home Assistant issue #4
                 # and the broker path have been reviewed and enabled together.
                 "enabled": False,
                 "screen_duration_seconds": _int_env(
