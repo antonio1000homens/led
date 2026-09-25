@@ -6,7 +6,8 @@
 // - This prototype models a MIDDLE enclosure: both left/right sides stay open
 //   so HUB75 and power cables can pass directly between neighbouring panels.
 // - The stationary enclosure tapers from 40 mm depth at the bottom to 10 mm
-//   depth at the top.
+//   depth at the top, then a self-supporting top roof links forward to the
+//   rear of the closed LED-panel template.
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
@@ -117,6 +118,21 @@ base_thickness_y = 5;
 rear_plate_start_y = base_thickness_y-0.5;
 rear_plate_top_band = 1.5;
 
+// Top closure/landing.
+//
+// The verified moving template is ~2 mm thick at its upper band. Bring the
+// stationary enclosure forward to 0.8 mm behind that rear surface so the two
+// parts visually/structurally close together without binding during rotation.
+//
+// A 12 mm vertical drop over the 10 mm enclosure depth creates a self-supporting
+// ramp in the upright print instead of a flat 10 mm top cantilever.
+template_back_z = 2.0;
+top_template_clearance = 0.8;
+top_link_front_z = template_back_z + top_template_clearance; // 2.8 mm
+top_link_drop = 12;
+top_link_front_h = 3;
+top_link_rear_h = 3;
+
 module middle_rear_plate() {
     // Hull two thin full-width strips. This creates a 3 mm-ish sloping rear
     // plate whose distance behind the LED changes continuously from 40 to 10 mm.
@@ -136,6 +152,30 @@ module middle_rear_plate() {
             rear_z_top-box_rear_t
         ])
             cube([box_w,rear_plate_top_band,box_rear_t]);
+    }
+}
+
+module middle_top_link() {
+    // Full-width ramp/roof joining the 10 mm-deep top of the tapered rear
+    // enclosure to the rear of the moving LED template.
+    //
+    // Both LEFT and RIGHT sides remain open below this roof.
+    hull() {
+        // Front landing: sits just behind the closed template's upper band.
+        translate([
+            box_x,
+            box_top_y-top_link_drop,
+            top_link_front_z
+        ])
+            cube([box_w,top_link_front_h,1.8]);
+
+        // Rear landing: merges directly into the top of the sloping rear plate.
+        translate([
+            box_x,
+            box_top_y-top_link_rear_h,
+            rear_z_top-box_rear_t
+        ])
+            cube([box_w,top_link_rear_h,box_rear_t]);
     }
 }
 
@@ -173,6 +213,7 @@ module stationary_middle_enclosure_installed() {
         union() {
             middle_floor_base();
             middle_rear_plate();
+            middle_top_link();
 
             for (segment=enclosure_knuckles)
                 stationary_middle_enclosure_root(segment[0],segment[1]);
