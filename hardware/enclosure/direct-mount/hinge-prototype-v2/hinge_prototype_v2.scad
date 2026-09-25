@@ -5,9 +5,12 @@
 // - The LED panel + mounting template is the moving leaf and opens forward/down.
 // - This prototype models a MIDDLE enclosure: both left/right sides stay open
 //   so HUB75 and power cables can pass directly between neighbouring panels.
-// - The stationary enclosure tapers from 40 mm depth at the bottom to 10 mm
-//   depth at the top, then a self-supporting top roof links forward to the
-//   rear of the closed LED-panel template.
+// - The stationary enclosure stays orthogonal at 40 mm depth for the first
+//   60 mm above the floor, then tapers to 10 mm depth at the top.
+// - A self-supporting top roof links forward to the rear of the closed
+//   LED-panel template.
+// - Rear ventilation uses narrow vertical slots so the upright print only
+//   needs to bridge short slot widths rather than long horizontal gaps.
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
@@ -100,12 +103,28 @@ box_h = box_top_y-box_y;
 
 box_front_z = 2.8; // just behind the 2 mm moving template
 
-// User-requested taper for the two middle enclosures.
+// User-requested profile for the two middle enclosures.
+//
+// The lower rear wall is orthogonal/vertical at the full 40 mm depth until
+// 60 mm above the floor. Only above that point does it begin tapering toward
+// the 10 mm top depth.
 enclosure_bottom_depth = 40;
 enclosure_top_depth = 10;
+taper_start_y = 60;
 rear_z_bottom = box_front_z + enclosure_bottom_depth; // 42.8 mm
 rear_z_top = box_front_z + enclosure_top_depth;       // 12.8 mm
 box_rear_t = 3;
+
+// Rear ventilation slots.
+// Narrow vertical openings are deliberately used so each slot only presents
+// a short printable bridge at its top edge in the upright orientation.
+vent_side_margin = 16;
+vent_slot_w = 9;
+vent_pitch = 22;
+lower_vent_y = 16;
+lower_vent_h = 32;
+upper_vent_y = 72;
+upper_vent_h = 48;
 
 // Floor base supports the stationary enclosure.
 base_front_extension = 25;
@@ -133,25 +152,78 @@ top_link_drop = 12;
 top_link_front_h = 3;
 top_link_rear_h = 3;
 
-module middle_rear_plate() {
-    // Hull two thin full-width strips. This creates a 3 mm-ish sloping rear
-    // plate whose distance behind the LED changes continuously from 40 to 10 mm.
-    //
-    // Both X sides remain completely open in front of this plate.
-    hull() {
+module middle_rear_plate_solid() {
+    union() {
+        // Orthogonal lower section: full 40 mm depth from the floor/base region
+        // up to exactly 60 mm above the floor.
         translate([
             box_x,
             rear_plate_start_y,
             rear_z_bottom-box_rear_t
         ])
-            cube([box_w,1.5,box_rear_t]);
+            cube([
+                box_w,
+                taper_start_y-rear_plate_start_y,
+                box_rear_t
+            ]);
+
+        // Tapered upper section: begins only at 60 mm and reduces continuously
+        // from 40 mm depth to the 10 mm top depth.
+        hull() {
+            translate([
+                box_x,
+                taper_start_y-1.0,
+                rear_z_bottom-box_rear_t
+            ])
+                cube([box_w,2.0,box_rear_t]);
+
+            translate([
+                box_x,
+                box_top_y-rear_plate_top_band,
+                rear_z_top-box_rear_t
+            ])
+                cube([box_w,rear_plate_top_band,box_rear_t]);
+        }
+    }
+}
+
+module rear_ventilation_cutters() {
+    // Cut fully through the rear wall/taper depth. Two vertically separated
+    // slot zones leave a strong horizontal structural band around the 60 mm
+    // transition where the rear wall changes from orthogonal to tapered.
+    for (x=[
+        box_x+vent_side_margin :
+        vent_pitch :
+        box_x+box_w-vent_side_margin-vent_slot_w
+    ]) {
+        translate([
+            x,
+            lower_vent_y,
+            rear_z_top-box_rear_t-2
+        ])
+            cube([
+                vent_slot_w,
+                lower_vent_h,
+                rear_z_bottom-rear_z_top+box_rear_t+4
+            ]);
 
         translate([
-            box_x,
-            box_top_y-rear_plate_top_band,
-            rear_z_top-box_rear_t
+            x,
+            upper_vent_y,
+            rear_z_top-box_rear_t-2
         ])
-            cube([box_w,rear_plate_top_band,box_rear_t]);
+            cube([
+                vent_slot_w,
+                upper_vent_h,
+                rear_z_bottom-rear_z_top+box_rear_t+4
+            ]);
+    }
+}
+
+module middle_rear_plate() {
+    difference() {
+        middle_rear_plate_solid();
+        rear_ventilation_cutters();
     }
 }
 
@@ -230,7 +302,8 @@ module stationary_middle_enclosure_print() {
     //
     // Map installed +Y (physical up) to print +Z. Installed +Z (rearward)
     // becomes print -Y. The base is therefore a broad flat Z=0 contact patch,
-    // while the 40 -> 10 mm rear taper rises gradually and self-supports.
+    // while the vertical 40 mm lower rear wall and the upper 40 -> 10 mm
+    // taper rise directly from the base and remain self-supporting.
     rotate([90,0,0])
         stationary_middle_enclosure_installed();
 }
