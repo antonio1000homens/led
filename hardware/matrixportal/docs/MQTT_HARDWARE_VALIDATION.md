@@ -224,6 +224,30 @@ Broker outage/recovery hardware smoke test on 2026-09-25:
   board subscribed again and fetched the public API. The temporary broker was
   stopped; the shared Home Assistant broker was never interrupted.
 
+Synthetic Home Assistant due-time to physical-board test on 2026-09-25:
+
+- Started an isolated Home Assistant Core 2026.9.3 instance with the reminder
+  package from Home Assistant PR #5 (`41a2063`) and its native MQTT integration
+  pointed at a temporary authenticated laptop broker. The physical board was
+  temporarily pointed at the same broker; its normal public screen API stayed
+  unchanged.
+- Set a synthetic reminder helper for a future due time through Home
+  Assistant's `input_datetime.set_datetime` service. Home Assistant loaded the
+  MQTT config entry, the due-time automation fired with ID
+  `issue74-local-ha-e2e-1`, and the automation cleared its active schedule.
+- The physical board received the resulting MQTT event and logged
+  `FLASH START id=issue74-local-ha-e2e-1` followed by `FLASH END`; it then
+  resumed normal rendering. This exercises the actual Home Assistant
+  due-time automation, MQTT integration, broker, and physical board, but uses
+  a synthetic reminder rather than Alexa Devices data.
+- The test does not validate Alexa sensor discovery or real reminder label
+  attributes, Home Assistant restart/recovery, or a real recurring Alexa
+  reminder. Those acceptance checks remain open.
+- Restored the board's `MQTT_BROKER=windsor-app2.internal.alf1000.uk` and
+  verified a new subscription plus a successful fetch from the public screen
+  API. Stopped the temporary broker; the shared Home Assistant broker was
+  never interrupted.
+
 Supplemental idle observations on 2026-09-25 after the parser update:
 
 - MQTT enabled, no reminder traffic: at telemetry elapsed 40 seconds, the
