@@ -32,6 +32,10 @@ Validate only these questions first:
 - `00_CLOSED_ASSEMBLY.scad` — closed assembly preview.
 - `00_OPEN_ASSEMBLY.scad` — approximately 70° open assembly preview.
 - `hinge_prototype_v2.scad` — source geometry.
+- `stl/01_fixed_template_HINGE_TEST.stl` — generated printable fixed half.
+- `stl/02_moving_enclosure_HINGE_TEST.stl` — generated printable moving half.
+
+The SCAD files are the source of truth. The STL files are intentionally checked in for direct printing and are regenerated/compared by `Enclosure / Validate`; a PR fails if an STL is stale relative to its SCAD entrypoint.
 
 ## Hinge dimensions
 
