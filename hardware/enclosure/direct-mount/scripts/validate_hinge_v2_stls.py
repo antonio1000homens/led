@@ -264,6 +264,11 @@ def main() -> None:
 
             assert_no_floating_layer_islands(name, enclosure)
 
+        assert_no_floating_layer_islands(
+            "middle stationary enclosure",
+            enclosure,
+        )
+
         for preview in (
             "00_CLOSED_ASSEMBLY.scad",
             "00_OPEN_ASSEMBLY.scad",
