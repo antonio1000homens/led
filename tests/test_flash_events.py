@@ -1,7 +1,11 @@
 import unittest
 
 from flash_events import FlashState, parse_flash_event
-from mqtt_client import FlashMqttClient
+from mqtt_client import (
+    FlashMqttClient,
+    MQTT_LOOP_INTERVAL_SECONDS,
+    MQTT_SOCKET_TIMEOUT_SECONDS,
+)
 
 
 EVENT = {
@@ -165,7 +169,7 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(0)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
         self.assertEqual(received, [json_payload])
-        self.assertEqual(client.loop_timeouts, [0.1])
+        self.assertEqual(client.loop_timeouts, [MQTT_SOCKET_TIMEOUT_SECONDS])
 
     def test_idle_loop_is_bounded_but_not_run_on_every_frame(self):
         client = FakeMqtt()
@@ -173,7 +177,7 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(0)
         transport.poll(0.1)
         self.assertEqual(client.loop_calls, 1)
-        transport.poll(0.5)
+        transport.poll(MQTT_LOOP_INTERVAL_SECONDS)
         self.assertEqual(client.loop_calls, 2)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
 

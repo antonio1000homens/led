@@ -4,7 +4,8 @@ This module is intentionally not imported unless both safety flags in
 ``settings.py`` are enabled. It contains no credentials or broker defaults.
 """
 
-MQTT_LOOP_INTERVAL_SECONDS = 0.5
+MQTT_LOOP_INTERVAL_SECONDS = 2.0
+MQTT_SOCKET_TIMEOUT_SECONDS = 0.01
 
 
 class FlashMqttClient:
@@ -39,7 +40,7 @@ class FlashMqttClient:
                     username=self.settings.MQTT_USERNAME or None,
                     password=self.settings.MQTT_PASSWORD or None,
                     socket_pool=pool,
-                    socket_timeout=0.1,
+                    socket_timeout=MQTT_SOCKET_TIMEOUT_SECONDS,
                 )
             else:
                 self.client = self.mqtt_factory(self.settings)
@@ -74,11 +75,10 @@ class FlashMqttClient:
         if now < self.next_loop:
             return
         try:
-            # MiniMQTT requires the loop timeout to be at least the socket
-            # timeout configured above. Service at sub-second cadence so
-            # events and keepalive packets are prompt without blocking every
-            # animation frame on an otherwise idle socket.
-            self.client.loop(timeout=0.1)
+            # Keep MiniMQTT's blocking read below one 8 FPS display frame.
+            # Polling every two seconds still keeps reminder delivery prompt and
+            # services the broker keepalive while sharply limiting idle cost.
+            self.client.loop(timeout=MQTT_SOCKET_TIMEOUT_SECONDS)
             self.next_loop = now + MQTT_LOOP_INTERVAL_SECONDS
         except Exception as error:
             self._discard_client()
