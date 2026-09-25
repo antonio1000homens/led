@@ -6,7 +6,7 @@
 //   like an oven door.
 // - The stationary enclosure has a floor-standing base that projects 25 mm in
 //   front of the LED plane.
-// - In the closed position the LED/template bottom edge is 15 mm above the
+// - In the closed position the LED/template bottom edge is 20 mm above the
 //   ground; it is supported by the enclosure/base rather than by a template lip.
 // - The moving template has only LOCAL hinge-root reinforcement. There is no
 //   full-width lower tongue/lip to foul the opening sweep.
@@ -27,10 +27,10 @@ axial_gap = 1.0;
 // Closed installed geometry.
 //
 // y=0 is the ground plane.
-// The real panel/template begins 15 mm above ground.
+// The real panel/template begins 20 mm above ground.
 // A 14 mm barrel then puts its centre 7 mm above that lower panel edge.
-ground_clearance = 15;
-hinge_axis_y = ground_clearance + hinge_r; // 22 mm above ground
+ground_clearance = 20;
+hinge_axis_y = ground_clearance + hinge_r; // 27 mm above ground
 
 // z=0 is the LED/template front plane; +Z is behind the LED board.
 // A 14 mm barrel centred at z=9 occupies z=2..16 mm, entirely behind the
