@@ -352,6 +352,9 @@ jobs:
           openscad -o "$generated/hinge_version_closed_assembly.csg" \
             "$hinge_dir/00_hinge_version_CLOSED_ASSEMBLY.scad"
 
+      - name: Validate support-free hinge prototype v2
+        run: python3 hardware/enclosure/direct-mount/scripts/validate_hinge_v2_stls.py
+
       - name: Validate mesh health and nominal assembly interfaces
         shell: bash
         run: |
