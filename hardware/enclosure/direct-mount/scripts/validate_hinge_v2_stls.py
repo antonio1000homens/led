@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parents[4]
 HINGE_DIR = ROOT / "hardware/enclosure/direct-mount/hinge-prototype-v2"
 
 PARTS = {
-    "01_fixed_template_HINGE_TEST.scad": "01_fixed_template_HINGE_TEST.stl",
-    "02_moving_enclosure_HINGE_TEST.scad": "02_moving_enclosure_HINGE_TEST.stl",
+    "01_moving_panel_template_HINGE_TEST.scad": "01_moving_panel_template_HINGE_TEST.stl",
+    "02_stationary_enclosure_HINGE_TEST.scad": "02_stationary_enclosure_HINGE_TEST.stl",
 }
 
 
@@ -59,6 +59,16 @@ def bounds(path: Path) -> tuple[tuple[float, float, float], tuple[float, float, 
     return tuple(mins), tuple(maxs)
 
 
+def assert_on_bed(name: str, path: Path) -> tuple[float, float, float]:
+    mins, maxs = bounds(path)
+    dims = tuple(maxs[i] - mins[i] for i in range(3))
+
+    if abs(mins[2]) > 0.05:
+        raise SystemExit(f"{name} does not sit on print Z=0: min_z={mins[2]:.3f}")
+
+    return dims
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         generated_dir = Path(tmp)
@@ -83,23 +93,37 @@ def main() -> None:
 
             print(f"OK: {scad_name} -> stl/{stl_name}")
 
-        moving = generated_dir / PARTS["02_moving_enclosure_HINGE_TEST.scad"]
-        mins, maxs = bounds(moving)
-        dims = tuple(maxs[i] - mins[i] for i in range(3))
+        template = generated_dir / PARTS["01_moving_panel_template_HINGE_TEST.scad"]
+        template_dims = assert_on_bed("moving panel template", template)
 
-        if abs(mins[2]) > 0.05:
+        # The moving panel leaf must remain a flat-print part without the old
+        # full-width support tongue. Local hinge roots may rise behind it, but
+        # the complete part should stay compact in Z.
+        if template_dims[2] > 18.0:
             raise SystemExit(
-                f"moving enclosure does not sit on print Z=0: min_z={mins[2]:.3f}"
+                "moving panel template gained excessive rear/lip geometry: "
+                f"height={template_dims[2]:.1f} mm (expected <= 18 mm)"
             )
-        if dims[2] > 30.0:
+
+        enclosure = generated_dir / PARTS["02_stationary_enclosure_HINGE_TEST.scad"]
+        enclosure_dims = assert_on_bed("stationary enclosure", enclosure)
+
+        # Rear-face-down print includes the 25 mm front floor-base extension,
+        # so roughly 52 mm build height is expected. Guard against accidental
+        # reversion to a ~255 mm side-standing print.
+        if enclosure_dims[2] > 60.0:
             raise SystemExit(
-                "moving enclosure print orientation regressed: "
-                f"height={dims[2]:.1f} mm (expected <= 30 mm)"
+                "stationary enclosure print orientation regressed: "
+                f"height={enclosure_dims[2]:.1f} mm (expected <= 60 mm)"
             )
 
         print(
-            "OK: moving enclosure print bounds "
-            f"{dims[0]:.1f} x {dims[1]:.1f} x {dims[2]:.1f} mm"
+            "OK: moving template print bounds "
+            f"{template_dims[0]:.1f} x {template_dims[1]:.1f} x {template_dims[2]:.1f} mm"
+        )
+        print(
+            "OK: stationary enclosure print bounds "
+            f"{enclosure_dims[0]:.1f} x {enclosure_dims[1]:.1f} x {enclosure_dims[2]:.1f} mm"
         )
 
         for preview in ("00_CLOSED_ASSEMBLY.scad", "00_OPEN_ASSEMBLY.scad"):
