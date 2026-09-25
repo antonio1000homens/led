@@ -174,6 +174,21 @@ a payload with fractional-second ISO 8601 timestamps also flashed and ended
 normally. These focused runs verify event handling but are not matched
 performance samples.
 
+Local safety-gate toggle smoke test on 2026-09-25:
+
+- With both local MQTT gates false for 100 seconds, the board continued to
+  fetch and render HTTP screens; the observed matrix samples had zero HUB75
+  refresh failures. No MQTT subscription was made. The workload had no active
+  Todoist marquee content.
+- After restoring both local MQTT gates to true, the board logged a new QoS 1
+  subscription. A fresh due event received PUBACK and produced `FLASH START`
+  and `FLASH END`; HTTP screen fetches continued during the flash.
+- This verifies board-local bootstrap gating and re-subscription after a
+  CircuitPython reload. It does not exercise the runtime flash controls from
+  `/api/screens`, simulate a broker outage, or provide a matched performance
+  comparison. The enabled run later included Todoist marquee activity, so its
+  timing is not comparable to the disabled run.
+
 Supplemental idle observations on 2026-09-25 after the parser update:
 
 - MQTT enabled, no reminder traffic: at telemetry elapsed 40 seconds, the
