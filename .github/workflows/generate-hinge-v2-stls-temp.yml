@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- hardware/enclosure/direct-mount/hinge-prototype-v2/stl; then
+          if [ -z "$(git status --porcelain -- hardware/enclosure/direct-mount/hinge-prototype-v2/stl)" ]; then
             echo "Generated STL files are already current."
             exit 0
           fi
