@@ -8,6 +8,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import numpy as np
+import trimesh
+from scipy import ndimage
+
 
 ROOT = Path(__file__).resolve().parents[4]
 HINGE_DIR = ROOT / "hardware/enclosure/direct-mount/hinge-prototype-v2"
@@ -71,6 +75,102 @@ def assert_on_bed(name: str, path: Path) -> tuple[float, float, float]:
     return dims
 
 
+def assert_no_floating_layer_islands(
+    name: str,
+    path: Path,
+    *,
+    pitch_mm: float = 1.0,
+    support_radius_voxels: int = 2,
+    min_component_voxels: int = 4,
+) -> None:
+    """Reject elevated XY slice islands with no support from the layer below.
+
+    This is deliberately a coarse slicer proxy rather than a promise that a
+    particular Bambu profile needs no supports. It targets the failure mode we
+    actually saw: a roof/landing whose first printable slice appeared detached
+    from the already-printed enclosure.
+
+    A component is considered supported when any voxel in that XY component is
+    within support_radius_voxels of occupied material in the preceding Z slice.
+    This allows ordinary sloped overhangs and short bridges while rejecting a
+    genuinely new floating island.
+    """
+
+    loaded = trimesh.load_mesh(path, process=True)
+    if isinstance(loaded, trimesh.Scene):
+        if not loaded.geometry:
+            raise SystemExit(f"{name}: mesh scene contains no geometry")
+        loaded = trimesh.util.concatenate(tuple(loaded.geometry.values()))
+
+    if not isinstance(loaded, trimesh.Trimesh) or loaded.is_empty:
+        raise SystemExit(f"{name}: could not load a non-empty mesh")
+
+    voxels = loaded.voxelized(pitch_mm).fill()
+    matrix = np.asarray(voxels.matrix, dtype=bool)
+
+    if matrix.ndim != 3 or not matrix.any():
+        raise SystemExit(f"{name}: voxelization produced no printable volume")
+
+    occupied_layers = np.flatnonzero(matrix.any(axis=(0, 1)))
+    if occupied_layers.size == 0:
+        raise SystemExit(f"{name}: no occupied Z layers after voxelization")
+
+    first_layer = int(occupied_layers[0])
+    support_structure = np.ones(
+        (2 * support_radius_voxels + 1, 2 * support_radius_voxels + 1),
+        dtype=bool,
+    )
+    component_structure = np.ones((3, 3), dtype=int)
+
+    unsupported = []
+    for z_index in occupied_layers:
+        z_index = int(z_index)
+        if z_index <= first_layer:
+            continue
+
+        current = matrix[:, :, z_index]
+        previous = matrix[:, :, z_index - 1]
+        supported_xy = ndimage.binary_dilation(
+            previous,
+            structure=support_structure,
+        )
+
+        labels, component_count = ndimage.label(
+            current,
+            structure=component_structure,
+        )
+
+        for component_id in range(1, component_count + 1):
+            component = labels == component_id
+            size = int(component.sum())
+            if size < min_component_voxels:
+                continue
+            if np.any(component & supported_xy):
+                continue
+
+            unsupported.append((z_index, size))
+            if len(unsupported) >= 5:
+                break
+
+        if len(unsupported) >= 5:
+            break
+
+    if unsupported:
+        detail = ", ".join(
+            f"z-index {z} ({size} voxels)" for z, size in unsupported
+        )
+        raise SystemExit(
+            f"{name} contains elevated layer component(s) with no support "
+            f"from the preceding layer at {pitch_mm:.1f} mm voxel pitch: {detail}. "
+            "This is a floating-region proxy; inspect the STL in Bambu Studio."
+        )
+
+    print(
+        f"OK: {name} has no detached elevated XY slice components "
+        f"({pitch_mm:.1f} mm floating-layer proxy)"
+    )
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         generated_dir = Path(tmp)
@@ -129,6 +229,11 @@ def main() -> None:
         print(
             "OK: middle enclosure print bounds "
             f"{enclosure_dims[0]:.1f} x {enclosure_dims[1]:.1f} x {enclosure_dims[2]:.1f} mm"
+        )
+
+        assert_no_floating_layer_islands(
+            "middle stationary enclosure",
+            enclosure,
         )
 
         for preview in (
