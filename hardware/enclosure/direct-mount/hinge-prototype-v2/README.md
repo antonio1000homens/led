@@ -63,7 +63,9 @@ At the top, the enclosure now continues forward with a **full-width top link/roo
 
 The top link stops **0.8 mm behind the template's rear surface** in the closed position. That gives a visible/structural closure while preserving hinge movement and print tolerance.
 
-Its underside is a **12 mm-high ramp across the 10 mm top depth**, rather than a flat horizontal cantilever, so it remains self-supporting when the middle enclosure is printed upright.
+The top link is now constructed specifically to avoid Bambu Studio's **floating cantilever** detection. Its first printable roof layers overlap the already-printed tapered rear wall; successive layers grow forward until the final layers form the complete top cap at the LED-template junction.
+
+This is intentionally different from the previous front-first hull, whose first roof layer began detached from the rear wall even though the finished roof looked like a printable ramp.
 
 The lower 60 mm therefore provides a full-depth equipment zone while the upper enclosure becomes progressively slimmer.
 
