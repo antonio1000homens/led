@@ -209,6 +209,21 @@ Runtime flash-control hardware smoke test on 2026-09-25:
   reloaded, resubscribed to `led/flash/reminder`, and fetched two public screens
   successfully. The temporary LAN server was stopped.
 
+Broker outage/recovery hardware smoke test on 2026-09-25:
+
+- To avoid interrupting the shared Home Assistant broker, ran a temporary
+  authenticated MQTT broker on the laptop and changed only the board-local
+  `MQTT_BROKER` host for this test. The normal public screen API remained in
+  use.
+- The board subscribed to `led/flash/reminder`. Stopping the temporary broker
+  produced `MQTT unavailable`; HTTP screen fetches and rendering continued.
+- After restarting that broker, the board resubscribed to the topic. A fresh
+  QoS 1 test event received PUBACK and produced `FLASH START` followed by
+  `FLASH END` on the board.
+- Restored `MQTT_BROKER=windsor-app2.internal.alf1000.uk`; after reload the
+  board subscribed again and fetched the public API. The temporary broker was
+  stopped; the shared Home Assistant broker was never interrupted.
+
 Supplemental idle observations on 2026-09-25 after the parser update:
 
 - MQTT enabled, no reminder traffic: at telemetry elapsed 40 seconds, the
@@ -248,6 +263,6 @@ Matched local-fixture comparison on 2026-09-25:
   LAN fixture server was stopped.
 
 Still outstanding: repeated workload-aligned captures that allow CPU use to
-be measured directly, plus visual inspection for tearing; a broker
-outage/reconnect hardware test; and the live Home Assistant #4 Alexa recurrence
-and restart scenarios. Do not close #74 on these partial measurements.
+be measured directly, visual inspection for tearing, and the live Home
+Assistant #4 Alexa recurrence and restart scenarios. Do not close #74 on these
+partial measurements.
