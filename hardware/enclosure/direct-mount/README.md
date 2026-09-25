@@ -102,26 +102,21 @@ CI installs OpenSCAD plus the Python mechanical dependencies and then runs that 
 - validates the MatrixPortal carrier;
 - renders assembly/reference CSG and SVG entrypoints;
 - validates the active `hinge-prototype-v2/` print geometry, including a coarse floating-layer/island proxy;
-- validates experimental `hinge-version/` meshes and assembly syntax;
 - runs mesh-health and nominal assembly-interface checks.
 
 Bambu Studio remains the final check for slicer-specific overhang/support diagnostics.
 
-## 6 mm rail hinge prototype
+## Active hinged enclosure
 
-An experimental clamshell/service-tray variant now lives under:
+The current hinged enclosure lives under:
 
-`hinge-version/`
+`hinge-prototype-v2/`
 
-This variant does **not** replace the production direct-mount parts. It reuses the same corrected panel boss and locator coordinates from `direct_mount_enclosure.scad`, but adds:
+This is the maintained hinge design for the four-panel enclosure. It uses a stationary equipment enclosure and a moving LED-panel/template leaf on a continuous 6 mm hinge rod. The directory contains the controller end, two identical middle enclosures, the power end, assembly previews and the generated STL set.
 
-- a fixed version of the corrected 08 mounting template with alternating hinge knuckles;
-- a complementary moving equipment enclosure with the matching knuckles;
-- a **6 mm metal rail** through 7.2 mm printed bores as the hinge pin;
-- a generic slotted equipment tray, with concealed hinge, cable routing, and tapered upper geometry;
-- an assembly preview showing the enclosure opening downward.
+Mechanical CI validates this design through `scripts/validate_hinge_v2_stls.py`, including checked-in STL freshness, print bounds, floating-layer/island checks and the single/two/four-panel open and closed assembly previews.
 
-See `hinge-version/README.md` for current dimensions, print orientation, and the physical validation sequence. This remains an experimental design and does not replace the production direct-mount parts.
+See `hinge-prototype-v2/README.md` for dimensions, print orientation and the physical validation sequence.
 
 ## Directory layout
 
@@ -131,6 +126,7 @@ The direct-mount enclosure is now separated by purpose:
 - `parts/*_PRINT_*.scad` — thin printable-part entrypoints grouped away from the shared library.
 - `stl/` — generated manufacturing meshes only; do not edit these by hand.
 - `schematics/` — direct-mount detail/reference views (MatrixPortal and lid alignment).
+- `hinge-prototype-v2/` — active 6 mm-rod hinged enclosure source, previews and STLs.
 - `../complete_enclosure/` — full four-panel assembly and front/back/side/top/bottom projections, as introduced by PR #102.
 - `scripts/assembly_validation.json` and `scripts/validate_*.py` — machine-readable assembly intent and CI validation.
 - `README.md` plus `docs/*.md` — physical-fit and validation documentation.

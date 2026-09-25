@@ -1,8 +1,7 @@
 name: Enclosure / Validate
 
-# Validation-only by design. CI never commits generated STL files.
-# If a temporary/manual workflow must commit generated files, its commit message
-# must contain [skip ci] so github-actions[bot] does not re-trigger PR workflows.
+# Validation-only: CI verifies checked-in mechanical outputs and never writes
+# generated files back to the repository.
 #
 # All enclosure checks are orchestrated by validate_enclosure.py so the exact
 # same validation can be run locally and production meshes are rendered only
@@ -15,7 +14,7 @@ on:
       - 'hardware/enclosure/**/*.stl'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
-      - '.github/workflows/generate-enclosure-stls.yml'
+      - '.github/workflows/enclosure-validation.yml'
   push:
     branches:
       - master
@@ -24,7 +23,7 @@ on:
       - 'hardware/enclosure/**/*.stl'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
-      - '.github/workflows/generate-enclosure-stls.yml'
+      - '.github/workflows/enclosure-validation.yml'
   workflow_dispatch:
 
 permissions:

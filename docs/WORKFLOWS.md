@@ -85,38 +85,10 @@ names remain unchanged.
 
 ## Enclosure validation architecture
 
-`.github/workflows/generate-enclosure-stls.yml` intentionally contains only environment setup plus a call to:
+`.github/workflows/enclosure-validation.yml` intentionally contains only environment setup plus a call to:
 
 `hardware/enclosure/direct-mount/scripts/validate_enclosure.py`
 
-That script is the single orchestration point for current mechanical CI. Production printable wrapper SCADs are rendered **once** per run and compared with their checked-in manufacturing STLs; the same run also renders assembly/reference views, validates hinge prototype v2 and the retained hinge-version meshes, then runs mesh/interface validation.
+That script is the single orchestration point for current mechanical CI. Production printable wrapper SCADs are rendered **once** per run and compared with their checked-in manufacturing STLs; the same run also renders assembly/reference views, validates the active hinge prototype v2, then runs mesh/interface validation.
 
 Hinge-v2 validation includes a coarse voxel/layer **floating-island proxy**. It rejects an elevated XY slice component that appears without nearby material in the preceding slice. This targets detached starts such as the roof cantilever found by Bambu Studio, but it is not a replacement for final slicing in Bambu Studio.
-
-## Workflow-generated commits and approval loops
-
-Pull-request workflows should be validation-only by default. Generated files
-should normally be produced locally or exposed as workflow artifacts rather
-than committed back to an open pull-request branch.
-
-If a temporary or manually dispatched workflow genuinely needs to commit
-generated files back to a branch, its commit message **must** contain
-`[skip ci]`, for example:
-
-```text
-Regenerate enclosure STLs [skip ci]
-```
-
-This prevents the resulting `github-actions[bot]` commit from creating a new
-`pull_request` synchronization run. Without the skip marker, GitHub can treat
-the bot-authored update as a separate contributor-triggered run and leave it in
-`action_required` awaiting maintainer approval, even when the repository has
-only one human collaborator.
-
-Do not solve this by weakening repository-wide Actions approval settings.
-Validation workflows should keep `contents: read`; any temporary generator
-that needs `contents: write` should be manually scoped, use `[skip ci]` for
-its generated commit, and be removed when it is no longer needed.
-
-`.github/workflows/workflow-policy.yml` enforces the skip-marker rule for any
-checked-in workflow containing a direct `git commit` command.
