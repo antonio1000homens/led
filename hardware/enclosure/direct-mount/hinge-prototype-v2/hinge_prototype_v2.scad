@@ -119,14 +119,9 @@ rear_z_bottom = box_front_z + enclosure_bottom_depth; // 42.8 mm
 rear_z_top = box_front_z + enclosure_top_depth;       // 12.8 mm
 box_rear_t = 3;
 
-// Lower side cheeks for the two middle enclosures.
-//
-// These stiffen the full-depth lower equipment cavity and support/guide the
-// continuous hinge rod at each module edge. They stop at taper_start_y so the
-// upper side corridor remains open for HUB75 and power cabling.
+// Lower side-cheek thickness. Their Y extent is defined after the floor-base
+// dimensions so they can overlap the base slightly for a robust manifold union.
 lower_side_wall_t = 3;
-lower_side_wall_y0 = base_thickness_y;
-lower_side_wall_y1 = taper_start_y;
 
 // Upper-only rear ventilation.
 //
@@ -147,6 +142,9 @@ base_front_extension = 25;
 base_front_z = -base_front_extension;
 base_rear_z = rear_z_bottom;
 base_thickness_y = 5;
+
+lower_side_wall_y0 = base_thickness_y-0.5;
+lower_side_wall_y1 = taper_start_y;
 
 // Small rear-edge margin used only to give the sloping rear plate a printable,
 // robust edge. It does NOT form a left/right side wall.
