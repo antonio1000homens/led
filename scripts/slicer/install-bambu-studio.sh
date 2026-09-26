@@ -90,7 +90,14 @@ cat >"$WRAPPER" <<EOF
 set -euo pipefail
 APP_RUN="$EXTRACTED/AppRun"
 if command -v xvfb-run >/dev/null 2>&1 && [[ -z "\${DISPLAY:-}" ]]; then
-  exec xvfb-run -a "\$APP_RUN" "\$@"
+  # Bambu/GLFW may prefer a runner-provided Wayland hint even though no usable
+  # compositor exists. Force the virtual X11 display and software GL in
+  # headless Actions/Codespaces.
+  unset WAYLAND_DISPLAY
+  export GDK_BACKEND=x11
+  export SDL_VIDEODRIVER=x11
+  export LIBGL_ALWAYS_SOFTWARE=1
+  exec xvfb-run -a -s "-screen 0 1280x1024x24" "\$APP_RUN" "\$@"
 fi
 exec "\$APP_RUN" "\$@"
 EOF
