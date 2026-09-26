@@ -8,6 +8,7 @@ on:
       - 'scripts/slicer/**'
       - 'tests/test_slicer_mcp.py'
       - 'cloud/slicer-worker/**'
+      - 'tests/test_slicer_worker.js'
       - '.devcontainer/**'
       - 'docs/SLICER_MCP.md'
       - '.github/workflows/slicer-mcp.yml'
@@ -20,6 +21,7 @@ on:
       - 'scripts/slicer/**'
       - 'tests/test_slicer_mcp.py'
       - 'cloud/slicer-worker/**'
+      - 'tests/test_slicer_worker.js'
       - '.devcontainer/**'
       - 'docs/SLICER_MCP.md'
       - '.github/workflows/slicer-mcp.yml'
@@ -50,6 +52,9 @@ jobs:
 
       - name: Validate Cloudflare Worker syntax
         run: node --check cloud/slicer-worker/src/index.js
+
+      - name: Run Cloudflare Worker tests
+        run: node --test tests/test_slicer_worker.js
 
       - name: Validate Codespace startup scripts
         run: |

@@ -34,12 +34,22 @@ async function getCodespace(env) {
 async function ensurePublicPort(env) {
   const port = Number(env.CODESPACE_PORT || "8000");
   const path = "/user/codespaces/" + encodeURIComponent(env.CODESPACE_NAME) + "/ports/" + port + "/visibility";
-  const response = await github(env, path, {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ visibility: "public" }),
-  });
-  if (!response.ok) throw new Error("port visibility update failed: " + response.status);
+  const maxPolls = Number(env.PORT_POLLS || env.HEALTH_POLLS || "10");
+  const delayMs = Number(env.PORT_POLL_MS || env.HEALTH_POLL_MS || "2000");
+  let lastStatus = 0;
+  for (let i = 0; i < maxPolls; i += 1) {
+    const response = await github(env, path, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ visibility: "public" }),
+    });
+    if (response.ok) return;
+    lastStatus = response.status;
+    // GitHub does not expose the visibility endpoint until the app's port is forwarded.
+    if (lastStatus !== 404) break;
+    if (i + 1 < maxPolls) await sleep(delayMs);
+  }
+  throw new Error("port visibility update failed: " + lastStatus);
 }
 
 async function startCodespace(env) {
