@@ -17,10 +17,12 @@ def _iso_epoch(value):
         year, month, day = int(value[0:4]), int(value[5:7]), int(value[8:10])
         hour, minute, second = int(value[11:13]), int(value[14:16]), int(value[17:19])
         if value[19] == ".":
-            end = value.find("Z", 20)
-            if end < 0:
-                end = value.find("+", 20)
-            value = value[:end] if end >= 0 else value
+            zone_start = len(value)
+            for marker in ("Z", "+", "-"):
+                end = value.find(marker, 20)
+                if end >= 0:
+                    zone_start = min(zone_start, end)
+            value = value[:19] + value[zone_start:]
         zone = value[19:]
         if zone == "Z":
             offset = 0
@@ -57,7 +59,12 @@ def parse_flash_event(payload, now=None):
         return None
     event_id = payload.get("id")
     label = payload.get("label")
-    if not isinstance(event_id, str) or not event_id.strip() or payload.get("type") != "reminder":
+    if (
+        not isinstance(event_id, str)
+        or not event_id.strip()
+        or payload.get("type") != "reminder"
+        or payload.get("event") != "due"
+    ):
         return None
     if not isinstance(label, str) or not label.strip():
         return None

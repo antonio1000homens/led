@@ -94,24 +94,31 @@ if settings.DISPLAY_BACKEND == "matrix":
 
 _pending_button_events = []
 _BUTTON_POLL_SECONDS = 0.05
+_MQTT_SLEEP_POLL_SECONDS = 0.25
 
 
-def _sleep_interruptible(seconds):
-    """Sleep without changing render cadence, waking early for button gestures."""
+def _sleep_interruptible(seconds, service_mqtt=False):
+    """Sleep without changing render cadence, servicing requested I/O while idle."""
     seconds = max(0.0, float(seconds or 0))
-    if buttons is None:
+    if buttons is None and not service_mqtt:
         time.sleep(seconds)
         return
     deadline = time.monotonic() + seconds
+    next_mqtt_poll = time.monotonic()
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return
         time.sleep(min(_BUTTON_POLL_SECONDS, remaining))
-        events = buttons.poll(time.monotonic())
-        if events:
-            _pending_button_events.extend(events)
-            return
+        now = time.monotonic()
+        if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
+            mqtt.poll(now)
+            next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
+        if buttons is not None:
+            events = buttons.poll(now)
+            if events:
+                _pending_button_events.extend(events)
+                return
 
 
 next_fetch = 0
@@ -386,7 +393,10 @@ while True:
             duration = max(1, int(screen.get("duration_seconds") or 8))
             until_rotation = max(0.05, duration - max(0, phase))
             until_fetch = max(0.05, next_fetch - time.monotonic())
-            _sleep_interruptible(earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep))
+            _sleep_interruptible(
+                earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep),
+                service_mqtt=True,
+            )
             continue
         cadence_changed = animation_cadence != desired_cadence
         if cadence_changed:
@@ -459,4 +469,4 @@ while True:
         duration = max(1, int(screen.get("duration_seconds") or 8))
         until_rotation = max(0.05, duration - max(0, phase))
         until_fetch = max(0.05, next_fetch - time.monotonic())
-        _sleep_interruptible(min(until_rotation, until_fetch))
+        _sleep_interruptible(min(until_rotation, until_fetch), service_mqtt=True)

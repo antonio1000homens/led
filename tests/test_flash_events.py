@@ -1,12 +1,17 @@
 import unittest
 
 from flash_events import FlashState, parse_flash_event
-from mqtt_client import FlashMqttClient
+from mqtt_client import (
+    FlashMqttClient,
+    MQTT_LOOP_INTERVAL_SECONDS,
+    MQTT_SOCKET_TIMEOUT_SECONDS,
+)
 
 
 EVENT = {
     "id": "reminder-1",
     "type": "reminder",
+    "event": "due",
     "label": "Take washing out",
     "due_at": "2026-09-21T18:00:00+01:00",
     "expires_at": "2026-09-21T18:05:00+01:00",
@@ -28,11 +33,25 @@ class FlashEventTests(unittest.TestCase):
         self.assertEqual(event["label"], "Take washing out")
         self.assertIsNone(parse_flash_event(EVENT, 1790010400))
 
+    def test_iso8601_fractional_seconds_keep_the_timezone_offset(self):
+        payload = {
+            **EVENT,
+            "due_at": "2026-09-21T18:00:00.123456+01:00",
+            "expires_at": "2026-09-21T18:05:00.987654+01:00",
+        }
+        self.assertIsNotNone(parse_flash_event(payload, 0))
+        utc_payload = {
+            **EVENT,
+            "expires_at": "2026-09-21T17:05:00.123456Z",
+        }
+        self.assertIsNotNone(parse_flash_event(utc_payload, 0))
+
     def test_home_assistant_contract_with_published_at_and_offset_is_supported(self):
         import json
         payload = {
             "id": "sensor.echo_living_room_next_reminder|2099-09-21T18:00:00+01:00|Take washing out",
             "type": "reminder",
+            "event": "due",
             "label": "Take washing out",
             "due_at": "2099-09-21T18:00:00+01:00",
             "published_at": "2099-09-21T17:42:12+01:00",
@@ -52,6 +71,10 @@ class FlashEventTests(unittest.TestCase):
     def test_malformed_event_is_ignored(self):
         for value in ({}, {**EVENT, "type": "other"}, {**EVENT, "expires_at": "bad"}):
             self.assertIsNone(parse_flash_event(value, 0))
+
+    def test_discovery_or_non_due_event_is_ignored(self):
+        self.assertIsNone(parse_flash_event({key: value for key, value in EVENT.items() if key != "event"}, 0))
+        self.assertIsNone(parse_flash_event({**EVENT, "event": "scheduled"}, 0))
 
     def test_duplicate_is_ignored_and_new_event_replaces_active(self):
         state = FlashState(enabled=True, duration_seconds=5)
@@ -127,7 +150,17 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(0)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
         self.assertEqual(received, [json_payload])
-        self.assertEqual(client.loop_timeouts, [0.1])
+        self.assertEqual(client.loop_timeouts, [MQTT_SOCKET_TIMEOUT_SECONDS])
+
+    def test_idle_loop_is_bounded_but_not_run_on_every_frame(self):
+        client = FakeMqtt()
+        transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=lambda settings: client)
+        transport.poll(0)
+        transport.poll(0.1)
+        self.assertEqual(client.loop_calls, 1)
+        transport.poll(MQTT_LOOP_INTERVAL_SECONDS)
+        self.assertEqual(client.loop_calls, 2)
+        self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
 
     def test_initial_failure_is_contained_and_later_connect_retries(self):
         attempts = []
