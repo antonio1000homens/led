@@ -61,6 +61,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Start measured job timer
+        id: job_timer
+        shell: bash
+        run: echo "started_epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
