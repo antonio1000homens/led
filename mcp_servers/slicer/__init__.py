@@ -1,0 +1,1 @@
+"""LED slicer MCP package."""

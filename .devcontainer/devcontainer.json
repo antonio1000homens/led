@@ -14,5 +14,14 @@
         "ms-python.python"
       ]
     }
+  },
+  "forwardPorts": [
+    8000
+  ],
+  "portsAttributes": {
+    "8000": {
+      "label": "LED Slicer MCP",
+      "onAutoForward": "notify"
+    }
   }
 }

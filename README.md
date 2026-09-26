@@ -289,3 +289,7 @@ LED_SERVER_HOST=0.0.0.0 bash scripts/run-server.sh
 ```
 
 Do not expose the local development server directly to the public Internet.
+
+## Slicer MCP
+
+Remote/Codespaces slicer orchestration is documented in [docs/SLICER_MCP.md](docs/SLICER_MCP.md). The MCP reuses the same H2D Bambu Studio pipeline as GitHub Actions and does not start printer jobs.

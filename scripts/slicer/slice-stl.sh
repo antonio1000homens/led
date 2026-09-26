@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <hardware/.../model.stl|model.3mf> [output-dir]" >&2
+  echo "Usage: $0 <hardware/...|artifacts/slicer-input/... model.stl|model.3mf> [output-dir]" >&2
 }
 
 [[ $# -ge 1 && $# -le 2 ]] || { usage; exit 2; }
@@ -18,11 +18,25 @@ try:
     rel=path.relative_to(root)
 except ValueError:
     raise SystemExit("input escapes repository root")
-allowed=(root / "hardware").resolve()
+allowed_roots = [
+    (root / "hardware").resolve(),
+    (root / "artifacts/slicer-input").resolve(),
+]
 try:
-    path.relative_to(allowed)
-except ValueError:
-    raise SystemExit("input must be under hardware/")
+    allowed = any(path.is_relative_to(parent) for parent in allowed_roots)
+except AttributeError:
+    allowed = False
+    for parent in allowed_roots:
+        try:
+            path.relative_to(parent)
+            allowed = True
+            break
+        except ValueError:
+            continue
+if not allowed:
+    raise SystemExit(
+        "input must be under hardware/ or artifacts/slicer-input/"
+    )
 if path.suffix.lower() not in {".stl", ".3mf"}:
     raise SystemExit("input must be STL or 3MF")
 if not path.is_file():
