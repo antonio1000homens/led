@@ -17,10 +17,16 @@ Prototype defaults:
 - printed hinge bore: **7.2 mm**
 - hinge barrel OD: **14 mm**
 - hinge axis: **27 mm above the floor**
+- hinge axis depth: **16 mm behind the LED/template front plane**
+- closed plate-to-barrel clearance: **7 mm**
 - floor-base forward extension: **25 mm**
 - floor-base thickness: **5 mm**
 
 The moving template has no full-width lower lip. Only local hinge roots are added behind its existing lower band.
+
+The hinge axis is deliberately set farther behind the moving plate than in the earlier prototype. The 2 mm plate back now has **7 mm clearance to the front of the 14 mm hinge barrel**. The stationary knuckle support also approaches the barrel from its rear quadrant instead of filling the space directly underneath the pivot. Together these changes leave a clear corridor for the moving plate to rotate forward/down without striking the enclosure hinge block.
+
+Every stationary enclosure now also includes a **2 mm full-width lower hinge guard**. The guard rises from the 5 mm floor/base to the hinge centreline and sits immediately behind the 14 mm hinge-barrel envelope, leaving **0.8 mm clearance** to the moving hinge. It closes the exposed low opening behind the LED/template when the panel is shut, while the open left/right side planes above it remain available for hinge sweep and inter-panel cabling.
 
 ## Enclosure variants
 
@@ -44,6 +50,10 @@ That open-side geometry is required for two reasons:
 - HUB75 ribbons and power cables need to pass directly between neighbouring panel cavities.
 
 The rear plate provides the main enclosure structure.
+
+A thin stationary **hinge guard plate spans the complete module width** across the lower front opening. It starts with a 0.5 mm overlap into the floor/base for print continuity, rises to the hinge centreline and sits 0.8 mm behind the barrel's rear-most surface. Short bridge pads exist only at the stationary knuckle segments, so the guard is structurally tied to each stationary hinge while the alternating moving-knuckle spans remain unobstructed.
+
+The guard is shared by the controller end, both middle enclosures and the power end. It does **not** recreate the removed side walls: the left/right side planes remain open above the floor base for panel motion and cable routing.
 
 The **entire lower 60 mm orthogonal section is now solid** with no ventilation openings.
 
@@ -110,7 +120,7 @@ Prints flat on the verified template face.
 
 Expected envelope is approximately:
 
-- **256 × 128 × 16 mm**
+- **256 × 128 × 23 mm**
 
 ### Stationary enclosure/base variants
 
@@ -127,7 +137,8 @@ That orientation is intentional:
 - the 40→10 mm taper begins only above that point and remains self-supporting;
 - only the upper tapered wall is ventilated, using fine 3 mm slits with 5 mm ribs;
 - the top roof ramps forward to meet the LED-template rear plane;
-- the hinge roots rise directly from the base;
+- the stationary hinge roots are bed-connected through rearward-sloping support webs, leaving the moving plate's sweep path clear;
+- the 2 mm full-width hinge guard grows continuously from the same base and remains behind the hinge sweep;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
 - both left/right side planes remain open above the floor base so the moving LED/template can swing freely and cables can cross between modules.
 
@@ -175,9 +186,9 @@ The four-panel preview uses one continuous 6 mm rod across the complete enclosur
 - `04_right_power_end_enclosure_HINGE_TEST.scad`
 - `stl/04_right_power_end_enclosure_HINGE_TEST.stl`
 
-The SCAD files are the source of truth. The STL files are checked in for direct Bambu Studio use.
+The SCAD files are the source of truth. The STL files are checked in for direct Bambu Studio use and are regenerated/compared by `Enclosure / Validate`; a PR fails if any STL is stale relative to its SCAD entrypoint.
 
-`Enclosure / Validate` regenerates both STLs, compares their triangle geometry against the checked-in files, checks the intended print envelopes and parses all four assembly previews.
+The validator checks all four printable variants, their intended print envelopes, the floating-layer proxy for stationary enclosures, and all six assembly previews.
 
 ## Physical test sequence
 
@@ -191,7 +202,10 @@ The SCAD files are the source of truth. The STL files are checked in for direct 
 8. Fit the MatrixPortal to the controller-end standoffs and verify USB/button access through the service opening.
 9. Test-fit the chosen power-cable grommet in the rear hole before routing the cable.
 10. Verify the enclosure/base remains stationary while the LED/templates open forward/down.
-11. Check the 20 mm closed floor clearance with the real LED-panel thickness.
-12. Check stability with all moving panels open.
+11. With each LED/template closed, confirm the full-width lower hinge guard blocks direct access into the cavity behind the panel.
+12. Open and close each panel through the full **0–90° service arc** and confirm the moving plate does not contact the stationary hinge barrel, rear support web or guard.
+13. Confirm the closed moving plate has the intended **7 mm gap to the front of the stationary hinge barrel** and the guard remains at least 0.8 mm behind the barrel envelope.
+14. Check the 20 mm closed floor clearance with the real LED-panel thickness.
+15. Check stability with all moving panels open.
 
 PETG is preferred for repeated hinge testing; PLA is acceptable for a dimensional-only prototype.
