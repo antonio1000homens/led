@@ -1,0 +1,49 @@
+name: TEMP / Regenerate hinge v2 STLs
+
+on:
+  push:
+    branches:
+      - flash-events
+    paths:
+      - '.github/workflows/regen-hinge-v2-temp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: flash-events
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate hinge v2 meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd hardware/enclosure/direct-mount/hinge-prototype-v2
+          openscad -o stl/01_moving_panel_template_HINGE_TEST.stl 01_moving_panel_template_HINGE_TEST.scad
+          openscad -o stl/02_middle_stationary_enclosure_HINGE_TEST.stl 02_middle_stationary_enclosure_HINGE_TEST.scad
+          openscad -o stl/03_left_controller_end_enclosure_HINGE_TEST.stl 03_left_controller_end_enclosure_HINGE_TEST.scad
+          openscad -o stl/04_right_power_end_enclosure_HINGE_TEST.stl 04_right_power_end_enclosure_HINGE_TEST.scad
+
+      - name: Commit regenerated meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/direct-mount/hinge-prototype-v2/stl/*.stl
+          if git diff --cached --quiet; then
+            echo "No STL changes"
+            exit 0
+          fi
+          git commit -m "Regenerate supported hinge v2 STLs [skip ci]"
+          git push origin HEAD:flash-events
