@@ -539,33 +539,27 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Keep the stationary knuckle clear of the moving plate's sweep corridor.
-    //
-    // The full-width lower hinge guard already grows continuously from the
-    // enclosure base and is tied into the rear quadrant of each stationary
-    // knuckle. Use that guard as the structural support instead of a diagonal
-    // brace running down toward the floor/rear wall.
-    //
-    // A short local bridge tab extends forward from the guard directly under
-    // the barrel's bottom tangent. In the upright print this is only a ~9 mm
-    // bridge from already-supported guard material, which is enough to support
-    // the first barrel layers without putting material in the 90-degree plate
-    // position.
+    // Connect the barrel bottom tangent to a bed-connected anchor at the rear
+    // edge of the enclosure base with a diagonal hull.
+    root_y = hinge_axis_y-hinge_r-1.0;
+    root_z = hinge_axis_z-1.0;
+
     union() {
         hinge_barrel(x0,len);
 
-        translate([
-            x0,
-            hinge_axis_y-hinge_r-1.0,
-            hinge_axis_z-1.0
-        ])
-            cube([
-                len,
-                3,
-                hinge_guard_front_z
-                    + hinge_guard_bridge_overlap
-                    - (hinge_axis_z-1.0)
-            ]);
+        hull() {
+            // Bed-connected rear anchor.
+            translate([
+                x0,
+                0,
+                rear_z_bottom-box_rear_t
+            ])
+                cube([len,base_thickness_y,box_rear_t]);
+
+            // Tangent overlap supports the first layers of the round barrel.
+            translate([x0,root_y,root_z])
+                cube([len,3,2]);
+        }
     }
 }
 
