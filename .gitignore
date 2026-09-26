@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 wokwi.vcd
 scripts/config/bootstrap-ssm-migration.env
+.tools/\nartifacts/slicer/\n
