@@ -1,6 +1,8 @@
 // Minimal support-free 6 mm hinge prototype for the verified direct-mount LED template.
 //
 // Mechanical intent:
+// CI must keep both the 0-90 degree sweep-clearance test and the upright
+// floating-layer proxy green for this hinge geometry.
 // - The EQUIPMENT ENCLOSURE remains stationary and vertical.
 // - The LED panel + mounting template is the moving leaf and opens forward/down.
 // - Three stationary enclosure variants are provided:
