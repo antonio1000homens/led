@@ -45,9 +45,7 @@ def main() -> None:
     if args.slicer_exit != 0:
         categories.append("SLICER_ERROR")
 
-    if re.search(r"(?:^|\s)\[error\]|\breturn_code\b[^\n]*-[0-9]+", text, re.I | re.M):
-        categories.append("SLICER_ERROR")
-
+    # Bambu emits some non-fatal lines at [error] level while still producing\n    # a valid slice. Process exit and explicit negative returns are authoritative.\n    if re.search(\n        r"\\breturn_code\\b[^\\n]*-[0-9]+|run found error,\\s*return\\s+-[0-9]+",\n        text,\n        re.I,\n    ):\n        categories.append("SLICER_ERROR")\n
     if args.artifact is not None and (
         not args.artifact.is_file() or args.artifact.stat().st_size == 0
     ):
