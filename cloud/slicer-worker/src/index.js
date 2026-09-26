@@ -31,17 +31,46 @@ async function getCodespace(env) {
   return response.json();
 }
 
+async function getTunnelProperties(env) {
+  const path = "/user/codespaces/" + encodeURIComponent(env.CODESPACE_NAME) + "?internal=true&refresh=true";
+  const response = await github(env, path);
+  if (!response.ok) throw new Error("codespace tunnel lookup failed: " + response.status);
+  const codespace = await response.json();
+  const properties = codespace.connection?.tunnelProperties;
+  if (!properties?.serviceUri || !properties?.clusterId || !properties?.tunnelId || !properties?.managePortsAccessToken) {
+    throw new Error("codespace tunnel properties are incomplete");
+  }
+  return properties;
+}
+
 async function ensurePublicPort(env) {
   const port = Number(env.CODESPACE_PORT || "8000");
-  const path = "/user/codespaces/" + encodeURIComponent(env.CODESPACE_NAME) + "/ports/" + port + "/visibility";
+  const tunnel = await getTunnelProperties(env);
+  const service = new URL(tunnel.serviceUri);
+  if (service.protocol !== "https:" || !service.hostname.endsWith(".tunnels.api.visualstudio.com") || !/^[a-z0-9-]+$/i.test(tunnel.clusterId)) {
+    throw new Error("codespace tunnel service URI is invalid");
+  }
+  if (!service.hostname.startsWith(tunnel.clusterId + ".")) {
+    service.hostname = tunnel.clusterId + "." + service.hostname.replace(/^global\./, "");
+  }
+  const url = new URL("/tunnels/" + encodeURIComponent(tunnel.tunnelId) + "/ports/" + port, service);
+  url.searchParams.set("api-version", "2023-09-27-preview");
   const maxPolls = Number(env.PORT_POLLS || env.HEALTH_POLLS || "10");
   const delayMs = Number(env.PORT_POLL_MS || env.HEALTH_POLL_MS || "2000");
   let lastStatus = 0;
   for (let i = 0; i < maxPolls; i += 1) {
-    const response = await github(env, path, {
+    const response = await fetch(url, {
       method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ visibility: "public" }),
+      headers: {
+        authorization: "Tunnel " + tunnel.managePortsAccessToken,
+        "content-type": "application/json;charset=UTF-8",
+        "if-match": "*",
+        "user-agent": "led-cloud-slicer",
+      },
+      body: JSON.stringify({
+        portNumber: port,
+        accessControl: { entries: [{ type: "Anonymous", subjects: [], scopes: ["connect"] }] },
+      }),
     });
     if (response.ok) return;
     lastStatus = response.status;
