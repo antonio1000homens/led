@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from mcp.server import MCPServer
+from mcp.server.mcpserver import MCPServer
 
 from mcp_servers.slicer.service import (
     DEFAULT_FILAMENT,
