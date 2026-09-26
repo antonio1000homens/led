@@ -164,7 +164,7 @@ jobs:
         shell: bash
         env:
           SETUP_SECONDS: ${{ steps.setup_slicer.outputs.setup_seconds }}
-          SLICE_SECONDS: ${{ steps.slice.outputs.slice_seconds }}
+          SLICE_MILLISECONDS: ${{ steps.slice.outputs.slice_milliseconds }}
           TARGET_COUNT: ${{ steps.targets.outputs.count }}
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
