@@ -61,6 +61,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Start measured job timer
+        id: job_timer
+        shell: bash
+        run: echo "started_epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -138,7 +143,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          total_started="$(date +%s)"
+          total_started_ms="$(date +%s%3N)"
           status=0
 
           while IFS= read -r target; do
@@ -150,8 +155,8 @@ jobs:
             echo "::endgroup::"
           done < .slicer-targets
 
-          total_finished="$(date +%s)"
-          echo "slice_seconds=$((total_finished - total_started))" >> "$GITHUB_OUTPUT"
+          total_finished_ms="$(date +%s%3N)"
+          echo "slice_milliseconds=$((total_finished_ms - total_started_ms))" >> "$GITHUB_OUTPUT"
           exit "$status"
 
       - name: Publish slicer summary
@@ -159,7 +164,7 @@ jobs:
         shell: bash
         env:
           SETUP_SECONDS: ${{ steps.setup_slicer.outputs.setup_seconds }}
-          SLICE_SECONDS: ${{ steps.slice.outputs.slice_seconds }}
+          SLICE_MILLISECONDS: ${{ steps.slice.outputs.slice_milliseconds }}
           TARGET_COUNT: ${{ steps.targets.outputs.count }}
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
@@ -171,7 +176,9 @@ jobs:
           print()
           print(f"- Bambu Studio: `{os.environ.get('BAMBU_STUDIO_VERSION', '')}`")
           print(f"- Setup/download: **{os.environ.get('SETUP_SECONDS') or 'n/a'} s**")
-          print(f"- Slice phase: **{os.environ.get('SLICE_SECONDS') or 'n/a'} s**")
+          slice_ms = os.environ.get("SLICE_MILLISECONDS")
+          slice_text = f"{int(slice_ms) / 1000:.3f} s" if slice_ms else "n/a"
+          print(f"- Slice phase: **{slice_text}**")
           print(f"- Selected models: **{os.environ.get('TARGET_COUNT') or '0'}**")
           print(f"- Auto-orient: **{os.environ.get('SLICER_ORIENT', '0')}**")
           print()
@@ -199,3 +206,16 @@ jobs:
           path: artifacts/slicer/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Publish total measured runtime
+        if: always()
+        shell: bash
+        env:
+          STARTED_EPOCH: ${{ steps.job_timer.outputs.started_epoch }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${STARTED_EPOCH:-}" ]]; then
+            total_seconds=$(($(date +%s) - STARTED_EPOCH))
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "- Total measured job runtime: **${total_seconds} s**" >> "$GITHUB_STEP_SUMMARY"
+          fi
