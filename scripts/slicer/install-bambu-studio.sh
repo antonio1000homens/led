@@ -19,6 +19,10 @@ if [[ -x "$EXTRACTED/AppRun" ]]; then
 else
   command -v curl >/dev/null || { echo "curl is required" >&2; exit 2; }
   command -v python3 >/dev/null || { echo "python3 is required" >&2; exit 2; }
+  command -v unsquashfs >/dev/null || {
+    echo "unsquashfs is required (install squashfs-tools)" >&2
+    exit 2
+  }
 
   api_url="https://api.github.com/repos/bambulab/BambuStudio/releases/tags/$BAMBU_STUDIO_VERSION"
   auth_args=()
@@ -62,15 +66,23 @@ print(candidates[-1][1])
   chmod +x "$APPIMAGE"
 
   rm -rf "$EXTRACTED"
-  mkdir -p "$EXTRACTED"
-  (
-    cd "$VERSION_DIR"
-    rm -rf squashfs-root
-    "$APPIMAGE" --appimage-extract >/dev/null
-    mv squashfs-root app
-  )
 
-  test -x "$EXTRACTED/AppRun"
+  # Do not depend on FUSE or the AppImage's extract helper in CI. Asking the
+  # AppImage runtime for its SquashFS byte offset and extracting it directly
+  # is deterministic on GitHub-hosted runners and still exposes the bundled
+  # resources/profiles tree needed by the CLI.
+  offset="$("$APPIMAGE" --appimage-offset)"
+  if [[ ! "$offset" =~ ^[0-9]+$ ]]; then
+    echo "Unable to determine AppImage SquashFS offset: $offset" >&2
+    exit 4
+  fi
+  echo "Extracting AppImage payload at byte offset $offset..."
+  unsquashfs -q -o "$offset" -d "$EXTRACTED" "$APPIMAGE"
+
+  if [[ ! -x "$EXTRACTED/AppRun" ]]; then
+    echo "Bambu Studio AppRun missing after AppImage extraction" >&2
+    exit 4
+  fi
 fi
 
 cat >"$WRAPPER" <<EOF
