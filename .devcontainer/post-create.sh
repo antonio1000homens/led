@@ -4,7 +4,9 @@ set -euo pipefail
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   python3 python3-pip python3-venv \
-  openscad curl ca-certificates xvfb libgl1 libglu1-mesa squashfs-tools
+  openscad curl ca-certificates xvfb xauth squashfs-tools \
+  libgl1 libglu1-mesa libosmesa6 \
+  libgstreamer-plugins-base1.0-0 libwebkit2gtk-4.1-0
 
 python3 -m pip install --user --disable-pip-version-check \
   trimesh manifold3d numpy networkx scipy
