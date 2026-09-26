@@ -1,5 +1,7 @@
 name: TEMP / Validate hinge v2 final
 
+# Final verification for the 16 mm-axis / 7 mm plate-to-barrel clearance.
+
 on:
   push:
     branches:
