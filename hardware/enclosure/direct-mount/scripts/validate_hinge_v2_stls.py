@@ -178,7 +178,7 @@ def assert_no_floating_layer_islands(
 def assert_middle_sweep_clearance(work_dir: Path) -> None:
     """Ensure the moving plate never intersects the stationary hinge structure.
 
-    This renders only the geometric intersection at representative points
+    This renders only the geometric intersection at 5-degree increments
     through the 0-90 degree service arc. An empty intersection is the expected
     result. It specifically guards against stationary hinge roots/guards
     intruding into the moving plate's rotational corridor.
