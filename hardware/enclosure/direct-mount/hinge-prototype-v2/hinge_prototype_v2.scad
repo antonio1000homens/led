@@ -22,7 +22,7 @@
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
-// - The hinge axis is offset 16 mm behind the plate front, giving 7 mm radial
+// - The hinge axis is offset 24 mm behind the plate front, giving 15 mm radial
 //   clearance between the closed plate back and the stationary barrel.
 // - Stationary hinge roots approach the barrel from the rear, leaving the
 //   forward/downward plate sweep corridor unobstructed.
@@ -51,12 +51,19 @@ hinge_axis_y = ground_clearance + hinge_r; // 27 mm above floor
 // directly against the 2 mm moving plate. That left no practical sweep
 // clearance and the stationary knuckle/root could block the plate as it opened.
 //
-// Keep an explicit 7 mm air gap between the back of the closed moving plate and
-// the front-most surface of the hinge barrel. With a 7 mm barrel radius this
-// places the hinge axis 16 mm behind the LED/template front plane.
+// The earlier 7 mm gap was still too tight around the stationary hinge block
+// in the real service motion. Keep a much more generous 15 mm air gap between
+// the back of the closed moving plate and the front-most surface of the hinge
+// barrel. With a 7 mm barrel radius this places the hinge axis 24 mm behind the
+// LED/template front plane.
+//
+// The Y pivot remains at 27 mm above the floor. At 90 degrees open, the
+// plate's lower front edge therefore remains about 3 mm above the floor while
+// the larger rearward stand-off gives the moving leaf room to rotate around the
+// stationary hinge body.
 moving_plate_t = 2;
-hinge_plate_clearance = 7;
-hinge_axis_z = moving_plate_t + hinge_r + hinge_plate_clearance; // 16 mm
+hinge_plate_clearance = 15;
+hinge_axis_z = moving_plate_t + hinge_r + hinge_plate_clearance; // 24 mm
 
 template_knuckles = [
     [34,26],
