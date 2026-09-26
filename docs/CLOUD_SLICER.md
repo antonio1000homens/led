@@ -81,16 +81,20 @@ The public Codespaces port is therefore still protected by the slicer MCP itself
 
 ### Worker configuration
 
-Set the Worker variable:
+The checked-in Wrangler config sets the dedicated Codespace name and its port. The repository variable `CODESPACE_NAME` must match it; the deployment workflow checks this before deploying.
+
+Run **Actions → Cloud Slicer / Deploy Worker** or let it run when Worker files change on `master`. It uses the dedicated `led-github-cloud-slicer-deploy-role` GitHub OIDC role, which can read only `/led/cloud-slicer/*` SSM parameters. The workflow deploys the Worker and pipes the four required `SecureString` values from SSM directly to Wrangler. Secret values are masked and never written to workflow logs or files.
+
+Create these parameters in `eu-west-2`:
 
 ```text
-CODESPACE_NAME=<dedicated-codespace-name>
-CODESPACE_FORWARDING_DOMAIN=app.github.dev
+/led/cloud-slicer/github-codespaces-token
+/led/cloud-slicer/mcp-client-token
+/led/cloud-slicer/origin-bearer-token
+/led/cloud-slicer/cloudflare-api-token
 ```
 
-The forwarding domain is configurable because GitHub documents that it may change.
-
-Set these Worker secrets:
+The GitHub Codespaces token must be able to inspect/start the dedicated Codespace and make port 8000 public. The Cloudflare token must be able to deploy Workers and create/manage the `slicer.alf-broadcast.co.uk` custom domain. Rotate tokens by updating their SSM parameter and rerunning the workflow. The Worker receives these secrets:
 
 ```text
 GITHUB_CODESPACES_TOKEN=<narrow user token able to read/start that Codespace and change port visibility>
@@ -100,7 +104,7 @@ ORIGIN_BEARER_TOKEN=<same value as the Codespaces SLICER_MCP_BEARER_TOKEN>
 
 Do not reuse the Cloudflare deployment token as `GITHUB_CODESPACES_TOKEN`.
 
-Deploy from `cloud/slicer-worker` with Wrangler after the secrets are configured. The checked-in Worker Custom Domain is:
+The checked-in Worker Custom Domain is:
 
 ```text
 slicer.alf-broadcast.co.uk
