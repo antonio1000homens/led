@@ -11,6 +11,9 @@ sudo apt-get install -y --no-install-recommends \
 python3 -m pip install --user --disable-pip-version-check \
   trimesh manifold3d numpy networkx scipy
 
+python3 -m pip install --user --disable-pip-version-check \
+  -r mcp_servers/slicer/requirements.txt
+
 cat <<'EOF'
 
 Codespace CAD environment ready.
@@ -26,5 +29,12 @@ Slice one model with the same script used by GitHub Actions:
 
 To experiment with Bambu auto-orientation:
   SLICER_ORIENT=1 bash scripts/slicer/slice-stl.sh <model.stl>
+
+Run the slicer MCP over stdio:
+  bash scripts/run-slicer-mcp.sh
+
+Run the slicer MCP over Streamable HTTP on the forwarded port:
+  SLICER_MCP_TRANSPORT=streamable-http SLICER_MCP_HOST=0.0.0.0 \
+    bash scripts/run-slicer-mcp.sh
 
 EOF
