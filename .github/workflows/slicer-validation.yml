@@ -155,8 +155,8 @@ jobs:
             echo "::endgroup::"
           done < .slicer-targets
 
-          total_finished="$(date +%s)"
-          echo "slice_seconds=$((total_finished - total_started))" >> "$GITHUB_OUTPUT"
+          total_finished_ms="$(date +%s%3N)"
+          echo "slice_milliseconds=$((total_finished_ms - total_started_ms))" >> "$GITHUB_OUTPUT"
           exit "$status"
 
       - name: Publish slicer summary
