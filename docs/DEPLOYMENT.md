@@ -263,6 +263,34 @@ New Todoist applications issue short-lived access tokens and rotating refresh to
 
 If Todoist returns `401`, the provider forces one refresh and retries once. If a refresh response omits the replacement refresh token, the provider fails closed and the OAuth bootstrap must be run again.
 
+## Slicer MCP and Cloudflare
+
+The slicer MCP does not require a new Cloudflare route for local/stdio or
+Codespaces use. It runs beside the CAD/slicer tooling and reuses the same
+headless Bambu Studio scripts as GitHub Actions.
+
+Do **not** extend `/api/control/v1/*` or `led-control-api` for slicer MCP
+traffic. That API is the LED runtime configuration plane and should remain
+small, synchronous and Lambda-oriented.
+
+If a permanent cloud-hosted MCP is later required so ChatGPT/another cloud AI
+can connect without an active Codespace, create a separate Streamable HTTP
+endpoint such as:
+
+```text
+https://led.alf-broadcast.co.uk/mcp/slicer
+```
+
+That future endpoint should use a dedicated origin/runtime with Cloudflare
+Access machine authentication and disabled caching. Its job should be to
+orchestrate GitHub Actions and expose status/artifact references; CPU-heavy
+Bambu slicing should continue to run in GitHub Actions/Codespaces. Do not put
+the Bambu LAN access code or printer MQTT/FTPS control into the Cloudflare edge
+runtime.
+
+See `docs/SLICER_MCP.md` for the detailed endpoint decision and security
+requirements.
+
 ## Cloudflare account safety
 
 There are separate Scouts and Windsor Cloudflare accounts. LED is explicitly a Windsor service.
