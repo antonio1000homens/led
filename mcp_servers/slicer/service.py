@@ -6,6 +6,8 @@ Actions and Codespaces. It does not reimplement Bambu Studio slicing.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import re
@@ -18,6 +20,8 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from mcp_servers.slicer.workspace import WorkspaceError, WorkspaceManager
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -511,8 +515,114 @@ class BambuStudioProvider:
 
 
 class SlicerService:
-    def __init__(self, provider: BambuStudioProvider | None = None):
+    def __init__(
+        self,
+        provider: BambuStudioProvider | None = None,
+        workspace_manager: WorkspaceManager | None = None,
+    ):
         self.provider = provider or BambuStudioProvider()
+        self.workspace_manager = workspace_manager or WorkspaceManager()
+
+    def _workspace_context(
+        self, workspace: str | None, path_value: str
+    ) -> dict[str, str]:
+        if not workspace:
+            return {}
+        try:
+            resolved = self.workspace_manager.require_generated_model(
+                workspace, path_value
+            )
+        except WorkspaceError as error:
+            raise SlicerServiceError(str(error)) from error
+        return {
+            "workspace": resolved.workspace_id,
+            "commit": resolved.commit,
+        }
+
+    def prepare_workspace(self, repository: str, commit: str) -> dict[str, Any]:
+        try:
+            return self.workspace_manager.prepare(
+                repository=repository,
+                commit=commit,
+            )
+        except WorkspaceError as error:
+            raise SlicerServiceError(str(error)) from error
+
+    def generate_model(
+        self,
+        workspace: str,
+        source_path: str,
+        output_name: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            return self.workspace_manager.generate_model(
+                workspace_id=workspace,
+                source_path=source_path,
+                output_name=output_name,
+            )
+        except WorkspaceError as error:
+            raise SlicerServiceError(str(error)) from error
+
+    def get_artifact(
+        self,
+        path: str,
+        *,
+        include_base64: bool = False,
+    ) -> dict[str, Any]:
+        requested = Path(path)
+        candidate = requested if requested.is_absolute() else ROOT / requested
+        artifact = _resolve_output(candidate)
+        if artifact.suffix.lower() != ".3mf":
+            raise SlicerServiceError("artifact must be a .3mf file")
+        if not artifact.is_file() or artifact.stat().st_size == 0:
+            raise SlicerServiceError("artifact does not exist or is empty")
+        size = artifact.stat().st_size
+        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        result: dict[str, Any] = {
+            "ok": True,
+            "path": _repo_relative(artifact),
+            "size_bytes": size,
+            "sha256": digest,
+        }
+        if include_base64:
+            max_bytes = int(
+                os.environ.get("SLICER_MCP_MAX_ARTIFACT_BYTES", "10485760")
+            )
+            if size > max_bytes:
+                raise SlicerServiceError(
+                    "artifact is too large for inline MCP transfer"
+                )
+            result["base64"] = base64.b64encode(artifact.read_bytes()).decode(
+                "ascii"
+            )
+        return result
+
+    def get_diagnostics(
+        self,
+        log_path: str,
+        *,
+        max_chars: int = 12000,
+    ) -> dict[str, Any]:
+        requested = Path(log_path)
+        candidate = requested if requested.is_absolute() else ROOT / requested
+        log = _resolve_output(candidate)
+        if log.suffix.lower() != ".log" or not log.is_file():
+            raise SlicerServiceError("diagnostic log does not exist")
+        limit = max(1000, min(int(max_chars), 20000))
+        text = log.read_text(encoding="utf-8", errors="replace")
+        text = re.sub(
+            r"(?i)(authorization\s*:\s*bearer\s+)[^\s]+",
+            r"\1[REDACTED]",
+            text,
+        )
+        if len(text) > limit:
+            text = text[-limit:]
+        return {
+            "ok": True,
+            "log": _repo_relative(log),
+            "truncated": log.stat().st_size > len(text.encode("utf-8")),
+            "text": text,
+        }
 
     def capabilities(self) -> dict[str, Any]:
         return {
@@ -523,6 +633,14 @@ class SlicerService:
             ],
             "output_root": _repo_relative(OUTPUT_ROOT),
             "retention_hours": _retention_hours(),
+            "cloud_workspace": {
+                "repository": self.workspace_manager.repository,
+                "supported": True,
+                "generated_input_root": "artifacts/slicer-input/",
+                "artifact_inline_limit_bytes": int(
+                    os.environ.get("SLICER_MCP_MAX_ARTIFACT_BYTES", "10485760")
+                ),
+            },
             "cloudflare_remote_endpoint": {
                 "configured": False,
                 "recommended_path_if_deployed": "/mcp/slicer",
@@ -540,19 +658,45 @@ class SlicerService:
     def list_profiles(self, profile_type: str | None = None) -> dict[str, Any]:
         return self.provider.list_profiles(profile_type)
 
-    def slice_model(self, **kwargs: Any) -> dict[str, Any]:
-        return self.provider.slice(**kwargs)
+    def slice_model(
+        self,
+        *,
+        workspace: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        context = self._workspace_context(
+            workspace, str(kwargs.get("path_value") or "")
+        )
+        return {**self.provider.slice(**kwargs), **context}
 
-    def validate_for_print(self, **kwargs: Any) -> dict[str, Any]:
+    def validate_for_print(
+        self,
+        *,
+        workspace: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        context = self._workspace_context(
+            workspace, str(kwargs.get("path_value") or "")
+        )
         result = self.provider.slice(**kwargs)
+        result.update(context)
         return {
             **result,
             "validation_only": True,
             "ready_for_print": bool(result.get("ok") and result.get("artifact")),
         }
 
-    def prepare_print(self, **kwargs: Any) -> dict[str, Any]:
+    def prepare_print(
+        self,
+        *,
+        workspace: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        context = self._workspace_context(
+            workspace, str(kwargs.get("path_value") or "")
+        )
         result = self.provider.slice(**kwargs)
+        result.update(context)
         ready = bool(result.get("ok") and result.get("artifact"))
         return {
             **result,
