@@ -635,6 +635,10 @@ module stationary_right_power_enclosure_print() {
         stationary_right_power_enclosure_installed();
 }
 
+// CI checks the moving leaf against the stationary middle enclosure throughout
+// the 0-90 degree service arc, so changes here must preserve both print support
+// and rotational clearance.
+
 // ---------- Assembly model coordinates ----------
 
 module hinge_pin_preview(length=236,x0=10) {
