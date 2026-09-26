@@ -120,7 +120,7 @@ Prints flat on the verified template face.
 
 Expected envelope is approximately:
 
-- **256 × 128 × 23 mm**
+- **256 × 128 × 31 mm**
 
 ### Stationary enclosure/base variants
 
@@ -203,8 +203,8 @@ The validator checks all four printable variants, their intended print envelopes
 9. Test-fit the chosen power-cable grommet in the rear hole before routing the cable.
 10. Verify the enclosure/base remains stationary while the LED/templates open forward/down.
 11. With each LED/template closed, confirm the full-width lower hinge guard blocks direct access into the cavity behind the panel.
-12. Open and close each panel through the full **0–90° service arc** and confirm the moving plate does not contact the stationary hinge barrel, rear support web or guard.
-13. Confirm the closed moving plate has the intended **7 mm gap to the front of the stationary hinge barrel** and the guard remains at least 0.8 mm behind the barrel envelope.
+12. Open and close each panel through the full **0–90° service arc** and confirm the moving plate does not contact the stationary hinge barrel, rear support web or guard. CI samples this sweep every 5°.
+13. Confirm the closed moving plate has the intended **15 mm gap to the front of the stationary hinge barrel** and the guard remains at least 0.8 mm behind the barrel envelope.
 14. Check the 20 mm closed floor clearance with the real LED-panel thickness.
 15. Check stability with all moving panels open.
 
