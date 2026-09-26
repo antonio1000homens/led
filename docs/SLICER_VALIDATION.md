@@ -37,6 +37,11 @@ PR-triggered runs process at most four selected models by default. If a change
 would select more, the workflow fails early and asks for an explicit manual
 target instead of consuming a large amount of Actions time.
 
+When the slicer workflow/scripts/devcontainer themselves change and no printable
+model changed, an explicitly labelled PR slices the small tracked
+`09_centre_boss_desk_stand_PRINT_3.stl` as a self-test. This proves the real
+Bambu CLI/profile path without turning full slicing on for ordinary PRs.
+
 Successful runs upload `artifacts/slicer/` for seven days, including:
 
 - the sliced `*.sliced.3mf`;
