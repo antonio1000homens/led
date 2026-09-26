@@ -3,7 +3,7 @@ name: Slicer MCP / Validate
 on:
   pull_request:
     paths:
-      - 'mcp_servers/slicer/**'
+      - 'mcp_servers/**'
       - 'scripts/run-slicer-mcp.sh'
       - 'tests/test_slicer_mcp.py'
       - '.devcontainer/**'
