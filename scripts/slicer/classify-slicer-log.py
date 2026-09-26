@@ -8,13 +8,52 @@ import json
 import re
 from pathlib import Path
 
+
 RULES = [
-    ("FLOATING_REGION", re.compile(r"floating\s+(?:cantilever|region|part|object)|unsupported\s+region", re.I)),
-    ("EMPTY_LAYERS", re.compile(r"empty\s+layers?|no\s+printable|nothing\s+to\s+print|zero\s+layers", re.I)),
-    ("OUTSIDE_BUILD_VOLUME", re.compile(r"outside.*(?:build|printable).*volume|exceeds.*(?:build|printable).*volume", re.I)),
-    ("PROFILE_MISMATCH", re.compile(r"profile.*(?:mismatch|incompatible)|not\s+compatible\s+with.*printer", re.I)),
-    ("INVALID_GEOMETRY", re.compile(r"invalid\s+geometry|non[- ]manifold|self[- ]intersect", re.I)),
+    (
+        "FLOATING_REGION",
+        re.compile(
+            r"floating\s+(?:cantilever|region|part|object)|unsupported\s+region",
+            re.I,
+        ),
+    ),
+    (
+        "EMPTY_LAYERS",
+        re.compile(
+            r"empty\s+layers?|no\s+printable|nothing\s+to\s+print|zero\s+layers",
+            re.I,
+        ),
+    ),
+    (
+        "OUTSIDE_BUILD_VOLUME",
+        re.compile(
+            r"outside.*(?:build|printable).*volume|"
+            r"exceeds.*(?:build|printable).*volume",
+            re.I,
+        ),
+    ),
+    (
+        "PROFILE_MISMATCH",
+        re.compile(
+            r"profile.*(?:mismatch|incompatible)|"
+            r"not\s+compatible\s+with.*printer",
+            re.I,
+        ),
+    ),
+    (
+        "INVALID_GEOMETRY",
+        re.compile(
+            r"invalid\s+geometry|non[- ]manifold|self[- ]intersect",
+            re.I,
+        ),
+    ),
 ]
+
+NEGATIVE_RETURN = re.compile(
+    r"\breturn_code\b[^\n]*-[0-9]+|"
+    r"run found error,\s*return\s+-[0-9]+",
+    re.I,
+)
 
 FATAL = {
     "FLOATING_REGION",
@@ -35,7 +74,11 @@ def main() -> None:
     parser.add_argument("--artifact", type=Path)
     args = parser.parse_args()
 
-    text = args.log.read_text(encoding="utf-8", errors="replace") if args.log.exists() else ""
+    text = (
+        args.log.read_text(encoding="utf-8", errors="replace")
+        if args.log.exists()
+        else ""
+    )
     categories: list[str] = []
 
     for category, pattern in RULES:
@@ -45,7 +88,12 @@ def main() -> None:
     if args.slicer_exit != 0:
         categories.append("SLICER_ERROR")
 
-    # Bambu emits some non-fatal lines at [error] level while still producing\n    # a valid slice. Process exit and explicit negative returns are authoritative.\n    if re.search(\n        r"\\breturn_code\\b[^\\n]*-[0-9]+|run found error,\\s*return\\s+-[0-9]+",\n        text,\n        re.I,\n    ):\n        categories.append("SLICER_ERROR")\n
+    # Bambu emits some non-fatal messages at [error] level while still
+    # producing a valid slice (for example Invalid T command). Process exit
+    # and explicit negative-return markers are authoritative instead.
+    if NEGATIVE_RETURN.search(text):
+        categories.append("SLICER_ERROR")
+
     if args.artifact is not None and (
         not args.artifact.is_file() or args.artifact.stat().st_size == 0
     ):
@@ -62,7 +110,10 @@ def main() -> None:
         "artifact": str(args.artifact) if args.artifact else None,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    args.output.write_text(
+        json.dumps(result, indent=2) + "\n",
+        encoding="utf-8",
+    )
     print(json.dumps(result))
 
     if fatal:
