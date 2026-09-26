@@ -75,7 +75,9 @@ args=(
   --slice 0
   --debug 2
   --outputdir "$OUT_DIR"
-  --export-3mf "$OUTPUT_3MF"
+  # Bambu resolves --export-3mf relative to --outputdir; passing an absolute
+  # path causes it to concatenate the two paths.
+  --export-3mf "$STEM.sliced.3mf"
 )
 
 # Preserve the CAD/STL orientation by default so CI catches the same unsupported
