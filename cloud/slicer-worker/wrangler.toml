@@ -2,6 +2,7 @@ name = "led-cloud-slicer"
 main = "src/index.js"
 compatibility_date = "2026-09-26"
 workers_dev = false
+routes = [{ pattern = "slicer.alf-broadcast.co.uk/*", zone_name = "alf-broadcast.co.uk" }]
 
 [vars]
 CODESPACE_PORT = "8000"
