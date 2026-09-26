@@ -1,0 +1,201 @@
+name: Enclosure / Slicer validation
+
+# Full Bambu slicing is intentionally opt-in while runner cost and reliability
+# are measured. The existing Enclosure / Validate workflow remains the required,
+# low-cost geometry gate for every enclosure PR.
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+    paths:
+      - 'hardware/enclosure/**'
+      - 'scripts/slicer/**'
+      - '.devcontainer/**'
+      - '.github/workflows/slicer-validation.yml'
+      - 'tests/test_slicer_validation.py'
+  workflow_dispatch:
+    inputs:
+      stl_path:
+        description: 'Repository-relative STL/3MF path under hardware/enclosure'
+        required: true
+        type: string
+      max_targets:
+        description: 'Maximum models to slice in this run'
+        required: false
+        default: '1'
+        type: string
+      auto_orient:
+        description: 'Allow Bambu Studio to auto-orient before slicing'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enclosure-slicer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BAMBU_STUDIO_VERSION: v02.08.02.61
+  SLICER_MACHINE_PROFILE: Bambu Lab H2D 0.4 nozzle
+  SLICER_PROCESS_PROFILE: 0.20mm Standard @BBL H2D
+  SLICER_FILAMENT_PROFILE: Bambu PLA Basic @BBL H2D
+
+jobs:
+  full-slice:
+    # A PR slice runs only when explicitly opted in with the label.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'slicer-validation')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Test slicer diagnostic classification
+        run: python -m unittest discover -s tests -p 'test_slicer_validation.py' -v
+
+      - name: Install headless runtime libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl xvfb xauth squashfs-tools \
+            libgl1 libglu1-mesa libosmesa6 \
+            libgstreamer-plugins-base1.0-0 libwebkit2gtk-4.1-0
+
+      - name: Cache Bambu Studio
+        uses: actions/cache@v4
+        with:
+          path: .tools/bambu-studio
+          key: bambu-studio-${{ runner.os }}-${{ runner.arch }}-${{ env.BAMBU_STUDIO_VERSION }}
+
+      - name: Install Bambu Studio CLI
+        id: setup_slicer
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          started="$(date +%s)"
+          bash scripts/slicer/install-bambu-studio.sh
+          finished="$(date +%s)"
+          echo "setup_seconds=$((finished - started))" >> "$GITHUB_OUTPUT"
+          # Keep launcher diagnostics visible: a missing shared library from
+          # the official AppImage should be actionable in the Actions log.
+          .tools/bin/bambu-studio --help 2>&1 | tee /tmp/bambu-studio-help.txt
+
+      - name: Select slicer targets
+        id: targets
+        shell: bash
+        env:
+          DISPATCH_PATH: ${{ inputs.stl_path }}
+          DISPATCH_MAX: ${{ inputs.max_targets }}
+        run: |
+          set -euo pipefail
+          : > .slicer-targets
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            max_targets="${DISPATCH_MAX:-1}"
+            python3 scripts/slicer/select-targets.py \
+              --explicit "$DISPATCH_PATH" \
+              --max-targets "$max_targets" \
+              > .slicer-targets
+          else
+            git fetch --no-tags origin \
+              "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+            python3 scripts/slicer/select-targets.py \
+              --base "origin/${{ github.base_ref }}" \
+              --head HEAD \
+              --max-targets 4 \
+              > .slicer-targets
+          fi
+
+          echo "Selected targets:"
+          cat .slicer-targets
+          echo "count=$(grep -cve '^$' .slicer-targets || true)" >> "$GITHUB_OUTPUT"
+
+      - name: Slice selected models
+        id: slice
+        shell: bash
+        env:
+          SLICER_ORIENT: ${{ inputs.auto_orient && '1' || '0' }}
+        run: |
+          set -euo pipefail
+
+          total_started="$(date +%s)"
+          status=0
+
+          while IFS= read -r target; do
+            [[ -n "$target" ]] || continue
+            echo "::group::Slice $target"
+            if ! bash scripts/slicer/slice-stl.sh "$target"; then
+              status=1
+            fi
+            echo "::endgroup::"
+          done < .slicer-targets
+
+          total_finished="$(date +%s)"
+          echo "slice_seconds=$((total_finished - total_started))" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Publish slicer summary
+        if: always()
+        shell: bash
+        env:
+          SETUP_SECONDS: ${{ steps.setup_slicer.outputs.setup_seconds }}
+          SLICE_SECONDS: ${{ steps.slice.outputs.slice_seconds }}
+          TARGET_COUNT: ${{ steps.targets.outputs.count }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import os
+          from pathlib import Path
+
+          print("# H2D slicer validation")
+          print()
+          print(f"- Bambu Studio: `{os.environ.get('BAMBU_STUDIO_VERSION', '')}`")
+          print(f"- Setup/download: **{os.environ.get('SETUP_SECONDS') or 'n/a'} s**")
+          print(f"- Slice phase: **{os.environ.get('SLICE_SECONDS') or 'n/a'} s**")
+          print(f"- Selected models: **{os.environ.get('TARGET_COUNT') or '0'}**")
+          print(f"- Auto-orient: **{os.environ.get('SLICER_ORIENT', '0')}**")
+          print()
+
+          results = sorted(Path("artifacts/slicer").glob("*/result.json"))
+          if not results:
+              print("No models were sliced.")
+          for path in results:
+              data = json.loads(path.read_text())
+              state = "PASS" if data.get("ok") else "FAIL"
+              cats = ", ".join(data.get("categories", [])) or "none"
+              print(f"## {state}: `{data.get('input', path.parent.name)}`")
+              print()
+              print(f"- Categories: `{cats}`")
+              print(f"- Slice time: **{data.get('slice_seconds', 'n/a')} s**")
+              print(f"- Output: `{data.get('artifact') or 'none'}`")
+              print()
+          PY
+
+      - name: Upload slicer artifacts and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h2d-slicer-${{ github.run_id }}
+          path: artifacts/slicer/
+          if-no-files-found: warn
+          retention-days: 7

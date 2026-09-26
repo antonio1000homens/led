@@ -6,7 +6,7 @@ that owns that area.
 
 | Area | Primary paths | Pull request behaviour | Push to `master` |
 | --- | --- | --- | --- |
-| Enclosure / mechanical | `hardware/enclosure/**` | Run the consolidated enclosure validator: render each current production STL once, compare checked-in meshes, render assembly/SVG views, validate hinge-v2 print geometry/floating-layer islands, and validate meshes/interfaces | Repeat the same validation; no deployment |
+| Enclosure / mechanical | `hardware/enclosure/**` | Run the consolidated fast enclosure validator on every relevant PR. A separate real H2D slicer workflow is opt-in by `slicer-validation` label or manual dispatch while runtime cost is measured. | Repeat fast validation; no automatic full slicing or deployment |
 | CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
 | Backend / AWS | `backend/**`, `shared/**`, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
 | Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
@@ -93,7 +93,7 @@ That script is the single orchestration point for current mechanical CI. Product
 
 The older `hardware/enclosure/direct-mount/hinge-version/` experiment is retained for reference but is no longer rebuilt on every enclosure change. The active hinged design is `hinge-prototype-v2/`.
 
-Hinge-v2 validation includes a coarse voxel/layer **floating-island proxy**. It rejects an elevated XY slice component that appears without nearby material in the preceding slice. This targets detached starts such as the roof cantilever found by Bambu Studio, but it is not a replacement for final slicing in Bambu Studio.
+Hinge-v2 validation includes a coarse voxel/layer **floating-island proxy**. It rejects an elevated XY slice component that appears without nearby material in the preceding slice. This remains the inexpensive required gate.\n\nFor actual slicer behaviour, `.github/workflows/slicer-validation.yml` runs the pinned Bambu Studio CLI against H2D profiles. It is opt-in by PR label or manual dispatch, uses the same scripts as Codespaces, caps PR targets to avoid runaway runner use, uploads sliced artifacts/logs, and treats normalized floating/fatal slicer diagnostics as failures. See [`SLICER_VALIDATION.md`](SLICER_VALIDATION.md).
 
 ## Workflow-generated commits and approval loops
 
