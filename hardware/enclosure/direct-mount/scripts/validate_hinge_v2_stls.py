@@ -186,7 +186,7 @@ def assert_middle_sweep_clearance(work_dir: Path) -> None:
 
     source = HINGE_DIR / "hinge_prototype_v2.scad"
 
-    for angle in (0, 15, 30, 45, 60, 75, 90):
+    for angle in range(0, 91, 5):
         check_scad = work_dir / f"sweep_clearance_{angle}.scad"
         intersection_stl = work_dir / f"sweep_clearance_{angle}.stl"
 
@@ -259,14 +259,14 @@ def main() -> None:
         template = generated_dir / PARTS["01_moving_panel_template_HINGE_TEST.scad"]
         template_dims = assert_on_bed("moving panel template", template)
 
-        # The active hinge now deliberately stands the 14 mm barrel farther
-        # behind the 2 mm moving plate, so the printable moving leaf reaches
-        # approximately 21 mm in Z. Keep a small regression margin without
-        # allowing an accidental full-width rear enclosure to creep onto it.
-        if template_dims[2] > 23.0:
+        # The active hinge deliberately stands the 14 mm barrel 15 mm behind
+        # the 2 mm moving plate, so the printable moving leaf reaches about
+        # 31 mm in Z. Keep a small regression margin without allowing an
+        # accidental full-width rear enclosure to creep onto it.
+        if template_dims[2] > 33.0:
             raise SystemExit(
                 "moving panel template gained excessive rear/lip geometry: "
-                f"height={template_dims[2]:.1f} mm (expected <= 23 mm)"
+                f"height={template_dims[2]:.1f} mm (expected <= 33 mm)"
             )
 
         enclosure_specs = (
