@@ -126,7 +126,7 @@ Cloudflare creates/manages the DNS record for this Custom Domain; do not create 
 The repository includes an authenticated end-to-end MCP client for this gate:
 
 ```bash
-python3 scripts/slicer/codespace-mcp-smoke.py
+bash scripts/slicer/run-codespace-mcp-smoke.sh
 ```
 
 It uses the current full Git commit by default and exercises the actual Streamable HTTP MCP path:
@@ -155,7 +155,7 @@ artifacts/slicer-smoke/
 Override the commit/source when needed:
 
 ```bash
-python3 scripts/slicer/codespace-mcp-smoke.py \
+bash scripts/slicer/run-codespace-mcp-smoke.sh \
   --commit <40-character-sha> \
   --source hardware/enclosure/.../part.scad \
   --output-name part.stl
