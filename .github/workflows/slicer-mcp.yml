@@ -51,8 +51,10 @@ jobs:
       - name: Validate Cloudflare Worker syntax
         run: node --check cloud/slicer-worker/src/index.js
 
-      - name: Validate Codespace startup script
-        run: bash -n .devcontainer/post-start.sh
+      - name: Validate Codespace startup scripts
+        run: |
+          bash -n .devcontainer/post-start.sh
+          bash -n scripts/slicer/run-codespace-mcp-smoke.sh
 
       - name: Run MCP contract tests
         run: python -m unittest discover -s tests -p 'test_slicer_mcp.py' -v
