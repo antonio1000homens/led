@@ -85,7 +85,10 @@ Set the Worker variable:
 
 ```text
 CODESPACE_NAME=<dedicated-codespace-name>
+CODESPACE_FORWARDING_DOMAIN=app.github.dev
 ```
+
+The forwarding domain is configurable because GitHub documents that it may change.
 
 Set these Worker secrets:
 
@@ -97,11 +100,13 @@ ORIGIN_BEARER_TOKEN=<same value as the Codespaces SLICER_MCP_BEARER_TOKEN>
 
 Do not reuse the Cloudflare deployment token as `GITHUB_CODESPACES_TOKEN`.
 
-Deploy from `cloud/slicer-worker` with Wrangler after the secrets are configured. The checked-in route is:
+Deploy from `cloud/slicer-worker` with Wrangler after the secrets are configured. The checked-in Worker Custom Domain is:
 
 ```text
-slicer.alf-broadcast.co.uk/*
+slicer.alf-broadcast.co.uk
 ```
+
+Cloudflare creates/manages the DNS record for this Custom Domain; do not create a separate origin CNAME for it.
 
 ## Security boundaries
 
