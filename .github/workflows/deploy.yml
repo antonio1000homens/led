@@ -84,6 +84,7 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: python -m pip install -r requirements-server.txt
+      - run: python -m pip install --disable-pip-version-check -r mcp_servers/slicer/requirements.txt
       - run: python -m unittest discover -s tests -v
 
   deploy:

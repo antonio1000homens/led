@@ -323,10 +323,47 @@ Resources:
                 Action: sts:GetCallerIdentity
                 Resource: '*'
 
+  GitHubActionsCloudSlicerDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-github-cloud-slicer-deploy-role
+      Description: Deploys the LED cloud slicer Worker using secrets scoped to /led/cloud-slicer/*.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${RepoOwner}@${RepoOwnerId}/${RepoName}@${RepoId}:ref:refs/heads/${DeployBranch}
+      Policies:
+        - PolicyName: led-cloud-slicer-worker-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadCloudSlicerSecrets
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/led/cloud-slicer/*
+              - Sid: DecryptCloudSlicerParameters
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+                  StringLike:
+                    kms:EncryptionContext:PARAMETER_ARN: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/led/cloud-slicer/*
+
 Outputs:
   AwsRoleToAssume:
     Value: !GetAtt GitHubActionsDeployRole.Arn
   CloudFormationRoleArn:
     Value: !GetAtt CloudFormationExecutionRole.Arn
+  CloudSlicerDeployRoleArn:
+    Value: !GetAtt GitHubActionsCloudSlicerDeployRole.Arn
   CodeBucketName:
     Value: !Ref CodeBucket

@@ -6,6 +6,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
+    def test_cloud_slicer_deploy_uses_dedicated_oidc_role_and_ssm(self):
+        template = (ROOT / "infrastructure" / "bootstrap.yaml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" / "slicer-worker.yml").read_text(encoding="utf-8")
+        deploy = (ROOT / "scripts" / "slicer" / "deploy-cloud-slicer-worker.sh").read_text(encoding="utf-8")
+        self.assertIn("RoleName: led-github-cloud-slicer-deploy-role", template)
+        self.assertIn("parameter/led/cloud-slicer/*", template)
+        self.assertIn("role/led-github-cloud-slicer-deploy-role", workflow)
+        self.assertNotIn("GitHubActionsLedDeployRole", workflow)
+        for name in ("github-codespaces-token", "mcp-client-token", "origin-bearer-token", "cloudflare-api-token"):
+            self.assertIn(name, deploy)
+        self.assertIn("wrangler secret put", deploy)
+
     def test_simulator_preview_uses_full_available_width(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("main { width: 100%; padding: 28px; }", simulator)

@@ -5,6 +5,7 @@ workers_dev = false
 routes = [{ pattern = "slicer.alf-broadcast.co.uk", custom_domain = true }]
 
 [vars]
+CODESPACE_NAME = "fuzzy-space-zebra-6rwrwq696x42gwg"
 CODESPACE_PORT = "8000"
 CODESPACE_FORWARDING_DOMAIN = "app.github.dev"
 STARTUP_POLLS = "12"
@@ -12,7 +13,6 @@ STARTUP_POLL_MS = "3000"
 HEALTH_POLLS = "10"
 HEALTH_POLL_MS = "2000"
 
-# Set CODESPACE_NAME for the dedicated LED Codespace before deployment.
 # Route the Worker to slicer.alf-broadcast.co.uk/*.
 # Required Worker secrets:
 # GITHUB_CODESPACES_TOKEN - narrowly scoped token for this user Codespace
