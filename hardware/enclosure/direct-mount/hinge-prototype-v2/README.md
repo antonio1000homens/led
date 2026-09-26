@@ -17,14 +17,14 @@ Prototype defaults:
 - printed hinge bore: **7.2 mm**
 - hinge barrel OD: **14 mm**
 - hinge axis: **27 mm above the floor**
-- hinge axis depth: **14 mm behind the LED/template front plane**
-- closed plate-to-barrel clearance: **5 mm**
+- hinge axis depth: **16 mm behind the LED/template front plane**
+- closed plate-to-barrel clearance: **7 mm**
 - floor-base forward extension: **25 mm**
 - floor-base thickness: **5 mm**
 
 The moving template has no full-width lower lip. Only local hinge roots are added behind its existing lower band.
 
-The hinge axis is deliberately set farther behind the moving plate than in the earlier prototype. The 2 mm plate back now has **5 mm clearance to the front of the 14 mm hinge barrel**. The stationary knuckle support also approaches the barrel from its rear quadrant instead of filling the space directly underneath the pivot. Together these changes leave a clear corridor for the moving plate to rotate forward/down without striking the enclosure hinge block.
+The hinge axis is deliberately set farther behind the moving plate than in the earlier prototype. The 2 mm plate back now has **7 mm clearance to the front of the 14 mm hinge barrel**. The stationary knuckle support also approaches the barrel from its rear quadrant instead of filling the space directly underneath the pivot. Together these changes leave a clear corridor for the moving plate to rotate forward/down without striking the enclosure hinge block.
 
 Every stationary enclosure now also includes a **2 mm full-width lower hinge guard**. The guard rises from the 5 mm floor/base to the hinge centreline and sits immediately behind the 14 mm hinge-barrel envelope, leaving **0.8 mm clearance** to the moving hinge. It closes the exposed low opening behind the LED/template when the panel is shut, while the open left/right side planes above it remain available for hinge sweep and inter-panel cabling.
 
@@ -120,7 +120,7 @@ Prints flat on the verified template face.
 
 Expected envelope is approximately:
 
-- **256 × 128 × 21 mm**
+- **256 × 128 × 23 mm**
 
 ### Stationary enclosure/base variants
 
@@ -204,7 +204,7 @@ The validator checks all four printable variants, their intended print envelopes
 10. Verify the enclosure/base remains stationary while the LED/templates open forward/down.
 11. With each LED/template closed, confirm the full-width lower hinge guard blocks direct access into the cavity behind the panel.
 12. Open and close each panel through the full **0–90° service arc** and confirm the moving plate does not contact the stationary hinge barrel, rear support web or guard.
-13. Confirm the closed moving plate has the intended **5 mm gap to the front of the stationary hinge barrel** and the guard remains at least 0.8 mm behind the barrel envelope.
+13. Confirm the closed moving plate has the intended **7 mm gap to the front of the stationary hinge barrel** and the guard remains at least 0.8 mm behind the barrel envelope.
 14. Check the 20 mm closed floor clearance with the real LED-panel thickness.
 15. Check stability with all moving panels open.
 
