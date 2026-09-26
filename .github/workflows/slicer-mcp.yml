@@ -5,6 +5,7 @@ on:
     paths:
       - 'mcp_servers/**'
       - 'scripts/run-slicer-mcp.sh'
+      - 'scripts/slicer/**'
       - 'tests/test_slicer_mcp.py'
       - '.devcontainer/**'
       - 'docs/SLICER_MCP.md'
@@ -13,7 +14,7 @@ on:
     branches:
       - master
     paths:
-      - 'mcp_servers/slicer/**'
+      - 'mcp_servers/**'
       - 'scripts/run-slicer-mcp.sh'
       - 'tests/test_slicer_mcp.py'
       - '.devcontainer/**'
