@@ -539,40 +539,33 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Keep the stationary knuckle, but do NOT fill the volume directly below
-    // the hinge axis. The moving plate sweeps through that region on its way
-    // toward the service-open position.
+    // Keep the stationary knuckle clear of the moving plate's sweep corridor.
     //
-    // The support web begins at the BOTTOM tangent of the stationary barrel,
-    // then slopes strongly rearward into the floor/base. Starting at the bottom
-    // tangent means the first printed barrel layers are already connected to
-    // material below instead of appearing as a floating island. Sweeping the
-    // web rearward keeps the moving plate's forward/downward rotation corridor
-    // clear.
+    // The full-width lower hinge guard already grows continuously from the
+    // enclosure base and is tied into the rear quadrant of each stationary
+    // knuckle. Use that guard as the structural support instead of a diagonal
+    // brace running down toward the floor/rear wall.
+    //
+    // A short local bridge tab extends forward from the guard directly under
+    // the barrel's bottom tangent. In the upright print this is only a ~9 mm
+    // bridge from already-supported guard material, which is enough to support
+    // the first barrel layers without putting material in the 90-degree plate
+    // position.
     union() {
         hinge_barrel(x0,len);
 
-        hull() {
-            // Narrow overlap around the barrel's bottom tangent. The 3 mm
-            // installed-Y height provides layer-to-layer support as the circular
-            // barrel begins to grow.
-            translate([
-                x0,
-                hinge_axis_y-hinge_r-1.0,
-                hinge_axis_z-1.0
-            ])
-                cube([len,3,2]);
-
-            // Bed-connected anchor near the rear of the 40 mm-deep base. This
-            // large rearward offset keeps the diagonal web out of the plate
-            // sweep while remaining support-free in the upright print.
-            translate([
-                x0,
-                base_thickness_y-0.5,
-                rear_z_bottom-box_rear_t
-            ])
-                cube([len,2,2]);
-        }
+        translate([
+            x0,
+            hinge_axis_y-hinge_r-1.0,
+            hinge_axis_z-1.0
+        ])
+            cube([
+                len,
+                3,
+                hinge_guard_front_z
+                    + hinge_guard_bridge_overlap
+                    - (hinge_axis_z-1.0)
+            ]);
     }
 }
 
