@@ -106,8 +106,8 @@ def _find_profile_root() -> Path | None:
 
     slicer = _find_slicer()
     if slicer and sys.platform == "darwin":
-        app_root = slicer.parents[2]
-        candidate = app_root / "Resources/profiles/BBL"
+        contents_root = slicer.parents[1]
+        candidate = contents_root / "Resources/profiles/BBL"
         if candidate.is_dir():
             return candidate.resolve()
     return None
