@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import signal
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +27,7 @@ DEFAULT_MACHINE = "Bambu Lab H2D 0.4 nozzle"
 DEFAULT_PROCESS = "0.20mm Standard @BBL H2D"
 DEFAULT_FILAMENT = "Bambu PLA Basic @BBL H2D"
 DEFAULT_TIMEOUT_SECONDS = 900
+DEFAULT_RETENTION_HOURS = 24
 
 ALLOWED_INPUT_ROOTS = (
     (ROOT / "hardware").resolve(),
@@ -75,6 +79,94 @@ def _resolve_output(path: Path) -> Path:
     if not _is_relative_to(resolved, OUTPUT_ROOT):
         raise SlicerServiceError("slicer output must remain under artifacts/slicer/")
     return resolved
+
+
+def _safe_output_stem(value: str) -> str:
+    """Return a bounded filesystem-safe label for MCP output directories."""
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", value)
+    sanitized = sanitized.strip("._-")
+    if not sanitized:
+        return "model"
+    return sanitized[:64]
+
+
+def _retention_hours() -> int:
+    raw = os.environ.get("SLICER_MCP_RETENTION_HOURS", "").strip()
+    if not raw:
+        return DEFAULT_RETENTION_HOURS
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise SlicerServiceError(
+            "SLICER_MCP_RETENTION_HOURS must be an integer"
+        ) from error
+    if value < 1 or value > 24 * 30:
+        raise SlicerServiceError(
+            "SLICER_MCP_RETENTION_HOURS must be between 1 and 720"
+        )
+    return value
+
+
+def _cleanup_stale_mcp_outputs(*, now: float | None = None) -> int:
+    """Remove only stale MCP-owned output directories below artifacts/slicer."""
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    cutoff = (time.time() if now is None else now) - (_retention_hours() * 3600)
+    removed = 0
+
+    for candidate in OUTPUT_ROOT.glob("mcp-*"):
+        try:
+            if candidate.is_symlink() or not candidate.is_dir():
+                continue
+            resolved = candidate.resolve()
+            if not _is_relative_to(resolved, OUTPUT_ROOT):
+                continue
+            if candidate.stat().st_mtime >= cutoff:
+                continue
+            shutil.rmtree(candidate)
+            removed += 1
+        except FileNotFoundError:
+            continue
+
+    return removed
+
+
+def _validate_result_payload(result: Any) -> dict[str, Any]:
+    """Validate the trusted shape of result.json before exposing it through MCP."""
+    if not isinstance(result, dict):
+        raise SlicerServiceError("slicer result.json must contain a JSON object")
+
+    if not isinstance(result.get("ok"), bool):
+        raise SlicerServiceError("slicer result field 'ok' must be boolean")
+
+    for field in ("categories", "fatal_categories"):
+        value = result.get(field, [])
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value
+        ):
+            raise SlicerServiceError(
+                f"slicer result field '{field}' must be a list of strings"
+            )
+        result[field] = value
+
+    slicer_exit = result.get("slicer_exit")
+    if slicer_exit is not None and not isinstance(slicer_exit, int):
+        raise SlicerServiceError("slicer result field 'slicer_exit' must be integer")
+
+    for field in ("input", "artifact"):
+        value = result.get(field)
+        if value is not None and not isinstance(value, str):
+            raise SlicerServiceError(
+                f"slicer result field '{field}' must be a string or null"
+            )
+
+    for field in ("slice_seconds", "slice_milliseconds"):
+        value = result.get(field)
+        if value is not None and not isinstance(value, (int, float)):
+            raise SlicerServiceError(
+                f"slicer result field '{field}' must be numeric when present"
+            )
+
+    return result
 
 
 def _find_slicer() -> Path | None:
@@ -302,8 +394,10 @@ class BambuStudioProvider:
         if not SLICE_SCRIPT.is_file():
             raise SlicerServiceError("shared slicer script is missing")
 
+        _cleanup_stale_mcp_outputs()
+        safe_stem = _safe_output_stem(path.stem)
         output_dir = _resolve_output(
-            OUTPUT_ROOT / f"mcp-{path.stem}-{uuid.uuid4().hex[:10]}"
+            OUTPUT_ROOT / f"mcp-{safe_stem}-{uuid.uuid4().hex[:10]}"
         )
         output_dir.mkdir(parents=True, exist_ok=False)
 
@@ -315,6 +409,9 @@ class BambuStudioProvider:
         detected_slicer = _find_slicer()
         if detected_slicer is not None:
             env["BAMBU_STUDIO_BIN"] = str(detected_slicer)
+        detected_profile_root = _find_profile_root()
+        if detected_profile_root is not None:
+            env["BAMBU_PROFILE_ROOT"] = str(detected_profile_root)
         if bed_type:
             env["SLICER_BED_TYPE"] = bed_type
 
@@ -339,17 +436,21 @@ class BambuStudioProvider:
         result_path = output_dir / "result.json"
         if result_path.is_file():
             try:
-                result = json.loads(result_path.read_text(encoding="utf-8"))
+                result = _validate_result_payload(
+                    json.loads(result_path.read_text(encoding="utf-8"))
+                )
             except json.JSONDecodeError as error:
                 raise SlicerServiceError("slicer produced malformed result.json") from error
         else:
-            result = {
-                "ok": False,
-                "categories": ["SLICER_ERROR", "MISSING_OUTPUT"],
-                "fatal_categories": ["SLICER_ERROR", "MISSING_OUTPUT"],
-                "slicer_exit": completed.returncode,
-                "artifact": None,
-            }
+            result = _validate_result_payload(
+                {
+                    "ok": False,
+                    "categories": ["SLICER_ERROR", "MISSING_OUTPUT"],
+                    "fatal_categories": ["SLICER_ERROR", "MISSING_OUTPUT"],
+                    "slicer_exit": completed.returncode,
+                    "artifact": None,
+                }
+            )
 
         raw_input = result.get("input")
         if raw_input:
@@ -370,7 +471,19 @@ class BambuStudioProvider:
                 raise SlicerServiceError(
                     "slicer result artifact escaped the allocated output directory"
                 )
+            if artifact_path.suffix.lower() != ".3mf":
+                raise SlicerServiceError(
+                    "slicer result artifact must be a .3mf file"
+                )
+            if not artifact_path.is_file() or artifact_path.stat().st_size == 0:
+                raise SlicerServiceError(
+                    "slicer result artifact is missing or empty"
+                )
             result["artifact"] = _repo_relative(artifact_path)
+        elif result.get("ok"):
+            raise SlicerServiceError(
+                "successful slicer result did not include an artifact"
+            )
 
         result.update(
             {
@@ -409,6 +522,7 @@ class SlicerService:
                 _repo_relative(path) for path in ALLOWED_INPUT_ROOTS
             ],
             "output_root": _repo_relative(OUTPUT_ROOT),
+            "retention_hours": _retention_hours(),
             "cloudflare_remote_endpoint": {
                 "configured": False,
                 "recommended_path_if_deployed": "/mcp/slicer",
