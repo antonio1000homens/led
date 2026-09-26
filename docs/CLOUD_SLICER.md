@@ -94,7 +94,7 @@ Create these parameters in `eu-west-2`:
 /led/cloud-slicer/cloudflare-api-token
 ```
 
-The GitHub token must be able to inspect and start the dedicated Codespace and make port 8000 public. For a fine-grained token, grant Codespaces metadata read and Codespaces lifecycle admin write for the `led` repository, plus the Codespaces port visibility operation. A classic personal access token needs the `codespace` scope.
+The GitHub token must be able to inspect and start the dedicated Codespace. For a fine-grained token, grant Codespaces metadata read and Codespaces lifecycle admin write for the `led` repository. The Worker obtains a short-lived Dev Tunnels port-management token from the Codespaces connection response and uses it to make port 8000 public; public visibility otherwise reverts to private after a Codespace restart. A classic personal access token needs the `codespace` scope.
 
 For the first Worker creation, the Cloudflare token needs Workers Admin on the Windsor account and Workers Routes Write on the `alf-broadcast.co.uk` zone. The Worker and custom domain have now been created. For ongoing workflow deploys, use a token scoped to Editor for the `led-cloud-slicer` Worker; keep Workers Routes Write only if a deployment will change the custom domain. Put the active token at `/led/cloud-slicer/cloudflare-api-token`. Rotate tokens by updating their SSM parameter and rerunning the workflow. The Worker receives these secrets:
 
