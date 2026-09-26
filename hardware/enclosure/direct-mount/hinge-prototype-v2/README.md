@@ -17,10 +17,14 @@ Prototype defaults:
 - printed hinge bore: **7.2 mm**
 - hinge barrel OD: **14 mm**
 - hinge axis: **27 mm above the floor**
+- hinge axis depth: **14 mm behind the LED/template front plane**
+- closed plate-to-barrel clearance: **5 mm**
 - floor-base forward extension: **25 mm**
 - floor-base thickness: **5 mm**
 
 The moving template has no full-width lower lip. Only local hinge roots are added behind its existing lower band.
+
+The hinge axis is deliberately set farther behind the moving plate than in the earlier prototype. The 2 mm plate back now has **5 mm clearance to the front of the 14 mm hinge barrel**. The stationary knuckle support also approaches the barrel from its rear quadrant instead of filling the space directly underneath the pivot. Together these changes leave a clear corridor for the moving plate to rotate forward/down without striking the enclosure hinge block.
 
 Every stationary enclosure now also includes a **2 mm full-width lower hinge guard**. The guard rises from the 5 mm floor/base to the hinge centreline and sits immediately behind the 14 mm hinge-barrel envelope, leaving **0.8 mm clearance** to the moving hinge. It closes the exposed low opening behind the LED/template when the panel is shut, while the open left/right side planes above it remain available for hinge sweep and inter-panel cabling.
 
@@ -116,7 +120,7 @@ Prints flat on the verified template face.
 
 Expected envelope is approximately:
 
-- **256 × 128 × 16 mm**
+- **256 × 128 × 21 mm**
 
 ### Stationary enclosure/base variants
 
@@ -133,7 +137,7 @@ That orientation is intentional:
 - the 40→10 mm taper begins only above that point and remains self-supporting;
 - only the upper tapered wall is ventilated, using fine 3 mm slits with 5 mm ribs;
 - the top roof ramps forward to meet the LED-template rear plane;
-- the hinge roots rise directly from the base;
+- the stationary hinge roots are bed-connected through rearward-sloping support webs, leaving the moving plate's sweep path clear;
 - the 2 mm full-width hinge guard grows continuously from the same base and remains behind the hinge sweep;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
 - both left/right side planes remain open above the floor base so the moving LED/template can swing freely and cables can cross between modules.
@@ -199,8 +203,9 @@ The validator checks all four printable variants, their intended print envelopes
 9. Test-fit the chosen power-cable grommet in the rear hole before routing the cable.
 10. Verify the enclosure/base remains stationary while the LED/templates open forward/down.
 11. With each LED/template closed, confirm the full-width lower hinge guard blocks direct access into the cavity behind the panel.
-12. Open and close each panel through its full service angle and confirm the 0.8 mm rear hinge clearance prevents rubbing or binding against the guard.
-13. Check the 20 mm closed floor clearance with the real LED-panel thickness.
-14. Check stability with all moving panels open.
+12. Open and close each panel through the full **0–90° service arc** and confirm the moving plate does not contact the stationary hinge barrel, rear support web or guard.
+13. Confirm the closed moving plate has the intended **5 mm gap to the front of the stationary hinge barrel** and the guard remains at least 0.8 mm behind the barrel envelope.
+14. Check the 20 mm closed floor clearance with the real LED-panel thickness.
+15. Check stability with all moving panels open.
 
 PETG is preferred for repeated hinge testing; PLA is acceptable for a dimensional-only prototype.

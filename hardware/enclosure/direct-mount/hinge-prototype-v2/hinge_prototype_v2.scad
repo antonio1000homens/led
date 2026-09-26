@@ -20,6 +20,10 @@
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
+// - The hinge axis is offset 14 mm behind the plate front, giving 5 mm radial
+//   clearance between the closed plate back and the stationary barrel.
+// - Stationary hinge roots approach the barrel from the rear, leaving the
+//   forward/downward plate sweep corridor unobstructed.
 // - A thin full-width stationary guard plate runs behind the hinge line on every
 //   enclosure variant, shielding the lower opening when the LED/template closes.
 
@@ -40,7 +44,17 @@ ground_clearance = 20;
 hinge_axis_y = ground_clearance + hinge_r; // 27 mm above floor
 
 // z=0 is the LED/template front plane; +Z is behind the LED.
-hinge_axis_z = 9;
+//
+// The previous 9 mm axis offset put the front of the 14 mm stationary barrel
+// directly against the 2 mm moving plate. That left no practical sweep
+// clearance and the stationary knuckle/root could block the plate as it opened.
+//
+// Keep an explicit 5 mm air gap between the back of the closed moving plate and
+// the front-most surface of the hinge barrel. With a 7 mm barrel radius this
+// places the hinge axis 14 mm behind the LED/template front plane.
+moving_plate_t = 2;
+hinge_plate_clearance = 5;
+hinge_axis_z = moving_plate_t + hinge_r + hinge_plate_clearance; // 14 mm
 
 template_knuckles = [
     [34,26],
@@ -71,7 +85,7 @@ module moving_template_root(x0,len) {
     // and grow into the matching knuckle. No full-width lip is added.
     hull() {
         translate([x0,ground_clearance,0])
-            cube([len,7,2]);
+            cube([len,7,moving_plate_t]);
 
         translate([x0,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
@@ -523,20 +537,35 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Each stationary hinge knuckle rises directly from the floor base under
-    // the pivot. In the upright print this is a continuous bed-supported root,
-    // and it does not require a solid side wall or a floating lower shelf.
-    hull() {
-        translate([
-            x0,
-            base_thickness_y-0.5,
-            hinge_axis_z-hinge_r
-        ])
-            cube([len,2,2*hinge_r]);
+    // Keep the stationary knuckle, but do NOT fill the volume directly below
+    // the hinge axis. The moving plate sweeps through that region on its way
+    // toward the service-open position.
+    //
+    // The support web therefore leaves the barrel from its REAR quadrant and
+    // slopes rearward into the floor/guard structure. This keeps the knuckle
+    // bed-connected in the upright print while preserving a clear rotational
+    // corridor in front of and below the hinge axis.
+    union() {
+        hinge_barrel(x0,len);
 
-        translate([x0,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=hinge_outer_d,h=len);
+        hull() {
+            // Rear/lower tangent region of the stationary barrel.
+            translate([
+                x0,
+                hinge_axis_y-3,
+                hinge_axis_z+hinge_r-1.5
+            ])
+                cube([len,3,1.5]);
+
+            // Bed-connected rear anchor. It sits behind the guard/sweep line,
+            // rather than directly underneath the pivot.
+            translate([
+                x0,
+                base_thickness_y-0.5,
+                hinge_guard_front_z+4
+            ])
+                cube([len,2,2]);
+        }
     }
 }
 
