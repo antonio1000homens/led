@@ -51,7 +51,8 @@ async function startCodespace(env) {
 function origin(env) {
   if (env.CODESPACE_ORIGIN) return env.CODESPACE_ORIGIN.replace(/\/$/, "");
   const port = env.CODESPACE_PORT || "8000";
-  return "https://" + env.CODESPACE_NAME + "-" + port + ".app.github.dev";
+  const domain = env.CODESPACE_FORWARDING_DOMAIN || "app.github.dev";
+  return "https://" + env.CODESPACE_NAME + "-" + port + "." + domain;
 }
 
 async function sleep(ms) { await new Promise((resolve) => setTimeout(resolve, ms)); }
