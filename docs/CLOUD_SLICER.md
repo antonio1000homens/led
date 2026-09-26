@@ -123,14 +123,45 @@ Cloudflare creates/manages the DNS record for this Custom Domain; do not create 
 
 ## First live verification
 
-Use a real enclosure wrapper SCAD and a commit from a test branch. The minimum success sequence is:
+The repository includes an authenticated end-to-end MCP client for this gate:
+
+```bash
+python3 scripts/slicer/codespace-mcp-smoke.py
+```
+
+It uses the current full Git commit by default and exercises the actual Streamable HTTP MCP path:
 
 ```text
-slicer_prepare_workspace
+authenticated MCP connection
+ -> slicer_prepare_workspace
  -> slicer_generate_model
  -> slicer_validate_for_print
  -> slicer_get_artifact
+ -> verify downloaded size + SHA-256
 ```
+
+The default real model is:
+
+```text
+hardware/enclosure/direct-mount/hinge-prototype-v2/02_middle_stationary_enclosure_HINGE_TEST.scad
+```
+
+The retrieved print-ready 3MF is written below:
+
+```text
+artifacts/slicer-smoke/
+```
+
+Override the commit/source when needed:
+
+```bash
+python3 scripts/slicer/codespace-mcp-smoke.py \
+  --commit <40-character-sha> \
+  --source hardware/enclosure/.../part.scad \
+  --output-name part.stl
+```
+
+The script never prints the bearer token. It reports workspace/commit identity, selected Bambu profiles, structured slicer categories, artifact size/SHA-256 and per-stage timings. On a slicer validation failure it retrieves bounded diagnostics instead of downloading an artifact.
 
 Record cold Codespace startup time, warm request latency, STL generation time, Bambu slice time and generated 3MF size on issue #118.
 
