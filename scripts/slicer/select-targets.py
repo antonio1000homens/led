@@ -9,6 +9,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_ROOT = (ROOT / "hardware/enclosure").resolve()
+SLICER_SELF_TEST = (
+    ROOT
+    / "hardware/enclosure/direct-mount/stl"
+    / "09_centre_boss_desk_stand_PRINT_3.stl"
+).resolve()
+SLICER_INFRA_PREFIXES = (
+    "scripts/slicer/",
+    ".devcontainer/",
+    ".github/workflows/slicer-validation.yml",
+)
 
 
 def safe_model(value: str) -> Path:
@@ -73,6 +83,17 @@ def from_changed(paths: list[str]) -> list[Path]:
             absolute = (ROOT / mapped).resolve()
             if absolute.is_file():
                 selected.add(absolute)
+
+    # When the slicer infrastructure itself changes, exercise a small tracked
+    # production part even if the PR did not modify an STL. This makes an
+    # explicitly labelled slicer-infrastructure PR test the real CLI path
+    # without making full slicing automatic for ordinary PRs.
+    if not selected and any(
+        value.startswith(SLICER_INFRA_PREFIXES) for value in paths
+    ):
+        if not SLICER_SELF_TEST.is_file():
+            raise ValueError(f"slicer self-test model missing: {SLICER_SELF_TEST}")
+        selected.add(SLICER_SELF_TEST)
 
     return sorted(selected)
 
