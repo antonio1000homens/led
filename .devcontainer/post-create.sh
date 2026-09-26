@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   python3 python3-pip python3-venv \
@@ -8,10 +11,13 @@ sudo apt-get install -y --no-install-recommends \
   libgl1 libglu1-mesa libosmesa6 \
   libgstreamer-plugins-base1.0-0 libwebkit2gtk-4.1-0
 
-python3 -m pip install --user --disable-pip-version-check \
+venv_dir="${VIRTUAL_ENV:-$ROOT_DIR/.venv}"
+python3 -m venv "$venv_dir"
+
+"$venv_dir/bin/python" -m pip install --disable-pip-version-check \
   trimesh manifold3d numpy networkx scipy
 
-python3 -m pip install --user --disable-pip-version-check \
+"$venv_dir/bin/python" -m pip install --disable-pip-version-check \
   -r mcp_servers/slicer/requirements.txt
 
 # Install the pinned Bambu Studio runtime once when the Codespace is created.

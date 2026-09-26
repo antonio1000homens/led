@@ -4,6 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+VENV_DIR="${VIRTUAL_ENV:-$ROOT_DIR/.venv}"
+PYTHON="$VENV_DIR/bin/python"
+
+if [[ ! -x "$PYTHON" ]]; then
+  echo "Slicer Python environment is missing; rerun .devcontainer/post-create.sh." >&2
+  exit 1
+fi
+
 if [[ -z "${SLICER_MCP_BEARER_TOKEN:-}" ]]; then
   echo "SLICER_MCP_BEARER_TOKEN is not configured; cloud slicer origin will not start." >&2
   exit 0
@@ -23,11 +31,11 @@ if [[ -f "$pid_file" ]]; then
   fi
 fi
 
-nohup bash scripts/run-slicer-mcp.sh >"$log_file" 2>&1 &
+nohup env PATH="$VENV_DIR/bin:$PATH" bash scripts/run-slicer-mcp.sh >"$log_file" 2>&1 &
 echo "$!" > "$pid_file"
 
 for _ in {1..30}; do
-  if python3 - <<'PY'
+  if "$PYTHON" - <<'PY'
 import socket
 with socket.create_connection(("127.0.0.1", 8000), timeout=1):
     pass
