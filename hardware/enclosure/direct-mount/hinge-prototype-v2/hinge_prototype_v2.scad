@@ -543,34 +543,29 @@ module stationary_middle_enclosure_root(x0,len) {
     //
     // The full-width lower hinge guard already grows continuously from the
     // enclosure base and is tied into the rear quadrant of each stationary
-    // knuckle. Use that guard as the printable/structural support instead of
-    // running a large diagonal web all the way back to the rear floor edge.
+    // knuckle. Use that guard as the structural support instead of a diagonal
+    // brace running down toward the floor/rear wall.
     //
-    // This compact local rib rises forward from the guard into the BOTTOM
-    // tangent of the barrel. The roughly 1:1 rise/run keeps successive layers
-    // supported in the upright print while using substantially less material.
+    // A short local bridge tab extends forward from the guard directly under
+    // the barrel's bottom tangent. In the upright print this is only a ~9 mm
+    // bridge from already-supported guard material, which is enough to support
+    // the first barrel layers without putting material in the 90-degree plate
+    // position.
     union() {
         hinge_barrel(x0,len);
 
-        hull() {
-            // Guard-connected lower anchor. This sits entirely on the
-            // stationary side of the hinge and is local to each fixed knuckle.
-            translate([
-                x0,
-                hinge_axis_y-hinge_r-9.0,
+        translate([
+            x0,
+            hinge_axis_y-hinge_r-1.0,
+            hinge_axis_z-1.0
+        ])
+            cube([
+                len,
+                3,
                 hinge_guard_front_z
-            ])
-                cube([len,2,hinge_guard_t]);
-
-            // Narrow overlap at the barrel's bottom tangent so the first
-            // printable barrel layers grow from already-supported material.
-            translate([
-                x0,
-                hinge_axis_y-hinge_r-1.0,
-                hinge_axis_z-1.0
-            ])
-                cube([len,3,2]);
-        }
+                    + hinge_guard_bridge_overlap
+                    - (hinge_axis_z-1.0)
+            ]);
     }
 }
 

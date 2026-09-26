@@ -24,7 +24,7 @@ Prototype defaults:
 
 The moving template has no full-width lower lip. Only local hinge roots are added behind its existing lower band.
 
-The hinge axis is deliberately set farther behind the moving plate than in the earlier prototype. The 2 mm plate back now has **7 mm clearance to the front of the 14 mm hinge barrel**. The stationary knuckle is now supported locally from the full-width lower hinge guard rather than by a large diagonal web running back to the rear floor edge. A compact tapered rib rises from the guard into the barrel's bottom tangent, keeping the first barrel layers printable while leaving the moving plate's forward/downward rotation corridor clear.
+The hinge axis is deliberately set farther behind the moving plate than in the earlier prototype. The 2 mm plate back now has **7 mm clearance to the front of the 14 mm hinge barrel**. The stationary knuckle is now supported locally from the full-width lower hinge guard rather than by a large diagonal web running back to the rear floor edge. A short bridge tab runs from the guard directly beneath the barrel's bottom tangent. In the upright print this is only about a 9 mm bridge, keeping the first barrel layers supported while leaving the moving plate's forward/downward rotation corridor clear.
 
 Every stationary enclosure now also includes a **2 mm full-width lower hinge guard**. The guard rises from the 5 mm floor/base to the hinge centreline and sits immediately behind the 14 mm hinge-barrel envelope, leaving **0.8 mm clearance** to the moving hinge. It closes the exposed low opening behind the LED/template when the panel is shut, while the open left/right side planes above it remain available for hinge sweep and inter-panel cabling.
 
@@ -137,7 +137,7 @@ That orientation is intentional:
 - the 40→10 mm taper begins only above that point and remains self-supporting;
 - only the upper tapered wall is ventilated, using fine 3 mm slits with 5 mm ribs;
 - the top roof ramps forward to meet the LED-template rear plane;
-- the stationary hinge roots use compact guard-to-barrel support ribs rather than large rearward floor braces, leaving the moving plate's sweep path clear;
+- the stationary hinge roots use short guard-to-barrel bridge tabs rather than large rearward floor braces, leaving the moving plate's sweep path clear;
 - the 2 mm full-width hinge guard grows continuously from the same base and remains behind the hinge sweep;
 - there is no horizontal floating lower shelf or unsupported top cantilever;
 - both left/right side planes remain open above the floor base so the moving LED/template can swing freely and cables can cross between modules.
