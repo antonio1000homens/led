@@ -1,6 +1,8 @@
 // Minimal support-free 6 mm hinge prototype for the verified direct-mount LED template.
 //
 // Mechanical intent:
+// CI must keep both the 0-90 degree sweep-clearance test and the upright
+// floating-layer proxy green for this hinge geometry.
 // - The EQUIPMENT ENCLOSURE remains stationary and vertical.
 // - The LED panel + mounting template is the moving leaf and opens forward/down.
 // - Three stationary enclosure variants are provided:
@@ -20,6 +22,12 @@
 // - The enclosure has a floor-standing base projecting 25 mm in front.
 // - The LED/template lower edge is 20 mm above the floor when closed.
 // - The moving template has only local hinge-root reinforcement; no lower lip.
+// - The hinge axis is offset 16 mm behind the plate front, giving 7 mm radial
+//   clearance between the closed plate back and the stationary barrel.
+// - Stationary hinge roots approach the barrel from the rear, leaving the
+//   forward/downward plate sweep corridor unobstructed.
+// - A thin full-width stationary guard plate runs behind the hinge line on every
+//   enclosure variant, shielding the lower opening when the LED/template closes.
 
 part = "__library__";
 include <../direct_mount_enclosure.scad>;
@@ -38,7 +46,17 @@ ground_clearance = 20;
 hinge_axis_y = ground_clearance + hinge_r; // 27 mm above floor
 
 // z=0 is the LED/template front plane; +Z is behind the LED.
-hinge_axis_z = 9;
+//
+// The previous 9 mm axis offset put the front of the 14 mm stationary barrel
+// directly against the 2 mm moving plate. That left no practical sweep
+// clearance and the stationary knuckle/root could block the plate as it opened.
+//
+// Keep an explicit 7 mm air gap between the back of the closed moving plate and
+// the front-most surface of the hinge barrel. With a 7 mm barrel radius this
+// places the hinge axis 16 mm behind the LED/template front plane.
+moving_plate_t = 2;
+hinge_plate_clearance = 7;
+hinge_axis_z = moving_plate_t + hinge_r + hinge_plate_clearance; // 16 mm
 
 template_knuckles = [
     [34,26],
@@ -69,7 +87,7 @@ module moving_template_root(x0,len) {
     // and grow into the matching knuckle. No full-width lip is added.
     hull() {
         translate([x0,ground_clearance,0])
-            cube([len,7,2]);
+            cube([len,7,moving_plate_t]);
 
         translate([x0,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
@@ -189,6 +207,27 @@ base_front_extension = 25;
 base_front_z = -base_front_extension;
 base_rear_z = rear_z_bottom;
 base_thickness_y = 5;
+
+// Full-width lower hinge guard.
+//
+// The LED/template lower edge sits 20 mm above the floor and the hinge barrel
+// is centred at y=27 mm. Without a guard, the low front opening behind the
+// closed panel remains exposed between the floor base and hinge line.
+//
+// Keep this plate on the STATIONARY enclosure, immediately behind the complete
+// hinge-barrel envelope. It spans the full enclosure width on every variant,
+// rises from the base to the hinge centreline, and stays 0.8 mm behind the
+// moving/fixed barrel envelope so the LED/template can rotate forward freely.
+// Small bridge pads at the stationary knuckle segments tie the guard directly
+// into each stationary hinge without intruding into the alternating moving
+// knuckle segments.
+hinge_guard_t = 2;
+hinge_guard_clearance = 0.8;
+hinge_guard_front_z = hinge_axis_z + hinge_r + hinge_guard_clearance;
+hinge_guard_start_y = base_thickness_y - 0.5;
+hinge_guard_top_y = hinge_axis_y;
+hinge_guard_bridge_overlap = 0.5;
+hinge_guard_bridge_h = 2.0;
 
 // Small rear-edge margin used only to give the sloping rear plate a printable,
 // robust edge. It does NOT form a left/right side wall.
@@ -340,6 +379,42 @@ module middle_floor_base() {
         ]);
 }
 
+module lower_hinge_guard() {
+    // Thin continuous shield across the full module width. In the closed state
+    // this blocks direct access through the low opening behind the LED/template.
+    // It is deliberately rearward of the complete 14 mm hinge barrel so the
+    // alternating moving knuckles and the moving template never rub on it.
+    union() {
+        translate([
+            box_x,
+            hinge_guard_start_y,
+            hinge_guard_front_z
+        ])
+            cube([
+                box_w,
+                hinge_guard_top_y-hinge_guard_start_y,
+                hinge_guard_t
+            ]);
+
+        // Tie the continuous plate directly into each STATIONARY knuckle at the
+        // rear-most part of its barrel. There are no bridge pads in the moving
+        // knuckle X ranges, preserving the alternating hinge sweep clearance.
+        for (segment=enclosure_knuckles)
+            translate([
+                segment[0],
+                hinge_axis_y-hinge_guard_bridge_h,
+                hinge_axis_z+hinge_r-hinge_guard_bridge_overlap
+            ])
+                cube([
+                    segment[1],
+                    hinge_guard_bridge_h,
+                    hinge_guard_clearance
+                        + hinge_guard_t
+                        + hinge_guard_bridge_overlap
+                ]);
+    }
+}
+
 module outer_end_wall(side="left", controller_service=false) {
     x0 = side == "left" ? left_end_wall_x : right_end_wall_x;
 
@@ -464,20 +539,40 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Each stationary hinge knuckle rises directly from the floor base under
-    // the pivot. In the upright print this is a continuous bed-supported root,
-    // and it does not require a solid side wall or a floating lower shelf.
-    hull() {
-        translate([
-            x0,
-            base_thickness_y-0.5,
-            hinge_axis_z-hinge_r
-        ])
-            cube([len,2,2*hinge_r]);
+    // Keep the stationary knuckle, but do NOT fill the volume directly below
+    // the hinge axis. The moving plate sweeps through that region on its way
+    // toward the service-open position.
+    //
+    // The support web begins at the BOTTOM tangent of the stationary barrel,
+    // then slopes strongly rearward into the floor/base. Starting at the bottom
+    // tangent means the first printed barrel layers are already connected to
+    // material below instead of appearing as a floating island. Sweeping the
+    // web rearward keeps the moving plate's forward/downward rotation corridor
+    // clear.
+    union() {
+        hinge_barrel(x0,len);
 
-        translate([x0,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=hinge_outer_d,h=len);
+        hull() {
+            // Narrow overlap around the barrel's bottom tangent. The 3 mm
+            // installed-Y height provides layer-to-layer support as the circular
+            // barrel begins to grow.
+            translate([
+                x0,
+                hinge_axis_y-hinge_r-1.0,
+                hinge_axis_z-1.0
+            ])
+                cube([len,3,2]);
+
+            // Bed-connected anchor near the rear of the 40 mm-deep base. This
+            // large rearward offset keeps the diagonal web out of the plate
+            // sweep while remaining support-free in the upright print.
+            translate([
+                x0,
+                base_thickness_y-0.5,
+                rear_z_bottom-box_rear_t
+            ])
+                cube([len,2,2]);
+        }
     }
 }
 
@@ -485,6 +580,7 @@ module stationary_middle_enclosure_installed() {
     difference() {
         union() {
             middle_floor_base();
+            lower_hinge_guard();
             middle_rear_plate();
             middle_top_link();
 
@@ -540,6 +636,10 @@ module stationary_right_power_enclosure_print() {
     rotate([90,0,0])
         stationary_right_power_enclosure_installed();
 }
+
+// CI checks the moving leaf against the stationary middle enclosure throughout
+// the 0-90 degree service arc, so changes here must preserve both print support
+// and rotational clearance.
 
 // ---------- Assembly model coordinates ----------
 

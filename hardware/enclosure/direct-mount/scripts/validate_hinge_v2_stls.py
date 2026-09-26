@@ -175,6 +175,63 @@ def assert_no_floating_layer_islands(
     )
 
 
+def assert_middle_sweep_clearance(work_dir: Path) -> None:
+    """Ensure the moving plate never intersects the stationary hinge structure.
+
+    This renders only the geometric intersection at representative points
+    through the 0-90 degree service arc. An empty intersection is the expected
+    result. It specifically guards against stationary hinge roots/guards
+    intruding into the moving plate's rotational corridor.
+    """
+
+    source = HINGE_DIR / "hinge_prototype_v2.scad"
+
+    for angle in (0, 15, 30, 45, 60, 75, 90):
+        check_scad = work_dir / f"sweep_clearance_{angle}.scad"
+        intersection_stl = work_dir / f"sweep_clearance_{angle}.stl"
+
+        check_scad.write_text(
+            f"""include <{source.as_posix()}>;
+
+intersection() {{
+    stationary_middle_enclosure_installed();
+
+    translate([0,hinge_axis_y,hinge_axis_z])
+        rotate([-{angle},0,0])
+            translate([0,-hinge_axis_y,-hinge_axis_z])
+                moving_panel_template_installed();
+}}
+""",
+            encoding="utf-8",
+        )
+
+        completed = subprocess.run(
+            ["openscad", "-o", str(intersection_stl), str(check_scad)],
+            text=True,
+            capture_output=True,
+        )
+        diagnostic = f"{completed.stdout}\n{completed.stderr}"
+
+        if completed.returncode == 0 and intersection_stl.is_file():
+            # A successfully exported STL means the intersection has volume.
+            # Report the angle rather than relying on a slicer to discover it.
+            raise SystemExit(
+                f"hinge sweep collision at {angle} degrees: moving plate "
+                "intersects the stationary middle enclosure"
+            )
+
+        if (
+            completed.returncode != 0
+            and "Current top level object is empty" not in diagnostic
+        ):
+            raise SystemExit(
+                f"could not evaluate hinge sweep clearance at {angle} degrees:\n"
+                f"{diagnostic}"
+            )
+
+        print(f"OK: hinge sweep is collision-free at {angle} degrees")
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         generated_dir = Path(tmp)
@@ -202,10 +259,14 @@ def main() -> None:
         template = generated_dir / PARTS["01_moving_panel_template_HINGE_TEST.scad"]
         template_dims = assert_on_bed("moving panel template", template)
 
-        if template_dims[2] > 18.0:
+        # The active hinge now deliberately stands the 14 mm barrel farther
+        # behind the 2 mm moving plate, so the printable moving leaf reaches
+        # approximately 21 mm in Z. Keep a small regression margin without
+        # allowing an accidental full-width rear enclosure to creep onto it.
+        if template_dims[2] > 23.0:
             raise SystemExit(
                 "moving panel template gained excessive rear/lip geometry: "
-                f"height={template_dims[2]:.1f} mm (expected <= 18 mm)"
+                f"height={template_dims[2]:.1f} mm (expected <= 23 mm)"
             )
 
         enclosure_specs = (
@@ -230,6 +291,8 @@ def main() -> None:
             "OK: moving template print bounds "
             f"{template_dims[0]:.1f} x {template_dims[1]:.1f} x {template_dims[2]:.1f} mm"
         )
+
+        assert_middle_sweep_clearance(generated_dir)
 
         for name, scad_name, max_width in enclosure_specs:
             enclosure = generated_dir / PARTS[scad_name]
