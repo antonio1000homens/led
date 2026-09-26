@@ -18,6 +18,7 @@ from mcp_servers.slicer.service import (
     SlicerService,
     SlicerServiceError,
 )
+from mcp_servers.slicer.workspace import Workspace
 
 
 TEST_MODEL = (
@@ -302,6 +303,49 @@ class SlicerServiceTests(unittest.TestCase):
             ):
                 self.provider.slice(str(TEST_MODEL.relative_to(ROOT)))
 
+    def test_artifact_metadata_and_bounded_inline_transfer(self):
+        output_dir = service_module.OUTPUT_ROOT / "mcp-artifact-contract-test"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        artifact = output_dir / "part.sliced.3mf"
+        artifact.write_bytes(b"print-ready")
+        try:
+            payload = self.service.get_artifact(
+                str(artifact.relative_to(ROOT)),
+                include_base64=True,
+            )
+        finally:
+            shutil.rmtree(output_dir, ignore_errors=True)
+
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["size_bytes"], 11)
+        self.assertEqual(payload["base64"], "cHJpbnQtcmVhZHk=")
+        self.assertEqual(len(payload["sha256"]), 64)
+
+    def test_workspace_slice_is_bound_to_generated_model(self):
+        manager = Mock()
+        manager.repository = "antonio1000homens/led"
+        manager.require_generated_model.return_value = Workspace(
+            "0123456789ab",
+            "0123456789abcdef0123456789abcdef01234567",
+            Path("/tmp/workspace"),
+        )
+        service = SlicerService(self.provider, manager)
+        with patch.object(
+            self.provider,
+            "slice",
+            return_value={"ok": True, "artifact": "artifacts/slicer/x/part.sliced.3mf"},
+        ):
+            payload = service.slice_model(
+                workspace="0123456789ab",
+                path_value="artifacts/slicer-input/0123456789ab/part.stl",
+            )
+
+        self.assertEqual(payload["workspace"], "0123456789ab")
+        self.assertEqual(
+            payload["commit"],
+            "0123456789abcdef0123456789abcdef01234567",
+        )
+
     def test_prepare_print_never_marks_print_started(self):
         with patch.object(
             self.provider,
@@ -366,12 +410,16 @@ class SlicerMcpContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             names,
             {
+                "slicer_prepare_workspace",
+                "slicer_generate_model",
                 "slicer_capabilities",
                 "slicer_inspect_model",
                 "slicer_list_profiles",
                 "slicer_slice",
                 "slicer_validate_for_print",
                 "slicer_prepare_print",
+                "slicer_get_artifact",
+                "slicer_get_diagnostics",
             },
         )
 
@@ -388,7 +436,8 @@ class SlicerMcpContractTests(unittest.IsolatedAsyncioTestCase):
 
         run.assert_called_once_with()
 
-    def test_streamable_http_transport_uses_sdk_v2_arguments(self):
+    def test_streamable_http_transport_serves_authenticated_asgi_app(self):
+        app = Mock()
         with (
             patch.dict(
                 os.environ,
@@ -400,17 +449,17 @@ class SlicerMcpContractTests(unittest.IsolatedAsyncioTestCase):
                 },
                 clear=False,
             ),
-            patch.object(server.mcp, "run") as run,
+            patch.object(server, "build_http_app", return_value=app) as build,
+            patch.object(server.uvicorn, "run") as run,
         ):
             server.main()
 
+        build.assert_called_once_with("/mcp-test")
         run.assert_called_once_with(
-            transport="streamable-http",
+            app,
             host="127.0.0.1",
             port=8123,
-            streamable_http_path="/mcp-test",
-            json_response=True,
-            stateless_http=True,
+            log_level="info",
         )
 
 
