@@ -14,6 +14,10 @@ python3 -m pip install --user --disable-pip-version-check \
 python3 -m pip install --user --disable-pip-version-check \
   -r mcp_servers/slicer/requirements.txt
 
+# Install the pinned Bambu Studio runtime once when the Codespace is created.
+# .tools is retained in the Codespace filesystem and reused on ordinary restarts.
+bash scripts/slicer/install-bambu-studio.sh
+
 cat <<'EOF'
 
 Codespace CAD environment ready.
