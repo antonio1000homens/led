@@ -68,8 +68,46 @@ class FlashEventTests(unittest.TestCase):
             "source": "alexa",
         })
 
+    def test_due_occurrence_payload_with_local_offset_is_accepted(self):
+        import json
+        payload = {
+            "id": "alexa|sensor.echo_next_reminder|1790000000|reminder-42",
+            "type": "reminder",
+            "event": "due",
+            "label": "Take washing out",
+            "due_at": "2026-09-21T18:00:00+01:00",
+            "published_at": "2026-09-21T18:00:01+01:00",
+            "expires_at": "2026-09-21T18:05:00+01:00",
+            "source": "alexa",
+        }
+        parsed = parse_flash_event(json.dumps(payload), 1790000001)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed["id"], payload["id"])
+        self.assertEqual(parsed["due_at"], payload["due_at"])
+
+    def test_recurring_occurrences_with_same_alexa_id_are_distinct(self):
+        state = FlashState(enabled=True)
+        first = {
+            **EVENT,
+            "id": "alexa|sensor.echo_next_reminder|1790000000|reminder-42",
+        }
+        second = {
+            **EVENT,
+            "id": "alexa|sensor.echo_next_reminder|1790604800|reminder-42",
+            "due_at": "2026-09-28T18:00:00+01:00",
+            "expires_at": "2026-09-28T18:05:00+01:00",
+        }
+        self.assertTrue(state.accept(first, 0, epoch_now=1790000000))
+        self.assertTrue(state.accept(second, 1, epoch_now=1790000001))
+        self.assertEqual(state.screen()["id"], "flash-" + second["id"])
+
     def test_malformed_event_is_ignored(self):
-        for value in ({}, {**EVENT, "type": "other"}, {**EVENT, "expires_at": "bad"}):
+        for value in (
+            {},
+            {**EVENT, "type": "other"},
+            {**EVENT, "expires_at": "bad"},
+            {**EVENT, "due_at": "2026-09-21T18:00:00"},
+        ):
             self.assertIsNone(parse_flash_event(value, 0))
 
     def test_discovery_or_non_due_event_is_ignored(self):

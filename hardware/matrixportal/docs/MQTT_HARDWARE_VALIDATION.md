@@ -47,6 +47,11 @@ With the idle run stable, publish several test events and verify:
 - broker disconnect leaves HTTP screen rotation operating;
 - reconnect restores the subscription.
 
+For the Home Assistant end-to-end check, create a reminder a few minutes in
+the future. Confirm discovery only updates the persisted schedule, the MQTT
+message appears at the due time, and each recurring occurrence has a distinct
+ID so the board does not discard later occurrences as duplicates.
+
 Do not enable the production board path or close #74 until these observations
 are recorded against the actual MatrixPortal and the Home Assistant publisher.
 
