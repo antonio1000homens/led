@@ -33,6 +33,7 @@ jobs:
       - run: python -m unittest tests.test_deployment_static -v
       - run: bash -n scripts/slicer/deploy-cloud-slicer-worker.sh
       - run: node --check cloud/slicer-worker/src/index.js
+      - run: node --test tests/test_slicer_worker.js
       - run: npm install --global wrangler@4.71.0
       - run: wrangler deploy --dry-run --config cloud/slicer-worker/wrangler.toml
 
