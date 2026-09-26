@@ -1,4 +1,4 @@
-name: Temporary / Validate 15 mm hinge clearance
+name: Temporary / Validate tuned hinge clearance
 
 on:
   push:
