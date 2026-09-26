@@ -259,14 +259,14 @@ def main() -> None:
         template = generated_dir / PARTS["01_moving_panel_template_HINGE_TEST.scad"]
         template_dims = assert_on_bed("moving panel template", template)
 
-        # The active hinge deliberately stands the 14 mm barrel 15 mm behind
-        # the 2 mm moving plate, so the printable moving leaf reaches about
-        # 31 mm in Z. Keep a small regression margin without allowing an
-        # accidental full-width rear enclosure to creep onto it.
-        if template_dims[2] > 33.0:
+        # The active hinge stands the 14 mm barrel 10 mm behind the 2 mm
+        # moving plate, so the printable moving leaf reaches about 26 mm in Z.
+        # Keep a small regression margin without allowing an accidental
+        # full-width rear enclosure to creep onto it.
+        if template_dims[2] > 28.0:
             raise SystemExit(
                 "moving panel template gained excessive rear/lip geometry: "
-                f"height={template_dims[2]:.1f} mm (expected <= 33 mm)"
+                f"height={template_dims[2]:.1f} mm (expected <= 28 mm)"
             )
 
         enclosure_specs = (
