@@ -98,30 +98,34 @@ echo "Process: ${SLICER_PROCESS_PROFILE:-0.20mm Standard @BBL H2D}"
 echo "Filament: ${SLICER_FILAMENT_PROFILE:-Bambu PLA Basic @BBL H2D}"
 echo "Auto-orient: ${SLICER_ORIENT:-0}"
 
-started="$(date +%s)"
+started_ms="$(date +%s%3N)"
 set +e
 "${args[@]}" 2>&1 | tee "$LOG"
 slicer_rc=${PIPESTATUS[0]}
 set -e
-finished="$(date +%s)"
-elapsed=$((finished - started))
+finished_ms="$(date +%s%3N)"
+elapsed_ms=$((finished_ms - started_ms))
 
 set +e
 python3 "$ROOT_DIR/scripts/slicer/classify-slicer-log.py"   --log "$LOG"   --output "$RESULT"   --slicer-exit "$slicer_rc"   --artifact "$OUTPUT_3MF"
 validation_rc=$?
 set -e
 
-python3 - "$RESULT" "$INPUT" "$elapsed" <<'PY'
-import json, sys
+python3 - "$RESULT" "$INPUT" "$elapsed_ms" <<'PY'
+import json
+import sys
 from pathlib import Path
-path=Path(sys.argv[1])
-data=json.loads(path.read_text())
-data["input"]=sys.argv[2]
-data["slice_seconds"]=int(sys.argv[3])
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+elapsed_ms = int(sys.argv[3])
+data["input"] = sys.argv[2]
+data["slice_milliseconds"] = elapsed_ms
+data["slice_seconds"] = round(elapsed_ms / 1000, 3)
 path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 
-echo "Slice time: ${elapsed}s"
+echo "Slice time: ${elapsed_ms}ms"
 echo "Result: $RESULT"
 if [[ -f "$OUTPUT_3MF" ]]; then
   echo "Artifact: $OUTPUT_3MF ($(du -h "$OUTPUT_3MF" | awk '{print $1}'))"
