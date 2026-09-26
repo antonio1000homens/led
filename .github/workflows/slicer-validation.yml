@@ -206,3 +206,16 @@ jobs:
           path: artifacts/slicer/
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Publish total measured runtime
+        if: always()
+        shell: bash
+        env:
+          STARTED_EPOCH: ${{ steps.job_timer.outputs.started_epoch }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${STARTED_EPOCH:-}" ]]; then
+            total_seconds=$(($(date +%s) - STARTED_EPOCH))
+            echo >> "$GITHUB_STEP_SUMMARY"
+            echo "- Total measured job runtime: **${total_seconds} s**" >> "$GITHUB_STEP_SUMMARY"
+          fi
