@@ -7,6 +7,7 @@ on:
       - 'scripts/run-slicer-mcp.sh'
       - 'scripts/slicer/**'
       - 'tests/test_slicer_mcp.py'
+      - 'cloud/slicer-worker/**'
       - '.devcontainer/**'
       - 'docs/SLICER_MCP.md'
       - '.github/workflows/slicer-mcp.yml'
@@ -18,6 +19,7 @@ on:
       - 'scripts/run-slicer-mcp.sh'
       - 'scripts/slicer/**'
       - 'tests/test_slicer_mcp.py'
+      - 'cloud/slicer-worker/**'
       - '.devcontainer/**'
       - 'docs/SLICER_MCP.md'
       - '.github/workflows/slicer-mcp.yml'
@@ -43,6 +45,12 @@ jobs:
 
       - name: Compile MCP sources
         run: python -m compileall -q mcp_servers/slicer
+
+      - name: Validate Cloudflare Worker syntax
+        run: node --check cloud/slicer-worker/src/index.js
+
+      - name: Validate Codespace startup script
+        run: bash -n .devcontainer/post-start.sh
 
       - name: Run MCP contract tests
         run: python -m unittest discover -s tests -p 'test_slicer_mcp.py' -v

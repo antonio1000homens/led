@@ -5,7 +5,12 @@
     "BAMBU_STUDIO_VERSION": "v02.08.02.61",
     "SLICER_MACHINE_PROFILE": "Bambu Lab H2D 0.4 nozzle",
     "SLICER_PROCESS_PROFILE": "0.20mm Standard @BBL H2D",
-    "SLICER_FILAMENT_PROFILE": "Bambu PLA Basic @BBL H2D"
+    "SLICER_FILAMENT_PROFILE": "Bambu PLA Basic @BBL H2D",
+    "SLICER_MCP_TRANSPORT": "streamable-http",
+    "SLICER_MCP_HOST": "0.0.0.0",
+    "SLICER_MCP_PORT": "8000",
+    "SLICER_MCP_PATH": "/mcp",
+    "SLICER_MCP_RESOURCE_URL": "https://slicer.alf-broadcast.co.uk/mcp"
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
@@ -21,7 +26,8 @@
   "portsAttributes": {
     "8000": {
       "label": "LED Slicer MCP",
-      "onAutoForward": "notify"
+      "onAutoForward": "silent"
     }
-  }
+  },
+  "postStartCommand": "bash .devcontainer/post-start.sh"
 }

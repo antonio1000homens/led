@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+import hmac
 import os
+import time
 from typing import Any
 
+import uvicorn
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver import MCPServer
+from pydantic import AnyHttpUrl
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from mcp_servers.slicer.service import (
     DEFAULT_FILAMENT,
@@ -16,14 +25,56 @@ from mcp_servers.slicer.service import (
 )
 
 
-mcp = MCPServer(
-    "LED Slicer",
-    version="0.1.0",
-    instructions=(
-        "Use these tools to inspect and slice LED repository STL/3MF files. "
-        "Slicing never starts a printer job."
-    ),
-)
+class StaticBearerVerifier(TokenVerifier):
+    def __init__(self, expected_token: str, resource_url: str):
+        self.expected_token = expected_token
+        self.resource_url = resource_url
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not hmac.compare_digest(token, self.expected_token):
+            return None
+        return AccessToken(
+            token=token,
+            client_id="led-cloud-slicer",
+            scopes=["slicer:use"],
+            expires_at=int(time.time()) + 3600,
+            resource=self.resource_url,
+            subject="cloudflare-proxy",
+        )
+
+
+def _build_mcp() -> MCPServer:
+    kwargs: dict[str, Any] = {}
+    token = os.environ.get("SLICER_MCP_BEARER_TOKEN", "").strip()
+    if token:
+        resource_url = os.environ.get(
+            "SLICER_MCP_RESOURCE_URL",
+            "https://slicer.alf-broadcast.co.uk/mcp",
+        ).strip()
+        issuer_url = os.environ.get(
+            "SLICER_MCP_ISSUER_URL",
+            "https://slicer.alf-broadcast.co.uk",
+        ).strip()
+        kwargs["token_verifier"] = StaticBearerVerifier(token, resource_url)
+        kwargs["auth"] = AuthSettings(
+            issuer_url=AnyHttpUrl(issuer_url),
+            resource_server_url=AnyHttpUrl(resource_url),
+            required_scopes=["slicer:use"],
+            validate_token_resource=True,
+        )
+
+    return MCPServer(
+        "LED Slicer",
+        version="0.2.0",
+        instructions=(
+            "Prepare immutable LED repository workspaces, generate enclosure "
+            "STL files and slice them with Bambu Studio. Never start a printer job."
+        ),
+        **kwargs,
+    )
+
+
+mcp = _build_mcp()
 service = SlicerService()
 
 
@@ -32,6 +83,30 @@ def _safe_call(callable_, *args, **kwargs) -> dict[str, Any]:
         return callable_(*args, **kwargs)
     except SlicerServiceError as error:
         return {"ok": False, "error": str(error)}
+
+
+@mcp.tool()
+def slicer_prepare_workspace(
+    repository: str,
+    commit: str,
+) -> dict[str, Any]:
+    """Prepare an isolated worktree at one immutable repository commit."""
+    return _safe_call(service.prepare_workspace, repository, commit)
+
+
+@mcp.tool()
+def slicer_generate_model(
+    workspace: str,
+    source_path: str,
+    output_name: str | None = None,
+) -> dict[str, Any]:
+    """Render an approved enclosure OpenSCAD source into the slicer input area."""
+    return _safe_call(
+        service.generate_model,
+        workspace,
+        source_path,
+        output_name,
+    )
 
 
 @mcp.tool()
@@ -55,6 +130,7 @@ def slicer_list_profiles(profile_type: str | None = None) -> dict[str, Any]:
 @mcp.tool()
 def slicer_slice(
     path: str,
+    workspace: str | None = None,
     machine_profile: str = DEFAULT_MACHINE,
     process_profile: str = DEFAULT_PROCESS,
     filament_profile: str = DEFAULT_FILAMENT,
@@ -64,6 +140,7 @@ def slicer_slice(
     """Slice one model with the shared BambuStudio pipeline."""
     return _safe_call(
         service.slice_model,
+        workspace=workspace,
         path_value=path,
         machine_profile=machine_profile,
         process_profile=process_profile,
@@ -76,6 +153,7 @@ def slicer_slice(
 @mcp.tool()
 def slicer_validate_for_print(
     path: str,
+    workspace: str | None = None,
     machine_profile: str = DEFAULT_MACHINE,
     process_profile: str = DEFAULT_PROCESS,
     filament_profile: str = DEFAULT_FILAMENT,
@@ -85,6 +163,7 @@ def slicer_validate_for_print(
     """Run a real slice and return a printability result without printing."""
     return _safe_call(
         service.validate_for_print,
+        workspace=workspace,
         path_value=path,
         machine_profile=machine_profile,
         process_profile=process_profile,
@@ -97,6 +176,7 @@ def slicer_validate_for_print(
 @mcp.tool()
 def slicer_prepare_print(
     path: str,
+    workspace: str | None = None,
     machine_profile: str = DEFAULT_MACHINE,
     process_profile: str = DEFAULT_PROCESS,
     filament_profile: str = DEFAULT_FILAMENT,
@@ -106,6 +186,7 @@ def slicer_prepare_print(
     """Generate a validated pre-sliced artifact; never start the printer."""
     return _safe_call(
         service.prepare_print,
+        workspace=workspace,
         path_value=path,
         machine_profile=machine_profile,
         process_profile=process_profile,
@@ -113,6 +194,63 @@ def slicer_prepare_print(
         orient=orient,
         bed_type=bed_type,
     )
+
+
+@mcp.tool()
+def slicer_get_artifact(
+    path: str,
+    include_base64: bool = False,
+) -> dict[str, Any]:
+    """Return print-artifact metadata and optionally bounded base64 file data."""
+    return _safe_call(
+        service.get_artifact,
+        path,
+        include_base64=include_base64,
+    )
+
+
+@mcp.tool()
+def slicer_get_diagnostics(
+    log_path: str,
+    max_chars: int = 12000,
+) -> dict[str, Any]:
+    """Return a bounded sanitized tail of a slicer diagnostic log."""
+    return _safe_call(
+        service.get_diagnostics,
+        log_path,
+        max_chars=max_chars,
+    )
+
+
+async def _health(request: Request) -> JSONResponse:
+    expected = os.environ.get("SLICER_MCP_BEARER_TOKEN", "").strip()
+    if expected:
+        supplied = request.headers.get("authorization", "")
+        prefix = "Bearer "
+        token = supplied[len(prefix):] if supplied.startswith(prefix) else ""
+        if not hmac.compare_digest(token, expected):
+            return JSONResponse(
+                {"ok": False, "error": "unauthorized"},
+                status_code=401,
+            )
+    provider = service.provider.capabilities()
+    return JSONResponse(
+        {
+            "ok": True,
+            "service": "led-slicer-mcp",
+            "provider_available": bool(provider.get("available")),
+        }
+    )
+
+
+def build_http_app(path: str):
+    app = mcp.streamable_http_app(
+        streamable_http_path=path,
+        json_response=True,
+        stateless_http=True,
+    )
+    app.routes.append(Route("/health", _health, methods=["GET"]))
+    return app
 
 
 def main() -> None:
@@ -124,13 +262,11 @@ def main() -> None:
         host = os.environ.get("SLICER_MCP_HOST", "127.0.0.1")
         port = int(os.environ.get("SLICER_MCP_PORT", "8000"))
         path = os.environ.get("SLICER_MCP_PATH", "/mcp")
-        mcp.run(
-            transport="streamable-http",
+        uvicorn.run(
+            build_http_app(path),
             host=host,
             port=port,
-            streamable_http_path=path,
-            json_response=True,
-            stateless_http=True,
+            log_level=os.environ.get("SLICER_MCP_LOG_LEVEL", "info"),
         )
         return
     raise SystemExit(

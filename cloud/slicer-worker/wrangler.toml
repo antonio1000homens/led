@@ -1,0 +1,20 @@
+name = "led-cloud-slicer"
+main = "src/index.js"
+compatibility_date = "2026-09-26"
+workers_dev = false
+routes = [{ pattern = "slicer.alf-broadcast.co.uk", custom_domain = true }]
+
+[vars]
+CODESPACE_PORT = "8000"
+CODESPACE_FORWARDING_DOMAIN = "app.github.dev"
+STARTUP_POLLS = "12"
+STARTUP_POLL_MS = "3000"
+HEALTH_POLLS = "10"
+HEALTH_POLL_MS = "2000"
+
+# Set CODESPACE_NAME for the dedicated LED Codespace before deployment.
+# Route the Worker to slicer.alf-broadcast.co.uk/*.
+# Required Worker secrets:
+# GITHUB_CODESPACES_TOKEN - narrowly scoped token for this user Codespace
+# MCP_CLIENT_TOKEN        - credential used by the web AI plugin
+# ORIGIN_BEARER_TOKEN     - matches Codespace SLICER_MCP_BEARER_TOKEN

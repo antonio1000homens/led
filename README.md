@@ -61,6 +61,11 @@ GitHub Actions uses AWS OIDC and stores only non-secret deployment configuration
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for first-time AWS bootstrap, the Bitwarden-to-SSM migration helper, deployment-secret rotation, Todoist OAuth bootstrap, GitHub variables, ACM/Cloudflare setup, manual deployment and runtime details.
 
+## Cloud Bambu Studio slicing
+
+The repository includes a Codespaces-based POC for using the real Bambu Studio H2D slicer from Codex web/ChatGPT without a local Mac or VS Code session. It prepares an immutable commit workspace, regenerates enclosure STLs with OpenSCAD, returns structured slicer diagnostics and can retrieve the final sliced 3MF.
+
+See [`docs/CLOUD_SLICER.md`](docs/CLOUD_SLICER.md).
 ## Hardware notes
 
 For the current MatrixPortal refresh/pacing architecture, measured performance
