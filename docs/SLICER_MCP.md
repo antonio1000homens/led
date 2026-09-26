@@ -109,6 +109,11 @@ Outputs remain below:
 artifacts/slicer/
 ```
 
+MCP-created output directories use a sanitized filename label plus a random
+suffix and are retained for 24 hours by default. Override the bounded retention
+window with `SLICER_MCP_RETENTION_HOURS` (1-720). Only stale `mcp-*`
+directories are pruned; manual/CI outputs are not touched.
+
 Raw Bambu stdout/stderr is not returned in the MCP response. The shared
 slicer log is retained in the generated artifact directory instead.
 
@@ -245,6 +250,8 @@ submission, if pursued, must remain separate from the validated LAN handoff.
 - Output paths are confined under `artifacts/slicer/`.
 - MCP callers choose profile names/bed/orientation, not executable paths.
 - Captured slicer process output is not reflected directly to the client.
+- `result.json` is schema-checked before use; successful artifacts must be
+  non-empty `.3mf` files inside the allocated MCP output directory.
 - No Bambu, AWS or Cloudflare credential is needed for inspect/slice/validate.
 - There is no `slicer_print` tool in this phase.
 
