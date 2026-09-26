@@ -33,8 +33,9 @@ class SlicerServiceTests(unittest.TestCase):
         self.service = SlicerService(self.provider)
 
     def _successful_process(self, command, **kwargs):
+        requested = (ROOT / command[-2]).resolve()
         output_dir = Path(command[-1])
-        artifact = output_dir / f"{TEST_MODEL.stem}.sliced.3mf"
+        artifact = output_dir / f"{requested.stem}.sliced.3mf"
         artifact.write_bytes(b"test-3mf")
         (output_dir / "slicer.log").write_text("clean slice\n", encoding="utf-8")
         (output_dir / "result.json").write_text(
@@ -44,7 +45,7 @@ class SlicerServiceTests(unittest.TestCase):
                     "categories": [],
                     "fatal_categories": [],
                     "slicer_exit": 0,
-                    "input": str(TEST_MODEL.resolve()),
+                    "input": str(requested),
                     "artifact": str(artifact.resolve()),
                     "slice_seconds": 0.42,
                 }
@@ -155,6 +156,126 @@ class SlicerServiceTests(unittest.TestCase):
             mocked.call_args.kwargs["env"]["BAMBU_STUDIO_BIN"],
             str(custom),
         )
+
+
+    def test_detected_profile_root_is_forwarded_to_shared_script(self):
+        profile_root = Path("/tmp/bambu-profiles/BBL")
+        with (
+            patch(
+                "mcp_servers.slicer.service._find_profile_root",
+                return_value=profile_root,
+            ),
+            patch(
+                "mcp_servers.slicer.service._run_process_group",
+                side_effect=self._successful_process,
+            ) as mocked,
+        ):
+            self.provider.slice(str(TEST_MODEL.relative_to(ROOT)))
+
+        self.assertEqual(
+            mocked.call_args.kwargs["env"]["BAMBU_PROFILE_ROOT"],
+            str(profile_root),
+        )
+
+    def test_rejects_non_object_result_json(self):
+        def fake_process(command, **kwargs):
+            output_dir = Path(command[-1])
+            (output_dir / "result.json").write_text(
+                json.dumps(["not", "an", "object"]),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with patch(
+            "mcp_servers.slicer.service._run_process_group",
+            side_effect=fake_process,
+        ):
+            with self.assertRaisesRegex(
+                SlicerServiceError,
+                "must contain a JSON object",
+            ):
+                self.provider.slice(str(TEST_MODEL.relative_to(ROOT)))
+
+    def test_success_result_requires_real_nonempty_3mf(self):
+        def fake_process(command, **kwargs):
+            output_dir = Path(command[-1])
+            missing = output_dir / "missing.sliced.3mf"
+            (output_dir / "result.json").write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "categories": [],
+                        "fatal_categories": [],
+                        "slicer_exit": 0,
+                        "input": str(TEST_MODEL.resolve()),
+                        "artifact": str(missing),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with patch(
+            "mcp_servers.slicer.service._run_process_group",
+            side_effect=fake_process,
+        ):
+            with self.assertRaisesRegex(
+                SlicerServiceError,
+                "missing or empty",
+            ):
+                self.provider.slice(str(TEST_MODEL.relative_to(ROOT)))
+
+    def test_output_directory_stem_is_sanitized(self):
+        input_dir = ROOT / "artifacts/slicer-input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        model = input_dir / "hinge weird @ name!.stl"
+        model.write_text("solid test\nendsolid test\n", encoding="utf-8")
+
+        try:
+            with patch(
+                "mcp_servers.slicer.service._run_process_group",
+                side_effect=self._successful_process,
+            ) as mocked:
+                payload = self.provider.slice(str(model.relative_to(ROOT)))
+        finally:
+            model.unlink(missing_ok=True)
+
+        output_name = Path(mocked.call_args.args[0][-1]).name
+        self.assertRegex(output_name, r"^mcp-hinge-weird-name-[0-9a-f]{10}$")
+        self.assertNotIn("@", output_name)
+        self.assertNotIn("!", output_name)
+        self.assertTrue(payload["ok"])
+
+    def test_cleanup_removes_only_stale_mcp_directories(self):
+        output_root = service_module.OUTPUT_ROOT
+        output_root.mkdir(parents=True, exist_ok=True)
+        stale = output_root / "mcp-stale-test"
+        fresh = output_root / "mcp-fresh-test"
+        unrelated = output_root / "manual-keep-test"
+        now = 2_000_000_000.0
+
+        for directory in (stale, fresh, unrelated):
+            directory.mkdir(exist_ok=True)
+        os.utime(stale, (now - 7200, now - 7200))
+        os.utime(fresh, (now - 60, now - 60))
+        os.utime(unrelated, (now - 7200, now - 7200))
+
+        try:
+            with patch.dict(
+                os.environ,
+                {"SLICER_MCP_RETENTION_HOURS": "1"},
+                clear=False,
+            ):
+                removed = service_module._cleanup_stale_mcp_outputs(now=now)
+
+            self.assertEqual(removed, 1)
+            self.assertFalse(stale.exists())
+            self.assertTrue(fresh.exists())
+            self.assertTrue(unrelated.exists())
+        finally:
+            shutil.rmtree(stale, ignore_errors=True)
+            shutil.rmtree(fresh, ignore_errors=True)
+            shutil.rmtree(unrelated, ignore_errors=True)
 
     def test_rejects_artifact_path_outside_allocated_output(self):
         def fake_process(command, **kwargs):
