@@ -71,7 +71,9 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ca-certificates curl xvfb libgl1 libglu1-mesa squashfs-tools
+            ca-certificates curl xvfb xauth squashfs-tools \
+            libgl1 libglu1-mesa libosmesa6 \
+            libgstreamer-plugins-base1.0-0 libwebkit2gtk-4.1-0
 
       - name: Cache Bambu Studio
         uses: actions/cache@v4
@@ -90,8 +92,9 @@ jobs:
           bash scripts/slicer/install-bambu-studio.sh
           finished="$(date +%s)"
           echo "setup_seconds=$((finished - started))" >> "$GITHUB_OUTPUT"
-          .tools/bin/bambu-studio --help >/tmp/bambu-studio-help.txt 2>&1
-          head -80 /tmp/bambu-studio-help.txt
+          # Keep launcher diagnostics visible: a missing shared library from
+          # the official AppImage should be actionable in the Actions log.
+          .tools/bin/bambu-studio --help 2>&1 | tee /tmp/bambu-studio-help.txt
 
       - name: Select slicer targets
         id: targets
