@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import uuid
@@ -77,9 +78,12 @@ def _resolve_output(path: Path) -> Path:
 
 
 def _find_slicer() -> Path | None:
-    explicit = os.environ.get("SLICER_PATH", "").strip()
+    explicit = (
+        os.environ.get("BAMBU_STUDIO_BIN", "").strip()
+        or os.environ.get("SLICER_PATH", "").strip()
+    )
     candidates = [
-        Path(explicit) if explicit else None,
+        Path(explicit).expanduser() if explicit else None,
         ROOT / ".tools/bin/bambu-studio",
         Path("/Applications/BambuStudio.app/Contents/MacOS/BambuStudio"),
         Path("/Applications/Bambu Studio.app/Contents/MacOS/BambuStudio"),
@@ -111,6 +115,57 @@ def _find_profile_root() -> Path | None:
         if candidate.is_dir():
             return candidate.resolve()
     return None
+
+
+def _run_process_group(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    timeout: int,
+) -> subprocess.CompletedProcess[str]:
+    """Run a slicer wrapper and guarantee descendants are cleaned up on timeout."""
+    popen_kwargs: dict[str, Any] = {
+        "cwd": cwd,
+        "env": env,
+        "text": True,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+    }
+    if os.name == "posix":
+        popen_kwargs["start_new_session"] = True
+
+    process = subprocess.Popen(command, **popen_kwargs)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        if os.name == "posix":
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                stdout, stderr = process.communicate()
+        else:  # pragma: no cover - development fallback outside Linux/macOS
+            process.kill()
+            stdout, stderr = process.communicate()
+
+        error.stdout = stdout
+        error.stderr = stderr
+        raise
+
+    return subprocess.CompletedProcess(
+        command,
+        process.returncode,
+        stdout,
+        stderr,
+    )
 
 
 @dataclass
@@ -257,6 +312,9 @@ class BambuStudioProvider:
         env["SLICER_PROCESS_PROFILE"] = process_profile
         env["SLICER_FILAMENT_PROFILE"] = filament_profile
         env["SLICER_ORIENT"] = "1" if orient else "0"
+        detected_slicer = _find_slicer()
+        if detected_slicer is not None:
+            env["BAMBU_STUDIO_BIN"] = str(detected_slicer)
         if bed_type:
             env["SLICER_BED_TYPE"] = bed_type
 
@@ -267,14 +325,11 @@ class BambuStudioProvider:
             str(output_dir),
         ]
         try:
-            completed = subprocess.run(
+            completed = _run_process_group(
                 command,
                 cwd=ROOT,
                 env=env,
-                text=True,
-                capture_output=True,
                 timeout=self.timeout_seconds,
-                check=False,
             )
         except subprocess.TimeoutExpired as error:
             raise SlicerServiceError(
@@ -295,6 +350,27 @@ class BambuStudioProvider:
                 "slicer_exit": completed.returncode,
                 "artifact": None,
             }
+
+        raw_input = result.get("input")
+        if raw_input:
+            normalized_input = _resolve_model(str(raw_input))
+            if normalized_input != path:
+                raise SlicerServiceError("slicer result input does not match request")
+            result["input"] = _repo_relative(normalized_input)
+        else:
+            result["input"] = _repo_relative(path)
+
+        raw_artifact = result.get("artifact")
+        if raw_artifact:
+            artifact_path = Path(str(raw_artifact))
+            if not artifact_path.is_absolute():
+                artifact_path = ROOT / artifact_path
+            artifact_path = artifact_path.resolve()
+            if not _is_relative_to(artifact_path, output_dir):
+                raise SlicerServiceError(
+                    "slicer result artifact escaped the allocated output directory"
+                )
+            result["artifact"] = _repo_relative(artifact_path)
 
         result.update(
             {
