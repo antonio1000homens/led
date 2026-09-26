@@ -539,39 +539,37 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Keep the stationary knuckle, but do NOT fill the volume directly below
-    // the hinge axis. The moving plate sweeps through that region on its way
-    // toward the service-open position.
+    // Keep the stationary knuckle clear of the moving plate's sweep corridor.
     //
-    // The support web begins at the BOTTOM tangent of the stationary barrel,
-    // then slopes strongly rearward into the floor/base. Starting at the bottom
-    // tangent means the first printed barrel layers are already connected to
-    // material below instead of appearing as a floating island. Sweeping the
-    // web rearward keeps the moving plate's forward/downward rotation corridor
-    // clear.
+    // The full-width lower hinge guard already grows continuously from the
+    // enclosure base and is tied into the rear quadrant of each stationary
+    // knuckle. Use that guard as the printable/structural support instead of
+    // running a large diagonal web all the way back to the rear floor edge.
+    //
+    // This compact local rib rises forward from the guard into the BOTTOM
+    // tangent of the barrel. The roughly 1:1 rise/run keeps successive layers
+    // supported in the upright print while using substantially less material.
     union() {
         hinge_barrel(x0,len);
 
         hull() {
-            // Narrow overlap around the barrel's bottom tangent. The 3 mm
-            // installed-Y height provides layer-to-layer support as the circular
-            // barrel begins to grow.
+            // Guard-connected lower anchor. This sits entirely on the
+            // stationary side of the hinge and is local to each fixed knuckle.
+            translate([
+                x0,
+                hinge_axis_y-hinge_r-9.0,
+                hinge_guard_front_z
+            ])
+                cube([len,2,hinge_guard_t]);
+
+            // Narrow overlap at the barrel's bottom tangent so the first
+            // printable barrel layers grow from already-supported material.
             translate([
                 x0,
                 hinge_axis_y-hinge_r-1.0,
                 hinge_axis_z-1.0
             ])
                 cube([len,3,2]);
-
-            // Bed-connected anchor near the rear of the 40 mm-deep base. This
-            // large rearward offset keeps the diagonal web out of the plate
-            // sweep while remaining support-free in the upright print.
-            translate([
-                x0,
-                base_thickness_y-0.5,
-                rear_z_bottom-box_rear_t
-            ])
-                cube([len,2,2]);
         }
     }
 }
