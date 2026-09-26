@@ -539,26 +539,39 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Connect the barrel bottom tangent to a bed-connected anchor at the rear
-    // edge of the enclosure base with a diagonal hull.
-    root_y = hinge_axis_y-hinge_r-1.0;
-    root_z = hinge_axis_z-1.0;
-
+    // Keep the stationary knuckle, but do NOT fill the volume directly below
+    // the hinge axis. The moving plate sweeps through that region on its way
+    // toward the service-open position.
+    //
+    // The support web begins at the BOTTOM tangent of the stationary barrel,
+    // then slopes strongly rearward into the floor/base. Starting at the bottom
+    // tangent means the first printed barrel layers are already connected to
+    // material below instead of appearing as a floating island. Sweeping the
+    // web rearward keeps the moving plate's forward/downward rotation corridor
+    // clear.
     union() {
         hinge_barrel(x0,len);
 
         hull() {
-            // Bed-connected rear anchor.
+            // Narrow overlap around the barrel's bottom tangent. The 3 mm
+            // installed-Y height provides layer-to-layer support as the circular
+            // barrel begins to grow.
             translate([
                 x0,
-                0,
+                hinge_axis_y-hinge_r-1.0,
+                hinge_axis_z-1.0
+            ])
+                cube([len,3,2]);
+
+            // Bed-connected anchor near the rear of the 40 mm-deep base. This
+            // large rearward offset keeps the diagonal web out of the plate
+            // sweep while remaining support-free in the upright print.
+            translate([
+                x0,
+                base_thickness_y-0.5,
                 rear_z_bottom-box_rear_t
             ])
-                cube([len,base_thickness_y,box_rear_t]);
-
-            // Tangent overlap supports the first layers of the round barrel.
-            translate([x0,root_y,root_z])
-                cube([len,3,2]);
+                cube([len,2,2]);
         }
     }
 }
