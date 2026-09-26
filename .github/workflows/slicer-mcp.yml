@@ -16,6 +16,7 @@ on:
     paths:
       - 'mcp_servers/**'
       - 'scripts/run-slicer-mcp.sh'
+      - 'scripts/slicer/**'
       - 'tests/test_slicer_mcp.py'
       - '.devcontainer/**'
       - 'docs/SLICER_MCP.md'
