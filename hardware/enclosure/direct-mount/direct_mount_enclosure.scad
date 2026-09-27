@@ -269,6 +269,26 @@ side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
     connector_pin_len + side_connector_bridge + side_connector_overlap;
 
+// Upper backplane alignment connector. The right edge carries a locating pin;
+// the left edge carries a vertical guide slot. The slot spans above and below
+// the final pin height so top-down insertion/removal remains possible while
+// neighbouring modules and outer end plates stay laterally aligned.
+top_connector_y = enclosure_top_y - 8;
+top_connector_z = equipment_backplane_top_rear_z - 1.3;
+top_connector_slot_bottom_y = top_connector_y - 12;
+top_connector_slot_top_y = enclosure_top_y + 0.2;
+top_connector_pad_y0 = top_connector_slot_bottom_y;
+top_connector_pad_y1 = top_connector_y + 4;
+top_connector_pad_w = 8;
+top_connector_pad_depth = 11;
+top_connector_overlap = 0.4;
+top_connector_pin_len = connector_pin_len + top_connector_overlap;
+top_side_pin_len = connector_pin_len + side_connector_overlap;
+top_connector_support_margin = 0.5;
+top_connector_min_engagement = 1.5;
+top_module_seam_gap = module_w - service_w;
+top_side_seam_gap = side_panel_clearance + backplane_edge_inset;
+
 // ---------- X-axis connector helpers ----------
 
 module pin_pos_x(x0,y0,z0,len=connector_pin_len,d=connector_pin_d) {
@@ -293,6 +313,24 @@ module socket_neg_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) 
     translate([x0+0.1,y0,z0])
         rotate([0,-90,0])
             cylinder(d=d,h=depth+0.2);
+}
+
+// Vertical X-axis capture slot. Unlike a closed round socket, this permits the
+// mating pin to move in Y during top-down backplane installation/removal.
+module vertical_slot_pos_x(
+    x0,
+    y_bottom,
+    y_top,
+    z0,
+    depth=connector_socket_depth,
+    w=connector_socket_d
+) {
+    translate([x0-0.1,y_bottom,z0-w/2])
+        cube([
+            depth+0.2,
+            y_top-y_bottom+0.2,
+            w
+        ]);
 }
 
 // ---------- Stationary equipment-base hinge geometry ----------
@@ -577,6 +615,61 @@ function tapered_backplane_rear_z_at_y(y) =
     (equipment_backplane_top_rear_z-equipment_backplane_lower_rear_z) *
     ((y-backplane_ramp_start_y)/(enclosure_top_y-backplane_ramp_start_y));
 
+module top_backplane_connector_pad(side="left") {
+    x0 = side == "left"
+        ? service_x
+        : service_x + service_w - top_connector_pad_w;
+    rear0 = tapered_backplane_rear_z_at_y(top_connector_pad_y0);
+    rear1 = tapered_backplane_rear_z_at_y(top_connector_pad_y1);
+    slice_h = 1;
+
+    // Follow the existing upper taper while thickening only the local edge
+    // region needed to support the upper pin/guide slot.
+    hull() {
+        translate([
+            x0,
+            top_connector_pad_y0,
+            rear0-top_connector_pad_depth
+        ])
+            cube([
+                top_connector_pad_w,
+                slice_h,
+                top_connector_pad_depth
+            ]);
+
+        translate([
+            x0,
+            top_connector_pad_y1-slice_h,
+            rear1-top_connector_pad_depth
+        ])
+            cube([
+                top_connector_pad_w,
+                slice_h,
+                top_connector_pad_depth
+            ]);
+    }
+}
+
+module top_backplane_connector_pin() {
+    right_x = service_x + service_w;
+    pin_pos_x(
+        right_x-top_connector_overlap,
+        top_connector_y,
+        top_connector_z,
+        top_connector_pin_len
+    );
+}
+
+module top_backplane_connector_slot() {
+    vertical_slot_pos_x(
+        service_x,
+        top_connector_slot_bottom_y,
+        top_connector_slot_top_y,
+        top_connector_z,
+        connector_socket_depth
+    );
+}
+
 module backplane_shell_solid() {
     union() {
         // Stepped vertical lower section. For the first 50 mm the plate is
@@ -689,8 +782,17 @@ module universal_equipment_backplane() {
             backplane_shell_solid();
             backplane_top_link();
 
+            top_backplane_connector_pad("left");
+            top_backplane_connector_pad("right");
+            top_backplane_connector_pin();
+
             internal_adapter_bosses();
         }
+
+        // Left-edge vertical guide slot mates with the right-edge pin on the
+        // previous module, or the left outer side plate. The vertical opening
+        // preserves the removable backplane's top-down service path.
+        top_backplane_connector_slot();
 
         // Blind M3 holes open only toward the equipment cavity. The outside
         // rear face remains a solid uninterrupted skin.
@@ -793,8 +895,8 @@ module right_side_pins() {
 }
 
 module right_side_sockets() {
-    // Blind inward-facing socket. Limit the depth so at least ~0.8 mm of the
-    // exterior side wall remains solid.
+    // Blind lower socket plus the upper vertical alignment slot. Both remain
+    // open only toward the enclosure side; the outside wall stays solid.
     x_inner = module_w + side_panel_clearance;
     socket_pos_x(
         x_inner,
@@ -802,10 +904,18 @@ module right_side_sockets() {
         base_connector_z_a,
         side_socket_depth
     );
+    vertical_slot_pos_x(
+        x_inner,
+        top_connector_slot_bottom_y,
+        top_connector_slot_top_y,
+        top_connector_z,
+        side_socket_depth
+    );
 }
 
 module left_side_pins() {
-    // One inward-facing pin mates with the hidden A socket in the left guide.
+    // Lower pin mates with the base guide. The upper pin aligns the top of the
+    // removable backplane while still allowing vertical service motion.
     x_start = -side_panel_clearance - side_connector_overlap;
 
     pin_pos_x(
@@ -813,6 +923,12 @@ module left_side_pins() {
         base_connector_y_a,
         base_connector_z_a,
         side_connector_pin_len
+    );
+    pin_pos_x(
+        x_start,
+        top_connector_y,
+        top_connector_z,
+        top_side_pin_len
     );
 }
 

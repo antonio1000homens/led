@@ -293,6 +293,35 @@ assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
        "backplane roof must reach the top of the front plate");
 assert(abs(top_link_front_z-(fixed_template_t+0.8)) < 0.01,
        "top link no longer closes to the template with 0.8 mm clearance");
+assert(top_connector_slot_bottom_y <
+           top_connector_y-connector_socket_d/2 &&
+       top_connector_slot_top_y >
+           top_connector_y+connector_socket_d/2,
+       "top connector guide slot must release vertically in both directions");
+assert(top_connector_pad_y0 <= top_connector_slot_bottom_y &&
+       top_connector_pad_y1 >
+           top_connector_y+connector_socket_d/2,
+       "top connector support pad does not surround the final pin position");
+assert(top_connector_pad_depth >=
+           connector_socket_d+2*top_connector_support_margin,
+       "top connector support pad is too shallow for the locating slot");
+assert(top_connector_z-connector_socket_d/2 >=
+           tapered_backplane_rear_z_at_y(top_connector_y)
+               - top_connector_pad_depth
+               + top_connector_support_margin,
+       "top connector is too close to the inside face of its support pad");
+assert(top_connector_z+connector_socket_d/2 <=
+           tapered_backplane_rear_z_at_y(top_connector_y)
+               - top_connector_support_margin,
+       "top connector breaks through the tapered outside face");
+assert(top_connector_y > upper_vent_y+upper_vent_h,
+       "top connector overlaps upper ventilation");
+assert(connector_pin_len-top_module_seam_gap >=
+           top_connector_min_engagement,
+       "top connector has insufficient engagement between adjacent modules");
+assert(connector_pin_len-top_side_seam_gap >=
+           top_connector_min_engagement,
+       "top connector has insufficient engagement into the end plates");
 
 assert(abs(backplane_guide_clearance-0.4) < 0.01,
        "rear groove clearance is outside the FDM fit target");
@@ -371,7 +400,8 @@ cube([1,1,1]);
         )
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
-        "hidden junctions, solid outside skin and 40-to-10 mm tapered backplane contract"
+        "lower hidden junctions, upper backplane/end-plate alignment slot, "
+        "solid outside skin and 40-to-10 mm tapered backplane contract"
     )
 
 
@@ -490,6 +520,29 @@ def main() -> None:
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
+        # The upper connector aligns modules/end plates without making the
+        # removable backplane horizontally captive. Test relative vertical
+        # travel through the guide slot in both neighbour and end-plate cases.
+        for lift in (1, 5, 10, 15):
+            assert_empty_intersection(
+                work_dir,
+                f"top_connector_neighbor_vertical_release_{lift}",
+                f"""    universal_equipment_backplane();
+    translate([module_w,{lift},0]) universal_equipment_backplane();""",
+            )
+            assert_empty_intersection(
+                work_dir,
+                f"top_connector_left_end_vertical_release_{lift}",
+                f"""    equipment_side("left");
+    translate([0,{lift},0]) universal_equipment_backplane();""",
+            )
+            assert_empty_intersection(
+                work_dir,
+                f"top_connector_right_end_vertical_release_{lift}",
+                f"""    equipment_side("right");
+    translate([0,{lift},0]) universal_equipment_backplane();""",
+            )
+
         for side in ("left", "right"):
             assert_empty_intersection(
                 work_dir,
