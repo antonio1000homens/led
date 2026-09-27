@@ -2,7 +2,7 @@
 //
 // Issue #133 commits the project to the hinged architecture. This is the single
 // parametric source of truth for the PR #119-style MOVING panel/template leaf,
-// STATIONARY universal equipment base, universal slide-in backplane and
+// STATIONARY universal equipment base, top-down removable backplane and
 // detachable side retainers.
 //
 // The physically corrected P4 panel coordinates remain the source of truth.
@@ -152,51 +152,21 @@ service_w = backplane_w;
 service_close_clearance = 0.6;
 service_front_z = fixed_template_t + service_close_clearance;
 
-base_lower_y1 = 20;
-base_front_back_z = 18.5;
-
-rail_beam_y0 = 17;
-rail_beam_y1 = 31;
-rail_beam_z0 = 32;
-rail_beam_z1 = 46;
-
 base_rear_z = 60;
-base_beam_t = 6;
-
-// T-slot is deliberately open at both X ends so the backplane slides laterally.
-// A side piece closes the end after assembly.
-// Support-free one-sided dovetail rail.
-//
-// Instead of cutting a T-slot out of a solid beam, the rail is built from
-// bed-connected front/rear walls. The front wall shifts rearward gradually to
-// form the retaining lip. The backplane's enlarged lower head is therefore
-// captive in Z but the rail has no horizontal ceiling.
-rail_base_y = 4.5;
-rail_head_top_y = 22.5;
-rail_lip_y = 29.5;
-rail_neck_top_y = 31.9;
-// Raise the front rail wall to shorten the captive head from the #134 10.2 mm
-// profile to 7.2 mm, retaining 0.4 mm running clearance and full-width capture.
-rail_front_z0 = 35;
-rail_wall_t = 3;
-rail_lip_z0 = 40;
-rail_rear_z0 = 46;
-
-// 0.4 mm nominal clearance per exposed rail face for an FDM serviceable fit.
-rail_clearance = 0.4;
-tongue_head_y0 = 18.9;
-tongue_head_y1 = 22.1;
-tongue_head_z0 = rail_front_z0 + rail_wall_t + rail_clearance;
-tongue_head_z1 = rail_rear_z0 - rail_clearance;
-tongue_stem_y1 = rail_neck_top_y - rail_clearance;
-tongue_stem_z0 = rail_lip_z0 + rail_wall_t + rail_clearance;
-tongue_stem_z1 = rail_rear_z0 - rail_clearance;
+base_seat_y = 4.5;
+base_floor_front_z = service_front_z;
+base_floor_rear_z = base_rear_z;
 
 // Backplane: one identical plate for every module.
-equipment_backplane_y0 = 31;
+equipment_backplane_y0 = base_seat_y;
 equipment_backplane_front_z = 44;
 equipment_backplane_t = 3;
 equipment_backplane_rear_z = equipment_backplane_front_z + equipment_backplane_t;
+backplane_guide_clearance = 0.4;
+backplane_guide_t = 1.2;
+backplane_guide_front_z = equipment_backplane_front_z - backplane_guide_clearance - backplane_guide_t;
+backplane_guide_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
+backplane_guide_x_overlap = 0.4;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
 adapter_boss_d = 8;
@@ -266,7 +236,7 @@ module socket_neg_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) 
 hinge_guard_t = 2;
 hinge_guard_clearance = 0.8;
 hinge_guard_front_z = hinge_axis_z + hinge_radius + hinge_guard_clearance;
-hinge_guard_start_y = rail_base_y - 0.5; // overlaps the stationary floor by 0.5 mm
+hinge_guard_start_y = base_seat_y - 0.5; // overlaps the stationary floor by 0.5 mm
 hinge_guard_top_y = hinge_axis_y;
 hinge_guard_bridge_overlap = 0.5;
 hinge_guard_bridge_h = 2.0;
@@ -343,44 +313,13 @@ module lower_hinge_guard() {
 
 module base_structural_body() {
     union() {
-        // Stationary floor strip. In the upright print this is the bed contact.
+        // The base is the structural floor. Its top edge is the positive stop
+        // for the backplane, which drops in vertically from above.
         translate([service_x,service_base_y,service_front_z])
             cube([
                 service_w,
-                rail_base_y-service_base_y,
+                base_seat_y-service_base_y,
                 base_rear_z-service_front_z
-            ]);
-
-        // Rear rail wall grows directly from the stationary floor.
-        translate([service_x,rail_base_y,rail_rear_z0])
-            cube([
-                service_w,
-                rail_lip_y-rail_base_y,
-                rail_wall_t
-            ]);
-
-        // Front lower rail wall. It remains behind the hinge sweep because the
-        // proven hinge axis is now y=27/z=16 and the panel is the moving leaf.
-        translate([service_x,rail_base_y,rail_front_z0])
-            cube([
-                service_w,
-                rail_head_top_y-rail_base_y,
-                rail_wall_t
-            ]);
-
-        // Support-free retaining lip for the removable backplane.
-        hull() {
-            translate([service_x,rail_head_top_y-0.1,rail_front_z0])
-                cube([service_w,0.2,rail_wall_t]);
-            translate([service_x,rail_lip_y,rail_lip_z0])
-                cube([service_w,0.2,rail_wall_t]);
-        }
-
-        translate([service_x,rail_lip_y,rail_lip_z0])
-            cube([
-                service_w,
-                rail_neck_top_y-rail_lip_y,
-                rail_wall_t
             ]);
 
         stationary_hinge_supports();
@@ -423,41 +362,13 @@ module hinged_equipment_base_print() {
             hinged_equipment_base();
 }
 
-// ---------- Universal slide-in backplane ----------
+// ---------- Universal top-down backplane ----------
 
 module rounded_slot_2d(len,w) {
     hull() {
         translate([-(len-w)/2,0]) circle(d=w);
         translate([(len-w)/2,0]) circle(d=w);
     }
-}
-
-module backplane_tslot_tongue() {
-    // Enlarged lower head, trapped between the front/rear rail walls.
-    translate([
-        service_x,
-        tongue_head_y0,
-        tongue_head_z0
-    ])
-        cube([
-            service_w,
-            tongue_head_y1-tongue_head_y0,
-            tongue_head_z1-tongue_head_z0
-        ]);
-
-    // Straight, thin transition into the backplane replaces the old sloped
-    // shoulder/upper return. The full-length 2.2 mm web stays out of the rail
-    // lip and overlaps the plate by the designed 0.5 mm.
-    translate([
-        service_x,
-        tongue_head_y1-0.1,
-        tongue_stem_z0
-    ])
-        cube([
-            service_w,
-            tongue_stem_y1-(tongue_head_y1-0.1),
-            tongue_stem_z1-tongue_stem_z0
-        ]);
 }
 
 module backplane_connector_pads() {
@@ -497,8 +408,6 @@ module backplane_connector_sockets() {
 module universal_equipment_backplane() {
     difference() {
         union() {
-            backplane_tslot_tongue();
-
             translate([
                 service_x,
                 equipment_backplane_y0,
@@ -562,14 +471,12 @@ module universal_equipment_backplane() {
     }
 }
 
-// Print on the lower edge: 255 mm across the bed, ~109 mm high, and only the
-// backplane depth/bosses in the second bed dimension. This keeps the T-slot
-// tongue and bosses growing vertically instead of creating floating islands.
+// Print on the lower edge so the plain locating edge and bosses grow from bed.
 module universal_equipment_backplane_print() {
     translate([
         0,
         equipment_backplane_rear_z+adapter_boss_h,
-        -tongue_head_y0
+        -equipment_backplane_y0
     ])
         rotate([90,0,0])
             universal_equipment_backplane();
@@ -581,13 +488,13 @@ module side_wall_body(side="right") {
     x0 = side == "right"
         ? service_x + service_w
         : service_x - side_t;
+    guide_x0 = side == "right"
+        ? x0-backplane_guide_x_overlap
+        : x0;
 
     union() {
-        // PR #119-compatible OPEN SIDE:
-        //
-        // Keep only a low foot below the moving panel sweep. This carries the
-        // base-level pin/socket features without recreating the full-height side
-        // wall that collides with the panel as soon as it starts to open.
+        // Low foot carries the base-level alignment pins while staying below
+        // the seated backplane lower edge.
         translate([x0,service_base_y,service_front_z])
             cube([
                 side_t,
@@ -595,15 +502,49 @@ module side_wall_body(side="right") {
                 base_rear_z-service_front_z
             ]);
 
-        // Rear rail/backplane retainer. At z >= 32 mm it remains behind the
-        // complete 0-90 degree panel sweep while still closing the lateral slide
-        // path and carrying the upper backplane connector features.
-        translate([x0,rail_base_y,rail_front_z0])
+        // Narrow perimeter spine supports the edge guides without filling the
+        // enclosure volume. It starts above the full moving-panel sweep and
+        // stays outside the backplane's X footprint.
+        translate([x0,35,backplane_guide_front_z])
             cube([
                 side_t,
-                service_top_y-rail_base_y,
-                equipment_backplane_rear_z-rail_front_z0
+                service_top_y-35,
+                base_rear_z-backplane_guide_front_z
             ]);
+
+        // A narrow rear-edge web joins the low connector foot to the guide
+        // spine while remaining outside the panel sweep and usable volume.
+        translate([x0,7.5,base_rear_z-2])
+            cube([side_t,35-7.5,2]);
+
+        // Shallow edge guides keep the backplane aligned during top-down
+        // insertion. The short breaks leave room for the horizontal alignment
+        // connectors; no guide crosses the usable equipment area.
+        for (guide=[ [35,49], [63,80], [111,service_top_y] ])
+                if (guide[1] > guide[0])
+                    translate([
+                        guide_x0,
+                        guide[0],
+                        backplane_guide_front_z
+                    ])
+                        cube([
+                            side_t+backplane_guide_x_overlap,
+                            guide[1]-guide[0],
+                            backplane_guide_t
+                        ]);
+
+        for (guide=[ [35,49], [63,80], [111,service_top_y] ])
+                if (guide[1] > guide[0])
+                    translate([
+                        guide_x0,
+                        guide[0],
+                        backplane_guide_back_z
+                    ])
+                        cube([
+                            side_t+backplane_guide_x_overlap,
+                            guide[1]-guide[0],
+                            backplane_guide_t
+                        ]);
     }
 }
 
@@ -659,15 +600,11 @@ module equipment_side(side="right") {
 }
 
 module equipment_side_print(side="right") {
-    // Lay each side wall broad-face-down. The left piece is flipped the opposite
-    // way so its inward-facing pins grow upward from the wall rather than
-    // beginning below the print plane.
+    // Mirror the print face so each side's connector pins grow from its wall.
     if (side == "right")
-        rotate([0,90,0])
-            equipment_side(side);
+        rotate([0,90,0]) equipment_side(side);
     else
-        rotate([0,-90,0])
-            equipment_side(side);
+        rotate([0,-90,0]) equipment_side(side);
 }
 
 // ---------- Assembly / previews ----------

@@ -8,8 +8,8 @@ mounting template form the moving leaf** and open forward/down through a full
 0–90° service arc.
 
 The newer modular equipment system remains in place behind that hinge: a
-stationary universal base carries the captive rail, a universal backplane slides
-into that rail, and detachable side pieces retain/alignment the assembly.
+stationary universal base provides the bottom seat, a universal backplane drops
+in vertically from above, and shallow detachable side guides align the edges.
 
 ## Architecture
 
@@ -26,7 +26,7 @@ reinforced hinge shelf + rearward support webs
    |
 stationary universal equipment base
    |
-lateral captive slide rail
+base floor edge / backplane seat
    |
 stationary universal equipment backplane
    |
@@ -46,10 +46,10 @@ detachable side pieces or accessory adapters.
 | Wrapper | Purpose |
 | --- | --- |
 | `parts/01_panel_hinge_template_PRINT_1.scad` | **Moving** LED/panel mounting template with local hinge roots |
-| `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and captive backplane rail |
-| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Stationary universal slide-in equipment plate with generic M3 adapter bosses |
-| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end/rail retainer |
-| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end/rail retainer |
+| `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and open backplane seat |
+| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Stationary top-down removable equipment plate with generic M3 adapter bosses |
+| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left perimeter guide |
+| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right perimeter guide |
 
 Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
@@ -89,22 +89,19 @@ than only its clearance numbers:
 The panel/template rotates forward/down. The equipment base, removable backplane
 and electronics stay stationary.
 
-## Slide-in backplane
+## Top-down backplane
 
-The stationary backplane inserts laterally into a support-friendly captive rail.
-The rail uses bed-connected walls and a progressively formed retaining lip
-instead of a roofed T-slot. Nominal mating clearance is **0.4 mm per exposed
-rail face**. The captive head is **7.2 mm high**, down from the 10.2 mm profile
-introduced with #134, while retaining full-width guidance and side-piece end
-stops. A straight 2.2 mm web connects the head to the backplane, removing the
-unnecessary sloped upper return; the tongue overlaps the backplane by 0.5 mm.
+The stationary backplane installs from above and lowers vertically until its
+plain lower edge rests on the base floor edge. The base contains no width-spanning
+retaining rail, ramp, lip, or captive channel, leaving the lower interior open
+for equipment and cabling. The detachable side pieces provide shallow perimeter
+guides with 0.4 mm nominal clearance; they are fitted after the backplane and
+can be removed to lift it out for service.
 
-Once installed, detachable side pieces close the lateral path and act as
-positive backplane retainers. A standalone module uses both pieces. In a joined
-row, install retainers only at the two outside edges; neighboring base and
-backplane pin/socket features mate across internal seams at the 256 mm panel
-pitch. This avoids overlapping duplicate side walls. Glue is not part of normal
-assembly.
+In a joined row, install side guides only at the two outside edges; neighboring
+base and backplane pin/socket features mate across internal seams at the 256 mm
+panel pitch. This avoids overlapping duplicate side walls. Glue is not part of
+normal assembly.
 
 ## Universal accessory interface
 
@@ -163,8 +160,8 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 1. Print one moving panel hinge template and one stationary equipment base.
 2. Confirm the real 6 mm rail fits and the **panel/template** rotates freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify full-length rail travel.
-5. Print both side pieces and verify pin/socket engagement and slide retention.
+4. Print one universal backplane and verify top-down insertion, base-edge seating, and upward removal.
+5. Print both side pieces and verify pin/socket engagement and perimeter alignment.
 6. Verify two identical stationary equipment assemblies align side-by-side.
 7. Fit representative M3 hardware/adapters to the boss grid.
 8. Only then print the remaining modules.
