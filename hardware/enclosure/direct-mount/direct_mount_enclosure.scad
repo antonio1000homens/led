@@ -598,20 +598,26 @@ module side_wall_body(side="right") {
         : service_x - side_t;
 
     union() {
-        // Main end wall closes the universal backplane cavity.
+        // PR #119-compatible OPEN SIDE:
+        //
+        // Keep only a low foot below the moving panel sweep. This carries the
+        // base-level pin/socket features without recreating the full-height side
+        // wall that collides with the panel as soon as it starts to open.
         translate([x0,service_base_y,service_front_z])
             cube([
                 side_t,
-                service_top_y-service_base_y,
-                equipment_backplane_rear_z-service_front_z
+                7.5,
+                base_rear_z-service_front_z
             ]);
 
-        // Lower rear-foot extension.
-        translate([x0,service_base_y,equipment_backplane_rear_z])
+        // Rear rail/backplane retainer. At z >= 32 mm it remains behind the
+        // complete 0-90 degree panel sweep while still closing the lateral slide
+        // path and carrying the upper backplane connector features.
+        translate([x0,rail_base_y,rail_front_z0])
             cube([
                 side_t,
-                rail_beam_y1-service_base_y,
-                base_rear_z-equipment_backplane_rear_z
+                service_top_y-rail_base_y,
+                equipment_backplane_rear_z-rail_front_z0
             ]);
     }
 }
