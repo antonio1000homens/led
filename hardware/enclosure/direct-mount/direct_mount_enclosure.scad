@@ -1,814 +1,726 @@
-// Modular direct-mount enclosure/backplane for four 256 x 128 mm P4 HUB75 panels.
-// Issue #53 - antonio1000homens/led
+// Canonical modular hinged direct-mount enclosure for four 256 x 128 mm P4 HUB75 panels.
 //
-// P4 physical-panel geometry:
-// A calibrated 1:1 ruler photograph plus an independent Kiri Engine scan show
-// six brass mounting inserts in a symmetric 3 x 2 pattern. The first physical
-// template moved the outer boss centres 2 mm inward; the next fit showed that
-// correction was 0.5 mm too far inward, so the outer centres move 0.5 mm back
-// toward every panel edge:
-//   x = 7.9, 128.0, 248.1 mm
-//   y = 7.9, 120.1 mm
-// These replace the obsolete four-point pattern inferred from a scaled P2.5 panel.
+// Issue #133 commits the project to the hinged architecture. This is the single
+// parametric source of truth for the fixed panel hinge template, universal
+// moving hinge/base, universal slide-in backplane and detachable side retainers.
 //
-// The previously inferred four-point centres (26.704/229.296 x 12/116 mm)
-// are retained only as clearance centres for protruding moulded locating pins.
-// The physical test print showed at least one of those panel locators entering
-// the old slot. A 10 mm round clearance intentionally overlaps the 16 mm frame
-// opening by 1 mm, avoiding a fragile/tangent zero-thickness boundary.
-// Final acceptance remains a physical fit test against the real P4 panel.
-//
-// Design intent:
-// - Print four identical backplane modules and bolt each LED module directly to one backplane.
-// - All printed structure remains BEHIND the LED face; nothing masks the 256 x 128 mm front.
-// - Two 1000 x 6 mm round reinforcement bars pass through all four modules.
-// - Bars are offset from the measured panel mounting rows and locator clearances.
-// - Neighbouring modules align with narrowed tongue/socket keys and are locked with two recessed M3 seam straps, leaving a central cable corridor.
-// - Each 4 mm joiner sits in matching rear recesses so its outside face is almost flush with the backplanes.
-// - The LED-panel-facing side of every backplane stays flat and unchanged.
-// - Rear electronics carriers use blind M3 heat-set-insert pockets.
+// The physically corrected P4 panel coordinates remain the source of truth.
+// Component-specific PSU/MatrixPortal geometry belongs on detachable adapters.
 
-$fn = 48;
-// `part` is intentionally not assigned here: command-line -D and the per-part
-// wrapper SCAD files may set it. If undefined, the default render is backplane.
-
-// Nominal front-panel envelope / panel-to-panel pitch.
 module_w = 256;
 module_h = 128;
-
-// The moulded rear of the physical LED module is slightly smaller than the
-// 256 x 128 mm illuminated/front envelope. Keep all measured boss coordinates
-// in the nominal panel coordinate system, but inset the printed backplane by
-// 0.5 mm on every edge: 255 x 127 mm overall.
 backplane_edge_inset = 0.5;
 backplane_w = module_w - 2*backplane_edge_inset;
 backplane_h = module_h - 2*backplane_edge_inset;
 
-depth = 16;
-frame = 16;
-
-// Physical-template-corrected P4 brass insert centres.
-// First fit: outer bosses moved 2 mm inward from the scan/photo estimate.
-// Second fit: those outer holes were 0.5 mm too far inward, so move them
-// 0.5 mm back toward their nearest panel edges. Centre X remains 128 mm.
 panel_mount_x = [7.9, 128.0, 248.1];
 panel_mount_y = [7.9, 120.1];
-panel_mount_hole_d = 4.5; // M3/M4 clearance with small measurement/print tolerance.
-// Rear counterbores reduce the screw-through plastic stack from 16 mm to 5 mm.
-// Normal screw heads therefore sit recessed below the rear surface/lid plane.
-panel_mount_local_t = 5;
-panel_mount_head_recess_d = 10;
-panel_mount_head_recess_depth = depth - panel_mount_local_t;
+panel_mount_hole_d = 4.5;
 
-// Moulded locating-pin clearance. These four centres correspond to the old
-// provisional P2.5-derived slots; they are NOT panel screw locations.
 panel_locator_x = [26.704, 229.296];
 panel_locator_y = [12.0, 116.0];
 panel_locator_clearance_d = 10.0;
 
-slot_len = 10;
-slot_w = 4.2;
+$fn = 48;
 
-// Reinforcement bars are now nominal 6 mm diameter.
-// Preserve the previous 0.6 mm radial running clearance used for the 8 mm
-// bars: 6 mm bar -> 7.2 mm bore, with a larger FDM-friendly lead-in.
-reinforcement_bar_d = 6;
-rod_d = 7.2;
-rod_leadin_d = 8.4;
-rod_leadin_len = 1.5;
-rod_z = depth/2;
-rod_y_bottom = 24;
-rod_y_top = module_h-24;
-rod_beam_h = 12;
+// ---------- Shared hinge geometry ----------
 
-// Keep the centre of each panel seam clear for HUB75/power cabling.
-// The previous 11.5 mm alignment tongues occupied too much of the seam;
-// PRINT_4 uses narrower 8 mm tongues moved towards the structural rod zones.
-joint_len = 6;
-joint_w = 8;
-joint_h = 7.2;
-joint_z = 4;
-joint_clear = 0.35;
-joint_y1 = 34;
-joint_y2 = 86;
+hinge_rail_d = 6;
+hinge_bore_d = 7.2;
+hinge_outer_d = 13;
+hinge_axis_y = 11.5;
+hinge_axis_z = 10.5;
+hinge_radius = hinge_outer_d/2;
+hinge_pocket_clearance = 0.6;
+hinge_axial_clearance = 0.8;
 
-// Full-depth cable opening through both vertical seam rails.
-// A 16-way HUB75 ribbon is thin but about 20 mm wide, so use a shallow,
-// centred 24 mm opening rather than the original 36 mm full-depth cut.
-seam_cable_y_min = 52;
-seam_cable_y_max = 76;
-seam_cable_h = seam_cable_y_max - seam_cable_y_min;
-// Only notch the rear 5 mm of the rail. The remaining 11 mm front web makes
-// the seam rail substantially stronger while still clearing a flat ribbon.
-seam_cable_rear_depth = 5;
-seam_cable_front_web_t = depth - seam_cable_rear_depth;
+fixed_knuckles = [
+    [36,24],
+    [92,26],
+    [166,28]
+];
 
-// The seam lock remains a PAIR of recessed straps in one STL/set. The clear
-// 24 mm centre gap aligns with the shallow flat-ribbon notch.
-joiner_origin_y = 34;
-joiner_insert_x = 8;
-joiner_insert_y1 = 43;
-joiner_insert_y2 = 85;
-joiner_w = 32;
-joiner_h = 60;
-joiner_strap_h = 18;
-joiner_t = 4;
-// 9 mm puts the PRINT_4 strap screw rows at global y=43/85 when the
-// joiner set is installed at y=34, exactly matching the backplane inserts.
-joiner_hole_y_inset = 9;
-joiner_countersink_d = 6.4;
-joiner_countersink_depth = 1.7;
-joiner_clear_xy = 0.25;
-joiner_clear_z = 0.20;
-joiner_recess_depth = joiner_t + joiner_clear_z;
-joiner_recess_half_w = joiner_w/2 + joiner_clear_xy;
-joiner_recess_strap_h = joiner_strap_h + 2*joiner_clear_xy;
-joiner_recess_surface_z = depth - joiner_recess_depth;
+moving_knuckles = [
+    [62,28],
+    [136,28],
+    [196,24]
+];
 
-// Dedicated rear-lid snap sockets. These deliberately do NOT reuse the 6 mm
-// reinforcement-bar bores because those bores are occupied by the bars.
-lid_lock_x = [64, 192];
-lid_lock_y = [8, 120];
-lid_socket_depth = 5.0;
-lid_socket_throat_h = 1.8;
-lid_socket_throat_d = 5.8;
-lid_socket_chamber_d = 6.5;
-// M3 x 6 x 4.5 mm brass heat-set insert target.
-// 4.0 mm is the nominal printed pilot; verify with the coupon for the chosen filament/printer before structural prints.
-insert_d = 4.0;
-insert_depth = 6.2;
+module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
+    translate([x0,hinge_axis_y,axis_z])
+        rotate([0,90,0])
+            difference() {
+                cylinder(d=hinge_outer_d,h=len);
+                translate([0,0,-0.2])
+                    cylinder(d=hinge_bore_d,h=len+0.4);
+            }
+}
 
-accessory_insert_x = 12;
-accessory_insert_y1 = 34;
-accessory_insert_y2 = 94;
+// ---------- Fixed half: corrected template + hinge ----------
 
-module slot2d(len=slot_len, w=slot_w) {
+fixed_template_t = 2;
+fixed_band_h = 20;
+fixed_side_w = 8;
+fixed_hinge_root_y = hinge_axis_y-hinge_radius;
+fixed_hinge_root_h = hinge_outer_d;
+fixed_hinge_root_t = 8;
+
+module hinge_mount_pattern_template() {
+    difference() {
+        union() {
+            cube([module_w,fixed_band_h,fixed_template_t]);
+            translate([0,module_h-fixed_band_h,0])
+                cube([module_w,fixed_band_h,fixed_template_t]);
+            cube([fixed_side_w,module_h,fixed_template_t]);
+            translate([module_w-fixed_side_w,0,0])
+                cube([fixed_side_w,module_h,fixed_template_t]);
+
+            for (segment=fixed_knuckles) {
+                translate([segment[0],fixed_hinge_root_y,0])
+                    cube([segment[1],fixed_hinge_root_h,fixed_hinge_root_t]);
+                rail_hinge_barrel(segment[0],segment[1]);
+            }
+        }
+
+        for (x=panel_mount_x)
+            for (y=panel_mount_y)
+                translate([x,y,-0.5])
+                    cylinder(d=panel_mount_hole_d,h=fixed_hinge_root_t+1);
+
+        for (x=panel_locator_x)
+            for (y=panel_locator_y)
+                translate([x,y,-0.5])
+                    cylinder(d=panel_locator_clearance_d,h=fixed_hinge_root_t+1);
+    }
+}
+
+// ---------- Shared moving-envelope coordinates ----------
+
+service_x = backplane_edge_inset;
+service_base_y = backplane_edge_inset;
+service_top_y = backplane_edge_inset + backplane_h;
+service_w = backplane_w;
+
+service_close_clearance = 0.6;
+service_front_z = fixed_template_t + service_close_clearance;
+
+base_lower_y1 = 20;
+base_front_back_z = 18.5;
+
+rail_beam_y0 = 17;
+rail_beam_y1 = 31;
+rail_beam_z0 = 32;
+rail_beam_z1 = 46;
+
+base_rear_z = 60;
+base_beam_t = 6;
+
+// T-slot is deliberately open at both X ends so the backplane slides laterally.
+// A side piece closes the end after assembly.
+// Support-free one-sided dovetail rail.
+//
+// Instead of cutting a T-slot out of a solid beam, the rail is built from
+// bed-connected front/rear walls. The front wall shifts rearward gradually to
+// form the retaining lip. The backplane's enlarged lower head is therefore
+// captive in Z but the rail has no horizontal ceiling.
+rail_base_y = 4.5;
+rail_head_top_y = 22.5;
+rail_lip_y = 31;
+rail_neck_top_y = 33;
+rail_front_z0 = 32;
+rail_wall_t = 3;
+rail_lip_z0 = 40;
+rail_rear_z0 = 46;
+
+// 0.4 mm nominal clearance per exposed rail face for an FDM serviceable fit.
+rail_clearance = 0.4;
+tongue_head_y0 = 18.9;
+tongue_head_y1 = 22.1;
+tongue_head_z0 = rail_front_z0 + rail_wall_t + rail_clearance;
+tongue_head_z1 = rail_rear_z0 - rail_clearance;
+tongue_stem_y0 = rail_lip_y - 0.4;
+tongue_stem_y1 = rail_neck_top_y - rail_clearance;
+tongue_stem_z0 = rail_lip_z0 + rail_wall_t + rail_clearance;
+tongue_stem_z1 = rail_rear_z0 - rail_clearance;
+
+// Backplane: one identical plate for every module.
+equipment_backplane_y0 = 31;
+equipment_backplane_front_z = 44;
+equipment_backplane_t = 3;
+equipment_backplane_rear_z = equipment_backplane_front_z + equipment_backplane_t;
+
+// Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
+adapter_boss_d = 8;
+adapter_hole_d = 3.4;
+adapter_boss_h = 5;
+adapter_x = [32,80,128,176,224];
+adapter_y = [48,80,112];
+
+// Backplane ventilation/cable passages avoid the boss grid.
+vent_slot_len = 24;
+vent_slot_w = 5;
+vent_x = [56,128,200];
+vent_y = [64,96];
+cable_slot_len = 20;
+cable_slot_w = 6;
+cable_slot_x = [64,176];
+cable_slot_y = 36;
+
+// Self-mating side alignment. Each edge carries one pin and one socket.
+// Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
+connector_pin_d = 4;
+connector_socket_d = 4.7;
+connector_pin_len = 4;
+connector_socket_depth = 4;
+// Base side connectors live entirely inside the first 4 mm floor band so
+// their horizontal pins are bed-connected from the first print layers.
+base_connector_y_a = 2.5;
+base_connector_y_b = 2.5;
+base_connector_z_a = 24;
+base_connector_z_b = 52;
+backplane_connector_y_a = 56;
+backplane_connector_y_b = 104;
+backplane_connector_z = 44;
+connector_pad_y = 10;
+connector_pad_z = 7;
+
+side_t = 3;
+
+// ---------- X-axis connector helpers ----------
+
+module pin_pos_x(x0,y0,z0,len=connector_pin_len,d=connector_pin_d) {
+    translate([x0,y0,z0])
+        rotate([0,90,0])
+            cylinder(d=d,h=len);
+}
+
+module pin_neg_x(x0,y0,z0,len=connector_pin_len,d=connector_pin_d) {
+    translate([x0,y0,z0])
+        rotate([0,-90,0])
+            cylinder(d=d,h=len);
+}
+
+module socket_pos_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) {
+    translate([x0-0.1,y0,z0])
+        rotate([0,90,0])
+            cylinder(d=d,h=depth+0.2);
+}
+
+module socket_neg_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) {
+    translate([x0+0.1,y0,z0])
+        rotate([0,-90,0])
+            cylinder(d=d,h=depth+0.2);
+}
+
+// ---------- Hinge-base geometry ----------
+
+module moving_hinge_barrels() {
+    for (segment=moving_knuckles)
+        rail_hinge_barrel(segment[0],segment[1]);
+}
+
+module moving_hinge_bores() {
+    for (segment=moving_knuckles)
+        translate([segment[0]-0.2,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=hinge_bore_d,h=segment[1]+0.4);
+}
+
+module fixed_knuckle_clearance_pockets() {
+    pocket_d = hinge_outer_d + 2*hinge_pocket_clearance;
+
+    for (segment=fixed_knuckles) {
+        x0 = segment[0]-hinge_axial_clearance/2;
+        len = segment[1]+hinge_axial_clearance;
+
+        translate([x0,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=pocket_d,h=len);
+
+        translate([x0,0,service_front_z-0.6])
+            cube([
+                len,
+                hinge_axis_y+hinge_radius+hinge_pocket_clearance,
+                fixed_hinge_root_t-service_front_z+1.2
+            ]);
+    }
+}
+
+module hinge_front_sweep_relief() {
+    // Full opening clearance below the pivot, followed by a gradual closure.
+    // The previous rectangular cutter ended abruptly at Y=hinge_axis_y and
+    // recreated the full front wall on one print layer. Bambu Studio correctly
+    // classified that as a floating cantilever.
+    relief_taper_h = 9.5;
+    relief_front_z = service_front_z-1;
+    relief_back_z = hinge_axis_z + 0.6;
+
+    union() {
+        translate([
+            service_x-1,
+            service_base_y-1,
+            relief_front_z
+        ])
+            cube([
+                service_w+2,
+                hinge_axis_y-service_base_y+1.1,
+                relief_back_z-relief_front_z
+            ]);
+
+        hull() {
+            translate([
+                service_x-1,
+                hinge_axis_y-0.1,
+                relief_front_z
+            ])
+                cube([
+                    service_w+2,
+                    0.2,
+                    relief_back_z-relief_front_z
+                ]);
+
+            translate([
+                service_x-1,
+                hinge_axis_y+relief_taper_h,
+                relief_front_z
+            ])
+                cube([
+                    service_w+2,
+                    0.2,
+                    0.4
+                ]);
+        }
+    }
+}
+
+module base_structural_body() {
+    union() {
+        // Broad bottom/base strip: this is the bed contact in upright print
+        // orientation and retains the existing deeper desk-foot concept.
+        translate([service_x,service_base_y,service_front_z])
+            cube([
+                service_w,
+                rail_base_y-service_base_y,
+                base_rear_z-service_front_z
+            ]);
+
+        // Concealed-hinge apron.
+        translate([service_x,service_base_y,service_front_z])
+            cube([
+                service_w,
+                base_lower_y1-service_base_y,
+                base_front_back_z-service_front_z
+            ]);
+
+        // Rear rail wall grows vertically from the broad base.
+        translate([service_x,rail_base_y,rail_rear_z0])
+            cube([
+                service_w,
+                rail_lip_y-rail_base_y,
+                rail_wall_t
+            ]);
+
+        // Front lower rail wall.
+        translate([service_x,rail_base_y,rail_front_z0])
+            cube([
+                service_w,
+                rail_head_top_y-rail_base_y,
+                rail_wall_t
+            ]);
+
+        // 45-degree-ish retaining lip: each higher layer shifts rearward a
+        // little instead of creating a flat roof over the rail cavity.
+        hull() {
+            translate([service_x,rail_head_top_y-0.1,rail_front_z0])
+                cube([service_w,0.2,rail_wall_t]);
+            translate([service_x,rail_lip_y,rail_lip_z0])
+                cube([service_w,0.2,rail_wall_t]);
+        }
+
+        // Short upper lip around the narrow tongue stem.
+        translate([service_x,rail_lip_y,rail_lip_z0])
+            cube([
+                service_w,
+                rail_neck_top_y-rail_lip_y,
+                rail_wall_t
+            ]);
+    }
+}
+
+module base_connector_pins() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    // Right edge: A pin, B socket.
+    pin_pos_x(right_x,base_connector_y_a,base_connector_z_a);
+
+    // Left edge: A socket, B pin.
+    pin_neg_x(left_x,base_connector_y_b,base_connector_z_b);
+}
+
+module base_connector_sockets() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    socket_neg_x(right_x,base_connector_y_b,base_connector_z_b);
+    socket_pos_x(left_x,base_connector_y_a,base_connector_z_a);
+}
+
+module base_rail_cuts() {
+    // Intentionally empty. The rail cavity is defined by the space between the
+    // two support-free rail walls rather than by subtracting a roofed tunnel.
+}
+
+module hinged_equipment_base() {
+    difference() {
+        union() {
+            base_structural_body();
+            moving_hinge_barrels();
+            base_connector_pins();
+        }
+
+        moving_hinge_bores();
+        hinge_front_sweep_relief();
+        fixed_knuckle_clearance_pockets();
+        base_connector_sockets();
+    }
+}
+
+// Print upright on the broad base strip. Installed +Y becomes print +Z.
+module hinged_equipment_base_print() {
+    translate([0,base_rear_z,-service_base_y])
+        rotate([90,0,0])
+            hinged_equipment_base();
+}
+
+// ---------- Universal slide-in backplane ----------
+
+module rounded_slot_2d(len,w) {
     hull() {
         translate([-(len-w)/2,0]) circle(d=w);
         translate([(len-w)/2,0]) circle(d=w);
     }
 }
 
-module cross_slot(x,y,h=depth+1) {
-    translate([x,y,-0.5]) linear_extrude(height=h) {
-        union() {
-            slot2d(slot_len, slot_w);
-            rotate(90) slot2d(slot_len, slot_w);
-        }
-    }
-}
-
-module blind_insert_pocket(x,y,surface_z=depth,d=insert_d,dep=insert_depth) {
-    translate([x,y,surface_z-dep]) cylinder(d=d,h=dep+0.25);
-}
-
-module rod_bore(y) {
-    translate([-0.5,y,rod_z])
-        rotate([0,90,0]) cylinder(d=rod_d,h=module_w+1.0);
-
-    // FDM-friendly lead-ins reduce snagging when a 1 m rod crosses four prints.
-    translate([-0.6,y,rod_z])
-        rotate([0,90,0]) cylinder(d1=rod_leadin_d,d2=rod_d,h=rod_leadin_len);
-    translate([module_w-rod_leadin_len+0.1,y,rod_z])
-        rotate([0,90,0]) cylinder(d1=rod_d,d2=rod_leadin_d,h=rod_leadin_len+0.5);
-}
-
-module backplane_body(with_right_tongues=true) {
-    union() {
-        // Rear frame is centred inside the nominal 256 x 128 front-panel
-        // envelope, leaving 0.5 mm clearance on every outside edge.
-        translate([backplane_edge_inset,backplane_edge_inset,0])
-            cube([backplane_w,frame,depth]);
-        translate([
-            backplane_edge_inset,
-            module_h-backplane_edge_inset-frame,
-            0
-        ]) cube([backplane_w,frame,depth]);
-        translate([
-            backplane_edge_inset,
-            backplane_edge_inset+frame,
-            0
-        ]) cube([frame,backplane_h-2*frame,depth]);
-        translate([
-            module_w-backplane_edge_inset-frame,
-            backplane_edge_inset+frame,
-            0
-        ]) cube([frame,backplane_h-2*frame,depth]);
-
-        translate([
-            backplane_edge_inset,
-            rod_y_bottom-rod_beam_h/2,
-            0
-        ]) cube([backplane_w,rod_beam_h,depth]);
-        translate([
-            backplane_edge_inset,
-            rod_y_top-rod_beam_h/2,
-            0
-        ]) cube([backplane_w,rod_beam_h,depth]);
-
-        if (with_right_tongues)
-            for (yy=[joint_y1,joint_y2])
-                // Preserve 0.6 mm attachment into this backplane, bridge the
-                // 1 mm rear-frame gap at a panel seam, then retain the original
-                // 6 mm engagement into the neighbouring socket.
-                translate([
-                    module_w-backplane_edge_inset-0.6,
-                    yy,
-                    joint_z
-                ]) cube([
-                    joint_len + 2*backplane_edge_inset + 0.6,
-                    joint_w,
-                    joint_h
-                ]);
-    }
-}
-
-module joiner_recesses(include_right_side=true) {
-    // Two independent strap pockets leave the centre of the seam completely
-    // open for cables. Each neighbouring backplane contributes half the width.
-    for (yy=[
-        joiner_origin_y,
-        joiner_origin_y + joiner_h - joiner_strap_h
-    ]) {
-        translate([
-            -0.01,
-            yy-joiner_clear_xy,
-            joiner_recess_surface_z
-        ])
-            cube([
-                joiner_recess_half_w+0.01,
-                joiner_recess_strap_h,
-                joiner_recess_depth+0.01
-            ]);
-
-        if (include_right_side)
-            translate([
-                module_w-joiner_recess_half_w,
-                yy-joiner_clear_xy,
-                joiner_recess_surface_z
-            ])
-                cube([
-                    joiner_recess_half_w+0.01,
-                    joiner_recess_strap_h,
-                    joiner_recess_depth+0.01
-                ]);
-    }
-}
-
-module seam_cable_openings(include_right_side=true) {
-    // Rear-side cable channels through the vertical seam rails.
-    //
-    // The 24 mm opening accommodates the ribbon width; only the rear 5 mm
-    // is notched because the ribbon itself is thin. The remaining 11 mm front
-    // web keeps upper/lower frame sections strongly connected.
+module backplane_tslot_tongue() {
+    // Enlarged lower head, trapped between the front/rear rail walls.
     translate([
-        -0.1,
-        seam_cable_y_min,
-        seam_cable_front_web_t
+        service_x,
+        tongue_head_y0,
+        tongue_head_z0
     ])
         cube([
-            backplane_edge_inset + frame + 0.2,
-            seam_cable_h,
-            seam_cable_rear_depth + 0.5
+            service_w,
+            tongue_head_y1-tongue_head_y0,
+            tongue_head_z1-tongue_head_z0
         ]);
 
-    if (include_right_side)
+    // Matching sloped shoulder into the narrow stem.
+    hull() {
         translate([
-            module_w-backplane_edge_inset-frame-0.1,
-            seam_cable_y_min,
-            seam_cable_front_web_t
+            service_x,
+            tongue_head_y1-0.1,
+            tongue_head_z0
         ])
             cube([
-                backplane_edge_inset + frame + 0.2,
-                seam_cable_h,
-                seam_cable_rear_depth + 0.5
+                service_w,
+                0.2,
+                tongue_head_z1-tongue_head_z0
             ]);
-}
 
-module lid_lock_socket(x,y) {
-    // Wider blind chamber plus a smaller rear throat gives the matching split
-    // PETG peg a positive detent rather than a simple friction fit.
-    translate([x,y,depth-lid_socket_depth])
-        cylinder(
-            d=lid_socket_chamber_d,
-            h=lid_socket_depth-lid_socket_throat_h+0.1
-        );
-    translate([x,y,depth-lid_socket_throat_h])
-        cylinder(
-            d=lid_socket_throat_d,
-            h=lid_socket_throat_h+0.2
-        );
-}
-
-module backplane(right_end=false) {
-    difference() {
-        backplane_body(!right_end);
-
-        for (yy=[rod_y_bottom,rod_y_top]) rod_bore(yy);
-
-        // Six real P4 mounting holes: three along each long edge.
-        // Each hole has a 10 mm rear counterbore, leaving only 5 mm of local
-        // plastic between the screw head and LED-panel boss. This avoids the
-        // need for unusually long screws and keeps heads below the lid plane.
-        for (x=panel_mount_x)
-            for (y=panel_mount_y) {
-                translate([x,y,-0.5])
-                    cylinder(d=panel_mount_hole_d,h=depth+1);
-                translate([x,y,panel_mount_local_t])
-                    cylinder(
-                        d=panel_mount_head_recess_d,
-                        h=panel_mount_head_recess_depth+0.5
-                    );
-            }
-
-        // Clearance for the panel's protruding moulded locating pins.
-        // Kept separate from the brass mounting holes so the two functions
-        // cannot be confused during assembly.
-        for (x=panel_locator_x)
-            for (y=panel_locator_y)
-                translate([x,y,-0.5]) cylinder(d=panel_locator_clearance_d,h=depth+1);
-
-        for (yy=[joint_y1,joint_y2])
-            // Socket begins just outside the inset rear-frame edge and keeps
-            // the original 6 mm tongue engagement inside the neighbour.
-            translate([
-                backplane_edge_inset-0.1,
-                yy-joint_clear/2,
-                joint_z-joint_clear/2
-            ])
-                cube([
-                    joint_len+0.2,
-                    joint_w+joint_clear,
-                    joint_h+joint_clear
-                ]);
-
-        seam_cable_openings(!right_end);
-        joiner_recesses(!right_end);
-
-        // Four dedicated snap sockets for the removable rear lid.
-        for (xx=lid_lock_x)
-            for (yy=lid_lock_y)
-                lid_lock_socket(xx,yy);
-
-        // Keep the full heat-set-insert depth, measured from the new recess floor.
-        // The right-end module has no unused outer seam hardware.
-        for (xx = right_end ? [joiner_insert_x] : [joiner_insert_x,module_w-joiner_insert_x])
-            for (yy=[joiner_insert_y1,joiner_insert_y2])
-                blind_insert_pocket(xx,yy,joiner_recess_surface_z);
-
-        for (xx=[accessory_insert_x,module_w-accessory_insert_x])
-            for (yy=[accessory_insert_y1,accessory_insert_y2]) blind_insert_pocket(xx,yy);
-    }
-}
-
-module module_joiner() {
-    // One exported STL contains two separate recessed straps. Install both
-    // straps at each seam so the shallow centre ribbon notch remains unobstructed.
-    difference() {
-        union() {
-            cube([joiner_w,joiner_strap_h,joiner_t]);
-            translate([0,joiner_h-joiner_strap_h,0])
-                cube([joiner_w,joiner_strap_h,joiner_t]);
-        }
-
-        for (xx=[joiner_insert_x,joiner_w-joiner_insert_x])
-            for (yy=[joiner_hole_y_inset,joiner_h-joiner_hole_y_inset]) {
-                translate([xx,yy,-0.5]) cylinder(d=3.5,h=joiner_t+1);
-                // 90-degree countersink for a flush M3 flat-head screw.
-                translate([xx,yy,joiner_t-joiner_countersink_depth])
-                    cylinder(
-                        d1=3.5,
-                        d2=joiner_countersink_d,
-                        h=joiner_countersink_depth+0.1
-                    );
-            }
-    }
-}
-
-module rod_end_plug() {
-    cap_t = 2.5;
-    stem_len = 11.4;
-    difference() {
-        union() {
-            cylinder(h=cap_t,d=11);
-            translate([0,0,cap_t]) cylinder(h=stem_len,d1=7.25,d2=7.05);
-            // Compressible detent gives the plug positive friction retention
-            // in the 7.2 mm bore without adhesive.
-            translate([0,0,cap_t+stem_len-2.0]) cylinder(h=0.9,d=7.45);
-        }
-        // Split the outer half of the stem so the detent can compress on entry.
-        translate([-0.55,-4,cap_t+4.0]) cube([1.1,8,stem_len]);
-    }
-}
-
-carrier_w = 244;
-carrier_h = 72;
-carrier_t = 4;
-carrier_hole_x = 6;
-carrier_hole_y = 6;
-
-// MatrixPortal S3 side-access carrier.
-//
-// Panel 1 uses the standard #82/#83 four-point carrier-to-backplane interface,
-// so the carrier itself still sits at x=6..250 on the 256 mm backplane.
-//
-// IMPORTANT ORIENTATION:
-// The physical MatrixPortal is approximately 63.5 x 44.45 mm. The USB-C and
-// Reset/Up/Down controls are on the board's SHORT edge. The installed carrier
-// therefore uses the board in landscape orientation:
-//   x = 63.50 mm (long dimension)
-//   y = 44.45 mm (short dimension)
-// with the 44.45 mm service edge facing Panel 1's outside/left edge.
-//
-// The PCB is shifted left within the carrier so that service edge sits 10 mm
-// beyond the Panel 1 PCB/backplane edge:
-//   global board left = carrier global x (6) + matrixportal_pcb_x (-16) = -10 mm.
-//
-// The component-side HUB75 IDC connector uses a short ribbon cable to Panel 1
-// input; the controller PCB does not need to line up directly with the panel's
-// rear HUB75 connector.
-matrixportal_pcb_w = 63.50;
-matrixportal_pcb_h = 44.45;
-matrixportal_pcb_x = -16.0;
-matrixportal_pcb_y = (carrier_h-matrixportal_pcb_h)/2;
-matrixportal_side_overhang_global = 10.0;
-
-// Hole offsets after rotating the official 44.45 x 63.50 PCB pattern 90° into
-// landscape orientation. Spacing is 40.640 mm along X and 19.685 mm along Y.
-// This is the same physical four-hole pattern used by PR #84, only correctly
-// oriented so the short control edge faces the enclosure side.
-matrixportal_hole_x1 = 15.240;
-matrixportal_hole_x2 = 55.880;
-matrixportal_hole_y1 = 8.890;
-matrixportal_hole_y2 = 28.575;
-
-matrixportal_standoff_d = 8;
-matrixportal_standoff_z = 2;
-matrixportal_standoff_h = 8;
-matrixportal_hole_d = 2.8; // round M2.5 clearance hole
-matrixportal_nut_af = 5.0; // nominal M2.5 hex nut across flats
-matrixportal_nut_h = 2.2;
-matrixportal_support_rib_w = 6;
-matrixportal_support_rib_h = 2;
-
-// Carrier-local mounting centres after moving the board to the left service edge.
-matrixportal_mount_points = [
-    [matrixportal_pcb_x + matrixportal_hole_x1, matrixportal_pcb_y + matrixportal_hole_y1],
-    [matrixportal_pcb_x + matrixportal_hole_x2, matrixportal_pcb_y + matrixportal_hole_y1],
-    [matrixportal_pcb_x + matrixportal_hole_x1, matrixportal_pcb_y + matrixportal_hole_y2],
-    [matrixportal_pcb_x + matrixportal_hole_x2, matrixportal_pcb_y + matrixportal_hole_y2]
-];
-
-module carrier_frame() {
-    difference() {
-        union() {
-            cube([carrier_w,12,carrier_t]);
-            translate([0,carrier_h-12,0]) cube([carrier_w,12,carrier_t]);
-            cube([12,carrier_h,carrier_t]);
-            translate([carrier_w-12,0,0]) cube([12,carrier_h,carrier_t]);
-        }
-        // Preserve the #82/#83 validated carrier/backplane interface.
-        for (xx=[carrier_hole_x,carrier_w-carrier_hole_x])
-            for (yy=[carrier_hole_y,carrier_h-carrier_hole_y])
-                translate([xx,yy,-0.5]) cylinder(d=3.5,h=carrier_t+1);
-    }
-}
-
-module elongated_hole(len=12,d=3.2,h=10) {
-    hull() {
-        translate([-len/2+d/2,0,0]) cylinder(d=d,h=h);
-        translate([ len/2-d/2,0,0]) cylinder(d=d,h=h);
-    }
-}
-
-module matrixportal_carrier_frame() {
-    // Retain the validated full-width carrier so all four M3 backplane points
-    // remain unchanged. The MatrixPortal now occupies only the left end.
-    difference() {
-        union() {
-            cube([carrier_w,12,carrier_t]);
-            translate([0,carrier_h-12,0]) cube([carrier_w,12,carrier_t]);
-            cube([12,carrier_h,carrier_t]);
-            translate([carrier_w-12,0,0]) cube([12,carrier_h,carrier_t]);
-        }
-        // The perimeter frame already leaves a broad open centre. The former
-        // 72 mm full-height centre cutout used by the centred MatrixPortal
-        // would split this side-access carrier into disconnected left/right
-        // shells, so it is intentionally omitted.
-        for (xx=[carrier_hole_x,carrier_w-carrier_hole_x])
-            for (yy=[carrier_hole_y,carrier_h-carrier_hole_y])
-                translate([xx,yy,-0.5]) cylinder(d=3.5,h=carrier_t+1);
-    }
-}
-
-module matrixportal_post_supports() {
-    // Each landscape PCB row is tied into the existing left rail. The outer
-    // standoff is allowed to sit slightly left of the carrier origin; its 8 mm
-    // boss overlaps the x=0..12 carrier rail and remains structurally tied to
-    // the carrier once installed on Panel 1.
-    for (row_y=[
-        matrixportal_pcb_y + matrixportal_hole_y1,
-        matrixportal_pcb_y + matrixportal_hole_y2
-    ])
-        translate([0,row_y-matrixportal_support_rib_w/2,0])
+        translate([
+            service_x,
+            tongue_stem_y0,
+            tongue_stem_z0
+        ])
             cube([
-                matrixportal_pcb_x + matrixportal_hole_x2,
-                matrixportal_support_rib_w,
-                matrixportal_support_rib_h
+                service_w,
+                0.2,
+                tongue_stem_z1-tongue_stem_z0
             ]);
+    }
+
+    // Narrow stem overlaps the lower edge of the backplane plate.
+    translate([
+        service_x,
+        tongue_stem_y0,
+        tongue_stem_z0
+    ])
+        cube([
+            service_w,
+            tongue_stem_y1-tongue_stem_y0,
+            tongue_stem_z1-tongue_stem_z0
+        ]);
 }
 
-module matrixportal_mount() {
-    difference() {
-        union() {
-            matrixportal_carrier_frame();
-            matrixportal_post_supports();
+module backplane_connector_pads() {
+    for (yy=[backplane_connector_y_a,backplane_connector_y_b]) {
+        translate([
+            service_x,
+            yy-connector_pad_y/2,
+            equipment_backplane_front_z-1
+        ])
+            cube([8,connector_pad_y,connector_pad_z]);
 
-            for (point=matrixportal_mount_points)
-                translate([point[0],point[1],matrixportal_standoff_z])
-                    cylinder(d=matrixportal_standoff_d,h=matrixportal_standoff_h);
-        }
-
-        for (point=matrixportal_mount_points)
-            translate([point[0],point[1],-0.5])
-                cylinder(d=matrixportal_hole_d,h=carrier_t+7);
-
-        // Captive M2.5 nut pockets remain accessible from the rear/underside.
-        for (point=matrixportal_mount_points)
-            translate([point[0],point[1],-0.01])
-                rotate([0,0,30])
-                    cylinder(d=matrixportal_nut_af,h=matrixportal_nut_h,$fn=6);
-
-        // Preserve the existing central service opening.
-        translate([carrier_w/2-22,carrier_h/2-6,-0.5]) cube([44,12,carrier_t+1]);
+        translate([
+            service_x+service_w-8,
+            yy-connector_pad_y/2,
+            equipment_backplane_front_z-1
+        ])
+            cube([8,connector_pad_y,connector_pad_z]);
     }
 }
 
-module power_distribution_mount() {
-    difference() {
-        union() {
-            carrier_frame();
-            translate([(carrier_w-126)/2,(carrier_h-52)/2,0]) cube([126,52,carrier_t]);
-        }
-        for (xx=[carrier_w/2-48,carrier_w/2+48])
-            for (yy=[carrier_h/2-16,carrier_h/2+16])
-                translate([xx,yy,-0.5]) elongated_hole(20,4.2,carrier_t+1);
-        for (yy=[carrier_h/2-12,carrier_h/2+12])
-            translate([carrier_w/2+56,yy,-0.5]) cube([3.5,12,carrier_t+1]);
-    }
+module backplane_connector_pins() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    pin_pos_x(right_x,backplane_connector_y_a,backplane_connector_z);
+    pin_neg_x(left_x,backplane_connector_y_b,backplane_connector_z);
 }
 
-module cable_clip() {
-    difference() {
-        union() {
-            cube([24,14,4]);
-            translate([12,14,6]) rotate([90,0,0]) cylinder(d=12,h=14);
-        }
-        translate([12,15,6]) rotate([90,0,0]) cylinder(d=7,h=16);
-        translate([10.5,-1,8]) cube([3,16,6]);
-        translate([4,7,-0.5]) cylinder(d=3.5,h=5);
-    }
+module backplane_connector_sockets() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    socket_neg_x(right_x,backplane_connector_y_b,backplane_connector_z);
+    socket_pos_x(left_x,backplane_connector_y_a,backplane_connector_z);
 }
 
-module mounting_slot_coupon() {
-    coupon_t = 8;
-    difference() {
-        cube([42,42,coupon_t]);
-        translate([21,21,-0.5]) linear_extrude(height=coupon_t+1) {
-            union() {
-                slot2d(slot_len,slot_w);
-                rotate(90) slot2d(slot_len,slot_w);
-            }
-        }
-        // Reproduce the production 6.2 mm blind heat-set pocket exactly.
-        blind_insert_pocket(7,7,coupon_t,insert_d,insert_depth);
-    }
-}
-
-// Separate rear desk stand using the lower centre panel boss.
-// Install with the mounting plate against the rear face of the backplane and
-// share the lower-centre panel screw. The small underside lip keys against the
-// backplane lower edge to resist rotation around the single screw.
-// For a complete four-panel display, print two and fit them to the lower-centre
-// bosses of Panels 1 and 4.
-stand_w = 32;
-stand_plate_h = 30;
-// Reduced from 5 mm after physical fit so the shared boss screw only needs
-// about 3 mm of extra length. Strength is retained by the side ribs.
-stand_plate_t = 3;
-stand_rear_foot_len = 60;
-// A short toe projects under the front of the display to stop the assembly
-// pitching forward. It stays below the LED face rather than in front of it.
-stand_front_toe_len = 15;
-stand_foot_t = 6;
-stand_rib_t = 5;
-stand_edge_hook_depth = 5;
-stand_edge_hook_h = 3;
-stand_mount_y = panel_mount_y[0];
-
-module centre_boss_stand() {
+module universal_equipment_backplane() {
     difference() {
         union() {
-            // Rear mounting plate.
-            cube([stand_w,stand_plate_h,stand_plate_t]);
+            backplane_tslot_tongue();
 
-            // Desk foot spans both sides of the panel plane: 15 mm forward
-            // underneath the display and 60 mm rearward. The forward toe gives
-            // the stand a front reaction point instead of letting the display
-            // pivot forward around the lower boss.
             translate([
-                0,
-                backplane_edge_inset-stand_foot_t,
-                -stand_front_toe_len
+                service_x,
+                equipment_backplane_y0,
+                equipment_backplane_front_z
             ])
                 cube([
-                    stand_w,
-                    stand_foot_t,
-                    stand_front_toe_len + stand_rear_foot_len
+                    service_w,
+                    service_top_y-equipment_backplane_y0,
+                    equipment_backplane_t
                 ]);
 
-            // Two triangular side ribs tie the plate into the rearward foot.
-            for (xx=[0,stand_w-stand_rib_t])
-                hull() {
-                    translate([xx,0,0])
-                        cube([stand_rib_t,stand_plate_h,stand_plate_t]);
+            backplane_connector_pads();
+            backplane_connector_pins();
+
+            // Repeated universal adapter bosses.
+            for (xx=adapter_x)
+                for (yy=adapter_y)
                     translate([
                         xx,
-                        backplane_edge_inset-stand_foot_t,
-                        stand_rear_foot_len-10
+                        yy,
+                        equipment_backplane_rear_z
                     ])
-                        cube([stand_rib_t,stand_foot_t,10]);
-                }
-
-            // Anti-rotation lip: wraps 5 mm under the rear of the backplane edge
-            // without reaching the LED-panel-facing plane.
-            translate([
-                0,
-                backplane_edge_inset-stand_edge_hook_h,
-                -stand_edge_hook_depth
-            ])
-                cube([
-                    stand_w,
-                    stand_edge_hook_h,
-                    stand_edge_hook_depth + stand_plate_t
-                ]);
+                        cylinder(d=adapter_boss_d,h=adapter_boss_h);
         }
 
-        // Shared lower-centre boss screw. The 3 mm plate deliberately keeps
-        // the extra screw-length requirement small; use the same screw family
-        // as the panel mount and verify safe thread engagement physically.
-        translate([stand_w/2,stand_mount_y,-0.5])
-            cylinder(d=panel_mount_hole_d,h=stand_plate_t+1);
-    }
-}
+        backplane_connector_sockets();
 
-// Print the stand on its side so the triangular ribs and foot build upward
-// without large horizontal bridges/supports. Translation keeps the rotated STL
-// on z >= 0 for predictable slicer placement.
-module centre_boss_stand_print() {
-    translate([0,0,stand_w])
-        rotate([0,90,0])
-            centre_boss_stand();
-}
-
-// Modular snap-on rear lid. This is intentionally an open-sided protective
-// cover rather than a sealed box: the open perimeter preserves cooling,
-// MatrixPortal side access and the new seam cable corridor.
-//
-// PETG is the preferred material for the split snap pegs because it tolerates
-// repeated flexing better than PLA. PLA is acceptable for dimensional test
-// prints but is more likely to fatigue at the snap slots.
-// Use the same XY coordinate system and outer footprint as the rear backplane.
-// This removes the previous hidden +2 mm installation offset: a lid pin at
-// [64,8] is now literally at the same XY coordinate as the [64,8] socket.
-lid_origin_x = backplane_edge_inset;
-lid_origin_y = backplane_edge_inset;
-lid_w = backplane_w;
-lid_h = backplane_h;
-lid_plate_t = 2.4;
-lid_clearance_h = 18;
-lid_post_d = 8;
-lid_snap_shaft_d = 5.2;
-lid_snap_detent_d = 6.1;
-lid_snap_len = lid_socket_depth;
-lid_snap_slot_w = 1.0;
-
-module lid_snap_post_print(x,y) {
-    post_h = lid_clearance_h;
-    post_plate_overlap = 0.2;
-    snap_post_overlap = 0.4;
-    // Overlap the post into the lid plate so the exported STL is one robust
-    // connected solid rather than relying on coplanar face contact.
-    translate([x,y,lid_plate_t-post_plate_overlap]) {
-        cylinder(d=lid_post_d,h=post_h+post_plate_overlap);
-
-        // Preserve the original snap height despite the plate overlap.
-        translate([0,0,post_h+post_plate_overlap])
-            difference() {
-                union() {
-                    // Extend the shaft 0.4 mm into the support post. The split
-                    // starts at -0.1 mm, leaving a short unsplit root that
-                    // joins both flexing fingers to the post as one solid.
-                    translate([0,0,-snap_post_overlap])
-                        cylinder(
-                            d=lid_snap_shaft_d,
-                            h=lid_snap_len+snap_post_overlap
-                        );
-                    translate([0,0,0.8])
-                        cylinder(
-                            d1=lid_snap_shaft_d,
-                            d2=lid_snap_detent_d,
-                            h=1.0
-                        );
-                    translate([0,0,1.8])
-                        cylinder(
-                            d1=lid_snap_detent_d,
-                            d2=lid_snap_shaft_d,
-                            h=1.0
-                        );
-                }
-
-                // Split the snap section so the detent compresses through the
-                // 5.8 mm socket throat and expands in the 6.5 mm chamber.
+        // Through-holes in every adapter boss/plate location.
+        for (xx=adapter_x)
+            for (yy=adapter_y)
                 translate([
-                    -lid_snap_slot_w/2,
-                    -lid_snap_detent_d,
-                    -0.1
+                    xx,
+                    yy,
+                    equipment_backplane_front_z-0.5
                 ])
-                    cube([
-                        lid_snap_slot_w,
-                        2*lid_snap_detent_d,
-                        lid_snap_len+0.2
-                    ]);
-            }
+                    cylinder(
+                        d=adapter_hole_d,
+                        h=equipment_backplane_t+adapter_boss_h+1
+                    );
+
+        // Upper ventilation.
+        for (xx=vent_x)
+            for (yy=vent_y)
+                translate([
+                    xx,
+                    yy,
+                    equipment_backplane_front_z-0.5
+                ])
+                    linear_extrude(height=equipment_backplane_t+1)
+                        rounded_slot_2d(vent_slot_len,vent_slot_w);
+
+        // Lower cable/ribbon passages.
+        for (xx=cable_slot_x)
+            translate([
+                xx,
+                cable_slot_y,
+                equipment_backplane_front_z-0.5
+            ])
+                linear_extrude(height=equipment_backplane_t+1)
+                    rounded_slot_2d(cable_slot_len,cable_slot_w);
     }
 }
 
-module rear_lid_print() {
-    // Rear plate prints flat on the bed; posts and snap pegs grow upward.
-    // Its XY coordinates deliberately match the backplane's nominal panel
-    // coordinate system so the four pins can be audited directly against the
-    // four backplane sockets.
-    difference() {
-        translate([lid_origin_x,lid_origin_y,0])
-            cube([lid_w,lid_h,lid_plate_t]);
-
-        // Ventilation slots. Keep broad solid margins around the snap posts.
-        for (xx=[42,84,126,168,210])
-            translate([xx-12,module_h/2-3,-0.1])
-                cube([24,6,lid_plate_t+0.2]);
-    }
-
-    // Exact same XY centres as lid_lock_socket() in the backplane.
-    for (xx=lid_lock_x)
-        for (yy=lid_lock_y)
-            lid_snap_post_print(xx,yy);
-}
-
-// Installed orientation for assembly/schematic previews.
-// Print orientation has pegs pointing +Z; installation flips the lid around X
-// so the snap tips enter the rear-facing sockets. The Y socket set is symmetric
-// (8/120 about y=64), so the flipped peg centres remain exactly on the sockets.
-module rear_lid_installed() {
+// Print on the lower edge: 255 mm across the bed, ~109 mm high, and only the
+// backplane depth/bosses in the second bed dimension. This keeps the T-slot
+// tongue and bosses growing vertically instead of creating floating islands.
+module universal_equipment_backplane_print() {
     translate([
         0,
-        module_h,
-        depth + lid_clearance_h + lid_plate_t
+        equipment_backplane_rear_z+adapter_boss_h,
+        -tongue_head_y0
     ])
-        rotate([180,0,0])
-            rear_lid_print();
+        rotate([90,0,0])
+            universal_equipment_backplane();
 }
 
-module mount_pattern_template() {
-    template_t = 2;
-    band_h = 20;
-    side_w = 8;
-    difference() {
-        union() {
-            cube([module_w,band_h,template_t]);
-            translate([0,module_h-band_h,0]) cube([module_w,band_h,template_t]);
-            cube([side_w,module_h,template_t]);
-            translate([module_w-side_w,0,0]) cube([side_w,module_h,template_t]);
-        }
-        for (x=panel_mount_x)
-            for (y=panel_mount_y)
-                translate([x,y,-0.5]) cylinder(d=panel_mount_hole_d,h=template_t+1);
+// ---------- Detachable side/end pieces ----------
 
-        for (x=panel_locator_x)
-            for (y=panel_locator_y)
-                translate([x,y,-0.5]) cylinder(d=panel_locator_clearance_d,h=template_t+1);
+module side_wall_body(side="right") {
+    x0 = side == "right"
+        ? service_x + service_w
+        : service_x - side_t;
+
+    union() {
+        // Main end wall closes the universal backplane cavity.
+        translate([x0,service_base_y,service_front_z])
+            cube([
+                side_t,
+                service_top_y-service_base_y,
+                equipment_backplane_rear_z-service_front_z
+            ]);
+
+        // Lower rear-foot extension.
+        translate([x0,service_base_y,equipment_backplane_rear_z])
+            cube([
+                side_t,
+                rail_beam_y1-service_base_y,
+                base_rear_z-equipment_backplane_rear_z
+            ]);
     }
 }
 
-if (is_undef(part) || part == "backplane") backplane(false);
-else if (part == "backplane_right") backplane(true);
-else if (part == "joiner") module_joiner();
-else if (part == "rod_plug") rod_end_plug();
-else if (part == "matrixportal_mount") matrixportal_mount();
-else if (part == "power_mount") power_distribution_mount();
-else if (part == "cable_clip") cable_clip();
-else if (part == "slot_coupon") mounting_slot_coupon();
-else if (part == "mount_pattern_template") mount_pattern_template();
-else if (part == "centre_boss_stand") centre_boss_stand_print();
-else if (part == "rear_lid") rear_lid_print();
-else if (part != "__library__") assert(false, str("Unknown part: ",part));
+module right_side_pins() {
+    x_inner = service_x + service_w;
+
+    // Base B socket and backplane B socket.
+    pin_neg_x(x_inner+0.8,base_connector_y_b,base_connector_z_b,connector_pin_len+0.8);
+    pin_neg_x(x_inner+0.8,backplane_connector_y_b,backplane_connector_z,connector_pin_len+0.8);
+}
+
+module right_side_sockets() {
+    x_inner = service_x + service_w;
+
+    // Base A pin and backplane A pin.
+    socket_pos_x(x_inner,base_connector_y_a,base_connector_z_a);
+    socket_pos_x(x_inner,backplane_connector_y_a,backplane_connector_z);
+}
+
+module left_side_pins() {
+    x_inner = service_x;
+
+    // Base A socket and backplane A socket.
+    pin_pos_x(x_inner-0.8,base_connector_y_a,base_connector_z_a,connector_pin_len+0.8);
+    pin_pos_x(x_inner-0.8,backplane_connector_y_a,backplane_connector_z,connector_pin_len+0.8);
+}
+
+module left_side_sockets() {
+    x_inner = service_x;
+
+    // Base B pin and backplane B pin.
+    socket_neg_x(x_inner,base_connector_y_b,base_connector_z_b);
+    socket_neg_x(x_inner,backplane_connector_y_b,backplane_connector_z);
+}
+
+module equipment_side(side="right") {
+    assert(side == "right" || side == "left");
+
+    difference() {
+        union() {
+            side_wall_body(side);
+            if (side == "right")
+                right_side_pins();
+            else
+                left_side_pins();
+        }
+
+        if (side == "right")
+            right_side_sockets();
+        else
+            left_side_sockets();
+    }
+}
+
+module equipment_side_print(side="right") {
+    // Lay each side wall broad-face-down. The left piece is flipped the opposite
+    // way so its inward-facing pins grow upward from the wall rather than
+    // beginning below the print plane.
+    if (side == "right")
+        rotate([0,90,0])
+            equipment_side(side);
+    else
+        rotate([0,-90,0])
+            equipment_side(side);
+}
+
+// ---------- Assembly / previews ----------
+
+module modular_moving_enclosure() {
+    hinged_equipment_base();
+    universal_equipment_backplane();
+    equipment_side("left");
+    equipment_side("right");
+}
+
+module modular_moving_enclosure_at_angle(angle=0) {
+    translate([0,hinge_axis_y,hinge_axis_z])
+        rotate([angle,0,0])
+            translate([0,-hinge_axis_y,-hinge_axis_z])
+                modular_moving_enclosure();
+}
+
+module hinge_rail_preview(length=232) {
+    translate([12,hinge_axis_y,hinge_axis_z])
+        rotate([0,90,0])
+            cylinder(d=hinge_rail_d,h=length);
+}
+
+module direct_mount_assembly(open_angle=72) {
+    color([0.25,0.25,0.28])
+        hinge_mount_pattern_template();
+
+    color([0.62,0.62,0.66])
+        hinge_rail_preview();
+
+    color([0.12,0.12,0.14])
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([open_angle,0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z])
+                    hinged_equipment_base();
+
+    color([0.18,0.22,0.25])
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([open_angle,0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z])
+                    universal_equipment_backplane();
+
+    color([0.30,0.30,0.34])
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([open_angle,0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z]) {
+                    equipment_side("left");
+                    equipment_side("right");
+                }
+}
+
+if (!is_undef(hinge_part)) {
+    if (hinge_part == "fixed_template")
+        hinge_mount_pattern_template();
+    else if (hinge_part == "equipment_base")
+        hinged_equipment_base_print();
+    else if (hinge_part == "universal_backplane")
+        universal_equipment_backplane_print();
+    else if (hinge_part == "side_left")
+        equipment_side_print("left");
+    else if (hinge_part == "side_right")
+        equipment_side_print("right");
+    else if (hinge_part == "assembly")
+        direct_mount_assembly();
+    else
+        assert(false,str("Unknown hinge_part: ",hinge_part));
+}
+
