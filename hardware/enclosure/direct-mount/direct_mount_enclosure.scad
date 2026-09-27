@@ -37,7 +37,7 @@ hinge_radius = hinge_outer_d/2;
 hinge_axial_clearance = 1.0;
 
 ground_clearance = 20;
-hinge_axis_y = ground_clearance + hinge_radius; // 27 mm above stationary floor
+hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
 
 moving_plate_t = 2;
 fixed_template_t = moving_plate_t; // compatibility alias used by modular equipment geometry
@@ -174,35 +174,44 @@ backplane_seat_depth = 2.0;
 base_seat_y = 4.5;
 equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
 
-// Two structural guide towers rise from the base, one at each side. The lower
-// 30 mm of the removable backplane is stepped inward by 5 mm on both sides,
-// then returns to full module width above the guides.
-side_guide_h = 30;
+// Two genuine U-channel side rails rise from the base. For the first 50 mm,
+// the removable backplane edges slide DOWN inside these channels rather than
+// merely passing between solid guide towers. The 5 mm rail depth provides
+// positive side capture while leaving the channel open toward the enclosure
+// centre for top-down installation.
+side_guide_h = 50;
 side_guide_w = 5;
 side_guide_clearance = 0.4;
+side_guide_wall_t = backplane_guide_t;
 side_guide_y0 = service_base_y;
 side_guide_y1 = side_guide_y0 + side_guide_h;
 
-// Make the complete guide tower thick enough to carry the hidden junctions.
-// Its extra depth is entirely on the cavity side; the rear exterior remains at
-// the normal enclosure plane.
+// Keep the hidden seam junctions on the cavity-facing side. A taller front
+// support pad keeps both pin/socket centres well away from its lower/upper
+// edges without closing the vertical backplane channel.
 junction_pad_depth = 7;
 junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
-side_guide_front_z = junction_pad_front_z;
-junction_pad_h = 8;
+junction_pad_h = 16;
 
-// The locating rail is a recessed groove at the BACK edge of the base. It
-// does not project into the usable equipment cavity.
+// The bottom seat and the vertical side channels share the same slot envelope
+// around the 3 mm backplane. The rails add one wall thickness in front/behind
+// that slot while the outer spine closes the U at the module edge.
 backplane_slot_front_z = equipment_backplane_front_z - backplane_guide_clearance;
 backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
 base_rear_z = backplane_slot_back_z + backplane_guide_t;
 base_floor_front_z = service_front_z;
 base_floor_rear_z = base_rear_z;
+base_panel_clearance_y = ground_clearance-hinge_axis_z;
+base_panel_clearance_z = hinge_axis_z+moving_plate_t+0.5;
 
-// The guide-tower rear face follows the now-resolved rear edge of the base.
-// Keep this assignment after base_rear_z so OpenSCAD never evaluates an undef
-// tower depth.
-side_guide_rear_z = base_rear_z;
+side_guide_slot_front_z = backplane_slot_front_z;
+side_guide_slot_back_z = backplane_slot_back_z;
+side_guide_front_z = side_guide_slot_front_z - side_guide_wall_t;
+side_guide_rear_z = side_guide_slot_back_z + side_guide_wall_t;
+
+// The lower backplane extends into each U-channel and stops short of the outer
+// spine by the running clearance. Above the 50 mm rails it returns to full width.
+lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 
 // Supported top closure derived from PR #119. The tapered backplane grows
 // forward progressively and finishes 0.8 mm behind the moving template.
@@ -242,15 +251,15 @@ connector_socket_d = 4.7;
 connector_pin_len = 3;
 connector_socket_depth = 3;
 
-// Self-mating junctions are carried by the new 30 mm guide towers. They sit on
-// the cavity-facing side of the towers, hidden from the external rear face.
-// Keep the horizontal pin/socket pair in the first 4 mm floor band so it is
-// bed-connected in the base print. Two Z levels preserve the self-mating A/B
-// pattern while keeping both features on the interior side of the guide tower.
-base_connector_y_a = 2.5;
-base_connector_y_b = 2.5;
-base_connector_z_a = junction_pad_front_z + 2.2;
-base_connector_z_b = junction_pad_front_z + 8.0;
+// Self-mating junctions are carried by the 50 mm U-channel side rails. They sit
+// on the cavity-facing side and remain hidden from the external rear face.
+// Both A/B features are inset from the support-pad edges by at least 2 mm even
+// at the larger 4.7 mm socket diameter, avoiding the fragile edge condition.
+connector_edge_margin = 2.0;
+base_connector_y_a = 5.0;
+base_connector_y_b = 11.0;
+base_connector_z_a = junction_pad_front_z + 2.6;
+base_connector_z_b = base_connector_z_a;
 side_socket_depth = 2.2;
 
 side_t = 3;
@@ -259,6 +268,32 @@ side_connector_overlap = 0.4;
 side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
     connector_pin_len + side_connector_bridge + side_connector_overlap;
+
+// Upper backplane alignment connector. The right edge carries a locating pin;
+// the left edge carries a vertical guide slot. The slot spans above and below
+// the final pin height so top-down insertion/removal remains possible while
+// neighbouring modules and outer end plates stay laterally aligned.
+top_connector_y = enclosure_top_y - 8;
+top_connector_z = equipment_backplane_top_rear_z - 1.3;
+top_connector_slot_bottom_y = top_connector_y - 12;
+top_connector_slot_top_y = enclosure_top_y + 0.2;
+top_connector_pad_y0 = top_connector_slot_bottom_y;
+top_connector_pad_y1 = top_connector_y + 4;
+top_connector_pad_w = 8;
+top_connector_pad_depth = 11;
+top_connector_pad_lower_depth = equipment_backplane_t;
+top_connector_overlap = 0.4;
+top_connector_tab_len = connector_pin_len + top_connector_overlap;
+top_connector_tab_root_len = 0.8;
+top_connector_tab_h = 8;
+top_connector_tab_t = 3.6;
+top_connector_tab_slice_h = 1.0;
+top_connector_pad_ramp_end_y = top_connector_y - top_connector_tab_h/2;
+top_side_pin_len = connector_pin_len + side_connector_overlap;
+top_connector_support_margin = 0.5;
+top_connector_min_engagement = 1.5;
+top_module_seam_gap = module_w - service_w;
+top_side_seam_gap = side_panel_clearance + backplane_edge_inset;
 
 // ---------- X-axis connector helpers ----------
 
@@ -286,6 +321,24 @@ module socket_neg_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) 
             cylinder(d=d,h=depth+0.2);
 }
 
+// Vertical X-axis capture slot. Unlike a closed round socket, this permits the
+// mating pin to move in Y during top-down backplane installation/removal.
+module vertical_slot_pos_x(
+    x0,
+    y_bottom,
+    y_top,
+    z0,
+    depth=connector_socket_depth,
+    w=connector_socket_d
+) {
+    translate([x0-0.1,y_bottom,z0-w/2])
+        cube([
+            depth+0.2,
+            y_top-y_bottom+0.2,
+            w
+        ]);
+}
+
 // ---------- Stationary equipment-base hinge geometry ----------
 
 hinge_guard_t = 2;
@@ -303,29 +356,59 @@ hinge_support_landing_overlap = 0.6;
 hinge_support_landing_z = hinge_guard_front_z+hinge_guard_t-hinge_support_landing_overlap;
 hinge_support_landing_h = 2.0;
 
+// Continue the hinge load path down into the structural base floor. The anchor
+// is fully embedded in the remaining floor behind the 90-degree sweep relief.
+hinge_support_base_y = service_base_y;
+hinge_support_base_h = base_panel_clearance_y-service_base_y;
+hinge_support_base_z = hinge_guard_front_z;
+hinge_support_base_t = hinge_guard_t;
+
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
         rail_hinge_barrel(segment[0],segment[1]);
 }
 
 module stationary_hinge_support_web(x0,len) {
-    // Reinforce the stationary barrel locally and terminate its rearward web
-    // into the horizontal hinge shelf. The web no longer extends through the
-    // enclosure to the rear rail wall, leaving that interior volume clear.
-    hull() {
-        translate([
-            x0,
-            hinge_support_root_y,
-            hinge_support_root_z
-        ])
-            cube([len,3,hinge_support_root_t]);
+    // Reinforce the stationary barrel locally, land it on the horizontal hinge
+    // shelf, then continue the load path down into the structural base floor.
+    // This stays local to each stationary knuckle so the equipment cavity is
+    // not closed by a full-width wall.
+    union() {
+        hull() {
+            translate([
+                x0,
+                hinge_support_root_y,
+                hinge_support_root_z
+            ])
+                cube([len,3,hinge_support_root_t]);
 
-        translate([
-            x0,
-            hinge_support_landing_y,
-            hinge_support_landing_z
-        ])
-            cube([len,3,hinge_support_landing_h]);
+            translate([
+                x0,
+                hinge_support_landing_y,
+                hinge_support_landing_z
+            ])
+                cube([len,3,hinge_support_landing_h]);
+        }
+
+        hull() {
+            translate([
+                x0,
+                hinge_support_landing_y,
+                hinge_support_landing_z
+            ])
+                cube([len,3,hinge_support_landing_h]);
+
+            translate([
+                x0,
+                hinge_support_base_y,
+                hinge_support_base_z
+            ])
+                cube([
+                    len,
+                    hinge_support_base_h,
+                    hinge_support_base_t
+                ]);
+        }
     }
 }
 
@@ -366,6 +449,41 @@ module lower_hinge_guard() {
     }
 }
 
+module side_guide_channel(side="left") {
+    x0 = side == "left"
+        ? service_x
+        : service_x + service_w - side_guide_w;
+    spine_x = side == "left"
+        ? x0
+        : x0 + side_guide_w - side_guide_wall_t;
+
+    union() {
+        // Front and rear lips capture the 3 mm backplane in Z while leaving
+        // the channel open toward the enclosure centre in X.
+        translate([x0,side_guide_y0,side_guide_front_z])
+            cube([side_guide_w,side_guide_h,side_guide_wall_t]);
+        translate([x0,side_guide_y0,side_guide_slot_back_z])
+            cube([side_guide_w,side_guide_h,side_guide_wall_t]);
+
+        // Outer spine joins the lips into a true U-shaped rail.
+        translate([spine_x,side_guide_y0,side_guide_front_z])
+            cube([
+                side_guide_wall_t,
+                side_guide_h,
+                side_guide_rear_z-side_guide_front_z
+            ]);
+
+        // Bed-connected internal support for the lower hidden junction only.
+        // It stops before the slot, so the backplane can still slide to its seat.
+        translate([x0,side_guide_y0,junction_pad_front_z])
+            cube([
+                side_guide_w,
+                junction_pad_h,
+                side_guide_front_z-junction_pad_front_z+0.2
+            ]);
+    }
+}
+
 module base_structural_body() {
     difference() {
         union() {
@@ -381,29 +499,10 @@ module base_structural_body() {
             stationary_hinge_barrels();
             lower_hinge_guard();
 
-            // Structural side guides for the stepped lower backplane. Each is
-            // 30 mm high and 5 mm wide, tied into the rear base edge.
-            translate([
-                service_x,
-                side_guide_y0,
-                side_guide_front_z
-            ])
-                cube([
-                    side_guide_w,
-                    side_guide_h,
-                    side_guide_rear_z-side_guide_front_z
-                ]);
-
-            translate([
-                service_x+service_w-side_guide_w,
-                side_guide_y0,
-                side_guide_front_z
-            ])
-                cube([
-                    side_guide_w,
-                    side_guide_h,
-                    side_guide_rear_z-side_guide_front_z
-                ]);
+            // True U-channel side rails. The backplane engages inside both
+            // channels for the first 50 mm of installed height.
+            side_guide_channel("left");
+            side_guide_channel("right");
 
         }
 
@@ -411,14 +510,28 @@ module base_structural_body() {
         // Only a 2 mm-deep locating groove is removed; there is no internal
         // ramp, lip or captive wall consuming module space.
         translate([
-            service_x+side_guide_w+side_guide_clearance-0.1,
+            service_x+lower_backplane_edge_inset-0.1,
             equipment_backplane_y0,
             backplane_slot_front_z
         ])
             cube([
-                service_w-2*(side_guide_w+side_guide_clearance)+0.2,
+                service_w-2*lower_backplane_edge_inset+0.2,
                 base_seat_y-equipment_backplane_y0+0.2,
                 backplane_slot_back_z-backplane_slot_front_z
+            ]);
+
+        // The centred bottom-edge hinge brings the open panel's lower band to
+        // base_panel_clearance_y. Relieve the front floor lip below the hinge
+        // depth while keeping the backplane seat and guide towers intact.
+        translate([
+            service_x-0.1,
+            base_panel_clearance_y,
+            base_floor_front_z-0.1
+        ])
+            cube([
+                service_w+0.2,
+                base_seat_y-base_panel_clearance_y+0.2,
+                base_panel_clearance_z-base_floor_front_z+0.2
             ]);
     }
 }
@@ -508,18 +621,151 @@ function tapered_backplane_rear_z_at_y(y) =
     (equipment_backplane_top_rear_z-equipment_backplane_lower_rear_z) *
     ((y-backplane_ramp_start_y)/(enclosure_top_y-backplane_ramp_start_y));
 
+module top_backplane_connector_pad(side="left") {
+    x0 = side == "left"
+        ? service_x
+        : service_x + service_w - top_connector_pad_w;
+    rear0 = tapered_backplane_rear_z_at_y(top_connector_pad_y0);
+    rear_mid = tapered_backplane_rear_z_at_y(top_connector_pad_ramp_end_y);
+    rear1 = tapered_backplane_rear_z_at_y(top_connector_pad_y1);
+    slice_h = 1;
+
+    // Start at the native 3 mm wall thickness, then grow inward at roughly
+    // 45 degrees before the connector band. This avoids introducing a high,
+    // horizontal cantilever in the upright backplane print orientation.
+    union() {
+        hull() {
+            translate([
+                x0,
+                top_connector_pad_y0,
+                rear0-top_connector_pad_lower_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_lower_depth
+                ]);
+
+            translate([
+                x0,
+                top_connector_pad_ramp_end_y-slice_h,
+                rear_mid-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_depth
+                ]);
+        }
+
+        hull() {
+            translate([
+                x0,
+                top_connector_pad_ramp_end_y-slice_h,
+                rear_mid-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_depth
+                ]);
+
+            translate([
+                x0,
+                top_connector_pad_y1-slice_h,
+                rear1-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_depth
+                ]);
+        }
+    }
+}
+
+module top_backplane_connector_pin() {
+    right_x = service_x + service_w;
+    y0 = top_connector_y - top_connector_tab_h/2;
+    y1 = top_connector_y + top_connector_tab_h/2;
+
+    // A symmetric ramped tab replaces the round horizontal backplane pin.
+    // Installed +Y becomes print +Z, so the tab grows outward gradually,
+    // reaches full engagement around top_connector_y, then tapers back.
+    union() {
+        hull() {
+            translate([
+                right_x-top_connector_overlap,
+                y0,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_root_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+
+            translate([
+                right_x-top_connector_overlap,
+                top_connector_y-top_connector_tab_slice_h/2,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+        }
+
+        hull() {
+            translate([
+                right_x-top_connector_overlap,
+                top_connector_y-top_connector_tab_slice_h/2,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+
+            translate([
+                right_x-top_connector_overlap,
+                y1-top_connector_tab_slice_h,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_root_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+        }
+    }
+}
+
+module top_backplane_connector_slot() {
+    vertical_slot_pos_x(
+        service_x,
+        top_connector_slot_bottom_y,
+        top_connector_slot_top_y,
+        top_connector_z,
+        connector_socket_depth
+    );
+}
+
 module backplane_shell_solid() {
     union() {
-        // Stepped vertical lower section. For the first 30 mm the plate is
-        // 5 mm narrower on BOTH sides so it slides between the structural guide
-        // towers. Above the guides it returns to the normal full width.
+        // Stepped vertical lower section. For the first 50 mm the plate is
+        // only inset enough to clear the OUTER spines, so each edge projects
+        // into and is captured by its 5 mm-deep U-channel. Above the rails the
+        // backplane returns to the normal full module width.
         translate([
-            service_x+side_guide_w+side_guide_clearance,
+            service_x+lower_backplane_edge_inset,
             equipment_backplane_y0,
             equipment_backplane_front_z
         ])
             cube([
-                service_w-2*(side_guide_w+side_guide_clearance),
+                service_w-2*lower_backplane_edge_inset,
                 side_guide_y1-equipment_backplane_y0,
                 equipment_backplane_t
             ]);
@@ -619,8 +865,17 @@ module universal_equipment_backplane() {
             backplane_shell_solid();
             backplane_top_link();
 
+            top_backplane_connector_pad("left");
+            top_backplane_connector_pad("right");
+            top_backplane_connector_pin();
+
             internal_adapter_bosses();
         }
+
+        // Left-edge vertical guide slot mates with the right-edge pin on the
+        // previous module, or the left outer side plate. The vertical opening
+        // preserves the removable backplane's top-down service path.
+        top_backplane_connector_slot();
 
         // Blind M3 holes open only toward the equipment cavity. The outside
         // rear face remains a solid uninterrupted skin.
@@ -723,8 +978,8 @@ module right_side_pins() {
 }
 
 module right_side_sockets() {
-    // Blind inward-facing socket. Limit the depth so at least ~0.8 mm of the
-    // exterior side wall remains solid.
+    // Blind lower socket plus the upper vertical alignment slot. Both remain
+    // open only toward the enclosure side; the outside wall stays solid.
     x_inner = module_w + side_panel_clearance;
     socket_pos_x(
         x_inner,
@@ -732,10 +987,18 @@ module right_side_sockets() {
         base_connector_z_a,
         side_socket_depth
     );
+    vertical_slot_pos_x(
+        x_inner,
+        top_connector_slot_bottom_y,
+        top_connector_slot_top_y,
+        top_connector_z,
+        side_socket_depth
+    );
 }
 
 module left_side_pins() {
-    // One inward-facing pin mates with the hidden A socket in the left guide.
+    // Lower pin mates with the base guide. The upper pin aligns the top of the
+    // removable backplane while still allowing vertical service motion.
     x_start = -side_panel_clearance - side_connector_overlap;
 
     pin_pos_x(
@@ -743,6 +1006,12 @@ module left_side_pins() {
         base_connector_y_a,
         base_connector_z_a,
         side_connector_pin_len
+    );
+    pin_pos_x(
+        x_start,
+        top_connector_y,
+        top_connector_z,
+        top_side_pin_len
     );
 }
 

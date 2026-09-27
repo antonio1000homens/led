@@ -194,12 +194,16 @@ def assert_empty_intersection(
         # Treat only an intersection with measurable extent in all three axes
         # as a real 3D collision. A zero-thickness face is contact, not volume.
         contact = load_mesh(name, output)
-        dims = contact.extents
-        if min(dims) > 0.01:
+        components = contact.split(only_watertight=False)
+        volumetric = [component for component in components if min(component.extents) > 0.01]
+        if volumetric:
+            collision = max(volumetric, key=lambda component: component.volume)
+            dims = collision.extents
             raise SystemExit(
                 f"{name}: geometry intersection has 3D extent "
-                f"{dims.tolist()} mm; bounds={contact.bounds.tolist()}"
+                f"{dims.tolist()} mm; bounds={collision.bounds.tolist()}"
             )
+        dims = contact.extents
         print(
             f"OK: {name} has contact-only intersection; bounds "
             f"{dims[0]:.3f} x {dims[1]:.3f} x {dims[2]:.3f} mm"
@@ -228,6 +232,14 @@ def assert_hinge_sweep(work_dir: Path) -> None:
             translate([0,-hinge_axis_y,-hinge_axis_z])
                 moving_panel_template_installed();"""
         assert_empty_intersection(work_dir, f"hinge_sweep_{angle}", body)
+        floor_check = f"""    intersection() {{
+        translate([-1,-100,-1]) cube([module_w+2,100,hinge_axis_z+hinge_radius+2]);
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([-{angle},0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z])
+                    moving_panel_template_installed();
+    }}"""
+        assert_empty_intersection(work_dir, f"hinge_floor_clearance_{angle}", floor_check)
         panel_rod = f"""    translate([0,hinge_axis_y,hinge_axis_z])
         rotate([-{angle},0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
@@ -243,6 +255,14 @@ def assert_design_contract(work_dir: Path) -> None:
     output = work_dir / "design_contract.csg"
     check_scad.write_text(
         f"""include <{SOURCE.as_posix()}>;
+assert(abs(hinge_axis_y-ground_clearance) < 0.01,
+       "hinge axis must be centred on the moving panel lower edge");
+assert(hinge_axis_y-hinge_radius < ground_clearance &&
+       hinge_axis_y+hinge_radius > ground_clearance,
+       "hinge barrel must straddle the moving panel lower edge");
+assert(abs(base_panel_clearance_y-(ground_clearance-hinge_axis_z)) < 0.01 &&
+       base_panel_clearance_z > hinge_axis_z+moving_plate_t,
+       "base front relief must clear the open panel lower band");
 assert(hinge_guard_t >= 2, "hinge shelf is too thin");
 assert(hinge_guard_start_y <= base_seat_y && hinge_guard_top_y >= hinge_axis_y,
        "hinge shelf no longer spans behind the hinge");
@@ -255,6 +275,13 @@ assert(hinge_support_landing_y >= hinge_guard_start_y &&
 assert(hinge_support_landing_z < hinge_guard_front_z+hinge_guard_t &&
        hinge_support_landing_z+hinge_support_landing_h > hinge_guard_front_z+hinge_guard_t,
        "hinge root web must overlap the shelf by design");
+assert(abs(hinge_support_base_y-service_base_y) < 0.01 &&
+       hinge_support_base_h > 0 &&
+       hinge_support_base_y+hinge_support_base_h <= base_panel_clearance_y+0.01,
+       "hinge support must land inside the retained structural base floor");
+assert(hinge_support_base_z >= base_floor_front_z &&
+       hinge_support_base_z+hinge_support_base_t <= base_floor_rear_z,
+       "hinge support base anchor must remain embedded in the base floor");
 
 assert(abs(enclosure_bottom_depth-40) < 0.01,
        "lower equipment depth must remain 40 mm");
@@ -266,25 +293,88 @@ assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
        "backplane roof must reach the top of the front plate");
 assert(abs(top_link_front_z-(fixed_template_t+0.8)) < 0.01,
        "top link no longer closes to the template with 0.8 mm clearance");
+assert(top_connector_slot_bottom_y <
+           top_connector_y-connector_socket_d/2 &&
+       top_connector_slot_top_y >
+           top_connector_y+connector_socket_d/2,
+       "top connector guide slot must release vertically in both directions");
+assert(top_connector_pad_y0 <= top_connector_slot_bottom_y &&
+       top_connector_pad_y1 >
+           top_connector_y+connector_socket_d/2,
+       "top connector support pad does not surround the final pin position");
+assert(top_connector_pad_depth >=
+           connector_socket_d+2*top_connector_support_margin,
+       "top connector support pad is too shallow for the locating slot");
+assert(abs(top_connector_pad_lower_depth-equipment_backplane_t) < 0.01,
+       "top connector pad must begin at native backplane thickness");
+assert(top_connector_pad_ramp_end_y <=
+           top_connector_y-top_connector_tab_h/2+0.01,
+       "top connector support pad must finish its ramp before the tab");
+assert(top_connector_tab_t < connector_socket_d &&
+       connector_socket_d-top_connector_tab_t >= 0.8,
+       "ramped top connector tab lacks guide-slot clearance");
+assert(top_connector_tab_h >=
+           2*(top_connector_tab_len-top_connector_tab_root_len),
+       "ramped top connector tab is too steep for support-free printing");
+assert(top_connector_tab_root_len > top_connector_overlap,
+       "ramped top connector tab root does not overlap its support pad");
+assert(top_connector_z-connector_socket_d/2 >=
+           tapered_backplane_rear_z_at_y(top_connector_y)
+               - top_connector_pad_depth
+               + top_connector_support_margin,
+       "top connector is too close to the inside face of its support pad");
+assert(top_connector_z+connector_socket_d/2 <=
+           tapered_backplane_rear_z_at_y(top_connector_y)
+               - top_connector_support_margin,
+       "top connector breaks through the tapered outside face");
+assert(top_connector_y > upper_vent_y+upper_vent_h,
+       "top connector overlaps upper ventilation");
+assert(top_connector_tab_len-top_module_seam_gap >=
+           top_connector_min_engagement,
+       "top connector has insufficient engagement between adjacent modules");
+assert(top_connector_tab_len-top_side_seam_gap >=
+           top_connector_min_engagement,
+       "top connector has insufficient engagement into the end plates");
 
 assert(abs(backplane_guide_clearance-0.4) < 0.01,
        "rear groove clearance is outside the FDM fit target");
-assert(abs(side_guide_h-30) < 0.01,
-       "side guide height must remain 30 mm");
+assert(abs(side_guide_h-50) < 0.01,
+       "side guide height must remain 50 mm");
 assert(abs(side_guide_w-5) < 0.01,
-       "side guide width must remain 5 mm");
+       "side guide engagement depth must remain 5 mm");
 assert(abs(side_guide_clearance-0.4) < 0.01,
        "side-guide running clearance is outside the FDM fit target");
+assert(abs(side_guide_wall_t-backplane_guide_t) < 0.01,
+       "side-guide wall thickness must track the base rail wall");
 assert(side_guide_y1 < backplane_ramp_start_y,
        "side guides must end below the enclosure taper");
-assert(side_guide_front_z < equipment_backplane_front_z,
-       "guide towers must thicken toward the enclosure interior");
-assert(base_connector_y_a <= base_seat_y &&
-       base_connector_y_b <= base_seat_y,
-       "horizontal junction pins must remain bed-connected in the floor band");
-assert(base_connector_z_a > side_guide_front_z &&
-       base_connector_z_b < side_guide_rear_z,
-       "hidden junctions must remain inside the structural guide towers");
+assert(side_guide_slot_front_z < equipment_backplane_front_z &&
+       side_guide_slot_back_z > equipment_backplane_rear_z,
+       "U-channel slot does not clear the backplane thickness");
+assert(side_guide_front_z < side_guide_slot_front_z &&
+       side_guide_rear_z > side_guide_slot_back_z,
+       "U-channel lips no longer surround the backplane slot");
+assert(abs(lower_backplane_edge_inset-
+           (side_guide_wall_t+side_guide_clearance)) < 0.01,
+       "lower backplane edge no longer tracks the U-channel outer spine");
+assert(lower_backplane_edge_inset < side_guide_w,
+       "lower backplane no longer projects into the side channels");
+assert(base_connector_y_a - connector_socket_d/2 >=
+           side_guide_y0 + connector_edge_margin,
+       "A junction is too close to the lower support-pad edge");
+assert(base_connector_y_b + connector_socket_d/2 <=
+           side_guide_y0 + junction_pad_h - connector_edge_margin,
+       "B junction is too close to the upper support-pad edge");
+assert(base_connector_y_b-base_connector_y_a >=
+           connector_socket_d + connector_edge_margin/2,
+       "A/B junctions do not have enough material between them");
+assert(abs(base_connector_z_a-base_connector_z_b) < 0.01 &&
+       base_connector_z_a > junction_pad_front_z &&
+       base_connector_z_a < side_guide_slot_front_z,
+       "hidden junction pair must remain ahead of the backplane slot");
+assert(base_connector_y_b-base_connector_y_a >
+           (connector_pin_d+connector_socket_d)/2,
+       "A/B hidden junctions overlap after the vertical offset");
 assert(adapter_outer_skin >= 1.0,
        "outside rear skin over blind accessory holes is too thin");
 assert(adapter_hole_depth <=
@@ -322,8 +412,9 @@ cube([1,1,1]);
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
     print(
-        "OK: reinforced hinge, rear top-down groove, dual 30x5 mm guides, "
-        "hidden junctions, solid outside skin and 40-to-10 mm tapered backplane contract"
+        "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
+        "lower hidden junctions, upper backplane/end-plate alignment slot, "
+        "solid outside skin and 40-to-10 mm tapered backplane contract"
     )
 
 
@@ -390,6 +481,40 @@ def main() -> None:
     translate([0,{lift},0]) universal_equipment_backplane();""",
             )
 
+        # Prove the side guides are real U-channels rather than solid towers:
+        # the slot volume under each 5 mm lip must remain empty through the
+        # middle of the 50 mm guide height.
+        assert_empty_intersection(
+            work_dir,
+            "left_side_guide_channel_void",
+            """    hinged_equipment_base();
+    translate([
+        service_x+lower_backplane_edge_inset,
+        side_guide_y0+10,
+        side_guide_slot_front_z
+    ])
+        cube([
+            side_guide_w-lower_backplane_edge_inset,
+            side_guide_h-20,
+            side_guide_slot_back_z-side_guide_slot_front_z
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "right_side_guide_channel_void",
+            """    hinged_equipment_base();
+    translate([
+        service_x+service_w-side_guide_w,
+        side_guide_y0+10,
+        side_guide_slot_front_z
+    ])
+        cube([
+            side_guide_w-lower_backplane_edge_inset,
+            side_guide_h-20,
+            side_guide_slot_back_z-side_guide_slot_front_z
+        ]);""",
+        )
+
         # Guard the equipment cavity against a rail/lip creeping back into the
         # lower usable volume. Hinge hardware intentionally occupies the first
         # ~30 mm above the floor, so the keep-out starts above that mechanism.
@@ -408,6 +533,29 @@ def main() -> None:
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
+        # The upper connector aligns modules/end plates without making the
+        # removable backplane horizontally captive. Test relative vertical
+        # travel through the guide slot in both neighbour and end-plate cases.
+        for lift in (1, 5, 10, 15):
+            assert_empty_intersection(
+                work_dir,
+                f"top_connector_neighbor_vertical_release_{lift}",
+                f"""    universal_equipment_backplane();
+    translate([module_w,{lift},0]) universal_equipment_backplane();""",
+            )
+            assert_empty_intersection(
+                work_dir,
+                f"top_connector_left_end_vertical_release_{lift}",
+                f"""    equipment_side("left");
+    translate([0,{lift},0]) universal_equipment_backplane();""",
+            )
+            assert_empty_intersection(
+                work_dir,
+                f"top_connector_right_end_vertical_release_{lift}",
+                f"""    equipment_side("right");
+    translate([0,{lift},0]) universal_equipment_backplane();""",
+            )
+
         for side in ("left", "right"):
             assert_empty_intersection(
                 work_dir,
