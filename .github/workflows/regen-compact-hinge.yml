@@ -51,3 +51,4 @@ jobs:
           fi
           git commit -m "Regenerate compact hinge support STLs"
           git push origin HEAD:feat/compact-hinge-support
+# retrigger after sweep-anchor fix
