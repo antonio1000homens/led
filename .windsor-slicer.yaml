@@ -6,7 +6,22 @@ models:
     generator: openscad
     output: 09_centre_boss_desk_stand_PRINT_3.stl
 
+  moving-panel-hinge-test:
+    source: hardware/enclosure/direct-mount/hinge-prototype-v2/01_moving_panel_template_HINGE_TEST.scad
+    generator: openscad
+    output: 01_moving_panel_template_HINGE_TEST.stl
+
   middle-hinge-test:
     source: hardware/enclosure/direct-mount/hinge-prototype-v2/02_middle_stationary_enclosure_HINGE_TEST.scad
     generator: openscad
     output: 02_middle_stationary_enclosure_HINGE_TEST.stl
+
+  left-controller-hinge-test:
+    source: hardware/enclosure/direct-mount/hinge-prototype-v2/03_left_controller_end_enclosure_HINGE_TEST.scad
+    generator: openscad
+    output: 03_left_controller_end_enclosure_HINGE_TEST.stl
+
+  right-power-hinge-test:
+    source: hardware/enclosure/direct-mount/hinge-prototype-v2/04_right_power_end_enclosure_HINGE_TEST.scad
+    generator: openscad
+    output: 04_right_power_end_enclosure_HINGE_TEST.stl

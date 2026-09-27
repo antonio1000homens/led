@@ -485,15 +485,56 @@ module controller_mount_standoffs() {
     // Four M2.5 clearance standoffs grow forward from the lower rear wall.
     // The LED/template opens forward (towards -Z), while the board remains
     // well behind it inside the stationary enclosure.
+    //
+    // In the upright print orientation installed +Y becomes print +Z and
+    // installed +Z becomes print -Y. A plain horizontal cylinder therefore
+    // begins with an unsupported lower tangent and Bambu Studio reports a
+    // floating cantilever on the controller-end variant.
+    //
+    // Give every post a rearward 45-degree-style gusset. The low end is tied
+    // into the rear wall/base and the high/front end meets the post bottom.
+    // Successive print layers can therefore grow toward the PCB instead of
+    // starting the complete post span in mid-air.
+    post_r = controller_post_d/2;
+    support_run = (rear_z_bottom-box_rear_t) - controller_pcb_rear_z;
+    support_pad = 1.0;
+
     difference() {
         union() {
-            for (point=controller_mount_points)
+            for (point=controller_mount_points) {
                 translate([
                     point[0],
                     point[1],
                     controller_pcb_rear_z
                 ])
                     cylinder(d=controller_post_d,h=controller_post_h);
+
+                hull() {
+                    // Front/high end: directly under the post at the PCB plane.
+                    translate([
+                        point[0]-post_r,
+                        point[1]-post_r,
+                        controller_pcb_rear_z
+                    ])
+                        cube([
+                            controller_post_d,
+                            support_pad,
+                            support_pad
+                        ]);
+
+                    // Rear/low end: overlap the existing rear wall/base.
+                    translate([
+                        point[0]-post_r,
+                        point[1]-post_r-support_run,
+                        rear_z_bottom-box_rear_t-support_pad/2
+                    ])
+                        cube([
+                            controller_post_d,
+                            support_pad,
+                            support_pad
+                        ]);
+                }
+            }
         }
 
         for (point=controller_mount_points)
@@ -539,33 +580,40 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Keep the stationary knuckle clear of the moving plate's sweep corridor.
+    // Keep the stationary knuckle, but do NOT fill the volume directly below
+    // the hinge axis. The moving plate sweeps through that region on its way
+    // toward the service-open position.
     //
-    // The full-width lower hinge guard already grows continuously from the
-    // enclosure base and is tied into the rear quadrant of each stationary
-    // knuckle. Use that guard as the structural support instead of a diagonal
-    // brace running down toward the floor/rear wall.
-    //
-    // A short local bridge tab extends forward from the guard directly under
-    // the barrel's bottom tangent. In the upright print this is only a ~9 mm
-    // bridge from already-supported guard material, which is enough to support
-    // the first barrel layers without putting material in the 90-degree plate
-    // position.
+    // The support web begins at the BOTTOM tangent of the stationary barrel,
+    // then slopes strongly rearward into the floor/base. Starting at the bottom
+    // tangent means the first printed barrel layers are already connected to
+    // material below instead of appearing as a floating island. Sweeping the
+    // web rearward keeps the moving plate's forward/downward rotation corridor
+    // clear.
     union() {
         hinge_barrel(x0,len);
 
-        translate([
-            x0,
-            hinge_axis_y-hinge_r-1.0,
-            hinge_axis_z-1.0
-        ])
-            cube([
-                len,
-                3,
-                hinge_guard_front_z
-                    + hinge_guard_bridge_overlap
-                    - (hinge_axis_z-1.0)
-            ]);
+        hull() {
+            // Narrow overlap around the barrel's bottom tangent. The 3 mm
+            // installed-Y height provides layer-to-layer support as the circular
+            // barrel begins to grow.
+            translate([
+                x0,
+                hinge_axis_y-hinge_r-1.0,
+                hinge_axis_z-1.0
+            ])
+                cube([len,3,2]);
+
+            // Bed-connected anchor near the rear of the 40 mm-deep base. This
+            // large rearward offset keeps the diagonal web out of the plate
+            // sweep while remaining support-free in the upright print.
+            translate([
+                x0,
+                base_thickness_y-0.5,
+                rear_z_bottom-box_rear_t
+            ])
+                cube([len,2,2]);
+        }
     }
 }
 
