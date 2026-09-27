@@ -305,6 +305,19 @@ assert(top_connector_pad_y0 <= top_connector_slot_bottom_y &&
 assert(top_connector_pad_depth >=
            connector_socket_d+2*top_connector_support_margin,
        "top connector support pad is too shallow for the locating slot");
+assert(abs(top_connector_pad_lower_depth-equipment_backplane_t) < 0.01,
+       "top connector pad must begin at native backplane thickness");
+assert(top_connector_pad_ramp_end_y <=
+           top_connector_y-top_connector_tab_h/2+0.01,
+       "top connector support pad must finish its ramp before the tab");
+assert(top_connector_tab_t < connector_socket_d &&
+       connector_socket_d-top_connector_tab_t >= 0.8,
+       "ramped top connector tab lacks guide-slot clearance");
+assert(top_connector_tab_h >=
+           2*(top_connector_tab_len-top_connector_tab_root_len),
+       "ramped top connector tab is too steep for support-free printing");
+assert(top_connector_tab_root_len > top_connector_overlap,
+       "ramped top connector tab root does not overlap its support pad");
 assert(top_connector_z-connector_socket_d/2 >=
            tapered_backplane_rear_z_at_y(top_connector_y)
                - top_connector_pad_depth
@@ -316,10 +329,10 @@ assert(top_connector_z+connector_socket_d/2 <=
        "top connector breaks through the tapered outside face");
 assert(top_connector_y > upper_vent_y+upper_vent_h,
        "top connector overlaps upper ventilation");
-assert(connector_pin_len-top_module_seam_gap >=
+assert(top_connector_tab_len-top_module_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement between adjacent modules");
-assert(connector_pin_len-top_side_seam_gap >=
+assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 

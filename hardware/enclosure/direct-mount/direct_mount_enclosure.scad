@@ -281,8 +281,14 @@ top_connector_pad_y0 = top_connector_slot_bottom_y;
 top_connector_pad_y1 = top_connector_y + 4;
 top_connector_pad_w = 8;
 top_connector_pad_depth = 11;
+top_connector_pad_lower_depth = equipment_backplane_t;
 top_connector_overlap = 0.4;
-top_connector_pin_len = connector_pin_len + top_connector_overlap;
+top_connector_tab_len = connector_pin_len + top_connector_overlap;
+top_connector_tab_root_len = 0.8;
+top_connector_tab_h = 8;
+top_connector_tab_t = 3.6;
+top_connector_tab_slice_h = 1.0;
+top_connector_pad_ramp_end_y = top_connector_y - top_connector_tab_h/2;
 top_side_pin_len = connector_pin_len + side_connector_overlap;
 top_connector_support_margin = 0.5;
 top_connector_min_engagement = 1.5;
@@ -620,44 +626,121 @@ module top_backplane_connector_pad(side="left") {
         ? service_x
         : service_x + service_w - top_connector_pad_w;
     rear0 = tapered_backplane_rear_z_at_y(top_connector_pad_y0);
+    rear_mid = tapered_backplane_rear_z_at_y(top_connector_pad_ramp_end_y);
     rear1 = tapered_backplane_rear_z_at_y(top_connector_pad_y1);
     slice_h = 1;
 
-    // Follow the existing upper taper while thickening only the local edge
-    // region needed to support the upper pin/guide slot.
-    hull() {
-        translate([
-            x0,
-            top_connector_pad_y0,
-            rear0-top_connector_pad_depth
-        ])
-            cube([
-                top_connector_pad_w,
-                slice_h,
-                top_connector_pad_depth
-            ]);
+    // Start at the native 3 mm wall thickness, then grow inward at roughly
+    // 45 degrees before the connector band. This avoids introducing a high,
+    // horizontal cantilever in the upright backplane print orientation.
+    union() {
+        hull() {
+            translate([
+                x0,
+                top_connector_pad_y0,
+                rear0-top_connector_pad_lower_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_lower_depth
+                ]);
 
-        translate([
-            x0,
-            top_connector_pad_y1-slice_h,
-            rear1-top_connector_pad_depth
-        ])
-            cube([
-                top_connector_pad_w,
-                slice_h,
-                top_connector_pad_depth
-            ]);
+            translate([
+                x0,
+                top_connector_pad_ramp_end_y-slice_h,
+                rear_mid-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_depth
+                ]);
+        }
+
+        hull() {
+            translate([
+                x0,
+                top_connector_pad_ramp_end_y-slice_h,
+                rear_mid-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_depth
+                ]);
+
+            translate([
+                x0,
+                top_connector_pad_y1-slice_h,
+                rear1-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_w,
+                    slice_h,
+                    top_connector_pad_depth
+                ]);
+        }
     }
 }
 
 module top_backplane_connector_pin() {
     right_x = service_x + service_w;
-    pin_pos_x(
-        right_x-top_connector_overlap,
-        top_connector_y,
-        top_connector_z,
-        top_connector_pin_len
-    );
+    y0 = top_connector_y - top_connector_tab_h/2;
+    y1 = top_connector_y + top_connector_tab_h/2;
+
+    // A symmetric ramped tab replaces the round horizontal backplane pin.
+    // Installed +Y becomes print +Z, so the tab grows outward gradually,
+    // reaches full engagement around top_connector_y, then tapers back.
+    union() {
+        hull() {
+            translate([
+                right_x-top_connector_overlap,
+                y0,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_root_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+
+            translate([
+                right_x-top_connector_overlap,
+                top_connector_y-top_connector_tab_slice_h/2,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+        }
+
+        hull() {
+            translate([
+                right_x-top_connector_overlap,
+                top_connector_y-top_connector_tab_slice_h/2,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+
+            translate([
+                right_x-top_connector_overlap,
+                y1-top_connector_tab_slice_h,
+                top_connector_z-top_connector_tab_t/2
+            ])
+                cube([
+                    top_connector_tab_root_len,
+                    top_connector_tab_slice_h,
+                    top_connector_tab_t
+                ]);
+        }
+    }
 }
 
 module top_backplane_connector_slot() {
