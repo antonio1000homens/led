@@ -19,6 +19,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - no volumetric interference between installed base and backplane;
 - representative base/fixed-template hinge sweep clearance through **90°**, explicitly including the normal **72°** service angle;
 - successful open and closed assembly-preview rendering.
+- the restored 7 mm closed template-to-barrel clearance is preserved by the 15.5 mm hinge-axis depth.
 
 The final automated manufacturing gate is Windsor Slicer/Bambu Studio using the
 models in `.windsor-slicer.yaml`.
