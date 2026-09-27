@@ -269,6 +269,27 @@ assert(abs(top_link_front_z-(fixed_template_t+0.8)) < 0.01,
 
 assert(abs(backplane_guide_clearance-0.4) < 0.01,
        "rear groove clearance is outside the FDM fit target");
+assert(abs(side_guide_h-30) < 0.01,
+       "side guide height must remain 30 mm");
+assert(abs(side_guide_w-5) < 0.01,
+       "side guide width must remain 5 mm");
+assert(abs(side_guide_clearance-0.4) < 0.01,
+       "side-guide running clearance is outside the FDM fit target");
+assert(side_guide_y1 < backplane_ramp_start_y,
+       "side guides must end below the enclosure taper");
+assert(side_guide_front_z < equipment_backplane_front_z,
+       "guide towers must thicken toward the enclosure interior");
+assert(base_connector_y_a <= base_seat_y &&
+       base_connector_y_b <= base_seat_y,
+       "horizontal junction pins must remain bed-connected in the floor band");
+assert(base_connector_z_a > side_guide_front_z &&
+       base_connector_z_b < side_guide_rear_z,
+       "hidden junctions must remain inside the structural guide towers");
+assert(adapter_outer_skin >= 1.0,
+       "outside rear skin over blind accessory holes is too thin");
+assert(adapter_hole_depth <=
+       adapter_boss_h + equipment_backplane_t - adapter_outer_skin + 0.01,
+       "accessory hole breaks through the solid outside rear skin");
 assert(backplane_seat_depth >= 2.0,
        "rear groove seat is too shallow");
 assert(abs(equipment_backplane_y0-(base_seat_y-backplane_seat_depth)) < 0.01,
@@ -301,8 +322,8 @@ cube([1,1,1]);
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
     print(
-        "OK: reinforced hinge, rear top-down groove and 40-to-10 mm tapered "
-        "backplane contract"
+        "OK: reinforced hinge, rear top-down groove, dual 30x5 mm guides, "
+        "hidden junctions, solid outside skin and 40-to-10 mm tapered backplane contract"
     )
 
 
