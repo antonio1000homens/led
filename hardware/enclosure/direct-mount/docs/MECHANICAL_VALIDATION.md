@@ -17,7 +17,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - bounded printable extents;
 - a coarse floating-layer/island proxy;
 - no volumetric interference between installed base and backplane;
-- representative 0–90 degree base/fixed-template hinge sweep clearance;
+- representative base/fixed-template hinge sweep clearance through the designed **72°** service angle;
 - successful open and closed assembly-preview rendering.
 
 The final automated manufacturing gate is Windsor Slicer/Bambu Studio using the
