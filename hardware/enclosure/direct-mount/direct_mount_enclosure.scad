@@ -189,7 +189,6 @@ side_guide_y1 = side_guide_y0 + side_guide_h;
 junction_pad_depth = 7;
 junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
 side_guide_front_z = junction_pad_front_z;
-side_guide_rear_z = base_rear_z;
 junction_pad_h = 8;
 
 // The locating rail is a recessed groove at the BACK edge of the base. It
@@ -199,6 +198,11 @@ backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
 base_rear_z = backplane_slot_back_z + backplane_guide_t;
 base_floor_front_z = service_front_z;
 base_floor_rear_z = base_rear_z;
+
+// The guide-tower rear face follows the now-resolved rear edge of the base.
+// Keep this assignment after base_rear_z so OpenSCAD never evaluates an undef
+// tower depth.
+side_guide_rear_z = base_rear_z;
 
 // Supported top closure derived from PR #119. The tapered backplane grows
 // forward progressively and finishes 0.8 mm behind the moving template.
