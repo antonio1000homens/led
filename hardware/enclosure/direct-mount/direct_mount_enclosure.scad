@@ -276,7 +276,10 @@ module fixed_root_sweep_clearance(max_angle=mechanical_clearance_angle, step=5) 
             }
 }
 
-module fixed_lower_band_sweep_clearance(max_angle=mechanical_clearance_angle, step=4, clearance=0.4) {
+// Stop the expanded lower-band cutter 2 degrees short of the mechanical limit.
+// Its 0.4 mm running clearance still clears the real 90-degree position, while
+// carrying the cutter all the way to 90 creates a slicer-detected floating region.
+module fixed_lower_band_sweep_clearance(max_angle=mechanical_clearance_angle-2, step=4, clearance=0.4) {
     // The fixed template's lower full-width band remains stationary while the
     // equipment base rotates. Remove its swept envelope through the intended
     // service arc so the moving base cannot scrape the panel-side template.
