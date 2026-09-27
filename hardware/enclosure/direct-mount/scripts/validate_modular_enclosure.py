@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import os
-import shutil
+import hashlib
 import subprocess
 import tempfile
 from pathlib import Path
@@ -45,6 +44,49 @@ def render(source: Path, output: Path) -> None:
         )
     if not output.is_file() or output.stat().st_size == 0:
         raise SystemExit(f"empty OpenSCAD output from {source.relative_to(ROOT)}")
+
+def canonical_stl_hash(path: Path) -> str:
+    """Hash STL triangle geometry independent of facet/vertex ordering."""
+    triangles: list[tuple[tuple[float, float, float], ...]] = []
+    vertices: list[tuple[float, float, float]] = []
+
+    with path.open(encoding="utf-8", errors="strict") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line.startswith("vertex "):
+                continue
+            _, xs, ys, zs = line.split()
+            vertex = tuple(round(float(value), 6) for value in (xs, ys, zs))
+            vertices.append(vertex)
+            if len(vertices) == 3:
+                triangles.append(tuple(sorted(vertices)))
+                vertices = []
+
+    if vertices:
+        raise SystemExit(f"{path}: incomplete STL triangle data")
+    if not triangles:
+        raise SystemExit(f"{path}: no STL triangles found")
+
+    payload = repr(sorted(triangles)).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def assert_tracked_stl_current(stl_name: str, generated: Path) -> None:
+    tracked = DIRECT / "stl" / stl_name
+    if not tracked.is_file():
+        raise SystemExit(
+            f"missing canonical STL: {tracked.relative_to(ROOT)}; "
+            "regenerate and commit the STL with its SCAD change"
+        )
+
+    if canonical_stl_hash(generated) != canonical_stl_hash(tracked):
+        raise SystemExit(
+            f"stale canonical STL: {tracked.relative_to(ROOT)}; "
+            "regenerate it from the matching SCAD wrapper"
+        )
+
+    print(f"OK: {stl_name} matches checked-in canonical STL")
+
 
 def load_mesh(name: str, path: Path) -> trimesh.Trimesh:
     loaded = trimesh.load_mesh(path, process=True)
@@ -185,15 +227,10 @@ def main() -> None:
             generated = work_dir / stl_name
             render(source, generated)
 
-            artifact_dir = os.environ.get("ENCLOSURE_STL_OUTPUT_DIR")
-            if artifact_dir:
-                output_dir = (ROOT / artifact_dir).resolve()
-                output_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(generated, output_dir / stl_name)
-
             name = source.stem
             assert_mesh_health(name, generated)
             assert_no_floating_layer_islands(name, generated)
+            assert_tracked_stl_current(stl_name, generated)
 
         assert_empty_intersection(
             work_dir,
