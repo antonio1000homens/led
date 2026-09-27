@@ -174,6 +174,23 @@ backplane_seat_depth = 2.0;
 base_seat_y = 4.5;
 equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
 
+// Two structural guide towers rise from the base, one at each side. The lower
+// 30 mm of the removable backplane is stepped inward by 5 mm on both sides,
+// then returns to full module width above the guides.
+side_guide_h = 30;
+side_guide_w = 5;
+side_guide_y0 = service_base_y;
+side_guide_y1 = side_guide_y0 + side_guide_h;
+side_guide_front_z = equipment_backplane_front_z - 1.0;
+side_guide_rear_z = base_rear_z;
+
+// Junction features live on the INTERNAL/front face of the guide towers so
+// nothing is visible on the external rear surface.
+junction_pad_depth = 7;
+junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
+junction_pad_rear_z = backplane_slot_front_z + 0.8;
+junction_pad_h = 8;
+
 // The locating rail is a recessed groove at the BACK edge of the base. It
 // does not project into the usable equipment cavity.
 backplane_slot_front_z = equipment_backplane_front_z - backplane_guide_clearance;
@@ -217,19 +234,16 @@ cable_slot_y = 28;
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
 connector_pin_d = 4;
 connector_socket_d = 4.7;
-connector_pin_len = 4;
-connector_socket_depth = 4;
-// Base side connectors live entirely inside the first 4 mm floor band so
-// their horizontal pins are bed-connected from the first print layers.
-base_connector_y_a = 2.5;
-base_connector_y_b = 2.5;
-base_connector_z_a = 18;
-base_connector_z_b = 34;
-backplane_connector_y_a = 24;
-backplane_connector_y_b = 52;
-backplane_connector_z = equipment_backplane_front_z;
-connector_pad_y = 10;
-connector_pad_z = 7;
+connector_pin_len = 3;
+connector_socket_depth = 3;
+
+// Self-mating junctions are carried by the new 30 mm guide towers. They sit on
+// the cavity-facing side of the towers, hidden from the external rear face.
+base_connector_y_a = 10;
+base_connector_y_b = 22;
+base_connector_z_a = junction_pad_front_z + junction_pad_depth/2;
+base_connector_z_b = base_connector_z_a;
+side_socket_depth = 2.2;
 
 side_t = 3;
 side_panel_clearance = 0.4;
@@ -358,6 +372,55 @@ module base_structural_body() {
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
+
+            // Structural side guides for the stepped lower backplane. Each is
+            // 30 mm high and 5 mm wide, tied into the rear base edge.
+            translate([
+                service_x,
+                side_guide_y0,
+                side_guide_front_z
+            ])
+                cube([
+                    side_guide_w,
+                    side_guide_h,
+                    side_guide_rear_z-side_guide_front_z
+                ]);
+
+            translate([
+                service_x+service_w-side_guide_w,
+                side_guide_y0,
+                side_guide_front_z
+            ])
+                cube([
+                    side_guide_w,
+                    side_guide_h,
+                    side_guide_rear_z-side_guide_front_z
+                ]);
+
+            // Internal junction pads thicken the guide towers toward the cavity.
+            for (yy=[base_connector_y_a,base_connector_y_b]) {
+                translate([
+                    service_x,
+                    yy-junction_pad_h/2,
+                    junction_pad_front_z
+                ])
+                    cube([
+                        side_guide_w,
+                        junction_pad_h,
+                        junction_pad_rear_z-junction_pad_front_z
+                    ]);
+
+                translate([
+                    service_x+service_w-side_guide_w,
+                    yy-junction_pad_h/2,
+                    junction_pad_front_z
+                ])
+                    cube([
+                        side_guide_w,
+                        junction_pad_h,
+                        junction_pad_rear_z-junction_pad_front_z
+                    ]);
+            }
         }
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
@@ -380,6 +443,7 @@ module base_connector_pins() {
     right_x = service_x + service_w;
     left_x = service_x;
 
+    // Hidden inside the enclosure: right A pin / left B pin.
     pin_pos_x(right_x,base_connector_y_a,base_connector_z_a);
     pin_neg_x(left_x,base_connector_y_b,base_connector_z_b);
 }
@@ -419,38 +483,40 @@ module rounded_slot_2d(len,w) {
     }
 }
 
-module backplane_connector_pads() {
-    for (yy=[backplane_connector_y_a,backplane_connector_y_b]) {
-        translate([
-            service_x,
-            yy-connector_pad_y/2,
-            equipment_backplane_front_z-1
-        ])
-            cube([8,connector_pad_y,connector_pad_z]);
+// Accessory bosses live on the INSIDE face of the backplane. Their M3 holes
+// are blind, leaving a continuous solid external rear skin.
+adapter_outer_skin = 1.2;
+adapter_boss_overlap = 0.3;
+adapter_hole_depth =
+    adapter_boss_h + equipment_backplane_t - adapter_outer_skin;
 
-        translate([
-            service_x+service_w-8,
-            yy-connector_pad_y/2,
-            equipment_backplane_front_z-1
-        ])
-            cube([8,connector_pad_y,connector_pad_z]);
-    }
+module internal_adapter_bosses() {
+    for (xx=adapter_x)
+        for (yy=adapter_y)
+            translate([
+                xx,
+                yy,
+                equipment_backplane_front_z-adapter_boss_h
+                    + adapter_boss_overlap
+            ])
+                cylinder(
+                    d=adapter_boss_d,
+                    h=adapter_boss_h
+                );
 }
 
-module backplane_connector_pins() {
-    right_x = service_x + service_w;
-    left_x = service_x;
-
-    pin_pos_x(right_x,backplane_connector_y_a,backplane_connector_z);
-    pin_neg_x(left_x,backplane_connector_y_b,backplane_connector_z);
-}
-
-module backplane_connector_sockets() {
-    right_x = service_x + service_w;
-    left_x = service_x;
-
-    socket_neg_x(right_x,backplane_connector_y_b,backplane_connector_z);
-    socket_pos_x(left_x,backplane_connector_y_a,backplane_connector_z);
+module internal_adapter_hole_cutters() {
+    for (xx=adapter_x)
+        for (yy=adapter_y)
+            translate([
+                xx,
+                yy,
+                equipment_backplane_front_z-adapter_boss_h-0.2
+            ])
+                cylinder(
+                    d=adapter_hole_d,
+                    h=adapter_hole_depth+0.2
+                );
 }
 
 function tapered_backplane_rear_z_at_y(y) =
@@ -460,16 +526,28 @@ function tapered_backplane_rear_z_at_y(y) =
 
 module backplane_shell_solid() {
     union() {
-        // Vertical lower section: this is the portion that enters the rear
-        // top-down base groove and carries accessory adapters.
+        // Stepped vertical lower section. For the first 30 mm the plate is
+        // 5 mm narrower on BOTH sides so it slides between the structural guide
+        // towers. Above the guides it returns to the normal full width.
         translate([
-            service_x,
+            service_x+side_guide_w,
             equipment_backplane_y0,
             equipment_backplane_front_z
         ])
             cube([
+                service_w-2*side_guide_w,
+                side_guide_y1-equipment_backplane_y0,
+                equipment_backplane_t
+            ]);
+
+        translate([
+            service_x,
+            side_guide_y1,
+            equipment_backplane_front_z
+        ])
+            cube([
                 service_w,
-                backplane_ramp_start_y-equipment_backplane_y0,
+                backplane_ramp_start_y-side_guide_y1,
                 equipment_backplane_t
             ]);
 
@@ -557,34 +635,12 @@ module universal_equipment_backplane() {
             backplane_shell_solid();
             backplane_top_link();
 
-            backplane_connector_pads();
-            backplane_connector_pins();
-
-            // Repeated universal adapter bosses on the vertical lower section.
-            for (xx=adapter_x)
-                for (yy=adapter_y)
-                    translate([
-                        xx,
-                        yy,
-                        equipment_backplane_rear_z
-                    ])
-                        cylinder(d=adapter_boss_d,h=adapter_boss_h);
+            internal_adapter_bosses();
         }
 
-        backplane_connector_sockets();
-
-        // Through-holes in every adapter boss/plate location.
-        for (xx=adapter_x)
-            for (yy=adapter_y)
-                translate([
-                    xx,
-                    yy,
-                    equipment_backplane_front_z-0.5
-                ])
-                    cylinder(
-                        d=adapter_hole_d,
-                        h=equipment_backplane_t+adapter_boss_h+1
-                    );
+        // Blind M3 holes open only toward the equipment cavity. The outside
+        // rear face remains a solid uninterrupted skin.
+        internal_adapter_hole_cutters();
 
         ramp_ventilation_cutters();
 
@@ -670,9 +726,8 @@ module side_hinge_bore(side="right") {
 }
 
 module right_side_pins() {
-    // Start 0.4 mm inside the side wall so the printed pins grow directly from
-    // the wall in the flat print orientation, then bridge the perimeter gap
-    // into the universal module sockets.
+    // One inward-facing pin mates with the hidden B socket in the right guide
+    // tower. It is entirely behind the solid outside wall.
     x_start = module_w + side_panel_clearance + side_connector_overlap;
 
     pin_neg_x(
@@ -681,23 +736,22 @@ module right_side_pins() {
         base_connector_z_b,
         side_connector_pin_len
     );
-    pin_neg_x(
-        x_start,
-        backplane_connector_y_b,
-        backplane_connector_z,
-        side_connector_pin_len
-    );
 }
 
 module right_side_sockets() {
-    x_inner = service_x + service_w;
-
-    // Base A pin and backplane A pin.
-    socket_pos_x(x_inner,base_connector_y_a,base_connector_z_a);
-    socket_pos_x(x_inner,backplane_connector_y_a,backplane_connector_z);
+    // Blind inward-facing socket. Limit the depth so at least ~0.8 mm of the
+    // exterior side wall remains solid.
+    x_inner = module_w + side_panel_clearance;
+    socket_pos_x(
+        x_inner,
+        base_connector_y_a,
+        base_connector_z_a,
+        side_socket_depth
+    );
 }
 
 module left_side_pins() {
+    // One inward-facing pin mates with the hidden A socket in the left guide.
     x_start = -side_panel_clearance - side_connector_overlap;
 
     pin_pos_x(
@@ -706,20 +760,17 @@ module left_side_pins() {
         base_connector_z_a,
         side_connector_pin_len
     );
-    pin_pos_x(
-        x_start,
-        backplane_connector_y_a,
-        backplane_connector_z,
-        side_connector_pin_len
-    );
 }
 
 module left_side_sockets() {
-    x_inner = service_x;
-
-    // Base B pin and backplane B pin.
-    socket_neg_x(x_inner,base_connector_y_b,base_connector_z_b);
-    socket_neg_x(x_inner,backplane_connector_y_b,backplane_connector_z);
+    // Blind inward-facing socket; the outer face remains unbroken.
+    x_inner = -side_panel_clearance;
+    socket_neg_x(
+        x_inner,
+        base_connector_y_b,
+        base_connector_z_b,
+        side_socket_depth
+    );
 }
 
 module equipment_side(side="right") {
