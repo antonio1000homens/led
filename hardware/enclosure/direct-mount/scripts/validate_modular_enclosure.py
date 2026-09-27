@@ -96,6 +96,11 @@ def load_mesh(name: str, path: Path) -> trimesh.Trimesh:
         loaded = trimesh.util.concatenate(tuple(loaded.geometry.values()))
     if not isinstance(loaded, trimesh.Trimesh) or loaded.is_empty:
         raise SystemExit(f"{name}: could not load a non-empty mesh")
+    # OpenSCAD 2026 can emit an opposite-wound pair of zero-area triangles at
+    # an exactly coplanar connector-pad edge. They have no printable volume;
+    # remove only degenerate faces before watertightness/component checks.
+    loaded.update_faces(loaded.nondegenerate_faces())
+    loaded.remove_unreferenced_vertices()
     return loaded
 
 def assert_mesh_health(name: str, path: Path) -> None:
@@ -121,9 +126,9 @@ def assert_no_floating_layer_islands(
     name: str,
     path: Path,
     *,
-    pitch_mm: float = 1.0,
-    support_radius_voxels: int = 3,
-    min_component_voxels: int = 8,
+    pitch_mm: float = 2.0,
+    support_radius_voxels: int = 1,
+    min_component_voxels: int = 2,
 ) -> None:
     mesh = load_mesh(name, path)
     voxels = mesh.voxelized(pitch_mm).fill()
@@ -148,14 +153,16 @@ def assert_no_floating_layer_islands(
         previous = matrix[:, :, z_index - 1]
         supported_xy = ndimage.binary_dilation(previous, structure=support_structure)
         labels, count = ndimage.label(current, structure=component_structure)
-        for component_id in range(1, count + 1):
-            component = labels == component_id
-            size = int(component.sum())
-            if size < min_component_voxels or np.any(component & supported_xy):
-                continue
-            unsupported.append((z_index, size))
-            if len(unsupported) >= 5:
-                break
+        component_sizes = np.bincount(labels.ravel(), minlength=count + 1)
+        supported_ids = np.unique(labels[supported_xy & current])
+        supported_components = np.zeros(count + 1, dtype=bool)
+        supported_components[supported_ids] = True
+        unsupported_ids = np.flatnonzero(
+            (component_sizes >= min_component_voxels) & ~supported_components
+        )
+        unsupported_ids = unsupported_ids[unsupported_ids != 0]
+        for component_id in unsupported_ids[: 5 - len(unsupported)]:
+            unsupported.append((z_index, int(component_sizes[component_id])))
         if len(unsupported) >= 5:
             break
 
@@ -166,11 +173,14 @@ def assert_no_floating_layer_islands(
         raise SystemExit(f"{name}: unsupported elevated slice component(s): {detail}")
     print(f"OK: {name} floating-layer proxy")
 
-def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
+def assert_empty_intersection(
+    work_dir: Path, name: str, body: str, *, declarations: str = ""
+) -> None:
     check_scad = work_dir / f"{name}.scad"
     output = work_dir / f"{name}.stl"
     check_scad.write_text(
-        f"include <{SOURCE.as_posix()}>;\n\nintersection() {{\n{body}\n}}\n",
+        f"include <{SOURCE.as_posix()}>;\n{declarations}\n"
+        f"intersection() {{\n{body}\n}}\n",
         encoding="utf-8",
     )
     completed = subprocess.run(
@@ -203,7 +213,13 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
     print(f"OK: {name} has no volumetric interference")
 
 def assert_hinge_sweep(work_dir: Path) -> None:
-    """Guard the proven PR #119 motion: enclosure fixed, panel opens forward/down."""
+    """Guard the proven PR #119 motion, shelf and 6 mm rod clearance."""
+    assert_empty_intersection(
+        work_dir,
+        "hinge_rod_stationary_clearance",
+        """    stationary_equipment_enclosure();
+    hinge_rail_preview();""",
+    )
     for angle in (0, 15, 30, 45, 60, 75, 90):
         body = f"""    stationary_equipment_enclosure();
 
@@ -212,11 +228,95 @@ def assert_hinge_sweep(work_dir: Path) -> None:
             translate([0,-hinge_axis_y,-hinge_axis_z])
                 moving_panel_template_installed();"""
         assert_empty_intersection(work_dir, f"hinge_sweep_{angle}", body)
+        panel_rod = f"""    translate([0,hinge_axis_y,hinge_axis_z])
+        rotate([-{angle},0,0])
+            translate([0,-hinge_axis_y,-hinge_axis_z])
+                moving_panel_template_installed();
+    hinge_rail_preview();"""
+        assert_empty_intersection(
+            work_dir, f"hinge_rod_panel_clearance_{angle}", panel_rod
+        )
+
+def assert_design_contract(work_dir: Path) -> None:
+    """Check shelf reinforcement and the reduced, clearance-safe rail profile."""
+    check_scad = work_dir / "design_contract.scad"
+    output = work_dir / "design_contract.csg"
+    check_scad.write_text(
+        f"""include <{SOURCE.as_posix()}>;
+assert(hinge_guard_t >= 2, \"hinge shelf is too thin\");
+assert(hinge_guard_start_y <= rail_base_y && hinge_guard_top_y >= hinge_axis_y,
+       \"hinge shelf no longer spans behind the hinge\");
+assert(hinge_guard_front_z >= hinge_axis_z + hinge_radius + hinge_guard_clearance,
+       \"hinge shelf violates barrel clearance\");
+assert(hinge_support_root_t >= 3, \"hinge root reinforcement is too thin\");
+assert(hinge_support_landing_y >= hinge_guard_start_y &&
+       hinge_support_landing_y+3 <= hinge_guard_top_y,
+       \"hinge root web no longer lands within the horizontal shelf\");
+assert(hinge_support_landing_z < hinge_guard_front_z+hinge_guard_t &&
+       hinge_support_landing_z+hinge_support_landing_h > hinge_guard_front_z+hinge_guard_t,
+       \"hinge root web must overlap the shelf by design\");
+assert(hinge_support_landing_z+hinge_support_landing_h < rail_front_z0,
+       \"hinge root web extends into the backplane rail interior\");
+assert(rail_clearance >= 0.35 && rail_clearance <= 0.5,
+       \"rail clearance is outside the FDM fit range\");
+assert(abs((tongue_head_z1-tongue_head_z0)-7.2) < 0.01,
+       \"captive rail head must remain 7.2 mm high\");
+assert((tongue_head_z1-tongue_head_z0) <= 0.75*10.2,
+       \"rail has not materially reduced the #134 engagement profile\");
+assert(tongue_stem_z1 > tongue_stem_z0 && tongue_stem_y1 > equipment_backplane_y0,
+       \"backplane tongue is disconnected or has no rail engagement\");
+assert(tongue_stem_y1-equipment_backplane_y0 >= 0.4,
+       \"backplane tongue overlap is below the structural minimum\");
+assert(rail_head_top_y < rail_lip_y && rail_lip_y < rail_neck_top_y,
+       \"rail retaining lip profile is invalid\");
+cube([1,1,1]);
+""",
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        ["openscad", "-o", str(output), str(check_scad)],
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode != 0 or not output.is_file():
+        raise SystemExit(
+            f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
+        )
+    print("OK: reinforced hinge shelf and reduced 7.2 mm rail engagement contract")
+
+def assert_neighboring_module_clearance(work_dir: Path) -> None:
+    """Check a joined two-module row at closed and fully-open positions.
+
+    Side retainers are used at the outside edges of a joined row. The
+    detachable retainers on the two internal edges are omitted; their base and
+    backplane pin/socket features mate directly across the module seam.
+    """
+    for angle in (0, 90):
+        declaration = f"""module row_member() {{
+    stationary_equipment_module_core();
+    hinge_rail_preview();
+    translate([0,hinge_axis_y,hinge_axis_z])
+        rotate([-{angle},0,0])
+            translate([0,-hinge_axis_y,-hinge_axis_z])
+                moving_panel_template_installed();
+}}
+"""
+        assert_empty_intersection(
+            work_dir,
+            f"neighboring_module_clearance_{angle}",
+            "row_member();\ntranslate([module_w,0,0]) row_member();",
+            declarations=declaration,
+        )
 
 def assert_no_legacy_layout() -> None:
     for path in (DIRECT / "hinge-prototype-v2", DIRECT / "hinge-version"):
-        if path.exists():
-            raise SystemExit(f"legacy enclosure directory still exists: {path}")
+        # Ignore Finder metadata-only folders; they are not live SCAD designs
+        # and can otherwise make local validation fail after browsing the tree.
+        legacy_sources = list(path.rglob("*.scad")) if path.is_dir() else []
+        if legacy_sources:
+            raise SystemExit(
+                f"legacy enclosure SCAD source still exists: {legacy_sources[0]}"
+            )
 
 def main() -> None:
     assert_no_legacy_layout()
@@ -232,13 +332,22 @@ def main() -> None:
             assert_no_floating_layer_islands(name, generated)
             assert_tracked_stl_current(stl_name, generated)
 
+        assert_design_contract(work_dir)
         assert_empty_intersection(
             work_dir,
             "backplane_rail_fit",
             """    hinged_equipment_base();
     universal_equipment_backplane();""",
         )
+        for side in ("left", "right"):
+            assert_empty_intersection(
+                work_dir,
+                f"{side}_side_retainer_fit",
+                f"""    stationary_equipment_module_core();
+    equipment_side(\"{side}\");""",
+            )
         assert_hinge_sweep(work_dir)
+        assert_neighboring_module_clearance(work_dir)
 
         for preview in PREVIEWS:
             render(SCHEMATICS / preview, work_dir / f"{Path(preview).stem}.csg")
