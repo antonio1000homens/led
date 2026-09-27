@@ -144,7 +144,7 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
         if min(dims) > 0.01:
             raise SystemExit(
                 f"{name}: geometry intersection has 3D extent "
-                f"{dims.tolist()} mm"
+                f"{dims.tolist()} mm; bounds={contact.bounds.tolist()}"
             )
         print(
             f"OK: {name} has contact-only intersection; bounds "
