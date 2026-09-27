@@ -186,12 +186,12 @@ side_guide_wall_t = backplane_guide_t;
 side_guide_y0 = service_base_y;
 side_guide_y1 = side_guide_y0 + side_guide_h;
 
-// Keep the hidden seam junctions on the cavity-facing side. A short front
-// support pad exists only in the floor band so it cannot close the vertical
-// backplane channel.
+// Keep the hidden seam junctions on the cavity-facing side. A taller front
+// support pad keeps both pin/socket centres well away from its lower/upper
+// edges without closing the vertical backplane channel.
 junction_pad_depth = 7;
 junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
-junction_pad_h = 12;
+junction_pad_h = 16;
 
 // The bottom seat and the vertical side channels share the same slot envelope
 // around the 3 mm backplane. The rails add one wall thickness in front/behind
@@ -253,11 +253,11 @@ connector_socket_depth = 3;
 
 // Self-mating junctions are carried by the 50 mm U-channel side rails. They sit
 // on the cavity-facing side and remain hidden from the external rear face.
-// Keep both A/B features in the front support pad, ahead of the backplane slot.
-// A remains in the floor band; B is offset upward so the two round features do
-// not overlap while preserving the same self-mating pattern across module seams.
-base_connector_y_a = 2.5;
-base_connector_y_b = 8.0;
+// Both A/B features are inset from the support-pad edges by at least 2 mm even
+// at the larger 4.7 mm socket diameter, avoiding the fragile edge condition.
+connector_edge_margin = 2.0;
+base_connector_y_a = 5.0;
+base_connector_y_b = 11.0;
 base_connector_z_a = junction_pad_front_z + 2.6;
 base_connector_z_b = base_connector_z_a;
 side_socket_depth = 2.2;
@@ -312,29 +312,59 @@ hinge_support_landing_overlap = 0.6;
 hinge_support_landing_z = hinge_guard_front_z+hinge_guard_t-hinge_support_landing_overlap;
 hinge_support_landing_h = 2.0;
 
+// Continue the hinge load path down into the structural base floor. The anchor
+// is fully embedded in the remaining floor behind the 90-degree sweep relief.
+hinge_support_base_y = service_base_y;
+hinge_support_base_h = base_panel_clearance_y-service_base_y;
+hinge_support_base_z = hinge_guard_front_z;
+hinge_support_base_t = hinge_guard_t;
+
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
         rail_hinge_barrel(segment[0],segment[1]);
 }
 
 module stationary_hinge_support_web(x0,len) {
-    // Reinforce the stationary barrel locally and terminate its rearward web
-    // into the horizontal hinge shelf. The web no longer extends through the
-    // enclosure to the rear rail wall, leaving that interior volume clear.
-    hull() {
-        translate([
-            x0,
-            hinge_support_root_y,
-            hinge_support_root_z
-        ])
-            cube([len,3,hinge_support_root_t]);
+    // Reinforce the stationary barrel locally, land it on the horizontal hinge
+    // shelf, then continue the load path down into the structural base floor.
+    // This stays local to each stationary knuckle so the equipment cavity is
+    // not closed by a full-width wall.
+    union() {
+        hull() {
+            translate([
+                x0,
+                hinge_support_root_y,
+                hinge_support_root_z
+            ])
+                cube([len,3,hinge_support_root_t]);
 
-        translate([
-            x0,
-            hinge_support_landing_y,
-            hinge_support_landing_z
-        ])
-            cube([len,3,hinge_support_landing_h]);
+            translate([
+                x0,
+                hinge_support_landing_y,
+                hinge_support_landing_z
+            ])
+                cube([len,3,hinge_support_landing_h]);
+        }
+
+        hull() {
+            translate([
+                x0,
+                hinge_support_landing_y,
+                hinge_support_landing_z
+            ])
+                cube([len,3,hinge_support_landing_h]);
+
+            translate([
+                x0,
+                hinge_support_base_y,
+                hinge_support_base_z
+            ])
+                cube([
+                    len,
+                    hinge_support_base_h,
+                    hinge_support_base_t
+                ]);
+        }
     }
 }
 

@@ -275,6 +275,13 @@ assert(hinge_support_landing_y >= hinge_guard_start_y &&
 assert(hinge_support_landing_z < hinge_guard_front_z+hinge_guard_t &&
        hinge_support_landing_z+hinge_support_landing_h > hinge_guard_front_z+hinge_guard_t,
        "hinge root web must overlap the shelf by design");
+assert(abs(hinge_support_base_y-service_base_y) < 0.01 &&
+       hinge_support_base_h > 0 &&
+       hinge_support_base_y+hinge_support_base_h <= base_panel_clearance_y+0.01,
+       "hinge support must land inside the retained structural base floor");
+assert(hinge_support_base_z >= base_floor_front_z &&
+       hinge_support_base_z+hinge_support_base_t <= base_floor_rear_z,
+       "hinge support base anchor must remain embedded in the base floor");
 
 assert(abs(enclosure_bottom_depth-40) < 0.01,
        "lower equipment depth must remain 40 mm");
@@ -310,12 +317,15 @@ assert(abs(lower_backplane_edge_inset-
        "lower backplane edge no longer tracks the U-channel outer spine");
 assert(lower_backplane_edge_inset < side_guide_w,
        "lower backplane no longer projects into the side channels");
-assert(base_connector_y_a <= base_seat_y,
-       "A junction must remain bed-connected in the floor band");
-assert(base_connector_y_b > base_seat_y &&
-       base_connector_y_b + connector_socket_d/2 <
-           side_guide_y0 + junction_pad_h,
-       "B junction must remain fully supported by the internal front pad");
+assert(base_connector_y_a - connector_socket_d/2 >=
+           side_guide_y0 + connector_edge_margin,
+       "A junction is too close to the lower support-pad edge");
+assert(base_connector_y_b + connector_socket_d/2 <=
+           side_guide_y0 + junction_pad_h - connector_edge_margin,
+       "B junction is too close to the upper support-pad edge");
+assert(base_connector_y_b-base_connector_y_a >=
+           connector_socket_d + connector_edge_margin/2,
+       "A/B junctions do not have enough material between them");
 assert(abs(base_connector_z_a-base_connector_z_b) < 0.01 &&
        base_connector_z_a > junction_pad_front_z &&
        base_connector_z_a < side_guide_slot_front_z,
