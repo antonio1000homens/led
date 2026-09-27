@@ -173,9 +173,11 @@ base_beam_t = 6;
 // captive in Z but the rail has no horizontal ceiling.
 rail_base_y = 4.5;
 rail_head_top_y = 22.5;
-rail_lip_y = 31;
-rail_neck_top_y = 33;
-rail_front_z0 = 32;
+rail_lip_y = 29.5;
+rail_neck_top_y = 31.9;
+// Raise the front rail wall to shorten the captive head from the #134 10.2 mm
+// profile to 7.2 mm, retaining 0.4 mm running clearance and full-width capture.
+rail_front_z0 = 35;
 rail_wall_t = 3;
 rail_lip_z0 = 40;
 rail_rear_z0 = 46;
@@ -186,7 +188,6 @@ tongue_head_y0 = 18.9;
 tongue_head_y1 = 22.1;
 tongue_head_z0 = rail_front_z0 + rail_wall_t + rail_clearance;
 tongue_head_z1 = rail_rear_z0 - rail_clearance;
-tongue_stem_y0 = rail_lip_y - 0.4;
 tongue_stem_y1 = rail_neck_top_y - rail_clearance;
 tongue_stem_z0 = rail_lip_z0 + rail_wall_t + rail_clearance;
 tongue_stem_z1 = rail_rear_z0 - rail_clearance;
@@ -269,6 +270,13 @@ hinge_guard_start_y = rail_base_y - 0.5; // overlaps the stationary floor by 0.5
 hinge_guard_top_y = hinge_axis_y;
 hinge_guard_bridge_overlap = 0.5;
 hinge_guard_bridge_h = 2.0;
+hinge_support_root_t = 3.0;
+hinge_support_root_y = hinge_axis_y-hinge_radius-1.0;
+hinge_support_root_z = hinge_axis_z-1.0;
+hinge_support_landing_y = hinge_axis_y-hinge_radius-2.0;
+hinge_support_landing_overlap = 0.6;
+hinge_support_landing_z = hinge_guard_front_z+hinge_guard_t-hinge_support_landing_overlap;
+hinge_support_landing_h = 2.0;
 
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
@@ -276,23 +284,23 @@ module stationary_hinge_barrels() {
 }
 
 module stationary_hinge_support_web(x0,len) {
-    // Proven PR #119 support strategy: begin at the BOTTOM tangent of the
-    // stationary barrel, then slope strongly rearward into the bed-connected
-    // base. This leaves the moving panel's forward/down sweep corridor open.
+    // Reinforce the stationary barrel locally and terminate its rearward web
+    // into the horizontal hinge shelf. The web no longer extends through the
+    // enclosure to the rear rail wall, leaving that interior volume clear.
     hull() {
         translate([
             x0,
-            hinge_axis_y-hinge_radius-1.0,
-            hinge_axis_z-1.0
+            hinge_support_root_y,
+            hinge_support_root_z
         ])
-            cube([len,3,2]);
+            cube([len,3,hinge_support_root_t]);
 
         translate([
             x0,
-            service_base_y,
-            rail_rear_z0
+            hinge_support_landing_y,
+            hinge_support_landing_z
         ])
-            cube([len,2,2]);
+            cube([len,3,hinge_support_landing_h]);
     }
 }
 
@@ -437,40 +445,17 @@ module backplane_tslot_tongue() {
             tongue_head_z1-tongue_head_z0
         ]);
 
-    // Matching sloped shoulder into the narrow stem.
-    hull() {
-        translate([
-            service_x,
-            tongue_head_y1-0.1,
-            tongue_head_z0
-        ])
-            cube([
-                service_w,
-                0.2,
-                tongue_head_z1-tongue_head_z0
-            ]);
-
-        translate([
-            service_x,
-            tongue_stem_y0,
-            tongue_stem_z0
-        ])
-            cube([
-                service_w,
-                0.2,
-                tongue_stem_z1-tongue_stem_z0
-            ]);
-    }
-
-    // Narrow stem overlaps the lower edge of the backplane plate.
+    // Straight, thin transition into the backplane replaces the old sloped
+    // shoulder/upper return. The full-length 2.2 mm web stays out of the rail
+    // lip and overlaps the plate by the designed 0.5 mm.
     translate([
         service_x,
-        tongue_stem_y0,
+        tongue_head_y1-0.1,
         tongue_stem_z0
     ])
         cube([
             service_w,
-            tongue_stem_y1-tongue_stem_y0,
+            tongue_stem_y1-(tongue_head_y1-0.1),
             tongue_stem_z1-tongue_stem_z0
         ]);
 }
@@ -687,9 +672,13 @@ module equipment_side_print(side="right") {
 
 // ---------- Assembly / previews ----------
 
-module stationary_equipment_enclosure() {
+module stationary_equipment_module_core() {
     hinged_equipment_base();
     universal_equipment_backplane();
+}
+
+module stationary_equipment_enclosure() {
+    stationary_equipment_module_core();
     equipment_side("left");
     equipment_side("right");
 }
@@ -744,4 +733,3 @@ if (!is_undef(hinge_part)) {
     else
         assert(false,str("Unknown hinge_part: ",hinge_part));
 }
-

@@ -22,7 +22,7 @@ moving panel mounting template + local hinge roots
    |
 stationary equipment-side hinge knuckles
    |
-rearward support webs + lower hinge guard
+reinforced hinge shelf + rearward support webs
    |
 stationary universal equipment base
    |
@@ -80,7 +80,8 @@ than only its clearance numbers:
 - moving panel/template knuckles: **34–60, 92–118, 166–194 mm**
 - stationary equipment knuckles: **62–90, 136–164, 196–220 mm**
 - moving template uses **local hinge roots only**, with no full-width lower lip
-- stationary hinge roots are supported by **rearward-sloping, bottom-tangent webs**
+- stationary hinge roots use **rearward-sloping webs that terminate at the hinge shelf**
+- each stationary root has a **3 mm local pad** joining its barrel to the web
 - a **2 mm full-width stationary lower hinge guard** sits behind the barrel with
   **0.8 mm radial clearance**
 - service/mechanical opening range: **0–90°**
@@ -92,12 +93,18 @@ and electronics stay stationary.
 
 The stationary backplane inserts laterally into a support-friendly captive rail.
 The rail uses bed-connected walls and a progressively formed retaining lip
-instead of a roofed T-slot.
-
-Nominal mating clearance is **0.4 mm per exposed rail face**.
+instead of a roofed T-slot. Nominal mating clearance is **0.4 mm per exposed
+rail face**. The captive head is **7.2 mm high**, down from the 10.2 mm profile
+introduced with #134, while retaining full-width guidance and side-piece end
+stops. A straight 2.2 mm web connects the head to the backplane, removing the
+unnecessary sloped upper return; the tongue overlaps the backplane by 0.5 mm.
 
 Once installed, detachable side pieces close the lateral path and act as
-positive backplane retainers. Glue is not part of normal assembly.
+positive backplane retainers. A standalone module uses both pieces. In a joined
+row, install retainers only at the two outside edges; neighboring base and
+backplane pin/socket features mate across internal seams at the 256 mm panel
+pitch. This avoids overlapping duplicate side walls. Glue is not part of normal
+assembly.
 
 ## Universal accessory interface
 
@@ -142,10 +149,11 @@ python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
 ```
 
 CI regenerates all five canonical parts, verifies they match the checked-in
-STLs, checks mesh health and floating-layer
-proxies, verifies base/backplane fit, then holds the **equipment enclosure
-stationary** and checks the **moving panel/template** for volumetric interference
-at 0, 15, 30, 45, 60, 75 and 90°.
+STLs, checks mesh health and floating-layer proxies, verifies base/backplane
+fit, then holds the **equipment enclosure stationary** and checks the **moving
+panel/template** and 6 mm rod for volumetric interference at 0, 15, 30, 45, 60,
+75 and 90°. It also checks the hinge-shelf/rail contracts and neighboring-module
+clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
 `.windsor-slicer.yaml` and the real Bambu Studio H2D profile. GitHub Actions does **not** run Bambu Studio or generate `.3mf` files.
