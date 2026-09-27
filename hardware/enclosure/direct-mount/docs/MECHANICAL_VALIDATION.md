@@ -22,6 +22,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - no volumetric interference between the stationary base and removable backplane;
 - positive backplane seating in the recessed rear base groove;
 - top-down insertion clearance and 0.4 mm nominal groove clearance;
+- dual **30 mm × 5 mm** structural side guides with 0.4 mm running clearance;
+- the lower 30 mm stepped/narrowed backplane section and full-width shoulder above it;
+- hidden guide-tower junctions kept within the bed-connected lower band;
+- blind inside accessory bosses with a solid external rear skin;
 - the 2 mm seat depth and rear-edge groove location;
 - the 40 mm lower cavity, 60 mm taper start and 10 mm top depth;
 - upper-only ventilation and the supported top closure;
@@ -64,12 +68,12 @@ sets:
 2. print one stationary equipment base and verify the real 6 mm rail;
 3. rotate the panel/template through the full **0–90°** arc while the equipment base remains fixed;
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
-5. print one universal backplane and confirm top-down insertion into the rear groove, 2 mm seating depth, and upward removal;
-6. confirm the vertical lower wall, ventilated taper and top closure print without distortion;
-7. verify both outer side pieces engage the stationary base, clear the hinge rod, and follow the taper;
-8. mate two equipment cores side-by-side at the 256 mm pitch, add side pieces
-   at the outside edges, and check pin/socket alignment;
-9. test representative M3 hardware on the lower universal boss grid;
-10. verify connected HUB75/power cabling remains free through the opening arc.
+5. print one universal backplane and confirm the narrowed lower 30 mm slides between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
+6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
+7. confirm the vertical lower wall, ventilated taper and top closure print without distortion;
+8. verify the hidden guide-tower junctions and both outer side pieces engage while all exterior faces remain solid;
+9. mate two equipment cores side-by-side at the 256 mm pitch and check the hidden pin/socket alignment;
+10. test representative M3 hardware on the inward-facing lower boss grid and verify the external rear skin is unbroken;
+11. verify connected HUB75/power cabling remains free through the opening arc.
 
 Record tolerance changes in `direct_mount_enclosure.scad`; never patch an STL directly.
