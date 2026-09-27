@@ -58,4 +58,14 @@ jobs:
             trimesh manifold3d numpy networkx scipy
 
       - name: Validate current enclosure design
+        env:
+          ENCLOSURE_STL_OUTPUT_DIR: build/enclosure-stls
         run: python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
+
+      - name: Upload generated STL validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: enclosure-stls
+          path: build/enclosure-stls/*.stl
+          if-no-files-found: error
+          retention-days: 14
