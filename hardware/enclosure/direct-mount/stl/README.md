@@ -24,6 +24,12 @@ Canonical pairs:
 
 During creation/iteration:
 
+```bash
+python hardware/enclosure/direct-mount/scripts/generate_stls.py
+```
+
+Then:
+
 1. edit the SCAD;
 2. regenerate the matching STL;
 3. inspect/validate geometry;
