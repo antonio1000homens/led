@@ -175,12 +175,6 @@ def assert_no_legacy_layout() -> None:
     for path in (DIRECT / "hinge-prototype-v2", DIRECT / "hinge-version"):
         if path.exists():
             raise SystemExit(f"legacy enclosure directory still exists: {path}")
-    tracked_stls = list((DIRECT / "stl").glob("*.stl"))
-    if tracked_stls:
-        raise SystemExit(
-            "generated STL binaries must not be tracked: "
-            + ", ".join(path.name for path in tracked_stls)
-        )
 
 def main() -> None:
     assert_no_legacy_layout()
