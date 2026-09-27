@@ -128,6 +128,54 @@ Keep Wi-Fi credentials out of `settings.py` and out of Git. The application
 uses `wifi.radio.connect(...)` through `ScreenClient` and reads production
 screen data from `/api/screens`.
 
+### Enable local Wi-Fi application uploads
+
+The MatrixPortal S3 supports CircuitPython Web Workflow over its local Wi-Fi
+network. This updates application files only; CircuitPython UF2 firmware still
+requires USB and `MATRXS3BOOT`.
+
+During initial USB setup, copy `settings.toml.example` to the root of the
+`CIRCUITPY` drive as `settings.toml` and replace the placeholders:
+
+```toml
+CIRCUITPY_WIFI_SSID="your-wifi-name"
+CIRCUITPY_WIFI_PASSWORD="your-wifi-password"
+CIRCUITPY_WEB_API_PASSWORD="unique-local-password"
+CIRCUITPY_WEB_API_PORT=80
+CIRCUITPY_WEB_INSTANCE_NAME="matrixportal-s3"
+```
+
+Hard-reset the board after saving the file. From a computer on the same trusted
+LAN, open `http://matrixportal-s3.local/` (or the IP shown by the serial
+console) and authenticate with a blank username plus the Web Workflow password.
+
+For an application upload, open the Web Workflow serial console, press
+**Ctrl-C** until the `>>>` prompt appears, and eject any mounted `CIRCUITPY`
+drive on the computer. Then run:
+
+```sh
+python3 scripts/upload-firmware-wifi.py --host http://matrixportal-s3.local
+```
+
+The helper stages the same application payload as the USB installer, uploads
+`code.py` last, and verifies every file by SHA-256 readback. It never modifies
+`settings.toml`, `settings_local.py`, or `lib/`.
+
+If a write returns HTTP 409, the USB drive is still active; eject it and retry
+while leaving the board at the `>>>` prompt. Authentication failures return
+only a safe retry message. If an upload is interrupted, leave the board paused
+and run the helper again; uploads are repeatable and overwrite the staged
+application files before verifying them again.
+
+Press **Ctrl-D** in the serial console after a successful upload. CircuitPython
+reloads `code.py` and returns to normal display mode. A hardware reset also
+starts normal mode. The existing USB procedure remains the recovery path:
+restore application files to `CIRCUITPY`, and use `MATRXS3BOOT` for UF2
+firmware updates.
+
+Web Workflow uses password-protected HTTP on the local network. Do not expose
+the board outside the trusted LAN or reuse its Web Workflow password elsewhere.
+
 From the repository root, create an uncommitted local settings file if needed:
 
 ```sh
