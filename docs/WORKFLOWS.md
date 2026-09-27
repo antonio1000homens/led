@@ -7,7 +7,7 @@ that owns that area.
 | Area | Primary paths | Pull request behaviour | Push to `master` |
 | --- | --- | --- | --- |
 | Enclosure / mechanical | `hardware/enclosure/**` | Run the consolidated fast enclosure validator on every relevant PR. Use Windsor Slicer for explicit full H2D validation or slicing of manifest-declared models. | Repeat fast validation; no automatic full slicing or deployment |
-| CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; firmware is not remotely deployed |
+| CircuitPython / MatrixPortal | `code.py`, `hardware/matrixportal/**`, and `shared/**` | Compile board-compatible Python and run firmware/renderer tests | Repeat validation; no automatic firmware deployment. Provisioned boards may be updated manually over trusted-LAN Web Workflow; CircuitPython UF2 remains USB-only |
 | Backend / AWS | `backend/**`, `shared/**`, `infrastructure/led-stack.yaml`, production backend helpers | Run the backend test suite | Test, package Lambda and deploy the CloudFormation backend |
 | Cloudflare / DNS | `scripts/cloudflare_dns.py`, `scripts/configure-cloudflare-dns.sh`, `scripts/request-acm-certificate.sh` | Validate helper syntax and Cloudflare infrastructure invariants | Reconcile ACM validation DNS and the LED CloudFront hostname without repackaging Lambda |
 | Static web | `simulator/**`, `scripts/deploy-static.sh` | Run simulator/admin regression tests | Upload simulator/admin assets and invalidate CloudFront |
