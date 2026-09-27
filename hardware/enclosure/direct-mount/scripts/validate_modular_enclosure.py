@@ -159,13 +159,14 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
     print(f"OK: {name} has no volumetric interference")
 
 def assert_hinge_sweep(work_dir: Path) -> None:
-    for angle in (0, 15, 30, 45, 60, 72, 75, 90):
-        body = f"""    hinge_mount_pattern_template();
+    """Guard the proven PR #119 motion: enclosure fixed, panel opens forward/down."""
+    for angle in (0, 15, 30, 45, 60, 75, 90):
+        body = f"""    stationary_equipment_enclosure();
 
     translate([0,hinge_axis_y,hinge_axis_z])
-        rotate([{angle},0,0])
+        rotate([-{angle},0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
-                hinged_equipment_base();"""
+                moving_panel_template_installed();"""
         assert_empty_intersection(work_dir, f"hinge_sweep_{angle}", body)
 
 def assert_no_legacy_layout() -> None:
