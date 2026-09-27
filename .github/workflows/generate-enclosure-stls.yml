@@ -3,9 +3,8 @@ name: Enclosure / Validate
 # Validation-only by design. CI never commits generated STL files.
 #
 # All enclosure checks are orchestrated by validate_enclosure.py so the exact
-# same validation can be run locally and production meshes are rendered only
-# once per CI run. The modular hinge-version design is also generated and
-# mechanically checked on every relevant enclosure change.
+# same validation can be run locally. The modular hinged design is the only
+# supported enclosure architecture; generated STLs are validation artifacts.
 
 on:
   pull_request:
