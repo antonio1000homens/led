@@ -136,7 +136,21 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
     )
     diagnostic = f"{completed.stdout}\n{completed.stderr}"
     if completed.returncode == 0 and output.is_file():
-        raise SystemExit(f"{name}: geometry intersection has non-zero volume")
+        # OpenSCAD can export a degenerate STL for exact coplanar contact.
+        # Treat only an intersection with measurable extent in all three axes
+        # as a real 3D collision. A zero-thickness face is contact, not volume.
+        contact = load_mesh(name, output)
+        dims = contact.extents
+        if min(dims) > 0.01:
+            raise SystemExit(
+                f"{name}: geometry intersection has 3D extent "
+                f"{dims.tolist()} mm"
+            )
+        print(
+            f"OK: {name} has contact-only intersection; bounds "
+            f"{dims[0]:.3f} x {dims[1]:.3f} x {dims[2]:.3f} mm"
+        )
+        return
     if (
         completed.returncode != 0
         and "Current top level object is empty" not in diagnostic
