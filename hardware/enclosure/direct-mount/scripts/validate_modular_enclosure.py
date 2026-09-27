@@ -310,15 +310,19 @@ assert(abs(lower_backplane_edge_inset-
        "lower backplane edge no longer tracks the U-channel outer spine");
 assert(lower_backplane_edge_inset < side_guide_w,
        "lower backplane no longer projects into the side channels");
-assert(base_connector_y_a <= base_seat_y &&
-       base_connector_y_b <= base_seat_y,
-       "horizontal junction pins must remain bed-connected in the floor band");
-assert(base_connector_z_a > junction_pad_front_z &&
+assert(base_connector_y_a <= base_seat_y,
+       "A junction must remain bed-connected in the floor band");
+assert(base_connector_y_b > base_seat_y &&
+       base_connector_y_b + connector_socket_d/2 <
+           side_guide_y0 + junction_pad_h,
+       "B junction must remain fully supported by the internal front pad");
+assert(abs(base_connector_z_a-base_connector_z_b) < 0.01 &&
+       base_connector_z_a > junction_pad_front_z &&
        base_connector_z_a < side_guide_slot_front_z,
-       "front hidden junction left its internal support pad");
-assert(base_connector_z_b > side_guide_front_z &&
-       base_connector_z_b < side_guide_rear_z,
-       "rear hidden junction left the structural side rail");
+       "hidden junction pair must remain ahead of the backplane slot");
+assert(base_connector_y_b-base_connector_y_a >
+           (connector_pin_d+connector_socket_d)/2,
+       "A/B hidden junctions overlap after the vertical offset");
 assert(adapter_outer_skin >= 1.0,
        "outside rear skin over blind accessory holes is too thin");
 assert(adapter_hole_depth <=

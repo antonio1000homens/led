@@ -191,7 +191,7 @@ side_guide_y1 = side_guide_y0 + side_guide_h;
 // backplane channel.
 junction_pad_depth = 7;
 junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
-junction_pad_h = 8;
+junction_pad_h = 12;
 
 // The bottom seat and the vertical side channels share the same slot envelope
 // around the 3 mm backplane. The rails add one wall thickness in front/behind
@@ -253,13 +253,13 @@ connector_socket_depth = 3;
 
 // Self-mating junctions are carried by the 50 mm U-channel side rails. They sit
 // on the cavity-facing side and remain hidden from the external rear face.
-// Keep the horizontal pin/socket pair in the first 4 mm floor band so it is
-// bed-connected in the base print. Two Z levels preserve the self-mating A/B
-// pattern while keeping both features on the interior side of the guide tower.
+// Keep both A/B features in the front support pad, ahead of the backplane slot.
+// A remains in the floor band; B is offset upward so the two round features do
+// not overlap while preserving the same self-mating pattern across module seams.
 base_connector_y_a = 2.5;
-base_connector_y_b = 2.5;
-base_connector_z_a = junction_pad_front_z + 2.2;
-base_connector_z_b = junction_pad_front_z + 8.0;
+base_connector_y_b = 8.0;
+base_connector_z_a = junction_pad_front_z + 2.6;
+base_connector_z_b = base_connector_z_a;
 side_socket_depth = 2.2;
 
 side_t = 3;
