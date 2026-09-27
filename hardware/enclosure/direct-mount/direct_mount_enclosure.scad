@@ -276,7 +276,7 @@ module fixed_root_sweep_clearance(max_angle=mechanical_clearance_angle, step=5) 
             }
 }
 
-module fixed_lower_band_sweep_clearance(max_angle=service_open_angle, step=4, clearance=0.4) {
+module fixed_lower_band_sweep_clearance(max_angle=mechanical_clearance_angle, step=4, clearance=0.4) {
     // The fixed template's lower full-width band remains stationary while the
     // equipment base rotates. Remove its swept envelope through the intended
     // service arc so the moving base cannot scrape the panel-side template.
