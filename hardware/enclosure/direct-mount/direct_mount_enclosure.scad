@@ -273,6 +273,25 @@ module fixed_root_sweep_clearance(max_angle=service_open_angle, step=4) {
             }
 }
 
+module fixed_lower_band_sweep_clearance(max_angle=service_open_angle, step=4, clearance=0.4) {
+    // The fixed template's lower full-width band remains stationary while the
+    // equipment base rotates. Remove its swept envelope through the intended
+    // service arc so the moving base cannot scrape the panel-side template.
+    for (angle=[0:step:max_angle-step])
+        hull() {
+            for (a=[angle,angle+step])
+                translate([0,hinge_axis_y,hinge_axis_z])
+                    rotate([-a,0,0])
+                        translate([0,-hinge_axis_y,-hinge_axis_z])
+                            translate([service_x-0.2,-clearance,-clearance])
+                                cube([
+                                    service_w+0.4,
+                                    fixed_band_h+2*clearance,
+                                    fixed_template_t+2*clearance
+                                ]);
+        }
+}
+
 module hinge_front_sweep_relief() {
     // Full opening clearance below the pivot, followed by a gradual closure.
     // The previous rectangular cutter ended abruptly at Y=hinge_axis_y and
