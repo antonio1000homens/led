@@ -23,32 +23,39 @@ panel_locator_clearance_d = 10.0;
 
 $fn = 48;
 
-// ---------- Shared hinge geometry ----------
+// ---------- Proven PR #119 hinge geometry ----------
+//
+// The equipment enclosure/base is STATIONARY. The LED panel + mounting
+// template is the MOVING leaf and opens forward/down. These roles, dimensions
+// and support strategy intentionally follow the validated PR #119 hinge.
 
 hinge_rail_d = 6;
 hinge_bore_d = 7.2;
-hinge_outer_d = 13;
-hinge_axis_y = 11.5;
-// Preserve the proven full-sweep geometry: keep the hinge barrel well behind
-// the 2 mm panel-side template instead of carving the moving base around it.
-// With a 13 mm barrel this gives 7 mm closed plate-to-barrel clearance.
-hinge_plate_clearance = 7;
-hinge_axis_z = 2 + hinge_outer_d/2 + hinge_plate_clearance; // 15.5 mm
+hinge_outer_d = 14;
 hinge_radius = hinge_outer_d/2;
-hinge_pocket_clearance = 0.6;
-hinge_axial_clearance = 0.8;
-// Normal service/preview opening angle. This is not the mechanical limit.
-service_open_angle = 72;
-// Preserve clearance through a full right angle so the enclosure can open to 90 degrees.
+hinge_axial_clearance = 1.0;
+
+ground_clearance = 20;
+hinge_axis_y = ground_clearance + hinge_radius; // 27 mm above stationary floor
+
+moving_plate_t = 2;
+fixed_template_t = moving_plate_t; // compatibility alias used by modular equipment geometry
+hinge_plate_clearance = 7;
+hinge_axis_z = moving_plate_t + hinge_radius + hinge_plate_clearance; // 16 mm
+
+// Full 0-90 degree service arc is part of the proven hinge contract.
+service_open_angle = 90;
 mechanical_clearance_angle = 90;
 
-fixed_knuckles = [
-    [36,24],
+// Moving LED/template knuckles from the validated PR #119 geometry.
+panel_knuckles = [
+    [34,26],
     [92,26],
     [166,28]
 ];
 
-moving_knuckles = [
+// Stationary equipment-side knuckles alternate with the moving panel knuckles.
+stationary_knuckles = [
     [62,28],
     [136,28],
     [196,24]
@@ -64,42 +71,74 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
             }
 }
 
-// ---------- Fixed half: corrected template + hinge ----------
+// ---------- Moving half: LED panel mounting template ----------
 
-fixed_template_t = 2;
-fixed_band_h = 20;
-fixed_side_w = 8;
-fixed_hinge_root_y = hinge_axis_y-hinge_radius;
-fixed_hinge_root_h = hinge_outer_d;
-fixed_hinge_root_t = hinge_axis_z - hinge_radius + 1; // 1 mm overlap into barrel
+panel_band_h = 20;
+panel_side_w = 8;
 
-module hinge_mount_pattern_template() {
+module panel_mount_pattern_template() {
     difference() {
         union() {
-            cube([module_w,fixed_band_h,fixed_template_t]);
-            translate([0,module_h-fixed_band_h,0])
-                cube([module_w,fixed_band_h,fixed_template_t]);
-            cube([fixed_side_w,module_h,fixed_template_t]);
-            translate([module_w-fixed_side_w,0,0])
-                cube([fixed_side_w,module_h,fixed_template_t]);
-
-            for (segment=fixed_knuckles) {
-                translate([segment[0],fixed_hinge_root_y,0])
-                    cube([segment[1],fixed_hinge_root_h,fixed_hinge_root_t]);
-                rail_hinge_barrel(segment[0],segment[1]);
-            }
+            cube([module_w,panel_band_h,moving_plate_t]);
+            translate([0,module_h-panel_band_h,0])
+                cube([module_w,panel_band_h,moving_plate_t]);
+            cube([panel_side_w,module_h,moving_plate_t]);
+            translate([module_w-panel_side_w,0,0])
+                cube([panel_side_w,module_h,moving_plate_t]);
         }
 
         for (x=panel_mount_x)
             for (y=panel_mount_y)
                 translate([x,y,-0.5])
-                    cylinder(d=panel_mount_hole_d,h=fixed_hinge_root_t+1);
+                    cylinder(d=panel_mount_hole_d,h=moving_plate_t+1);
 
         for (x=panel_locator_x)
             for (y=panel_locator_y)
                 translate([x,y,-0.5])
-                    cylinder(d=panel_locator_clearance_d,h=fixed_hinge_root_t+1);
+                    cylinder(d=panel_locator_clearance_d,h=moving_plate_t+1);
     }
+}
+
+module moving_panel_root(x0,len) {
+    // PR #119: local reinforcement only. The moving leaf deliberately has no
+    // full-width lower hinge lip that could collide with the stationary base.
+    hull() {
+        translate([x0,ground_clearance,0])
+            cube([len,7,moving_plate_t]);
+
+        translate([x0,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=hinge_outer_d,h=len);
+    }
+}
+
+module moving_panel_template_installed() {
+    difference() {
+        union() {
+            translate([0,ground_clearance,0])
+                panel_mount_pattern_template();
+
+            for (segment=panel_knuckles)
+                moving_panel_root(segment[0],segment[1]);
+        }
+
+        // One continuous rod bore guarantees all moving knuckles are coaxial.
+        translate([-0.2,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=hinge_bore_d,h=module_w+0.4);
+    }
+}
+
+module moving_panel_template_print() {
+    // Keep the verified panel/template face flat on the print bed.
+    translate([0,-ground_clearance,0])
+        moving_panel_template_installed();
+}
+
+// Compatibility name used by older previews/tests. This is the installed
+// moving panel-side leaf, not a fixed equipment-side template.
+module hinge_mount_pattern_template() {
+    moving_panel_template_installed();
 }
 
 // ---------- Shared moving-envelope coordinates ----------
@@ -220,136 +259,82 @@ module socket_neg_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) 
             cylinder(d=d,h=depth+0.2);
 }
 
-// ---------- Hinge-base geometry ----------
+// ---------- Stationary equipment-base hinge geometry ----------
 
-module moving_hinge_barrels() {
-    for (segment=moving_knuckles)
+hinge_guard_t = 2;
+hinge_guard_clearance = 0.8;
+hinge_guard_front_z = hinge_axis_z + hinge_radius + hinge_guard_clearance;
+hinge_guard_start_y = rail_base_y - 0.5; // overlaps the stationary floor by 0.5 mm
+hinge_guard_top_y = hinge_axis_y;
+hinge_guard_bridge_overlap = 0.5;
+hinge_guard_bridge_h = 2.0;
+
+module stationary_hinge_barrels() {
+    for (segment=stationary_knuckles)
         rail_hinge_barrel(segment[0],segment[1]);
 }
 
-module moving_hinge_bores() {
-    for (segment=moving_knuckles)
-        translate([segment[0]-0.2,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=hinge_bore_d,h=segment[1]+0.4);
-}
+module stationary_hinge_support_web(x0,len) {
+    // Proven PR #119 support strategy: begin at the BOTTOM tangent of the
+    // stationary barrel, then slope strongly rearward into the bed-connected
+    // base. This leaves the moving panel's forward/down sweep corridor open.
+    hull() {
+        translate([
+            x0,
+            hinge_axis_y-hinge_radius-1.0,
+            hinge_axis_z-1.0
+        ])
+            cube([len,3,2]);
 
-module fixed_knuckle_clearance_pockets() {
-    pocket_d = hinge_outer_d + 2*hinge_pocket_clearance;
-
-    for (segment=fixed_knuckles) {
-        x0 = segment[0]-hinge_axial_clearance/2;
-        len = segment[1]+hinge_axial_clearance;
-
-        translate([x0,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=pocket_d,h=len);
-
-        translate([x0,0,service_front_z-0.6])
-            cube([
-                len,
-                hinge_axis_y+hinge_radius+hinge_pocket_clearance,
-                fixed_hinge_root_t-service_front_z+1.2
-            ]);
+        translate([
+            x0,
+            service_base_y,
+            rail_rear_z0
+        ])
+            cube([len,2,2]);
     }
 }
 
-module fixed_root_sweep_clearance(max_angle=mechanical_clearance_angle, step=5) {
-    // The fixed knuckle root pads do not rotate with the moving base.  Remove
-    // their swept envelope from the moving base at the fixed-knuckle X ranges,
-    // with the same running clearance used by the barrel pockets.  Hull each
-    // adjacent angular sample so the service arc is continuous rather than a
-    // set of discrete scalloped pockets.
-    for (segment=fixed_knuckles)
-        for (angle=[0:step:max_angle-step])
-            hull() {
-                for (a=[angle,angle+step])
-                    translate([0,hinge_axis_y,hinge_axis_z])
-                        rotate([-a,0,0])
-                            translate([0,-hinge_axis_y,-hinge_axis_z])
-                                translate([
-                                    segment[0]-hinge_axial_clearance/2,
-                                    fixed_hinge_root_y-hinge_pocket_clearance,
-                                    -hinge_pocket_clearance
-                                ])
-                                    cube([
-                                        segment[1]+hinge_axial_clearance,
-                                        fixed_hinge_root_h+2*hinge_pocket_clearance,
-                                        fixed_hinge_root_t+2*hinge_pocket_clearance
-                                    ]);
-            }
+module stationary_hinge_supports() {
+    for (segment=stationary_knuckles)
+        stationary_hinge_support_web(segment[0],segment[1]);
 }
 
-module fixed_lower_band_sweep_clearance(max_angle=service_open_angle, step=4, clearance=0.4) {
-    // The fixed template's lower full-width band remains stationary while the
-    // equipment base rotates. Remove its swept envelope through the intended
-    // service arc so the moving base cannot scrape the panel-side template.
-    for (angle=[0:step:max_angle-step])
-        hull() {
-            for (a=[angle,angle+step])
-                translate([0,hinge_axis_y,hinge_axis_z])
-                    rotate([-a,0,0])
-                        translate([0,-hinge_axis_y,-hinge_axis_z])
-                            translate([service_x-0.2,-clearance,-clearance])
-                                cube([
-                                    service_w+0.4,
-                                    fixed_band_h+2*clearance,
-                                    fixed_template_t+2*clearance
-                                ]);
-        }
-}
-
-module hinge_front_sweep_relief() {
-    // Full opening clearance below the pivot, followed by a gradual closure.
-    // The previous rectangular cutter ended abruptly at Y=hinge_axis_y and
-    // recreated the full front wall on one print layer. Bambu Studio correctly
-    // classified that as a floating cantilever.
-    relief_taper_h = 9.5;
-    relief_front_z = service_front_z-1;
-    relief_back_z = hinge_axis_z + 0.6;
-
+module lower_hinge_guard() {
+    // PR #119 full-width stationary guard: closes the low opening behind the
+    // panel while remaining completely behind the 14 mm barrel envelope.
     union() {
         translate([
-            service_x-1,
-            service_base_y-1,
-            relief_front_z
+            service_x,
+            hinge_guard_start_y,
+            hinge_guard_front_z
         ])
             cube([
-                service_w+2,
-                hinge_axis_y-service_base_y+1.1,
-                relief_back_z-relief_front_z
+                service_w,
+                hinge_guard_top_y-hinge_guard_start_y,
+                hinge_guard_t
             ]);
 
-        hull() {
+        // Bridge only at STATIONARY knuckle spans; moving spans stay clear.
+        for (segment=stationary_knuckles)
             translate([
-                service_x-1,
-                hinge_axis_y-0.1,
-                relief_front_z
+                segment[0],
+                hinge_axis_y-hinge_guard_bridge_h,
+                hinge_axis_z+hinge_radius-hinge_guard_bridge_overlap
             ])
                 cube([
-                    service_w+2,
-                    0.2,
-                    relief_back_z-relief_front_z
+                    segment[1],
+                    hinge_guard_bridge_h,
+                    hinge_guard_clearance
+                        + hinge_guard_t
+                        + hinge_guard_bridge_overlap
                 ]);
-
-            translate([
-                service_x-1,
-                hinge_axis_y+relief_taper_h,
-                relief_front_z
-            ])
-                cube([
-                    service_w+2,
-                    0.2,
-                    0.4
-                ]);
-        }
     }
 }
 
 module base_structural_body() {
     union() {
-        // Broad bottom/base strip: this is the bed contact in upright print
-        // orientation and retains the existing deeper desk-foot concept.
+        // Stationary floor strip. In the upright print this is the bed contact.
         translate([service_x,service_base_y,service_front_z])
             cube([
                 service_w,
@@ -357,15 +342,7 @@ module base_structural_body() {
                 base_rear_z-service_front_z
             ]);
 
-        // Concealed-hinge apron.
-        translate([service_x,service_base_y,service_front_z])
-            cube([
-                service_w,
-                base_lower_y1-service_base_y,
-                base_front_back_z-service_front_z
-            ]);
-
-        // Rear rail wall grows vertically from the broad base.
+        // Rear rail wall grows directly from the stationary floor.
         translate([service_x,rail_base_y,rail_rear_z0])
             cube([
                 service_w,
@@ -373,7 +350,8 @@ module base_structural_body() {
                 rail_wall_t
             ]);
 
-        // Front lower rail wall.
+        // Front lower rail wall. It remains behind the hinge sweep because the
+        // proven hinge axis is now y=27/z=16 and the panel is the moving leaf.
         translate([service_x,rail_base_y,rail_front_z0])
             cube([
                 service_w,
@@ -381,8 +359,7 @@ module base_structural_body() {
                 rail_wall_t
             ]);
 
-        // 45-degree-ish retaining lip: each higher layer shifts rearward a
-        // little instead of creating a flat roof over the rail cavity.
+        // Support-free retaining lip for the removable backplane.
         hull() {
             translate([service_x,rail_head_top_y-0.1,rail_front_z0])
                 cube([service_w,0.2,rail_wall_t]);
@@ -390,13 +367,16 @@ module base_structural_body() {
                 cube([service_w,0.2,rail_wall_t]);
         }
 
-        // Short upper lip around the narrow tongue stem.
         translate([service_x,rail_lip_y,rail_lip_z0])
             cube([
                 service_w,
                 rail_neck_top_y-rail_lip_y,
                 rail_wall_t
             ]);
+
+        stationary_hinge_supports();
+        stationary_hinge_barrels();
+        lower_hinge_guard();
     }
 }
 
@@ -404,10 +384,7 @@ module base_connector_pins() {
     right_x = service_x + service_w;
     left_x = service_x;
 
-    // Right edge: A pin, B socket.
     pin_pos_x(right_x,base_connector_y_a,base_connector_z_a);
-
-    // Left edge: A socket, B pin.
     pin_neg_x(left_x,base_connector_y_b,base_connector_z_b);
 }
 
@@ -419,29 +396,18 @@ module base_connector_sockets() {
     socket_pos_x(left_x,base_connector_y_a,base_connector_z_a);
 }
 
-module base_rail_cuts() {
-    // Intentionally empty. The rail cavity is defined by the space between the
-    // two support-free rail walls rather than by subtracting a roofed tunnel.
-}
-
 module hinged_equipment_base() {
     difference() {
         union() {
             base_structural_body();
-            moving_hinge_barrels();
             base_connector_pins();
         }
 
-        moving_hinge_bores();
-        hinge_front_sweep_relief();
-        fixed_knuckle_clearance_pockets();
-        fixed_root_sweep_clearance();
-        fixed_lower_band_sweep_clearance();
         base_connector_sockets();
     }
 }
 
-// Print upright on the broad base strip. Installed +Y becomes print +Z.
+// The equipment base is stationary in service and prints upright on its floor.
 module hinged_equipment_base_print() {
     translate([0,base_rear_z,-service_base_y])
         rotate([90,0,0])
@@ -714,57 +680,50 @@ module equipment_side_print(side="right") {
 
 // ---------- Assembly / previews ----------
 
-module modular_moving_enclosure() {
+module stationary_equipment_enclosure() {
     hinged_equipment_base();
     universal_equipment_backplane();
     equipment_side("left");
     equipment_side("right");
 }
 
-module modular_moving_enclosure_at_angle(angle=0) {
+module moving_panel_at_angle(angle=0) {
     translate([0,hinge_axis_y,hinge_axis_z])
-        rotate([angle,0,0])
+        rotate([-angle,0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
-                modular_moving_enclosure();
+                moving_panel_template_installed();
 }
 
-module hinge_rail_preview(length=232) {
-    translate([12,hinge_axis_y,hinge_axis_z])
+module hinge_rail_preview(length=236) {
+    translate([10,hinge_axis_y,hinge_axis_z])
         rotate([0,90,0])
             cylinder(d=hinge_rail_d,h=length);
 }
 
 module direct_mount_assembly(open_angle=service_open_angle) {
-    color([0.25,0.25,0.28])
-        hinge_mount_pattern_template();
+    // Equipment enclosure remains fixed/stationary.
+    color([0.12,0.12,0.14])
+        hinged_equipment_base();
+
+    color([0.18,0.22,0.25])
+        universal_equipment_backplane();
+
+    color([0.30,0.30,0.34]) {
+        equipment_side("left");
+        equipment_side("right");
+    }
 
     color([0.62,0.62,0.66])
         hinge_rail_preview();
 
-    color([0.12,0.12,0.14])
-        translate([0,hinge_axis_y,hinge_axis_z])
-            rotate([open_angle,0,0])
-                translate([0,-hinge_axis_y,-hinge_axis_z])
-                    hinged_equipment_base();
-
-    color([0.18,0.22,0.25])
-        translate([0,hinge_axis_y,hinge_axis_z])
-            rotate([open_angle,0,0])
-                translate([0,-hinge_axis_y,-hinge_axis_z])
-                    universal_equipment_backplane();
-
-    color([0.30,0.30,0.34])
-        translate([0,hinge_axis_y,hinge_axis_z])
-            rotate([open_angle,0,0])
-                translate([0,-hinge_axis_y,-hinge_axis_z]) {
-                    equipment_side("left");
-                    equipment_side("right");
-                }
+    // LED panel/template is the moving leaf and opens forward/down.
+    color([0.25,0.25,0.28])
+        moving_panel_at_angle(open_angle);
 }
 
 if (!is_undef(hinge_part)) {
     if (hinge_part == "fixed_template")
-        hinge_mount_pattern_template();
+        moving_panel_template_print();
     else if (hinge_part == "equipment_base")
         hinged_equipment_base_print();
     else if (hinge_part == "universal_backplane")
