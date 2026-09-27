@@ -485,15 +485,56 @@ module controller_mount_standoffs() {
     // Four M2.5 clearance standoffs grow forward from the lower rear wall.
     // The LED/template opens forward (towards -Z), while the board remains
     // well behind it inside the stationary enclosure.
+    //
+    // In the upright print orientation installed +Y becomes print +Z and
+    // installed +Z becomes print -Y. A plain horizontal cylinder therefore
+    // begins with an unsupported lower tangent and Bambu Studio reports a
+    // floating cantilever on the controller-end variant.
+    //
+    // Give every post a rearward 45-degree-style gusset. The low end is tied
+    // into the rear wall/base and the high/front end meets the post bottom.
+    // Successive print layers can therefore grow toward the PCB instead of
+    // starting the complete post span in mid-air.
+    post_r = controller_post_d/2;
+    support_run = (rear_z_bottom-box_rear_t) - controller_pcb_rear_z;
+    support_pad = 1.0;
+
     difference() {
         union() {
-            for (point=controller_mount_points)
+            for (point=controller_mount_points) {
                 translate([
                     point[0],
                     point[1],
                     controller_pcb_rear_z
                 ])
                     cylinder(d=controller_post_d,h=controller_post_h);
+
+                hull() {
+                    // Front/high end: directly under the post at the PCB plane.
+                    translate([
+                        point[0]-post_r,
+                        point[1]-post_r,
+                        controller_pcb_rear_z
+                    ])
+                        cube([
+                            controller_post_d,
+                            support_pad,
+                            support_pad
+                        ]);
+
+                    // Rear/low end: overlap the existing rear wall/base.
+                    translate([
+                        point[0]-post_r,
+                        point[1]-post_r-support_run,
+                        rear_z_bottom-box_rear_t-support_pad/2
+                    ])
+                        cube([
+                            controller_post_d,
+                            support_pad,
+                            support_pad
+                        ]);
+                }
+            }
         }
 
         for (point=controller_mount_points)
