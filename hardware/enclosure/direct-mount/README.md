@@ -68,9 +68,11 @@ The proven concealed hinge is retained:
 - printed bore: **7.2 mm**
 - barrel OD: **13 mm**
 - hinge axis: **y=11.5 mm, z=10.5 mm**
+- closed panel/template back-to-barrel clearance: **7 mm**;
 - fixed and moving knuckles remain alternating;
 - the centre panel screw service gap is preserved;
-- designed service-open angle: **72°**.
+- normal service/open-preview angle: **72°**;
+- mechanical clearance is preserved through **90°**.
 
 The moving base can be printed independently, allowing hinge rotation and rail
 fit to be tested before printing the full backplane.
@@ -138,7 +140,7 @@ The final printability gate is Windsor Slicer using the repository-root
 ## Physical acceptance order
 
 1. Print one fixed hinge template and one base.
-2. Confirm the real 6 mm rail fits and rotates freely.
+2. Confirm the real 6 mm rail fits and rotates freely through 90°; use 72° as the normal service-open position.
 3. Print one universal backplane and verify full-length rail travel.
 4. Print both side pieces and verify pin/socket engagement and slide retention.
 5. Verify two identical module assemblies align side-by-side.

@@ -17,8 +17,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - bounded printable extents;
 - a coarse floating-layer/island proxy;
 - no volumetric interference between installed base and backplane;
-- representative base/fixed-template hinge sweep clearance through the designed **72°** service angle;
+- representative base/fixed-template hinge sweep clearance through **90°**, explicitly including the normal **72°** service angle;
 - successful open and closed assembly-preview rendering.
+- the restored 7 mm closed template-to-barrel clearance is preserved by the 15.5 mm hinge-axis depth.
 
 The final automated manufacturing gate is Windsor Slicer/Bambu Studio using the
 models in `.windsor-slicer.yaml`.
@@ -29,7 +30,7 @@ Automated geometry cannot prove real FDM tolerances. Before printing four full
 sets:
 
 1. print one panel hinge template and verify the six physical panel bosses;
-2. print one hinge/base and verify the real 6 mm rail and full service rotation;
+2. print one hinge/base and verify the real 6 mm rail rotates freely through the full 90° mechanical range, with 72° as the normal service position;
 3. print one universal backplane and confirm the 0.4 mm nominal slide clearance;
 4. verify both side pieces engage base and backplane and retain the slide;
 5. mate two identical assemblies side-by-side and check pin/socket alignment;
