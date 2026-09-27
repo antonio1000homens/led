@@ -159,7 +159,7 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
     print(f"OK: {name} has no volumetric interference")
 
 def assert_hinge_sweep(work_dir: Path) -> None:
-    for angle in (0, 15, 30, 45, 60, 72):
+    for angle in (0, 15, 30, 45, 60, 72, 75, 90):
         body = f"""    hinge_mount_pattern_template();
 
     translate([0,hinge_axis_y,hinge_axis_z])
