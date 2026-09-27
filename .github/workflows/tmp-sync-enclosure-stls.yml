@@ -1,4 +1,5 @@
 name: Temporary enclosure STL sync
+# one-shot regeneration for PR #142
 
 on:
   push:
