@@ -723,7 +723,7 @@ module direct_mount_assembly(open_angle=service_open_angle) {
 }
 
 if (!is_undef(hinge_part)) {
-    if (hinge_part == "fixed_template")
+    if (hinge_part == "panel_template" || hinge_part == "fixed_template")
         moving_panel_template_print();
     else if (hinge_part == "equipment_base")
         hinged_equipment_base_print();
