@@ -2,6 +2,9 @@
 
 The modular hinged design is the only supported direct-mount enclosure.
 
+The canonical hinge motion follows PR #119: the equipment-side enclosure/base
+remains stationary and the LED panel/template is the moving leaf.
+
 ## Automated gates
 
 Run:
@@ -16,10 +19,20 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a coarse floating-layer/island proxy;
-- no volumetric interference between installed base and backplane;
-- representative base/fixed-template hinge sweep clearance through **90°**, explicitly including the normal **72°** service angle;
+- no volumetric interference between the stationary base and removable backplane;
+- the stationary equipment enclosure against the moving panel/template at
+  **0, 15, 30, 45, 60, 75 and 90°**;
 - successful open and closed assembly-preview rendering.
-- the restored 7 mm closed template-to-barrel clearance is preserved by the 15.5 mm hinge-axis depth.
+
+The hinge regression contract includes:
+
+- **14 mm** barrel OD;
+- **7.2 mm** printed bore for the 6 mm rail;
+- hinge axis at **y=27 mm, z=16 mm**;
+- **7 mm** closed template-to-barrel clearance;
+- local roots on the moving template only;
+- rearward bottom-tangent support webs on the stationary hinge knuckles;
+- **2 mm** stationary lower guard with **0.8 mm** barrel clearance.
 
 The final automated manufacturing gate is Windsor Slicer/Bambu Studio using the
 models in `.windsor-slicer.yaml`.
@@ -29,13 +42,14 @@ models in `.windsor-slicer.yaml`.
 Automated geometry cannot prove real FDM tolerances. Before printing four full
 sets:
 
-1. print one panel hinge template and verify the six physical panel bosses;
-2. print one hinge/base and verify the real 6 mm rail rotates freely through the full 90° mechanical range, with 72° as the normal service position;
-3. print one universal backplane and confirm the 0.4 mm nominal slide clearance;
-4. verify both side pieces engage base and backplane and retain the slide;
-5. mate two identical assemblies side-by-side and check pin/socket alignment;
-6. test representative M3 hardware on the universal boss grid;
-7. verify connected HUB75/power cabling remains free through the opening arc.
+1. print one moving panel/template leaf and verify the six physical panel bosses;
+2. print one stationary equipment base and verify the real 6 mm rail;
+3. rotate the panel/template through the full **0–90°** arc while the equipment base remains fixed;
+4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
+5. print one universal backplane and confirm the 0.4 mm nominal slide clearance;
+6. verify both side pieces engage the stationary base/backplane and retain the slide;
+7. mate two identical equipment assemblies side-by-side and check pin/socket alignment;
+8. test representative M3 hardware on the universal boss grid;
+9. verify connected HUB75/power cabling remains free through the opening arc.
 
-Record any tolerance adjustment in `direct_mount_enclosure.scad`; never patch
-an STL mesh directly.
+Record tolerance changes in `direct_mount_enclosure.scad`; never patch an STL directly.

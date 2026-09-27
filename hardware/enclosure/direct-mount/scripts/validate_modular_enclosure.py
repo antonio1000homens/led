@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import tempfile
 from pathlib import Path
@@ -43,6 +44,49 @@ def render(source: Path, output: Path) -> None:
         )
     if not output.is_file() or output.stat().st_size == 0:
         raise SystemExit(f"empty OpenSCAD output from {source.relative_to(ROOT)}")
+
+def canonical_stl_hash(path: Path) -> str:
+    """Hash STL triangle geometry independent of facet/vertex ordering."""
+    triangles: list[tuple[tuple[float, float, float], ...]] = []
+    vertices: list[tuple[float, float, float]] = []
+
+    with path.open(encoding="utf-8", errors="strict") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line.startswith("vertex "):
+                continue
+            _, xs, ys, zs = line.split()
+            vertex = tuple(round(float(value), 6) for value in (xs, ys, zs))
+            vertices.append(vertex)
+            if len(vertices) == 3:
+                triangles.append(tuple(sorted(vertices)))
+                vertices = []
+
+    if vertices:
+        raise SystemExit(f"{path}: incomplete STL triangle data")
+    if not triangles:
+        raise SystemExit(f"{path}: no STL triangles found")
+
+    payload = repr(sorted(triangles)).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def assert_tracked_stl_current(stl_name: str, generated: Path) -> None:
+    tracked = DIRECT / "stl" / stl_name
+    if not tracked.is_file():
+        raise SystemExit(
+            f"missing canonical STL: {tracked.relative_to(ROOT)}; "
+            "regenerate and commit the STL with its SCAD change"
+        )
+
+    if canonical_stl_hash(generated) != canonical_stl_hash(tracked):
+        raise SystemExit(
+            f"stale canonical STL: {tracked.relative_to(ROOT)}; "
+            "regenerate it from the matching SCAD wrapper"
+        )
+
+    print(f"OK: {stl_name} matches checked-in canonical STL")
+
 
 def load_mesh(name: str, path: Path) -> trimesh.Trimesh:
     loaded = trimesh.load_mesh(path, process=True)
@@ -144,7 +188,7 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
         if min(dims) > 0.01:
             raise SystemExit(
                 f"{name}: geometry intersection has 3D extent "
-                f"{dims.tolist()} mm"
+                f"{dims.tolist()} mm; bounds={contact.bounds.tolist()}"
             )
         print(
             f"OK: {name} has contact-only intersection; bounds "
@@ -159,25 +203,20 @@ def assert_empty_intersection(work_dir: Path, name: str, body: str) -> None:
     print(f"OK: {name} has no volumetric interference")
 
 def assert_hinge_sweep(work_dir: Path) -> None:
-    for angle in (0, 15, 30, 45, 60, 72, 75, 90):
-        body = f"""    hinge_mount_pattern_template();
+    """Guard the proven PR #119 motion: enclosure fixed, panel opens forward/down."""
+    for angle in (0, 15, 30, 45, 60, 75, 90):
+        body = f"""    stationary_equipment_enclosure();
 
     translate([0,hinge_axis_y,hinge_axis_z])
-        rotate([{angle},0,0])
+        rotate([-{angle},0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
-                hinged_equipment_base();"""
+                moving_panel_template_installed();"""
         assert_empty_intersection(work_dir, f"hinge_sweep_{angle}", body)
 
 def assert_no_legacy_layout() -> None:
     for path in (DIRECT / "hinge-prototype-v2", DIRECT / "hinge-version"):
         if path.exists():
             raise SystemExit(f"legacy enclosure directory still exists: {path}")
-    tracked_stls = list((DIRECT / "stl").glob("*.stl"))
-    if tracked_stls:
-        raise SystemExit(
-            "generated STL binaries must not be tracked: "
-            + ", ".join(path.name for path in tracked_stls)
-        )
 
 def main() -> None:
     assert_no_legacy_layout()
@@ -187,9 +226,11 @@ def main() -> None:
             source = PARTS_DIR / scad_name
             generated = work_dir / stl_name
             render(source, generated)
+
             name = source.stem
             assert_mesh_health(name, generated)
             assert_no_floating_layer_islands(name, generated)
+            assert_tracked_stl_current(stl_name, generated)
 
         assert_empty_intersection(
             work_dir,
