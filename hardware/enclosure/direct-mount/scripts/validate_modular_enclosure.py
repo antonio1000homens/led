@@ -194,12 +194,16 @@ def assert_empty_intersection(
         # Treat only an intersection with measurable extent in all three axes
         # as a real 3D collision. A zero-thickness face is contact, not volume.
         contact = load_mesh(name, output)
-        dims = contact.extents
-        if min(dims) > 0.01:
+        components = contact.split(only_watertight=False)
+        volumetric = [component for component in components if min(component.extents) > 0.01]
+        if volumetric:
+            collision = max(volumetric, key=lambda component: component.volume)
+            dims = collision.extents
             raise SystemExit(
                 f"{name}: geometry intersection has 3D extent "
-                f"{dims.tolist()} mm; bounds={contact.bounds.tolist()}"
+                f"{dims.tolist()} mm; bounds={collision.bounds.tolist()}"
             )
+        dims = contact.extents
         print(
             f"OK: {name} has contact-only intersection; bounds "
             f"{dims[0]:.3f} x {dims[1]:.3f} x {dims[2]:.3f} mm"
@@ -228,6 +232,14 @@ def assert_hinge_sweep(work_dir: Path) -> None:
             translate([0,-hinge_axis_y,-hinge_axis_z])
                 moving_panel_template_installed();"""
         assert_empty_intersection(work_dir, f"hinge_sweep_{angle}", body)
+        floor_check = f"""    intersection() {{
+        translate([-1,-100,-1]) cube([module_w+2,100,hinge_axis_z+hinge_radius+2]);
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([-{angle},0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z])
+                    moving_panel_template_installed();
+    }}"""
+        assert_empty_intersection(work_dir, f"hinge_floor_clearance_{angle}", floor_check)
         panel_rod = f"""    translate([0,hinge_axis_y,hinge_axis_z])
         rotate([-{angle},0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
@@ -243,6 +255,14 @@ def assert_design_contract(work_dir: Path) -> None:
     output = work_dir / "design_contract.csg"
     check_scad.write_text(
         f"""include <{SOURCE.as_posix()}>;
+assert(abs(hinge_axis_y-ground_clearance) < 0.01,
+       "hinge axis must be centred on the moving panel lower edge");
+assert(hinge_axis_y-hinge_radius < ground_clearance &&
+       hinge_axis_y+hinge_radius > ground_clearance,
+       "hinge barrel must straddle the moving panel lower edge");
+assert(abs(base_panel_clearance_y-(ground_clearance-hinge_axis_z)) < 0.01 &&
+       base_panel_clearance_z > hinge_axis_z+moving_plate_t,
+       "base front relief must clear the open panel lower band");
 assert(hinge_guard_t >= 2, "hinge shelf is too thin");
 assert(hinge_guard_start_y <= base_seat_y && hinge_guard_top_y >= hinge_axis_y,
        "hinge shelf no longer spans behind the hinge");

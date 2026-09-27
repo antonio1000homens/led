@@ -37,7 +37,7 @@ hinge_radius = hinge_outer_d/2;
 hinge_axial_clearance = 1.0;
 
 ground_clearance = 20;
-hinge_axis_y = ground_clearance + hinge_radius; // 27 mm above stationary floor
+hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
 
 moving_plate_t = 2;
 fixed_template_t = moving_plate_t; // compatibility alias used by modular equipment geometry
@@ -198,6 +198,8 @@ backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
 base_rear_z = backplane_slot_back_z + backplane_guide_t;
 base_floor_front_z = service_front_z;
 base_floor_rear_z = base_rear_z;
+base_panel_clearance_y = ground_clearance-hinge_axis_z;
+base_panel_clearance_z = hinge_axis_z+moving_plate_t+0.5;
 
 // The guide-tower rear face follows the now-resolved rear edge of the base.
 // Keep this assignment after base_rear_z so OpenSCAD never evaluates an undef
@@ -419,6 +421,20 @@ module base_structural_body() {
                 service_w-2*(side_guide_w+side_guide_clearance)+0.2,
                 base_seat_y-equipment_backplane_y0+0.2,
                 backplane_slot_back_z-backplane_slot_front_z
+            ]);
+
+        // The centred bottom-edge hinge brings the open panel's lower band to
+        // base_panel_clearance_y. Relieve the front floor lip below the hinge
+        // depth while keeping the backplane seat and guide towers intact.
+        translate([
+            service_x-0.1,
+            base_panel_clearance_y,
+            base_floor_front_z-0.1
+        ])
+            cube([
+                service_w+0.2,
+                base_seat_y-base_panel_clearance_y+0.2,
+                base_panel_clearance_z-base_floor_front_z+0.2
             ]);
     }
 }
