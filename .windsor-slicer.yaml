@@ -1,47 +1,27 @@
 version: 1
 
 models:
-  centre-boss-desk-stand:
-    source: hardware/enclosure/direct-mount/parts/09_centre_boss_desk_stand_PRINT_3.scad
+  panel-hinge-template:
+    source: hardware/enclosure/direct-mount/parts/01_panel_hinge_template_PRINT_1.scad
     generator: openscad
-    output: 09_centre_boss_desk_stand_PRINT_3.stl
-
-  moving-panel-hinge-test:
-    source: hardware/enclosure/direct-mount/hinge-prototype-v2/01_moving_panel_template_HINGE_TEST.scad
-    generator: openscad
-    output: 01_moving_panel_template_HINGE_TEST.stl
-
-  middle-hinge-test:
-    source: hardware/enclosure/direct-mount/hinge-prototype-v2/02_middle_stationary_enclosure_HINGE_TEST.scad
-    generator: openscad
-    output: 02_middle_stationary_enclosure_HINGE_TEST.stl
-
-  left-controller-hinge-test:
-    source: hardware/enclosure/direct-mount/hinge-prototype-v2/03_left_controller_end_enclosure_HINGE_TEST.scad
-    generator: openscad
-    output: 03_left_controller_end_enclosure_HINGE_TEST.stl
-
-  right-power-hinge-test:
-    source: hardware/enclosure/direct-mount/hinge-prototype-v2/04_right_power_end_enclosure_HINGE_TEST.scad
-    generator: openscad
-    output: 04_right_power_end_enclosure_HINGE_TEST.stl
+    output: 01_panel_hinge_template_PRINT_1.stl
 
   modular-hinge-base:
-    source: hardware/enclosure/direct-mount/hinge-version/11_hinged_equipment_base_PRINT_1.scad
+    source: hardware/enclosure/direct-mount/parts/02_hinged_equipment_base_PRINT_1.scad
     generator: openscad
-    output: 11_hinged_equipment_base_PRINT_1.stl
+    output: 02_hinged_equipment_base_PRINT_1.stl
 
   universal-equipment-backplane:
-    source: hardware/enclosure/direct-mount/hinge-version/12_universal_equipment_backplane_PRINT_1.scad
+    source: hardware/enclosure/direct-mount/parts/03_universal_equipment_backplane_PRINT_1.scad
     generator: openscad
-    output: 12_universal_equipment_backplane_PRINT_1.stl
+    output: 03_universal_equipment_backplane_PRINT_1.stl
 
   left-equipment-side:
-    source: hardware/enclosure/direct-mount/hinge-version/13_left_equipment_side_PRINT_1.scad
+    source: hardware/enclosure/direct-mount/parts/04_left_equipment_side_PRINT_1.scad
     generator: openscad
-    output: 13_left_equipment_side_PRINT_1.stl
+    output: 04_left_equipment_side_PRINT_1.stl
 
   right-equipment-side:
-    source: hardware/enclosure/direct-mount/hinge-version/14_right_equipment_side_PRINT_1.scad
+    source: hardware/enclosure/direct-mount/parts/05_right_equipment_side_PRINT_1.scad
     generator: openscad
-    output: 14_right_equipment_side_PRINT_1.stl
+    output: 05_right_equipment_side_PRINT_1.stl
