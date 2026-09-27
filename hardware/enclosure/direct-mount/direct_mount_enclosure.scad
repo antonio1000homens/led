@@ -1,8 +1,9 @@
 // Canonical modular hinged direct-mount enclosure for four 256 x 128 mm P4 HUB75 panels.
 //
 // Issue #133 commits the project to the hinged architecture. This is the single
-// parametric source of truth for the fixed panel hinge template, universal
-// moving hinge/base, universal slide-in backplane and detachable side retainers.
+// parametric source of truth for the PR #119-style MOVING panel/template leaf,
+// STATIONARY universal equipment base, universal slide-in backplane and
+// detachable side retainers.
 //
 // The physically corrected P4 panel coordinates remain the source of truth.
 // Component-specific PSU/MatrixPortal geometry belongs on detachable adapters.
