@@ -240,10 +240,13 @@ connector_socket_depth = 3;
 
 // Self-mating junctions are carried by the new 30 mm guide towers. They sit on
 // the cavity-facing side of the towers, hidden from the external rear face.
-base_connector_y_a = 10;
-base_connector_y_b = 22;
-base_connector_z_a = junction_pad_front_z + junction_pad_depth/2;
-base_connector_z_b = base_connector_z_a;
+// Keep the horizontal pin/socket pair in the first 4 mm floor band so it is
+// bed-connected in the base print. Two Z levels preserve the self-mating A/B
+// pattern while keeping both features on the interior side of the guide tower.
+base_connector_y_a = 2.5;
+base_connector_y_b = 2.5;
+base_connector_z_a = junction_pad_front_z + 2.2;
+base_connector_z_b = junction_pad_front_z + 8.0;
 side_socket_depth = 2.2;
 
 side_t = 3;
@@ -404,12 +407,12 @@ module base_structural_body() {
         // Only a 2 mm-deep locating groove is removed; there is no internal
         // ramp, lip or captive wall consuming module space.
         translate([
-            service_x-0.1,
+            service_x+side_guide_w+side_guide_clearance-0.1,
             equipment_backplane_y0,
             backplane_slot_front_z
         ])
             cube([
-                service_w+0.2,
+                service_w-2*(side_guide_w+side_guide_clearance)+0.2,
                 base_seat_y-equipment_backplane_y0+0.2,
                 backplane_slot_back_z-backplane_slot_front_z
             ]);
