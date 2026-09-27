@@ -1,5 +1,0 @@
-mcp==2.2.0
-trimesh>=4.0,<5
-scipy>=1.11,<2
-networkx>=3,<4
-uvicorn>=0.35,<1

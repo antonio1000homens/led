@@ -263,33 +263,19 @@ New Todoist applications issue short-lived access tokens and rotating refresh to
 
 If Todoist returns `401`, the provider forces one refresh and retries once. If a refresh response omits the replacement refresh token, the provider fails closed and the OAuth bootstrap must be run again.
 
-## Slicer MCP and Cloudflare
+## Remote Bambu Studio slicing
 
-The slicer MCP does not require a new Cloudflare route for local/stdio or
-Codespaces use. It runs beside the CAD/slicer tooling and reuses the same
-headless Bambu Studio scripts as GitHub Actions.
+LED owns enclosure CAD, `.windsor-slicer.yaml`, and project-specific geometry
+validation. The shared Windsor Slicer service owns the Codespace, Bambu Studio
+runtime, MCP, and Cloudflare Worker at
+`https://slicer.alf-broadcast.co.uk/mcp`. It prepares this repository at an
+exact immutable commit and slices only manifest-declared models. It does not
+submit printer jobs or use the LED control API.
 
-Do **not** extend `/api/control/v1/*` or `led-control-api` for slicer MCP
-traffic. That API is the LED runtime configuration plane and should remain
-small, synchronous and Lambda-oriented.
-
-If a permanent cloud-hosted MCP is later required so ChatGPT/another cloud AI
-can connect without an active Codespace, create a separate Streamable HTTP
-endpoint such as:
-
-```text
-https://led.alf-broadcast.co.uk/mcp/slicer
-```
-
-That future endpoint should use a dedicated origin/runtime with Cloudflare
-Access machine authentication and disabled caching. Its job should be to
-orchestrate GitHub Actions and expose status/artifact references; CPU-heavy
-Bambu slicing should continue to run in GitHub Actions/Codespaces. Do not put
-the Bambu LAN access code or printer MQTT/FTPS control into the Cloudflare edge
-runtime.
-
-See `docs/SLICER_MCP.md` for the detailed endpoint decision and security
-requirements.
+Do **not** extend `/api/control/v1/*` or `led-control-api` for slicer traffic.
+That API remains the LED runtime configuration plane. See the
+[Windsor Slicer repository](https://github.com/antonio1000homens/windsor-slicer)
+for the consumer manifest contract and service operation.
 
 ## Cloudflare account safety
 
