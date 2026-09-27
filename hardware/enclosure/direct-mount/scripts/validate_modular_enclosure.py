@@ -289,22 +289,36 @@ assert(abs(top_link_front_z-(fixed_template_t+0.8)) < 0.01,
 
 assert(abs(backplane_guide_clearance-0.4) < 0.01,
        "rear groove clearance is outside the FDM fit target");
-assert(abs(side_guide_h-30) < 0.01,
-       "side guide height must remain 30 mm");
+assert(abs(side_guide_h-50) < 0.01,
+       "side guide height must remain 50 mm");
 assert(abs(side_guide_w-5) < 0.01,
-       "side guide width must remain 5 mm");
+       "side guide engagement depth must remain 5 mm");
 assert(abs(side_guide_clearance-0.4) < 0.01,
        "side-guide running clearance is outside the FDM fit target");
+assert(abs(side_guide_wall_t-backplane_guide_t) < 0.01,
+       "side-guide wall thickness must track the base rail wall");
 assert(side_guide_y1 < backplane_ramp_start_y,
        "side guides must end below the enclosure taper");
-assert(side_guide_front_z < equipment_backplane_front_z,
-       "guide towers must thicken toward the enclosure interior");
+assert(side_guide_slot_front_z < equipment_backplane_front_z &&
+       side_guide_slot_back_z > equipment_backplane_rear_z,
+       "U-channel slot does not clear the backplane thickness");
+assert(side_guide_front_z < side_guide_slot_front_z &&
+       side_guide_rear_z > side_guide_slot_back_z,
+       "U-channel lips no longer surround the backplane slot");
+assert(abs(lower_backplane_edge_inset-
+           (side_guide_wall_t+side_guide_clearance)) < 0.01,
+       "lower backplane edge no longer tracks the U-channel outer spine");
+assert(lower_backplane_edge_inset < side_guide_w,
+       "lower backplane no longer projects into the side channels");
 assert(base_connector_y_a <= base_seat_y &&
        base_connector_y_b <= base_seat_y,
        "horizontal junction pins must remain bed-connected in the floor band");
-assert(base_connector_z_a > side_guide_front_z &&
+assert(base_connector_z_a > junction_pad_front_z &&
+       base_connector_z_a < side_guide_slot_front_z,
+       "front hidden junction left its internal support pad");
+assert(base_connector_z_b > side_guide_front_z &&
        base_connector_z_b < side_guide_rear_z,
-       "hidden junctions must remain inside the structural guide towers");
+       "rear hidden junction left the structural side rail");
 assert(adapter_outer_skin >= 1.0,
        "outside rear skin over blind accessory holes is too thin");
 assert(adapter_hole_depth <=
@@ -342,7 +356,7 @@ cube([1,1,1]);
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
     print(
-        "OK: reinforced hinge, rear top-down groove, dual 30x5 mm guides, "
+        "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "hidden junctions, solid outside skin and 40-to-10 mm tapered backplane contract"
     )
 
@@ -409,6 +423,40 @@ def main() -> None:
                 f"""    hinged_equipment_base();
     translate([0,{lift},0]) universal_equipment_backplane();""",
             )
+
+        # Prove the side guides are real U-channels rather than solid towers:
+        # the slot volume under each 5 mm lip must remain empty through the
+        # middle of the 50 mm guide height.
+        assert_empty_intersection(
+            work_dir,
+            "left_side_guide_channel_void",
+            """    hinged_equipment_base();
+    translate([
+        service_x+lower_backplane_edge_inset,
+        side_guide_y0+10,
+        side_guide_slot_front_z
+    ])
+        cube([
+            side_guide_w-lower_backplane_edge_inset,
+            side_guide_h-20,
+            side_guide_slot_back_z-side_guide_slot_front_z
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "right_side_guide_channel_void",
+            """    hinged_equipment_base();
+    translate([
+        service_x+service_w-side_guide_w,
+        side_guide_y0+10,
+        side_guide_slot_front_z
+    ])
+        cube([
+            side_guide_w-lower_backplane_edge_inset,
+            side_guide_h-20,
+            side_guide_slot_back_z-side_guide_slot_front_z
+        ]);""",
+        )
 
         # Guard the equipment cavity against a rail/lip creeping back into the
         # lower usable volume. Hinge hardware intentionally occupies the first

@@ -174,25 +174,28 @@ backplane_seat_depth = 2.0;
 base_seat_y = 4.5;
 equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
 
-// Two structural guide towers rise from the base, one at each side. The lower
-// 30 mm of the removable backplane is stepped inward by 5 mm on both sides,
-// then returns to full module width above the guides.
-side_guide_h = 30;
+// Two genuine U-channel side rails rise from the base. For the first 50 mm,
+// the removable backplane edges slide DOWN inside these channels rather than
+// merely passing between solid guide towers. The 5 mm rail depth provides
+// positive side capture while leaving the channel open toward the enclosure
+// centre for top-down installation.
+side_guide_h = 50;
 side_guide_w = 5;
 side_guide_clearance = 0.4;
+side_guide_wall_t = backplane_guide_t;
 side_guide_y0 = service_base_y;
 side_guide_y1 = side_guide_y0 + side_guide_h;
 
-// Make the complete guide tower thick enough to carry the hidden junctions.
-// Its extra depth is entirely on the cavity side; the rear exterior remains at
-// the normal enclosure plane.
+// Keep the hidden seam junctions on the cavity-facing side. A short front
+// support pad exists only in the floor band so it cannot close the vertical
+// backplane channel.
 junction_pad_depth = 7;
 junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
-side_guide_front_z = junction_pad_front_z;
 junction_pad_h = 8;
 
-// The locating rail is a recessed groove at the BACK edge of the base. It
-// does not project into the usable equipment cavity.
+// The bottom seat and the vertical side channels share the same slot envelope
+// around the 3 mm backplane. The rails add one wall thickness in front/behind
+// that slot while the outer spine closes the U at the module edge.
 backplane_slot_front_z = equipment_backplane_front_z - backplane_guide_clearance;
 backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
 base_rear_z = backplane_slot_back_z + backplane_guide_t;
@@ -201,10 +204,14 @@ base_floor_rear_z = base_rear_z;
 base_panel_clearance_y = ground_clearance-hinge_axis_z;
 base_panel_clearance_z = hinge_axis_z+moving_plate_t+0.5;
 
-// The guide-tower rear face follows the now-resolved rear edge of the base.
-// Keep this assignment after base_rear_z so OpenSCAD never evaluates an undef
-// tower depth.
-side_guide_rear_z = base_rear_z;
+side_guide_slot_front_z = backplane_slot_front_z;
+side_guide_slot_back_z = backplane_slot_back_z;
+side_guide_front_z = side_guide_slot_front_z - side_guide_wall_t;
+side_guide_rear_z = side_guide_slot_back_z + side_guide_wall_t;
+
+// The lower backplane extends into each U-channel and stops short of the outer
+// spine by the running clearance. Above the 50 mm rails it returns to full width.
+lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 
 // Supported top closure derived from PR #119. The tapered backplane grows
 // forward progressively and finishes 0.8 mm behind the moving template.
@@ -244,8 +251,8 @@ connector_socket_d = 4.7;
 connector_pin_len = 3;
 connector_socket_depth = 3;
 
-// Self-mating junctions are carried by the new 30 mm guide towers. They sit on
-// the cavity-facing side of the towers, hidden from the external rear face.
+// Self-mating junctions are carried by the 50 mm U-channel side rails. They sit
+// on the cavity-facing side and remain hidden from the external rear face.
 // Keep the horizontal pin/socket pair in the first 4 mm floor band so it is
 // bed-connected in the base print. Two Z levels preserve the self-mating A/B
 // pattern while keeping both features on the interior side of the guide tower.
@@ -368,6 +375,41 @@ module lower_hinge_guard() {
     }
 }
 
+module side_guide_channel(side="left") {
+    x0 = side == "left"
+        ? service_x
+        : service_x + service_w - side_guide_w;
+    spine_x = side == "left"
+        ? x0
+        : x0 + side_guide_w - side_guide_wall_t;
+
+    union() {
+        // Front and rear lips capture the 3 mm backplane in Z while leaving
+        // the channel open toward the enclosure centre in X.
+        translate([x0,side_guide_y0,side_guide_front_z])
+            cube([side_guide_w,side_guide_h,side_guide_wall_t]);
+        translate([x0,side_guide_y0,side_guide_slot_back_z])
+            cube([side_guide_w,side_guide_h,side_guide_wall_t]);
+
+        // Outer spine joins the lips into a true U-shaped rail.
+        translate([spine_x,side_guide_y0,side_guide_front_z])
+            cube([
+                side_guide_wall_t,
+                side_guide_h,
+                side_guide_rear_z-side_guide_front_z
+            ]);
+
+        // Bed-connected internal support for the lower hidden junction only.
+        // It stops before the slot, so the backplane can still slide to its seat.
+        translate([x0,side_guide_y0,junction_pad_front_z])
+            cube([
+                side_guide_w,
+                junction_pad_h,
+                side_guide_front_z-junction_pad_front_z+0.2
+            ]);
+    }
+}
+
 module base_structural_body() {
     difference() {
         union() {
@@ -383,29 +425,10 @@ module base_structural_body() {
             stationary_hinge_barrels();
             lower_hinge_guard();
 
-            // Structural side guides for the stepped lower backplane. Each is
-            // 30 mm high and 5 mm wide, tied into the rear base edge.
-            translate([
-                service_x,
-                side_guide_y0,
-                side_guide_front_z
-            ])
-                cube([
-                    side_guide_w,
-                    side_guide_h,
-                    side_guide_rear_z-side_guide_front_z
-                ]);
-
-            translate([
-                service_x+service_w-side_guide_w,
-                side_guide_y0,
-                side_guide_front_z
-            ])
-                cube([
-                    side_guide_w,
-                    side_guide_h,
-                    side_guide_rear_z-side_guide_front_z
-                ]);
+            // True U-channel side rails. The backplane engages inside both
+            // channels for the first 50 mm of installed height.
+            side_guide_channel("left");
+            side_guide_channel("right");
 
         }
 
@@ -413,12 +436,12 @@ module base_structural_body() {
         // Only a 2 mm-deep locating groove is removed; there is no internal
         // ramp, lip or captive wall consuming module space.
         translate([
-            service_x+side_guide_w+side_guide_clearance-0.1,
+            service_x+lower_backplane_edge_inset-0.1,
             equipment_backplane_y0,
             backplane_slot_front_z
         ])
             cube([
-                service_w-2*(side_guide_w+side_guide_clearance)+0.2,
+                service_w-2*lower_backplane_edge_inset+0.2,
                 base_seat_y-equipment_backplane_y0+0.2,
                 backplane_slot_back_z-backplane_slot_front_z
             ]);
@@ -526,16 +549,17 @@ function tapered_backplane_rear_z_at_y(y) =
 
 module backplane_shell_solid() {
     union() {
-        // Stepped vertical lower section. For the first 30 mm the plate is
-        // 5 mm narrower on BOTH sides so it slides between the structural guide
-        // towers. Above the guides it returns to the normal full width.
+        // Stepped vertical lower section. For the first 50 mm the plate is
+        // only inset enough to clear the OUTER spines, so each edge projects
+        // into and is captured by its 5 mm-deep U-channel. Above the rails the
+        // backplane returns to the normal full module width.
         translate([
-            service_x+side_guide_w+side_guide_clearance,
+            service_x+lower_backplane_edge_inset,
             equipment_backplane_y0,
             equipment_backplane_front_z
         ])
             cube([
-                service_w-2*(side_guide_w+side_guide_clearance),
+                service_w-2*lower_backplane_edge_inset,
                 side_guide_y1-equipment_backplane_y0,
                 equipment_backplane_t
             ]);

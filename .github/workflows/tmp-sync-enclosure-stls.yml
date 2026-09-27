@@ -1,10 +1,10 @@
 name: Temporary enclosure STL sync
-# one-shot regeneration for PR #142
+# one-shot regeneration for PR #145 U-channel correction
 
 on:
   push:
     branches:
-      - 'fix/133-top-down-tapered-backplane'
+      - 'fix/144-bottom-edge-hinge'
     paths:
       - 'hardware/enclosure/direct-mount/direct_mount_enclosure.scad'
       - 'hardware/enclosure/direct-mount/parts/*.scad'
@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 'fix/133-top-down-tapered-backplane'
+          ref: 'fix/144-bottom-edge-hinge'
           fetch-depth: 0
 
       - name: Install OpenSCAD and validation dependencies
@@ -48,4 +48,4 @@ jobs:
             exit 0
           fi
           git commit -m "Regenerate corrected enclosure STLs [skip ci]"
-          git push origin HEAD:fix/133-top-down-tapered-backplane
+          git push origin HEAD:fix/144-bottom-edge-hinge
