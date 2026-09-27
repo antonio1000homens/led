@@ -33,7 +33,10 @@ hinge_axis_z = 10.5;
 hinge_radius = hinge_outer_d/2;
 hinge_pocket_clearance = 0.6;
 hinge_axial_clearance = 0.8;
+// Normal service/preview opening angle. This is not the mechanical limit.
 service_open_angle = 72;
+// Preserve clearance through a full right angle so the enclosure can open to 90 degrees.
+mechanical_clearance_angle = 90;
 
 fixed_knuckles = [
     [36,24],
@@ -247,7 +250,7 @@ module fixed_knuckle_clearance_pockets() {
     }
 }
 
-module fixed_root_sweep_clearance(max_angle=service_open_angle, step=4) {
+module fixed_root_sweep_clearance(max_angle=mechanical_clearance_angle, step=5) {
     // The fixed knuckle root pads do not rotate with the moving base.  Remove
     // their swept envelope from the moving base at the fixed-knuckle X ranges,
     // with the same running clearance used by the barrel pockets.  Hull each
@@ -273,7 +276,7 @@ module fixed_root_sweep_clearance(max_angle=service_open_angle, step=4) {
             }
 }
 
-module fixed_lower_band_sweep_clearance(max_angle=service_open_angle, step=4, clearance=0.4) {
+module fixed_lower_band_sweep_clearance(max_angle=mechanical_clearance_angle, step=5, clearance=0.4) {
     // The fixed template's lower full-width band remains stationary while the
     // equipment base rotates. Remove its swept envelope through the intended
     // service arc so the moving base cannot scrape the panel-side template.
