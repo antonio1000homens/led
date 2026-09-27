@@ -1,10 +1,11 @@
 name: Enclosure / Validate
 
-# Validation-only by design. CI never commits generated STL files.
+# OpenSCAD generation + mechanical validation only. CI never invokes Bambu
+# Studio/Windsor and never creates .3mf slice output.
 #
-# All enclosure checks are orchestrated by validate_enclosure.py so the exact
-# same validation can be run locally. The modular hinged design is the only
-# supported enclosure architecture; generated STLs are validation artifacts.
+# Canonical STLs are versioned in hardware/enclosure/direct-mount/stl/. CI
+# regenerates OpenSCAD meshes for validation and exposes that generated set as a
+# downloadable workflow artifact.
 
 on:
   pull_request:
@@ -57,10 +58,15 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet \
             trimesh manifold3d numpy networkx scipy
 
-      - name: Validate current enclosure design
-        env:
-          ENCLOSURE_STL_OUTPUT_DIR: build/enclosure-stls
-        run: python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
+      - name: Generate canonical STL outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/enclosure-stls
+          for source in hardware/enclosure/direct-mount/parts/*_PRINT_1.scad; do
+            output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
+            openscad -o "$output" "$source"
+          done
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v4
@@ -69,3 +75,6 @@ jobs:
           path: build/enclosure-stls/*.stl
           if-no-files-found: error
           retention-days: 14
+
+      - name: Validate current enclosure design
+        run: python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
