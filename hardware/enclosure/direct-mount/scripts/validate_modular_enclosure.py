@@ -238,34 +238,76 @@ def assert_hinge_sweep(work_dir: Path) -> None:
         )
 
 def assert_design_contract(work_dir: Path) -> None:
-    """Check the reinforced hinge and top-down backplane interface."""
+    """Check the reinforced hinge and tapered top-down backplane contract."""
     check_scad = work_dir / "design_contract.scad"
     output = work_dir / "design_contract.csg"
     check_scad.write_text(
         f"""include <{SOURCE.as_posix()}>;
-assert(hinge_guard_t >= 2, \"hinge shelf is too thin\");
+assert(hinge_guard_t >= 2, "hinge shelf is too thin");
 assert(hinge_guard_start_y <= base_seat_y && hinge_guard_top_y >= hinge_axis_y,
-       \"hinge shelf no longer spans behind the hinge\");
+       "hinge shelf no longer spans behind the hinge");
 assert(hinge_guard_front_z >= hinge_axis_z + hinge_radius + hinge_guard_clearance,
-       \"hinge shelf violates barrel clearance\");
-assert(hinge_support_root_t >= 3, \"hinge root reinforcement is too thin\");
+       "hinge shelf violates barrel clearance");
+assert(hinge_support_root_t >= 3, "hinge root reinforcement is too thin");
 assert(hinge_support_landing_y >= hinge_guard_start_y &&
        hinge_support_landing_y+3 <= hinge_guard_top_y,
-       \"hinge root web no longer lands within the horizontal shelf\");
+       "hinge root web no longer lands within the horizontal shelf");
 assert(hinge_support_landing_z < hinge_guard_front_z+hinge_guard_t &&
        hinge_support_landing_z+hinge_support_landing_h > hinge_guard_front_z+hinge_guard_t,
-       \"hinge root web must overlap the shelf by design\");
-assert(hinge_support_landing_z+hinge_support_landing_h < equipment_backplane_front_z,
-       \"hinge root web extends into the backplane insertion area\");
-assert(abs(equipment_backplane_y0-base_seat_y) < 0.01,
-       \"backplane lower edge must sit on the base floor edge\");
+       "hinge root web must overlap the shelf by design");
+
+assert(abs(enclosure_bottom_depth-40) < 0.01,
+       "lower equipment depth must remain 40 mm");
+assert(abs(enclosure_top_depth-10) < 0.01,
+       "top enclosure depth must remain 10 mm");
+assert(abs(backplane_ramp_start_y-60) < 0.01,
+       "backplane taper must start 60 mm above the floor");
+assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
+       "backplane roof must reach the top of the front plate");
+assert(abs(top_link_front_z-(fixed_template_t+0.8)) < 0.01,
+       "top link no longer closes to the template with 0.8 mm clearance");
+
 assert(abs(backplane_guide_clearance-0.4) < 0.01,
-       \"edge-guide clearance is outside the FDM fit target\");
-assert(backplane_guide_t <= 1.5 && backplane_guide_x_overlap <= 0.5,
-       \"backplane guide projects too far into the enclosure\");
-assert(base_floor_front_z < equipment_backplane_front_z &&
-       base_floor_rear_z > equipment_backplane_rear_z,
-       \"base floor does not support the backplane lower edge\");
+       "rear groove clearance is outside the FDM fit target");
+assert(abs(side_guide_h-30) < 0.01,
+       "side guide height must remain 30 mm");
+assert(abs(side_guide_w-5) < 0.01,
+       "side guide width must remain 5 mm");
+assert(abs(side_guide_clearance-0.4) < 0.01,
+       "side-guide running clearance is outside the FDM fit target");
+assert(side_guide_y1 < backplane_ramp_start_y,
+       "side guides must end below the enclosure taper");
+assert(side_guide_front_z < equipment_backplane_front_z,
+       "guide towers must thicken toward the enclosure interior");
+assert(base_connector_y_a <= base_seat_y &&
+       base_connector_y_b <= base_seat_y,
+       "horizontal junction pins must remain bed-connected in the floor band");
+assert(base_connector_z_a > side_guide_front_z &&
+       base_connector_z_b < side_guide_rear_z,
+       "hidden junctions must remain inside the structural guide towers");
+assert(adapter_outer_skin >= 1.0,
+       "outside rear skin over blind accessory holes is too thin");
+assert(adapter_hole_depth <=
+       adapter_boss_h + equipment_backplane_t - adapter_outer_skin + 0.01,
+       "accessory hole breaks through the solid outside rear skin");
+assert(backplane_seat_depth >= 2.0,
+       "rear groove seat is too shallow");
+assert(abs(equipment_backplane_y0-(base_seat_y-backplane_seat_depth)) < 0.01,
+       "backplane lower edge must seat inside the base groove");
+assert(backplane_slot_front_z < equipment_backplane_front_z &&
+       backplane_slot_back_z > equipment_backplane_rear_z,
+       "rear groove does not clear the backplane thickness");
+assert(base_rear_z-backplane_slot_back_z <= backplane_guide_t+0.01,
+       "rear locating groove has drifted away from the back edge");
+assert(equipment_backplane_front_z-enclosure_front_z >= 35,
+       "lower equipment cavity lost too much usable depth");
+
+assert(max(adapter_y) < backplane_ramp_start_y,
+       "accessory bosses must remain on the vertical lower backplane");
+assert(upper_vent_y > backplane_ramp_start_y,
+       "ventilation must remain in the tapered upper section");
+assert(upper_vent_y+upper_vent_h < enclosure_top_y,
+       "upper ventilation exceeds the tapered section");
 cube([1,1,1]);
 """,
         encoding="utf-8",
@@ -279,7 +321,11 @@ cube([1,1,1]);
         raise SystemExit(
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
-    print("OK: reinforced hinge shelf and top-down edge-located backplane contract")
+    print(
+        "OK: reinforced hinge, rear top-down groove, dual 30x5 mm guides, "
+        "hidden junctions, solid outside skin and 40-to-10 mm tapered backplane contract"
+    )
+
 
 def assert_neighboring_module_clearance(work_dir: Path) -> None:
     """Check a joined two-module row at closed and fully-open positions.
@@ -336,13 +382,32 @@ def main() -> None:
             """    hinged_equipment_base();
     universal_equipment_backplane();""",
         )
-        for lift in (1, 20, 80):
+        for lift in (1, 20, 80, 140):
             assert_empty_intersection(
                 work_dir,
                 f"backplane_top_down_insertion_{lift}",
                 f"""    hinged_equipment_base();
     translate([0,{lift},0]) universal_equipment_backplane();""",
             )
+
+        # Guard the equipment cavity against a rail/lip creeping back into the
+        # lower usable volume. Hinge hardware intentionally occupies the first
+        # ~30 mm above the floor, so the keep-out starts above that mechanism.
+        assert_empty_intersection(
+            work_dir,
+            "lower_equipment_volume_clear",
+            """    hinged_equipment_base();
+    translate([
+        service_x+5,
+        36,
+        enclosure_front_z+5
+    ])
+        cube([
+            service_w-10,
+            backplane_ramp_start_y-38,
+            equipment_backplane_front_z-enclosure_front_z-10
+        ]);""",
+        )
         for side in ("left", "right"):
             assert_empty_intersection(
                 work_dir,
