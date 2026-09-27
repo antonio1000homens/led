@@ -580,38 +580,61 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Keep the stationary knuckle support local to the hinge line instead of
-    // consuming the lower equipment cavity with a long diagonal ramp to the
-    // rear wall.
+    // Support the stationary knuckle from the existing full-width hinge guard,
+    // not from the rear enclosure wall. This keeps the lower equipment cavity
+    // clear instead of filling it with the former long rearward ramp.
     //
-    // In the upright print, installed +Y is print +Z. The circular barrel first
-    // appears at its bottom tangent (Y = hinge_axis_y-hinge_r), so give every
-    // stationary knuckle a narrow bed-connected rib directly below that point.
-    // The rib is embedded in the floor/base, grows vertically, and overlaps the
-    // barrel by 1 mm. This preserves layer-to-layer support while leaving the
-    // space behind the hinge open for wiring/equipment.
+    // The moving plate reaches furthest rearward around Y=11..13 during the
+    // service sweep. Keep the support flush with the already-validated guard
+    // through that zone, then grow forward at 45 degrees toward the barrel.
+    // In the upright print installed +Y is print +Z, so this is also a
+    // layer-supported printable gusset rather than a floating cantilever.
     //
-    // The existing full-width hinge guard remains behind the hinge line. Both
-    // guard and rib are tied together structurally through the floor/base,
-    // effectively making the local hinge area a thicker section of the plate
-    // without extending a ramp all the way to the rear enclosure wall.
-    hinge_root_rib_t = 3;
-    hinge_root_rib_start_y = base_thickness_y-0.5;
-    hinge_root_rib_top_y = hinge_axis_y-hinge_r+1.0;
+    // The target overlaps the barrel just above its bottom tangent. That gives
+    // Bambu a connected first printable barrel section while recovering the
+    // entire cavity behind the guard/gusset (roughly Z > 26 mm).
+    hinge_root_anchor_y = 11;
+    hinge_root_anchor_h = 2;
+    hinge_root_tip_y = hinge_axis_y-hinge_r; // 20 mm above the floor
+    hinge_root_tip_h = 2;
+    hinge_root_tip_t = 2;
+
+    // Front face advances exactly 1 mm for every 1 mm of installed height:
+    // 23.8 mm at the guard -> 16.8 mm at the barrel over 7 mm rise.
+    hinge_root_tip_front_z =
+        hinge_guard_front_z
+        - (hinge_root_tip_y-(hinge_root_anchor_y+hinge_root_anchor_h));
 
     union() {
         hinge_barrel(x0,len);
 
-        translate([
-            x0,
-            hinge_root_rib_start_y,
-            hinge_axis_z-hinge_root_rib_t/2
-        ])
-            cube([
-                len,
-                hinge_root_rib_top_y-hinge_root_rib_start_y,
-                hinge_root_rib_t
-            ]);
+        hull() {
+            // Bed-connected guard anchor. This adds no material in front of the
+            // existing sweep-clear guard through the critical Y=11..13 zone.
+            translate([
+                x0,
+                hinge_root_anchor_y,
+                hinge_guard_front_z
+            ])
+                cube([
+                    len,
+                    hinge_root_anchor_h,
+                    hinge_guard_t
+                ]);
+
+            // Short local thickening under the barrel. The 2 mm block overlaps
+            // the rear/lower barrel quadrant as the circular section begins.
+            translate([
+                x0,
+                hinge_root_tip_y,
+                hinge_root_tip_front_z
+            ])
+                cube([
+                    len,
+                    hinge_root_tip_h,
+                    hinge_root_tip_t
+                ]);
+        }
     }
 }
 
