@@ -51,7 +51,7 @@ detachable side pieces or accessory adapters.
 | `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end/rail retainer |
 | `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end/rail retainer |
 
-Generated STL binaries are intentionally not versioned. See `stl/README.md`.
+Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
 ## Panel mounting geometry
 
@@ -127,21 +127,28 @@ These features provide alignment/retention, not the primary structural load.
 - `schematics/00_hinged_enclosure_ASSEMBLY.scad` — panel open to 90°
 - `schematics/00_hinged_enclosure_CLOSED_ASSEMBLY.scad` — panel closed
 
-## Validation
+## STL generation and validation
 
-Run:
+Regenerate the checked-in manufacturing STLs with:
+
+```bash
+python hardware/enclosure/direct-mount/scripts/generate_stls.py
+```
+
+Run the mechanical validator with:
 
 ```bash
 python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
 ```
 
-CI regenerates all five canonical parts, checks mesh health and floating-layer
+CI regenerates all five canonical parts, verifies they match the checked-in
+STLs, checks mesh health and floating-layer
 proxies, verifies base/backplane fit, then holds the **equipment enclosure
 stationary** and checks the **moving panel/template** for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°.
 
-The final manufacturing gate is Windsor Slicer using the repository-root
-`.windsor-slicer.yaml` and the real Bambu Studio H2D profile.
+During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
+`.windsor-slicer.yaml` and the real Bambu Studio H2D profile. GitHub Actions does **not** run Bambu Studio or generate `.3mf` files.
 
 ## Physical acceptance order
 
