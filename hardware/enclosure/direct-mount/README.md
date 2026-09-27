@@ -69,7 +69,8 @@ The proven concealed hinge is retained:
 - barrel OD: **13 mm**
 - hinge axis: **y=11.5 mm, z=10.5 mm**
 - fixed and moving knuckles remain alternating;
-- the centre panel screw service gap is preserved.
+- the centre panel screw service gap is preserved;
+- designed service-open angle: **72°**.
 
 The moving base can be printed independently, allowing hinge rotation and rail
 fit to be tested before printing the full backplane.
