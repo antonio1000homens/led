@@ -238,13 +238,13 @@ def assert_hinge_sweep(work_dir: Path) -> None:
         )
 
 def assert_design_contract(work_dir: Path) -> None:
-    """Check shelf reinforcement and the reduced, clearance-safe rail profile."""
+    """Check the reinforced hinge and top-down backplane interface."""
     check_scad = work_dir / "design_contract.scad"
     output = work_dir / "design_contract.csg"
     check_scad.write_text(
         f"""include <{SOURCE.as_posix()}>;
 assert(hinge_guard_t >= 2, \"hinge shelf is too thin\");
-assert(hinge_guard_start_y <= rail_base_y && hinge_guard_top_y >= hinge_axis_y,
+assert(hinge_guard_start_y <= base_seat_y && hinge_guard_top_y >= hinge_axis_y,
        \"hinge shelf no longer spans behind the hinge\");
 assert(hinge_guard_front_z >= hinge_axis_z + hinge_radius + hinge_guard_clearance,
        \"hinge shelf violates barrel clearance\");
@@ -255,20 +255,17 @@ assert(hinge_support_landing_y >= hinge_guard_start_y &&
 assert(hinge_support_landing_z < hinge_guard_front_z+hinge_guard_t &&
        hinge_support_landing_z+hinge_support_landing_h > hinge_guard_front_z+hinge_guard_t,
        \"hinge root web must overlap the shelf by design\");
-assert(hinge_support_landing_z+hinge_support_landing_h < rail_front_z0,
-       \"hinge root web extends into the backplane rail interior\");
-assert(rail_clearance >= 0.35 && rail_clearance <= 0.5,
-       \"rail clearance is outside the FDM fit range\");
-assert(abs((tongue_head_z1-tongue_head_z0)-7.2) < 0.01,
-       \"captive rail head must remain 7.2 mm high\");
-assert((tongue_head_z1-tongue_head_z0) <= 0.75*10.2,
-       \"rail has not materially reduced the #134 engagement profile\");
-assert(tongue_stem_z1 > tongue_stem_z0 && tongue_stem_y1 > equipment_backplane_y0,
-       \"backplane tongue is disconnected or has no rail engagement\");
-assert(tongue_stem_y1-equipment_backplane_y0 >= 0.4,
-       \"backplane tongue overlap is below the structural minimum\");
-assert(rail_head_top_y < rail_lip_y && rail_lip_y < rail_neck_top_y,
-       \"rail retaining lip profile is invalid\");
+assert(hinge_support_landing_z+hinge_support_landing_h < equipment_backplane_front_z,
+       \"hinge root web extends into the backplane insertion area\");
+assert(abs(equipment_backplane_y0-base_seat_y) < 0.01,
+       \"backplane lower edge must sit on the base floor edge\");
+assert(abs(backplane_guide_clearance-0.4) < 0.01,
+       \"edge-guide clearance is outside the FDM fit target\");
+assert(backplane_guide_t <= 1.5 && backplane_guide_x_overlap <= 0.5,
+       \"backplane guide projects too far into the enclosure\");
+assert(base_floor_front_z < equipment_backplane_front_z &&
+       base_floor_rear_z > equipment_backplane_rear_z,
+       \"base floor does not support the backplane lower edge\");
 cube([1,1,1]);
 """,
         encoding="utf-8",
@@ -282,7 +279,7 @@ cube([1,1,1]);
         raise SystemExit(
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
-    print("OK: reinforced hinge shelf and reduced 7.2 mm rail engagement contract")
+    print("OK: reinforced hinge shelf and top-down edge-located backplane contract")
 
 def assert_neighboring_module_clearance(work_dir: Path) -> None:
     """Check a joined two-module row at closed and fully-open positions.
@@ -335,10 +332,17 @@ def main() -> None:
         assert_design_contract(work_dir)
         assert_empty_intersection(
             work_dir,
-            "backplane_rail_fit",
+            "backplane_seat_contact",
             """    hinged_equipment_base();
     universal_equipment_backplane();""",
         )
+        for lift in (1, 20, 80):
+            assert_empty_intersection(
+                work_dir,
+                f"backplane_top_down_insertion_{lift}",
+                f"""    hinged_equipment_base();
+    translate([0,{lift},0]) universal_equipment_backplane();""",
+            )
         for side in ("left", "right"):
             assert_empty_intersection(
                 work_dir,
