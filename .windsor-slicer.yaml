@@ -25,3 +25,8 @@ models:
     source: hardware/enclosure/direct-mount/parts/05_right_equipment_side_PRINT_1.scad
     generator: openscad
     output: 05_right_equipment_side_PRINT_1.stl
+
+  hinge-sweep-60-diagnostic:
+    source: hardware/enclosure/direct-mount/parts/99_hinge_sweep_60_DIAGNOSTIC.scad
+    generator: openscad
+    output: 99_hinge_sweep_60_DIAGNOSTIC.stl
