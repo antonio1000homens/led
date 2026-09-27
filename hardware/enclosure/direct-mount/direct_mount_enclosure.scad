@@ -152,38 +152,66 @@ service_w = backplane_w;
 service_close_clearance = 0.6;
 service_front_z = fixed_template_t + service_close_clearance;
 
-base_rear_z = 60;
+// Reuse the validated PR #119 enclosure profile on the removable backplane:
+// a 40 mm-deep vertical lower equipment section up to 60 mm above the floor,
+// tapering to 10 mm at the top of the LED/template.
+enclosure_front_z = fixed_template_t + 0.8; // 2.8 mm behind template rear face
+enclosure_bottom_depth = 40;
+enclosure_top_depth = 10;
+backplane_ramp_start_y = 60;
+enclosure_top_y = ground_clearance + module_h;
+
+equipment_backplane_t = 3;
+equipment_backplane_lower_rear_z = enclosure_front_z + enclosure_bottom_depth;
+equipment_backplane_front_z = equipment_backplane_lower_rear_z - equipment_backplane_t;
+equipment_backplane_rear_z = equipment_backplane_lower_rear_z;
+equipment_backplane_top_rear_z = enclosure_front_z + enclosure_top_depth;
+equipment_backplane_top_front_z = equipment_backplane_top_rear_z - equipment_backplane_t;
+
+backplane_guide_clearance = 0.4;
+backplane_guide_t = 1.2;
+backplane_seat_depth = 2.0;
 base_seat_y = 4.5;
+equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
+
+// The locating rail is a recessed groove at the BACK edge of the base. It
+// does not project into the usable equipment cavity.
+backplane_slot_front_z = equipment_backplane_front_z - backplane_guide_clearance;
+backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
+base_rear_z = backplane_slot_back_z + backplane_guide_t;
 base_floor_front_z = service_front_z;
 base_floor_rear_z = base_rear_z;
 
-// Backplane: one identical plate for every module.
-equipment_backplane_y0 = base_seat_y;
-equipment_backplane_front_z = 44;
-equipment_backplane_t = 3;
-equipment_backplane_rear_z = equipment_backplane_front_z + equipment_backplane_t;
-backplane_guide_clearance = 0.4;
-backplane_guide_t = 1.2;
-backplane_guide_front_z = equipment_backplane_front_z - backplane_guide_clearance - backplane_guide_t;
-backplane_guide_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
-backplane_guide_x_overlap = 0.4;
+// Supported top closure derived from PR #119. The tapered backplane grows
+// forward progressively and finishes 0.8 mm behind the moving template.
+backplane_top_band = 1.5;
+top_template_clearance = 0.8;
+top_link_front_z = fixed_template_t + top_template_clearance;
+top_link_start_y = enclosure_top_y - 18;
+top_link_anchor_h = 2;
+top_link_cap_h = 3;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
 adapter_boss_d = 8;
 adapter_hole_d = 3.4;
 adapter_boss_h = 5;
 adapter_x = [32,80,128,176,224];
-adapter_y = [48,80,112];
+// Keep accessory mounting on the vertical lower section so adapters remain
+// parallel to the LED plane and do not sit on the tapered ventilation roof.
+adapter_y = [18,36,54];
 
-// Backplane ventilation/cable passages avoid the boss grid.
-vent_slot_len = 24;
-vent_slot_w = 5;
-vent_x = [56,128,200];
-vent_y = [64,96];
+// Fine upper-only ventilation, matching the proven PR #119 strategy.
+vent_side_margin = 12;
+vent_slot_w = 3;
+vent_pitch = 8;
+upper_vent_y = backplane_ramp_start_y + 10;
+upper_vent_h = 50;
+
+// Lower cable/ribbon passages remain below the taper.
 cable_slot_len = 20;
 cable_slot_w = 6;
 cable_slot_x = [64,176];
-cable_slot_y = 36;
+cable_slot_y = 28;
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -195,11 +223,11 @@ connector_socket_depth = 4;
 // their horizontal pins are bed-connected from the first print layers.
 base_connector_y_a = 2.5;
 base_connector_y_b = 2.5;
-base_connector_z_a = 24;
-base_connector_z_b = 52;
-backplane_connector_y_a = 56;
-backplane_connector_y_b = 104;
-backplane_connector_z = 44;
+base_connector_z_a = 18;
+base_connector_z_b = 34;
+backplane_connector_y_a = 24;
+backplane_connector_y_b = 52;
+backplane_connector_z = equipment_backplane_front_z;
 connector_pad_y = 10;
 connector_pad_z = 7;
 
@@ -312,19 +340,34 @@ module lower_hinge_guard() {
 }
 
 module base_structural_body() {
-    union() {
-        // The base is the structural floor. Its top edge is the positive stop
-        // for the backplane, which drops in vertically from above.
-        translate([service_x,service_base_y,service_front_z])
-            cube([
-                service_w,
-                base_seat_y-service_base_y,
-                base_rear_z-service_front_z
-            ]);
+    difference() {
+        union() {
+            // Low unobstructed structural floor.
+            translate([service_x,service_base_y,service_front_z])
+                cube([
+                    service_w,
+                    base_seat_y-service_base_y,
+                    base_rear_z-service_front_z
+                ]);
 
-        stationary_hinge_supports();
-        stationary_hinge_barrels();
-        lower_hinge_guard();
+            stationary_hinge_supports();
+            stationary_hinge_barrels();
+            lower_hinge_guard();
+        }
+
+        // Recess the top-down backplane rail INTO the rear edge of the base.
+        // Only a 2 mm-deep locating groove is removed; there is no internal
+        // ramp, lip or captive wall consuming module space.
+        translate([
+            service_x-0.1,
+            equipment_backplane_y0,
+            backplane_slot_front_z
+        ])
+            cube([
+                service_w+0.2,
+                base_seat_y-equipment_backplane_y0+0.2,
+                backplane_slot_back_z-backplane_slot_front_z
+            ]);
     }
 }
 
@@ -405,24 +448,114 @@ module backplane_connector_sockets() {
     socket_pos_x(left_x,backplane_connector_y_a,backplane_connector_z);
 }
 
-module universal_equipment_backplane() {
-    difference() {
-        union() {
+function tapered_backplane_rear_z_at_y(y) =
+    equipment_backplane_lower_rear_z +
+    (equipment_backplane_top_rear_z-equipment_backplane_lower_rear_z) *
+    ((y-backplane_ramp_start_y)/(enclosure_top_y-backplane_ramp_start_y));
+
+module backplane_shell_solid() {
+    union() {
+        // Vertical lower section: this is the portion that enters the rear
+        // top-down base groove and carries accessory adapters.
+        translate([
+            service_x,
+            equipment_backplane_y0,
+            equipment_backplane_front_z
+        ])
+            cube([
+                service_w,
+                backplane_ramp_start_y-equipment_backplane_y0,
+                equipment_backplane_t
+            ]);
+
+        // Upper enclosure ramps forward from the 40 mm lower depth to the
+        // 10 mm top depth. The hull is continuously supported in the upright
+        // print orientation.
+        hull() {
             translate([
                 service_x,
-                equipment_backplane_y0,
+                backplane_ramp_start_y-1.0,
                 equipment_backplane_front_z
+            ])
+                cube([service_w,2.0,equipment_backplane_t]);
+
+            translate([
+                service_x,
+                enclosure_top_y-backplane_top_band,
+                equipment_backplane_top_front_z
             ])
                 cube([
                     service_w,
-                    service_top_y-equipment_backplane_y0,
+                    backplane_top_band,
                     equipment_backplane_t
                 ]);
+        }
+    }
+}
+
+module ramp_ventilation_cutters() {
+    // Ventilation exists only in the tapered upper section. Narrow 3 mm
+    // vertical slits leave 5 mm ribs on an 8 mm pitch, matching PR #119.
+    for (x=[
+        service_x+vent_side_margin :
+        vent_pitch :
+        service_x+service_w-vent_side_margin-vent_slot_w
+    ]) {
+        translate([
+            x,
+            upper_vent_y,
+            equipment_backplane_top_front_z-2
+        ])
+            cube([
+                vent_slot_w,
+                upper_vent_h,
+                equipment_backplane_lower_rear_z-equipment_backplane_top_rear_z
+                    + equipment_backplane_t + 4
+            ]);
+    }
+}
+
+module backplane_top_link() {
+    // Grow the roof from an anchor on the already-supported tapered wall toward
+    // the top of the moving front plate. This avoids a front-first floating
+    // cantilever while closing the enclosure to within 0.8 mm of the template.
+    anchor_rear_z = tapered_backplane_rear_z_at_y(top_link_start_y);
+
+    hull() {
+        translate([
+            service_x,
+            top_link_start_y,
+            anchor_rear_z-equipment_backplane_t
+        ])
+            cube([
+                service_w,
+                top_link_anchor_h,
+                equipment_backplane_t
+            ]);
+
+        translate([
+            service_x,
+            enclosure_top_y-top_link_cap_h,
+            top_link_front_z
+        ])
+            cube([
+                service_w,
+                top_link_cap_h,
+                equipment_backplane_top_rear_z-top_link_front_z
+            ]);
+    }
+}
+
+module universal_equipment_backplane() {
+    difference() {
+        union() {
+            backplane_shell_solid();
+            backplane_top_link();
 
             backplane_connector_pads();
             backplane_connector_pins();
 
-            // Repeated universal adapter bosses.
+            // Repeated universal adapter bosses on the vertical lower section.
             for (xx=adapter_x)
                 for (yy=adapter_y)
                     translate([
@@ -448,18 +581,9 @@ module universal_equipment_backplane() {
                         h=equipment_backplane_t+adapter_boss_h+1
                     );
 
-        // Upper ventilation.
-        for (xx=vent_x)
-            for (yy=vent_y)
-                translate([
-                    xx,
-                    yy,
-                    equipment_backplane_front_z-0.5
-                ])
-                    linear_extrude(height=equipment_backplane_t+1)
-                        rounded_slot_2d(vent_slot_len,vent_slot_w);
+        ramp_ventilation_cutters();
 
-        // Lower cable/ribbon passages.
+        // Lower cable/ribbon passages stay in the orthogonal section.
         for (xx=cable_slot_x)
             translate([
                 xx,
@@ -471,7 +595,9 @@ module universal_equipment_backplane() {
     }
 }
 
-// Print on the lower edge so the plain locating edge and bosses grow from bed.
+// Print upright on the lower locating edge. Installed +Y maps to print +Z;
+// rearward +Z maps to print -Y. The 40 -> 10 mm upper taper therefore grows
+// progressively from supported lower layers.
 module universal_equipment_backplane_print() {
     translate([
         0,
@@ -485,67 +611,53 @@ module universal_equipment_backplane_print() {
 // ---------- Detachable side/end pieces ----------
 
 module side_wall_body(side="right") {
-    x0 = side == "right"
-        ? service_x + service_w
-        : service_x - side_t;
-    guide_x0 = side == "right"
-        ? x0-backplane_guide_x_overlap
-        : x0;
+    // Outer side pieces close only the display's outside edges. Internal module
+    // seams omit these pieces so HUB75/power cabling can pass between modules.
+    x0 = side == "right" ? module_w : -side_t;
 
     union() {
-        // Low foot carries the base-level alignment pins while staying below
-        // the seated backplane lower edge.
-        translate([x0,service_base_y,service_front_z])
+        // Orthogonal lower wall follows the same 40 mm equipment depth as the
+        // removable backplane's vertical insertion section.
+        translate([x0,service_base_y,enclosure_front_z])
             cube([
                 side_t,
-                7.5,
-                base_rear_z-service_front_z
+                backplane_ramp_start_y-service_base_y,
+                equipment_backplane_lower_rear_z-enclosure_front_z
             ]);
 
-        // Narrow perimeter spine supports the edge guides without filling the
-        // enclosure volume. It starts above the full moving-panel sweep and
-        // stays outside the backplane's X footprint.
-        translate([x0,35,backplane_guide_front_z])
-            cube([
-                side_t,
-                service_top_y-35,
-                base_rear_z-backplane_guide_front_z
-            ]);
+        // Upper side follows the removable backplane taper and its supported
+        // top closure toward the moving panel/template.
+        hull() {
+            translate([
+                x0,
+                backplane_ramp_start_y-1,
+                enclosure_front_z
+            ])
+                cube([
+                    side_t,
+                    2,
+                    equipment_backplane_lower_rear_z-enclosure_front_z
+                ]);
 
-        // A narrow rear-edge web joins the low connector foot to the guide
-        // spine while remaining outside the panel sweep and usable volume.
-        translate([x0,7.5,base_rear_z-2])
-            cube([side_t,35-7.5,2]);
-
-        // Shallow edge guides keep the backplane aligned during top-down
-        // insertion. The short breaks leave room for the horizontal alignment
-        // connectors; no guide crosses the usable equipment area.
-        for (guide=[ [35,49], [63,80], [111,service_top_y] ])
-                if (guide[1] > guide[0])
-                    translate([
-                        guide_x0,
-                        guide[0],
-                        backplane_guide_front_z
-                    ])
-                        cube([
-                            side_t+backplane_guide_x_overlap,
-                            guide[1]-guide[0],
-                            backplane_guide_t
-                        ]);
-
-        for (guide=[ [35,49], [63,80], [111,service_top_y] ])
-                if (guide[1] > guide[0])
-                    translate([
-                        guide_x0,
-                        guide[0],
-                        backplane_guide_back_z
-                    ])
-                        cube([
-                            side_t+backplane_guide_x_overlap,
-                            guide[1]-guide[0],
-                            backplane_guide_t
-                        ]);
+            translate([
+                x0,
+                enclosure_top_y-top_link_cap_h,
+                top_link_front_z
+            ])
+                cube([
+                    side_t,
+                    top_link_cap_h,
+                    equipment_backplane_top_rear_z-top_link_front_z
+                ]);
+        }
     }
+}
+
+module side_hinge_bore(side="right") {
+    x0 = side == "right" ? module_w-0.5 : -side_t-0.5;
+    translate([x0,hinge_axis_y,hinge_axis_z])
+        rotate([0,90,0])
+            cylinder(d=hinge_bore_d,h=side_t+1.0);
 }
 
 module right_side_pins() {
@@ -596,6 +708,8 @@ module equipment_side(side="right") {
             right_side_sockets();
         else
             left_side_sockets();
+
+        side_hinge_bore(side);
     }
 }
 
