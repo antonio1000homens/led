@@ -135,7 +135,7 @@ The lower vertical section carries the accessory mounting grid and cable
 passages. The upper tapered section is primarily the ventilated enclosure roof.
 
 In a joined row, side pieces are installed only at the two outside edges;
-neighboring base and backplane pin/socket features mate across internal seams.
+neighboring guide-tower pin/socket features mate across internal seams.
 This leaves the internal module-to-module sides open for HUB75/power cabling.
 Glue is not part of normal assembly.
 
@@ -150,7 +150,7 @@ hole is visible from outside:
 - Y = **18 / 36 / 54 mm** (kept entirely on the vertical lower section)
 - boss OD = **8 mm**
 - boss height = **5 mm**
-- through-hole = **3.4 mm**
+- blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
@@ -163,7 +163,7 @@ mating sockets are blind from the inside, leaving the outside side faces solid.
 
 - pin diameter: **4.0 mm**
 - socket diameter: **4.7 mm**
-- nominal engagement: **4 mm**
+- nominal printed pin length: **3 mm**; joined-module engagement is approximately **2 mm** after the 1 mm module-edge gap
 
 These features provide alignment/retention, not the primary structural load.
 
