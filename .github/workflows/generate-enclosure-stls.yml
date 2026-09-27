@@ -3,9 +3,8 @@ name: Enclosure / Validate
 # Validation-only by design. CI never commits generated STL files.
 #
 # All enclosure checks are orchestrated by validate_enclosure.py so the exact
-# same validation can be run locally and production meshes are rendered only
-# once per CI run. The historical hinge-version experiment is retained in the
-# repository but is not part of default validation.
+# same validation can be run locally. The modular hinged design is the only
+# supported enclosure architecture; generated STLs are validation artifacts.
 
 on:
   pull_request:
@@ -14,6 +13,7 @@ on:
       - 'hardware/enclosure/**/*.stl'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
+      - '.windsor-slicer.yaml'
       - '.github/workflows/generate-enclosure-stls.yml'
   push:
     branches:
@@ -23,6 +23,7 @@ on:
       - 'hardware/enclosure/**/*.stl'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
+      - '.windsor-slicer.yaml'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 

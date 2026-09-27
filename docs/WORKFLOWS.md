@@ -85,15 +85,27 @@ names remain unchanged.
 
 ## Enclosure validation architecture
 
-`.github/workflows/generate-enclosure-stls.yml` intentionally contains only environment setup plus a call to:
+`.github/workflows/generate-enclosure-stls.yml` contains environment setup plus
+a call to:
 
 `hardware/enclosure/direct-mount/scripts/validate_enclosure.py`
 
-That script is the single orchestration point for current mechanical CI. Production printable wrapper SCADs are rendered **once** per run and compared with their checked-in manufacturing STLs; the same run also renders assembly/reference views, validates hinge prototype v2, and runs mesh/interface validation.
+Issue #133 commits the repository to one canonical mechanical architecture: the
+modular hinged direct-mount enclosure. Legacy non-hinged backplanes/lids and
+earlier hinge prototype directories are not retained as alternate printable
+designs.
 
-The older `hardware/enclosure/direct-mount/hinge-version/` experiment is retained for reference but is no longer rebuilt on every enclosure change. The active hinged design is `hinge-prototype-v2/`.
+The canonical OpenSCAD source is
+`hardware/enclosure/direct-mount/direct_mount_enclosure.scad`. Thin printable
+wrappers live under `hardware/enclosure/direct-mount/parts/`.
 
-Hinge-v2 validation includes a coarse voxel/layer **floating-island proxy**. It rejects an elevated XY slice component that appears without nearby material in the preceding slice. This remains the inexpensive required gate. Full Bambu Studio validation and slicing are provided by the shared [Windsor Slicer service](https://github.com/antonio1000homens/windsor-slicer), using models declared in `.windsor-slicer.yaml`.
+CI regenerates all five current printable parts on demand and validates mesh
+health, a coarse floating-layer/island proxy, the base/backplane rail
+intersection, representative hinge sweep clearances, and open/closed assembly
+previews. Generated STL binaries are not committed to Git.
+
+Full Bambu Studio validation and slicing are provided by Windsor Slicer using
+only the canonical models declared in `.windsor-slicer.yaml`.
 
 ## Workflow-generated commits and approval loops
 

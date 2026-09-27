@@ -1,26 +1,13 @@
-# Enclosure schematics and assembly views
+# Mechanical reference views
 
-These OpenSCAD files are **non-printing direct-mount detail views/references**. Printable part entrypoints live in `../parts/` and generated meshes live in `../stl/`. The full four-panel assembly and projection views are intentionally kept in `../../complete_enclosure/` by PR #102.
+The hinged direct-mount design is canonical.
 
-Key files:
+Current assembly views:
 
-- `../../complete_enclosure/00_complete_enclosure_ASSEMBLY.scad` — complete four-panel rear assembly.
-- `../../complete_enclosure/00_complete_enclosure_*_VIEW_SVG.scad` — front/back/side/top/bottom 2D projection wrappers.
-- `04_matrixportal_side_access_ASSEMBLY.scad` — Panel 1 MatrixPortal carrier attachment and controller orientation.
-- `10_rear_lid_alignment_ASSEMBLY.scad` — rear-lid peg/socket overlay.
-- `matrixportal_s3_REFERENCE.scad` — simplified MatrixPortal S3 mechanical reference used by assembly views.
+- `00_hinged_enclosure_ASSEMBLY.scad` — open service position;
+- `00_hinged_enclosure_CLOSED_ASSEMBLY.scad` — closed position;
+- `matrixportal_s3_REFERENCE.scad` — non-printing MatrixPortal S3 mechanical
+  reference retained for future detachable adapter work.
 
-## MatrixPortal orientation
-
-The controller reference is modelled **63.50 × 44.45 mm in landscape orientation**.
-
-The **44.45 mm short edge** containing USB-C and Reset/Up/Down/Boot faces the outside/left edge of Panel 1. The board overhangs that edge by approximately 10 mm so the controls remain accessible.
-
-## Rear lid alignment
-
-The lid and backplane share the same nominal XY coordinate system. Lid pegs and backplane sockets are centred at:
-
-- x = 64 / 192 mm
-- y = 8 / 120 mm
-
-Open `10_rear_lid_alignment_ASSEMBLY.scad` to inspect the mating centres directly.
+Legacy rear-lid, joiner and complete non-hinged assembly views were removed
+when issue #133 committed the repository to the hinged architecture.
