@@ -1,4 +1,5 @@
 name: Temporary enclosure STL sync
+# refresh after documentation update
 
 on:
   push:
