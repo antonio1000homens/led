@@ -246,6 +246,32 @@ module fixed_knuckle_clearance_pockets() {
     }
 }
 
+module fixed_root_sweep_clearance(max_angle=90, step=5) {
+    // The fixed knuckle root pads do not rotate with the moving base.  Remove
+    // their swept envelope from the moving base at the fixed-knuckle X ranges,
+    // with the same running clearance used by the barrel pockets.  Hull each
+    // adjacent angular sample so the service arc is continuous rather than a
+    // set of discrete scalloped pockets.
+    for (segment=fixed_knuckles)
+        for (angle=[0:step:max_angle-step])
+            hull() {
+                for (a=[angle,angle+step])
+                    translate([0,hinge_axis_y,hinge_axis_z])
+                        rotate([-a,0,0])
+                            translate([0,-hinge_axis_y,-hinge_axis_z])
+                                translate([
+                                    segment[0]-hinge_axial_clearance/2,
+                                    fixed_hinge_root_y-hinge_pocket_clearance,
+                                    -hinge_pocket_clearance
+                                ])
+                                    cube([
+                                        segment[1]+hinge_axial_clearance,
+                                        fixed_hinge_root_h+2*hinge_pocket_clearance,
+                                        fixed_hinge_root_t+2*hinge_pocket_clearance
+                                    ]);
+            }
+}
+
 module hinge_front_sweep_relief() {
     // Full opening clearance below the pivot, followed by a gradual closure.
     // The previous rectangular cutter ended abruptly at Y=hinge_axis_y and
@@ -382,6 +408,7 @@ module hinged_equipment_base() {
         moving_hinge_bores();
         hinge_front_sweep_relief();
         fixed_knuckle_clearance_pockets();
+        fixed_root_sweep_clearance();
         base_connector_sockets();
     }
 }
