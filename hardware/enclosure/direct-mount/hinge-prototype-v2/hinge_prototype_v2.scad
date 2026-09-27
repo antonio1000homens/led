@@ -608,22 +608,37 @@ module stationary_middle_enclosure_root(x0,len) {
     union() {
         hinge_barrel(x0,len);
 
+        // Keep the critical Y=11..13 sweep-clear region exactly flush with
+        // the existing guard. Do not include this full anchor block inside the
+        // hull: doing so lets the convex hull bulge forward before Y=13.
+        translate([
+            x0,
+            hinge_root_anchor_y,
+            hinge_guard_front_z
+        ])
+            cube([
+                len,
+                hinge_root_anchor_h,
+                hinge_guard_t
+            ]);
+
+        // Build only the diagonal section as a hull between two very thin
+        // slices. Its forward growth therefore begins at Y=13, after the
+        // moving panel has cleared the guard plane, instead of leaking into the
+        // lower anchor zone.
+        hinge_root_slice_h = 0.05;
         hull() {
-            // Bed-connected guard anchor. This adds no material in front of the
-            // existing sweep-clear guard through the critical Y=11..13 zone.
             translate([
                 x0,
-                hinge_root_anchor_y,
+                hinge_root_anchor_y+hinge_root_anchor_h,
                 hinge_guard_front_z
             ])
                 cube([
                     len,
-                    hinge_root_anchor_h,
+                    hinge_root_slice_h,
                     hinge_guard_t
                 ]);
 
-            // Short local thickening under the barrel. The 2 mm block overlaps
-            // the rear/lower barrel quadrant as the circular section begins.
             translate([
                 x0,
                 hinge_root_tip_y,
@@ -631,10 +646,23 @@ module stationary_middle_enclosure_root(x0,len) {
             ])
                 cube([
                     len,
-                    hinge_root_tip_h,
+                    hinge_root_slice_h,
                     hinge_root_tip_t
                 ]);
         }
+
+        // Give the barrel overlap its full 2 mm installed height independently
+        // of the thin hull construction slices.
+        translate([
+            x0,
+            hinge_root_tip_y,
+            hinge_root_tip_front_z
+        ])
+            cube([
+                len,
+                hinge_root_tip_h,
+                hinge_root_tip_t
+            ]);
     }
 }
 
