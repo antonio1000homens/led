@@ -378,12 +378,12 @@ def main() -> None:
             """    hinged_equipment_base();
     translate([
         service_x+5,
-        30,
+        36,
         enclosure_front_z+5
     ])
         cube([
             service_w-10,
-            backplane_ramp_start_y-32,
+            backplane_ramp_start_y-38,
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
