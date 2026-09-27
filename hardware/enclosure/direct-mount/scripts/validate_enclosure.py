@@ -4,10 +4,10 @@
 This script is the single CI entrypoint for enclosure/mechanical validation.
 It intentionally renders each current production STL once from its printable
 wrapper entrypoint, compares that mesh with the checked-in manufacturing STL,
-then runs the remaining assembly and hinge-v2 checks.
+then runs the assembly, hinge-v2, and modular hinge/base/backplane checks.
 
-The historical hinge-version/ experiment is retained in the repository for
-reference but is no longer rebuilt on every enclosure change.
+The hinge-version/ directory now contains the active modular enclosure work from
+issue #133 and is validated on every relevant enclosure change.
 """
 
 from __future__ import annotations
@@ -172,6 +172,10 @@ def validate_hinge_v2() -> None:
     run(sys.executable, SCRIPTS_DIR / "validate_hinge_v2_stls.py")
 
 
+def validate_modular_hinge() -> None:
+    run(sys.executable, SCRIPTS_DIR / "validate_hinge_version_stls.py")
+
+
 def validate_nominal_assembly() -> None:
     run(
         sys.executable,
@@ -189,17 +193,15 @@ def main() -> None:
         validate_reference_views(generated_dir)
 
     validate_hinge_v2()
+    validate_modular_hinge()
     validate_nominal_assembly()
 
     print()
     print("All current enclosure validation checks passed.")
     print(
-        "Legacy hinge-version geometry is retained for reference but is not "
-        "part of default CI."
-    )
-    print(
-        "Bambu Studio remains the final authority for slicer-specific support "
-        "and floating-cantilever diagnostics."
+        "The modular hinge/base/backplane geometry is part of default CI; "
+        "Windsor Slicer/Bambu Studio remains the final authority for "
+        "slicer-specific support and floating-cantilever diagnostics."
     )
 
 

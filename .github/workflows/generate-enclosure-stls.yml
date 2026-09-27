@@ -4,8 +4,8 @@ name: Enclosure / Validate
 #
 # All enclosure checks are orchestrated by validate_enclosure.py so the exact
 # same validation can be run locally and production meshes are rendered only
-# once per CI run. The historical hinge-version experiment is retained in the
-# repository but is not part of default validation.
+# once per CI run. The modular hinge-version design is also generated and
+# mechanically checked on every relevant enclosure change.
 
 on:
   pull_request:
@@ -14,6 +14,7 @@ on:
       - 'hardware/enclosure/**/*.stl'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
+      - '.windsor-slicer.yaml'
       - '.github/workflows/generate-enclosure-stls.yml'
   push:
     branches:
@@ -23,6 +24,7 @@ on:
       - 'hardware/enclosure/**/*.stl'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
+      - '.windsor-slicer.yaml'
       - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 

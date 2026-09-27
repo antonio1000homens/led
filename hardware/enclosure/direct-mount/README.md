@@ -104,24 +104,52 @@ CI installs OpenSCAD plus the Python mechanical dependencies and then runs that 
 - validates the active `hinge-prototype-v2/` print geometry, including a coarse floating-layer/island proxy;
 - runs mesh-health and nominal assembly-interface checks.
 
-The older `hinge-version/` experiment remains available for reference but is not part of default CI. Bambu Studio remains the final check for slicer-specific overhang/support diagnostics.
+The modular `hinge-version/` design from issue #133 is now part of default enclosure CI. Its base, universal backplane and detachable sides are regenerated and checked for mesh health, disconnected shells, coarse floating-layer regressions, rail interference and hinge-sweep clearance. Bambu Studio through Windsor Slicer remains the final check for slicer-specific overhang/support diagnostics.
 
-## 6 mm rail hinge prototype
+## Modular 6 mm rail hinge enclosure
 
-An experimental clamshell/service-tray variant now lives under:
+The hinged enclosure under `hinge-version/` has been refactored by issue #133
+into interchangeable mechanical sections rather than one monolithic moving tray.
 
-`hinge-version/`
+The fixed LED-panel template still uses the corrected physical P4 mounting
+geometry and the same concealed **6 mm metal hinge rail / 7.2 mm printed bore**
+concept.
 
-This variant does **not** replace the production direct-mount parts. It reuses the same corrected panel boss and locator coordinates from `direct_mount_enclosure.scad`, but adds:
+The moving half is now:
 
-- a fixed version of the corrected 08 mounting template with alternating hinge knuckles along the bottom;
-- a complementary moving equipment enclosure with the matching knuckles;
-- a **6 mm metal rail** through 7.2 mm printed bores as the hinge pin;
-- a 30 mm-deep equipment cavity with a universal M3/cable-tie slot grid;
-- a deeper full-width lower foot for desk stability;
-- an assembly preview showing the enclosure opening downward.
+```text
+universal hinge/base
+        |
+        | lateral captive dovetail rail
+        v
+universal equipment backplane
+        |
+        +-- detachable left side
+        +-- detachable right side
+        +-- removable component adapters
+```
 
-See `hinge-version/README.md` for dimensions and the physical validation sequence.
+Key properties:
+
+- the hinge/base is independently printable for low-cost rotation testing;
+- every base is identical and can be used at any panel position;
+- every backplane is identical and can be used at any panel position;
+- the backplane slides laterally into a support-free captive rail with
+  **0.4 mm nominal mating clearance**;
+- detachable side pieces close the rail ends and retain the backplane;
+- both base and backplane use self-mating left/right pin/socket alignment;
+- every backplane carries the same generic **5 × 3 M3-ready boss grid** at
+  X = 32/80/128/176/224 mm and Y = 48/80/112 mm;
+- PSU, MatrixPortal and future electronics use detachable adapters rather than
+  special-purpose backplanes;
+- the old monolithic moving-enclosure entrypoint is deprecated.
+
+The four modular parts are exposed to Windsor Slicer as
+`modular-hinge-base`, `universal-equipment-backplane`,
+`left-equipment-side`, and `right-equipment-side`.
+
+See `hinge-version/README.md` for the rail profile, connector dimensions,
+print order, automated validation and required physical fit tests.
 
 ## Directory layout
 

@@ -1,23 +1,12 @@
-// Experimental 6 mm rail hinge variant for the direct-mount LED enclosure.
+// Modular 6 mm rail hinge variant for the direct-mount LED enclosure.
 //
-// This variant deliberately lives outside the production direct-mount part set.
-// It reuses the *same* corrected panel mounting/locator coordinates as
-// direct_mount_enclosure.scad, but changes the mechanical concept:
+// Issue #133 splits the moving enclosure into interchangeable mechanical parts:
+//   1. a universal hinge/base;
+//   2. a universal slide-in equipment backplane;
+//   3. detachable left/right side pieces.
 //
-// 1. A thin fixed frame derived from the validated 08 mounting template stays
-//    bolted to the LED panel.
-// 2. Alternating printed hinge knuckles sit inside the panel footprint on the
-//    lower template band; the hinge no longer extends below the enclosure.
-// 3. A 6 mm metal rail/bar passes through 7.2 mm bores and becomes the hinge pin.
-// 4. A complementary equipment tray/backplane swings down around that rail.
-// 5. The moving tray has a deeper rear foot at the bottom so the closed display
-//    gains a wider desk base.
-// 6. The moving tray has a universal slot grid for PSU/controller/wiring mounts.
-// 7. No integrated top latch is included in this print-first hinge prototype;
-//    closure will be a separate support-free part after hinge fit is confirmed.
-//
-// The dimensions below are prototype defaults. The panel boss/locator positions
-// are NOT duplicated here; they come directly from the validated main source.
+// The fixed panel template and the 6 mm concealed hinge geometry remain derived
+// from the physically validated direct-mount source.
 
 part = "__library__";
 include <../direct_mount_enclosure.scad>;
@@ -27,37 +16,24 @@ $fn = 48;
 // ---------- Shared hinge geometry ----------
 
 hinge_rail_d = 6;
-hinge_bore_d = 7.2;         // same 0.6 mm radial clearance as the production rod bores
+hinge_bore_d = 7.2;
 hinge_outer_d = 13;
-// Fully internal concealed edge hinge:
-// - y=11.5 puts the 13 mm barrel envelope at y=5..18 mm, leaving a full
-//   4.5 mm of enclosure/base material between the barrel and the y=0.5 outer
-//   edge. The rail and both sets of knuckles therefore sit completely inside
-//   the closed enclosure footprint rather than defining its bottom silhouette.
-// - z=10.5 keeps the complete barrel behind the 2 mm fixed template.
-// The moving front rim still begins at the pivot for opening clearance. A
-// continuous lower apron runs to the normal y=0.5 enclosure edge, with only an
-// internal front-quadrant sweep relief around the pivot.
 hinge_axis_y = 11.5;
 hinge_axis_z = 10.5;
 hinge_radius = hinge_outer_d/2;
 hinge_pocket_clearance = 0.6;
 hinge_axial_clearance = 0.8;
 
-// Keep BOTH fixed and moving knuckles away from the lower panel fastener and
-// locator columns. Critical lower X positions are 7.9 / 26.704 / 128 /
-// 229.296 / 248.1 mm. The centre screw therefore has a deliberately wider
-// clear zone from x=118..136 mm for screw-head/tool access.
 fixed_knuckles = [
-    [36,24],   // x=36..60
-    [92,26],   // x=92..118
-    [166,28]   // x=166..194
+    [36,24],
+    [92,26],
+    [166,28]
 ];
 
 moving_knuckles = [
-    [62,28],   // x=62..90
-    [136,28],  // x=136..164
-    [196,24]   // x=196..220
+    [62,28],
+    [136,28],
+    [196,24]
 ];
 
 module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
@@ -70,19 +46,18 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
             }
 }
 
-// ---------- Fixed half: corrected 08 template + hinge ----------
+// ---------- Fixed half: corrected template + hinge ----------
 
 fixed_template_t = 2;
 fixed_band_h = 20;
 fixed_side_w = 8;
 fixed_hinge_root_y = hinge_axis_y-hinge_radius;
-fixed_hinge_root_h = hinge_outer_d; // root follows the fully internal barrel envelope
+fixed_hinge_root_h = hinge_outer_d;
 fixed_hinge_root_t = 8;
 
 module hinge_mount_pattern_template() {
     difference() {
         union() {
-            // Exact same template envelope as production 08.
             cube([module_w,fixed_band_h,fixed_template_t]);
             translate([0,module_h-fixed_band_h,0])
                 cube([module_w,fixed_band_h,fixed_template_t]);
@@ -90,23 +65,18 @@ module hinge_mount_pattern_template() {
             translate([module_w-fixed_side_w,0,0])
                 cube([fixed_side_w,module_h,fixed_template_t]);
 
-            // Each fixed knuckle is rooted into a local pad sitting on the
-            // lower template band. Nothing projects below y=0.
             for (segment=fixed_knuckles) {
                 translate([segment[0],fixed_hinge_root_y,0])
                     cube([segment[1],fixed_hinge_root_h,fixed_hinge_root_t]);
                 rail_hinge_barrel(segment[0],segment[1]);
             }
-
         }
 
-        // Reuse the physically validated six panel-boss centres directly.
         for (x=panel_mount_x)
             for (y=panel_mount_y)
                 translate([x,y,-0.5])
                     cylinder(d=panel_mount_hole_d,h=fixed_hinge_root_t+1);
 
-        // Reuse the current conservative moulded-locator clearances directly.
         for (x=panel_locator_x)
             for (y=panel_locator_y)
                 translate([x,y,-0.5])
@@ -114,249 +84,150 @@ module hinge_mount_pattern_template() {
     }
 }
 
-// ---------- Moving half: equipment enclosure / service tray ----------
+// ---------- Shared moving-envelope coordinates ----------
 
-// Closed-position coordinates: this tray sits behind the LED panel. The tray is
-// open toward the LED board; its solid equipment plate is at the rear.
 service_x = backplane_edge_inset;
-// Outer/base edge matches the validated rear backplane lower edge.
 service_base_y = backplane_edge_inset;
-
-// The LED-facing/front wall begins on the hinge axis so opening motion still
-// carries it away from the fixed template. A rear skirt added below extends to
-// service_base_y, hiding the hinge inside the closed enclosure.
-service_y = hinge_axis_y;
 service_top_y = backplane_edge_inset + backplane_h;
 service_w = backplane_w;
-service_h = service_top_y - service_y;
 
-// The lower apron reaches the normal outer/base edge. The front/lower quadrant
-// around the internal pivot is relieved separately so the moving half can swing
-// without the hinge or its clearance pocket protruding below the enclosure.
-hinge_shroud_overlap_y = 0.8;
-hinge_sweep_relief_back_z = hinge_axis_z + 0.6;
-
-// The front rim closes almost flush against the 2 mm fixed template: 0.6 mm
-// clearance avoids printed faces rubbing while keeping the hinge hidden inside.
 service_close_clearance = 0.6;
 service_front_z = fixed_template_t + service_close_clearance;
 
-// Bottom stays deep enough for PSU/wiring; upper enclosure becomes much
-// shallower/lighter. The rear equipment surface slopes between these depths.
-service_back_z_bottom = 42;
-service_back_z_top = 28;
-service_plate_t = 3;
-service_wall = 16;
+base_lower_y1 = 20;
+base_front_back_z = 18.5;
 
-// Additional rearward base extension at the lower edge. In the closed position
-// this gives a ~60 mm maximum rear depth and a much wider desk footprint.
-// The upper enclosure is intentionally much shallower than this lower/base zone.
+rail_beam_y0 = 17;
+rail_beam_y1 = 31;
+rail_beam_z0 = 32;
+rail_beam_z1 = 46;
+
 base_rear_z = 60;
 base_beam_t = 6;
-base_y_h = 18;
 
-// Middle-enclosure shape and cable routing.
+// T-slot is deliberately open at both X ends so the backplane slides laterally.
+// A side piece closes the end after assembly.
+// Support-free one-sided dovetail rail.
 //
-// Keep the lower portion full-width because this is where inter-panel wiring
-// now runs. Above the wiring zone the enclosure tapers inward on both sides,
-// leaving more clearance between neighbouring enclosures.
-lower_wiring_zone_h = 46;
-upper_side_inset = 8;
-depth_taper_start_y = service_y + lower_wiring_zone_h;
+// Instead of cutting a T-slot out of a solid beam, the rail is built from
+// bed-connected front/rear walls. The front wall shifts rearward gradually to
+// form the retaining lip. The backplane's enlarged lower head is therefore
+// captive in Z but the rail has no horizontal ceiling.
+rail_base_y = 4.5;
+rail_head_top_y = 22.5;
+rail_lip_y = 31;
+rail_neck_top_y = 33;
+rail_front_z0 = 32;
+rail_wall_t = 3;
+rail_lip_z0 = 40;
+rail_rear_z0 = 46;
 
-function service_back_at_y(y) =
-    y <= depth_taper_start_y
-        ? service_back_z_bottom
-        : service_back_z_bottom
-          + (service_back_z_top-service_back_z_bottom)
-            * (y-depth_taper_start_y)
-            / (service_top_y-depth_taper_start_y);
+// 0.4 mm nominal clearance per exposed rail face for an FDM serviceable fit.
+rail_clearance = 0.4;
+tongue_head_y0 = 18.9;
+tongue_head_y1 = 22.1;
+tongue_head_z0 = rail_front_z0 + rail_wall_t + rail_clearance;
+tongue_head_z1 = rail_rear_z0 - rail_clearance;
+tongue_stem_y0 = rail_lip_y - 0.4;
+tongue_stem_y1 = rail_neck_top_y - rail_clearance;
+tongue_stem_z0 = rail_lip_z0 + rail_wall_t + rail_clearance;
+tongue_stem_z1 = rail_rear_z0 - rail_clearance;
 
-// Panel-to-panel cables must not be captured by the moving enclosure. Each
-// lower side therefore has a U-shaped notch that is OPEN toward the LED panel
-// (service_front_z). When the tray swings down, it moves away from the fixed
-// cable rather than dragging the cable through a closed hole.
-side_cable_notch_y = 30;
-side_cable_notch_depth = 22;
-side_cable_notch_corner_r = 4;
-side_cable_notch_center_y = service_y + service_wall + side_cable_notch_y/2;
+// Backplane: one identical plate for every module.
+equipment_backplane_y0 = 31;
+equipment_backplane_front_z = 44;
+equipment_backplane_t = 3;
+equipment_backplane_rear_z = equipment_backplane_front_z + equipment_backplane_t;
 
-// Universal equipment slots through the rear mounting plate.
-equipment_slot_len = 16;
-equipment_slot_w = 4.2;
-equipment_slot_x = [28,64,100,136,172,208,236];
-equipment_slot_y = [30,54,78,102];
+// Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
+adapter_boss_d = 8;
+adapter_hole_d = 3.4;
+adapter_boss_h = 5;
+adapter_x = [32,80,128,176,224];
+adapter_y = [48,80,112];
 
-// Dedicated ventilation is restricted to the tapered upper region. There are
-// deliberately NO ventilation slots in the lower wiring/base area.
-upper_vent_slot_len = 24;
-upper_vent_slot_w = 5;
-upper_vent_x = [48,88,128,168,208];
-upper_vent_y = [84,101,118];
+// Backplane ventilation/cable passages avoid the boss grid.
+vent_slot_len = 24;
+vent_slot_w = 5;
+vent_x = [56,128,200];
+vent_y = [64,96];
+cable_slot_len = 20;
+cable_slot_w = 6;
+cable_slot_x = [64,176];
+cable_slot_y = 36;
 
-module equipment_slot_2d(len=equipment_slot_len,w=equipment_slot_w) {
-    hull() {
-        translate([-(len-w)/2,0]) circle(d=w);
-        translate([(len-w)/2,0]) circle(d=w);
-    }
+// Self-mating side alignment. Each edge carries one pin and one socket.
+// Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
+connector_pin_d = 4;
+connector_socket_d = 4.7;
+connector_pin_len = 4;
+connector_socket_depth = 4;
+// Base side connectors live entirely inside the first 4 mm floor band so
+// their horizontal pins are bed-connected from the first print layers.
+base_connector_y_a = 2.5;
+base_connector_y_b = 2.5;
+base_connector_z_a = 24;
+base_connector_z_b = 52;
+backplane_connector_y_a = 56;
+backplane_connector_y_b = 104;
+backplane_connector_z = 44;
+connector_pad_y = 10;
+connector_pad_z = 7;
+
+side_t = 3;
+
+// ---------- X-axis connector helpers ----------
+
+module pin_pos_x(x0,y0,z0,len=connector_pin_len,d=connector_pin_d) {
+    translate([x0,y0,z0])
+        rotate([0,90,0])
+            cylinder(d=d,h=len);
 }
 
-module service_outline_2d() {
-    // Full-width through the lower wiring zone, then continuously narrower
-    // toward the top. A taper avoids a sharp external shoulder between modules.
-    polygon(points=[
-        [service_x, service_y],
-        [service_x+service_w, service_y],
-        [service_x+service_w, service_y+lower_wiring_zone_h],
-        [service_x+service_w-upper_side_inset, service_y+service_h],
-        [service_x+upper_side_inset, service_y+service_h],
-        [service_x, service_y+lower_wiring_zone_h]
-    ]);
+module pin_neg_x(x0,y0,z0,len=connector_pin_len,d=connector_pin_d) {
+    translate([x0,y0,z0])
+        rotate([0,-90,0])
+            cylinder(d=d,h=len);
 }
 
-module service_wall_ring_2d() {
-    difference() {
-        service_outline_2d();
-        offset(delta=-service_wall)
-            service_outline_2d();
-    }
+module socket_pos_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) {
+    translate([x0-0.1,y0,z0])
+        rotate([0,90,0])
+            cylinder(d=d,h=depth+0.2);
 }
 
-module side_cable_notch(x0) {
-    assert(side_cable_notch_y > 2*side_cable_notch_corner_r);
-    assert(side_cable_notch_depth > side_cable_notch_corner_r);
-
-    // Open U-notch in the Y/Z side-wall plane. The mouth deliberately extends
-    // beyond the front edge (toward the LED panel), while the two rear corners
-    // are rounded to reduce cable abrasion and stress concentration.
-    union() {
-        translate([
-            x0,
-            side_cable_notch_center_y-side_cable_notch_y/2,
-            service_front_z-1
-        ])
-            cube([
-                service_wall+2,
-                side_cable_notch_y,
-                side_cable_notch_depth-side_cable_notch_corner_r+1
-            ]);
-
-        hull()
-            for (yy=[
-                side_cable_notch_center_y-(side_cable_notch_y/2-side_cable_notch_corner_r),
-                side_cable_notch_center_y+(side_cable_notch_y/2-side_cable_notch_corner_r)
-            ])
-                translate([
-                    x0,
-                    yy,
-                    service_front_z+side_cable_notch_depth-side_cable_notch_corner_r
-                ])
-                    rotate([0,90,0])
-                        cylinder(r=side_cable_notch_corner_r,h=service_wall+2);
-    }
+module socket_neg_x(x0,y0,z0,depth=connector_socket_depth,d=connector_socket_d) {
+    translate([x0+0.1,y0,z0])
+        rotate([0,-90,0])
+            cylinder(d=d,h=depth+0.2);
 }
 
-module service_depth_envelope() {
-    // Lower equipment/base zone keeps full depth.
-    translate([
-        service_x-2,
-        service_y,
-        service_front_z
-    ])
-        cube([
-            service_w+4,
-            lower_wiring_zone_h+0.5,
-            service_back_z_bottom+service_plate_t-service_front_z
-        ]);
+// ---------- Hinge-base geometry ----------
 
-    // Upper envelope tapers continuously from the deep lower zone to the
-    // shallower top. This trims both side walls and top wall.
-    hull() {
-        translate([
-            service_x-2,
-            depth_taper_start_y-0.5,
-            service_front_z
-        ])
-            cube([
-                service_w+4,
-                1,
-                service_back_z_bottom+service_plate_t-service_front_z
-            ]);
-
-        translate([
-            service_x-2,
-            service_top_y-1,
-            service_front_z
-        ])
-            cube([
-                service_w+4,
-                1,
-                service_back_z_top+service_plate_t-service_front_z
-            ]);
-    }
+module moving_hinge_barrels() {
+    for (segment=moving_knuckles)
+        rail_hinge_barrel(segment[0],segment[1]);
 }
 
-module tapered_rear_equipment_plate() {
-    // Flat/deep lower plate for PSU/power hardware.
-    translate([
-        service_x,
-        service_y,
-        service_back_z_bottom
-    ])
-        cube([
-            service_w,
-            lower_wiring_zone_h+0.5,
-            service_plate_t
-        ]);
-
-    // Sloped upper equipment/ventilation plate. Width and depth both reduce
-    // toward the top, lowering weight and rear protrusion.
-    hull() {
-        translate([
-            service_x,
-            depth_taper_start_y-0.5,
-            service_back_z_bottom
-        ])
-            cube([
-                service_w,
-                1,
-                service_plate_t
-            ]);
-
-        translate([
-            service_x+upper_side_inset,
-            service_top_y-1,
-            service_back_z_top
-        ])
-            cube([
-                service_w-2*upper_side_inset,
-                1,
-                service_plate_t
-            ]);
-    }
+module moving_hinge_bores() {
+    for (segment=moving_knuckles)
+        translate([segment[0]-0.2,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=hinge_bore_d,h=segment[1]+0.4);
 }
 
 module fixed_knuckle_clearance_pockets() {
-    // The fixed-template knuckles sit INSIDE the moving enclosure when closed.
-    // Open each pocket toward the LED-facing side so the two printed halves can
-    // be interleaved and the 6 mm rail inserted afterwards.
     pocket_d = hinge_outer_d + 2*hinge_pocket_clearance;
 
     for (segment=fixed_knuckles) {
         x0 = segment[0]-hinge_axial_clearance/2;
         len = segment[1]+hinge_axial_clearance;
 
-        // Cylindrical running clearance around the fixed barrel.
         translate([x0,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
                 cylinder(d=pocket_d,h=len);
 
-        // Front-entry mouth also clears the local fixed root pad.
-        translate([
-            x0,
-            0,
-            service_front_z-0.6
-        ])
+        translate([x0,0,service_front_z-0.6])
             cube([
                 len,
                 hinge_axis_y+hinge_radius+hinge_pocket_clearance,
@@ -365,213 +236,431 @@ module fixed_knuckle_clearance_pockets() {
     }
 }
 
-module moving_hinge_barrels() {
-    for (segment=moving_knuckles)
-        // The rear half of each barrel keys directly into the lower apron.
-        // The alternating fixed knuckles sit in pockets removed from the shell.
-        rail_hinge_barrel(segment[0],segment[1]);
-}
-
-module moving_hinge_bores() {
-    // The moving barrel is merged into the lower apron, so cut the rail bore
-    // again after the union. Without this, overlapping apron material could
-    // partially fill the nominal 7.2 mm passage.
-    for (segment=moving_knuckles)
-        translate([segment[0]-0.2,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=hinge_bore_d,h=segment[1]+0.4);
-}
-
 module hinge_front_sweep_relief() {
-    // Concealed-hinge opening relief. Remove material only on the FRONT side
-    // of the pivot (y < hinge_axis_y). Do not cut behind the axis: the rear
-    // half of the normal lower wall then remains under the moving knuckles from
-    // the first printable layers upward, eliminating slicer "floating region"
-    // warnings while preserving the same closed outer/base silhouette.
-    //
-    // Fixed-knuckle positions still get their own cylindrical/front-entry
-    // clearance pockets below, so the two hinge halves can interleave.
-    translate([
-        service_x-1,
-        service_base_y-1,
-        service_front_z-1
-    ])
-        cube([
-            service_w+2,
-            hinge_axis_y-service_base_y+1,
-            hinge_sweep_relief_back_z-service_front_z+1
-        ]);
+    // Full opening clearance below the pivot, followed by a gradual closure.
+    // The previous rectangular cutter ended abruptly at Y=hinge_axis_y and
+    // recreated the full front wall on one print layer. Bambu Studio correctly
+    // classified that as a floating cantilever.
+    relief_taper_h = 9.5;
+    relief_front_z = service_front_z-1;
+    relief_back_z = hinge_axis_z + 0.6;
+
+    union() {
+        translate([
+            service_x-1,
+            service_base_y-1,
+            relief_front_z
+        ])
+            cube([
+                service_w+2,
+                hinge_axis_y-service_base_y+1.1,
+                relief_back_z-relief_front_z
+            ]);
+
+        hull() {
+            translate([
+                service_x-1,
+                hinge_axis_y-0.1,
+                relief_front_z
+            ])
+                cube([
+                    service_w+2,
+                    0.2,
+                    relief_back_z-relief_front_z
+                ]);
+
+            translate([
+                service_x-1,
+                hinge_axis_y+relief_taper_h,
+                relief_front_z
+            ])
+                cube([
+                    service_w+2,
+                    0.2,
+                    0.4
+                ]);
+        }
+    }
 }
 
-module lower_flush_hinge_shroud() {
-    // Full-depth lower apron from the validated y=0.5 rear-enclosure edge to
-    // just past the pivot line. The internal sweep relief is cut later from the
-    // LED-facing side, so no hinge barrel or special boss protrudes below it.
+module base_structural_body() {
+    union() {
+        // Broad bottom/base strip: this is the bed contact in upright print
+        // orientation and retains the existing deeper desk-foot concept.
+        translate([service_x,service_base_y,service_front_z])
+            cube([
+                service_w,
+                rail_base_y-service_base_y,
+                base_rear_z-service_front_z
+            ]);
+
+        // Concealed-hinge apron.
+        translate([service_x,service_base_y,service_front_z])
+            cube([
+                service_w,
+                base_lower_y1-service_base_y,
+                base_front_back_z-service_front_z
+            ]);
+
+        // Rear rail wall grows vertically from the broad base.
+        translate([service_x,rail_base_y,rail_rear_z0])
+            cube([
+                service_w,
+                rail_lip_y-rail_base_y,
+                rail_wall_t
+            ]);
+
+        // Front lower rail wall.
+        translate([service_x,rail_base_y,rail_front_z0])
+            cube([
+                service_w,
+                rail_head_top_y-rail_base_y,
+                rail_wall_t
+            ]);
+
+        // 45-degree-ish retaining lip: each higher layer shifts rearward a
+        // little instead of creating a flat roof over the rail cavity.
+        hull() {
+            translate([service_x,rail_head_top_y-0.1,rail_front_z0])
+                cube([service_w,0.2,rail_wall_t]);
+            translate([service_x,rail_lip_y,rail_lip_z0])
+                cube([service_w,0.2,rail_wall_t]);
+        }
+
+        // Short upper lip around the narrow tongue stem.
+        translate([service_x,rail_lip_y,rail_lip_z0])
+            cube([
+                service_w,
+                rail_neck_top_y-rail_lip_y,
+                rail_wall_t
+            ]);
+    }
+}
+
+module base_connector_pins() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    // Right edge: A pin, B socket.
+    pin_pos_x(right_x,base_connector_y_a,base_connector_z_a);
+
+    // Left edge: A socket, B pin.
+    pin_neg_x(left_x,base_connector_y_b,base_connector_z_b);
+}
+
+module base_connector_sockets() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    socket_neg_x(right_x,base_connector_y_b,base_connector_z_b);
+    socket_pos_x(left_x,base_connector_y_a,base_connector_z_a);
+}
+
+module base_rail_cuts() {
+    // Intentionally empty. The rail cavity is defined by the space between the
+    // two support-free rail walls rather than by subtracting a roofed tunnel.
+}
+
+module hinged_equipment_base() {
+    difference() {
+        union() {
+            base_structural_body();
+            moving_hinge_barrels();
+            base_connector_pins();
+        }
+
+        moving_hinge_bores();
+        hinge_front_sweep_relief();
+        fixed_knuckle_clearance_pockets();
+        base_connector_sockets();
+    }
+}
+
+// Print upright on the broad base strip. Installed +Y becomes print +Z.
+module hinged_equipment_base_print() {
+    translate([0,base_rear_z,-service_base_y])
+        rotate([90,0,0])
+            hinged_equipment_base();
+}
+
+// ---------- Universal slide-in backplane ----------
+
+module rounded_slot_2d(len,w) {
+    hull() {
+        translate([-(len-w)/2,0]) circle(d=w);
+        translate([(len-w)/2,0]) circle(d=w);
+    }
+}
+
+module backplane_tslot_tongue() {
+    // Enlarged lower head, trapped between the front/rear rail walls.
     translate([
         service_x,
-        service_base_y,
-        service_front_z
+        tongue_head_y0,
+        tongue_head_z0
     ])
         cube([
             service_w,
-            service_y-service_base_y+hinge_shroud_overlap_y,
-            service_back_z_bottom+service_plate_t-service_front_z
+            tongue_head_y1-tongue_head_y0,
+            tongue_head_z1-tongue_head_z0
+        ]);
+
+    // Matching sloped shoulder into the narrow stem.
+    hull() {
+        translate([
+            service_x,
+            tongue_head_y1-0.1,
+            tongue_head_z0
+        ])
+            cube([
+                service_w,
+                0.2,
+                tongue_head_z1-tongue_head_z0
+            ]);
+
+        translate([
+            service_x,
+            tongue_stem_y0,
+            tongue_stem_z0
+        ])
+            cube([
+                service_w,
+                0.2,
+                tongue_stem_z1-tongue_stem_z0
+            ]);
+    }
+
+    // Narrow stem overlaps the lower edge of the backplane plate.
+    translate([
+        service_x,
+        tongue_stem_y0,
+        tongue_stem_z0
+    ])
+        cube([
+            service_w,
+            tongue_stem_y1-tongue_stem_y0,
+            tongue_stem_z1-tongue_stem_z0
         ]);
 }
 
-module service_tray_shell_body() {
-    // Open face is at service_front_z. The lower shell stays deep for PSU and
-    // wiring; the top is trimmed to the shallower service_back_z_top envelope.
-    union() {
-        tapered_rear_equipment_plate();
-        lower_flush_hinge_shroud();
+module backplane_connector_pads() {
+    for (yy=[backplane_connector_y_a,backplane_connector_y_b]) {
+        translate([
+            service_x,
+            yy-connector_pad_y/2,
+            equipment_backplane_front_z-1
+        ])
+            cube([8,connector_pad_y,connector_pad_z]);
 
-        intersection() {
-            translate([0,0,service_front_z])
-                linear_extrude(
-                    height=service_back_z_bottom
-                           +service_plate_t-service_front_z
-                )
-                    service_wall_ring_2d();
-
-            service_depth_envelope();
-        }
-
-        // Continuous full-width sloped foot/gusset.
-        //
-        // The earlier version created a full-width beam at z=54 mm but only
-        // supported it with four narrow diagonal ribs. Although the final STL
-        // was one connected component, slicers correctly treated most of that
-        // beam as a floating/unsupported region when it first appeared.
-        //
-        // Hull the existing full-width lower equipment plate into the rear
-        // foot instead. Every successive print layer now expands gradually
-        // toward y=0.5, so the 60 mm-deep base is self-supporting in the
-        // standalone print orientation and no full-width island starts in mid-air.
-        hull() {
-            translate([
-                service_x,
-                service_y-0.5,
-                service_back_z_bottom
-            ])
-                cube([
-                    service_w,
-                    base_y_h+0.5,
-                    service_plate_t
-                ]);
-
-            translate([
-                service_x,
-                service_base_y,
-                base_rear_z-base_beam_t
-            ])
-                cube([
-                    service_w,
-                    base_y_h + (service_y-service_base_y),
-                    base_beam_t
-                ]);
-        }
+        translate([
+            service_x+service_w-8,
+            yy-connector_pad_y/2,
+            equipment_backplane_front_z-1
+        ])
+            cube([8,connector_pad_y,connector_pad_z]);
     }
 }
 
-module hinged_equipment_enclosure() {
+module backplane_connector_pins() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    pin_pos_x(right_x,backplane_connector_y_a,backplane_connector_z);
+    pin_neg_x(left_x,backplane_connector_y_b,backplane_connector_z);
+}
+
+module backplane_connector_sockets() {
+    right_x = service_x + service_w;
+    left_x = service_x;
+
+    socket_neg_x(right_x,backplane_connector_y_b,backplane_connector_z);
+    socket_pos_x(left_x,backplane_connector_y_a,backplane_connector_z);
+}
+
+module universal_equipment_backplane() {
     difference() {
         union() {
-            difference() {
-                service_tray_shell_body();
+            backplane_tslot_tongue();
 
-                // Keep the enclosure/base outer edge flush while removing only
-                // the internal front quadrant needed for hinge rotation.
-                hinge_front_sweep_relief();
+            translate([
+                service_x,
+                equipment_backplane_y0,
+                equipment_backplane_front_z
+            ])
+                cube([
+                    service_w,
+                    service_top_y-equipment_backplane_y0,
+                    equipment_backplane_t
+                ]);
 
-                // Recess the fixed hinge half inside the closed enclosure.
-                fixed_knuckle_clearance_pockets();
+            backplane_connector_pads();
+            backplane_connector_pins();
 
-            // Universal M3 / cable-tie slot grid. Use a long cutter so slots
-            // pass through both the deep lower plate and the shallower sloped
-            // upper plate.
-            for (xx=equipment_slot_x)
-                for (yy=equipment_slot_y)
-                    translate([xx,yy,service_back_z_top-1])
-                        linear_extrude(
-                            height=service_back_z_bottom
-                                   -service_back_z_top
-                                   +service_plate_t+2
-                        )
-                            equipment_slot_2d();
-
-            // Rounded ventilation slots only in the shallow tapered upper area.
-            // No dedicated ventilation holes are cut in the lower/base zone.
-            for (xx=upper_vent_x)
-                for (yy=upper_vent_y)
-                    translate([xx,yy,service_back_z_top-1])
-                        linear_extrude(
-                            height=service_back_z_bottom
-                                   -service_back_z_top
-                                   +service_plate_t+2
-                        )
-                            equipment_slot_2d(
-                                upper_vent_slot_len,
-                                upper_vent_slot_w
-                            );
-
-            // Larger wiring/ribbon slots remain in the deep lower wiring zone.
-            for (xx=[54,184])
-                translate([
-                    xx,
-                    service_y+40,
-                    service_back_z_bottom-0.5
-                ])
-                    cube([18,6,service_plate_t+1]);
-
-            // Matching U-shaped notches on both lower sides let fixed panel-to-
-            // panel power/data cables remain in place while the enclosure opens.
-            side_cable_notch(service_x-1);
-                side_cable_notch(service_x+service_w-service_wall-1);
-
-            }
-
-            // Moving knuckles are integral to the moving shell. Only the FIXED
-            // knuckle positions are pocketed above.
-            moving_hinge_barrels();
+            // Repeated universal adapter bosses.
+            for (xx=adapter_x)
+                for (yy=adapter_y)
+                    translate([
+                        xx,
+                        yy,
+                        equipment_backplane_rear_z
+                    ])
+                        cylinder(d=adapter_boss_d,h=adapter_boss_h);
         }
 
-        // Preserve a clear 7.2 mm rail passage through apron/barrel overlaps.
-        moving_hinge_bores();
+        backplane_connector_sockets();
+
+        // Through-holes in every adapter boss/plate location.
+        for (xx=adapter_x)
+            for (yy=adapter_y)
+                translate([
+                    xx,
+                    yy,
+                    equipment_backplane_front_z-0.5
+                ])
+                    cylinder(
+                        d=adapter_hole_d,
+                        h=equipment_backplane_t+adapter_boss_h+1
+                    );
+
+        // Upper ventilation.
+        for (xx=vent_x)
+            for (yy=vent_y)
+                translate([
+                    xx,
+                    yy,
+                    equipment_backplane_front_z-0.5
+                ])
+                    linear_extrude(height=equipment_backplane_t+1)
+                        rounded_slot_2d(vent_slot_len,vent_slot_w);
+
+        // Lower cable/ribbon passages.
+        for (xx=cable_slot_x)
+            translate([
+                xx,
+                cable_slot_y,
+                equipment_backplane_front_z-0.5
+            ])
+                linear_extrude(height=equipment_backplane_t+1)
+                    rounded_slot_2d(cable_slot_len,cable_slot_w);
     }
 }
 
-// Print-oriented moving enclosure.
-//
-// The raw assembly coordinates are intentionally kept unchanged above. Export
-// the standalone moving enclosure on its LEFT side instead of open-face-down.
-// In raw coordinates the large rear equipment plate is at z=28..45 mm; printing
-// open-face-down therefore makes that plate start as a large mid-air ceiling.
-// Rotating -90 degrees about Y makes original X the build direction:
-//   print footprint ~= 57.4 x 127 mm
-//   print height    ~= 255 mm
-// The rear plate, top/bottom walls and concealed hinge then grow vertically
-// rather than appearing as full-area floating layers.
-//
-// Translation moves the rotated bounds onto the positive build plate with the
-// original x=0.5 side at print Z=0.
-module hinged_equipment_enclosure_print() {
+// Print on the lower edge: 255 mm across the bed, ~109 mm high, and only the
+// backplane depth/bosses in the second bed dimension. This keeps the T-slot
+// tongue and bosses growing vertically instead of creating floating islands.
+module universal_equipment_backplane_print() {
     translate([
-        base_rear_z,
-        -service_base_y,
-        -service_x
+        0,
+        equipment_backplane_rear_z+adapter_boss_h,
+        -tongue_head_y0
     ])
-        rotate([0,-90,0])
-            hinged_equipment_enclosure();
+        rotate([90,0,0])
+            universal_equipment_backplane();
 }
 
-// Rotate the moving enclosure around the real 6 mm rail for assembly previews.
-// angle=0 is closed; positive angles swing the tray downward.
-module hinged_equipment_enclosure_at_angle(angle=0) {
+// ---------- Detachable side/end pieces ----------
+
+module side_wall_body(side="right") {
+    x0 = side == "right"
+        ? service_x + service_w
+        : service_x - side_t;
+
+    union() {
+        // Main end wall closes the universal backplane cavity.
+        translate([x0,service_base_y,service_front_z])
+            cube([
+                side_t,
+                service_top_y-service_base_y,
+                equipment_backplane_rear_z-service_front_z
+            ]);
+
+        // Lower rear-foot extension.
+        translate([x0,service_base_y,equipment_backplane_rear_z])
+            cube([
+                side_t,
+                rail_beam_y1-service_base_y,
+                base_rear_z-equipment_backplane_rear_z
+            ]);
+    }
+}
+
+module right_side_pins() {
+    x_inner = service_x + service_w;
+
+    // Base B socket and backplane B socket.
+    pin_neg_x(x_inner+0.8,base_connector_y_b,base_connector_z_b,connector_pin_len+0.8);
+    pin_neg_x(x_inner+0.8,backplane_connector_y_b,backplane_connector_z,connector_pin_len+0.8);
+}
+
+module right_side_sockets() {
+    x_inner = service_x + service_w;
+
+    // Base A pin and backplane A pin.
+    socket_pos_x(x_inner,base_connector_y_a,base_connector_z_a);
+    socket_pos_x(x_inner,backplane_connector_y_a,backplane_connector_z);
+}
+
+module left_side_pins() {
+    x_inner = service_x;
+
+    // Base A socket and backplane A socket.
+    pin_pos_x(x_inner-0.8,base_connector_y_a,base_connector_z_a,connector_pin_len+0.8);
+    pin_pos_x(x_inner-0.8,backplane_connector_y_a,backplane_connector_z,connector_pin_len+0.8);
+}
+
+module left_side_sockets() {
+    x_inner = service_x;
+
+    // Base B pin and backplane B pin.
+    socket_neg_x(x_inner,base_connector_y_b,base_connector_z_b);
+    socket_neg_x(x_inner,backplane_connector_y_b,backplane_connector_z);
+}
+
+module equipment_side(side="right") {
+    assert(side == "right" || side == "left");
+
+    difference() {
+        union() {
+            side_wall_body(side);
+            if (side == "right")
+                right_side_pins();
+            else
+                left_side_pins();
+        }
+
+        if (side == "right")
+            right_side_sockets();
+        else
+            left_side_sockets();
+    }
+}
+
+module equipment_side_print(side="right") {
+    // Lay each side wall broad-face-down. The left piece is flipped the opposite
+    // way so its inward-facing pins grow upward from the wall rather than
+    // beginning below the print plane.
+    if (side == "right")
+        rotate([0,90,0])
+            equipment_side(side);
+    else
+        rotate([0,-90,0])
+            equipment_side(side);
+}
+
+// ---------- Assembly / previews ----------
+
+module modular_moving_enclosure() {
+    hinged_equipment_base();
+    universal_equipment_backplane();
+    equipment_side("left");
+    equipment_side("right");
+}
+
+module modular_moving_enclosure_at_angle(angle=0) {
     translate([0,hinge_axis_y,hinge_axis_z])
         rotate([angle,0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
-                hinged_equipment_enclosure();
+                modular_moving_enclosure();
 }
 
 module hinge_rail_preview(length=232) {
@@ -588,16 +677,43 @@ module hinge_version_assembly(open_angle=72) {
         hinge_rail_preview();
 
     color([0.12,0.12,0.14])
-        hinged_equipment_enclosure_at_angle(open_angle);
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([open_angle,0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z])
+                    hinged_equipment_base();
+
+    color([0.18,0.22,0.25])
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([open_angle,0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z])
+                    universal_equipment_backplane();
+
+    color([0.30,0.30,0.34])
+        translate([0,hinge_axis_y,hinge_axis_z])
+            rotate([open_angle,0,0])
+                translate([0,-hinge_axis_y,-hinge_axis_z]) {
+                    equipment_side("left");
+                    equipment_side("right");
+                }
 }
 
 if (!is_undef(hinge_part)) {
     if (hinge_part == "fixed_template")
         hinge_mount_pattern_template();
-    else if (hinge_part == "equipment_enclosure")
-        hinged_equipment_enclosure_print();
+    else if (hinge_part == "equipment_base")
+        hinged_equipment_base_print();
+    else if (hinge_part == "universal_backplane")
+        universal_equipment_backplane_print();
+    else if (hinge_part == "side_left")
+        equipment_side_print("left");
+    else if (hinge_part == "side_right")
+        equipment_side_print("right");
     else if (hinge_part == "assembly")
         hinge_version_assembly();
+    else if (hinge_part == "equipment_enclosure") {
+        echo("DEPRECATED: equipment_enclosure now aliases the universal hinge/base; use the modular parts.");
+        hinged_equipment_base_print();
+    }
     else
         assert(false,str("Unknown hinge_part: ",hinge_part));
 }

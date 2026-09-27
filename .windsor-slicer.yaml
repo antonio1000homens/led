@@ -25,3 +25,23 @@ models:
     source: hardware/enclosure/direct-mount/hinge-prototype-v2/04_right_power_end_enclosure_HINGE_TEST.scad
     generator: openscad
     output: 04_right_power_end_enclosure_HINGE_TEST.stl
+
+  modular-hinge-base:
+    source: hardware/enclosure/direct-mount/hinge-version/11_hinged_equipment_base_PRINT_1.scad
+    generator: openscad
+    output: 11_hinged_equipment_base_PRINT_1.stl
+
+  universal-equipment-backplane:
+    source: hardware/enclosure/direct-mount/hinge-version/12_universal_equipment_backplane_PRINT_1.scad
+    generator: openscad
+    output: 12_universal_equipment_backplane_PRINT_1.stl
+
+  left-equipment-side:
+    source: hardware/enclosure/direct-mount/hinge-version/13_left_equipment_side_PRINT_1.scad
+    generator: openscad
+    output: 13_left_equipment_side_PRINT_1.stl
+
+  right-equipment-side:
+    source: hardware/enclosure/direct-mount/hinge-version/14_right_equipment_side_PRINT_1.scad
+    generator: openscad
+    output: 14_right_equipment_side_PRINT_1.stl
