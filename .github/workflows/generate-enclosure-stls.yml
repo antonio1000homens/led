@@ -29,7 +29,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -75,26 +75,6 @@ jobs:
           path: build/enclosure-stls/*.stl
           if-no-files-found: error
           retention-days: 14
-
-      - name: Bootstrap canonical STL files for this PR
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/restore-pr119-hinge-architecture'
-        shell: bash
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          set -euo pipefail
-          git fetch origin "$HEAD_REF"
-          git checkout -B "$HEAD_REF" "origin/$HEAD_REF"
-          mkdir -p hardware/enclosure/direct-mount/stl
-          cp build/enclosure-stls/*.stl hardware/enclosure/direct-mount/stl/
-          git add hardware/enclosure/direct-mount/stl/*.stl
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Restore canonical generated STL outputs"
-          git push origin "HEAD:$HEAD_REF"
 
       - name: Validate current enclosure design
         run: python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
