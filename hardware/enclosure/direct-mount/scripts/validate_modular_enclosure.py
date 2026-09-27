@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -188,6 +190,13 @@ def main() -> None:
             source = PARTS_DIR / scad_name
             generated = work_dir / stl_name
             render(source, generated)
+
+            artifact_dir = os.environ.get("ENCLOSURE_STL_OUTPUT_DIR")
+            if artifact_dir:
+                output_dir = (ROOT / artifact_dir).resolve()
+                output_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(generated, output_dir / stl_name)
+
             name = source.stem
             assert_mesh_health(name, generated)
             assert_no_floating_layer_islands(name, generated)
