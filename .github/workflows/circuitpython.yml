@@ -11,8 +11,10 @@ on:
       - 'requirements.txt'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
+      - 'settings.toml.example'
       - 'scripts/stage-firmware.sh'
       - 'scripts/install-firmware.sh'
+      - 'scripts/upload-firmware-wifi.py'
       - 'tests/test_button_control.py'
       - 'tests/test_display_layout.py'
       - 'tests/test_deployment_static.py'
@@ -24,6 +26,7 @@ on:
       - 'tests/test_mqtt_safety.py'
       - 'tests/test_queue_cycle.py'
       - 'tests/test_screen_client.py'
+      - 'tests/test_upload_firmware_wifi.py'
   push:
     branches:
       - master
@@ -36,8 +39,10 @@ on:
       - 'requirements.txt'
       - 'diagram.json'
       - 'hardware/matrixportal/**'
+      - 'settings.toml.example'
       - 'scripts/stage-firmware.sh'
       - 'scripts/install-firmware.sh'
+      - 'scripts/upload-firmware-wifi.py'
   workflow_dispatch:
 
 permissions:
@@ -64,6 +69,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/stage-firmware.sh
           bash -n scripts/install-firmware.sh
+          python -m py_compile scripts/upload-firmware-wifi.py
           bash scripts/stage-firmware.sh /tmp/circuitpy
           test -f /tmp/circuitpy/code.py
           test -f /tmp/circuitpy/display.py
@@ -89,6 +95,7 @@ jobs:
             test_mqtt_safety.py
             test_queue_cycle.py
             test_screen_client.py
+            test_upload_firmware_wifi.py
           )
           for test_file in "${tests[@]}"; do
             python -m unittest discover -s tests -p "${test_file}" -v
