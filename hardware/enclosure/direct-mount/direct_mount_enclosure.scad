@@ -233,6 +233,10 @@ connector_pad_z = 7;
 
 side_t = 3;
 side_panel_clearance = 0.4;
+side_connector_overlap = 0.4;
+side_connector_bridge = side_panel_clearance + backplane_edge_inset;
+side_connector_pin_len =
+    connector_pin_len + side_connector_bridge + side_connector_overlap;
 
 // ---------- X-axis connector helpers ----------
 
@@ -666,11 +670,23 @@ module side_hinge_bore(side="right") {
 }
 
 module right_side_pins() {
-    x_inner = service_x + service_w;
+    // Start 0.4 mm inside the side wall so the printed pins grow directly from
+    // the wall in the flat print orientation, then bridge the perimeter gap
+    // into the universal module sockets.
+    x_start = module_w + side_panel_clearance + side_connector_overlap;
 
-    // Base B socket and backplane B socket.
-    pin_neg_x(x_inner+0.8,base_connector_y_b,base_connector_z_b,connector_pin_len+0.8);
-    pin_neg_x(x_inner+0.8,backplane_connector_y_b,backplane_connector_z,connector_pin_len+0.8);
+    pin_neg_x(
+        x_start,
+        base_connector_y_b,
+        base_connector_z_b,
+        side_connector_pin_len
+    );
+    pin_neg_x(
+        x_start,
+        backplane_connector_y_b,
+        backplane_connector_z,
+        side_connector_pin_len
+    );
 }
 
 module right_side_sockets() {
@@ -682,11 +698,20 @@ module right_side_sockets() {
 }
 
 module left_side_pins() {
-    x_inner = service_x;
+    x_start = -side_panel_clearance - side_connector_overlap;
 
-    // Base A socket and backplane A socket.
-    pin_pos_x(x_inner-0.8,base_connector_y_a,base_connector_z_a,connector_pin_len+0.8);
-    pin_pos_x(x_inner-0.8,backplane_connector_y_a,backplane_connector_z,connector_pin_len+0.8);
+    pin_pos_x(
+        x_start,
+        base_connector_y_a,
+        base_connector_z_a,
+        side_connector_pin_len
+    );
+    pin_pos_x(
+        x_start,
+        backplane_connector_y_a,
+        backplane_connector_z,
+        side_connector_pin_len
+    );
 }
 
 module left_side_sockets() {
