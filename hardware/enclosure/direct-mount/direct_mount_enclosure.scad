@@ -429,6 +429,7 @@ module hinged_equipment_base() {
         hinge_front_sweep_relief();
         fixed_knuckle_clearance_pockets();
         fixed_root_sweep_clearance();
+        fixed_lower_band_sweep_clearance();
         base_connector_sockets();
     }
 }
