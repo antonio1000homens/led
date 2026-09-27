@@ -34,29 +34,6 @@ jobs:
           openscad -o stl/03_left_controller_end_enclosure_HINGE_TEST.stl 03_left_controller_end_enclosure_HINGE_TEST.scad
           openscad -o stl/04_right_power_end_enclosure_HINGE_TEST.stl 04_right_power_end_enclosure_HINGE_TEST.scad
 
-      - name: Diagnose 60-degree sweep intersection
-        working-directory: hardware/enclosure/direct-mount/hinge-prototype-v2
-        run: |
-          cat > sweep60_tmp.scad <<'EOF'
-          include <hinge_prototype_v2.scad>;
-          intersection() {
-              stationary_middle_enclosure_installed();
-              translate([0,hinge_axis_y,hinge_axis_z])
-                  rotate([-60,0,0])
-                      translate([0,-hinge_axis_y,-hinge_axis_z])
-                          moving_panel_template_installed();
-          }
-          EOF
-          openscad -o /tmp/sweep60.stl sweep60_tmp.scad
-          rm sweep60_tmp.scad
-          python - <<'PY'
-          import trimesh
-          mesh = trimesh.load_mesh('/tmp/sweep60.stl', process=True)
-          print('intersection_bounds_mm=', mesh.bounds.tolist())
-          print('intersection_extents_mm=', mesh.extents.tolist())
-          print('intersection_volume_mm3=', float(mesh.volume))
-          PY
-
       - name: Run hinge v2 validator
         run: python hardware/enclosure/direct-mount/scripts/validate_hinge_v2_stls.py
 
