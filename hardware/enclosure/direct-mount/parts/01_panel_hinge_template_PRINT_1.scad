@@ -1,2 +1,2 @@
-hinge_part = "fixed_template";
+hinge_part = "panel_template";
 include <../direct_mount_enclosure.scad>;
