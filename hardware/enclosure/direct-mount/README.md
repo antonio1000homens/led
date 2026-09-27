@@ -8,8 +8,11 @@ mounting template form the moving leaf** and open forward/down through a full
 0–90° service arc.
 
 The newer modular equipment system remains in place behind that hinge: a
-stationary universal base provides the bottom seat, a universal backplane drops
-in vertically from above, and shallow detachable side guides align the edges.
+stationary universal base contains a recessed rear locating groove, and the
+universal backplane/enclosure drops vertically into that groove from above.
+The lower 60 mm section stays vertical at the full 40 mm equipment depth; above
+that it ramps forward to a 10 mm top depth and closes toward the moving
+panel/template with 0.8 mm service clearance.
 
 ## Architecture
 
@@ -26,9 +29,13 @@ reinforced hinge shelf + rearward support webs
    |
 stationary universal equipment base
    |
-base floor edge / backplane seat
+recessed rear top-down groove
    |
-stationary universal equipment backplane
+vertical lower backplane (40 mm cavity depth)
+   |
+ventilated 40 -> 10 mm upper taper
+   |
+supported top closure toward front plate
    |
    +-- detachable left side
    +-- detachable right side
@@ -46,10 +53,10 @@ detachable side pieces or accessory adapters.
 | Wrapper | Purpose |
 | --- | --- |
 | `parts/01_panel_hinge_template_PRINT_1.scad` | **Moving** LED/panel mounting template with local hinge roots |
-| `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and open backplane seat |
-| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Stationary top-down removable equipment plate with generic M3 adapter bosses |
-| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left perimeter guide |
-| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right perimeter guide |
+| `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and recessed rear backplane groove |
+| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable vertical/tapered enclosure backplane with generic M3 adapter bosses |
+| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left outer wall following the 40 -> 10 mm taper |
+| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right outer wall following the 40 -> 10 mm taper |
 
 Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
@@ -89,26 +96,46 @@ than only its clearance numbers:
 The panel/template rotates forward/down. The equipment base, removable backplane
 and electronics stay stationary.
 
-## Top-down backplane
+## Top-down tapered backplane
 
-The stationary backplane installs from above and lowers vertically until its
-plain lower edge rests on the base floor edge. The base contains no width-spanning
-retaining rail, ramp, lip, or captive channel, leaving the lower interior open
-for equipment and cabling. The detachable side pieces provide shallow perimeter
-guides with 0.4 mm nominal clearance; they are fitted after the backplane and
-can be removed to lift it out for service.
+The base/backplane interface is now a **recessed groove at the rear edge of the
+base**. The groove is 2 mm deep with 0.4 mm nominal clearance around the 3 mm
+backplane edge. Nothing projects forward from that groove into the equipment
+cavity: there is no lower captive rail, ramp or lip.
 
-In a joined row, install side guides only at the two outside edges; neighboring
-base and backplane pin/socket features mate across internal seams at the 256 mm
-panel pitch. This avoids overlapping duplicate side walls. Glue is not part of
-normal assembly.
+The removable backplane/enclosure installs from directly above:
+
+1. lower the vertical rear edge into the rear groove;
+2. continue downward until the backplane reaches the positive 2 mm-deep seat;
+3. fit the detachable outer side piece where required.
+
+The enclosure profile intentionally restores the previously validated PR #119
+shape:
+
+- lower section: **40 mm cavity depth**, vertical/orthogonal;
+- taper begins: **60 mm above the floor**;
+- top depth: **10 mm**;
+- upper ventilation: **3 mm slots on an 8 mm pitch**, only in the tapered area;
+- top closure: progressively grows forward and finishes **0.8 mm behind the
+  moving LED/template rear face**.
+
+That top closure is deliberately a clearance joint rather than a rigid latch:
+the front plate must remain free to rotate through the 0–90° hinge arc.
+
+The lower vertical section carries the accessory mounting grid and cable
+passages. The upper tapered section is primarily the ventilated enclosure roof.
+
+In a joined row, side pieces are installed only at the two outside edges;
+neighboring base and backplane pin/socket features mate across internal seams.
+This leaves the internal module-to-module sides open for HUB75/power cabling.
+Glue is not part of normal assembly.
 
 ## Universal accessory interface
 
 Every backplane carries the same M3-ready boss grid:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **48 / 80 / 112 mm**
+- Y = **18 / 36 / 54 mm** (kept entirely on the vertical lower section)
 - boss OD = **8 mm**
 - boss height = **5 mm**
 - through-hole = **3.4 mm**
@@ -147,10 +174,11 @@ python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
 
 CI regenerates all five canonical parts, verifies they match the checked-in
 STLs, checks mesh health and floating-layer proxies, verifies base/backplane
-fit, then holds the **equipment enclosure stationary** and checks the **moving
-panel/template** and 6 mm rod for volumetric interference at 0, 15, 30, 45, 60,
-75 and 90°. It also checks the hinge-shelf/rail contracts and neighboring-module
-clearance.
+fit and top-down insertion, then holds the **equipment enclosure stationary**
+and checks the **moving panel/template** and 6 mm rod for volumetric interference
+at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
+40 -> 10 mm taper, upper-only ventilation, supported top closure, lower usable
+equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
 `.windsor-slicer.yaml` and the real Bambu Studio H2D profile. GitHub Actions does **not** run Bambu Studio or generate `.3mf` files.
@@ -160,10 +188,11 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 1. Print one moving panel hinge template and one stationary equipment base.
 2. Confirm the real 6 mm rail fits and the **panel/template** rotates freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify top-down insertion, base-edge seating, and upward removal.
-5. Print both side pieces and verify pin/socket engagement and perimeter alignment.
-6. Verify two identical stationary equipment assemblies align side-by-side.
-7. Fit representative M3 hardware/adapters to the boss grid.
-8. Only then print the remaining modules.
+4. Print one universal backplane and verify top-down insertion into the rear groove, 2 mm seating depth, and upward removal.
+5. Verify the lower 60 mm section stays vertical, the upper wall tapers forward without distortion, and the top closure clears the front plate.
+6. Print both side pieces and verify pin/socket engagement, hinge-rod clearance, and taper alignment.
+7. Verify two identical stationary equipment assemblies align side-by-side.
+8. Fit representative M3 hardware/adapters to the lower boss grid.
+9. Only then print the remaining modules.
 
 PETG remains preferred for repeated hinge testing.
