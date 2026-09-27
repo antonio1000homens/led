@@ -580,40 +580,89 @@ module power_grommet_cutter() {
 }
 
 module stationary_middle_enclosure_root(x0,len) {
-    // Keep the stationary knuckle, but do NOT fill the volume directly below
-    // the hinge axis. The moving plate sweeps through that region on its way
-    // toward the service-open position.
+    // Support the stationary knuckle from the existing full-width hinge guard,
+    // not from the rear enclosure wall. This keeps the lower equipment cavity
+    // clear instead of filling it with the former long rearward ramp.
     //
-    // The support web begins at the BOTTOM tangent of the stationary barrel,
-    // then slopes strongly rearward into the floor/base. Starting at the bottom
-    // tangent means the first printed barrel layers are already connected to
-    // material below instead of appearing as a floating island. Sweeping the
-    // web rearward keeps the moving plate's forward/downward rotation corridor
-    // clear.
+    // The moving plate reaches furthest rearward around Y=11..13 during the
+    // service sweep. Keep the support flush with the already-validated guard
+    // through that zone, then grow forward at 45 degrees toward the barrel.
+    // In the upright print installed +Y is print +Z, so this is also a
+    // layer-supported printable gusset rather than a floating cantilever.
+    //
+    // The target overlaps the barrel just above its bottom tangent. That gives
+    // Bambu a connected first printable barrel section while recovering the
+    // entire cavity behind the guard/gusset (roughly Z > 26 mm).
+    hinge_root_anchor_y = 11;
+    hinge_root_anchor_h = 2;
+    hinge_root_tip_y = hinge_axis_y-hinge_r; // 20 mm above the floor
+    hinge_root_tip_h = 2;
+    hinge_root_tip_t = 2;
+
+    // Front face advances exactly 1 mm for every 1 mm of installed height:
+    // 23.8 mm at the guard -> 16.8 mm at the barrel over 7 mm rise.
+    hinge_root_tip_front_z =
+        hinge_guard_front_z
+        - (hinge_root_tip_y-(hinge_root_anchor_y+hinge_root_anchor_h));
+
     union() {
         hinge_barrel(x0,len);
 
-        hull() {
-            // Narrow overlap around the barrel's bottom tangent. The 3 mm
-            // installed-Y height provides layer-to-layer support as the circular
-            // barrel begins to grow.
-            translate([
-                x0,
-                hinge_axis_y-hinge_r-1.0,
-                hinge_axis_z-1.0
-            ])
-                cube([len,3,2]);
+        // Keep the critical Y=11..13 sweep-clear region exactly flush with
+        // the existing guard. Do not include this full anchor block inside the
+        // hull: doing so lets the convex hull bulge forward before Y=13.
+        translate([
+            x0,
+            hinge_root_anchor_y,
+            hinge_guard_front_z
+        ])
+            cube([
+                len,
+                hinge_root_anchor_h,
+                hinge_guard_t
+            ]);
 
-            // Bed-connected anchor near the rear of the 40 mm-deep base. This
-            // large rearward offset keeps the diagonal web out of the plate
-            // sweep while remaining support-free in the upright print.
+        // Build only the diagonal section as a hull between two very thin
+        // slices. Its forward growth therefore begins at Y=13, after the
+        // moving panel has cleared the guard plane, instead of leaking into the
+        // lower anchor zone.
+        hinge_root_slice_h = 0.05;
+        hull() {
             translate([
                 x0,
-                base_thickness_y-0.5,
-                rear_z_bottom-box_rear_t
+                hinge_root_anchor_y+hinge_root_anchor_h,
+                hinge_guard_front_z
             ])
-                cube([len,2,2]);
+                cube([
+                    len,
+                    hinge_root_slice_h,
+                    hinge_guard_t
+                ]);
+
+            translate([
+                x0,
+                hinge_root_tip_y,
+                hinge_root_tip_front_z
+            ])
+                cube([
+                    len,
+                    hinge_root_slice_h,
+                    hinge_root_tip_t
+                ]);
         }
+
+        // Give the barrel overlap its full 2 mm installed height independently
+        // of the thin hull construction slices.
+        translate([
+            x0,
+            hinge_root_tip_y,
+            hinge_root_tip_front_z
+        ])
+            cube([
+                len,
+                hinge_root_tip_h,
+                hinge_root_tip_t
+            ]);
     }
 }
 
