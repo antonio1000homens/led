@@ -232,6 +232,7 @@ connector_pad_y = 10;
 connector_pad_z = 7;
 
 side_t = 3;
+side_panel_clearance = 0.4;
 
 // ---------- X-axis connector helpers ----------
 
@@ -613,7 +614,9 @@ module universal_equipment_backplane_print() {
 module side_wall_body(side="right") {
     // Outer side pieces close only the display's outside edges. Internal module
     // seams omit these pieces so HUB75/power cabling can pass between modules.
-    x0 = side == "right" ? module_w : -side_t;
+    x0 = side == "right"
+        ? module_w + side_panel_clearance
+        : -side_t - side_panel_clearance;
 
     union() {
         // Orthogonal lower wall follows the same 40 mm equipment depth as the
@@ -654,7 +657,9 @@ module side_wall_body(side="right") {
 }
 
 module side_hinge_bore(side="right") {
-    x0 = side == "right" ? module_w-0.5 : -side_t-0.5;
+    x0 = side == "right"
+        ? module_w + side_panel_clearance - 0.5
+        : -side_t - side_panel_clearance - 0.5;
     translate([x0,hinge_axis_y,hinge_axis_z])
         rotate([0,90,0])
             cylinder(d=hinge_bore_d,h=side_t+1.0);
