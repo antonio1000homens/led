@@ -35,9 +35,10 @@ jobs:
           openscad -o stl/04_right_power_end_enclosure_HINGE_TEST.stl 04_right_power_end_enclosure_HINGE_TEST.scad
 
       - name: Diagnose 60-degree sweep intersection
+        working-directory: hardware/enclosure/direct-mount/hinge-prototype-v2
         run: |
-          cat > /tmp/sweep60.scad <<'EOF'
-          include <${PWD}/hardware/enclosure/direct-mount/hinge-prototype-v2/hinge_prototype_v2.scad>;
+          cat > sweep60_tmp.scad <<'EOF'
+          include <hinge_prototype_v2.scad>;
           intersection() {
               stationary_middle_enclosure_installed();
               translate([0,hinge_axis_y,hinge_axis_z])
@@ -46,7 +47,8 @@ jobs:
                           moving_panel_template_installed();
           }
           EOF
-          openscad -o /tmp/sweep60.stl /tmp/sweep60.scad
+          openscad -o /tmp/sweep60.stl sweep60_tmp.scad
+          rm sweep60_tmp.scad
           python - <<'PY'
           import trimesh
           mesh = trimesh.load_mesh('/tmp/sweep60.stl', process=True)
