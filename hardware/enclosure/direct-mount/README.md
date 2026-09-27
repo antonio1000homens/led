@@ -98,16 +98,25 @@ and electronics stay stationary.
 
 ## Top-down tapered backplane
 
-The base/backplane interface is now a **recessed groove at the rear edge of the
-base**. The groove is 2 mm deep with 0.4 mm nominal clearance around the 3 mm
-backplane edge. Nothing projects forward from that groove into the equipment
-cavity: there is no lower captive rail, ramp or lip.
+The base/backplane interface uses a **recessed groove at the rear edge of the
+base** plus two structural side guides. The centre groove is 2 mm deep with
+0.4 mm nominal clearance around the 3 mm backplane edge. Each side guide is
+**30 mm high × 5 mm wide** and grows directly from the base. The lower 30 mm of
+the backplane is stepped inward by 5 mm per side plus 0.4 mm running clearance;
+above the guide towers it returns to the normal full width.
+
+The guide towers are deliberately thickened toward the **inside** of the
+enclosure. Their self-mating pin/socket junctions are carried on that interior
+structure, so module-to-module and end-panel connections are hidden from the
+outside. The rear exterior plane remains clean.
 
 The removable backplane/enclosure installs from directly above:
 
-1. lower the vertical rear edge into the rear groove;
-2. continue downward until the backplane reaches the positive 2 mm-deep seat;
-3. fit the detachable outer side piece where required.
+1. lower the narrowed 30 mm backplane foot between the two 5 mm side guides;
+2. continue downward into the rear groove until the backplane reaches the
+   positive 2 mm-deep seat;
+3. the full-width shoulder above the guides then sits over the tower tops;
+4. fit the detachable outer side/end piece where required.
 
 The enclosure profile intentionally restores the previously validated PR #119
 shape:
@@ -132,7 +141,10 @@ Glue is not part of normal assembly.
 
 ## Universal accessory interface
 
-Every backplane carries the same M3-ready boss grid:
+Every backplane carries the same M3-ready boss grid on its **inside face**.
+The bosses project into the equipment cavity and use blind holes; at least
+1.2 mm of solid material remains on the external rear face, so no boss or screw
+hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
 - Y = **18 / 36 / 54 mm** (kept entirely on the vertical lower section)
@@ -144,8 +156,10 @@ PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
 ## Side alignment
 
-The base and backplane expose complementary pin/socket features on their left
-and right edges so identical neighbouring modules self-align.
+The base guide towers expose complementary pin/socket features on their left
+and right edges so identical neighbouring modules self-align. These junctions
+sit on the **inside/cavity-facing portion of the 30 mm guide towers**. End-panel
+mating sockets are blind from the inside, leaving the outside side faces solid.
 
 - pin diameter: **4.0 mm**
 - socket diameter: **4.7 mm**
@@ -188,11 +202,19 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 1. Print one moving panel hinge template and one stationary equipment base.
 2. Confirm the real 6 mm rail fits and the **panel/template** rotates freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify top-down insertion into the rear groove, 2 mm seating depth, and upward removal.
-5. Verify the lower 60 mm section stays vertical, the upper wall tapers forward without distortion, and the top closure clears the front plate.
-6. Print both side pieces and verify pin/socket engagement, hinge-rod clearance, and taper alignment.
-7. Verify two identical stationary equipment assemblies align side-by-side.
-8. Fit representative M3 hardware/adapters to the lower boss grid.
-9. Only then print the remaining modules.
+4. Print one universal backplane and verify the narrowed lower 30 mm slides
+   between both 5 mm guide towers with 0.4 mm running clearance, then seats
+   2 mm into the rear groove and removes upward.
+5. Verify the backplane returns to full width above the guide towers and the
+   towers prevent lateral movement.
+6. Verify the lower 60 mm section stays vertical, the upper wall tapers forward
+   without distortion, and the top closure clears the front plate.
+7. Print both side pieces and verify the hidden pin/socket engagement,
+   hinge-rod clearance, solid exterior faces, and taper alignment.
+8. Verify two identical stationary equipment assemblies align side-by-side
+   using the hidden guide-tower junctions.
+9. Fit representative M3 hardware/adapters to the **inside** lower boss grid
+   and confirm the outside rear skin remains unbroken.
+10. Only then print the remaining modules.
 
 PETG remains preferred for repeated hinge testing.
