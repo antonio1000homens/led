@@ -33,6 +33,7 @@ hinge_axis_z = 10.5;
 hinge_radius = hinge_outer_d/2;
 hinge_pocket_clearance = 0.6;
 hinge_axial_clearance = 0.8;
+service_open_angle = 72;
 
 fixed_knuckles = [
     [36,24],
@@ -246,7 +247,7 @@ module fixed_knuckle_clearance_pockets() {
     }
 }
 
-module fixed_root_sweep_clearance(max_angle=90, step=5) {
+module fixed_root_sweep_clearance(max_angle=service_open_angle, step=4) {
     // The fixed knuckle root pads do not rotate with the moving base.  Remove
     // their swept envelope from the moving base at the fixed-knuckle X ranges,
     // with the same running clearance used by the barrel pockets.  Hull each
@@ -706,7 +707,7 @@ module hinge_rail_preview(length=232) {
             cylinder(d=hinge_rail_d,h=length);
 }
 
-module direct_mount_assembly(open_angle=72) {
+module direct_mount_assembly(open_angle=service_open_angle) {
     color([0.25,0.25,0.28])
         hinge_mount_pattern_template();
 
