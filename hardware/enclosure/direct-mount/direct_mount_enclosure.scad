@@ -29,7 +29,11 @@ hinge_rail_d = 6;
 hinge_bore_d = 7.2;
 hinge_outer_d = 13;
 hinge_axis_y = 11.5;
-hinge_axis_z = 10.5;
+// Preserve the proven full-sweep geometry: keep the hinge barrel well behind
+// the 2 mm panel-side template instead of carving the moving base around it.
+// With a 13 mm barrel this gives 7 mm closed plate-to-barrel clearance.
+hinge_plate_clearance = 7;
+hinge_axis_z = 2 + hinge_outer_d/2 + hinge_plate_clearance; // 15.5 mm
 hinge_radius = hinge_outer_d/2;
 hinge_pocket_clearance = 0.6;
 hinge_axial_clearance = 0.8;
@@ -67,7 +71,7 @@ fixed_band_h = 20;
 fixed_side_w = 8;
 fixed_hinge_root_y = hinge_axis_y-hinge_radius;
 fixed_hinge_root_h = hinge_outer_d;
-fixed_hinge_root_t = 8;
+fixed_hinge_root_t = hinge_axis_z - hinge_radius + 1; // 1 mm overlap into barrel
 
 module hinge_mount_pattern_template() {
     difference() {
@@ -276,7 +280,7 @@ module fixed_root_sweep_clearance(max_angle=mechanical_clearance_angle, step=5) 
             }
 }
 
-module fixed_lower_band_sweep_clearance(max_angle=mechanical_clearance_angle, step=5, clearance=0.4) {
+module fixed_lower_band_sweep_clearance(max_angle=service_open_angle, step=4, clearance=0.4) {
     // The fixed template's lower full-width band remains stationary while the
     // equipment base rotates. Remove its swept envelope through the intended
     // service arc so the moving base cannot scrape the panel-side template.
@@ -439,11 +443,8 @@ module hinged_equipment_base() {
 
 // Print upright on the broad base strip. Installed +Y becomes print +Z.
 module hinged_equipment_base_print() {
-    // Print from the rail side toward the hinge apron. This preserves the full
-    // 90-degree clearance relief without creating the cantilever seen when the
-    // same geometry is built from the apron upward.
-    translate([0,-service_front_z,rail_neck_top_y])
-        rotate([-90,0,0])
+    translate([0,base_rear_z,-service_base_y])
+        rotate([90,0,0])
             hinged_equipment_base();
 }
 
