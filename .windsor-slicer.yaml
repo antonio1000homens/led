@@ -25,3 +25,8 @@ models:
     source: hardware/enclosure/direct-mount/parts/05_right_equipment_side_PRINT_1.scad
     generator: openscad
     output: 05_right_equipment_side_PRINT_1.stl
+
+  rail-intersection-diagnostic:
+    source: hardware/enclosure/direct-mount/parts/99_backplane_rail_intersection_DIAGNOSTIC.scad
+    generator: openscad
+    output: 99_backplane_rail_intersection_DIAGNOSTIC.stl
