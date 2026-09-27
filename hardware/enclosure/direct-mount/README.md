@@ -68,6 +68,7 @@ The proven concealed hinge is retained:
 - printed bore: **7.2 mm**
 - barrel OD: **13 mm**
 - hinge axis: **y=11.5 mm, z=10.5 mm**
+- closed panel/template back-to-barrel clearance: **7 mm**;
 - fixed and moving knuckles remain alternating;
 - the centre panel screw service gap is preserved;
 - normal service/open-preview angle: **72°**;
