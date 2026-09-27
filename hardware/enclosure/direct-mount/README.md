@@ -1,25 +1,34 @@
 # Modular hinged direct-mount enclosure
 
-Issue #133 makes this the **canonical enclosure architecture**.
+Issue #133 makes this the canonical enclosure architecture.
 
-The repository no longer carries the previous non-hinged rear-backplane/lid
-system or the earlier hinge prototypes. All printable enclosure geometry comes
-from `direct_mount_enclosure.scad` and five thin wrappers under `parts/`.
+The hinge mechanism follows the validated geometry restored in PR #119:
+the **equipment enclosure/base is stationary**, while the **LED panel and its
+mounting template form the moving leaf** and open forward/down through a full
+0–90° service arc.
+
+The newer modular equipment system remains in place behind that hinge: a
+stationary universal base carries the captive rail, a universal backplane slides
+into that rail, and detachable side pieces retain/alignment the assembly.
 
 ## Architecture
 
 ```text
-LED panel
+moving LED panel
    |
-fixed hinge template
+moving panel mounting template + local hinge roots
    |
 6 mm metal hinge rail
    |
-universal hinge/base
+stationary equipment-side hinge knuckles
+   |
+rearward support webs + lower hinge guard
+   |
+stationary universal equipment base
    |
 lateral captive slide rail
    |
-universal equipment backplane
+stationary universal equipment backplane
    |
    +-- detachable left side
    +-- detachable right side
@@ -28,17 +37,17 @@ universal equipment backplane
    +-- future power/cable adapters
 ```
 
-Every hinge/base and every backplane is interchangeable between all four panel
-positions. Position- or component-specific behaviour belongs on detachable
-side pieces or accessory adapters.
+Every equipment base and every backplane remains interchangeable between all
+four panel positions. Position- or component-specific behaviour belongs on
+detachable side pieces or accessory adapters.
 
 ## Canonical printable parts
 
 | Wrapper | Purpose |
 | --- | --- |
-| `parts/01_panel_hinge_template_PRINT_1.scad` | Fixed panel-side hinge template using the physically corrected P4 mounting geometry |
-| `parts/02_hinged_equipment_base_PRINT_1.scad` | Universal moving hinge/base, desk-foot structure and captive backplane rail |
-| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Universal slide-in equipment plate with generic M3 adapter bosses |
+| `parts/01_panel_hinge_template_PRINT_1.scad` | **Moving** LED/panel mounting template with local hinge roots |
+| `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and captive backplane rail |
+| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Stationary universal slide-in equipment plate with generic M3 adapter bosses |
 | `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end/rail retainer |
 | `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end/rail retainer |
 
@@ -57,37 +66,38 @@ The four moulded-locator clearance centres remain:
 - Y = **12.0 / 116.0 mm**
 - clearance diameter = **10 mm**
 
-The nominal panel envelope is 256 × 128 mm. The rear moving/backplane envelope
-uses the existing 0.5 mm edge inset.
+## Restored PR #119 hinge
 
-## Hinge
-
-The proven concealed hinge is retained:
+The canonical hinge now preserves the validated mechanical arrangement rather
+than only its clearance numbers:
 
 - metal rail: **6.0 mm**
 - printed bore: **7.2 mm**
-- barrel OD: **13 mm**
-- hinge axis: **y=11.5 mm, z=10.5 mm**
-- closed panel/template back-to-barrel clearance: **7 mm**;
-- fixed and moving knuckles remain alternating;
-- the centre panel screw service gap is preserved;
-- normal service/open-preview angle: **72°**;
-- mechanical clearance is preserved through **90°**.
+- barrel OD: **14 mm**
+- moving panel/template lower edge: **20 mm above the stationary floor**
+- hinge axis: **y=27 mm, z=16 mm**
+- closed moving-template back to barrel clearance: **7 mm**
+- moving panel/template knuckles: **34–60, 92–118, 166–194 mm**
+- stationary equipment knuckles: **62–90, 136–164, 196–220 mm**
+- moving template uses **local hinge roots only**, with no full-width lower lip
+- stationary hinge roots are supported by **rearward-sloping, bottom-tangent webs**
+- a **2 mm full-width stationary lower hinge guard** sits behind the barrel with
+  **0.8 mm radial clearance**
+- service/mechanical opening range: **0–90°**
 
-The moving base can be printed independently, allowing hinge rotation and rail
-fit to be tested before printing the full backplane.
+The panel/template rotates forward/down. The equipment base, removable backplane
+and electronics stay stationary.
 
 ## Slide-in backplane
 
-The backplane inserts laterally into a support-friendly captive rail. The rail
-uses bed-connected walls and a progressively formed retaining lip instead of a
-roofed T-slot, avoiding the floating-region failure mode seen in earlier
-iterations.
+The stationary backplane inserts laterally into a support-friendly captive rail.
+The rail uses bed-connected walls and a progressively formed retaining lip
+instead of a roofed T-slot.
 
 Nominal mating clearance is **0.4 mm per exposed rail face**.
 
-Once installed, the detachable side pieces close the lateral path and act as
-positive backplane retainers. Glue is not part of the normal assembly.
+Once installed, detachable side pieces close the lateral path and act as
+positive backplane retainers. Glue is not part of normal assembly.
 
 ## Universal accessory interface
 
@@ -99,14 +109,12 @@ Every backplane carries the same M3-ready boss grid:
 - boss height = **5 mm**
 - through-hole = **3.4 mm**
 
-PSU, MatrixPortal and future electronics should use detachable adapter plates
-that attach to this grid. Do not add component-specific footprints to the
-universal backplane.
+PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
 ## Side alignment
 
-The base and backplane both expose complementary pin/socket features on their
-left and right edges so identical neighbouring modules self-align.
+The base and backplane expose complementary pin/socket features on their left
+and right edges so identical neighbouring modules self-align.
 
 - pin diameter: **4.0 mm**
 - socket diameter: **4.7 mm**
@@ -116,11 +124,8 @@ These features provide alignment/retention, not the primary structural load.
 
 ## Assembly previews
 
-- `schematics/00_hinged_enclosure_ASSEMBLY.scad`
-- `schematics/00_hinged_enclosure_CLOSED_ASSEMBLY.scad`
-
-`schematics/matrixportal_s3_REFERENCE.scad` remains as a mechanical reference
-for a future detachable MatrixPortal adapter.
+- `schematics/00_hinged_enclosure_ASSEMBLY.scad` — panel open to 90°
+- `schematics/00_hinged_enclosure_CLOSED_ASSEMBLY.scad` — panel closed
 
 ## Validation
 
@@ -130,21 +135,23 @@ Run:
 python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
 ```
 
-CI regenerates every canonical printable part, checks mesh health,
-floating-layer proxies, rail interference and representative hinge sweep
-clearances. It also renders the open/closed assembly previews.
+CI regenerates all five canonical parts, checks mesh health and floating-layer
+proxies, verifies base/backplane fit, then holds the **equipment enclosure
+stationary** and checks the **moving panel/template** for volumetric interference
+at 0, 15, 30, 45, 60, 75 and 90°.
 
-The final printability gate is Windsor Slicer using the repository-root
+The final manufacturing gate is Windsor Slicer using the repository-root
 `.windsor-slicer.yaml` and the real Bambu Studio H2D profile.
 
 ## Physical acceptance order
 
-1. Print one fixed hinge template and one base.
-2. Confirm the real 6 mm rail fits and rotates freely through 90°; use 72° as the normal service-open position.
-3. Print one universal backplane and verify full-length rail travel.
-4. Print both side pieces and verify pin/socket engagement and slide retention.
-5. Verify two identical module assemblies align side-by-side.
-6. Fit representative M3 hardware/adapters to the boss grid.
-7. Only then print the remaining modules.
+1. Print one moving panel hinge template and one stationary equipment base.
+2. Confirm the real 6 mm rail fits and the **panel/template** rotates freely from 0–90° while the equipment base stays fixed.
+3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
+4. Print one universal backplane and verify full-length rail travel.
+5. Print both side pieces and verify pin/socket engagement and slide retention.
+6. Verify two identical stationary equipment assemblies align side-by-side.
+7. Fit representative M3 hardware/adapters to the boss grid.
+8. Only then print the remaining modules.
 
-PETG remains preferred for the hinge/base and repeatedly used side connectors.
+PETG remains preferred for repeated hinge testing.
