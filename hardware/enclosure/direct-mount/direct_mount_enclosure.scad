@@ -179,16 +179,17 @@ equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
 // then returns to full module width above the guides.
 side_guide_h = 30;
 side_guide_w = 5;
+side_guide_clearance = 0.4;
 side_guide_y0 = service_base_y;
 side_guide_y1 = side_guide_y0 + side_guide_h;
-side_guide_front_z = equipment_backplane_front_z - 1.0;
-side_guide_rear_z = base_rear_z;
 
-// Junction features live on the INTERNAL/front face of the guide towers so
-// nothing is visible on the external rear surface.
+// Make the complete guide tower thick enough to carry the hidden junctions.
+// Its extra depth is entirely on the cavity side; the rear exterior remains at
+// the normal enclosure plane.
 junction_pad_depth = 7;
 junction_pad_front_z = equipment_backplane_front_z - junction_pad_depth;
-junction_pad_rear_z = backplane_slot_front_z + 0.8;
+side_guide_front_z = junction_pad_front_z;
+side_guide_rear_z = base_rear_z;
 junction_pad_h = 8;
 
 // The locating rail is a recessed groove at the BACK edge of the base. It
@@ -397,30 +398,6 @@ module base_structural_body() {
                     side_guide_rear_z-side_guide_front_z
                 ]);
 
-            // Internal junction pads thicken the guide towers toward the cavity.
-            for (yy=[base_connector_y_a,base_connector_y_b]) {
-                translate([
-                    service_x,
-                    yy-junction_pad_h/2,
-                    junction_pad_front_z
-                ])
-                    cube([
-                        side_guide_w,
-                        junction_pad_h,
-                        junction_pad_rear_z-junction_pad_front_z
-                    ]);
-
-                translate([
-                    service_x+service_w-side_guide_w,
-                    yy-junction_pad_h/2,
-                    junction_pad_front_z
-                ])
-                    cube([
-                        side_guide_w,
-                        junction_pad_h,
-                        junction_pad_rear_z-junction_pad_front_z
-                    ]);
-            }
         }
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
@@ -530,12 +507,12 @@ module backplane_shell_solid() {
         // 5 mm narrower on BOTH sides so it slides between the structural guide
         // towers. Above the guides it returns to the normal full width.
         translate([
-            service_x+side_guide_w,
+            service_x+side_guide_w+side_guide_clearance,
             equipment_backplane_y0,
             equipment_backplane_front_z
         ])
             cube([
-                service_w-2*side_guide_w,
+                service_w-2*(side_guide_w+side_guide_clearance),
                 side_guide_y1-equipment_backplane_y0,
                 equipment_backplane_t
             ]);
