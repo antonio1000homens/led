@@ -297,6 +297,13 @@ side_socket_depth = 2.2;
 
 side_t = 3;
 side_panel_clearance = 0.4;
+
+// Inner faces and axial lengths for the integrated rod end stops.
+left_side_inner_x = -side_panel_clearance;
+right_side_inner_x = module_w + side_panel_clearance;
+left_rail_end_stop_len = hinge_rail_start_x - left_side_inner_x;
+right_rail_end_stop_len = right_side_inner_x - hinge_rail_end_x;
+
 side_connector_overlap = 0.4;
 side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
@@ -1016,17 +1023,13 @@ module side_rail_end_stop(side="right") {
     // print orientation this cylinder grows vertically from the wall, so it
     // does not introduce a floating cantilever.
     if (side == "left") {
-        inner_x = -side_panel_clearance;
-        stop_len = hinge_rail_start_x - inner_x;
-        translate([inner_x,hinge_axis_y,hinge_axis_z])
+        translate([left_side_inner_x,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
-                cylinder(d=hinge_end_stop_d,h=stop_len);
+                cylinder(d=hinge_end_stop_d,h=left_rail_end_stop_len);
     } else {
-        inner_x = module_w + side_panel_clearance;
-        stop_len = inner_x - hinge_rail_end_x;
-        translate([inner_x,hinge_axis_y,hinge_axis_z])
+        translate([right_side_inner_x,hinge_axis_y,hinge_axis_z])
             rotate([0,-90,0])
-                cylinder(d=hinge_end_stop_d,h=stop_len);
+                cylinder(d=hinge_end_stop_d,h=right_rail_end_stop_len);
     }
 }
 
