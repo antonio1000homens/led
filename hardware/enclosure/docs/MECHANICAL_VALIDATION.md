@@ -16,6 +16,9 @@ python hardware/enclosure/scripts/validate_enclosure.py
 The validator regenerates all five canonical OpenSCAD parts and verifies:
 
 - non-empty positive-volume meshes;
+- the backplane manufacturing wrapper retains five sacrificial anti-tip
+  stabilisers with a 12 × 38 mm footprint, 20 mm gussets and <=0.8 mm
+  breakaway necks;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
@@ -78,7 +81,10 @@ sets:
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
-5. print one universal backplane and confirm the narrowed lower 30 mm slides between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
+5. print one universal backplane with all five sacrificial anti-tip feet,
+   confirm it remains stable through the tall print, remove/clean the supports,
+   then confirm the narrowed lower 30 mm slides between both 5 mm guides, seats
+   2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
 7. confirm the entire rear enclosure is solid with no ventilation slots or
    rear cable/ribbon through-slots, and all three 4.5 mm top closure holes align
