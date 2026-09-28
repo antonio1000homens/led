@@ -99,10 +99,18 @@ The canonical OpenSCAD source is
 `hardware/enclosure/direct_mount_enclosure.scad`. Thin printable
 wrappers live under `hardware/enclosure/parts/`.
 
-CI regenerates all five current printable parts on demand and validates mesh
-health, a coarse floating-layer/island proxy, the base/backplane rail
-intersection, representative hinge sweep clearances, and open/closed assembly
-previews. Canonical STL binaries are versioned under `hardware/enclosure/stl/`; CI-generated validation copies are exposed as workflow artifacts rather than committed by Actions.
+CI regenerates all six current printable parts on demand. Before the broader
+mechanical checks run, `hardware/enclosure/scripts/verify_canonical_stls.py`
+compares each generated mesh with the versioned STL under
+`hardware/enclosure/stl/`. The comparison normalizes triangle and vertex
+ordering so harmless OpenSCAD facet-order changes do not fail CI, while missing,
+extra, or geometrically stale canonical STLs do. CI remains read-only: generated
+validation copies are exposed as workflow artifacts rather than committed by
+Actions.
+
+The remaining enclosure validation checks mesh health, a coarse
+floating-layer/island proxy, the base/backplane rail intersection,
+representative hinge sweep clearances, and open/closed assembly previews.
 
 Full Bambu Studio validation and slicing are provided by Windsor Slicer using
 only the canonical models declared in `.windsor-slicer.yaml`.
