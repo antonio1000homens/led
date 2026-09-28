@@ -259,14 +259,10 @@ adapter_x = [32,80,128,176,224];
 // parallel to the LED plane and clear of the upper ramp.
 adapter_y = [18,36,54];
 
-// The rear enclosure is intentionally SOLID. No ventilation slots are cut in
-// the lower vertical wall, sloped ramp, or full-height upper vertical wall.
-
-// Lower cable/ribbon passages remain below the taper.
-cable_slot_len = 20;
-cable_slot_w = 6;
-cable_slot_x = [64,176];
-cable_slot_y = 28;
+// The rear enclosure is intentionally SOLID. No ventilation slots or rear
+// cable/ribbon through-slots are cut in the lower vertical wall, sloped ramp,
+// or full-height upper vertical wall. Cabling routes through the open internal
+// module sides instead.
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -899,15 +895,8 @@ module universal_equipment_backplane() {
         // These screws must be removed/loosened before opening the hinge.
         panel_closure_hole_cutters();
 
-        // Lower cable/ribbon passages stay in the orthogonal section.
-        for (xx=cable_slot_x)
-            translate([
-                xx,
-                cable_slot_y,
-                equipment_backplane_front_z-0.5
-            ])
-                linear_extrude(height=equipment_backplane_t+1)
-                    rounded_slot_2d(cable_slot_len,cable_slot_w);
+        // No rear cable/ribbon through-slots. Internal module seams remain
+        // open for HUB75 and power cabling.
     }
 }
 
