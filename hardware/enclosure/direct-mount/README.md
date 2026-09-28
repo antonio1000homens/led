@@ -229,4 +229,6 @@ the tall print. Remove the stabilisers after printing and clean the lower
 locating edge before checking the base/groove fit.
 
 For the H2D production candidate, slice with **Bambu PETG Basic @BBL H2D 0.4
-nozzle** and the normal **0.20mm Standard @BBL H2D** process profile.
+nozzle**, the normal **0.20mm Standard @BBL H2D** process profile, and the
+**Textured PEI Plate**. The Bambu CLI rejects PETG with its default Cool Plate,
+so the plate must be selected explicitly for remote slicing.
