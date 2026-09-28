@@ -24,6 +24,7 @@ PARTS = {
     "03_universal_equipment_backplane_PRINT_1.scad": "03_universal_equipment_backplane_PRINT_1.stl",
     "04_left_equipment_side_PRINT_1.scad": "04_left_equipment_side_PRINT_1.stl",
     "05_right_equipment_side_PRINT_1.scad": "05_right_equipment_side_PRINT_1.stl",
+    "06_panel_rotating_clamp_PRINT_1.scad": "06_panel_rotating_clamp_PRINT_1.stl",
 }
 
 PREVIEWS = (
