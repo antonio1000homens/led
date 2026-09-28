@@ -100,6 +100,14 @@ than only its clearance numbers:
 The panel/template rotates forward/down. The equipment base, removable backplane
 and electronics stay stationary.
 
+The 6 mm hinge rail is defined from **X=10 mm to X=246 mm**. Each detachable
+outer side now includes an integrated solid coaxial end stop that reaches the
+corresponding rod end. The stops do not extend inward beyond the rail endpoints:
+the left stop ends at X=10 mm, leaving 24 mm to the first hinge barrel at X=34,
+and the right stop begins at X=246 mm, leaving 26 mm from the final barrel end
+at X=220. Fit the rod before installing both end pieces; the end pieces then
+prevent axial escape of the rail.
+
 ## Top-down tapered backplane
 
 The base/backplane interface uses a **recessed groove at the rear edge of the
@@ -132,8 +140,8 @@ The enclosure keeps the proven lower depth while making the top closure simpler:
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
 - closure-hole diameter: **4.5 mm**, identical to the panel mounting holes;
-- upper ventilation: **3 mm slots on an 8 mm pitch**, kept below the shallow
-  upper wall.
+- ventilation: **3 mm slots on an 8 mm pitch**, confined strictly to the
+  **75–120 mm sloped ramp**; both vertical backplane sections remain solid.
 
 These three holes are derived directly from the existing measured top-row panel
 mounting coordinates, so the enclosure and panel stay aligned from one source
@@ -206,8 +214,9 @@ STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
-40 -> 10 mm taper, upper-only ventilation, supported top closure, lower usable
-equipment volume, and neighboring-module clearance.
+upper taper, **ramp-only ventilation with solid vertical walls**, the three-screw
+top closure, integrated rail end stops, lower usable equipment volume, and
+neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
 `.windsor-slicer.yaml` and the real Bambu Studio H2D profile. GitHub Actions does **not** run Bambu Studio or generate `.3mf` files.
@@ -228,8 +237,9 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
    full 148 mm panel height with all three top-row closure holes aligned to the
    physical panel mounting positions.
-7. Print both side pieces and verify the hidden pin/socket engagement,
-   hinge-rod clearance, solid exterior faces, and taper alignment.
+7. Print both side pieces and verify the hidden pin/socket engagement, solid
+   exterior faces, taper alignment, and that the integrated end stops terminate
+   the 6 mm rod at X=10/246 without touching either hinge barrel.
 8. Verify two identical stationary equipment assemblies align side-by-side
    using the hidden guide-tower junctions.
 9. Fit representative M3 hardware/adapters to the **inside** lower boss grid
