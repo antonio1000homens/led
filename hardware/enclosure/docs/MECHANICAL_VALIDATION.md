@@ -29,6 +29,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the 2 mm seat depth and rear-edge groove location;
 - the 40 mm lower cavity, 75 mm taper start, 120 mm taper end and 10 mm shallow depth;
 - the 18 mm upper wall, 10 mm panel-top clamp clearance and unobstructed top-middle screw;
+- at least 15 mm of vertical release travel through the shortened upper alignment connector;
 - upper-only ventilation kept below the shallow clamp-support wall;
 - side-piece fit and hinge-rod clearance;
 - an unobstructed lower equipment volume ahead of the rear groove;
