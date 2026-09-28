@@ -288,15 +288,17 @@ side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
     connector_pin_len + side_connector_bridge + side_connector_overlap;
 
-// Backplane/side alignment connector. Keep this completely BELOW the ramp:
-// nothing from the 75 mm ramp start upward may protrude toward the moving panel.
-// The connector lives in the full-depth vertical section and ends exactly where
-// the taper starts.
+// Backplane/side alignment connector. Keep all SOLID connector/pad geometry
+// completely below the 75 mm ramp start so nothing protrudes toward the moving
+// panel. The vertical release SLOT is only a void and continues upward through
+// the ramp to allow 15 mm of top-down service motion at the end plates.
 top_connector_y = 71;
 top_connector_z = equipment_backplane_rear_z - 1.3;
+top_connector_release_travel = 15;
 top_connector_slot_lower_span = 20;
 top_connector_slot_bottom_y = top_connector_y - top_connector_slot_lower_span;
-top_connector_slot_top_y = backplane_ramp_start_y;
+top_connector_slot_top_y =
+    backplane_ramp_start_y + top_connector_release_travel + 0.2;
 top_connector_pad_y0 = top_connector_slot_bottom_y;
 top_connector_pad_y1 = backplane_ramp_start_y;
 top_connector_pad_w = 8;
