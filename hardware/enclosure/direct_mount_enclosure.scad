@@ -152,32 +152,25 @@ service_w = backplane_w;
 service_close_clearance = 0.6;
 service_front_z = fixed_template_t + service_close_clearance;
 
-// Revised upper enclosure profile for the top-middle rotating panel clamp.
+// Revised upper enclosure profile and top closure fastening.
 // Keep the 40 mm-deep equipment section taller, use a shorter/steeper ramp,
-// then finish with a shallow wall parallel to the LED panel. The stationary
-// enclosure stops 10 mm below the panel top, leaving the top-middle screw and
-// rotating clamp mechanism exposed when the panel is closed.
+// then finish with a shallow wall parallel to the LED panel all the way to the
+// full panel height. The three existing TOP-row panel screw locations are
+// reused as removable closure fasteners between the moving panel/template and
+// stationary enclosure.
 enclosure_panel_clearance = 0.8;
 enclosure_front_z = fixed_template_t + enclosure_panel_clearance; // 2.8 mm
 enclosure_bottom_depth = 40;
-panel_clamp_top_clearance = 10;
-panel_clamp_pivot_x = panel_mount_x[1];
-panel_clamp_pivot_y = ground_clearance + panel_mount_y[1];
 
-// Serviceable rotating tab carried by the MOVING panel/template only. It uses
-// the top-middle panel screw as its pivot and never relies on the stationary
-// enclosure for retention. The final spacer/washer stack is chosen to match
-// the physical LED PCB thickness; the printed part provides the rotating arm.
-panel_clamp_tab_t = 3;
-panel_clamp_pivot_d = 12;
-panel_clamp_tip_d = 10;
-panel_clamp_tip_offset = 8.5;
-panel_clamp_hub_h = 2;
-panel_clamp_hole_d = panel_mount_hole_d + 0.2;
+// Single source of truth: closure holes directly reuse the measured panel
+// mounting coordinates and diameter. Installed Y includes ground clearance.
+panel_closure_x = panel_mount_x;
+panel_closure_y = ground_clearance + panel_mount_y[1];
+panel_closure_hole_d = panel_mount_hole_d;
 
 backplane_ramp_start_y = 75;
 backplane_ramp_end_y = 120;
-enclosure_top_y = ground_clearance + module_h - panel_clamp_top_clearance;
+enclosure_top_y = ground_clearance + module_h;
 upper_vertical_h = enclosure_top_y - backplane_ramp_end_y;
 
 equipment_backplane_t = 3;
@@ -780,42 +773,19 @@ module top_backplane_connector_slot() {
     );
 }
 
-// ---------- Top-middle rotating panel clamp ----------
+// ---------- Top-row closure fasteners ----------
 
-module panel_rotating_clamp_print() {
-    // Flat printable arm with a locally thickened pivot hub. No floating
-    // geometry and no dependency on the stationary enclosure.
-    difference() {
-        union() {
-            hull() {
-                cylinder(d=panel_clamp_pivot_d,h=panel_clamp_tab_t);
-                translate([0,-panel_clamp_tip_offset,0])
-                    cylinder(d=panel_clamp_tip_d,h=panel_clamp_tab_t);
-            }
+module panel_closure_hole_cutters() {
+    for (xx=panel_closure_x)
+        translate([
+            xx,
+            panel_closure_y,
+            equipment_backplane_top_front_z-0.5
+        ])
             cylinder(
-                d=panel_clamp_pivot_d,
-                h=panel_clamp_tab_t+panel_clamp_hub_h
+                d=panel_closure_hole_d,
+                h=equipment_backplane_t+1
             );
-        }
-
-        translate([0,0,-0.5])
-            cylinder(
-                d=panel_clamp_hole_d,
-                h=panel_clamp_tab_t+panel_clamp_hub_h+1
-            );
-    }
-}
-
-module panel_rotating_clamp_installed(angle=180) {
-    // Preview on the LED/front side of the moving template. 180 degrees points
-    // the short arm upward toward the panel top; rotate away to release.
-    translate([
-        panel_clamp_pivot_x,
-        panel_clamp_pivot_y,
-        -panel_clamp_tab_t-panel_clamp_hub_h
-    ])
-        rotate([0,0,angle])
-            panel_rotating_clamp_print();
 }
 
 module backplane_shell_solid() {
@@ -868,9 +838,9 @@ module backplane_shell_solid() {
                 ]);
         }
 
-        // Finish with a vertical wall parallel to the LED panel. This provides
-        // a rigid upper edge for the future rotating clamp while leaving the
-        // final 10 mm below the panel top completely open.
+        // Finish with a vertical wall parallel to the LED panel and carry it
+        // all the way to the panel top. Only the three aligned closure holes
+        // are cut through this wall; the top edge remains continuous.
         translate([
             service_x,
             backplane_ramp_end_y-backplane_top_band,
@@ -928,6 +898,11 @@ module universal_equipment_backplane() {
         internal_adapter_hole_cutters();
 
         ramp_ventilation_cutters();
+
+        // Three aligned top-row clearance holes let longer panel screws clamp
+        // the moving panel/template to the stationary enclosure when closed.
+        // These screws must be removed/loosened before opening the hinge.
+        panel_closure_hole_cutters();
 
         // Lower cable/ribbon passages stay in the orthogonal section.
         for (xx=cable_slot_x)
@@ -998,7 +973,9 @@ module side_wall_body(side="right") {
                 ]);
         }
 
-        // Match the backplane's shallow vertical clamp-support region.
+        // Match the backplane's full-height shallow upper region. The side
+        // walls remain uninterrupted; only the backplane carries the three
+        // aligned top-row closure holes.
         translate([
             x0,
             backplane_ramp_end_y-backplane_top_band,
@@ -1132,13 +1109,6 @@ module moving_panel_at_angle(angle=0) {
                 moving_panel_template_installed();
 }
 
-module moving_panel_clamp_at_angle(angle=0, clamp_angle=180) {
-    translate([0,hinge_axis_y,hinge_axis_z])
-        rotate([-angle,0,0])
-            translate([0,-hinge_axis_y,-hinge_axis_z])
-                panel_rotating_clamp_installed(clamp_angle);
-}
-
 module hinge_rail_preview(length=236) {
     translate([10,hinge_axis_y,hinge_axis_z])
         rotate([0,90,0])
@@ -1165,14 +1135,9 @@ module direct_mount_assembly(open_angle=service_open_angle) {
     color([0.25,0.25,0.28])
         moving_panel_at_angle(open_angle);
 
-    // The retention tab belongs entirely to the moving panel. Closed preview
-    // shows it pointing upward over the panel edge; open preview rotates it
-    // sideways so it remains visually distinct from the stationary enclosure.
-    color([0.85,0.55,0.18])
-        moving_panel_clamp_at_angle(
-            open_angle,
-            open_angle > 0 ? 90 : 180
-        );
+    // The three top-row closure screws are hardware, not printed geometry.
+    // They are intentionally omitted from the motion preview because the panel
+    // may only open after those fasteners are removed/loosened.
 }
 
 if (!is_undef(hinge_part)) {
@@ -1186,8 +1151,6 @@ if (!is_undef(hinge_part)) {
         equipment_side_print("left");
     else if (hinge_part == "side_right")
         equipment_side_print("right");
-    else if (hinge_part == "panel_clamp")
-        panel_rotating_clamp_print();
     else if (hinge_part == "assembly")
         direct_mount_assembly();
     else
