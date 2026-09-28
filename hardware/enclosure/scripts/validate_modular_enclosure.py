@@ -24,6 +24,7 @@ PARTS = {
     "03_universal_equipment_backplane_PRINT_1.scad": "03_universal_equipment_backplane_PRINT_1.stl",
     "04_left_equipment_side_PRINT_1.scad": "04_left_equipment_side_PRINT_1.stl",
     "05_right_equipment_side_PRINT_1.scad": "05_right_equipment_side_PRINT_1.stl",
+    "06_panel_rotating_clamp_PRINT_1.scad": "06_panel_rotating_clamp_PRINT_1.stl",
 }
 
 PREVIEWS = (
@@ -287,17 +288,28 @@ assert(abs(enclosure_bottom_depth-40) < 0.01,
        "lower equipment depth must remain 40 mm");
 assert(abs(enclosure_top_depth-10) < 0.01,
        "top enclosure depth must remain 10 mm");
-assert(abs(backplane_ramp_start_y-60) < 0.01,
-       "backplane taper must start 60 mm above the floor");
-assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
-       "backplane roof must reach the top of the front plate");
-assert(abs(top_link_front_z-(fixed_template_t+0.8)) < 0.01,
-       "top link no longer closes to the template with 0.8 mm clearance");
+assert(abs(backplane_ramp_start_y-75) < 0.01,
+       "backplane taper must start 75 mm above the floor");
+assert(abs(backplane_ramp_end_y-120) < 0.01,
+       "backplane taper must reach shallow depth at 120 mm");
+assert(abs(panel_clamp_top_clearance-10) < 0.01,
+       "stationary enclosure must stop 10 mm below the panel top");
+assert(abs(enclosure_top_y-
+           (ground_clearance+module_h-panel_clamp_top_clearance)) < 0.01,
+       "stationary enclosure top no longer preserves clamp clearance");
+assert(abs(upper_vertical_h-18) < 0.01,
+       "shallow clamp-support wall must remain 18 mm high");
+assert(panel_clamp_pivot_y > enclosure_top_y &&
+       panel_clamp_pivot_y-enclosure_top_y >= 2.0,
+       "top-middle clamp pivot lacks clearance above the stationary enclosure");
 assert(top_connector_slot_bottom_y <
            top_connector_y-connector_socket_d/2 &&
        top_connector_slot_top_y >
            top_connector_y+connector_socket_d/2,
        "top connector guide slot must release vertically in both directions");
+assert(top_connector_slot_bottom_y + 15 <=
+           top_connector_y-top_connector_tab_h/2,
+       "top connector guide slot lacks 15 mm downward release travel");
 assert(top_connector_pad_y0 <= top_connector_slot_bottom_y &&
        top_connector_pad_y1 >
            top_connector_y+connector_socket_d/2,
@@ -329,6 +341,15 @@ assert(top_connector_z+connector_socket_d/2 <=
        "top connector breaks through the tapered outside face");
 assert(top_connector_y > upper_vent_y+upper_vent_h,
        "top connector overlaps upper ventilation");
+assert(top_connector_y + top_connector_tab_h/2 <=
+           backplane_ramp_start_y + 0.01 &&
+       top_connector_pad_y1 <= backplane_ramp_start_y + 0.01,
+       "solid top connector geometry must remain below the enclosure ramp");
+assert(top_connector_slot_top_y >=
+           backplane_ramp_start_y + top_connector_release_travel,
+       "right-end guide slot lacks required upward release travel");
+assert(top_connector_slot_top_y < backplane_ramp_end_y,
+       "release slot must finish within the ramp below the clamp-support wall");
 assert(top_connector_tab_len-top_module_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement between adjacent modules");
@@ -396,8 +417,8 @@ assert(max(adapter_y) < backplane_ramp_start_y,
        "accessory bosses must remain on the vertical lower backplane");
 assert(upper_vent_y > backplane_ramp_start_y,
        "ventilation must remain in the tapered upper section");
-assert(upper_vent_y+upper_vent_h < enclosure_top_y,
-       "upper ventilation exceeds the tapered section");
+assert(upper_vent_y+upper_vent_h < backplane_ramp_end_y,
+       "upper ventilation must finish before the shallow vertical clamp wall");
 cube([1,1,1]);
 """,
         encoding="utf-8",
@@ -414,7 +435,8 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
-        "solid outside skin and 40-to-10 mm tapered backplane contract"
+        "solid outside skin, 75-to-120 mm 40-to-10 mm ramp, shallow upper "
+        "clamp-support wall and 10 mm panel-top clearance contract"
     )
 
 

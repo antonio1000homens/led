@@ -27,8 +27,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - the 2 mm seat depth and rear-edge groove location;
-- the 40 mm lower cavity, 60 mm taper start and 10 mm top depth;
-- upper-only ventilation and the supported top closure;
+- the 40 mm lower cavity, 75 mm taper start, 120 mm taper end and 10 mm shallow depth;
+- the 18 mm upper wall, 10 mm panel-top clamp clearance and unobstructed top-middle screw;
+- at least 15 mm of vertical release travel through the shortened upper alignment connector;
+- upper-only ventilation kept below the shallow clamp-support wall;
 - side-piece fit and hinge-rod clearance;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
@@ -50,11 +52,12 @@ The hinge regression contract includes:
 
 The previous full-width captive tongue/channel is retired. The backplane enters
 a 2 mm-deep **recessed groove at the rear of the base**. Its lower section is
-vertical at the 40 mm equipment depth up to 60 mm; the upper enclosure then
-tapers to 10 mm, carries ventilation slots, and grows a supported top closure
-toward the moving template. The validator checks the rear-groove contract,
-several positions along the vertical insertion path, the lower usable cavity,
-and the complete hinge sweep.
+vertical at the 40 mm equipment depth up to 75 mm. It then ramps to the 10 mm
+shallow depth by 120 mm and continues vertically to 138 mm, leaving the final
+10 mm below the panel top open for the rotating top-middle retention tab. The
+validator checks that the Y=140.1 mm pivot remains above the stationary
+enclosure, together with the rear-groove contract, vertical insertion path,
+lower usable cavity and complete hinge sweep.
 
 The final automated manufacturing gate is Windsor Slicer/Bambu Studio using the
 models in `.windsor-slicer.yaml`.
@@ -70,7 +73,7 @@ sets:
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
 5. print one universal backplane and confirm the narrowed lower 30 mm slides between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
-7. confirm the vertical lower wall, ventilated taper and top closure print without distortion;
+7. confirm the vertical lower wall, steeper ventilated taper and 18 mm shallow upper wall print without distortion and leave the top-middle clamp pivot clear;
 8. verify the hidden guide-tower junctions and both outer side pieces engage while all exterior faces remain solid;
 9. mate two equipment cores side-by-side at the 256 mm pitch and check the hidden pin/socket alignment;
 10. test representative M3 hardware on the inward-facing lower boss grid and verify the external rear skin is unbroken;

@@ -76,5 +76,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Verify checked-in canonical STLs are current
+        run: python hardware/enclosure/scripts/verify_canonical_stls.py
+
       - name: Validate current enclosure design
         run: python hardware/enclosure/scripts/validate_enclosure.py

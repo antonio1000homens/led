@@ -152,21 +152,44 @@ service_w = backplane_w;
 service_close_clearance = 0.6;
 service_front_z = fixed_template_t + service_close_clearance;
 
-// Reuse the validated PR #119 enclosure profile on the removable backplane:
-// a 40 mm-deep vertical lower equipment section up to 60 mm above the floor,
-// tapering to 10 mm at the top of the LED/template.
-enclosure_front_z = fixed_template_t + 0.8; // 2.8 mm behind template rear face
+// Revised upper enclosure profile for the top-middle rotating panel clamp.
+// Keep the 40 mm-deep equipment section taller, use a shorter/steeper ramp,
+// then finish with a shallow wall parallel to the LED panel. The stationary
+// enclosure stops 10 mm below the panel top, leaving the top-middle screw and
+// rotating clamp mechanism exposed when the panel is closed.
+enclosure_panel_clearance = 0.8;
+enclosure_front_z = fixed_template_t + enclosure_panel_clearance; // 2.8 mm
 enclosure_bottom_depth = 40;
-enclosure_top_depth = 10;
-backplane_ramp_start_y = 60;
-enclosure_top_y = ground_clearance + module_h;
+panel_clamp_top_clearance = 10;
+panel_clamp_pivot_x = panel_mount_x[1];
+panel_clamp_pivot_y = ground_clearance + panel_mount_y[1];
+
+// Serviceable rotating tab carried by the MOVING panel/template only. It uses
+// the top-middle panel screw as its pivot and never relies on the stationary
+// enclosure for retention. The final spacer/washer stack is chosen to match
+// the physical LED PCB thickness; the printed part provides the rotating arm.
+panel_clamp_tab_t = 3;
+panel_clamp_pivot_d = 12;
+panel_clamp_tip_d = 10;
+panel_clamp_tip_offset = 8.5;
+panel_clamp_hub_h = 2;
+panel_clamp_hole_d = panel_mount_hole_d + 0.2;
+
+backplane_ramp_start_y = 75;
+backplane_ramp_end_y = 120;
+enclosure_top_y = ground_clearance + module_h - panel_clamp_top_clearance;
+upper_vertical_h = enclosure_top_y - backplane_ramp_end_y;
 
 equipment_backplane_t = 3;
 equipment_backplane_lower_rear_z = enclosure_front_z + enclosure_bottom_depth;
 equipment_backplane_front_z = equipment_backplane_lower_rear_z - equipment_backplane_t;
 equipment_backplane_rear_z = equipment_backplane_lower_rear_z;
-equipment_backplane_top_rear_z = enclosure_front_z + enclosure_top_depth;
-equipment_backplane_top_front_z = equipment_backplane_top_rear_z - equipment_backplane_t;
+// At the top, the backplane itself now runs close and parallel to the moving
+// template instead of sitting ~8 mm behind it. Its front face is only the
+// intended 0.8 mm service clearance behind the template rear face.
+equipment_backplane_top_front_z = enclosure_front_z;
+equipment_backplane_top_rear_z =
+    equipment_backplane_top_front_z + equipment_backplane_t;
 
 backplane_guide_clearance = 0.4;
 backplane_guide_t = 1.2;
@@ -213,14 +236,9 @@ side_guide_rear_z = side_guide_slot_back_z + side_guide_wall_t;
 // spine by the running clearance. Above the 50 mm rails it returns to full width.
 lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 
-// Supported top closure derived from PR #119. The tapered backplane grows
-// forward progressively and finishes 0.8 mm behind the moving template.
+// Small overlap band used to join the steeper ramp into the shallow vertical
+// upper wall without creating a disconnected or unsupported top section.
 backplane_top_band = 1.5;
-top_template_clearance = 0.8;
-top_link_front_z = fixed_template_t + top_template_clearance;
-top_link_start_y = enclosure_top_y - 18;
-top_link_anchor_h = 2;
-top_link_cap_h = 3;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
 adapter_boss_d = 8;
@@ -231,12 +249,13 @@ adapter_x = [32,80,128,176,224];
 // parallel to the LED plane and do not sit on the tapered ventilation roof.
 adapter_y = [18,36,54];
 
-// Fine upper-only ventilation, matching the proven PR #119 strategy.
+// Fine upper-only ventilation stays within the steeper ramp and below the
+// upper alignment/clamp region.
 vent_side_margin = 12;
 vent_slot_w = 3;
 vent_pitch = 8;
 upper_vent_y = backplane_ramp_start_y + 10;
-upper_vent_h = 50;
+upper_vent_h = 28;
 
 // Lower cable/ribbon passages remain below the taper.
 cable_slot_len = 20;
@@ -269,16 +288,19 @@ side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
     connector_pin_len + side_connector_bridge + side_connector_overlap;
 
-// Upper backplane alignment connector. The right edge carries a locating pin;
-// the left edge carries a vertical guide slot. The slot spans above and below
-// the final pin height so top-down insertion/removal remains possible while
-// neighbouring modules and outer end plates stay laterally aligned.
-top_connector_y = enclosure_top_y - 8;
-top_connector_z = equipment_backplane_top_rear_z - 1.3;
-top_connector_slot_bottom_y = top_connector_y - 12;
-top_connector_slot_top_y = enclosure_top_y + 0.2;
+// Backplane/side alignment connector. Keep all SOLID connector/pad geometry
+// completely below the 75 mm ramp start so nothing protrudes toward the moving
+// panel. The vertical release SLOT is only a void and continues upward through
+// the ramp to allow 15 mm of top-down service motion at the end plates.
+top_connector_y = 71;
+top_connector_z = equipment_backplane_rear_z - 1.3;
+top_connector_release_travel = 15;
+top_connector_slot_lower_span = 20;
+top_connector_slot_bottom_y = top_connector_y - top_connector_slot_lower_span;
+top_connector_slot_top_y =
+    backplane_ramp_start_y + top_connector_release_travel + 0.2;
 top_connector_pad_y0 = top_connector_slot_bottom_y;
-top_connector_pad_y1 = top_connector_y + 4;
+top_connector_pad_y1 = backplane_ramp_start_y;
 top_connector_pad_w = 8;
 top_connector_pad_depth = 11;
 top_connector_pad_lower_depth = equipment_backplane_t;
@@ -617,9 +639,14 @@ module internal_adapter_hole_cutters() {
 }
 
 function tapered_backplane_rear_z_at_y(y) =
-    equipment_backplane_lower_rear_z +
-    (equipment_backplane_top_rear_z-equipment_backplane_lower_rear_z) *
-    ((y-backplane_ramp_start_y)/(enclosure_top_y-backplane_ramp_start_y));
+    y <= backplane_ramp_start_y
+        ? equipment_backplane_lower_rear_z
+        : y >= backplane_ramp_end_y
+            ? equipment_backplane_top_rear_z
+            : equipment_backplane_lower_rear_z +
+              (equipment_backplane_top_rear_z-equipment_backplane_lower_rear_z) *
+              ((y-backplane_ramp_start_y)/
+               (backplane_ramp_end_y-backplane_ramp_start_y));
 
 module top_backplane_connector_pad(side="left") {
     x0 = side == "left"
@@ -753,6 +780,44 @@ module top_backplane_connector_slot() {
     );
 }
 
+// ---------- Top-middle rotating panel clamp ----------
+
+module panel_rotating_clamp_print() {
+    // Flat printable arm with a locally thickened pivot hub. No floating
+    // geometry and no dependency on the stationary enclosure.
+    difference() {
+        union() {
+            hull() {
+                cylinder(d=panel_clamp_pivot_d,h=panel_clamp_tab_t);
+                translate([0,-panel_clamp_tip_offset,0])
+                    cylinder(d=panel_clamp_tip_d,h=panel_clamp_tab_t);
+            }
+            cylinder(
+                d=panel_clamp_pivot_d,
+                h=panel_clamp_tab_t+panel_clamp_hub_h
+            );
+        }
+
+        translate([0,0,-0.5])
+            cylinder(
+                d=panel_clamp_hole_d,
+                h=panel_clamp_tab_t+panel_clamp_hub_h+1
+            );
+    }
+}
+
+module panel_rotating_clamp_installed(angle=180) {
+    // Preview on the LED/front side of the moving template. 180 degrees points
+    // the short arm upward toward the panel top; rotate away to release.
+    translate([
+        panel_clamp_pivot_x,
+        panel_clamp_pivot_y,
+        -panel_clamp_tab_t-panel_clamp_hub_h
+    ])
+        rotate([0,0,angle])
+            panel_rotating_clamp_print();
+}
+
 module backplane_shell_solid() {
     union() {
         // Stepped vertical lower section. For the first 50 mm the plate is
@@ -781,9 +846,8 @@ module backplane_shell_solid() {
                 equipment_backplane_t
             ]);
 
-        // Upper enclosure ramps forward from the 40 mm lower depth to the
-        // 10 mm top depth. The hull is continuously supported in the upright
-        // print orientation.
+        // Shorter/steeper supported ramp from the 40 mm lower depth to the
+        // 10 mm shallow upper depth.
         hull() {
             translate([
                 service_x,
@@ -794,7 +858,7 @@ module backplane_shell_solid() {
 
             translate([
                 service_x,
-                enclosure_top_y-backplane_top_band,
+                backplane_ramp_end_y-backplane_top_band,
                 equipment_backplane_top_front_z
             ])
                 cube([
@@ -803,6 +867,20 @@ module backplane_shell_solid() {
                     equipment_backplane_t
                 ]);
         }
+
+        // Finish with a vertical wall parallel to the LED panel. This provides
+        // a rigid upper edge for the future rotating clamp while leaving the
+        // final 10 mm below the panel top completely open.
+        translate([
+            service_x,
+            backplane_ramp_end_y-backplane_top_band,
+            equipment_backplane_top_front_z
+        ])
+            cube([
+                service_w,
+                enclosure_top_y-backplane_ramp_end_y+backplane_top_band,
+                equipment_backplane_t
+            ]);
     }
 }
 
@@ -828,42 +906,10 @@ module ramp_ventilation_cutters() {
     }
 }
 
-module backplane_top_link() {
-    // Grow the roof from an anchor on the already-supported tapered wall toward
-    // the top of the moving front plate. This avoids a front-first floating
-    // cantilever while closing the enclosure to within 0.8 mm of the template.
-    anchor_rear_z = tapered_backplane_rear_z_at_y(top_link_start_y);
-
-    hull() {
-        translate([
-            service_x,
-            top_link_start_y,
-            anchor_rear_z-equipment_backplane_t
-        ])
-            cube([
-                service_w,
-                top_link_anchor_h,
-                equipment_backplane_t
-            ]);
-
-        translate([
-            service_x,
-            enclosure_top_y-top_link_cap_h,
-            top_link_front_z
-        ])
-            cube([
-                service_w,
-                top_link_cap_h,
-                equipment_backplane_top_rear_z-top_link_front_z
-            ]);
-    }
-}
-
 module universal_equipment_backplane() {
     difference() {
         union() {
             backplane_shell_solid();
-            backplane_top_link();
 
             top_backplane_connector_pad("left");
             top_backplane_connector_pad("right");
@@ -927,8 +973,7 @@ module side_wall_body(side="right") {
                 equipment_backplane_lower_rear_z-enclosure_front_z
             ]);
 
-        // Upper side follows the removable backplane taper and its supported
-        // top closure toward the moving panel/template.
+        // Upper side follows the steeper 40 -> 10 mm ramp.
         hull() {
             translate([
                 x0,
@@ -943,15 +988,27 @@ module side_wall_body(side="right") {
 
             translate([
                 x0,
-                enclosure_top_y-top_link_cap_h,
-                top_link_front_z
+                backplane_ramp_end_y-backplane_top_band,
+                enclosure_front_z
             ])
                 cube([
                     side_t,
-                    top_link_cap_h,
-                    equipment_backplane_top_rear_z-top_link_front_z
+                    backplane_top_band,
+                    equipment_backplane_top_rear_z-enclosure_front_z
                 ]);
         }
+
+        // Match the backplane's shallow vertical clamp-support region.
+        translate([
+            x0,
+            backplane_ramp_end_y-backplane_top_band,
+            enclosure_front_z
+        ])
+            cube([
+                side_t,
+                enclosure_top_y-backplane_ramp_end_y+backplane_top_band,
+                equipment_backplane_top_rear_z-enclosure_front_z
+            ]);
     }
 }
 
@@ -1075,6 +1132,13 @@ module moving_panel_at_angle(angle=0) {
                 moving_panel_template_installed();
 }
 
+module moving_panel_clamp_at_angle(angle=0, clamp_angle=180) {
+    translate([0,hinge_axis_y,hinge_axis_z])
+        rotate([-angle,0,0])
+            translate([0,-hinge_axis_y,-hinge_axis_z])
+                panel_rotating_clamp_installed(clamp_angle);
+}
+
 module hinge_rail_preview(length=236) {
     translate([10,hinge_axis_y,hinge_axis_z])
         rotate([0,90,0])
@@ -1100,6 +1164,15 @@ module direct_mount_assembly(open_angle=service_open_angle) {
     // LED panel/template is the moving leaf and opens forward/down.
     color([0.25,0.25,0.28])
         moving_panel_at_angle(open_angle);
+
+    // The retention tab belongs entirely to the moving panel. Closed preview
+    // shows it pointing upward over the panel edge; open preview rotates it
+    // sideways so it remains visually distinct from the stationary enclosure.
+    color([0.85,0.55,0.18])
+        moving_panel_clamp_at_angle(
+            open_angle,
+            open_angle > 0 ? 90 : 180
+        );
 }
 
 if (!is_undef(hinge_part)) {
@@ -1113,6 +1186,8 @@ if (!is_undef(hinge_part)) {
         equipment_side_print("left");
     else if (hinge_part == "side_right")
         equipment_side_print("right");
+    else if (hinge_part == "panel_clamp")
+        panel_rotating_clamp_print();
     else if (hinge_part == "assembly")
         direct_mount_assembly();
     else
