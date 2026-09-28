@@ -10,9 +10,11 @@ mounting template form the moving leaf** and open forward/down through a full
 The newer modular equipment system remains in place behind that hinge: a
 stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
-The lower 60 mm section stays vertical at the full 40 mm equipment depth; above
-that it ramps forward to a 10 mm top depth and closes toward the moving
-panel/template with 0.8 mm service clearance.
+The lower equipment section now stays vertical at the full 40 mm depth to
+**75 mm**, ramps more steeply to the 10 mm shallow depth by **120 mm**, then
+continues as an **18 mm vertical wall parallel to the LED panel**. The stationary
+enclosure stops at **138 mm**, 10 mm below the panel top, leaving the top-middle
+mounting screw clear for a rotating retention tab.
 
 ## Architecture
 
@@ -33,9 +35,11 @@ recessed rear top-down groove
    |
 vertical lower backplane (40 mm cavity depth)
    |
-ventilated 40 -> 10 mm upper taper
+steeper ventilated 40 -> 10 mm ramp (75 -> 120 mm)
    |
-supported top closure toward front plate
+18 mm shallow vertical clamp-support wall
+   |
+10 mm open clamp zone below panel top
    |
    +-- detachable left side
    +-- detachable right side
@@ -118,18 +122,23 @@ The removable backplane/enclosure installs from directly above:
 3. the full-width shoulder above the guides then sits over the tower tops;
 4. fit the detachable outer side/end piece where required.
 
-The enclosure profile intentionally restores the previously validated PR #119
-shape:
+The enclosure keeps the proven lower depth but revises the upper profile to
+make room for the top-middle rotating retention tab:
 
 - lower section: **40 mm cavity depth**, vertical/orthogonal;
-- taper begins: **60 mm above the floor**;
+- taper begins: **75 mm above the floor**;
+- taper reaches the shallow depth: **120 mm**;
 - top depth: **10 mm**;
-- upper ventilation: **3 mm slots on an 8 mm pitch**, only in the tapered area;
-- top closure: progressively grows forward and finishes **0.8 mm behind the
-  moving LED/template rear face**.
+- shallow upper wall: **18 mm high**, vertical and parallel to the LED panel;
+- stationary enclosure top: **138 mm**, exactly **10 mm below the 148 mm panel top**;
+- top-middle panel screw/pivot: **X=128.0 mm, Y=140.1 mm**;
+- upper ventilation: **3 mm slots on an 8 mm pitch**, kept below the shallow
+  clamp-support wall.
 
-That top closure is deliberately a clearance joint rather than a rigid latch:
-the front plate must remain free to rotate through the 0–90° hinge arc.
+The previous supported top closure toward the moving template is removed.
+The resulting open upper strip keeps the rotating clamp mechanism clear of the
+stationary enclosure during panel opening. The retention tab itself is a
+separate serviceable part using a longer top-middle panel screw.
 
 The lower vertical section carries the accessory mounting grid and cable
 passages. The upper tapered section is primarily the ventilated enclosure roof.
@@ -207,8 +216,9 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
-6. Verify the lower 60 mm section stays vertical, the upper wall tapers forward
-   without distortion, and the top closure clears the front plate.
+6. Verify the 40 mm-deep section remains vertical to 75 mm, the steeper ramp
+   reaches 10 mm depth by 120 mm, and the final 18 mm wall is vertical and
+   terminates 10 mm below the panel top with the top-middle screw unobstructed.
 7. Print both side pieces and verify the hidden pin/socket engagement,
    hinge-rod clearance, solid exterior faces, and taper alignment.
 8. Verify two identical stationary equipment assemblies align side-by-side
