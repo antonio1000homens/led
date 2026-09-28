@@ -163,6 +163,20 @@ enclosure_top_depth = 10;
 panel_clamp_top_clearance = 10;
 panel_clamp_pivot_x = panel_mount_x[1];
 panel_clamp_pivot_y = ground_clearance + panel_mount_y[1];
+
+// Serviceable rotating latch carried by the moving panel's top-middle screw.
+// The printed boss is an integral spacer/bearing, so only a longer screw and
+// washer are required. Angle 0 points the arm downward (latched); 180 points
+// upward (released before opening the hinged panel).
+panel_clamp_tab_t = 3;
+panel_clamp_pivot_d = 12;
+panel_clamp_tip_d = 10;
+panel_clamp_tip_offset = 12;
+panel_clamp_bearing_d = 10;
+panel_clamp_hole_d = panel_mount_hole_d + 0.2;
+panel_clamp_backplane_z_clearance = 0.6;
+panel_clamp_relief_xy_clearance = 0.8;
+
 backplane_ramp_start_y = 75;
 backplane_ramp_end_y = 120;
 enclosure_top_y = ground_clearance + module_h - panel_clamp_top_clearance;
@@ -174,6 +188,18 @@ equipment_backplane_front_z = equipment_backplane_lower_rear_z - equipment_backp
 equipment_backplane_rear_z = equipment_backplane_lower_rear_z;
 equipment_backplane_top_rear_z = enclosure_front_z + enclosure_top_depth;
 equipment_backplane_top_front_z = equipment_backplane_top_rear_z - equipment_backplane_t;
+
+// Clamp geometry sits immediately in front of the shallow backplane wall. The
+// integral bearing spans the service gap back to the moving panel/template.
+panel_clamp_tab_rear_z =
+    equipment_backplane_top_front_z - panel_clamp_backplane_z_clearance;
+panel_clamp_tab_front_z = panel_clamp_tab_rear_z - panel_clamp_tab_t;
+panel_clamp_standoff_h = panel_clamp_tab_front_z - moving_plate_t;
+panel_clamp_relief_w =
+    panel_clamp_pivot_d + 2*panel_clamp_relief_xy_clearance;
+panel_clamp_relief_bottom_y =
+    panel_clamp_pivot_y - panel_clamp_pivot_d/2
+        - panel_clamp_relief_xy_clearance;
 
 backplane_guide_clearance = 0.4;
 backplane_guide_t = 1.2;
@@ -765,6 +791,62 @@ module top_backplane_connector_slot() {
     );
 }
 
+// ---------- Top-middle rotating panel clamp ----------
+
+module panel_rotating_clamp_print() {
+    // Print flat with the broad tab face on the bed. The integral bearing grows
+    // upward from supported material, avoiding a floating spacer/cantilever.
+    difference() {
+        union() {
+            hull() {
+                cylinder(d=panel_clamp_pivot_d,h=panel_clamp_tab_t);
+                translate([0,-panel_clamp_tip_offset,0])
+                    cylinder(d=panel_clamp_tip_d,h=panel_clamp_tab_t);
+            }
+
+            // Integral spacer/bearing. In the installed orientation this faces
+            // the moving panel/template and establishes the latch Z position.
+            cylinder(
+                d=panel_clamp_bearing_d,
+                h=panel_clamp_tab_t+panel_clamp_standoff_h
+            );
+        }
+
+        translate([0,0,-0.5])
+            cylinder(
+                d=panel_clamp_hole_d,
+                h=panel_clamp_tab_t+panel_clamp_standoff_h+1
+            );
+    }
+}
+
+module panel_rotating_clamp_installed(angle=0) {
+    translate([
+        panel_clamp_pivot_x,
+        panel_clamp_pivot_y,
+        panel_clamp_tab_rear_z
+    ])
+        rotate([0,0,angle])
+            // Printed boss points +Z; installed boss points toward the panel.
+            mirror([0,0,1])
+                panel_rotating_clamp_print();
+}
+
+module panel_clamp_relief_cutter() {
+    // Open-top U relief around the pivot. This removes only the central top lip
+    // needed by the rotating bearing; it does not introduce a floating bridge.
+    translate([
+        panel_clamp_pivot_x-panel_clamp_relief_w/2,
+        panel_clamp_relief_bottom_y,
+        equipment_backplane_top_front_z-0.5
+    ])
+        cube([
+            panel_clamp_relief_w,
+            enclosure_top_y-panel_clamp_relief_bottom_y+1.0,
+            equipment_backplane_t+1.0
+        ]);
+}
+
 module backplane_shell_solid() {
     union() {
         // Stepped vertical lower section. For the first 50 mm the plate is
@@ -875,6 +957,10 @@ module universal_equipment_backplane() {
         internal_adapter_hole_cutters();
 
         ramp_ventilation_cutters();
+
+        // Central open-top relief lets the pivot/bearing leave with the moving
+        // panel once the tab is rotated upward into its released position.
+        panel_clamp_relief_cutter();
 
         // Lower cable/ribbon passages stay in the orthogonal section.
         for (xx=cable_slot_x)
@@ -1079,6 +1165,13 @@ module moving_panel_at_angle(angle=0) {
                 moving_panel_template_installed();
 }
 
+module moving_panel_clamp_at_angle(angle=0, clamp_angle=180) {
+    translate([0,hinge_axis_y,hinge_axis_z])
+        rotate([-angle,0,0])
+            translate([0,-hinge_axis_y,-hinge_axis_z])
+                panel_rotating_clamp_installed(clamp_angle);
+}
+
 module hinge_rail_preview(length=236) {
     translate([10,hinge_axis_y,hinge_axis_z])
         rotate([0,90,0])
@@ -1104,6 +1197,14 @@ module direct_mount_assembly(open_angle=service_open_angle) {
     // LED panel/template is the moving leaf and opens forward/down.
     color([0.25,0.25,0.28])
         moving_panel_at_angle(open_angle);
+
+    // Closed preview shows the latch engaged; any open preview shows it rotated
+    // upward into the service/release position and moving with the panel.
+    color([0.85,0.55,0.18])
+        moving_panel_clamp_at_angle(
+            open_angle,
+            open_angle > 0 ? 180 : 0
+        );
 }
 
 if (!is_undef(hinge_part)) {
@@ -1117,6 +1218,8 @@ if (!is_undef(hinge_part)) {
         equipment_side_print("left");
     else if (hinge_part == "side_right")
         equipment_side_print("right");
+    else if (hinge_part == "panel_clamp")
+        panel_rotating_clamp_print();
     else if (hinge_part == "assembly")
         direct_mount_assembly();
     else
