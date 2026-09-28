@@ -10,11 +10,11 @@ mounting template form the moving leaf** and open forward/down through a full
 The newer modular equipment system remains in place behind that hinge: a
 stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
-The lower equipment section now stays vertical at the full 40 mm depth to
-**75 mm**, ramps more steeply to the 10 mm shallow depth by **120 mm**, then
-continues as an **18 mm vertical wall parallel to the LED panel**. The stationary
-enclosure stops at **138 mm**, 10 mm below the panel top, leaving the top-middle
-mounting screw clear for a rotating retention tab.
+The lower equipment section stays vertical at the full 40 mm depth to
+**75 mm**, ramps more steeply to the shallow rear wall by **120 mm**, then
+continues vertically to the full **148 mm panel height**. Only a local round
+pocket around the top-middle mounting screw is removed to clear the rotating
+retention tab; the rest of the enclosure remains full-height.
 
 ## Architecture
 
@@ -35,11 +35,11 @@ recessed rear top-down groove
    |
 vertical lower backplane (40 mm cavity depth)
    |
-steeper ventilated 40 -> 10 mm ramp (75 -> 120 mm)
+steeper ventilated upper ramp (75 -> 120 mm)
    |
-18 mm shallow vertical clamp-support wall
+28 mm shallow vertical wall to full panel height
    |
-10 mm open clamp zone below panel top
+local round pocket at top-middle clamp only
    |
    +-- detachable left side
    +-- detachable right side
@@ -129,17 +129,19 @@ make room for the top-middle rotating retention tab:
 - lower section: **40 mm cavity depth**, vertical/orthogonal;
 - taper begins: **75 mm above the floor**;
 - taper reaches the shallow depth: **120 mm**;
-- top depth: **10 mm**;
-- shallow upper wall: **18 mm high**, vertical and parallel to the LED panel;
-- stationary enclosure top: **138 mm**, exactly **10 mm below the 148 mm panel top**;
+- shallow upper wall: **28 mm high**, vertical and parallel to the LED panel;
+- stationary enclosure top: **148 mm**, matching the front-panel height;
 - top-middle panel screw/pivot: **X=128.0 mm, Y=140.1 mm**;
+- rotating-tab sweep radius: **13.5 mm**;
+- local round pocket radius: **14.5 mm** (1 mm running clearance);
 - upper ventilation: **3 mm slots on an 8 mm pitch**, kept below the shallow
   clamp-support wall.
 
-The previous supported top closure toward the moving template is removed.
-The resulting open upper strip keeps the rotating clamp mechanism clear of the
-stationary enclosure during panel opening. The retention tab itself is a
-separate serviceable part using a longer top-middle panel screw.
+The backplane therefore stays full-height across almost its entire width. A
+single circular sweep pocket is subtracted around the rotating tab; because
+that circle crosses the top edge it forms an open U-shaped rounded notch rather
+than a bridged/floating roof. The retention tab remains a separate serviceable
+part using the longer top-middle panel screw.
 
 The upper module/end-plate alignment **solid** remains entirely below the 75 mm
 ramp start. Its vertical release slot is a void that extends 15 mm into the ramp,
@@ -223,8 +225,8 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
 6. Verify the 40 mm-deep section remains vertical to 75 mm, the steeper ramp
-   reaches 10 mm depth by 120 mm, and the final 18 mm wall is vertical and
-   terminates 10 mm below the panel top with the top-middle screw unobstructed.
+   reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
+   full 148 mm panel height everywhere except the rounded top-middle clamp pocket.
 7. Print both side pieces and verify the hidden pin/socket engagement,
    hinge-rod clearance, solid exterior faces, and taper alignment.
 8. Verify two identical stationary equipment assemblies align side-by-side
