@@ -24,7 +24,6 @@ PARTS = {
     "03_universal_equipment_backplane_PRINT_1.scad": "03_universal_equipment_backplane_PRINT_1.stl",
     "04_left_equipment_side_PRINT_1.scad": "04_left_equipment_side_PRINT_1.stl",
     "05_right_equipment_side_PRINT_1.scad": "05_right_equipment_side_PRINT_1.stl",
-    "06_panel_rotating_clamp_PRINT_1.scad": "06_panel_rotating_clamp_PRINT_1.stl",
 }
 
 PREVIEWS = (
@@ -294,23 +293,23 @@ assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
        "stationary enclosure must match the full front-panel height");
 assert(abs(upper_vertical_h-28) < 0.01,
        "full-height shallow upper wall must remain 28 mm high");
-assert(abs(panel_clamp_sweep_r-
-           max(panel_clamp_pivot_d/2,
-               panel_clamp_tip_offset+panel_clamp_tip_d/2)) < 0.01,
-       "clamp sweep radius no longer covers the complete rotating tab");
-assert(panel_clamp_pocket_clearance >= 1.0,
-       "rotating-clamp pocket needs at least 1 mm running clearance");
-assert(panel_clamp_pocket_r >=
-           panel_clamp_sweep_r+panel_clamp_pocket_clearance-0.01,
-       "rotating-clamp pocket is smaller than the tab sweep envelope");
-assert(panel_clamp_pivot_y+panel_clamp_pocket_r > enclosure_top_y,
-       "round clamp pocket must open through the enclosure top edge");
-assert(panel_clamp_pivot_y-panel_clamp_pocket_r < enclosure_top_y &&
-       panel_clamp_pivot_y-panel_clamp_pocket_r > backplane_ramp_end_y,
-       "round clamp pocket must stay local to the shallow upper wall");
-assert(panel_clamp_pivot_x-panel_clamp_pocket_r > service_x &&
-       panel_clamp_pivot_x+panel_clamp_pocket_r < service_x+service_w,
-       "round clamp pocket must remain local to the top-middle region");
+assert(len(panel_closure_x) == 3,
+       "top closure must reuse exactly three panel screw positions");
+for (i=[0:2])
+    assert(abs(panel_closure_x[i]-panel_mount_x[i]) < 0.01,
+           "top closure X position no longer matches panel mounting hole");
+assert(abs(panel_closure_y-(ground_clearance+panel_mount_y[1])) < 0.01,
+       "top closure Y position no longer matches panel top-row holes");
+assert(abs(panel_closure_hole_d-panel_mount_hole_d) < 0.01 &&
+       abs(panel_closure_hole_d-4.5) < 0.01,
+       "top closure hole diameter must remain the measured 4.5 mm clearance");
+assert(panel_closure_y-panel_closure_hole_d/2 > backplane_ramp_end_y &&
+       panel_closure_y+panel_closure_hole_d/2 < enclosure_top_y,
+       "top closure holes must remain fully inside the shallow upper wall");
+for (xx=panel_closure_x)
+    assert(xx-panel_closure_hole_d/2 > service_x &&
+           xx+panel_closure_hole_d/2 < service_x+service_w,
+           "top closure hole lost backplane edge margin");
 assert(top_connector_slot_bottom_y <
            top_connector_y-connector_socket_d/2 &&
        top_connector_slot_top_y >
@@ -445,7 +444,7 @@ cube([1,1,1]);
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
         "solid outside skin, 75-to-120 mm upper ramp, full-height shallow "
-        "wall and local round rotating-clamp pocket contract"
+        "wall and three aligned top-row closure-hole contract"
     )
 
 
@@ -500,9 +499,9 @@ def main() -> None:
         assert_design_contract(work_dir)
         assert_empty_intersection(
             work_dir,
-            "panel_clamp_round_pocket_clear",
+            "panel_top_closure_holes_clear",
             """    universal_equipment_backplane();
-    panel_clamp_backplane_pocket();""",
+    panel_closure_hole_cutters();""",
         )
         assert_empty_intersection(
             work_dir,
