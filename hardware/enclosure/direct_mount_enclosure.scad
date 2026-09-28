@@ -839,8 +839,8 @@ module backplane_shell_solid() {
         }
 
         // Finish with a vertical wall parallel to the LED panel and carry it
-        // all the way to the panel top. A local circular pocket is cut later
-        // around the rotating clamp; the rest of the top edge stays full-height.
+        // all the way to the panel top. Only the three aligned closure holes
+        // are cut through this wall; the top edge remains continuous.
         translate([
             service_x,
             backplane_ramp_end_y-backplane_top_band,
