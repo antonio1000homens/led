@@ -30,8 +30,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the 40 mm lower cavity, 75 mm taper start and 120 mm taper end;
 - the 28 mm full-height shallow upper wall and three aligned 4.5 mm top-row closure holes;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
-- upper-only ventilation kept below the shallow clamp-support wall;
-- side-piece fit and hinge-rod clearance;
+- ventilation confined entirely to the sloped 75–120 mm ramp, with both
+  vertical backplane sections solid;
+- side-piece fit, hinge-rod clearance, and integrated left/right rod end stops;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
   **0, 15, 30, 45, 60, 75 and 90°**;
@@ -48,7 +49,10 @@ The hinge regression contract includes:
 - local roots on the moving template only;
 - rearward support webs that terminate at the reinforced hinge shelf;
 - 3 mm local pads at the stationary hinge roots;
-- **2 mm** stationary lower guard with **0.8 mm** barrel clearance.
+- **2 mm** stationary lower guard with **0.8 mm** barrel clearance;
+- **6 mm rail from X=10 to X=246 mm**;
+- integrated end-piece stops terminating exactly at those rail endpoints while
+  remaining clear of the first barrel at X=34 and final barrel end at X=220.
 
 The previous full-width captive tongue/channel is retired. The backplane enters
 a 2 mm-deep **recessed groove at the rear of the base**. Its lower section is
@@ -76,10 +80,12 @@ sets:
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
 5. print one universal backplane and confirm the narrowed lower 30 mm slides between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
-7. confirm the vertical lower wall, steeper ventilated taper and 28 mm full-height
-   upper wall print without distortion, and all three 4.5 mm top closure holes
-   align with the panel's top-row mounting points;
-8. verify the hidden guide-tower junctions and both outer side pieces engage while all exterior faces remain solid;
+7. confirm both vertical backplane sections remain solid, ventilation exists
+   only on the sloped ramp, and all three 4.5 mm top closure holes align with
+   the panel's top-row mounting points;
+8. verify the hidden guide-tower junctions and both outer side pieces engage,
+   all exterior faces remain solid, and each integrated rod end stop reaches
+   its rail endpoint without extending into a hinge-barrel span;
 9. mate two equipment cores side-by-side at the 256 mm pitch and check the hidden pin/socket alignment;
 10. test representative M3 hardware on the inward-facing lower boss grid and verify the external rear skin is unbroken;
 11. verify connected HUB75/power cabling remains free through the opening arc.
