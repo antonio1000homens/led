@@ -10,7 +10,7 @@ remains stationary and the LED panel/template is the moving leaf.
 Run:
 
 ```bash
-python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
+python hardware/enclosure/scripts/validate_enclosure.py
 ```
 
 The validator regenerates all five canonical OpenSCAD parts and verifies:

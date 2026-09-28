@@ -16,4 +16,4 @@ lives beside the hardware it describes.
   - [Hardware refresh experiment record](../hardware/matrixportal/docs/HARDWARE_REFRESH_EXPERIMENT.md)
   - [MQTT hardware validation](../hardware/matrixportal/docs/MQTT_HARDWARE_VALIDATION.md)
 - [Enclosure](../hardware/enclosure/README.md)
-  - Direct-mount design docs are under `hardware/enclosure/direct-mount/docs/`.
+  - Direct-mount design docs are under `hardware/enclosure/docs/`.

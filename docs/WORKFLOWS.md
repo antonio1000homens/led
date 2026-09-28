@@ -88,7 +88,7 @@ names remain unchanged.
 `.github/workflows/generate-enclosure-stls.yml` contains environment setup plus
 a call to:
 
-`hardware/enclosure/direct-mount/scripts/validate_enclosure.py`
+`hardware/enclosure/scripts/validate_enclosure.py`
 
 Issue #133 commits the repository to one canonical mechanical architecture: the
 modular hinged direct-mount enclosure. Legacy non-hinged backplanes/lids and
@@ -96,13 +96,13 @@ earlier hinge prototype directories are not retained as alternate printable
 designs.
 
 The canonical OpenSCAD source is
-`hardware/enclosure/direct-mount/direct_mount_enclosure.scad`. Thin printable
-wrappers live under `hardware/enclosure/direct-mount/parts/`.
+`hardware/enclosure/direct_mount_enclosure.scad`. Thin printable
+wrappers live under `hardware/enclosure/parts/`.
 
 CI regenerates all five current printable parts on demand and validates mesh
 health, a coarse floating-layer/island proxy, the base/backplane rail
 intersection, representative hinge sweep clearances, and open/closed assembly
-previews. Generated STL binaries are not committed to Git.
+previews. Canonical STL binaries are versioned under `hardware/enclosure/stl/`; CI-generated validation copies are exposed as workflow artifacts rather than committed by Actions.
 
 Full Bambu Studio validation and slicing are provided by Windsor Slicer using
 only the canonical models declared in `.windsor-slicer.yaml`.

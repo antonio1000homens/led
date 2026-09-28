@@ -21,7 +21,7 @@ cat <<'EOF_INFO'
 Codespace CAD environment ready.
 
 Fast enclosure validation:
-  python3 hardware/enclosure/direct-mount/scripts/validate_enclosure.py
+  python3 hardware/enclosure/scripts/validate_enclosure.py
 
 Remote Bambu Studio slicing is provided by Windsor Slicer. Declare models in
 .windsor-slicer.yaml and use https://slicer.alf-broadcast.co.uk/mcp.

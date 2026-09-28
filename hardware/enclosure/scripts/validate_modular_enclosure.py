@@ -12,8 +12,8 @@ import numpy as np
 import trimesh
 from scipy import ndimage
 
-ROOT = Path(__file__).resolve().parents[4]
-DIRECT = ROOT / "hardware/enclosure/direct-mount"
+ROOT = Path(__file__).resolve().parents[3]
+DIRECT = ROOT / "hardware/enclosure"
 PARTS_DIR = DIRECT / "parts"
 SOURCE = DIRECT / "direct_mount_enclosure.scad"
 SCHEMATICS = DIRECT / "schematics"
