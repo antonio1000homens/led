@@ -256,20 +256,11 @@ adapter_hole_d = 3.4;
 adapter_boss_h = 5;
 adapter_x = [32,80,128,176,224];
 // Keep accessory mounting on the vertical lower section so adapters remain
-// parallel to the LED plane and do not sit on the tapered ventilation roof.
+// parallel to the LED plane and clear of the upper ramp.
 adapter_y = [18,36,54];
 
-// Ventilation is confined strictly to the SLOPED ramp. Both vertical
-// backplane sections remain solid: nothing below ramp_start_y and nothing at
-// or above ramp_end_y may be cut by the ventilation pattern.
-vent_side_margin = 12;
-vent_slot_w = 3;
-vent_pitch = 8;
-ramp_vent_bottom_margin = 10;
-ramp_vent_top_margin = 7;
-upper_vent_y = backplane_ramp_start_y + ramp_vent_bottom_margin;
-upper_vent_h =
-    backplane_ramp_end_y - ramp_vent_top_margin - upper_vent_y;
+// The rear enclosure is intentionally SOLID. No ventilation slots are cut in
+// the lower vertical wall, sloped ramp, or full-height upper vertical wall.
 
 // Lower cable/ribbon passages remain below the taper.
 cable_slot_len = 20;
@@ -882,28 +873,6 @@ module backplane_shell_solid() {
     }
 }
 
-module ramp_ventilation_cutters() {
-    // Ventilation exists only in the tapered upper section. Narrow 3 mm
-    // vertical slits leave 5 mm ribs on an 8 mm pitch, matching PR #119.
-    for (x=[
-        service_x+vent_side_margin :
-        vent_pitch :
-        service_x+service_w-vent_side_margin-vent_slot_w
-    ]) {
-        translate([
-            x,
-            upper_vent_y,
-            equipment_backplane_top_front_z-2
-        ])
-            cube([
-                vent_slot_w,
-                upper_vent_h,
-                equipment_backplane_lower_rear_z-equipment_backplane_top_rear_z
-                    + equipment_backplane_t + 4
-            ]);
-    }
-}
-
 module universal_equipment_backplane() {
     difference() {
         union() {
@@ -924,8 +893,6 @@ module universal_equipment_backplane() {
         // Blind M3 holes open only toward the equipment cavity. The outside
         // rear face remains a solid uninterrupted skin.
         internal_adapter_hole_cutters();
-
-        ramp_ventilation_cutters();
 
         // Three aligned top-row clearance holes let longer panel screws clamp
         // the moving panel/template to the stationary enclosure when closed.
