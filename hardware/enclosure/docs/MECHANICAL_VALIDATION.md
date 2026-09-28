@@ -16,6 +16,9 @@ python hardware/enclosure/scripts/validate_enclosure.py
 The validator regenerates all five canonical OpenSCAD parts and verifies:
 
 - non-empty positive-volume meshes;
+- the backplane manufacturing wrapper retains five sacrificial anti-tip
+  stabilisers with a 12 × 38 mm footprint, 20 mm gussets and <=0.8 mm
+  breakaway necks;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
@@ -30,8 +33,8 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the 40 mm lower cavity, 75 mm taper start and 120 mm taper end;
 - the 28 mm full-height shallow upper wall and three aligned 4.5 mm top-row closure holes;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
-- a fully solid rear enclosure with **no ventilation slots** in the lower
-  vertical wall, 75–120 mm ramp, or upper vertical wall;
+- a fully solid rear enclosure with **no ventilation slots or rear cable
+  through-slots** in the lower vertical wall, 75–120 mm ramp, or upper wall;
 - side-piece fit, hinge-rod clearance, and integrated left/right rod end stops;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
@@ -78,11 +81,14 @@ sets:
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
-5. print one universal backplane and confirm the narrowed lower 30 mm slides between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
+5. print one universal backplane with all five sacrificial anti-tip feet,
+   confirm it remains stable through the tall print, remove/clean the supports,
+   then confirm the narrowed lower 30 mm slides between both 5 mm guides, seats
+   2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
-7. confirm the entire rear enclosure is solid with no ventilation slots in
-   either vertical section or the sloped ramp, and all three 4.5 mm top closure
-   holes align with the panel's top-row mounting points;
+7. confirm the entire rear enclosure is solid with no ventilation slots or
+   rear cable/ribbon through-slots, and all three 4.5 mm top closure holes align
+   with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
    all exterior faces remain solid, and each integrated rod end stop reaches
    its rail endpoint without extending into a hinge-barrel span;

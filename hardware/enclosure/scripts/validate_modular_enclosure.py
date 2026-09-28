@@ -308,6 +308,28 @@ assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
        "stationary enclosure must match the full front-panel height");
 assert(abs(upper_vertical_h-28) < 0.01,
        "full-height shallow upper wall must remain 28 mm high");
+
+// Print-only anti-tip support contract. These sacrificial feet are required on
+// the manufacturing wrapper because the tall upright backplane previously
+// detached/fell during printing.
+assert(len(backplane_print_stabiliser_x) == 5,
+       "backplane must retain five sacrificial anti-tip stabilisers");
+assert(abs(backplane_print_stabiliser_w-12) < 0.01 &&
+       abs(backplane_print_stabiliser_depth-38) < 0.01,
+       "anti-tip stabiliser footprint must remain 12 x 38 mm");
+assert(abs(backplane_print_stabiliser_t-1.0) < 0.01,
+       "anti-tip bed pads must remain 1.0 mm thick");
+assert(backplane_print_stabiliser_h >= 20,
+       "anti-tip gussets must brace at least 20 mm up the backplane");
+assert(backplane_print_breakaway_t <= 0.8,
+       "anti-tip breakaway necks became too thick for service removal");
+assert(backplane_print_stabiliser_y0 < backplane_print_wall_rear_y &&
+       backplane_print_stabiliser_y0+backplane_print_stabiliser_depth >
+           backplane_print_wall_front_y,
+       "anti-tip feet must widen the bed footprint on both sides of the wall");
+assert(min(backplane_print_stabiliser_x)-backplane_print_stabiliser_w/2 > 0 &&
+       max(backplane_print_stabiliser_x)+backplane_print_stabiliser_w/2 < module_w,
+       "anti-tip feet must remain within the backplane X span");
 assert(len(panel_closure_x) == 3,
        "top closure must reuse exactly three panel screw positions");
 for (i=[0:2])
@@ -492,6 +514,26 @@ def assert_no_legacy_layout() -> None:
         if legacy_sources:
             raise SystemExit(
                 f"legacy enclosure SCAD source still exists: {legacy_sources[0]}"
+            )
+
+    # The rear backplane must remain a solid skin. The old pair of rounded
+    # cable/ribbon slots looked like ventilation in the manufacturing STL and
+    # are intentionally retired; cabling routes through open module sides.
+    source_text = SOURCE.read_text(encoding="utf-8")
+    for forbidden in ("cable_slot_x", "cable_slot_len", "cable_slot_w", "cable_slot_y"):
+        if forbidden in source_text:
+            raise SystemExit(
+                f"retired rear cable-slot geometry returned: {forbidden}"
+            )
+
+    for required in (
+        "backplane_print_stabiliser_x",
+        "backplane_print_stabiliser(",
+        "backplane_print_breakaway_t",
+    ):
+        if required not in source_text:
+            raise SystemExit(
+                f"required anti-tip print stabiliser geometry missing: {required}"
             )
 
 def main() -> None:

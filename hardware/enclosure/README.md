@@ -154,13 +154,15 @@ ramp start. Its vertical release slot is a void that extends 15 mm into the ramp
 allowing the removable backplane to lift past an end plate without bringing any
 solid connector geometry into the clamp clearance zone.
 
-The lower vertical section carries the accessory mounting grid and cable
-passages. The upper ramp and upper vertical section are intentionally solid;
-there are no ventilation slots anywhere in the rear enclosure.
+The lower vertical section carries the accessory mounting grid. The rear
+backplane has **no ventilation slots and no cable/ribbon through-slots**; the
+lower vertical wall, ramp and upper vertical wall are all solid apart from the
+intentional mounting/alignment holes.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
-This leaves the internal module-to-module sides open for HUB75/power cabling.
+HUB75/power cabling must route through these open internal module-to-module
+sides rather than through the rear backplane.
 Glue is not part of normal assembly.
 
 ## Universal accessory interface
@@ -236,8 +238,8 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    towers prevent lateral movement.
 6. Verify the 40 mm-deep section remains vertical to 75 mm, the solid ramp
    reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
-   full 148 mm panel height with no ventilation slots anywhere in the rear
-   enclosure and all three top-row closure holes aligned to the panel.
+   full 148 mm panel height with **no ventilation or rear cable slots** and all
+   three top-row closure holes aligned to the panel.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, taper alignment, and that the integrated end stops terminate
    the 6 mm rod at X=10/246 without touching either hinge barrel.
@@ -248,3 +250,21 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 10. Only then print the remaining modules.
 
 PETG remains preferred for repeated hinge testing.
+
+### Backplane print stability
+
+The manufacturing wrapper for `03_universal_equipment_backplane_PRINT_1.stl`
+includes five **print-only sacrificial anti-tip stabilisers** restored from the
+earlier print-stability revision. The installed backplane geometry is unchanged.
+
+Each stabiliser uses a **12 × 38 mm** transverse bed pad, **1.0 mm** thick, with
+paired gussets rising **20 mm** on both sides of the upright wall. The gussets
+join through **0.8 mm breakaway necks** so they can be flexed/cut away after the
+print. Their purpose is to resist nozzle loads in both directions and prevent
+the tall backplane detaching or falling during the print.
+
+After printing, remove all five stabilisers and clean the lower locating edge
+before fitting the backplane into its base/groove.
+
+For the H2D production candidate use **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
+**0.20mm Standard @BBL H2D**, and the **Textured PEI Plate**.
