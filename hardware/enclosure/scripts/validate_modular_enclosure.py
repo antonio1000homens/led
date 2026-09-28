@@ -257,6 +257,21 @@ def assert_design_contract(work_dir: Path) -> None:
         f"""include <{SOURCE.as_posix()}>;
 assert(abs(hinge_axis_y-ground_clearance) < 0.01,
        "hinge axis must be centred on the moving panel lower edge");
+assert(abs(hinge_rail_start_x-10) < 0.01 &&
+       abs(hinge_rail_length-236) < 0.01 &&
+       abs(hinge_rail_end_x-246) < 0.01,
+       "hinge rail endpoints must remain X=10..246 mm");
+assert(hinge_end_stop_d > hinge_rail_d &&
+       hinge_end_stop_d <= hinge_bore_d+0.01,
+       "rod end stop must cover the 6 mm rail without exceeding the bore envelope");
+assert(abs(left_side_inner_x+left_rail_end_stop_len-hinge_rail_start_x) < 0.01,
+       "left rod end stop no longer reaches the left rail endpoint");
+assert(abs(right_side_inner_x-right_rail_end_stop_len-hinge_rail_end_x) < 0.01,
+       "right rod end stop no longer reaches the right rail endpoint");
+assert(hinge_left_barrel_start-hinge_rail_start_x >= 10,
+       "left rod stop/rail end is too close to the first hinge barrel");
+assert(hinge_rail_end_x-hinge_right_barrel_end >= 10,
+       "right rod stop/rail end is too close to the last hinge barrel");
 assert(hinge_axis_y-hinge_radius < ground_clearance &&
        hinge_axis_y+hinge_radius > ground_clearance,
        "hinge barrel must straddle the moving panel lower edge");
@@ -347,6 +362,15 @@ assert(top_connector_z+connector_socket_d/2 <=
            tapered_backplane_rear_z_at_y(top_connector_y)
                - top_connector_support_margin,
        "top connector breaks through the tapered outside face");
+assert(upper_vent_y > backplane_ramp_start_y &&
+       upper_vent_y+upper_vent_h < backplane_ramp_end_y,
+       "ventilation must remain entirely inside the sloped ramp; vertical sections must stay solid");
+assert(abs(upper_vent_y-
+           (backplane_ramp_start_y+ramp_vent_bottom_margin)) < 0.01,
+       "ramp ventilation lower margin drifted");
+assert(abs((upper_vent_y+upper_vent_h)-
+           (backplane_ramp_end_y-ramp_vent_top_margin)) < 0.01,
+       "ramp ventilation upper margin drifted");
 assert(top_connector_y > upper_vent_y+upper_vent_h,
        "top connector overlaps upper ventilation");
 assert(top_connector_y + top_connector_tab_h/2 <=
@@ -443,8 +467,8 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
-        "solid outside skin, 75-to-120 mm upper ramp, full-height shallow "
-        "wall and three aligned top-row closure-hole contract"
+        "solid vertical walls with ramp-only ventilation, retained 75-to-120 mm "
+        "upper ramp, three aligned closure holes and hinge-rail end-stop contract"
     )
 
 
