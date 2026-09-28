@@ -155,12 +155,11 @@ service_front_z = fixed_template_t + service_close_clearance;
 // Revised upper enclosure profile for the top-middle rotating panel clamp.
 // Keep the 40 mm-deep equipment section taller, use a shorter/steeper ramp,
 // then finish with a shallow wall parallel to the LED panel. The stationary
-// enclosure stops 10 mm below the panel top, leaving the top-middle screw and
-// rotating clamp mechanism exposed when the panel is closed.
+// enclosure now reaches the full panel height everywhere except for one local
+// round pocket around the top-middle rotating clamp.
 enclosure_panel_clearance = 0.8;
 enclosure_front_z = fixed_template_t + enclosure_panel_clearance; // 2.8 mm
 enclosure_bottom_depth = 40;
-panel_clamp_top_clearance = 10;
 panel_clamp_pivot_x = panel_mount_x[1];
 panel_clamp_pivot_y = ground_clearance + panel_mount_y[1];
 
@@ -175,9 +174,20 @@ panel_clamp_tip_offset = 8.5;
 panel_clamp_hub_h = 2;
 panel_clamp_hole_d = panel_mount_hole_d + 0.2;
 
+// The backplane pocket is derived from the COMPLETE rotating-tab sweep rather
+// than from one parked angle. The tab's farthest point is the tip centre offset
+// plus its radius; add 1 mm running clearance for the printed hardware.
+panel_clamp_sweep_r = max(
+    panel_clamp_pivot_d/2,
+    panel_clamp_tip_offset + panel_clamp_tip_d/2
+);
+panel_clamp_pocket_clearance = 1.0;
+panel_clamp_pocket_r =
+    panel_clamp_sweep_r + panel_clamp_pocket_clearance;
+
 backplane_ramp_start_y = 75;
 backplane_ramp_end_y = 120;
-enclosure_top_y = ground_clearance + module_h - panel_clamp_top_clearance;
+enclosure_top_y = ground_clearance + module_h;
 upper_vertical_h = enclosure_top_y - backplane_ramp_end_y;
 
 equipment_backplane_t = 3;
@@ -818,6 +828,21 @@ module panel_rotating_clamp_installed(angle=180) {
             panel_rotating_clamp_print();
 }
 
+module panel_clamp_backplane_pocket() {
+    // Circular XY sweep pocket through the shallow upper backplane. Because the
+    // circle extends above enclosure_top_y it becomes a U-shaped round notch
+    // open at the top edge, so no bridge/floating roof is introduced.
+    translate([
+        panel_clamp_pivot_x,
+        panel_clamp_pivot_y,
+        equipment_backplane_top_front_z-0.5
+    ])
+        cylinder(
+            r=panel_clamp_pocket_r,
+            h=equipment_backplane_t+1
+        );
+}
+
 module backplane_shell_solid() {
     union() {
         // Stepped vertical lower section. For the first 50 mm the plate is
@@ -868,9 +893,9 @@ module backplane_shell_solid() {
                 ]);
         }
 
-        // Finish with a vertical wall parallel to the LED panel. This provides
-        // a rigid upper edge for the future rotating clamp while leaving the
-        // final 10 mm below the panel top completely open.
+        // Finish with a vertical wall parallel to the LED panel and carry it
+        // all the way to the panel top. A local circular pocket is cut later
+        // around the rotating clamp; the rest of the top edge stays full-height.
         translate([
             service_x,
             backplane_ramp_end_y-backplane_top_band,
@@ -928,6 +953,10 @@ module universal_equipment_backplane() {
         internal_adapter_hole_cutters();
 
         ramp_ventilation_cutters();
+
+        // Local top-middle clearance for the rotating clamp. Everywhere else
+        // the shallow backplane reaches the same height as the front panel.
+        panel_clamp_backplane_pocket();
 
         // Lower cable/ribbon passages stay in the orthogonal section.
         for (xx=cable_slot_x)
@@ -998,7 +1027,9 @@ module side_wall_body(side="right") {
                 ]);
         }
 
-        // Match the backplane's shallow vertical clamp-support region.
+        // Match the backplane's full-height shallow upper region. The local
+        // rotating-clamp pocket is centred in the backplane, so the end walls
+        // remain uninterrupted at full panel height.
         translate([
             x0,
             backplane_ramp_end_y-backplane_top_band,
