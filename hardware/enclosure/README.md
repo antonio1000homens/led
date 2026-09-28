@@ -141,6 +141,11 @@ The resulting open upper strip keeps the rotating clamp mechanism clear of the
 stationary enclosure during panel opening. The retention tab itself is a
 separate serviceable part using a longer top-middle panel screw.
 
+The upper module/end-plate alignment **solid** remains entirely below the 75 mm
+ramp start. Its vertical release slot is a void that extends 15 mm into the ramp,
+allowing the removable backplane to lift past an end plate without bringing any
+solid connector geometry into the clamp clearance zone.
+
 The lower vertical section carries the accessory mounting grid and cable
 passages. The upper tapered section is primarily the ventilated enclosure roof.
 
