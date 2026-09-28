@@ -161,11 +161,43 @@ The helper stages the same application payload as the USB installer, uploads
 `code.py` last, and verifies every file by SHA-256 readback. It never modifies
 `settings.toml`, `settings_local.py`, or `lib/`.
 
-If a write returns HTTP 409, the USB drive is still active; eject it and retry
-while leaving the board at the `>>>` prompt. Authentication failures return
-only a safe retry message. If an upload is interrupted, leave the board paused
-and run the helper again; uploads are repeatable and overwrite the staged
-application files before verifying them again.
+If a write returns HTTP 409, first eject the USB drive and retry while leaving
+the board at the `>>>` prompt. On the tested MatrixPortal S3 running
+CircuitPython 10.3.0, ejecting alone left the filesystem locked. If HTTP 409
+persists, use the verified workaround: disable USB mass storage at startup for
+the upload:
+
+1. With `CIRCUITPY` mounted read/write and the app paused, check whether
+   `boot.py` already exists at the drive root. If it does, stop and preserve it;
+   do not overwrite a pre-existing startup script. Otherwise create a temporary
+   `boot.py` containing only these two lines:
+
+   ```python
+   import storage
+   storage.disable_usb_drive()
+   ```
+
+2. Eject `CIRCUITPY` but keep USB connected, then hard-reset the board. Confirm
+   the volume is absent and `/cp/diskinfo.json` reports `writable: true`.
+3. After the hard-reset, press **Ctrl-C** in the serial console to pause the
+   application again at `>>>`, then run the uploader. Do not leave the temporary
+   `boot.py` on the board after the upload.
+4. Remove it through the authenticated Web Workflow endpoint with:
+
+   ```sh
+   python3 scripts/upload-firmware-wifi.py --host http://matrixportal-s3.local --remove-temporary-boot-py
+   ```
+
+   The helper prompts for the password, confirms `boot.py` contains exactly the
+   two workaround lines above, deletes it, and verifies the file is gone. It
+   refuses to delete a different `boot.py`. Then press **Ctrl-D** to resume the
+   app and hard-reset once more to restore the default USB mass-storage
+   interface.
+
+Authentication failures return only a safe retry message. If an upload is
+interrupted, leave the board paused and run the helper again; uploads are
+repeatable and overwrite the staged application files before verifying them
+again.
 
 Press **Ctrl-D** in the serial console after a successful upload. CircuitPython
 reloads `code.py` and returns to normal display mode. A hardware reset also
