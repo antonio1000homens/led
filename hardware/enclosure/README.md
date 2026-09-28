@@ -35,7 +35,7 @@ recessed rear top-down groove
    |
 vertical lower backplane (40 mm cavity depth)
    |
-steeper ventilated upper ramp (75 -> 120 mm)
+solid upper ramp (75 -> 120 mm)
    |
 28 mm shallow vertical wall to full panel height
    |
@@ -140,8 +140,8 @@ The enclosure keeps the proven lower depth while making the top closure simpler:
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
 - closure-hole diameter: **4.5 mm**, identical to the panel mounting holes;
-- ventilation: **3 mm slots on an 8 mm pitch**, confined strictly to the
-  **75–120 mm sloped ramp**; both vertical backplane sections remain solid.
+- rear enclosure ventilation: **none**. The lower vertical wall, sloped ramp
+  and upper vertical wall are all solid.
 
 These three holes are derived directly from the existing measured top-row panel
 mounting coordinates, so the enclosure and panel stay aligned from one source
@@ -155,7 +155,8 @@ allowing the removable backplane to lift past an end plate without bringing any
 solid connector geometry into the clamp clearance zone.
 
 The lower vertical section carries the accessory mounting grid and cable
-passages. The upper tapered section is primarily the ventilated enclosure roof.
+passages. The upper ramp and upper vertical section are intentionally solid;
+there are no ventilation slots anywhere in the rear enclosure.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -214,9 +215,9 @@ STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
-upper taper, **ramp-only ventilation with solid vertical walls**, the three-screw
-top closure, integrated rail end stops, lower usable equipment volume, and
-neighboring-module clearance.
+upper taper, the **fully solid rear enclosure with no ventilation slots**, the
+three-screw top closure, integrated rail end stops, lower usable equipment
+volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
 `.windsor-slicer.yaml` and the real Bambu Studio H2D profile. GitHub Actions does **not** run Bambu Studio or generate `.3mf` files.
@@ -233,10 +234,10 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
-6. Verify the 40 mm-deep section remains vertical to 75 mm, the steeper ramp
+6. Verify the 40 mm-deep section remains vertical to 75 mm, the solid ramp
    reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
-   full 148 mm panel height with all three top-row closure holes aligned to the
-   physical panel mounting positions.
+   full 148 mm panel height with no ventilation slots anywhere in the rear
+   enclosure and all three top-row closure holes aligned to the panel.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, taper alignment, and that the integrated end stops terminate
    the 6 mm rod at X=10/246 without touching either hinge barrel.
