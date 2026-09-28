@@ -895,17 +895,113 @@ module universal_equipment_backplane() {
     }
 }
 
+// Print-only sacrificial anti-tip stabilisers.
+//
+// The installed backplane remains unchanged. Its normal upright print orientation
+// is mechanically efficient, but the roughly 145 mm-tall part otherwise stands
+// on a narrow lower edge. Five transverse feet widen the bed-contact footprint,
+// and paired breakaway gussets brace the wall in both Y directions. The 1.0 mm
+// pads and 0.8 mm necks are deliberately sacrificial PETG features: flex/cut
+// them away after printing, then clean the lower locating edge before assembly.
+backplane_print_stabiliser_x = [24,76,128,180,232];
+backplane_print_stabiliser_w = 12;
+backplane_print_stabiliser_y0 = -12;
+backplane_print_stabiliser_depth = 38;
+backplane_print_stabiliser_t = 1.0;
+backplane_print_stabiliser_h = 20;
+backplane_print_breakaway_t = 0.8;
+
+// In print coordinates the vertical lower wall occupies approximately Y=5..8.
+backplane_print_wall_rear_y = adapter_boss_h;
+backplane_print_wall_front_y =
+    equipment_backplane_rear_z + adapter_boss_h - equipment_backplane_front_z;
+
+module backplane_print_stabiliser(xc) {
+    x0 = xc - backplane_print_stabiliser_w/2;
+    y1 = backplane_print_stabiliser_y0 + backplane_print_stabiliser_depth;
+
+    union() {
+        // Wide sacrificial bed pad.
+        translate([
+            x0,
+            backplane_print_stabiliser_y0,
+            0
+        ])
+            cube([
+                backplane_print_stabiliser_w,
+                backplane_print_stabiliser_depth,
+                backplane_print_stabiliser_t
+            ]);
+
+        // Rearward brace. The thin top neck is the intended breakaway point.
+        hull() {
+            translate([
+                x0,
+                backplane_print_stabiliser_y0,
+                backplane_print_stabiliser_t-0.2
+            ])
+                cube([
+                    backplane_print_stabiliser_w,
+                    3,
+                    0.8
+                ]);
+
+            translate([
+                x0,
+                backplane_print_wall_rear_y-backplane_print_breakaway_t,
+                backplane_print_stabiliser_h
+            ])
+                cube([
+                    backplane_print_stabiliser_w,
+                    backplane_print_breakaway_t+0.2,
+                    0.8
+                ]);
+        }
+
+        // Forward brace mirrors the rearward brace so nozzle loads are resisted
+        // in either direction instead of relying only on bed adhesion.
+        hull() {
+            translate([
+                x0,
+                y1-3,
+                backplane_print_stabiliser_t-0.2
+            ])
+                cube([
+                    backplane_print_stabiliser_w,
+                    3,
+                    0.8
+                ]);
+
+            translate([
+                x0,
+                backplane_print_wall_front_y-0.2,
+                backplane_print_stabiliser_h
+            ])
+                cube([
+                    backplane_print_stabiliser_w,
+                    backplane_print_breakaway_t+0.2,
+                    0.8
+                ]);
+        }
+    }
+}
+
 // Print upright on the lower locating edge. Installed +Y maps to print +Z;
 // rearward +Z maps to print -Y. The 40 -> 10 mm upper taper therefore grows
 // progressively from supported lower layers.
 module universal_equipment_backplane_print() {
-    translate([
-        0,
-        equipment_backplane_rear_z+adapter_boss_h,
-        -equipment_backplane_y0
-    ])
-        rotate([90,0,0])
-            universal_equipment_backplane();
+    union() {
+        translate([
+            0,
+            equipment_backplane_rear_z+adapter_boss_h,
+            -equipment_backplane_y0
+        ])
+            rotate([90,0,0])
+                universal_equipment_backplane();
+
+        for (xc=backplane_print_stabiliser_x)
+            backplane_print_stabiliser(xc);
+    }
 }
 
 // ---------- Detachable side/end pieces ----------
