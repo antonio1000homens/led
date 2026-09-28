@@ -25,7 +25,7 @@ Canonical pairs:
 During creation/iteration:
 
 ```bash
-python hardware/enclosure/direct-mount/scripts/generate_stls.py
+python hardware/enclosure/scripts/generate_stls.py
 ```
 
 Then:

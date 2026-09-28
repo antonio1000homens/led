@@ -3,7 +3,7 @@ name: Enclosure / Validate
 # OpenSCAD generation + mechanical validation only. CI never invokes Bambu
 # Studio/Windsor and never creates .3mf slice output.
 #
-# Canonical STLs are versioned in hardware/enclosure/direct-mount/stl/. CI
+# Canonical STLs are versioned in hardware/enclosure/stl/. CI
 # regenerates OpenSCAD meshes for validation and exposes that generated set as a
 # downloadable workflow artifact.
 
@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/enclosure-stls
-          for source in hardware/enclosure/direct-mount/parts/*_PRINT_1.scad; do
+          for source in hardware/enclosure/parts/*_PRINT_1.scad; do
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
@@ -77,4 +77,4 @@ jobs:
           retention-days: 14
 
       - name: Validate current enclosure design
-        run: python hardware/enclosure/direct-mount/scripts/validate_enclosure.py
+        run: python hardware/enclosure/scripts/validate_enclosure.py

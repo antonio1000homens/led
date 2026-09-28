@@ -7,8 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
-SCRIPT = ROOT / "hardware/enclosure/direct-mount/scripts/validate_modular_enclosure.py"
+ROOT = Path(__file__).resolve().parents[3]
+SCRIPT = ROOT / "hardware/enclosure/scripts/validate_modular_enclosure.py"
 
 def main() -> None:
     subprocess.run([sys.executable, str(SCRIPT)], check=True)

@@ -2,26 +2,26 @@ version: 1
 
 models:
   panel-hinge-template:
-    source: hardware/enclosure/direct-mount/parts/01_panel_hinge_template_PRINT_1.scad
+    source: hardware/enclosure/parts/01_panel_hinge_template_PRINT_1.scad
     generator: openscad
     output: 01_panel_hinge_template_PRINT_1.stl
 
   modular-hinge-base:
-    source: hardware/enclosure/direct-mount/parts/02_hinged_equipment_base_PRINT_1.scad
+    source: hardware/enclosure/parts/02_hinged_equipment_base_PRINT_1.scad
     generator: openscad
     output: 02_hinged_equipment_base_PRINT_1.stl
 
   universal-equipment-backplane:
-    source: hardware/enclosure/direct-mount/parts/03_universal_equipment_backplane_PRINT_1.scad
+    source: hardware/enclosure/parts/03_universal_equipment_backplane_PRINT_1.scad
     generator: openscad
     output: 03_universal_equipment_backplane_PRINT_1.stl
 
   left-equipment-side:
-    source: hardware/enclosure/direct-mount/parts/04_left_equipment_side_PRINT_1.scad
+    source: hardware/enclosure/parts/04_left_equipment_side_PRINT_1.scad
     generator: openscad
     output: 04_left_equipment_side_PRINT_1.stl
 
   right-equipment-side:
-    source: hardware/enclosure/direct-mount/parts/05_right_equipment_side_PRINT_1.scad
+    source: hardware/enclosure/parts/05_right_equipment_side_PRINT_1.scad
     generator: openscad
     output: 05_right_equipment_side_PRINT_1.stl

@@ -6,8 +6,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
-DIRECT = ROOT / "hardware/enclosure/direct-mount"
+ROOT = Path(__file__).resolve().parents[3]
+DIRECT = ROOT / "hardware/enclosure"
 PARTS_DIR = DIRECT / "parts"
 STL_DIR = DIRECT / "stl"
 
