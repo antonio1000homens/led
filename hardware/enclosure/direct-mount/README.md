@@ -218,3 +218,15 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 10. Only then print the remaining modules.
 
 PETG remains preferred for repeated hinge testing.
+
+### Backplane print stability
+
+The universal backplane wrapper adds five **print-only sacrificial anti-tip
+stabilisers**. They are not part of the installed enclosure geometry. Each
+stabiliser combines a wide 1.0 mm bed pad with paired gussets and thin
+breakaway necks so the upright backplane is braced in both directions during
+the tall print. Remove the stabilisers after printing and clean the lower
+locating edge before checking the base/groove fit.
+
+For the H2D production candidate, slice with **Bambu PETG Basic @BBL H2D 0.4
+nozzle** and the normal **0.20mm Standard @BBL H2D** process profile.
