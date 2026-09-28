@@ -25,3 +25,7 @@ models:
     source: hardware/enclosure/parts/05_right_equipment_side_PRINT_1.scad
     generator: openscad
     output: 05_right_equipment_side_PRINT_1.stl
+  panel-rotating-clamp:
+    source: hardware/enclosure/parts/06_panel_rotating_clamp_PRINT_1.scad
+    generator: openscad
+    output: 06_panel_rotating_clamp_PRINT_1.stl
