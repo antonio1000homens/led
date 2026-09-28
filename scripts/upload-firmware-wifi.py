@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STAGE = ROOT / ".build" / "circuitpy"
+TEMPORARY_BOOT_PY = b"import storage\nstorage.disable_usb_drive()\n"
 
 
 def staged_files(stage: Path) -> list[Path]:
@@ -82,6 +83,20 @@ def upload(stage: Path, client: WebWorkflowClient) -> list[str]:
 
 def remove_temporary_boot_py(client: WebWorkflowClient) -> None:
     """Remove the temporary boot.py used to disable USB MSC during upload."""
+    try:
+        contents = client.download("boot.py")
+    except HTTPError as exc:
+        if exc.code == 404:
+            exc.close()
+            return
+        raise
+
+    if contents != TEMPORARY_BOOT_PY:
+        raise RuntimeError(
+            "boot.py does not match the expected temporary USB-mass-storage workaround; "
+            "refusing to remove it"
+        )
+
     try:
         with client.request("DELETE", "boot.py") as response:
             if response.status not in (200, 204):

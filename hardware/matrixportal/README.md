@@ -167,8 +167,10 @@ CircuitPython 10.3.0, ejecting alone left the filesystem locked. If HTTP 409
 persists, use the verified workaround: disable USB mass storage at startup for
 the upload:
 
-1. With `CIRCUITPY` mounted read/write and the app paused, create a temporary
-   `boot.py` at the drive root containing only:
+1. With `CIRCUITPY` mounted read/write and the app paused, check whether
+   `boot.py` already exists at the drive root. If it does, stop and preserve it;
+   do not overwrite a pre-existing startup script. Otherwise create a temporary
+   `boot.py` containing only these two lines:
 
    ```python
    import storage
@@ -186,9 +188,11 @@ the upload:
    python3 scripts/upload-firmware-wifi.py --host http://matrixportal-s3.local --remove-temporary-boot-py
    ```
 
-   The helper prompts for the password, deletes only `boot.py`, and verifies
-   the file is gone. Then press **Ctrl-D** to resume the app and hard-reset once
-   more to restore the default USB mass-storage interface.
+   The helper prompts for the password, confirms `boot.py` contains exactly the
+   two workaround lines above, deletes it, and verifies the file is gone. It
+   refuses to delete a different `boot.py`. Then press **Ctrl-D** to resume the
+   app and hard-reset once more to restore the default USB mass-storage
+   interface.
 
 Authentication failures return only a safe retry message. If an upload is
 interrupted, leave the board paused and run the helper again; uploads are
