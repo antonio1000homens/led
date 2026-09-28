@@ -341,9 +341,15 @@ assert(top_connector_z+connector_socket_d/2 <=
        "top connector breaks through the tapered outside face");
 assert(top_connector_y > upper_vent_y+upper_vent_h,
        "top connector overlaps upper ventilation");
-assert(top_connector_y < enclosure_top_y &&
-       top_connector_slot_top_y <= enclosure_top_y+0.21,
-       "top connector must remain below the clamp clearance zone");
+assert(top_connector_y + top_connector_tab_h/2 <=
+           backplane_ramp_start_y + 0.01 &&
+       top_connector_pad_y1 <= backplane_ramp_start_y + 0.01,
+       "solid top connector geometry must remain below the enclosure ramp");
+assert(top_connector_slot_top_y >=
+           backplane_ramp_start_y + top_connector_release_travel,
+       "right-end guide slot lacks required upward release travel");
+assert(top_connector_slot_top_y < backplane_ramp_end_y,
+       "release slot must finish within the ramp below the clamp-support wall");
 assert(top_connector_tab_len-top_module_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement between adjacent modules");
