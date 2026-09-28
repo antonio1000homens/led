@@ -12,9 +12,9 @@ stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
 The lower equipment section stays vertical at the full 40 mm depth to
 **75 mm**, ramps more steeply to the shallow rear wall by **120 mm**, then
-continues vertically to the full **148 mm panel height**. Only a local round
-pocket around the top-middle mounting screw is removed to clear the rotating
-retention tab; the rest of the enclosure remains full-height.
+continues vertically to the full **148 mm panel height**. The backplane now
+reuses all three existing top-row panel screw positions as aligned closure
+fasteners, so no rotating tab or local top cutout is required.
 
 ## Architecture
 
@@ -39,7 +39,7 @@ steeper ventilated upper ramp (75 -> 120 mm)
    |
 28 mm shallow vertical wall to full panel height
    |
-local round pocket at top-middle clamp only
+three aligned top-row closure screw holes
    |
    +-- detachable left side
    +-- detachable right side
@@ -60,8 +60,7 @@ detachable side pieces or accessory adapters.
 | `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and recessed rear backplane groove |
 | `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable vertical/tapered enclosure backplane with generic M3 adapter bosses |
 | `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left outer wall following the 40 -> 10 mm taper |
-| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right outer wall following the 40 -> 10 mm taper |
-| `parts/06_panel_rotating_clamp_PRINT_1.scad` | Separate flat-print rotating retention tab for the top-middle panel screw/pivot |
+| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right outer wall following the upper taper |
 
 Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
@@ -123,25 +122,24 @@ The removable backplane/enclosure installs from directly above:
 3. the full-width shoulder above the guides then sits over the tower tops;
 4. fit the detachable outer side/end piece where required.
 
-The enclosure keeps the proven lower depth but revises the upper profile to
-make room for the top-middle rotating retention tab:
+The enclosure keeps the proven lower depth while making the top closure simpler:
 
 - lower section: **40 mm cavity depth**, vertical/orthogonal;
 - taper begins: **75 mm above the floor**;
-- taper reaches the shallow depth: **120 mm**;
+- taper reaches the shallow wall: **120 mm**;
 - shallow upper wall: **28 mm high**, vertical and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- top-middle panel screw/pivot: **X=128.0 mm, Y=140.1 mm**;
-- rotating-tab sweep radius: **13.5 mm**;
-- local round pocket radius: **14.5 mm** (1 mm running clearance);
+- three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
+- closure-hole installed Y: **140.1 mm**;
+- closure-hole diameter: **4.5 mm**, identical to the panel mounting holes;
 - upper ventilation: **3 mm slots on an 8 mm pitch**, kept below the shallow
-  clamp-support wall.
+  upper wall.
 
-The backplane therefore stays full-height across almost its entire width. A
-single circular sweep pocket is subtracted around the rotating tab; because
-that circle crosses the top edge it forms an open U-shaped rounded notch rather
-than a bridged/floating roof. The retention tab remains a separate serviceable
-part using the longer top-middle panel screw.
+These three holes are derived directly from the existing measured top-row panel
+mounting coordinates, so the enclosure and panel stay aligned from one source
+of truth. Longer screws pass through the stationary backplane into the existing
+panel mounting locations and act as removable closure fasteners. The three
+closure screws must be removed or loosened before opening the hinged panel.
 
 The upper module/end-plate alignment **solid** remains entirely below the 75 mm
 ramp start. Its vertical release slot is a void that extends 15 mm into the ramp,
@@ -217,7 +215,9 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 ## Physical acceptance order
 
 1. Print one moving panel hinge template and one stationary equipment base.
-2. Confirm the real 6 mm rail fits and the **panel/template** rotates freely from 0–90° while the equipment base stays fixed.
+2. Confirm the three top closure screws align and secure the closed panel; then
+   remove/loosen them and confirm the real 6 mm rail lets the **panel/template**
+   rotate freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
 4. Print one universal backplane and verify the narrowed lower 30 mm slides
    between both 5 mm guide towers with 0.4 mm running clearance, then seats
@@ -226,7 +226,8 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    towers prevent lateral movement.
 6. Verify the 40 mm-deep section remains vertical to 75 mm, the steeper ramp
    reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
-   full 148 mm panel height everywhere except the rounded top-middle clamp pocket.
+   full 148 mm panel height with all three top-row closure holes aligned to the
+   physical panel mounting positions.
 7. Print both side pieces and verify the hidden pin/socket engagement,
    hinge-rod clearance, solid exterior faces, and taper alignment.
 8. Verify two identical stationary equipment assemblies align side-by-side
