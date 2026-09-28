@@ -278,7 +278,11 @@ side_connector_pin_len =
 // neighbouring modules and outer end plates stay laterally aligned.
 top_connector_y = enclosure_top_y - 8;
 top_connector_z = equipment_backplane_top_rear_z - 1.3;
-top_connector_slot_bottom_y = top_connector_y - 12;
+// The shortened enclosure leaves less vertical run-out above the connector.
+// Extend the guide downward so a neighbouring backplane can still lift at
+// least 15 mm before the ramped tab reaches solid material.
+top_connector_slot_lower_span = 22;
+top_connector_slot_bottom_y = top_connector_y - top_connector_slot_lower_span;
 top_connector_slot_top_y = enclosure_top_y + 0.2;
 top_connector_pad_y0 = top_connector_slot_bottom_y;
 top_connector_pad_y1 = top_connector_y + 4;
