@@ -61,6 +61,7 @@ detachable side pieces or accessory adapters.
 | `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable vertical/tapered enclosure backplane with generic M3 adapter bosses |
 | `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left outer wall following the 40 -> 10 mm taper |
 | `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right outer wall following the 40 -> 10 mm taper |
+| `parts/06_panel_rotating_clamp_PRINT_1.scad` | Separate flat-print rotating retention tab for the top-middle panel screw/pivot |
 
 Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
