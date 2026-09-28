@@ -154,13 +154,15 @@ ramp start. Its vertical release slot is a void that extends 15 mm into the ramp
 allowing the removable backplane to lift past an end plate without bringing any
 solid connector geometry into the clamp clearance zone.
 
-The lower vertical section carries the accessory mounting grid and cable
-passages. The upper ramp and upper vertical section are intentionally solid;
-there are no ventilation slots anywhere in the rear enclosure.
+The lower vertical section carries the accessory mounting grid. The rear
+backplane has **no ventilation slots and no cable/ribbon through-slots**; the
+lower vertical wall, ramp and upper vertical wall are all solid apart from the
+intentional mounting/alignment holes.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
-This leaves the internal module-to-module sides open for HUB75/power cabling.
+HUB75/power cabling must route through these open internal module-to-module
+sides rather than through the rear backplane.
 Glue is not part of normal assembly.
 
 ## Universal accessory interface
@@ -236,8 +238,8 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    towers prevent lateral movement.
 6. Verify the 40 mm-deep section remains vertical to 75 mm, the solid ramp
    reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
-   full 148 mm panel height with no ventilation slots anywhere in the rear
-   enclosure and all three top-row closure holes aligned to the panel.
+   full 148 mm panel height with **no ventilation or rear cable slots** and all
+   three top-row closure holes aligned to the panel.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, taper alignment, and that the integrated end stops terminate
    the 6 mm rod at X=10/246 without touching either hinge barrel.
