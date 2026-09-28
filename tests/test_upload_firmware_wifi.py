@@ -90,24 +90,45 @@ class UploadFirmwareTests(unittest.TestCase):
         calls = []
 
         class CleanupClient:
+            def __init__(self):
+                self.present = True
+
+            def request(self, method, path):
+                calls.append((method, path))
+                self.present = False
+                return FakeResponse(204)
+
+            def download(self, path):
+                calls.append(("GET", path))
+                if self.present:
+                    return MODULE.TEMPORARY_BOOT_PY
+                raise HTTPError("http://board.local/fs/boot.py", 404, "Not Found", None, None)
+
+        MODULE.remove_temporary_boot_py(CleanupClient())
+        self.assertEqual(calls, [("GET", "boot.py"), ("DELETE", "boot.py"), ("GET", "boot.py")])
+
+    def test_remove_temporary_boot_py_refuses_unexpected_file(self):
+        calls = []
+
+        class CleanupClient:
             def request(self, method, path):
                 calls.append((method, path))
                 return FakeResponse(204)
 
             def download(self, path):
-                calls.append(("GET", path))
-                raise HTTPError("http://board.local/fs/boot.py", 404, "Not Found", None, None)
+                return b"print('my startup script')\n"
 
-        MODULE.remove_temporary_boot_py(CleanupClient())
-        self.assertEqual(calls, [("DELETE", "boot.py"), ("GET", "boot.py")])
+        with self.assertRaisesRegex(RuntimeError, "refusing to remove it"):
+            MODULE.remove_temporary_boot_py(CleanupClient())
+        self.assertEqual(calls, [])
 
-    def test_remove_temporary_boot_py_fails_if_file_remains(self):
+    def test_remove_temporary_boot_py_fails_if_file_remains_after_delete(self):
         class CleanupClient:
             def request(self, method, path):
                 return FakeResponse(204)
 
             def download(self, path):
-                return b"import storage\\nstorage.disable_usb_drive()\\n"
+                return MODULE.TEMPORARY_BOOT_PY
 
         with self.assertRaisesRegex(RuntimeError, "still exists after removal"):
             MODULE.remove_temporary_boot_py(CleanupClient())
