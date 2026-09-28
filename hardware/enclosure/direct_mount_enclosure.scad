@@ -36,6 +36,14 @@ hinge_outer_d = 14;
 hinge_radius = hinge_outer_d/2;
 hinge_axial_clearance = 1.0;
 
+// Physical rail/end-stop contract. The detachable left/right end pieces close
+// the rail axis and stop the 6 mm rod at its defined endpoints. The stop face
+// reaches the rod end but never extends toward the nearest hinge barrel.
+hinge_rail_start_x = 10;
+hinge_rail_length = 236;
+hinge_rail_end_x = hinge_rail_start_x + hinge_rail_length;
+hinge_end_stop_d = hinge_bore_d;
+
 ground_clearance = 20;
 hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
 
@@ -61,6 +69,15 @@ stationary_knuckles = [
     [136,28],
     [196,24]
 ];
+
+hinge_left_barrel_start = min(
+    min([for (segment=panel_knuckles) segment[0]]),
+    min([for (segment=stationary_knuckles) segment[0]])
+);
+hinge_right_barrel_end = max(
+    max([for (segment=panel_knuckles) segment[0]+segment[1]]),
+    max([for (segment=stationary_knuckles) segment[0]+segment[1]])
+);
 
 module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
     translate([x0,hinge_axis_y,axis_z])
@@ -242,13 +259,17 @@ adapter_x = [32,80,128,176,224];
 // parallel to the LED plane and do not sit on the tapered ventilation roof.
 adapter_y = [18,36,54];
 
-// Fine upper-only ventilation stays within the steeper ramp and below the
-// upper alignment/clamp region.
+// Ventilation is confined strictly to the SLOPED ramp. Both vertical
+// backplane sections remain solid: nothing below ramp_start_y and nothing at
+// or above ramp_end_y may be cut by the ventilation pattern.
 vent_side_margin = 12;
 vent_slot_w = 3;
 vent_pitch = 8;
-upper_vent_y = backplane_ramp_start_y + 10;
-upper_vent_h = 28;
+ramp_vent_bottom_margin = 10;
+ramp_vent_top_margin = 7;
+upper_vent_y = backplane_ramp_start_y + ramp_vent_bottom_margin;
+upper_vent_h =
+    backplane_ramp_end_y - ramp_vent_top_margin - upper_vent_y;
 
 // Lower cable/ribbon passages remain below the taper.
 cable_slot_len = 20;
@@ -276,6 +297,13 @@ side_socket_depth = 2.2;
 
 side_t = 3;
 side_panel_clearance = 0.4;
+
+// Inner faces and axial lengths for the integrated rod end stops.
+left_side_inner_x = -side_panel_clearance;
+right_side_inner_x = module_w + side_panel_clearance;
+left_rail_end_stop_len = hinge_rail_start_x - left_side_inner_x;
+right_rail_end_stop_len = right_side_inner_x - hinge_rail_end_x;
+
 side_connector_overlap = 0.4;
 side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
@@ -989,13 +1017,20 @@ module side_wall_body(side="right") {
     }
 }
 
-module side_hinge_bore(side="right") {
-    x0 = side == "right"
-        ? module_w + side_panel_clearance - 0.5
-        : -side_t - side_panel_clearance - 0.5;
-    translate([x0,hinge_axis_y,hinge_axis_z])
-        rotate([0,90,0])
-            cylinder(d=hinge_bore_d,h=side_t+1.0);
+module side_rail_end_stop(side="right") {
+    // Integrated solid end stop on each detachable outer side. Each plug grows
+    // inward exactly to the corresponding rod endpoint. In the side-piece
+    // print orientation this cylinder grows vertically from the wall, so it
+    // does not introduce a floating cantilever.
+    if (side == "left") {
+        translate([left_side_inner_x,hinge_axis_y,hinge_axis_z])
+            rotate([0,90,0])
+                cylinder(d=hinge_end_stop_d,h=left_rail_end_stop_len);
+    } else {
+        translate([right_side_inner_x,hinge_axis_y,hinge_axis_z])
+            rotate([0,-90,0])
+                cylinder(d=hinge_end_stop_d,h=right_rail_end_stop_len);
+    }
 }
 
 module right_side_pins() {
@@ -1066,6 +1101,7 @@ module equipment_side(side="right") {
     difference() {
         union() {
             side_wall_body(side);
+            side_rail_end_stop(side);
             if (side == "right")
                 right_side_pins();
             else
@@ -1076,8 +1112,6 @@ module equipment_side(side="right") {
             right_side_sockets();
         else
             left_side_sockets();
-
-        side_hinge_bore(side);
     }
 }
 
@@ -1109,8 +1143,8 @@ module moving_panel_at_angle(angle=0) {
                 moving_panel_template_installed();
 }
 
-module hinge_rail_preview(length=236) {
-    translate([10,hinge_axis_y,hinge_axis_z])
+module hinge_rail_preview(length=hinge_rail_length) {
+    translate([hinge_rail_start_x,hinge_axis_y,hinge_axis_z])
         rotate([0,90,0])
             cylinder(d=hinge_rail_d,h=length);
 }
