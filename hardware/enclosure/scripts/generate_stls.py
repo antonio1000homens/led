@@ -17,6 +17,7 @@ PARTS = (
     "03_universal_equipment_backplane_PRINT_1",
     "04_left_equipment_side_PRINT_1",
     "05_right_equipment_side_PRINT_1",
+    "06_panel_rotating_clamp_PRINT_1",
 )
 
 
