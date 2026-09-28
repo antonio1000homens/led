@@ -494,6 +494,16 @@ def assert_no_legacy_layout() -> None:
                 f"legacy enclosure SCAD source still exists: {legacy_sources[0]}"
             )
 
+    # The rear backplane must remain a solid skin. The old pair of rounded
+    # cable/ribbon slots looked like ventilation in the manufacturing STL and
+    # are intentionally retired; cabling routes through open module sides.
+    source_text = SOURCE.read_text(encoding="utf-8")
+    for forbidden in ("cable_slot_x", "cable_slot_len", "cable_slot_w", "cable_slot_y"):
+        if forbidden in source_text:
+            raise SystemExit(
+                f"retired rear cable-slot geometry returned: {forbidden}"
+            )
+
 def main() -> None:
     assert_no_legacy_layout()
     with tempfile.TemporaryDirectory(prefix="led-hinged-enclosure-") as tmp:
