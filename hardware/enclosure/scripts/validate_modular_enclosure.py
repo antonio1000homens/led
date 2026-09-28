@@ -362,17 +362,8 @@ assert(top_connector_z+connector_socket_d/2 <=
            tapered_backplane_rear_z_at_y(top_connector_y)
                - top_connector_support_margin,
        "top connector breaks through the tapered outside face");
-assert(upper_vent_y > backplane_ramp_start_y &&
-       upper_vent_y+upper_vent_h < backplane_ramp_end_y,
-       "ventilation must remain entirely inside the sloped ramp; vertical sections must stay solid");
-assert(abs(upper_vent_y-
-           (backplane_ramp_start_y+ramp_vent_bottom_margin)) < 0.01,
-       "ramp ventilation lower margin drifted");
-assert(abs((upper_vent_y+upper_vent_h)-
-           (backplane_ramp_end_y-ramp_vent_top_margin)) < 0.01,
-       "ramp ventilation upper margin drifted");
-assert(top_connector_y > upper_vent_y+upper_vent_h,
-       "top connector overlaps upper ventilation");
+assert(top_connector_y < backplane_ramp_start_y,
+       "top connector must remain below the enclosure ramp");
 assert(top_connector_y + top_connector_tab_h/2 <=
            backplane_ramp_start_y + 0.01 &&
        top_connector_pad_y1 <= backplane_ramp_start_y + 0.01,
@@ -447,10 +438,6 @@ assert(equipment_backplane_front_z-enclosure_front_z >= 35,
 
 assert(max(adapter_y) < backplane_ramp_start_y,
        "accessory bosses must remain on the vertical lower backplane");
-assert(upper_vent_y > backplane_ramp_start_y,
-       "ventilation must remain in the tapered upper section");
-assert(upper_vent_y+upper_vent_h < backplane_ramp_end_y,
-       "upper ventilation must finish before the shallow vertical clamp wall");
 cube([1,1,1]);
 """,
         encoding="utf-8",
@@ -467,8 +454,9 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
-        "solid vertical walls with ramp-only ventilation, retained 75-to-120 mm "
-        "upper ramp, three aligned closure holes and hinge-rail end-stop contract"
+        "fully solid rear enclosure with no ventilation slots, retained "
+        "75-to-120 mm upper ramp, three aligned closure holes and "
+        "hinge-rail end-stop contract"
     )
 
 
@@ -521,36 +509,6 @@ def main() -> None:
             assert_tracked_stl_current(stl_name, generated)
 
         assert_design_contract(work_dir)
-        assert_empty_intersection(
-            work_dir,
-            "vent_lower_vertical_keepout",
-            """    ramp_ventilation_cutters();
-    translate([
-        service_x-1,
-        equipment_backplane_y0,
-        -10
-    ])
-        cube([
-            service_w+2,
-            backplane_ramp_start_y-equipment_backplane_y0,
-            100
-        ]);""",
-        )
-        assert_empty_intersection(
-            work_dir,
-            "vent_upper_vertical_keepout",
-            """    ramp_ventilation_cutters();
-    translate([
-        service_x-1,
-        backplane_ramp_end_y,
-        -10
-    ])
-        cube([
-            service_w+2,
-            enclosure_top_y-backplane_ramp_end_y,
-            100
-        ]);""",
-        )
         assert_empty_intersection(
             work_dir,
             "panel_top_closure_holes_clear",
