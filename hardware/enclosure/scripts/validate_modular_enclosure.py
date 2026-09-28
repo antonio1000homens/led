@@ -523,6 +523,36 @@ def main() -> None:
         assert_design_contract(work_dir)
         assert_empty_intersection(
             work_dir,
+            "vent_lower_vertical_keepout",
+            """    ramp_ventilation_cutters();
+    translate([
+        service_x-1,
+        equipment_backplane_y0,
+        -10
+    ])
+        cube([
+            service_w+2,
+            backplane_ramp_start_y-equipment_backplane_y0,
+            100
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "vent_upper_vertical_keepout",
+            """    ramp_ventilation_cutters();
+    translate([
+        service_x-1,
+        backplane_ramp_end_y,
+        -10
+    ])
+        cube([
+            service_w+2,
+            enclosure_top_y-backplane_ramp_end_y,
+            100
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
             "panel_top_closure_holes_clear",
             """    universal_equipment_backplane();
     panel_closure_hole_cutters();""",
