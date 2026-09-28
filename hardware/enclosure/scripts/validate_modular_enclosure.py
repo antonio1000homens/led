@@ -306,6 +306,9 @@ assert(top_connector_slot_bottom_y <
        top_connector_slot_top_y >
            top_connector_y+connector_socket_d/2,
        "top connector guide slot must release vertically in both directions");
+assert(top_connector_slot_bottom_y + 15 <=
+           top_connector_y-top_connector_tab_h/2,
+       "top connector guide slot lacks 15 mm downward release travel");
 assert(top_connector_pad_y0 <= top_connector_slot_bottom_y &&
        top_connector_pad_y1 >
            top_connector_y+connector_socket_d/2,
