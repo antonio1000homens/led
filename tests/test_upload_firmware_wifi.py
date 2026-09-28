@@ -80,9 +80,37 @@ class UploadFirmwareTests(unittest.TestCase):
     def test_usb_conflict_returns_eject_guidance(self):
         error = HTTPError("http://board.local/fs/code.py", 409, "Conflict", None, None)
         primary, recovery = MODULE.failure_messages(error)
-        self.assertIn("USB CIRCUITPY storage is active", primary)
-        self.assertIn("Eject it, then retry", primary)
+        error.close()
+        self.assertIn("CIRCUITPY is not writable", primary)
+        self.assertIn("Eject the USB volume and retry", primary)
+        self.assertIn("temporary boot.py USB-mass-storage workaround", primary)
         self.assertIn("Leave the board paused and retry", recovery)
+
+    def test_remove_temporary_boot_py_deletes_and_verifies_file(self):
+        calls = []
+
+        class CleanupClient:
+            def request(self, method, path):
+                calls.append((method, path))
+                return FakeResponse(204)
+
+            def download(self, path):
+                calls.append(("GET", path))
+                raise HTTPError("http://board.local/fs/boot.py", 404, "Not Found", None, None)
+
+        MODULE.remove_temporary_boot_py(CleanupClient())
+        self.assertEqual(calls, [("DELETE", "boot.py"), ("GET", "boot.py")])
+
+    def test_remove_temporary_boot_py_fails_if_file_remains(self):
+        class CleanupClient:
+            def request(self, method, path):
+                return FakeResponse(204)
+
+            def download(self, path):
+                return b"import storage\\nstorage.disable_usb_drive()\\n"
+
+        with self.assertRaisesRegex(RuntimeError, "still exists after removal"):
+            MODULE.remove_temporary_boot_py(CleanupClient())
 
     def test_interrupted_upload_can_be_retried_from_start(self):
         with tempfile.TemporaryDirectory() as directory:

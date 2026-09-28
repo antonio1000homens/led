@@ -80,11 +80,36 @@ def upload(stage: Path, client: WebWorkflowClient) -> list[str]:
     return uploaded
 
 
+def remove_temporary_boot_py(client: WebWorkflowClient) -> None:
+    """Remove the temporary boot.py used to disable USB MSC during upload."""
+    try:
+        with client.request("DELETE", "boot.py") as response:
+            if response.status not in (200, 204):
+                raise RuntimeError(f"temporary boot.py removal failed: HTTP {response.status}")
+    except HTTPError as exc:
+        if exc.code != 404:
+            raise
+        exc.close()
+
+    try:
+        client.download("boot.py")
+    except HTTPError as exc:
+        if exc.code == 404:
+            exc.close()
+            return
+        raise
+    raise RuntimeError("temporary boot.py still exists after removal")
+
+
 def failure_messages(exc: BaseException) -> tuple[str, str]:
     """Return operator-safe diagnostics without reflecting credentials."""
     code = getattr(exc, "code", None)
     if code == 409:
-        primary = "Upload refused: USB CIRCUITPY storage is active. Eject it, then retry."
+        primary = (
+            "Upload refused: CIRCUITPY is not writable. Eject the USB volume and retry; "
+            "if HTTP 409 persists, follow the temporary boot.py USB-mass-storage "
+            "workaround in hardware/matrixportal/README.md."
+        )
     elif code in (401, 403):
         primary = "Upload refused: check the Web Workflow password and board address."
     elif isinstance(exc, KeyboardInterrupt):
@@ -108,14 +133,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--host", default="http://matrixportal-s3.local", help="Board URL or http://host")
     parser.add_argument("--stage-dir", type=Path, default=DEFAULT_STAGE)
     parser.add_argument("--skip-stage", action="store_true", help="Use an existing staged directory")
+    parser.add_argument(
+        "--remove-temporary-boot-py",
+        action="store_true",
+        help="Remove and verify the temporary boot.py used to disable USB mass storage",
+    )
     args = parser.parse_args(argv)
     host = args.host if "://" in args.host else "http://" + args.host
     password = getpass.getpass("CircuitPython Web Workflow password: ")
     try:
+        client = WebWorkflowClient(host, password)
+        if args.remove_temporary_boot_py:
+            remove_temporary_boot_py(client)
+            print("Removed and verified temporary boot.py")
+            print("Hard-reset the board to restore the default USB mass-storage interface.")
+            return 0
         if not args.skip_stage:
             stage_application(args.stage_dir)
-        names = upload(args.stage_dir, WebWorkflowClient(host, password))
+        names = upload(args.stage_dir, client)
     except (HTTPError, URLError, OSError, RuntimeError, ValueError, subprocess.CalledProcessError, KeyboardInterrupt) as exc:
+        if isinstance(exc, HTTPError):
+            exc.close()
         primary, recovery = failure_messages(exc)
         print(primary, file=sys.stderr)
         print(recovery, file=sys.stderr)
