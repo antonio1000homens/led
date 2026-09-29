@@ -16,6 +16,11 @@ models:
     generator: openscad
     output: 03_universal_equipment_backplane_PRINT_1.stl
 
+  psu-equipment-backplane:
+    source: hardware/enclosure/parts/07_psu_equipment_backplane_PRINT_1.scad
+    generator: openscad
+    output: 07_psu_equipment_backplane_PRINT_1.stl
+
   left-equipment-side:
     source: hardware/enclosure/parts/04_left_equipment_side_PRINT_1.scad
     generator: openscad
