@@ -258,6 +258,7 @@ adapter_boss_h = 4;
 adapter_x = [32,80,128,176,224];
 adapter_y = [58,72];
 
+// CI refresh marker: canonical STL corresponds to the 54 mm universal cavity.
 // Universal deeper equipment envelope. This takes the local PSU depth increase
 // from the first evaluation and extends it across essentially the full usable
 // panel width. Narrow 5.5 mm edge lands remain on the original 40 mm-depth
