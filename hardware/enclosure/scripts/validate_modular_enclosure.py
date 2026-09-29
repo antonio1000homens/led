@@ -359,18 +359,23 @@ assert(abs((upper_vent_y+upper_vent_h)-
 assert(len(backplane_print_stabiliser_x) == 5,
        "backplane must retain five sacrificial anti-tip stabilisers");
 assert(abs(backplane_print_stabiliser_w-12) < 0.01 &&
-       abs(backplane_print_stabiliser_depth-38) < 0.01,
-       "anti-tip stabiliser footprint must remain 12 x 38 mm");
+       abs(backplane_print_stabiliser_depth-26) < 0.01,
+       "anti-tip stabiliser footprint must remain 12 x 26 mm");
+assert(abs(backplane_print_stabiliser_overhang-11.5) < 0.01,
+       "anti-tip feet must retain 11.5 mm leverage beyond each wall face");
 assert(abs(backplane_print_stabiliser_t-1.0) < 0.01,
        "anti-tip bed pads must remain 1.0 mm thick");
 assert(backplane_print_stabiliser_h >= 20,
        "anti-tip gussets must brace at least 20 mm up the backplane");
 assert(backplane_print_breakaway_t <= 0.8,
        "anti-tip breakaway necks became too thick for service removal");
-assert(backplane_print_stabiliser_y0 < backplane_print_wall_rear_y &&
-       backplane_print_stabiliser_y0+backplane_print_stabiliser_depth >
-           backplane_print_wall_front_y,
-       "anti-tip feet must widen the bed footprint on both sides of the wall");
+assert(abs(backplane_print_stabiliser_y0-
+           (backplane_print_wall_rear_y-backplane_print_stabiliser_overhang))
+           < 0.01 &&
+       abs((backplane_print_stabiliser_y0+backplane_print_stabiliser_depth)-
+           (backplane_print_wall_front_y+backplane_print_stabiliser_overhang))
+           < 0.01,
+       "anti-tip feet must stay centred around the rear wall");
 assert(min(backplane_print_stabiliser_x)-backplane_print_stabiliser_w/2 > 0 &&
        max(backplane_print_stabiliser_x)+backplane_print_stabiliser_w/2 < module_w,
        "anti-tip feet must remain within the backplane X span");
