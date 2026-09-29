@@ -10,11 +10,13 @@ mounting template form the moving leaf** and open forward/down through a full
 The newer modular equipment system remains in place behind that hinge: a
 stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
-The backplane now carries a **54 mm clear-depth universal equipment zone**
-across essentially the full usable panel width while preserving the narrow edge
-lands needed by the existing base guides and detachable side pieces. The deep
-section ramps back toward the panel, includes ventilation only in that ramp,
-and finishes with a **10 mm flat upper wall** parallel to the LED panel. The
+The backplane now carries a **54 mm clear-depth universal equipment zone**.
+Only the lower U-channel guide interface retains the shallower side inset; above
+the guides the rear shell expands to the full service width. The detachable
+left/right end pieces follow that deeper outer profile instead of forcing tall
+40 mm-depth edge lands into the enclosure. The deep section ramps back toward
+the panel, includes ventilation only in that ramp, and finishes with a **10 mm
+flat upper wall** parallel to the LED panel. The
 backplane reuses all three existing top-row panel screw positions as aligned
 closure fasteners, so no rotating tab or local top cutout is required.
 
@@ -35,9 +37,11 @@ stationary universal equipment base
    |
 recessed rear top-down groove
    |
-existing 40 mm-depth edge/guide lands
+lower 40 mm-depth U-channel guide interface
    |
-54 mm clear-depth universal equipment zone
+8 mm edge-depth transition
+   |
+full-width 54 mm enclosure profile
    |
 ventilated return ramp
    |
@@ -63,8 +67,8 @@ detachable side pieces or accessory adapters.
 | `parts/01_panel_hinge_template_PRINT_1.scad` | **Moving** LED/panel mounting template with local hinge roots |
 | `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and recessed rear backplane groove |
 | `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable vertical/tapered enclosure backplane with generic M3 adapter bosses |
-| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left outer wall following the 40 -> 10 mm taper |
-| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right outer wall following the upper taper |
+| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end wall matching the 40 -> 54 mm guide transition, deep zone and upper return ramp |
+| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end wall matching the 40 -> 54 mm guide transition, deep zone and upper return ramp |
 
 Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
@@ -134,10 +138,15 @@ The removable backplane/enclosure installs from directly above:
 3. the full-width shoulder above the guides then sits over the tower tops;
 4. fit the detachable outer side/end piece where required.
 
-The universal backplane keeps the existing base/side interfaces but increases
-the usable equipment volume across the main rear span:
+The universal backplane keeps the existing lower guide interface but no longer
+carries the shallow side lands up the full enclosure height:
 
-- narrow edge lands retain the original **40 mm** guide/side interface depth;
+- lower guide zone retains the original **40 mm** depth only where the U-channel
+  capture requires it;
+- immediately above the guides, each outer edge transitions **40 -> 54 mm over
+  8 mm**;
+- above that transition, the rear shell reaches the full service width and the
+  detachable end pieces match it;
 - main equipment zone: **54 mm clear depth**;
 - full-depth vertical region: **86 mm high**;
 - deep return ramp ends **10 mm below the enclosure top**;
@@ -186,9 +195,11 @@ hole is visible from outside:
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
-For the measured ~110 × 80 × 37 mm PSU, the 244 × 86 × 54 mm full-depth
-region leaves about 67 mm per side horizontally when centred, 3 mm above/below
-the 80 mm dimension, and 17 mm of depth clearance. Where a 4 mm boss overlaps
+For the measured ~110 × 80 × 37 mm PSU, the central 244 × 86 × 54 mm
+full-depth region still leaves about 67 mm per side horizontally when centred,
+3 mm above/below the 80 mm dimension, and 17 mm of depth clearance. Above the
+lower guide transition, the rear shell additionally extends to the full service
+width so the enclosure/end-piece profile is continuous. Where a 4 mm boss overlaps
 the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
 ## Side alignment
