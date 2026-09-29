@@ -10,11 +10,13 @@ mounting template form the moving leaf** and open forward/down through a full
 The newer modular equipment system remains in place behind that hinge: a
 stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
-The lower equipment section stays vertical at the full 40 mm depth to
-**75 mm**, ramps more steeply to the shallow rear wall by **120 mm**, then
-continues vertically to the full **148 mm panel height**. The backplane now
-reuses all three existing top-row panel screw positions as aligned closure
-fasteners, so no rotating tab or local top cutout is required.
+The backplane now carries a **44 mm clear-depth universal equipment zone**
+across essentially the full usable panel width while preserving the narrow edge
+lands needed by the existing base guides and detachable side pieces. The deep
+section ramps back toward the panel, includes ventilation only in that ramp,
+and finishes with a **10 mm flat upper wall** parallel to the LED panel. The
+backplane reuses all three existing top-row panel screw positions as aligned
+closure fasteners, so no rotating tab or local top cutout is required.
 
 ## Architecture
 
@@ -33,11 +35,13 @@ stationary universal equipment base
    |
 recessed rear top-down groove
    |
-vertical lower backplane (40 mm cavity depth)
+existing 40 mm-depth edge/guide lands
    |
-solid upper ramp (75 -> 120 mm)
+44 mm clear-depth universal equipment zone
    |
-28 mm shallow vertical wall to full panel height
+ventilated return ramp
+   |
+10 mm flat upper wall flush with panel
    |
 three aligned top-row closure screw holes
    |
@@ -130,18 +134,21 @@ The removable backplane/enclosure installs from directly above:
 3. the full-width shoulder above the guides then sits over the tower tops;
 4. fit the detachable outer side/end piece where required.
 
-The enclosure keeps the proven lower depth while making the top closure simpler:
+The universal backplane keeps the existing base/side interfaces but increases
+the usable equipment volume across the main rear span:
 
-- lower section: **40 mm cavity depth**, vertical/orthogonal;
-- taper begins: **75 mm above the floor**;
-- taper reaches the shallow wall: **120 mm**;
-- shallow upper wall: **28 mm high**, vertical and parallel to the LED panel;
+- narrow edge lands retain the original **40 mm** guide/side interface depth;
+- main equipment zone: **44 mm clear depth**;
+- full-depth vertical region: **86 mm high**;
+- deep return ramp ends **10 mm below the enclosure top**;
+- final upper wall: **10 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
+- ventilation: **ramp only**, using 3 mm slots on an 8 mm pitch;
+- lower vertical wall and final 10 mm top wall remain solid;
+- rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
-- closure-hole diameter: **4.5 mm**, identical to the panel mounting holes;
-- rear enclosure ventilation: **none**. The lower vertical wall, sloped ramp
-  and upper vertical wall are all solid.
+- closure-hole diameter: **4.5 mm**, identical to the panel mounting holes.
 
 These three holes are derived directly from the existing measured top-row panel
 mounting coordinates, so the enclosure and panel stay aligned from one source
@@ -154,10 +161,9 @@ ramp start. Its vertical release slot is a void that extends 15 mm into the ramp
 allowing the removable backplane to lift past an end plate without bringing any
 solid connector geometry into the clamp clearance zone.
 
-The lower vertical section carries the accessory mounting grid. The rear
-backplane has **no ventilation slots and no cable/ribbon through-slots**; the
-lower vertical wall, ramp and upper vertical wall are all solid apart from the
-intentional mounting/alignment holes.
+The lower full-depth section carries the accessory mounting grid. Ventilation
+is cut only through the return ramp; the lower wall and final 10 mm flat upper
+wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -173,9 +179,9 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **18 / 36 / 54 mm** (kept entirely on the vertical lower section)
-- boss OD = **8 mm**
-- boss height = **5 mm**
+- Y = **30 / 64 mm** (two rows on the full-depth vertical section)
+- boss OD = **7 mm**
+- boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
@@ -217,9 +223,9 @@ STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
-upper taper, the **fully solid rear enclosure with no ventilation slots**, the
-three-screw top closure, integrated rail end stops, lower usable equipment
-volume, and neighboring-module clearance.
+the 44 mm universal deep zone, **ramp-only ventilation**, the final 10 mm flat
+top wall, the three-screw top closure, integrated rail end stops, lower usable
+equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
 `.windsor-slicer.yaml` and the real Bambu Studio H2D profile. GitHub Actions does **not** run Bambu Studio or generate `.3mf` files.
@@ -236,10 +242,10 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
-6. Verify the 40 mm-deep section remains vertical to 75 mm, the solid ramp
-   reaches the shallow wall by 120 mm, and the final 28 mm wall reaches the
-   full 148 mm panel height with **no ventilation or rear cable slots** and all
-   three top-row closure holes aligned to the panel.
+6. Verify the main equipment zone provides 44 mm clear depth across the usable
+   width, the ventilation appears only in the return ramp, and the final 10 mm
+   wall is flat/parallel to the panel with all three top-row closure holes
+   aligned. Confirm there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, taper alignment, and that the integrated end stops terminate
    the 6 mm rod at X=10/246 without touching either hinge barrel.
