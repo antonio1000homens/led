@@ -314,7 +314,17 @@ assert(abs(universal_deep_clear_depth-54) < 0.01,
 assert(universal_deep_x0 > service_x &&
        universal_deep_x1 < service_x+service_w &&
        universal_deep_w > 240,
-       "universal deep cavity must span essentially the full usable panel width");
+       "lower guide-compatible deep centre span must remain wider than 240 mm");
+assert(abs(universal_full_x0-service_x) < 0.01 &&
+       abs(universal_full_x1-(service_x+service_w)) < 0.01 &&
+       abs(universal_full_w-service_w) < 0.01,
+       "upper universal rear shell must expand to the full service width");
+assert(abs(universal_edge_transition_y0-side_guide_y1) < 0.01,
+       "edge-depth transition must start at the top of the guide towers");
+assert(abs(universal_edge_transition_y1-universal_edge_transition_y0-8) < 0.01,
+       "edge-depth transition must remain 8 mm high");
+assert(universal_edge_transition_y1 < backplane_ramp_start_y,
+       "edge-depth transition must finish before the upper return ramp");
 assert(abs(universal_deep_y1-universal_deep_y0-86) < 0.01,
        "full-depth universal region must retain the 86 mm PSU-fit height");
 assert(abs(universal_top_flat_h-10) < 0.01 &&
@@ -701,6 +711,38 @@ def main() -> None:
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
+        # The old 40 mm-depth edge lands must not continue up beside the
+        # universal cavity. Probe both edge strips well above the guide/edge
+        # transition and below the return ramp; only the deep rear skin should
+        # exist there, leaving this intermediate depth volume empty.
+        for side, x0, width in (
+            (
+                "left",
+                "service_x+0.2",
+                "universal_deep_x0-service_x-0.4",
+            ),
+            (
+                "right",
+                "universal_deep_x1+0.2",
+                "service_x+service_w-universal_deep_x1-0.4",
+            ),
+        ):
+            assert_empty_intersection(
+                work_dir,
+                f"{side}_upper_edge_land_removed",
+                f"""    universal_equipment_backplane();
+    translate([
+        {x0},
+        universal_edge_transition_y1+20,
+        equipment_backplane_rear_z+0.5
+    ])
+        cube([
+            {width},
+            universal_deep_y1-universal_edge_transition_y1-24,
+            universal_deep_front_z-equipment_backplane_rear_z-1
+        ]);""",
+            )
+
         # The upper connector aligns modules/end plates without making the
         # removable backplane horizontally captive. Test relative vertical
         # travel through the guide slot in both neighbour and end-plate cases.
