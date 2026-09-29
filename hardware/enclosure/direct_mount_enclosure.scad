@@ -1133,8 +1133,6 @@ module universal_equipment_backplane() {
 // and terminate in thin PETG breakaway necks for post-print removal.
 backplane_print_stabiliser_x = [24,76,128,180,232];
 backplane_print_stabiliser_w = 12;
-backplane_print_stabiliser_y0 = -12;
-backplane_print_stabiliser_depth = 38;
 backplane_print_stabiliser_t = 1.0;
 backplane_print_stabiliser_h = 20;
 backplane_print_breakaway_t = 0.8;
@@ -1145,6 +1143,16 @@ backplane_print_wall_rear_y =
     backplane_print_origin_y-universal_deep_rear_z;
 backplane_print_wall_front_y =
     backplane_print_origin_y-universal_deep_front_z;
+
+// Centre each sacrificial foot on the 3 mm rear wall instead of letting the
+// old fixed 38 mm pad run deep into the now-deeper equipment cavity. Keep
+// 11.5 mm of bed leverage beyond each wall face: 3 + 11.5 + 11.5 = 26 mm.
+backplane_print_stabiliser_overhang = 11.5;
+backplane_print_stabiliser_y0 =
+    backplane_print_wall_rear_y-backplane_print_stabiliser_overhang;
+backplane_print_stabiliser_depth =
+    backplane_print_wall_front_y-backplane_print_wall_rear_y
+    + 2*backplane_print_stabiliser_overhang;
 
 module backplane_print_stabiliser(
     xc,
