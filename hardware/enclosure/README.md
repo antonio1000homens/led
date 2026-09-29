@@ -275,20 +275,19 @@ PETG remains preferred for repeated hinge testing.
 
 ### Backplane print stability
 
-The manufacturing wrapper for `03_universal_equipment_backplane_PRINT_1.stl`
-includes five **print-only sacrificial anti-tip stabilisers** restored from the
-earlier print-stability revision. The installed backplane geometry is unchanged.
+The backplane no longer uses sacrificial transverse pads or braces through the
+equipment side of the enclosure. Instead, five **permanent rear-wall feet** are
+part of the backplane itself.
 
-Each stabiliser uses a **12 × 26 mm** transverse bed pad, **1.0 mm** thick, with
-paired gussets rising **20 mm** on both sides of the upright wall. The pad is
-centred on the 3 mm rear wall with **11.5 mm extending beyond each wall face**,
-rather than projecting deep into the equipment cavity. The gussets
-join through **0.8 mm breakaway necks** so they can be flexed/cut away after the
-print. Their purpose is to resist nozzle loads in both directions and prevent
-the tall backplane detaching or falling during the print.
+Each foot is **12 mm wide** and runs vertically from the lower backplane locating
+datum up into the deep rear wall. The deep wall begins 9.5 mm above that datum,
+so the feet bridge that raised section and overlap 10 mm into the wall. Their
+extra footprint extends **12 mm rearward only**, behind the enclosure; no support
+projects forward into the 54 mm equipment cavity.
 
-After printing, remove all five stabilisers and clean the lower locating edge
-before fitting the backplane into its base/groove.
+This gives the upright print a wider rearward bed footprint while leaving the
+equipment volume unobstructed. The feet remain on the finished part and do not
+need trimming or removal after printing.
 
 For the H2D production candidate use **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
 **0.20mm Standard @BBL H2D**, and the **Textured PEI Plate**.
