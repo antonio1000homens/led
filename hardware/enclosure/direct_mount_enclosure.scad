@@ -256,7 +256,7 @@ adapter_boss_d = 7;
 adapter_hole_d = 3.4;
 adapter_boss_h = 4;
 adapter_x = [32,80,128,176,224];
-adapter_y = [30,64];
+adapter_y = [58,72];
 
 // Universal deeper equipment envelope. This takes the local PSU depth increase
 // from the first evaluation and extends it across essentially the full usable
@@ -265,11 +265,11 @@ adapter_y = [30,64];
 // do not need to change.
 //
 // The full-depth region is sized around the measured 110 x 80 x 37 mm PSU:
-// 44 mm clear depth leaves 7 mm beyond the 37 mm PSU thickness. The deep wall
+// 54 mm clear depth leaves 17 mm beyond the 37 mm PSU thickness. The deep wall
 // remains vertical for 86 mm, then returns to the shallow panel plane through
 // a ventilated ramp. The final 10 mm is flat/parallel to the LED panel so the
 // enclosure finishes flush at the top edge.
-universal_deep_clear_depth = 44;
+universal_deep_clear_depth = 54;
 universal_deep_wall_t = equipment_backplane_t;
 universal_deep_x0 = service_x + side_guide_w + 0.5;
 universal_deep_x1 = service_x + service_w - side_guide_w - 0.5;
@@ -944,7 +944,7 @@ module universal_deep_rear_shell() {
             ]);
     }
 
-    // Full 44 mm clear-depth equipment region.
+    // Full 54 mm clear-depth equipment region.
     translate([
         universal_deep_x0,
         universal_deep_y0-slice_h,
