@@ -16,9 +16,9 @@ python hardware/enclosure/scripts/validate_enclosure.py
 The validator regenerates all five canonical OpenSCAD parts and verifies:
 
 - non-empty positive-volume meshes;
-- the backplane manufacturing wrapper retains five sacrificial anti-tip
-  stabilisers with a 12 × 26 mm footprint, 11.5 mm overhang beyond each rear
-  wall face, 20 mm gussets and <=0.8 mm breakaway necks;
+- five permanent 12 mm-wide rear-wall feet reach the lower locating datum,
+  overlap the deep rear wall and extend their additional footprint rearward only;
+- the old sacrificial/transverse print stabilisers are absent;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
@@ -31,9 +31,12 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - blind inside accessory bosses with a solid external rear skin;
 - exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), positioned 10 mm in from the lower/upper edges of the full-depth mounting region;
 - the 2 mm seat depth and rear-edge groove location;
-- a 54 mm clear-depth universal equipment zone spanning essentially the full
-  usable panel width while preserving the existing edge-guide interfaces;
-- an 86 mm full-depth vertical equipment region;
+- a 54 mm clear-depth universal equipment centre zone preserving the lower
+  guide-compatible inset only where the U-channel capture requires it;
+- an 8 mm 40 -> 54 mm edge-depth transition immediately above the guide towers;
+- full-width rear-shell coverage above that transition, with the detachable
+  left/right end pieces matching the same deep profile;
+- an 86 mm full-depth vertical centre equipment region;
 - ramp-only ventilation, with the lower wall and final upper wall remaining solid;
 - a final 10 mm flat upper wall parallel to the LED panel and three aligned
   4.5 mm top-row closure holes;
@@ -62,12 +65,13 @@ The hinge regression contract includes:
   remaining clear of the first barrel at X=34 and final barrel end at X=220.
 
 The previous full-width captive tongue/channel is retired. The backplane enters
-a 2 mm-deep **recessed groove at the rear of the base**. Narrow edge lands keep
-the original guide/side geometry, while the central universal equipment zone
-provides **54 mm clear depth** across more than 240 mm of usable width. The
-full-depth region is 86 mm high, then returns toward the panel through a
-ventilated ramp and finishes with a **10 mm flat upper wall** at the full
-148 mm panel height. The backplane reuses the panel's three measured top-row
+a 2 mm-deep **recessed groove at the rear of the base**. The shallower side
+inset now remains only through the lower U-channel guide interface. Above the
+guide towers, an 8 mm transition carries both edge strips back to the same
+**54 mm** rear depth as the centre zone, and the detachable end pieces follow
+that profile. The 86 mm-high centre zone still provides the PSU-fit volume,
+then the enclosure returns toward the panel through a ventilated ramp and
+finishes with a **10 mm flat upper wall** at the full 148 mm panel height. The backplane reuses the panel's three measured top-row
 screw positions
 (X=7.9/128.0/248.1 mm, installed Y=140.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
@@ -88,10 +92,10 @@ sets:
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
-5. print one universal backplane with all five sacrificial anti-tip feet,
-   confirm it remains stable through the tall print, remove/clean the supports,
-   then confirm the narrowed lower 30 mm slides between both 5 mm guides, seats
-   2 mm into the rear groove, and removes upward;
+5. print one universal backplane with the five permanent rear-wall feet,
+   confirm it remains stable through the tall print with no support projecting
+   into the equipment cavity, then confirm the narrowed lower 30 mm slides
+   between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
 7. confirm the 54 mm deep universal region spans the usable backplane width,
    ventilation exists only in the return ramp, the final 10 mm upper wall is

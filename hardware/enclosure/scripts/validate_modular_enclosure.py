@@ -314,7 +314,19 @@ assert(abs(universal_deep_clear_depth-54) < 0.01,
 assert(universal_deep_x0 > service_x &&
        universal_deep_x1 < service_x+service_w &&
        universal_deep_w > 240,
-       "universal deep cavity must span essentially the full usable panel width");
+       "lower guide-compatible deep centre span must remain wider than 240 mm");
+assert(abs(universal_full_x0-service_x) < 0.01 &&
+       abs(universal_full_x1-(service_x+service_w)) < 0.01 &&
+       abs(universal_full_w-service_w) < 0.01,
+       "upper universal rear shell must expand to the full service width");
+assert(abs(universal_edge_guide_clearance_y-1) < 0.01 &&
+       abs(universal_edge_transition_y0-
+           (side_guide_y1+universal_edge_guide_clearance_y)) < 0.01,
+       "edge-depth transition must retain 1 mm clearance above the guide towers");
+assert(abs(universal_edge_transition_y1-universal_edge_transition_y0-8) < 0.01,
+       "edge-depth transition must remain 8 mm high");
+assert(universal_edge_transition_y1 < backplane_ramp_start_y,
+       "edge-depth transition must finish before the upper return ramp");
 assert(abs(universal_deep_y1-universal_deep_y0-86) < 0.01,
        "full-depth universal region must retain the 86 mm PSU-fit height");
 assert(abs(universal_top_flat_h-10) < 0.01 &&
@@ -353,32 +365,33 @@ assert(abs((upper_vent_y+upper_vent_h)-
            (universal_deep_ramp_end_y-ramp_vent_top_margin)) < 0.01,
        "ramp ventilation upper margin drifted");
 
-// Print-only anti-tip support contract. These sacrificial feet are required on
-// the manufacturing wrapper because the tall upright backplane previously
-// detached/fell during printing.
-assert(len(backplane_print_stabiliser_x) == 5,
-       "backplane must retain five sacrificial anti-tip stabilisers");
-assert(abs(backplane_print_stabiliser_w-12) < 0.01 &&
-       abs(backplane_print_stabiliser_depth-26) < 0.01,
-       "anti-tip stabiliser footprint must remain 12 x 26 mm");
-assert(abs(backplane_print_stabiliser_overhang-11.5) < 0.01,
-       "anti-tip feet must retain 11.5 mm leverage beyond each wall face");
-assert(abs(backplane_print_stabiliser_t-1.0) < 0.01,
-       "anti-tip bed pads must remain 1.0 mm thick");
-assert(backplane_print_stabiliser_h >= 20,
-       "anti-tip gussets must brace at least 20 mm up the backplane");
-assert(backplane_print_breakaway_t <= 0.8,
-       "anti-tip breakaway necks became too thick for service removal");
-assert(abs(backplane_print_stabiliser_y0-
-           (backplane_print_wall_rear_y-backplane_print_stabiliser_overhang))
-           < 0.01 &&
-       abs((backplane_print_stabiliser_y0+backplane_print_stabiliser_depth)-
-           (backplane_print_wall_front_y+backplane_print_stabiliser_overhang))
-           < 0.01,
-       "anti-tip feet must stay centred around the rear wall");
-assert(min(backplane_print_stabiliser_x)-backplane_print_stabiliser_w/2 > 0 &&
-       max(backplane_print_stabiliser_x)+backplane_print_stabiliser_w/2 < module_w,
-       "anti-tip feet must remain within the backplane X span");
+// Permanent rear-wall foot contract. These replace the old print-only
+// transverse pads/gussets. They must reach the lower backplane datum, overlap
+// the deep rear wall, and gain all extra footprint rearward so the equipment
+// cavity remains unobstructed.
+assert(len(rear_support_foot_x) == 5,
+       "backplane must retain five permanent rear-wall support feet");
+assert(abs(rear_support_foot_w-12) < 0.01,
+       "rear-wall support feet must remain 12 mm wide");
+assert(abs(rear_support_foot_y0-equipment_backplane_y0) < 0.01,
+       "rear-wall feet must reach the lower locating datum");
+assert(abs(rear_support_foot_drop-
+           (universal_deep_y0-equipment_backplane_y0)) < 0.01 &&
+       rear_support_foot_drop > 0,
+       "rear-wall feet must bridge the raised deep-wall/base offset");
+assert(rear_support_foot_overlap_h >= 8 &&
+       rear_support_foot_y1 >= universal_deep_y0+8,
+       "rear-wall feet need positive overlap into the deep rear wall");
+assert(rear_support_foot_rear_extension >= rear_support_foot_drop &&
+       rear_support_foot_rear_extension >= 10,
+       "rear-wall feet need enough rearward depth to stabilise the raised wall");
+assert(abs(rear_support_foot_z0-universal_deep_front_z) < 0.01 &&
+       abs(rear_support_foot_depth-
+           (universal_deep_wall_t+rear_support_foot_rear_extension)) < 0.01,
+       "rear-wall feet must start at the wall face and extend only rearward");
+assert(min(rear_support_foot_x)-rear_support_foot_w/2 > 0 &&
+       max(rear_support_foot_x)+rear_support_foot_w/2 < module_w,
+       "rear-wall feet must remain within the backplane X span");
 assert(len(panel_closure_x) == 3,
        "top closure must reuse exactly three panel screw positions");
 for (i=[0:2])
@@ -574,14 +587,24 @@ def assert_no_legacy_layout() -> None:
                 f"retired rear cable-slot geometry returned: {forbidden}"
             )
 
-    for required in (
+    for forbidden in (
         "backplane_print_stabiliser_x",
         "backplane_print_stabiliser(",
         "backplane_print_breakaway_t",
     ):
+        if forbidden in source_text:
+            raise SystemExit(
+                f"retired transverse/sacrificial stabiliser returned: {forbidden}"
+            )
+
+    for required in (
+        "rear_support_foot_x",
+        "rear_support_foot_rear_extension",
+        "rear_support_feet()",
+    ):
         if required not in source_text:
             raise SystemExit(
-                f"required anti-tip print stabiliser geometry missing: {required}"
+                f"required permanent rear-wall foot geometry missing: {required}"
             )
 
 def main() -> None:
@@ -634,6 +657,21 @@ def main() -> None:
             "panel_top_closure_holes_clear",
             """    universal_equipment_backplane();
     panel_closure_hole_cutters();""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "rear_support_feet_cavity_keepout",
+            """    rear_support_feet();
+    translate([
+        service_x,
+        equipment_backplane_y0,
+        enclosure_front_z
+    ])
+        cube([
+            service_w,
+            universal_deep_y1-equipment_backplane_y0,
+            universal_deep_front_z-enclosure_front_z
+        ]);""",
         )
         assert_empty_intersection(
             work_dir,
@@ -701,6 +739,38 @@ def main() -> None:
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
+        # The old 40 mm-depth edge lands must not continue up beside the
+        # universal cavity. Probe both edge strips well above the guide/edge
+        # transition and below the return ramp; only the deep rear skin should
+        # exist there, leaving this intermediate depth volume empty.
+        for side, x0, width in (
+            (
+                "left",
+                "service_x+0.2",
+                "universal_deep_x0-service_x-0.4",
+            ),
+            (
+                "right",
+                "universal_deep_x1+0.2",
+                "service_x+service_w-universal_deep_x1-0.4",
+            ),
+        ):
+            assert_empty_intersection(
+                work_dir,
+                f"{side}_upper_edge_land_removed",
+                f"""    universal_equipment_backplane();
+    translate([
+        {x0},
+        universal_edge_transition_y1+20,
+        equipment_backplane_rear_z+0.5
+    ])
+        cube([
+            {width},
+            universal_deep_y1-universal_edge_transition_y1-24,
+            universal_deep_front_z-equipment_backplane_rear_z-1
+        ]);""",
+            )
+
         # The upper connector aligns modules/end plates without making the
         # removable backplane horizontally captive. Test relative vertical
         # travel through the guide slot in both neighbour and end-plate cases.
