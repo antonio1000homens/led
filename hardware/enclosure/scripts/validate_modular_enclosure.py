@@ -320,8 +320,16 @@ assert(abs(universal_deep_y1-universal_deep_y0-86) < 0.01,
 assert(abs(universal_top_flat_h-10) < 0.01 &&
        abs(universal_deep_ramp_end_y-(enclosure_top_y-10)) < 0.01,
        "top 10 mm must remain flat and flush with the panel");
-assert(universal_deep_front_z-enclosure_front_z >= 44-0.01,
+assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
+assert(universal_deep_w >= 110+6,
+       "flat universal area is too narrow for the 110 mm PSU plus clearance");
+assert(universal_deep_y1-universal_deep_y0 >= 80+6,
+       "flat universal area is too short for the 80 mm PSU plus clearance");
+assert(universal_deep_clear_depth >= 37+10,
+       "universal cavity is too shallow for the 37 mm PSU plus service clearance");
+assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
+       "PSU loses too much depth where the inward boss rows overlap its footprint");
 assert(len(adapter_y) == 2,
        "universal accessory grid must use exactly two boss rows");
 assert(abs(adapter_y[0]-58) < 0.01 &&
