@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - master
+      - feature/psu-specific-backplane
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
@@ -29,7 +30,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -67,6 +68,23 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
+
+      - name: Commit refreshed universal backplane STL
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/psu-specific-backplane'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/enclosure-stls/03_universal_equipment_backplane_PRINT_1.stl \
+            hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
+          if git diff --cached --quiet; then
+            echo "Universal backplane STL already current"
+            exit 0
+          fi
+          git commit -m "chore(enclosure): refresh universal deep backplane STL"
+          git push origin HEAD:feature/psu-specific-backplane
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
