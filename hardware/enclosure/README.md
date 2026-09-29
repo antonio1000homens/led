@@ -186,6 +186,11 @@ hole is visible from outside:
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
+For the measured ~110 × 80 × 37 mm PSU, the 244 × 86 × 54 mm full-depth
+region leaves about 67 mm per side horizontally when centred, 3 mm above/below
+the 80 mm dimension, and 17 mm of depth clearance. Where a 4 mm boss overlaps
+the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
+
 ## Side alignment
 
 The base guide towers expose complementary pin/socket features on their left
