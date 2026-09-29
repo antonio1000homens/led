@@ -10,7 +10,7 @@ mounting template form the moving leaf** and open forward/down through a full
 The newer modular equipment system remains in place behind that hinge: a
 stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
-The backplane now carries a **44 mm clear-depth universal equipment zone**
+The backplane now carries a **54 mm clear-depth universal equipment zone**
 across essentially the full usable panel width while preserving the narrow edge
 lands needed by the existing base guides and detachable side pieces. The deep
 section ramps back toward the panel, includes ventilation only in that ramp,
@@ -37,7 +37,7 @@ recessed rear top-down groove
    |
 existing 40 mm-depth edge/guide lands
    |
-44 mm clear-depth universal equipment zone
+54 mm clear-depth universal equipment zone
    |
 ventilated return ramp
    |
@@ -138,7 +138,7 @@ The universal backplane keeps the existing base/side interfaces but increases
 the usable equipment volume across the main rear span:
 
 - narrow edge lands retain the original **40 mm** guide/side interface depth;
-- main equipment zone: **44 mm clear depth**;
+- main equipment zone: **54 mm clear depth**;
 - full-depth vertical region: **86 mm high**;
 - deep return ramp ends **10 mm below the enclosure top**;
 - final upper wall: **10 mm high**, flat and parallel to the LED panel;
@@ -179,7 +179,7 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **30 / 64 mm** (two rows on the full-depth vertical section)
+- Y = **58 / 72 mm** (two raised, closely spaced rows on the full-depth vertical section)
 - boss OD = **7 mm**
 - boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
@@ -223,7 +223,7 @@ STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
-the 44 mm universal deep zone, **ramp-only ventilation**, the final 10 mm flat
+the 54 mm universal deep zone, **ramp-only ventilation**, the final 10 mm flat
 top wall, the three-screw top closure, integrated rail end stops, lower usable
 equipment volume, and neighboring-module clearance.
 
@@ -242,7 +242,7 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
-6. Verify the main equipment zone provides 44 mm clear depth across the usable
+6. Verify the main equipment zone provides 54 mm clear depth across the usable
    width, the ventilation appears only in the return ramp, and the final 10 mm
    wall is flat/parallel to the panel with all three top-row closure holes
    aligned. Confirm there are still no rear cable/ribbon slots.
