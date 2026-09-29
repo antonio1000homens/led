@@ -17,8 +17,8 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 
 - non-empty positive-volume meshes;
 - the backplane manufacturing wrapper retains five sacrificial anti-tip
-  stabilisers with a 12 × 38 mm footprint, 20 mm gussets and <=0.8 mm
-  breakaway necks;
+  stabilisers with a 12 × 26 mm footprint, 11.5 mm overhang beyond each rear
+  wall face, 20 mm gussets and <=0.8 mm breakaway necks;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
