@@ -319,8 +319,10 @@ assert(abs(universal_full_x0-service_x) < 0.01 &&
        abs(universal_full_x1-(service_x+service_w)) < 0.01 &&
        abs(universal_full_w-service_w) < 0.01,
        "upper universal rear shell must expand to the full service width");
-assert(abs(universal_edge_transition_y0-side_guide_y1) < 0.01,
-       "edge-depth transition must start at the top of the guide towers");
+assert(abs(universal_edge_guide_clearance_y-1) < 0.01 &&
+       abs(universal_edge_transition_y0-
+           (side_guide_y1+universal_edge_guide_clearance_y)) < 0.01,
+       "edge-depth transition must retain 1 mm clearance above the guide towers");
 assert(abs(universal_edge_transition_y1-universal_edge_transition_y0-8) < 0.01,
        "edge-depth transition must remain 8 mm high");
 assert(universal_edge_transition_y1 < backplane_ramp_start_y,
