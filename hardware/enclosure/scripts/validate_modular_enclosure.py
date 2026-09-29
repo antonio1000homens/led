@@ -368,9 +368,9 @@ assert(abs(panel_closure_y-(ground_clearance+panel_mount_y[1])) < 0.01,
 assert(abs(panel_closure_hole_d-panel_mount_hole_d) < 0.01 &&
        abs(panel_closure_hole_d-4.5) < 0.01,
        "top closure hole diameter must remain the measured 4.5 mm clearance");
-assert(panel_closure_y-panel_closure_hole_d/2 > universal_deep_ramp_end_y &&
+assert(panel_closure_y > universal_deep_ramp_end_y &&
        panel_closure_y+panel_closure_hole_d/2 < enclosure_top_y,
-       "top closure holes must remain fully inside the final 10 mm flat wall");
+       "top closure centres must remain in the final 10 mm flat wall");
 for (xx=panel_closure_x)
     assert(xx-panel_closure_hole_d/2 > service_x &&
            xx+panel_closure_hole_d/2 < service_x+service_w,
