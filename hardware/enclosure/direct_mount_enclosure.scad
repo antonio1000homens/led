@@ -251,18 +251,53 @@ lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 backplane_top_band = 1.5;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
-adapter_boss_d = 8;
+// Two slimmer boss rows are sufficient for detachable adapters.
+adapter_boss_d = 7;
 adapter_hole_d = 3.4;
-adapter_boss_h = 5;
+adapter_boss_h = 4;
 adapter_x = [32,80,128,176,224];
-// Keep accessory mounting on the vertical lower section so adapters remain
-// parallel to the LED plane and clear of the upper ramp.
-adapter_y = [18,36,54];
 
-// The rear enclosure is intentionally SOLID. No ventilation slots or rear
-// cable/ribbon through-slots are cut in the lower vertical wall, sloped ramp,
-// or full-height upper vertical wall. Cabling routes through the open internal
-// module sides instead.
+// CI refresh marker: canonical STL corresponds to the 54 mm universal cavity.
+// Universal deeper equipment envelope. This takes the local PSU depth increase
+// from the first evaluation and extends it across essentially the full usable
+// panel width. Narrow 5.5 mm edge lands remain on the original 40 mm-depth
+// interface so the already-printed base U-channels and detachable side pieces
+// do not need to change.
+//
+// The full-depth region is sized around the measured 110 x 80 x 37 mm PSU:
+// 54 mm clear depth leaves 17 mm beyond the 37 mm PSU thickness. The deep wall
+// remains vertical for 86 mm, then returns to the shallow panel plane through
+// a ventilated ramp. The final 10 mm is flat/parallel to the LED panel so the
+// enclosure finishes flush at the top edge.
+universal_deep_clear_depth = 54;
+universal_deep_wall_t = equipment_backplane_t;
+universal_deep_x0 = service_x + side_guide_w + 0.5;
+universal_deep_x1 = service_x + service_w - side_guide_w - 0.5;
+universal_deep_w = universal_deep_x1-universal_deep_x0;
+universal_deep_transition_y0 = 6;
+universal_deep_y0 = 12;
+universal_deep_y1 = 98;
+
+// Keep the two accessory-boss rows raised into the upper half of the usable
+// full-depth wall and close together, per the physical layout review.
+adapter_y = [58,72];
+universal_top_flat_h = 10;
+universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
+universal_deep_rear_z =
+    enclosure_front_z + universal_deep_clear_depth + universal_deep_wall_t;
+universal_deep_front_z =
+    universal_deep_rear_z-universal_deep_wall_t;
+
+// Ventilation is confined to the universal deep ramp. The lower vertical wall
+// and final 10 mm top wall remain solid; rear cable slots remain retired.
+vent_side_margin = 12;
+vent_slot_w = 3;
+vent_pitch = 8;
+ramp_vent_bottom_margin = 6;
+ramp_vent_top_margin = 6;
+upper_vent_y = universal_deep_y1 + ramp_vent_bottom_margin;
+upper_vent_h =
+    universal_deep_ramp_end_y-ramp_vent_top_margin-upper_vent_y;
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -623,7 +658,7 @@ module internal_adapter_bosses() {
             translate([
                 xx,
                 yy,
-                equipment_backplane_front_z-adapter_boss_h
+                universal_deep_front_z-adapter_boss_h
                     + adapter_boss_overlap
             ])
                 cylinder(
@@ -638,7 +673,7 @@ module internal_adapter_hole_cutters() {
             translate([
                 xx,
                 yy,
-                equipment_backplane_front_z-adapter_boss_h-0.2
+                universal_deep_front_z-adapter_boss_h-0.2
             ])
                 cylinder(
                     d=adapter_hole_d,
@@ -869,10 +904,198 @@ module backplane_shell_solid() {
     }
 }
 
+// Replace the centre of the native/interface shell with the deeper universal
+// equipment volume while preserving the narrow edge lands used by the existing
+// base guides, side pieces and seam connectors.
+module universal_native_backplane_opening() {
+    translate([
+        universal_deep_x0,
+        universal_deep_y0-0.2,
+        -1
+    ])
+        cube([
+            universal_deep_w,
+            enclosure_top_y-universal_deep_y0+0.4,
+            universal_deep_rear_z+2
+        ]);
+}
+
+module universal_deep_rear_shell() {
+    slice_h = 1.0;
+
+    // Print-friendly lower transition immediately above the base seat.
+    hull() {
+        translate([
+            universal_deep_x0,
+            universal_deep_transition_y0,
+            equipment_backplane_front_z
+        ])
+            cube([
+                universal_deep_w,
+                slice_h,
+                equipment_backplane_t
+            ]);
+
+        translate([
+            universal_deep_x0,
+            universal_deep_y0-slice_h,
+            universal_deep_front_z
+        ])
+            cube([
+                universal_deep_w,
+                slice_h,
+                universal_deep_wall_t
+            ]);
+    }
+
+    // Full 54 mm clear-depth equipment region.
+    translate([
+        universal_deep_x0,
+        universal_deep_y0-slice_h,
+        universal_deep_front_z
+    ])
+        cube([
+            universal_deep_w,
+            universal_deep_y1-universal_deep_y0+slice_h,
+            universal_deep_wall_t
+        ]);
+
+    // Ventilated return ramp.
+    hull() {
+        translate([
+            universal_deep_x0,
+            universal_deep_y1-slice_h,
+            universal_deep_front_z
+        ])
+            cube([
+                universal_deep_w,
+                slice_h,
+                universal_deep_wall_t
+            ]);
+
+        translate([
+            universal_deep_x0,
+            universal_deep_ramp_end_y-slice_h,
+            equipment_backplane_top_front_z
+        ])
+            cube([
+                universal_deep_w,
+                slice_h,
+                equipment_backplane_t
+            ]);
+    }
+
+    // Final 10 mm stays flat/parallel to the panel for a flush top edge.
+    translate([
+        universal_deep_x0,
+        universal_deep_ramp_end_y-slice_h,
+        equipment_backplane_top_front_z
+    ])
+        cube([
+            universal_deep_w,
+            enclosure_top_y-universal_deep_ramp_end_y+slice_h,
+            equipment_backplane_t
+        ]);
+}
+
+module universal_deep_side_wall(side="left") {
+    x0 = side == "left"
+        ? universal_deep_x0
+        : universal_deep_x1-universal_deep_wall_t;
+    slice_h = 1.0;
+
+    hull() {
+        translate([
+            x0,
+            universal_deep_transition_y0,
+            equipment_backplane_front_z
+        ])
+            cube([
+                universal_deep_wall_t,
+                slice_h,
+                equipment_backplane_t
+            ]);
+        translate([
+            x0,
+            universal_deep_y0-slice_h,
+            equipment_backplane_front_z
+        ])
+            cube([
+                universal_deep_wall_t,
+                slice_h,
+                universal_deep_rear_z-equipment_backplane_front_z
+            ]);
+    }
+
+    translate([
+        x0,
+        universal_deep_y0-slice_h,
+        equipment_backplane_front_z
+    ])
+        cube([
+            universal_deep_wall_t,
+            universal_deep_y1-universal_deep_y0+slice_h,
+            universal_deep_rear_z-equipment_backplane_front_z
+        ]);
+
+    hull() {
+        translate([
+            x0,
+            universal_deep_y1-slice_h,
+            equipment_backplane_front_z
+        ])
+            cube([
+                universal_deep_wall_t,
+                slice_h,
+                universal_deep_rear_z-equipment_backplane_front_z
+            ]);
+        translate([
+            x0,
+            universal_deep_ramp_end_y-slice_h,
+            equipment_backplane_top_front_z
+        ])
+            cube([
+                universal_deep_wall_t,
+                slice_h,
+                equipment_backplane_t
+            ]);
+    }
+}
+
+module universal_backplane_shell_solid() {
+    union() {
+        difference() {
+            backplane_shell_solid();
+            universal_native_backplane_opening();
+        }
+        universal_deep_rear_shell();
+        universal_deep_side_wall("left");
+        universal_deep_side_wall("right");
+    }
+}
+
+module ramp_ventilation_cutters() {
+    for (x=[
+        universal_deep_x0+vent_side_margin :
+        vent_pitch :
+        universal_deep_x1-vent_side_margin-vent_slot_w
+    ])
+        translate([
+            x,
+            upper_vent_y,
+            equipment_backplane_top_front_z-2
+        ])
+            cube([
+                vent_slot_w,
+                upper_vent_h,
+                universal_deep_rear_z-equipment_backplane_top_front_z+4
+            ]);
+}
+
 module universal_equipment_backplane() {
     difference() {
         union() {
-            backplane_shell_solid();
+            universal_backplane_shell_solid();
 
             top_backplane_connector_pad("left");
             top_backplane_connector_pad("right");
@@ -889,6 +1112,8 @@ module universal_equipment_backplane() {
         // Blind M3 holes open only toward the equipment cavity. The outside
         // rear face remains a solid uninterrupted skin.
         internal_adapter_hole_cutters();
+
+        ramp_ventilation_cutters();
 
         // Three aligned top-row clearance holes let longer panel screws clamp
         // the moving panel/template to the stationary enclosure when closed.
@@ -914,12 +1139,18 @@ backplane_print_stabiliser_t = 1.0;
 backplane_print_stabiliser_h = 20;
 backplane_print_breakaway_t = 0.8;
 
-// In print coordinates the vertical lower wall occupies approximately Y=5..8.
-backplane_print_wall_rear_y = adapter_boss_h;
+// In print coordinates the braces meet the full-depth universal wall.
+backplane_print_origin_y = equipment_backplane_rear_z + adapter_boss_h;
+backplane_print_wall_rear_y =
+    backplane_print_origin_y-universal_deep_rear_z;
 backplane_print_wall_front_y =
-    equipment_backplane_rear_z + adapter_boss_h - equipment_backplane_front_z;
+    backplane_print_origin_y-universal_deep_front_z;
 
-module backplane_print_stabiliser(xc) {
+module backplane_print_stabiliser(
+    xc,
+    wall_rear_y=backplane_print_wall_rear_y,
+    wall_front_y=backplane_print_wall_front_y
+) {
     x0 = xc - backplane_print_stabiliser_w/2;
     y1 = backplane_print_stabiliser_y0 + backplane_print_stabiliser_depth;
 
@@ -951,7 +1182,7 @@ module backplane_print_stabiliser(xc) {
 
             translate([
                 x0,
-                backplane_print_wall_rear_y-backplane_print_breakaway_t,
+                wall_rear_y-backplane_print_breakaway_t,
                 backplane_print_stabiliser_h
             ])
                 cube([
@@ -977,7 +1208,7 @@ module backplane_print_stabiliser(xc) {
 
             translate([
                 x0,
-                backplane_print_wall_front_y-0.2,
+                wall_front_y-0.2,
                 backplane_print_stabiliser_h
             ])
                 cube([
@@ -1007,6 +1238,7 @@ module universal_equipment_backplane_print() {
             backplane_print_stabiliser(xc);
     }
 }
+
 
 // ---------- Detachable side/end pieces ----------
 

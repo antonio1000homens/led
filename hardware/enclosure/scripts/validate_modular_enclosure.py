@@ -309,6 +309,50 @@ assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
 assert(abs(upper_vertical_h-28) < 0.01,
        "full-height shallow upper wall must remain 28 mm high");
 
+assert(abs(universal_deep_clear_depth-54) < 0.01,
+       "universal deep cavity must retain 54 mm clear depth");
+assert(universal_deep_x0 > service_x &&
+       universal_deep_x1 < service_x+service_w &&
+       universal_deep_w > 240,
+       "universal deep cavity must span essentially the full usable panel width");
+assert(abs(universal_deep_y1-universal_deep_y0-86) < 0.01,
+       "full-depth universal region must retain the 86 mm PSU-fit height");
+assert(abs(universal_top_flat_h-10) < 0.01 &&
+       abs(universal_deep_ramp_end_y-(enclosure_top_y-10)) < 0.01,
+       "top 10 mm must remain flat and flush with the panel");
+assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
+       "universal deep cavity lost required equipment depth");
+assert(universal_deep_w >= 110+6,
+       "flat universal area is too narrow for the 110 mm PSU plus clearance");
+assert(universal_deep_y1-universal_deep_y0 >= 80+6,
+       "flat universal area is too short for the 80 mm PSU plus clearance");
+assert(universal_deep_clear_depth >= 37+10,
+       "universal cavity is too shallow for the 37 mm PSU plus service clearance");
+assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
+       "PSU loses too much depth where the inward boss rows overlap its footprint");
+assert(len(adapter_y) == 2,
+       "universal accessory grid must use exactly two boss rows");
+assert(abs(adapter_y[0]-58) < 0.01 &&
+       abs(adapter_y[1]-72) < 0.01,
+       "boss rows must stay raised at Y=58/72 mm");
+assert(adapter_y[1]-adapter_y[0] <= 14.01,
+       "boss rows are no longer close together");
+assert(adapter_y[0] > universal_deep_y0 &&
+       adapter_y[1] < universal_deep_y1,
+       "boss rows must remain inside the full-depth universal wall");
+assert(abs(adapter_boss_d-7) < 0.01 &&
+       abs(adapter_boss_h-4) < 0.01,
+       "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
+assert(upper_vent_y > universal_deep_y1 &&
+       upper_vent_y+upper_vent_h < universal_deep_ramp_end_y,
+       "ventilation must remain entirely within the universal deep ramp");
+assert(abs(upper_vent_y-
+           (universal_deep_y1+ramp_vent_bottom_margin)) < 0.01,
+       "ramp ventilation lower margin drifted");
+assert(abs((upper_vent_y+upper_vent_h)-
+           (universal_deep_ramp_end_y-ramp_vent_top_margin)) < 0.01,
+       "ramp ventilation upper margin drifted");
+
 // Print-only anti-tip support contract. These sacrificial feet are required on
 // the manufacturing wrapper because the tall upright backplane previously
 // detached/fell during printing.
@@ -340,9 +384,9 @@ assert(abs(panel_closure_y-(ground_clearance+panel_mount_y[1])) < 0.01,
 assert(abs(panel_closure_hole_d-panel_mount_hole_d) < 0.01 &&
        abs(panel_closure_hole_d-4.5) < 0.01,
        "top closure hole diameter must remain the measured 4.5 mm clearance");
-assert(panel_closure_y-panel_closure_hole_d/2 > backplane_ramp_end_y &&
+assert(panel_closure_y > universal_deep_ramp_end_y &&
        panel_closure_y+panel_closure_hole_d/2 < enclosure_top_y,
-       "top closure holes must remain fully inside the shallow upper wall");
+       "top closure centres must remain in the final 10 mm flat wall");
 for (xx=panel_closure_x)
     assert(xx-panel_closure_hole_d/2 > service_x &&
            xx+panel_closure_hole_d/2 < service_x+service_w,
@@ -458,8 +502,8 @@ assert(base_rear_z-backplane_slot_back_z <= backplane_guide_t+0.01,
 assert(equipment_backplane_front_z-enclosure_front_z >= 35,
        "lower equipment cavity lost too much usable depth");
 
-assert(max(adapter_y) < backplane_ramp_start_y,
-       "accessory bosses must remain on the vertical lower backplane");
+assert(max(adapter_y) < universal_deep_y1,
+       "accessory bosses must remain on the full-depth universal wall");
 cube([1,1,1]);
 """,
         encoding="utf-8",
@@ -476,8 +520,8 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
-        "fully solid rear enclosure with no ventilation slots, retained "
-        "75-to-120 mm upper ramp, three aligned closure holes and "
+        "54 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
+        "top wall, two slim boss rows, three aligned closure holes and "
         "hinge-rail end-stop contract"
     )
 
@@ -516,9 +560,8 @@ def assert_no_legacy_layout() -> None:
                 f"legacy enclosure SCAD source still exists: {legacy_sources[0]}"
             )
 
-    # The rear backplane must remain a solid skin. The old pair of rounded
-    # cable/ribbon slots looked like ventilation in the manufacturing STL and
-    # are intentionally retired; cabling routes through open module sides.
+    # Rear cable/ribbon slots remain retired; cabling routes through open
+    # module sides. Ventilation is allowed only in the dedicated upper ramp.
     source_text = SOURCE.read_text(encoding="utf-8")
     for forbidden in ("cable_slot_x", "cable_slot_len", "cable_slot_w", "cable_slot_y"):
         if forbidden in source_text:
@@ -551,6 +594,36 @@ def main() -> None:
             assert_tracked_stl_current(stl_name, generated)
 
         assert_design_contract(work_dir)
+        assert_empty_intersection(
+            work_dir,
+            "vent_lower_vertical_keepout",
+            """    ramp_ventilation_cutters();
+    translate([
+        universal_deep_x0-1,
+        equipment_backplane_y0,
+        -10
+    ])
+        cube([
+            universal_deep_w+2,
+            universal_deep_y1-equipment_backplane_y0,
+            100
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "vent_top_flat_keepout",
+            """    ramp_ventilation_cutters();
+    translate([
+        universal_deep_x0-1,
+        universal_deep_ramp_end_y,
+        -10
+    ])
+        cube([
+            universal_deep_w+2,
+            enclosure_top_y-universal_deep_ramp_end_y,
+            100
+        ]);""",
+        )
         assert_empty_intersection(
             work_dir,
             "panel_top_closure_holes_clear",
