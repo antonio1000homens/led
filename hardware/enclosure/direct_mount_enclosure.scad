@@ -256,7 +256,6 @@ adapter_boss_d = 7;
 adapter_hole_d = 3.4;
 adapter_boss_h = 4;
 adapter_x = [32,80,128,176,224];
-adapter_y = [58,72];
 
 // CI refresh marker: canonical STL corresponds to the 54 mm universal cavity.
 // Universal deeper equipment envelope. This takes the local PSU depth increase
@@ -278,6 +277,15 @@ universal_deep_w = universal_deep_x1-universal_deep_x0;
 universal_deep_transition_y0 = 6;
 universal_deep_y0 = 12;
 universal_deep_y1 = 98;
+
+// Keep the two accessory-boss rows close to the usable full-depth area's
+// horizontal edges rather than clustered in the middle. This leaves a 10 mm
+// border to the deep wall transition at both ends.
+adapter_edge_inset_y = 10;
+adapter_y = [
+    universal_deep_y0 + adapter_edge_inset_y,
+    universal_deep_y1 - adapter_edge_inset_y
+];
 universal_top_flat_h = 10;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
 universal_deep_rear_z =
