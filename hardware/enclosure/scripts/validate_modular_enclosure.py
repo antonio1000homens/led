@@ -309,8 +309,8 @@ assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
 assert(abs(upper_vertical_h-28) < 0.01,
        "full-height shallow upper wall must remain 28 mm high");
 
-assert(abs(universal_deep_clear_depth-44) < 0.01,
-       "universal deep cavity must retain 44 mm clear depth");
+assert(abs(universal_deep_clear_depth-54) < 0.01,
+       "universal deep cavity must retain 54 mm clear depth");
 assert(universal_deep_x0 > service_x &&
        universal_deep_x1 < service_x+service_w &&
        universal_deep_w > 240,
@@ -324,6 +324,11 @@ assert(universal_deep_front_z-enclosure_front_z >= 44-0.01,
        "universal deep cavity lost required equipment depth");
 assert(len(adapter_y) == 2,
        "universal accessory grid must use exactly two boss rows");
+assert(abs(adapter_y[0]-58) < 0.01 &&
+       abs(adapter_y[1]-72) < 0.01,
+       "boss rows must stay raised at Y=58/72 mm");
+assert(adapter_y[1]-adapter_y[0] <= 14.01,
+       "boss rows are no longer close together");
 assert(abs(adapter_boss_d-7) < 0.01 &&
        abs(adapter_boss_h-4) < 0.01,
        "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
@@ -504,7 +509,7 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
-        "44 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
+        "54 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
         "top wall, two slim boss rows, three aligned closure holes and "
         "hinge-rail end-stop contract"
     )
