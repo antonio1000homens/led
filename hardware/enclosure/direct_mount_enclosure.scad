@@ -284,8 +284,10 @@ universal_deep_w = universal_deep_x1-universal_deep_x0;
 universal_full_x0 = service_x;
 universal_full_x1 = service_x + service_w;
 universal_full_w = universal_full_x1-universal_full_x0;
-universal_edge_transition_y0 = side_guide_y1;
-universal_edge_transition_y1 = side_guide_y1 + 8;
+universal_edge_guide_clearance_y = 1;
+universal_edge_transition_y0 =
+    side_guide_y1 + universal_edge_guide_clearance_y;
+universal_edge_transition_y1 = universal_edge_transition_y0 + 8;
 
 universal_deep_transition_y0 = 6;
 universal_deep_y0 = 12;
