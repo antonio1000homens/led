@@ -179,7 +179,7 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **58 / 72 mm** (two raised, closely spaced rows on the full-depth vertical section)
+- Y = **22 / 88 mm** (two rows, each 10 mm in from the lower/upper edge of the 12–98 mm full-depth region)
 - boss OD = **7 mm**
 - boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
