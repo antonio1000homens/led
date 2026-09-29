@@ -31,7 +31,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - blind inside accessory bosses with a solid external rear skin;
 - exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high);
 - the 2 mm seat depth and rear-edge groove location;
-- a 44 mm clear-depth universal equipment zone spanning essentially the full
+- a 54 mm clear-depth universal equipment zone spanning essentially the full
   usable panel width while preserving the existing edge-guide interfaces;
 - an 86 mm full-depth vertical equipment region;
 - ramp-only ventilation, with the lower wall and final upper wall remaining solid;
@@ -64,7 +64,7 @@ The hinge regression contract includes:
 The previous full-width captive tongue/channel is retired. The backplane enters
 a 2 mm-deep **recessed groove at the rear of the base**. Narrow edge lands keep
 the original guide/side geometry, while the central universal equipment zone
-provides **44 mm clear depth** across more than 240 mm of usable width. The
+provides **54 mm clear depth** across more than 240 mm of usable width. The
 full-depth region is 86 mm high, then returns toward the panel through a
 ventilated ramp and finishes with a **10 mm flat upper wall** at the full
 148 mm panel height. The backplane reuses the panel's three measured top-row
@@ -93,7 +93,7 @@ sets:
    then confirm the narrowed lower 30 mm slides between both 5 mm guides, seats
    2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
-7. confirm the 44 mm deep universal region spans the usable backplane width,
+7. confirm the 54 mm deep universal region spans the usable backplane width,
    ventilation exists only in the return ramp, the final 10 mm upper wall is
    flat/parallel to the panel, there are no rear cable/ribbon through-slots, and
    all three 4.5 mm top closure holes align with the panel's top-row mounting points;
