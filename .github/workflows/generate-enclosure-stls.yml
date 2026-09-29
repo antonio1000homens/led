@@ -70,7 +70,7 @@ jobs:
           done
 
       - name: Commit refreshed universal backplane STL
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/psu-specific-backplane'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/feature/psu-specific-backplane') || (github.event_name == 'pull_request' && github.head_ref == 'feature/psu-specific-backplane')
         shell: bash
         run: |
           set -euo pipefail
