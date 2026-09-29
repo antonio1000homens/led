@@ -268,8 +268,10 @@ The manufacturing wrapper for `03_universal_equipment_backplane_PRINT_1.stl`
 includes five **print-only sacrificial anti-tip stabilisers** restored from the
 earlier print-stability revision. The installed backplane geometry is unchanged.
 
-Each stabiliser uses a **12 × 38 mm** transverse bed pad, **1.0 mm** thick, with
-paired gussets rising **20 mm** on both sides of the upright wall. The gussets
+Each stabiliser uses a **12 × 26 mm** transverse bed pad, **1.0 mm** thick, with
+paired gussets rising **20 mm** on both sides of the upright wall. The pad is
+centred on the 3 mm rear wall with **11.5 mm extending beyond each wall face**,
+rather than projecting deep into the equipment cavity. The gussets
 join through **0.8 mm breakaway necks** so they can be flexed/cut away after the
 print. Their purpose is to resist nozzle loads in both directions and prevent
 the tall backplane detaching or falling during the print.
