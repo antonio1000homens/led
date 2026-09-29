@@ -1167,6 +1167,42 @@ module universal_deep_side_wall(side="left") {
         ]);
 }
 
+// ---------- Permanent rear-wall support feet ----------
+//
+// The deepest rear wall begins above the lower locating datum because the
+// enclosure grows from the 40 mm guide interface into the 54 mm equipment
+// zone. Instead of print-only transverse outriggers crossing both sides of the
+// wall, five permanent vertical feet extend that rear wall down to the lower
+// datum. Their extra depth is entirely REARWARD, outside the equipment cavity.
+rear_support_foot_x = [24,76,128,180,232];
+rear_support_foot_w = 12;
+rear_support_foot_y0 = equipment_backplane_y0;
+rear_support_foot_overlap_h = 10;
+rear_support_foot_y1 = universal_deep_y0 + rear_support_foot_overlap_h;
+rear_support_foot_drop = universal_deep_y0 - rear_support_foot_y0;
+
+// Make the rearward footprint slightly deeper than the unsupported vertical
+// drop created by the raised deep wall/base interface. This provides a stable
+// upright print footprint without consuming equipment-cavity space.
+rear_support_foot_rear_extension = 12;
+rear_support_foot_z0 = universal_deep_front_z;
+rear_support_foot_depth =
+    universal_deep_wall_t + rear_support_foot_rear_extension;
+
+module rear_support_feet() {
+    for (xc=rear_support_foot_x)
+        translate([
+            xc-rear_support_foot_w/2,
+            rear_support_foot_y0,
+            rear_support_foot_z0
+        ])
+            cube([
+                rear_support_foot_w,
+                rear_support_foot_y1-rear_support_foot_y0,
+                rear_support_foot_depth
+            ]);
+}
+
 module universal_backplane_shell_solid() {
     union() {
         difference() {
@@ -1179,6 +1215,7 @@ module universal_backplane_shell_solid() {
         universal_edge_rear_shell("right");
         universal_deep_side_wall("left");
         universal_deep_side_wall("right");
+        rear_support_feet();
     }
 }
 
@@ -1233,128 +1270,20 @@ module universal_equipment_backplane() {
     }
 }
 
-// Print-only sacrificial anti-tip stabilisers.
+// ---------- Backplane print orientation ----------
 //
-// The installed backplane remains unchanged. Its upright print orientation is
-// mechanically efficient but tall and narrow, so five transverse feet widen
-// the bed-contact footprint. Paired gussets brace the wall in both Y directions
-// and terminate in thin PETG breakaway necks for post-print removal.
-backplane_print_stabiliser_x = [24,76,128,180,232];
-backplane_print_stabiliser_w = 12;
-backplane_print_stabiliser_t = 1.0;
-backplane_print_stabiliser_h = 20;
-backplane_print_breakaway_t = 0.8;
-
-// In print coordinates the braces meet the full-depth universal wall.
-backplane_print_origin_y = equipment_backplane_rear_z + adapter_boss_h;
-backplane_print_wall_rear_y =
-    backplane_print_origin_y-universal_deep_rear_z;
-backplane_print_wall_front_y =
-    backplane_print_origin_y-universal_deep_front_z;
-
-// Centre each sacrificial foot on the 3 mm rear wall instead of letting the
-// old fixed 38 mm pad run deep into the now-deeper equipment cavity. Keep
-// 11.5 mm of bed leverage beyond each wall face: 3 + 11.5 + 11.5 = 26 mm.
-backplane_print_stabiliser_overhang = 11.5;
-backplane_print_stabiliser_y0 =
-    backplane_print_wall_rear_y-backplane_print_stabiliser_overhang;
-backplane_print_stabiliser_depth =
-    backplane_print_wall_front_y-backplane_print_wall_rear_y
-    + 2*backplane_print_stabiliser_overhang;
-
-module backplane_print_stabiliser(
-    xc,
-    wall_rear_y=backplane_print_wall_rear_y,
-    wall_front_y=backplane_print_wall_front_y
-) {
-    x0 = xc - backplane_print_stabiliser_w/2;
-    y1 = backplane_print_stabiliser_y0 + backplane_print_stabiliser_depth;
-
-    union() {
-        // Wide sacrificial bed pad.
-        translate([
-            x0,
-            backplane_print_stabiliser_y0,
-            0
-        ])
-            cube([
-                backplane_print_stabiliser_w,
-                backplane_print_stabiliser_depth,
-                backplane_print_stabiliser_t
-            ]);
-
-        // Rearward brace. The thin top neck is the intended breakaway point.
-        hull() {
-            translate([
-                x0,
-                backplane_print_stabiliser_y0,
-                backplane_print_stabiliser_t-0.2
-            ])
-                cube([
-                    backplane_print_stabiliser_w,
-                    3,
-                    0.8
-                ]);
-
-            translate([
-                x0,
-                wall_rear_y-backplane_print_breakaway_t,
-                backplane_print_stabiliser_h
-            ])
-                cube([
-                    backplane_print_stabiliser_w,
-                    backplane_print_breakaway_t+0.2,
-                    0.8
-                ]);
-        }
-
-        // Forward brace mirrors the rearward brace so nozzle loads are resisted
-        // in either direction instead of relying only on bed adhesion.
-        hull() {
-            translate([
-                x0,
-                y1-3,
-                backplane_print_stabiliser_t-0.2
-            ])
-                cube([
-                    backplane_print_stabiliser_w,
-                    3,
-                    0.8
-                ]);
-
-            translate([
-                x0,
-                wall_front_y-0.2,
-                backplane_print_stabiliser_h
-            ])
-                cube([
-                    backplane_print_stabiliser_w,
-                    backplane_print_breakaway_t+0.2,
-                    0.8
-                ]);
-        }
-    }
-}
-
-// Print upright on the lower locating edge. Installed +Y maps to print +Z;
-// rearward +Z maps to print -Y. The upper taper therefore grows progressively
-// from supported lower layers. Sacrificial stabilisers exist only in this
-// printable wrapper and are absent from installed/assembly geometry.
+// The permanent rear-wall feet are part of the installed backplane and reach
+// the lower locating datum, so the printable wrapper no longer adds sacrificial
+// pads or braces. Nothing projects forward across the equipment cavity.
 module universal_equipment_backplane_print() {
-    union() {
-        translate([
-            0,
-            equipment_backplane_rear_z+adapter_boss_h,
-            -equipment_backplane_y0
-        ])
-            rotate([90,0,0])
-                universal_equipment_backplane();
-
-        for (xc=backplane_print_stabiliser_x)
-            backplane_print_stabiliser(xc);
-    }
+    translate([
+        0,
+        equipment_backplane_rear_z+adapter_boss_h,
+        -equipment_backplane_y0
+    ])
+        rotate([90,0,0])
+            universal_equipment_backplane();
 }
-
 
 // ---------- Detachable side/end pieces ----------
 
