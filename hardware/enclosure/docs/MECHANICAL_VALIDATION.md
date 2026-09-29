@@ -31,9 +31,12 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - blind inside accessory bosses with a solid external rear skin;
 - exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), positioned 10 mm in from the lower/upper edges of the full-depth mounting region;
 - the 2 mm seat depth and rear-edge groove location;
-- a 54 mm clear-depth universal equipment zone spanning essentially the full
-  usable panel width while preserving the existing edge-guide interfaces;
-- an 86 mm full-depth vertical equipment region;
+- a 54 mm clear-depth universal equipment centre zone preserving the lower
+  guide-compatible inset only where the U-channel capture requires it;
+- an 8 mm 40 -> 54 mm edge-depth transition immediately above the guide towers;
+- full-width rear-shell coverage above that transition, with the detachable
+  left/right end pieces matching the same deep profile;
+- an 86 mm full-depth vertical centre equipment region;
 - ramp-only ventilation, with the lower wall and final upper wall remaining solid;
 - a final 10 mm flat upper wall parallel to the LED panel and three aligned
   4.5 mm top-row closure holes;
@@ -62,12 +65,13 @@ The hinge regression contract includes:
   remaining clear of the first barrel at X=34 and final barrel end at X=220.
 
 The previous full-width captive tongue/channel is retired. The backplane enters
-a 2 mm-deep **recessed groove at the rear of the base**. Narrow edge lands keep
-the original guide/side geometry, while the central universal equipment zone
-provides **54 mm clear depth** across more than 240 mm of usable width. The
-full-depth region is 86 mm high, then returns toward the panel through a
-ventilated ramp and finishes with a **10 mm flat upper wall** at the full
-148 mm panel height. The backplane reuses the panel's three measured top-row
+a 2 mm-deep **recessed groove at the rear of the base**. The shallower side
+inset now remains only through the lower U-channel guide interface. Above the
+guide towers, an 8 mm transition carries both edge strips back to the same
+**54 mm** rear depth as the centre zone, and the detachable end pieces follow
+that profile. The 86 mm-high centre zone still provides the PSU-fit volume,
+then the enclosure returns toward the panel through a ventilated ramp and
+finishes with a **10 mm flat upper wall** at the full 148 mm panel height. The backplane reuses the panel's three measured top-row
 screw positions
 (X=7.9/128.0/248.1 mm, installed Y=140.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
