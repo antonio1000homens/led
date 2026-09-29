@@ -922,8 +922,8 @@ module backplane_shell_solid() {
 }
 
 // Replace the centre of the native/interface shell with the deeper universal
-// equipment volume while preserving the narrow edge lands used by the existing
-// base guides, side pieces and seam connectors.
+// equipment volume. The lower guide-compatible side inset is retained only
+// below the edge-depth transition; above it the rear shell reaches full width.
 module universal_native_backplane_opening() {
     // The centre deep zone starts low enough to preserve the PSU-fit height.
     translate([
