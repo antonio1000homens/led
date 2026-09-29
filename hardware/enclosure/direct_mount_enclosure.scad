@@ -278,14 +278,9 @@ universal_deep_transition_y0 = 6;
 universal_deep_y0 = 12;
 universal_deep_y1 = 98;
 
-// Keep the two accessory-boss rows close to the usable full-depth area's
-// horizontal edges rather than clustered in the middle. This leaves a 10 mm
-// border to the deep wall transition at both ends.
-adapter_edge_inset_y = 10;
-adapter_y = [
-    universal_deep_y0 + adapter_edge_inset_y,
-    universal_deep_y1 - adapter_edge_inset_y
-];
+// Keep the two accessory-boss rows raised into the upper half of the usable
+// full-depth wall and close together, per the physical layout review.
+adapter_y = [58,72];
 universal_top_flat_h = 10;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
 universal_deep_rear_z =
