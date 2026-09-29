@@ -29,7 +29,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -67,25 +67,6 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
-
-      - name: Refresh shorter-foot canonical backplane STL
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/shorter-backplane-stabiliser-feet' && github.event.pull_request.head.repo.full_name == github.repository
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin fix/shorter-backplane-stabiliser-feet
-          git checkout -B fix/shorter-backplane-stabiliser-feet origin/fix/shorter-backplane-stabiliser-feet
-          cp build/enclosure-stls/03_universal_equipment_backplane_PRINT_1.stl \
-            hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
-          if git diff --cached --quiet; then
-            echo "Canonical universal backplane STL already current"
-            exit 0
-          fi
-          git commit -m "chore(enclosure): refresh shorter-foot backplane STL"
-          git push origin HEAD:fix/shorter-backplane-stabiliser-feet
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
