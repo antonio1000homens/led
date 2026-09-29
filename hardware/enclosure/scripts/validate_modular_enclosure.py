@@ -332,11 +332,11 @@ assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
        "PSU loses too much depth where the inward boss rows overlap its footprint");
 assert(len(adapter_y) == 2,
        "universal accessory grid must use exactly two boss rows");
-assert(abs(adapter_y[0]-58) < 0.01 &&
-       abs(adapter_y[1]-72) < 0.01,
-       "boss rows must stay raised at Y=58/72 mm");
-assert(adapter_y[1]-adapter_y[0] <= 14.01,
-       "boss rows are no longer close together");
+assert(abs(adapter_edge_inset_y-10) < 0.01,
+       "boss-row edge inset must remain 10 mm");
+assert(abs(adapter_y[0]-(universal_deep_y0+adapter_edge_inset_y)) < 0.01 &&
+       abs(adapter_y[1]-(universal_deep_y1-adapter_edge_inset_y)) < 0.01,
+       "boss rows must stay 10 mm from the full-depth area's lower/upper edges");
 assert(adapter_y[0] > universal_deep_y0 &&
        adapter_y[1] < universal_deep_y1,
        "boss rows must remain inside the full-depth universal wall");
