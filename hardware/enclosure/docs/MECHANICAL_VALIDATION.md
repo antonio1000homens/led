@@ -29,7 +29,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the lower 30 mm stepped/narrowed backplane section and full-width shoulder above it;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
-- exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), raised to Y=58/72 mm with 14 mm separation;
+- exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), positioned 10 mm in from the lower/upper edges of the full-depth mounting region;
 - the 2 mm seat depth and rear-edge groove location;
 - a 54 mm clear-depth universal equipment zone spanning essentially the full
   usable panel width while preserving the existing edge-guide interfaces;
