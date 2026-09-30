@@ -121,7 +121,7 @@ the previous exposed solid-plug appearance while keeping the rod retained.
 The base/backplane interface uses a **recessed groove at the rear edge of the
 base** plus two structural side guides. The centre groove is 2 mm deep with
 0.4 mm nominal clearance around the 3 mm backplane edge. Each side guide is
-**30 mm high × 5 mm wide** and grows directly from the base. The lower 30 mm of
+**50 mm high × 5 mm wide** and grows directly from the base. The lower 50 mm of
 the backplane is stepped inward by 5 mm per side plus 0.4 mm running clearance;
 above the guide towers it returns to the normal full width.
 
@@ -132,7 +132,7 @@ outside. The rear exterior plane remains clean.
 
 The removable backplane/enclosure installs from directly above:
 
-1. lower the narrowed 30 mm backplane foot between the two 5 mm side guides;
+1. lower the narrowed 50 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
 3. the full-width shoulder above the guides then sits over the tower tops;
@@ -206,7 +206,7 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
 The base guide towers expose complementary pin/socket features on their left
 and right edges so identical neighbouring modules self-align. These junctions
-sit on the **inside/cavity-facing portion of the 30 mm guide towers**. End-panel
+sit on the **inside/cavity-facing portion of the 50 mm guide towers**. End-panel
 mating sockets are blind from the inside, leaving the outside side faces solid.
 
 - pin diameter: **4.0 mm**
@@ -263,7 +263,7 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    remove/loosen them and confirm the real 6 mm rail lets the **panel/template**
    rotate freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify the narrowed lower 30 mm slides
+4. Print one universal backplane and verify the narrowed lower 50 mm slides
    between both 5 mm guide towers with 0.4 mm running clearance, then seats
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
