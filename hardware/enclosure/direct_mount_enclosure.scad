@@ -1251,7 +1251,7 @@ module universal_equipment_backplane() {
 backplane_print_origin_y = equipment_backplane_rear_z + adapter_boss_h;
 
 ramp_print_support_x = [24,72,120,168,216];
-ramp_print_support_levels = [0.25,0.50,0.75,0.93];
+ramp_print_support_levels = [0.15,0.35,0.55,0.75,0.95];
 ramp_print_support_post_w = 4;
 ramp_print_support_post_d = 2.4;
 ramp_print_support_slice_d = 0.4;
