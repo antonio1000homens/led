@@ -336,9 +336,24 @@ vent_slot_y_h = 1.0;
 bottom_ramp_vent_y =
     universal_deep_y0 +
     (universal_guide_shoulder_t-vent_slot_y_h)/2;
-top_ramp_vent_y =
-    universal_deep_y1 +
-    (universal_return_ramp_h-vent_slot_y_h)/2;
+
+// Four ventilation rows across the 12 mm upper return ramp: retain 1.5 mm
+// solid margins at both ends and distribute the remaining material evenly
+// between rows. This adds three rows without turning the return into one large
+// finger-accessible opening.
+top_ramp_vent_rows = 4;
+top_ramp_vent_margin_y = 1.5;
+top_ramp_vent_row_gap =
+    (universal_return_ramp_h -
+     2*top_ramp_vent_margin_y -
+     top_ramp_vent_rows*vent_slot_y_h) /
+    (top_ramp_vent_rows-1);
+top_ramp_vent_y = [
+    for (row=[0:top_ramp_vent_rows-1])
+        universal_deep_y1 +
+        top_ramp_vent_margin_y +
+        row*(vent_slot_y_h+top_ramp_vent_row_gap)
+];
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -1059,13 +1074,15 @@ module horizontal_rounded_vent_cutter(x0,y0) {
 }
 
 module ramp_ventilation_cutters() {
-    // Seven narrow rounded slots on the lower structural shoulder and seven
-    // matching slots on the longer upper return ramp. The rear boss wall stays
-    // solid and the final closure wall remains unperforated.
+    // One row of seven narrow rounded slots remains on the lower structural
+    // shoulder. The upper return now has four matching rows, adding airflow
+    // while preserving solid lands between every opening. The rear boss wall
+    // and final closure wall remain unperforated.
     for (i=[0:vent_slot_count-1]) {
         xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
         horizontal_rounded_vent_cutter(xx,bottom_ramp_vent_y);
-        horizontal_rounded_vent_cutter(xx,top_ramp_vent_y);
+        for (yy=top_ramp_vent_y)
+            horizontal_rounded_vent_cutter(xx,yy);
     }
 }
 
