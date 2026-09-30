@@ -15,7 +15,7 @@ Only the lower U-channel insertion section is smaller; immediately above the
 guides the shell uses one identical full-width Y/Z profile for the complete
 256 mm length. That makes the long X dimension suitable as the print-vertical
 axis. The deep section returns toward the panel near the top and finishes with a
-**10 mm flat upper wall** parallel to the LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
+**11.5 mm flat upper wall** parallel to the LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
 transition shoulder**. The long rear wall remains solid for the accessory-boss
 mounting grid. The backplane reuses all three
 existing top-row panel screw positions as aligned closure fasteners, so no
@@ -121,8 +121,8 @@ the previous exposed solid-plug appearance while keeping the rod retained.
 
 The base/backplane interface uses a **recessed groove at the rear edge of the
 base** plus two structural side guides. The centre groove is 2 mm deep with
-0.4 mm nominal clearance around the 3 mm backplane edge. Each side guide is
-**50 mm high × 5 mm wide** and grows directly from the base. The lower 50 mm of
+0.6 mm nominal clearance around the 3 mm backplane edge. Each side guide is
+**40 mm high × 5 mm wide** and grows directly from the base. The lower 40 mm of
 the backplane is stepped inward by 5 mm per side plus 0.4 mm running clearance;
 above the guide towers it returns to the normal full width.
 
@@ -153,8 +153,8 @@ designed around side-on vertical printing:
 - return ramp: **4 mm high**, repeated identically across X;
 - final upper wall: **10 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: five **36 mm horizontal slots** on the lower transition and
-  five matching slots on the upper return ramp;
+- ventilation: seven **24 mm horizontal slots** on the lower transition and
+  seven matching slots on the upper return ramp;
 - the long full-depth rear wall remains solid for the M3 boss grid;
 - lower insertion wall and final 10 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
@@ -252,7 +252,7 @@ Run the mechanical validator with:
 python hardware/enclosure/scripts/validate_enclosure.py
 ```
 
-CI regenerates all five canonical parts, verifies they match the checked-in
+CI regenerates all seven canonical parts, verifies they match the checked-in
 STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
@@ -271,13 +271,13 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    remove/loosen them and confirm the real 6 mm rail lets the **panel/template**
    rotate freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify the narrowed lower 50 mm slides
+4. Print one universal backplane and verify the narrowed lower 40 mm slides
    between both 5 mm guide towers with 0.4 mm running clearance, then seats
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, the horizontal vent rows are clean on both the lower transition and
+   width, the narrow rounded horizontal vent rows are clean on both the lower transition and
    upper return ramp, and the long rear wall remains solid for the boss grid.
    Confirm the final 10 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
