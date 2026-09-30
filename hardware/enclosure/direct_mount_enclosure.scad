@@ -390,6 +390,52 @@ side_socket_depth = 2.2;
 side_t = 3;
 side_panel_clearance = 0.4;
 
+// Left outer end: fused/switched IEC C14 snap-in inlet.
+//
+// The photographed part matches the common 0717-style geometry closely:
+// a 47 x 28 mm rectangular panel opening with R2 corners beneath an
+// approximately 50 x 30.5 mm front flange. The spring lugs squeeze inward
+// while the body passes through the opening, then expand behind the panel.
+// Their shoulder-to-flange distance is model-specific, so keep the effective
+// snap land as one explicit tuning value instead of thinning the whole side.
+//
+// Landscape orientation keeps the inlet/fuse/switch row horizontal when the
+// enclosure is viewed from its left end. The 47 mm dimension therefore runs
+// along installed Z (front-to-rear), while 28 mm runs along installed Y.
+c14_cutout_nominal_z = 47;
+c14_cutout_nominal_y = 28;
+c14_cutout_clearance_per_edge = 0.10;
+c14_cutout_z =
+    c14_cutout_nominal_z + 2*c14_cutout_clearance_per_edge;
+c14_cutout_y =
+    c14_cutout_nominal_y + 2*c14_cutout_clearance_per_edge;
+c14_cutout_corner_r = 2.0;
+
+// Nominal visible flange envelope used only for placement/clearance checks.
+c14_flange_z = 50.0;
+c14_flange_y = 30.5;
+
+// Start with the thickest value in the common 0.8/1.0/1.2/1.4 mm snap-in
+// family. Only the hidden latch relief is reduced to this thickness; the
+// surrounding end wall stays at the normal 3 mm structural thickness.
+// If the physical inlet proves to be a 2.0 mm (or thicker) clip variant this
+// single value can be increased without changing the outer opening.
+c14_snap_panel_t = 1.4;
+c14_snap_relief_margin = 2.0;
+c14_mount_upper_margin_y = 3.0;
+
+c14_center_y =
+    universal_deep_y1 - c14_flange_y/2 - c14_mount_upper_margin_y;
+c14_center_z =
+    (enclosure_front_z + universal_deep_rear_z)/2;
+
+c14_left_outer_x = -side_t - side_panel_clearance;
+c14_left_inner_x = -side_panel_clearance;
+c14_relief_y = c14_cutout_y + 2*c14_snap_relief_margin;
+c14_relief_z = c14_cutout_z + 2*c14_snap_relief_margin;
+c14_relief_corner_r =
+    c14_cutout_corner_r + c14_snap_relief_margin;
+
 // Inner faces and axial lengths for the integrated rod retainers/sleeves.
 // The capped portion stops the rod at X=10/246. From that point inward, the
 // support becomes a hollow sleeve and continues exactly to the nearest barrel.
@@ -1194,6 +1240,59 @@ module universal_equipment_backplane_print() {
 
 // ---------- Detachable side/end pieces ----------
 
+module rounded_rect_x_cutter(
+    x0,
+    x_len,
+    center_y,
+    center_z,
+    size_y,
+    size_z,
+    corner_r
+) {
+    assert(size_y > 2*corner_r && size_z > 2*corner_r);
+    hull()
+        for (yy=[
+            center_y-size_y/2+corner_r,
+            center_y+size_y/2-corner_r
+        ])
+            for (zz=[
+                center_z-size_z/2+corner_r,
+                center_z+size_z/2-corner_r
+            ])
+                translate([x0,yy,zz])
+                    rotate([0,90,0])
+                        cylinder(r=corner_r,h=x_len);
+}
+
+module left_c14_panel_cutout() {
+    // Through-opening only. The sprung latch ramps compress against these
+    // rounded rectangular edges while the inlet is pushed in from the outside.
+    rounded_rect_x_cutter(
+        c14_left_outer_x-0.2,
+        side_t+0.4,
+        c14_center_y,
+        c14_center_z,
+        c14_cutout_y,
+        c14_cutout_z,
+        c14_cutout_corner_r
+    );
+}
+
+module left_c14_snap_relief() {
+    // Recess only the INSIDE face around the opening. This leaves a
+    // c14_snap_panel_t-thick outer snap land for the latch shoulders to clear
+    // and click behind, while preserving the normal 3 mm wall everywhere else.
+    rounded_rect_x_cutter(
+        c14_left_outer_x+c14_snap_panel_t-0.01,
+        side_t-c14_snap_panel_t+0.21,
+        c14_center_y,
+        c14_center_z,
+        c14_relief_y,
+        c14_relief_z,
+        c14_relief_corner_r
+    );
+}
+
 module side_wall_body(side="right") {
     // Outer end pieces use the same Y/Z profile as the universal backplane:
     // shallow through the guide/insertion section, full 54 mm depth above the
@@ -1387,8 +1486,11 @@ module equipment_side(side="right") {
 
         if (side == "right")
             right_side_sockets();
-        else
+        else {
             left_side_sockets();
+            left_c14_panel_cutout();
+            left_c14_snap_relief();
+        }
     }
 }
 

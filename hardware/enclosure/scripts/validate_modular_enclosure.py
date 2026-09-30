@@ -513,6 +513,32 @@ assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 
+// Left-side C14 inlet: preserve the standard snap-in aperture and keep
+// the model-specific latch depth isolated from the structural 3 mm side wall.
+assert(abs(c14_cutout_nominal_z-47) < 0.01 &&
+       abs(c14_cutout_nominal_y-28) < 0.01 &&
+       abs(c14_cutout_corner_r-2) < 0.01,
+       "C14 inlet nominal cutout must remain 47 x 28 mm with R2 corners");
+assert(abs(c14_cutout_clearance_per_edge-0.10) < 0.01,
+       "C14 FDM cutout clearance drifted");
+assert(abs(c14_snap_panel_t-1.4) < 0.01 &&
+       c14_snap_panel_t < side_t,
+       "C14 snap land must remain the documented 1.4 mm fit-test value");
+assert(c14_center_y-c14_flange_y/2 >= universal_deep_y0 &&
+       c14_center_y+c14_flange_y/2 <= universal_deep_y1+0.01,
+       "C14 flange no longer fits inside the full-depth side region");
+assert(c14_center_z-c14_flange_z/2 >= enclosure_front_z &&
+       c14_center_z+c14_flange_z/2 <= universal_deep_rear_z+0.01,
+       "C14 flange no longer fits across the side-panel depth");
+assert(c14_center_y-c14_relief_y/2 >= universal_deep_y0 &&
+       c14_center_y+c14_relief_y/2 <= universal_deep_y1+0.01 &&
+       c14_center_z-c14_relief_z/2 >= enclosure_front_z &&
+       c14_center_z+c14_relief_z/2 <= universal_deep_rear_z+0.01,
+       "C14 hidden latch relief breaks out of the full-depth side wall");
+assert(c14_center_y-c14_relief_y/2 >
+           top_connector_y+top_connector_tab_h/2,
+       "C14 latch relief collides with the upper side/backplane connector");
+
 assert(abs(backplane_guide_clearance-0.6) < 0.01,
        "rear groove clearance is outside the physical-print fit target");
 assert(abs(side_guide_h-40) < 0.01,
@@ -840,6 +866,19 @@ def main() -> None:
                 f"""    equipment_side("right");
     translate([0,{lift},0]) universal_equipment_backplane();""",
             )
+
+        assert_empty_intersection(
+            work_dir,
+            "left_c14_panel_aperture_clear",
+            """    equipment_side("left");
+    left_c14_panel_cutout();""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "left_c14_snap_relief_clear",
+            """    equipment_side("left");
+    left_c14_snap_relief();""",
+        )
 
         for side in ("left", "right"):
             assert_empty_intersection(
