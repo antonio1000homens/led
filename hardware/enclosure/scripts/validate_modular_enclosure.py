@@ -333,13 +333,13 @@ assert(abs(universal_deep_y0-side_guide_y1) < 0.01,
        "full-depth shell must begin immediately above the guide/insertion section");
 assert(abs(universal_deep_y1-universal_deep_y0-84) < 0.01,
        "full-depth universal region must retain 84 mm of PSU-fit height");
-assert(abs(universal_return_ramp_h-4) < 0.01 &&
+assert(abs(universal_return_ramp_h-12) < 0.01 &&
        abs(universal_deep_ramp_end_y-universal_deep_y1-
            universal_return_ramp_h) < 0.01,
        "universal return ramp height drifted");
-assert(abs(universal_top_flat_h-10) < 0.01 &&
-       abs(universal_deep_ramp_end_y-(enclosure_top_y-10)) < 0.01,
-       "top 10 mm must remain flat and flush with the panel");
+assert(abs(universal_top_flat_h-11.5) < 0.01 &&
+       abs(universal_deep_ramp_end_y-(enclosure_top_y-11.5)) < 0.01,
+       "top 11.5 mm must remain flat and flush with the panel");
 assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
 assert(universal_deep_w >= 110+6,
@@ -350,28 +350,35 @@ assert(universal_deep_clear_depth >= 37+10,
        "universal cavity is too shallow for the 37 mm PSU plus service clearance");
 assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
        "PSU loses too much depth where the inward boss rows overlap its footprint");
-assert(len(adapter_y) == 2,
-       "universal accessory grid must use exactly two boss rows");
-assert(abs(adapter_edge_inset_y-10) < 0.01,
-       "boss-row edge inset must remain 10 mm");
+assert(len(adapter_y) == 3,
+       "universal accessory grid must use exactly three boss rows");
+assert(abs(adapter_edge_inset_y-22) < 0.01,
+       "outer boss-row edge inset must remain 22 mm");
 assert(abs(adapter_y[0]-(universal_deep_y0+adapter_edge_inset_y)) < 0.01 &&
-       abs(adapter_y[1]-(universal_deep_y1-adapter_edge_inset_y)) < 0.01,
-       "boss rows must stay 10 mm from the full-depth region edges");
+       abs(adapter_y[1]-(universal_deep_y0+universal_deep_y1)/2) < 0.01 &&
+       abs(adapter_y[2]-(universal_deep_y1-adapter_edge_inset_y)) < 0.01,
+       "boss rows must remain centred with symmetric outer rows");
 assert(adapter_y[0] > universal_deep_y0 &&
-       adapter_y[1] < universal_deep_y1,
-       "boss rows must remain inside the full-depth universal wall");
+       adapter_y[2] < universal_deep_y1 &&
+       adapter_y[0] < adapter_y[1] &&
+       adapter_y[1] < adapter_y[2],
+       "boss rows must remain ordered inside the full-depth universal wall");
 assert(abs(adapter_boss_d-7) < 0.01 &&
        abs(adapter_boss_h-4) < 0.01,
        "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
 
 // Ventilation belongs only on the lower shoulder and upper return ramp.
 // The rear mounting wall between them must remain solid for the boss grid.
-assert(abs(vent_slot_len-36) < 0.01 &&
+assert(abs(vent_slot_len-24) < 0.01 &&
        abs(vent_slot_gap-10) < 0.01 &&
-       vent_slot_count == 5,
+       vent_slot_count == 7,
        "ramp vent slot layout drifted");
-assert(abs(vent_slot_y_h-1.8) < 0.01,
-       "ramp vent slot height drifted");
+assert(abs(vent_slot_y_h-1.0) < 0.01,
+       "ramp vent throat drifted");
+assert(universal_return_ramp_h >= 12,
+       "upper return ramp is too steep for the narrow safety vent throat");
+assert(universal_guide_shoulder_t >= 8,
+       "lower tongue/deep-shell transition shoulder is too thin");
 assert(bottom_ramp_vent_y >= universal_deep_y0 &&
        bottom_ramp_vent_y+vent_slot_y_h <=
            universal_deep_y0+universal_guide_shoulder_t+0.01,
@@ -415,7 +422,10 @@ assert(abs(panel_closure_hole_d-panel_mount_hole_d) < 0.01 &&
        "top closure hole diameter must remain the measured 4.5 mm clearance");
 assert(panel_closure_y > universal_deep_ramp_end_y &&
        panel_closure_y+panel_closure_hole_d/2 < enclosure_top_y,
-       "top closure centres must remain in the final 10 mm flat wall");
+       "top closure centres must remain in the final flat wall");
+assert(panel_closure_y-panel_closure_hole_d/2 >=
+           universal_deep_ramp_end_y+1.0,
+       "top closure holes must keep at least 1 mm of material above the ramp bend");
 for (xx=panel_closure_x)
     assert(xx-panel_closure_hole_d/2 > service_x &&
            xx+panel_closure_hole_d/2 < service_x+service_w,
@@ -480,14 +490,14 @@ assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 
-assert(abs(backplane_guide_clearance-0.4) < 0.01,
-       "rear groove clearance is outside the FDM fit target");
-assert(abs(side_guide_h-50) < 0.01,
-       "side guide height must remain 50 mm");
+assert(abs(backplane_guide_clearance-0.6) < 0.01,
+       "rear groove clearance is outside the physical-print fit target");
+assert(abs(side_guide_h-40) < 0.01,
+       "side guide height must remain 40 mm");
 assert(abs(side_guide_w-5) < 0.01,
        "side guide engagement depth must remain 5 mm");
-assert(abs(side_guide_clearance-0.4) < 0.01,
-       "side-guide running clearance is outside the FDM fit target");
+assert(abs(side_guide_clearance-0.6) < 0.01,
+       "side-guide running clearance is outside the physical-print fit target");
 assert(abs(side_guide_wall_t-backplane_guide_t) < 0.01,
        "side-guide wall thickness must track the base rail wall");
 assert(side_guide_y1 < backplane_ramp_start_y,
@@ -552,11 +562,11 @@ cube([1,1,1]);
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
     print(
-        "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
+        "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
         "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
-        "54 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
-        "top wall, two slim boss rows, three aligned closure holes and "
-        "hinge-rail side-sleeve contract"
+        "54 mm universal deep cavity, reinforced transition, narrow rounded "
+        "ramp ventilation, 11.5 mm flush top wall, three central boss rows, "
+        "three aligned closure holes and hinge-rail side-sleeve contract"
     )
 
 
@@ -636,6 +646,7 @@ def assert_no_legacy_layout() -> None:
 
     for required in (
         "ramp_ventilation_cutters()",
+        "horizontal_rounded_vent_cutter(",
         "backplane_print_shift_z",
         "insertion_print_support_t",
         "insertion_print_support_overlap",
