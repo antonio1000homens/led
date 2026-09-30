@@ -17,11 +17,13 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 
 - non-empty positive-volume meshes;
 - the installed backplane contains no permanent rear support feet;
-- the manufacturing wrapper adds five removable under-ramp support ribs, each
-  with five vertical posts covering roughly 25% through 95% of the return ramp;
-- support ribs sit in solid X bands between ventilation slots and touch the
-  ramp through 0.8 mm-wide × 1.0 mm-high breakaway necks with 0.4 mm ramp overlap;
-- the old transverse front/rear stabilisers remain absent;
+- the manufacturing wrapper rotates the backplane so its **256 mm X dimension
+  is the print-vertical axis**;
+- the shell above the guide section keeps one constant Y/Z profile across X;
+- the old under-ramp support forest and transverse front/rear stabilisers remain
+  absent;
+- the narrowed lower insertion tongue uses one **1.0 mm-thick** print-only
+  breakaway support strip with **0.4 mm overlap**;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
@@ -34,13 +36,13 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - blind inside accessory bosses with a solid external rear skin;
 - exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), positioned 10 mm in from the lower/upper edges of the full-depth mounting region;
 - the 2 mm seat depth and rear-edge groove location;
-- a 54 mm clear-depth universal equipment centre zone preserving the lower
-  guide-compatible inset only where the U-channel capture requires it;
-- an 8 mm 40 -> 54 mm edge-depth transition immediately above the guide towers;
-- full-width rear-shell coverage above that transition, with the detachable
-  left/right end pieces matching the same deep profile;
-- an 86 mm full-depth vertical centre equipment region;
-- ramp-only ventilation, with the lower wall and final upper wall remaining solid;
+- a 54 mm clear-depth universal equipment zone preserving the smaller lower
+  guide/insertion section only where the U-channel capture requires it;
+- full-width rear-shell coverage immediately above the guide section with no
+  X-dependent edge-depth transition;
+- an **84 mm** full-depth equipment region followed by a **4 mm** return ramp;
+- long **horizontal 3 mm ventilation slots** through the full-depth rear wall,
+  with the lower insertion wall, return ramp and final upper wall remaining solid;
 - a final 10 mm flat upper wall parallel to the LED panel and three aligned
   4.5 mm top-row closure holes;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
@@ -71,14 +73,17 @@ The hinge regression contract includes:
   end at X=220.
 
 The previous full-width captive tongue/channel is retired. The backplane enters
-a 2 mm-deep **recessed groove at the rear of the base**. The shallower side
-inset now remains only through the lower U-channel guide interface. Above the
-guide towers, an 8 mm transition carries both edge strips back to the same
-**54 mm** rear depth as the centre zone, and the detachable end pieces follow
-that profile. The 86 mm-high centre zone still provides the PSU-fit volume,
-then the enclosure returns toward the panel through a ventilated ramp and
-finishes with a **10 mm flat upper wall** at the full 148 mm panel height. The backplane reuses the panel's three measured top-row
-screw positions
+a 2 mm-deep **recessed groove at the rear of the base**. The lower U-channel
+insertion section remains narrower and shallower, but immediately above the
+guide tops the backplane uses one full-width **54 mm** profile across the entire
+256 mm X length. The full-depth section is **84 mm high**, followed by a short
+**4 mm** return and a **10 mm flat upper wall** at the full 148 mm panel height.
+Horizontal rear-wall vents replace the old installed-vertical ramp slots.
+
+The manufacturing STL rotates this geometry so installed X becomes print Z.
+The only print-only support is a low breakaway strip beneath the narrowed lower
+tongue where that tongue starts 1.6 mm above the left-end print bed. The
+backplane reuses the panel's three measured top-row screw positions
 (X=7.9/128.0/248.1 mm, installed Y=140.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
 that all three holes are clear, together with the rear-groove contract, vertical
@@ -98,15 +103,16 @@ sets:
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
-5. print one universal backplane with the removable under-ramp support ribs,
-   confirm the print remains stable as it enters and traverses the return ramp,
-   remove the ribs after cooling, then confirm the narrowed lower 30 mm slides
-   between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
+5. print one universal backplane **side-on with its 256 mm length vertical**,
+   remove the small breakaway strip beneath the insertion tongue after cooling,
+   then confirm the narrowed lower section slides between both 5 mm guides,
+   seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
 7. confirm the 54 mm deep universal region spans the usable backplane width,
-   ventilation exists only in the return ramp, the final 10 mm upper wall is
-   flat/parallel to the panel, there are no rear cable/ribbon through-slots, and
-   all three 4.5 mm top closure holes align with the panel's top-row mounting points;
+   the vents are horizontal through the rear wall, the return ramp needs no
+   print supports, the final 10 mm upper wall is flat/parallel to the panel,
+   there are no rear cable/ribbon through-slots, and all three 4.5 mm top
+   closure holes align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
    all exterior faces remain solid, each capped rod stop retains the rail at
    X=10/246, and the hollow 7.2 mm sleeve continues around the rod to the nearest
