@@ -333,9 +333,23 @@ vent_slot_x0 =
      (vent_slot_count*vent_slot_len +
       (vent_slot_count-1)*vent_slot_gap))/2;
 vent_slot_y_h = 1.0;
-bottom_ramp_vent_y =
-    universal_deep_y0 +
-    (universal_guide_shoulder_t-vent_slot_y_h)/2;
+
+// The reinforced lower shoulder is only 8 mm high, so use three rows rather
+// than squeezing four rows into it. Keep 1.25 mm solid margins at both ends
+// and 1.25 mm solid lands between each 1 mm opening.
+bottom_ramp_vent_rows = 3;
+bottom_ramp_vent_margin_y = 1.25;
+bottom_ramp_vent_row_gap =
+    (universal_guide_shoulder_t -
+     2*bottom_ramp_vent_margin_y -
+     bottom_ramp_vent_rows*vent_slot_y_h) /
+    (bottom_ramp_vent_rows-1);
+bottom_ramp_vent_y = [
+    for (row=[0:bottom_ramp_vent_rows-1])
+        universal_deep_y0 +
+        bottom_ramp_vent_margin_y +
+        row*(vent_slot_y_h+bottom_ramp_vent_row_gap)
+];
 
 // Four ventilation rows across the 12 mm upper return ramp: retain 1.5 mm
 // solid margins at both ends and distribute the remaining material evenly
@@ -1074,13 +1088,14 @@ module horizontal_rounded_vent_cutter(x0,y0) {
 }
 
 module ramp_ventilation_cutters() {
-    // One row of seven narrow rounded slots remains on the lower structural
-    // shoulder. The upper return now has four matching rows, adding airflow
-    // while preserving solid lands between every opening. The rear boss wall
-    // and final closure wall remain unperforated.
+    // Three rows of seven narrow rounded slots now cross the reinforced lower
+    // shoulder, while the upper return carries four matching rows. Both areas
+    // keep deliberate solid lands between rows; the rear boss wall and final
+    // closure wall remain unperforated.
     for (i=[0:vent_slot_count-1]) {
         xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
-        horizontal_rounded_vent_cutter(xx,bottom_ramp_vent_y);
+        for (yy=bottom_ramp_vent_y)
+            horizontal_rounded_vent_cutter(xx,yy);
         for (yy=top_ramp_vent_y)
             horizontal_rounded_vent_cutter(xx,yy);
     }
