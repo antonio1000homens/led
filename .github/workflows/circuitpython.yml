@@ -31,7 +31,6 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/circuitpython.yml'
       - 'code.py'
       - 'font5x7.pcf'
       - 'gtsr4.pem'
