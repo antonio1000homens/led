@@ -41,8 +41,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - full-width rear-shell coverage immediately above the guide section with no
   X-dependent edge-depth transition;
 - an **84 mm** full-depth equipment region followed by a **4 mm** return ramp;
-- long **horizontal 3 mm ventilation slots** through the full-depth rear wall,
-  with the lower insertion wall, return ramp and final upper wall remaining solid;
+- five **36 mm horizontal vent slots** on the lower transition shoulder and
+  five matching slots on the upper return ramp;
+- a solid full-depth rear mounting wall for the inward-facing M3 boss grid;
 - a final 10 mm flat upper wall parallel to the LED panel and three aligned
   4.5 mm top-row closure holes;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
@@ -109,10 +110,11 @@ sets:
    seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
 7. confirm the 54 mm deep universal region spans the usable backplane width,
-   the vents are horizontal through the rear wall, the return ramp needs no
-   print supports, the final 10 mm upper wall is flat/parallel to the panel,
-   there are no rear cable/ribbon through-slots, and all three 4.5 mm top
-   closure holes align with the panel's top-row mounting points;
+   the horizontal vents are confined to the lower transition and upper return
+   ramp, the long rear boss-mount wall remains solid, the ramps need no slicer
+   supports, the final 10 mm upper wall is flat/parallel to the panel, there are
+   no rear cable/ribbon through-slots, and all three 4.5 mm top closure holes
+   align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
    all exterior faces remain solid, each capped rod stop retains the rail at
    X=10/246, and the hollow 7.2 mm sleeve continues around the rod to the nearest
