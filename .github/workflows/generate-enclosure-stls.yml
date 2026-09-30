@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - master
+      - fix/hinge-rod-side-sleeves
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
@@ -29,7 +30,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -67,6 +68,28 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
+
+      - name: Commit refreshed rod-sleeve side STLs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/hinge-rod-side-sleeves'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for stl in \
+            04_left_equipment_side_PRINT_1.stl \
+            05_right_equipment_side_PRINT_1.stl; do
+            cp "build/enclosure-stls/$stl" "hardware/enclosure/stl/$stl"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            hardware/enclosure/stl/04_left_equipment_side_PRINT_1.stl \
+            hardware/enclosure/stl/05_right_equipment_side_PRINT_1.stl
+          if git diff --cached --quiet; then
+            echo "Canonical side STLs already current"
+            exit 0
+          fi
+          git commit -m "chore(enclosure): refresh rod-sleeve side STLs [skip ci]"
+          git push origin HEAD:fix/hinge-rod-side-sleeves
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
