@@ -11,14 +11,15 @@ The newer modular equipment system remains in place behind that hinge: a
 stationary universal base contains a recessed rear locating groove, and the
 universal backplane/enclosure drops vertically into that groove from above.
 The backplane now carries a **54 mm clear-depth universal equipment zone**.
-Only the lower U-channel guide interface retains the shallower side inset; above
-the guides the rear shell expands to the full service width. The detachable
-left/right end pieces follow that deeper outer profile instead of forcing tall
-40 mm-depth edge lands into the enclosure. The deep section ramps back toward
-the panel, includes ventilation only in that ramp, and finishes with a **10 mm
-flat upper wall** parallel to the LED panel. The
-backplane reuses all three existing top-row panel screw positions as aligned
-closure fasteners, so no rotating tab or local top cutout is required.
+Only the lower U-channel insertion section is smaller; immediately above the
+guides the shell uses one identical full-width Y/Z profile for the complete
+256 mm length. That makes the long X dimension suitable as the print-vertical
+axis. The deep section returns toward the panel near the top and finishes with a
+**10 mm flat upper wall** parallel to the LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
+transition shoulder**. The long rear wall remains solid for the accessory-boss
+mounting grid. The backplane reuses all three
+existing top-row panel screw positions as aligned closure fasteners, so no
+rotating tab or local top cutout is required.
 
 ## Architecture
 
@@ -37,13 +38,13 @@ stationary universal equipment base
    |
 recessed rear top-down groove
    |
-lower 40 mm-depth U-channel guide interface
+lower 40 mm-depth U-channel insertion section
    |
-8 mm edge-depth transition
+full-width 54 mm enclosure profile with constant X cross-section
    |
-full-width 54 mm enclosure profile
+solid rear boss-mount wall
    |
-ventilated return ramp
+horizontal vents on lower transition + upper return ramp
    |
 10 mm flat upper wall flush with panel
    |
@@ -66,9 +67,9 @@ detachable side pieces or accessory adapters.
 | --- | --- |
 | `parts/01_panel_hinge_template_PRINT_1.scad` | **Moving** LED/panel mounting template with local hinge roots |
 | `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and recessed rear backplane groove |
-| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable vertical/tapered enclosure backplane with generic M3 adapter bosses |
-| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end wall matching the 40 -> 54 mm guide transition, deep zone and upper return ramp |
-| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end wall matching the 40 -> 54 mm guide transition, deep zone and upper return ramp |
+| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable enclosure backplane, oriented with its 256 mm length vertical for printing, with a breakaway insertion-tongue support |
+| `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end wall matching the lower insertion section, constant full-depth zone and upper return |
+| `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end wall matching the lower insertion section, constant full-depth zone and upper return |
 
 Matching canonical STL meshes are versioned under `stl/` and must be regenerated whenever a production SCAD changes.
 
@@ -109,19 +110,19 @@ The panel/template rotates forward/down. The equipment base, removable backplane
 and electronics stay stationary.
 
 The 6 mm hinge rail is defined from **X=10 mm to X=246 mm**. Each detachable
-outer side now includes an integrated solid coaxial end stop that reaches the
-corresponding rod end. The stops do not extend inward beyond the rail endpoints:
-the left stop ends at X=10 mm, leaving 24 mm to the first hinge barrel at X=34,
-and the right stop begins at X=246 mm, leaving 26 mm from the final barrel end
-at X=220. Fit the rod before installing both end pieces; the end pieces then
-prevent axial escape of the rail.
+outer side now carries a hinge-style rod support with the same **14 mm OD** and
+**7.2 mm clearance bore** as the main hinge barrels. The outer section remains
+capped at the rail endpoint so the rod cannot escape axially; from that endpoint
+the support becomes a hollow sleeve around the rod and continues to the nearest
+hinge barrel (**X=34 mm** on the left and **X=220 mm** on the right). This removes
+the previous exposed solid-plug appearance while keeping the rod retained.
 
-## Top-down tapered backplane
+## Top-down removable backplane
 
 The base/backplane interface uses a **recessed groove at the rear edge of the
 base** plus two structural side guides. The centre groove is 2 mm deep with
 0.4 mm nominal clearance around the 3 mm backplane edge. Each side guide is
-**30 mm high × 5 mm wide** and grows directly from the base. The lower 30 mm of
+**50 mm high × 5 mm wide** and grows directly from the base. The lower 50 mm of
 the backplane is stepped inward by 5 mm per side plus 0.4 mm running clearance;
 above the guide towers it returns to the normal full width.
 
@@ -132,28 +133,30 @@ outside. The rear exterior plane remains clean.
 
 The removable backplane/enclosure installs from directly above:
 
-1. lower the narrowed 30 mm backplane foot between the two 5 mm side guides;
+1. lower the narrowed 50 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
 3. the full-width shoulder above the guides then sits over the tower tops;
 4. fit the detachable outer side/end piece where required.
 
-The universal backplane keeps the existing lower guide interface but no longer
-carries the shallow side lands up the full enclosure height:
+The universal backplane keeps the existing lower guide interface but is now
+designed around side-on vertical printing:
 
-- lower guide zone retains the original **40 mm** depth only where the U-channel
-  capture requires it;
-- immediately above the guides, each outer edge transitions **40 -> 54 mm over
-  8 mm**;
-- above that transition, the rear shell reaches the full service width and the
-  detachable end pieces match it;
+- lower guide/insertion zone retains the original **40 mm** depth and narrowed
+  width required by the U-channel capture;
+- immediately above the 50 mm guide section, the shell switches to the
+  **full service width** and keeps the same Y/Z profile across the complete
+  256 mm X length;
 - main equipment zone: **54 mm clear depth**;
-- full-depth vertical region: **86 mm high**;
-- deep return ramp ends **10 mm below the enclosure top**;
+- full-depth vertical region: **84 mm high**, preserving 4 mm total clearance
+  around the PSU's 80 mm dimension;
+- return ramp: **4 mm high**, repeated identically across X;
 - final upper wall: **10 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: **ramp only**, using 3 mm slots on an 8 mm pitch;
-- lower vertical wall and final 10 mm top wall remain solid;
+- ventilation: five **36 mm horizontal slots** on the lower transition and
+  five matching slots on the upper return ramp;
+- the long full-depth rear wall remains solid for the M3 boss grid;
+- lower insertion wall and final 10 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
@@ -170,9 +173,11 @@ ramp start. Its vertical release slot is a void that extends 15 mm into the ramp
 allowing the removable backplane to lift past an end plate without bringing any
 solid connector geometry into the clamp clearance zone.
 
-The lower full-depth section carries the accessory mounting grid. Ventilation
-is cut only through the return ramp; the lower wall and final 10 mm flat upper
-wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
+The full-depth **rear wall** carries the accessory mounting grid and remains
+solid except for the blind boss holes on its inside face. Ventilation is moved
+off that mounting surface: horizontal slots are cut through the lower transition
+shoulder and upper return ramp. The lower insertion section and final 10 mm flat
+upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -188,25 +193,24 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **58 / 72 mm** (two raised rows, **14 mm apart**, on the full-depth wall)
+- Y = **60 / 124 mm** (two rows, 10 mm inside the lower/upper edges of the 84 mm full-depth wall)
 - boss OD = **7 mm**
 - boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
-For the measured ~110 × 80 × 37 mm PSU, the central 244 × 86 × 54 mm
-full-depth region still leaves about 67 mm per side horizontally when centred,
-3 mm above/below the 80 mm dimension, and 17 mm of depth clearance. Above the
-lower guide transition, the rear shell additionally extends to the full service
-width so the enclosure/end-piece profile is continuous. Where a 4 mm boss overlaps
+For the measured ~110 × 80 × 37 mm PSU, the full-width ~255 × 84 × 54 mm
+equipment region leaves ample horizontal room, 2 mm above/below the 80 mm
+dimension when centred, and 17 mm of depth clearance. The rear shell profile is
+continuous across X above the lower guide/insertion section. Where a 4 mm boss overlaps
 the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
 ## Side alignment
 
 The base guide towers expose complementary pin/socket features on their left
 and right edges so identical neighbouring modules self-align. These junctions
-sit on the **inside/cavity-facing portion of the 30 mm guide towers**. End-panel
+sit on the **inside/cavity-facing portion of the 50 mm guide towers**. End-panel
 mating sockets are blind from the inside, leaving the outside side faces solid.
 
 - pin diameter: **4.0 mm**
@@ -249,8 +253,8 @@ STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
-the 54 mm universal deep zone, **ramp-only ventilation**, the final 10 mm flat
-top wall, the three-screw top closure, integrated rail end stops, lower usable
+the 54 mm universal deep zone, the **constant X profile and horizontal vents**,
+the final 10 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
 equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
@@ -263,18 +267,19 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    remove/loosen them and confirm the real 6 mm rail lets the **panel/template**
    rotate freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify the narrowed lower 30 mm slides
+4. Print one universal backplane and verify the narrowed lower 50 mm slides
    between both 5 mm guide towers with 0.4 mm running clearance, then seats
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, the ventilation appears only in the return ramp, and the final 10 mm
-   wall is flat/parallel to the panel with all three top-row closure holes
-   aligned. Confirm there are still no rear cable/ribbon slots.
+   width, the horizontal vent rows are clean on both the lower transition and
+   upper return ramp, and the long rear wall remains solid for the boss grid.
+   Confirm the final 10 mm wall is flat/parallel to the panel with all three
+   top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
-   exterior faces, taper alignment, and that the integrated end stops terminate
-   the 6 mm rod at X=10/246 without touching either hinge barrel.
+   exterior faces, profile alignment, and that each capped rod retainer remains
+   hollow around the 6 mm rod up to the nearest hinge barrel.
 8. Verify two identical stationary equipment assemblies align side-by-side
    using the hidden guide-tower junctions.
 9. Fit representative M3 hardware/adapters to the **inside** lower boss grid
@@ -285,21 +290,22 @@ PETG remains preferred for repeated hinge testing.
 
 ### Backplane print stability
 
-The backplane's installed geometry has **no permanent rear feet**. The print
-failure was observed when the upright build reached the steep **54 mm -> shallow
-return ramp**, so the manufacturing wrapper now supports that ramp directly.
+The backplane now prints **side-on with the 256 mm X dimension vertical**. Above
+the guide section the shell has the same Y/Z profile on every structural layer,
+so the 54 mm deep wall, short return ramp and top wall build without the old
+under-ramp support forest.
 
-Five removable support ribs are placed across X in the solid bands between the
-ramp ventilation slots. Each rib contains five narrow vertical posts at roughly
-25%, 40%, 55%, 75% and 95% of the ramp depth change. The posts rise from a thin bed-connected rail and finish in a **0.8 mm-wide ×
-1.0 mm-high breakaway neck** that touches the ramp. This gives Bambu Studio real
-support under the ramp while keeping the contact small enough to snap/cut away
-after printing.
+The lower insertion tongue is intentionally narrower than the main shell so it
+can slide into the base U-channels. With the left end on the bed, that tongue
+starts about **1.6 mm above the bed**. The manufacturing wrapper therefore adds
+one **1.0 mm-thick breakaway strip** under the tongue, extending through the
+guide-height section and overlapping the tongue by **0.4 mm**. It is the only
+print-only support geometry.
 
-The supports exist only in `03_universal_equipment_backplane_PRINT_1.stl`;
+The support exists only in `03_universal_equipment_backplane_PRINT_1.stl`;
 `universal_equipment_backplane()` remains support-free for installed assembly
-and interference checks. After printing, snap/cut the support ribs away from
-under the ramp and clean the small contact areas.
+and interference checks. After printing, snap/cut the low strip away from the
+insertion tongue and clean the contact line.
 
 For the H2D production candidate use **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
 **0.20mm Standard @BBL H2D**, and the **Textured PEI Plate**.

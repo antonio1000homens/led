@@ -36,13 +36,16 @@ hinge_outer_d = 14;
 hinge_radius = hinge_outer_d/2;
 hinge_axial_clearance = 1.0;
 
-// Physical rail/end-stop contract. The detachable left/right end pieces close
-// the rail axis and stop the 6 mm rod at its defined endpoints. The stop face
-// reaches the rod end but never extends toward the nearest hinge barrel.
+// Physical rail/side-support contract. The detachable outer end pieces retain
+// the 6 mm rod axially, then continue inward as hollow sleeves around the rod
+// until they meet the nearest hinge barrel. The sleeve uses the same outer
+// diameter as the hinge barrels and the same 7.2 mm running bore, so the rod is
+// supported without becoming bonded to the side piece.
 hinge_rail_start_x = 10;
 hinge_rail_length = 236;
 hinge_rail_end_x = hinge_rail_start_x + hinge_rail_length;
-hinge_end_stop_d = hinge_bore_d;
+side_rod_sleeve_outer_d = hinge_outer_d;
+side_rod_sleeve_bore_d = hinge_bore_d;
 
 ground_clearance = 20;
 hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
@@ -257,66 +260,70 @@ adapter_hole_d = 3.4;
 adapter_boss_h = 4;
 adapter_x = [32,80,128,176,224];
 
-// CI refresh marker: canonical STL corresponds to the 54 mm universal cavity.
-// Universal deeper equipment envelope. The 54 mm centre zone remains inset at
-// the lower guide interface, because the top-down U-channels need that capture
-// geometry. Above the guide towers the rear shell expands to the full service
-// width instead of carrying the old 40 mm-depth edge lands up the enclosure.
-// The two detachable end pieces now follow this deeper outer profile.
+// Universal equipment envelope for side-on vertical printing.
 //
-// The full-depth centre region is sized around the measured 110 x 80 x 37 mm
-// PSU: 54 mm clear depth leaves 17 mm beyond the 37 mm PSU thickness. The deep
-// wall remains vertical for 86 mm, then returns to the shallow panel plane
-// through a ventilated ramp. The final 10 mm is flat/parallel to the LED panel
-// so the enclosure finishes flush at the top edge.
+// The production backplane is printed with its 256 mm X dimension vertical.
+// Above the 50 mm guide/insertion section, the shell therefore keeps one
+// identical Y/Z cross-section across the complete X length. Only the narrowed
+// lower insertion tongue differs at the two ends; its first layers receive a
+// small print-only breakaway support in the manufacturing wrapper.
 universal_deep_clear_depth = 54;
 universal_deep_wall_t = equipment_backplane_t;
+universal_guide_shoulder_t = equipment_backplane_t;
 
-// Lower guide-compatible centre span. This is the only place where the old
-// side inset remains mechanically necessary.
-universal_deep_x0 = service_x + side_guide_w + 0.5;
-universal_deep_x1 = service_x + service_w - side_guide_w - 0.5;
-universal_deep_w = universal_deep_x1-universal_deep_x0;
+// The installed lower tongue remains narrow enough to slide inside the two
+// U-channel guides. Above the guide tops the shell immediately uses the full
+// service width; there is no longer an X-dependent edge-depth transition.
+universal_deep_x0 = service_x;
+universal_deep_x1 = service_x + service_w;
+universal_deep_w = service_w;
+universal_full_x0 = universal_deep_x0;
+universal_full_x1 = universal_deep_x1;
+universal_full_w = universal_deep_w;
 
-// Above the guide towers the enclosure grows to the complete service width.
-// A short 8 mm depth transition avoids a sudden unsupported step in the
-// upright print while allowing the detachable ends to match the deep shell.
-universal_full_x0 = service_x;
-universal_full_x1 = service_x + service_w;
-universal_full_w = universal_full_x1-universal_full_x0;
-universal_edge_guide_clearance_y = 1;
-universal_edge_transition_y0 =
-    side_guide_y1 + universal_edge_guide_clearance_y;
-universal_edge_transition_y1 = universal_edge_transition_y0 + 8;
-
-universal_deep_transition_y0 = 6;
-universal_deep_y0 = 12;
-universal_deep_y1 = 98;
-
-// Keep the two accessory-boss rows close to the lower/upper edges of the
-// full-depth mounting region while retaining a 10 mm material border.
-adapter_edge_inset_y = 10;
-adapter_y = [
-    universal_deep_y0 + adapter_edge_inset_y,
-    universal_deep_y1 - adapter_edge_inset_y
-];
+// The full-depth equipment zone begins immediately above the guide section.
+// Keep at least 80 mm of vertical mounting height for the measured PSU, then
+// return to the shallow closure wall near the top. Because X is the print
+// vertical axis, this Y/Z return profile is repeated identically on every
+// structural layer and no under-ramp print supports are required.
+universal_deep_y0 = side_guide_y1;
 universal_top_flat_h = 10;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
+universal_return_ramp_h = 4;
+universal_deep_y1 = universal_deep_ramp_end_y-universal_return_ramp_h;
+
 universal_deep_rear_z =
     enclosure_front_z + universal_deep_clear_depth + universal_deep_wall_t;
 universal_deep_front_z =
     universal_deep_rear_z-universal_deep_wall_t;
 
-// Ventilation is confined to the universal deep ramp. The lower vertical wall
-// and final 10 mm top wall remain solid; rear cable slots remain retired.
-vent_side_margin = 12;
-vent_slot_w = 3;
-vent_pitch = 8;
-ramp_vent_bottom_margin = 6;
-ramp_vent_top_margin = 6;
-upper_vent_y = universal_deep_y1 + ramp_vent_bottom_margin;
-upper_vent_h =
-    universal_deep_ramp_end_y-ramp_vent_top_margin-upper_vent_y;
+// Keep the two accessory-boss rows inside the long full-depth mounting face.
+adapter_edge_inset_y = 10;
+adapter_y = [
+    universal_deep_y0 + adapter_edge_inset_y,
+    universal_deep_y1 - adapter_edge_inset_y
+];
+
+// Ventilation belongs on the enclosure's transition surfaces, NOT the rear
+// mounting wall. Keep a solid rear skin for the adapter bosses and place
+// horizontal slots across X on both the lower guide-to-depth shoulder and the
+// upper return ramp. With installed X mapped to print Z these slots become
+// vertical channels in the side-on print orientation.
+vent_slot_len = 36;
+vent_slot_gap = 10;
+vent_slot_count = 5;
+vent_slot_x0 =
+    universal_deep_x0 +
+    (universal_deep_w -
+     (vent_slot_count*vent_slot_len +
+      (vent_slot_count-1)*vent_slot_gap))/2;
+vent_slot_y_h = 1.8;
+bottom_ramp_vent_y =
+    universal_deep_y0 +
+    (universal_guide_shoulder_t-vent_slot_y_h)/2;
+top_ramp_vent_y =
+    universal_deep_y1 +
+    (universal_return_ramp_h-vent_slot_y_h)/2;
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -339,11 +346,17 @@ side_socket_depth = 2.2;
 side_t = 3;
 side_panel_clearance = 0.4;
 
-// Inner faces and axial lengths for the integrated rod end stops.
+// Inner faces and axial lengths for the integrated rod retainers/sleeves.
+// The capped portion stops the rod at X=10/246. From that point inward, the
+// support becomes a hollow sleeve and continues exactly to the nearest barrel.
 left_side_inner_x = -side_panel_clearance;
 right_side_inner_x = module_w + side_panel_clearance;
 left_rail_end_stop_len = hinge_rail_start_x - left_side_inner_x;
 right_rail_end_stop_len = right_side_inner_x - hinge_rail_end_x;
+left_side_rod_support_len = hinge_left_barrel_start - left_side_inner_x;
+right_side_rod_support_len = right_side_inner_x - hinge_right_barrel_end;
+left_side_rod_sleeve_len = hinge_left_barrel_start - hinge_rail_start_x;
+right_side_rod_sleeve_len = hinge_rail_end_x - hinge_right_barrel_end;
 
 side_connector_overlap = 0.4;
 side_connector_bridge = side_panel_clearance + backplane_edge_inset;
@@ -355,7 +368,7 @@ side_connector_pin_len =
 // panel. The vertical release SLOT is only a void and continues upward through
 // the ramp to allow 15 mm of top-down service motion at the end plates.
 top_connector_y = 71;
-top_connector_z = equipment_backplane_rear_z - 1.3;
+top_connector_z = universal_deep_rear_z - 1.3;
 top_connector_release_travel = 15;
 top_connector_slot_lower_span = 20;
 top_connector_slot_bottom_y = top_connector_y - top_connector_slot_lower_span;
@@ -701,14 +714,16 @@ module internal_adapter_hole_cutters() {
 }
 
 function tapered_backplane_rear_z_at_y(y) =
-    y <= backplane_ramp_start_y
+    y < universal_deep_y0
         ? equipment_backplane_lower_rear_z
-        : y >= backplane_ramp_end_y
-            ? equipment_backplane_top_rear_z
-            : equipment_backplane_lower_rear_z +
-              (equipment_backplane_top_rear_z-equipment_backplane_lower_rear_z) *
-              ((y-backplane_ramp_start_y)/
-               (backplane_ramp_end_y-backplane_ramp_start_y));
+        : y <= universal_deep_y1
+            ? universal_deep_rear_z
+            : y >= universal_deep_ramp_end_y
+                ? equipment_backplane_top_rear_z
+                : universal_deep_rear_z +
+                  (equipment_backplane_top_rear_z-universal_deep_rear_z) *
+                  ((y-universal_deep_y1)/
+                   (universal_deep_ramp_end_y-universal_deep_y1));
 
 module top_backplane_connector_pad(side="left") {
     x0 = side == "left"
@@ -923,74 +938,40 @@ module backplane_shell_solid() {
     }
 }
 
-// Replace the centre of the native/interface shell with the deeper universal
-// equipment volume. The lower guide-compatible side inset is retained only
-// below the edge-depth transition; above it the rear shell reaches full width.
+// Replace the native shell above the guide section with one constant-width
+// universal profile. The only reduced-width region is the lower insertion
+// tongue that remains in backplane_shell_solid().
 module universal_native_backplane_opening() {
-    // The centre deep zone starts low enough to preserve the PSU-fit height.
     translate([
-        universal_deep_x0,
+        service_x,
         universal_deep_y0-0.2,
         -1
     ])
         cube([
-            universal_deep_w,
+            service_w,
             enclosure_top_y-universal_deep_y0+0.4,
             universal_deep_rear_z+2
         ]);
 }
 
-module universal_edge_native_openings() {
-    // Remove the old 40 mm-depth side lands only after the U-channel guide
-    // interface has finished. The lower capture geometry therefore remains
-    // unchanged, while the upper enclosure can run at the full 54 mm profile.
-    edge_spans = [
-        [service_x, universal_deep_x0-service_x],
-        [universal_deep_x1, service_x+service_w-universal_deep_x1]
-    ];
-
-    for (span=edge_spans)
-        translate([
-            span[0],
-            universal_edge_transition_y0-0.2,
-            -1
-        ])
-            cube([
-                span[1],
-                enclosure_top_y-universal_edge_transition_y0+0.4,
-                universal_deep_rear_z+2
-            ]);
-}
-
 module universal_deep_rear_shell() {
     slice_h = 1.0;
 
-    // Print-friendly lower transition immediately above the base seat.
-    hull() {
-        translate([
-            universal_deep_x0,
-            universal_deep_transition_y0,
-            equipment_backplane_front_z
-        ])
-            cube([
-                universal_deep_w,
-                slice_h,
-                equipment_backplane_t
-            ]);
+    // Full-width shoulder immediately ABOVE the guide tops. It bridges the
+    // shallow insertion wall to the deep rear wall without intruding into the
+    // 50 mm U-channel insertion envelope below universal_deep_y0.
+    translate([
+        universal_deep_x0,
+        universal_deep_y0,
+        equipment_backplane_front_z
+    ])
+        cube([
+            universal_deep_w,
+            universal_guide_shoulder_t,
+            universal_deep_rear_z-equipment_backplane_front_z
+        ]);
 
-        translate([
-            universal_deep_x0,
-            universal_deep_y0-slice_h,
-            universal_deep_front_z
-        ])
-            cube([
-                universal_deep_w,
-                slice_h,
-                universal_deep_wall_t
-            ]);
-    }
-
-    // Full 54 mm clear-depth centre equipment region.
+    // Full-width 54 mm equipment wall.
     translate([
         universal_deep_x0,
         universal_deep_y0-slice_h,
@@ -1002,7 +983,7 @@ module universal_deep_rear_shell() {
             universal_deep_wall_t
         ]);
 
-    // Ventilated return ramp.
+    // Full-width return ramp, repeated identically across X.
     hull() {
         translate([
             universal_deep_x0,
@@ -1027,7 +1008,7 @@ module universal_deep_rear_shell() {
             ]);
     }
 
-    // Final 10 mm stays flat/parallel to the panel for a flush top edge.
+    // Final 10 mm closure wall remains flat/parallel to the LED panel.
     translate([
         universal_deep_x0,
         universal_deep_ramp_end_y-slice_h,
@@ -1040,166 +1021,45 @@ module universal_deep_rear_shell() {
         ]);
 }
 
-module universal_edge_rear_shell(side="left") {
-    // Extend the rear shell from the guide-compatible centre span out to each
-    // module edge. The extension begins only above the lower guide towers.
-    x0 = side == "left" ? service_x : universal_deep_x1;
-    edge_w = side == "left"
-        ? universal_deep_x0-service_x
-        : service_x+service_w-universal_deep_x1;
-    slice_h = 1.0;
-
-    // 40 -> 54 mm depth transition immediately above the guide towers.
-    hull() {
-        translate([
-            x0,
-            universal_edge_transition_y0-slice_h,
-            equipment_backplane_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                equipment_backplane_t
-            ]);
-
-        translate([
-            x0,
-            universal_edge_transition_y1-slice_h,
-            universal_deep_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                universal_deep_wall_t
-            ]);
-    }
-
-    // Match the centre region at full depth once clear of the guide towers.
-    translate([
-        x0,
-        universal_edge_transition_y1-slice_h,
-        universal_deep_front_z
-    ])
-        cube([
-            edge_w,
-            universal_deep_y1-universal_edge_transition_y1+slice_h,
-            universal_deep_wall_t
-        ]);
-
-    // Follow the same return ramp as the centre shell.
-    hull() {
-        translate([
-            x0,
-            universal_deep_y1-slice_h,
-            universal_deep_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                universal_deep_wall_t
-            ]);
-
-        translate([
-            x0,
-            universal_deep_ramp_end_y-slice_h,
-            equipment_backplane_top_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                equipment_backplane_t
-            ]);
-    }
-
-    translate([
-        x0,
-        universal_deep_ramp_end_y-slice_h,
-        equipment_backplane_top_front_z
-    ])
-        cube([
-            edge_w,
-            enclosure_top_y-universal_deep_ramp_end_y+slice_h,
-            equipment_backplane_t
-        ]);
-}
-
-module universal_deep_side_wall(side="left") {
-    // The centre-zone side walls are now only lower transition ribs. They stop
-    // once the outer edge shell has reached full depth, eliminating the tall
-    // internal "arms" that previously separated the centre from the end zones.
-    x0 = side == "left"
-        ? universal_deep_x0
-        : universal_deep_x1-universal_deep_wall_t;
-    slice_h = 1.0;
-
-    hull() {
-        translate([
-            x0,
-            universal_deep_transition_y0,
-            equipment_backplane_front_z
-        ])
-            cube([
-                universal_deep_wall_t,
-                slice_h,
-                equipment_backplane_t
-            ]);
-        translate([
-            x0,
-            universal_deep_y0-slice_h,
-            equipment_backplane_front_z
-        ])
-            cube([
-                universal_deep_wall_t,
-                slice_h,
-                universal_deep_rear_z-equipment_backplane_front_z
-            ]);
-    }
-
-    translate([
-        x0,
-        universal_deep_y0-slice_h,
-        equipment_backplane_front_z
-    ])
-        cube([
-            universal_deep_wall_t,
-            universal_edge_transition_y1-universal_deep_y0+slice_h,
-            universal_deep_rear_z-equipment_backplane_front_z
-        ]);
-}
-
-
-
 module universal_backplane_shell_solid() {
     union() {
         difference() {
             backplane_shell_solid();
             universal_native_backplane_opening();
-            universal_edge_native_openings();
         }
         universal_deep_rear_shell();
-        universal_edge_rear_shell("left");
-        universal_edge_rear_shell("right");
-        universal_deep_side_wall("left");
-        universal_deep_side_wall("right");
     }
 }
 
 module ramp_ventilation_cutters() {
-    for (x=[
-        universal_deep_x0+vent_side_margin :
-        vent_pitch :
-        universal_deep_x1-vent_side_margin-vent_slot_w
-    ])
+    // Five horizontal slots on the lower shoulder and five on the upper return
+    // ramp. The cutter spans Z so it follows the actual sloped/shoulder wall
+    // wherever it intersects; it never crosses the long rear boss-mount wall.
+    for (i=[0:vent_slot_count-1]) {
+        xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
+
         translate([
-            x,
-            upper_vent_y,
+            xx,
+            bottom_ramp_vent_y,
             equipment_backplane_top_front_z-2
         ])
             cube([
-                vent_slot_w,
-                upper_vent_h,
+                vent_slot_len,
+                vent_slot_y_h,
                 universal_deep_rear_z-equipment_backplane_top_front_z+4
             ]);
+
+        translate([
+            xx,
+            top_ramp_vent_y,
+            equipment_backplane_top_front_z-2
+        ])
+            cube([
+                vent_slot_len,
+                vent_slot_y_h,
+                universal_deep_rear_z-equipment_backplane_top_front_z+4
+            ]);
+    }
 }
 
 module universal_equipment_backplane() {
@@ -1235,220 +1095,96 @@ module universal_equipment_backplane() {
     }
 }
 
-// ---------- Backplane print orientation + removable ramp supports ----------
+// ---------- Backplane print orientation: 256 mm length vertical ----------
 //
-// The physical failure occurred when the tall upright print reached the
-// 54 mm -> shallow return ramp. The installed enclosure therefore stays clean:
-// no permanent rear feet are added. Instead, the manufacturing wrapper adds
-// removable supports directly UNDER the ramp in print coordinates.
+// Print the backplane on its left end so installed +X becomes print +Z.
+// Because the shell above the guide section now has one constant Y/Z profile
+// across X, the return ramp is reproduced layer-by-layer and needs no slicer
+// support. The only intentionally smaller feature is the lower insertion tongue:
+// it begins lower_backplane_edge_inset above the bed, so a narrow print-only
+// breakaway strip supports those first layers and is removed after printing.
 //
-// Installed +Y maps to print +Z and installed rearward +Z maps to print -Y.
-// The support posts rise vertically from the bed and touch the ramp through
-// narrow breakaway necks with a small two-layer overlap rather than leaving
-// an air gap or relying on coplanar contact. Five X ribs are centred in solid
-// bands between the 3 mm ventilation slots, and each rib supports four points
-// along the ramp. A thin bed rail ties each rib together and intersects the
-// lower backplane wall so the generated STL remains one printable shell.
-backplane_print_origin_y = equipment_backplane_rear_z + adapter_boss_h;
+// Rotation [0,-90,0] maps installed +X -> print +Z and installed +Z -> print -X.
+backplane_print_shift_x = universal_deep_rear_z + 1;
+backplane_print_shift_y = -equipment_backplane_y0;
+backplane_print_shift_z = -service_x;
 
-ramp_print_support_x = [24,72,120,168,216];
-ramp_print_support_levels = [0.25,0.40,0.55,0.75,0.95];
-ramp_print_support_post_w = 4;
-ramp_print_support_post_d = 2.4;
-ramp_print_support_slice_d = 0.4;
-ramp_print_support_base_t = 0.8;
-ramp_print_support_neck_w = 0.8;
-ramp_print_support_neck_h = 1.0;
-ramp_print_support_contact_overlap = 0.4;
+insertion_print_support_t = 1.0;
+insertion_print_support_overlap = 0.4;
+insertion_print_support_h =
+    lower_backplane_edge_inset + insertion_print_support_overlap;
+insertion_print_support_y =
+    side_guide_y1 - equipment_backplane_y0;
+insertion_print_lower_wall_x0 =
+    backplane_print_shift_x-equipment_backplane_rear_z;
+insertion_print_lower_wall_x1 =
+    backplane_print_shift_x-equipment_backplane_front_z;
+insertion_print_support_x =
+    (insertion_print_lower_wall_x0+insertion_print_lower_wall_x1)/2
+    - insertion_print_support_t/2;
 
-// Print-space line followed by the cavity-facing surface of the return ramp.
-ramp_print_inner_y0 =
-    backplane_print_origin_y-universal_deep_front_z;
-ramp_print_inner_y1 =
-    backplane_print_origin_y-equipment_backplane_top_front_z;
-ramp_print_z0 = universal_deep_y1-equipment_backplane_y0;
-ramp_print_z1 =
-    universal_deep_ramp_end_y-equipment_backplane_y0;
-
-function ramp_print_y_at_level(level) =
-    ramp_print_inner_y0 +
-    (ramp_print_inner_y1-ramp_print_inner_y0)*level;
-
-function ramp_print_z_at_y(print_y) =
-    ramp_print_z0 +
-    (ramp_print_z1-ramp_print_z0) *
-    ((print_y-ramp_print_inner_y0)/
-     (ramp_print_inner_y1-ramp_print_inner_y0));
-
-ramp_print_support_base_y0 =
-    ramp_print_y_at_level(ramp_print_support_levels[0])
-    - ramp_print_support_post_d/2;
-ramp_print_support_base_y1 =
-    ramp_print_y_at_level(
-        ramp_print_support_levels[len(ramp_print_support_levels)-1]
-    ) + ramp_print_support_post_d/2;
-
-// One vertical print-space post with a sloped top that follows the underside
-// of the ramp. The main 4 mm post stops 1 mm short of the ramp, then a narrow
-// 0.8 mm breakaway neck makes real contact. This prevents Bambu Studio from
-// treating the ramp as a floating cantilever while keeping removal practical.
-module ramp_print_support_post(xc, level) {
-    body_x0 = xc-ramp_print_support_post_w/2;
-    neck_x0 = xc-ramp_print_support_neck_w/2;
-    yc = ramp_print_y_at_level(level);
-    y0 = yc-ramp_print_support_post_d/2;
-    y1 = yc+ramp_print_support_post_d/2;
-    ramp_z0 = ramp_print_z_at_y(y0);
-    ramp_z1 = ramp_print_z_at_y(y1);
-    body_z0 = max(ramp_z0-ramp_print_support_neck_h,0.1);
-    body_z1 = max(ramp_z1-ramp_print_support_neck_h,0.1);
-
-    // Main vertical post.
-    hull() {
-        translate([body_x0,y0,0])
-            cube([
-                ramp_print_support_post_w,
-                ramp_print_support_slice_d,
-                body_z0
-            ]);
-        translate([
-            body_x0,
-            y1-ramp_print_support_slice_d,
-            0
-        ])
-            cube([
-                ramp_print_support_post_w,
-                ramp_print_support_slice_d,
-                body_z1
-            ]);
-    }
-
-    // Thin sloped-top breakaway neck. It overlaps the ramp by two 0.20 mm
-    // layers so the slicer sees a true structural union rather than coplanar
-    // contact, while the 0.8 mm neck remains easy to cut after printing.
-    hull() {
-        translate([
-            neck_x0,
-            y0,
-            body_z0-ramp_print_support_slice_d
-        ])
-            cube([
-                ramp_print_support_neck_w,
-                ramp_print_support_slice_d,
-                ramp_print_support_neck_h+
-                    ramp_print_support_contact_overlap+
-                    ramp_print_support_slice_d
-            ]);
-        translate([
-            neck_x0,
-            y1-ramp_print_support_slice_d,
-            body_z1-ramp_print_support_slice_d
-        ])
-            cube([
-                ramp_print_support_neck_w,
-                ramp_print_support_slice_d,
-                ramp_print_support_neck_h+
-                    ramp_print_support_contact_overlap+
-                    ramp_print_support_slice_d
-            ]);
-    }
-}
-
-module ramp_print_supports() {
-    for (xc=ramp_print_support_x) {
-        // Thin bed-connected rail. It passes through the print-space location
-        // of the lower 40 mm wall, tying the removable supports to the model
-        // without adding any geometry to the installed enclosure.
-        translate([
-            xc-ramp_print_support_post_w/2,
-            ramp_print_support_base_y0,
-            0
-        ])
-            cube([
-                ramp_print_support_post_w,
-                ramp_print_support_base_y1-ramp_print_support_base_y0,
-                ramp_print_support_base_t
-            ]);
-
-        for (level=ramp_print_support_levels)
-            ramp_print_support_post(xc,level);
-    }
+module insertion_tongue_print_support() {
+    // A 1 mm-thick sacrificial strip supports the centre of the 3 mm insertion
+    // wall for only the 1.6 mm end inset, with 0.4 mm overlap for a reliable
+    // printable union. It snaps/cuts away after the print.
+    translate([
+        insertion_print_support_x,
+        0,
+        0
+    ])
+        cube([
+            insertion_print_support_t,
+            insertion_print_support_y,
+            insertion_print_support_h
+        ]);
 }
 
 module universal_equipment_backplane_print() {
     union() {
         translate([
-            0,
-            backplane_print_origin_y,
-            -equipment_backplane_y0
+            backplane_print_shift_x,
+            backplane_print_shift_y,
+            backplane_print_shift_z
         ])
-            rotate([90,0,0])
+            rotate([0,-90,0])
                 universal_equipment_backplane();
 
-        ramp_print_supports();
+        insertion_tongue_print_support();
     }
 }
 
 // ---------- Detachable side/end pieces ----------
 
 module side_wall_body(side="right") {
-    // Outer end pieces close only the display's two outside edges. Internal
-    // module seams remain open for HUB75/power cabling. The end profile now
-    // follows the universal 54 mm shell instead of forcing the enclosure to
-    // retain a 40 mm-depth side land for legacy end-piece compatibility.
+    // Outer end pieces use the same Y/Z profile as the universal backplane:
+    // shallow through the guide/insertion section, full 54 mm depth above the
+    // guides, then the common return ramp and final shallow closure wall.
     x0 = side == "right"
         ? module_w + side_panel_clearance
         : -side_t - side_panel_clearance;
 
     union() {
-        // Preserve the lower 40 mm guide interface where the removable
-        // backplane is captured by the base U-channels.
+        // Lower guide-compatible section.
         translate([x0,service_base_y,enclosure_front_z])
             cube([
                 side_t,
-                universal_edge_transition_y0-service_base_y,
+                universal_deep_y0-service_base_y,
                 equipment_backplane_lower_rear_z-enclosure_front_z
             ]);
 
-        // Follow the same short 40 -> 54 mm depth transition used at the
-        // backplane edge immediately above the guide towers.
-        hull() {
-            translate([
-                x0,
-                universal_edge_transition_y0-1,
-                enclosure_front_z
-            ])
-                cube([
-                    side_t,
-                    1,
-                    equipment_backplane_lower_rear_z-enclosure_front_z
-                ]);
-
-            translate([
-                x0,
-                universal_edge_transition_y1-1,
-                enclosure_front_z
-            ])
-                cube([
-                    side_t,
-                    1,
-                    universal_deep_rear_z-enclosure_front_z
-                ]);
-        }
-
-        // Full-depth outer end through the universal equipment zone.
+        // Full-depth equipment region.
         translate([
             x0,
-            universal_edge_transition_y1-1,
+            universal_deep_y0,
             enclosure_front_z
         ])
             cube([
                 side_t,
-                universal_deep_y1-universal_edge_transition_y1+1,
+                universal_deep_y1-universal_deep_y0,
                 universal_deep_rear_z-enclosure_front_z
             ]);
 
-        // Match the universal deep return ramp.
+        // Common full-depth -> shallow return ramp.
         hull() {
             translate([
                 x0,
@@ -1487,19 +1223,51 @@ module side_wall_body(side="right") {
     }
 }
 
-module side_rail_end_stop(side="right") {
-    // Integrated solid end stop on each detachable outer side. Each plug grows
-    // inward exactly to the corresponding rod endpoint. In the side-piece
-    // print orientation this cylinder grows vertically from the wall, so it
-    // does not introduce a floating cantilever.
+module side_rod_retainer_sleeve(side="right") {
+    // The outer support runs continuously from the detachable side wall to the
+    // nearest hinge barrel. Only the segment overlapping the physical rod is
+    // bored out; the short outer segment remains capped so the rod is retained
+    // axially while still rotating freely inside the 7.2 mm clearance bore.
     if (side == "left") {
-        translate([left_side_inner_x,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=hinge_end_stop_d,h=left_rail_end_stop_len);
+        difference() {
+            translate([left_side_inner_x,hinge_axis_y,hinge_axis_z])
+                rotate([0,90,0])
+                    cylinder(
+                        d=side_rod_sleeve_outer_d,
+                        h=left_side_rod_support_len
+                    );
+
+            translate([
+                hinge_rail_start_x-0.1,
+                hinge_axis_y,
+                hinge_axis_z
+            ])
+                rotate([0,90,0])
+                    cylinder(
+                        d=side_rod_sleeve_bore_d,
+                        h=left_side_rod_sleeve_len+0.2
+                    );
+        }
     } else {
-        translate([right_side_inner_x,hinge_axis_y,hinge_axis_z])
-            rotate([0,-90,0])
-                cylinder(d=hinge_end_stop_d,h=right_rail_end_stop_len);
+        difference() {
+            translate([right_side_inner_x,hinge_axis_y,hinge_axis_z])
+                rotate([0,-90,0])
+                    cylinder(
+                        d=side_rod_sleeve_outer_d,
+                        h=right_side_rod_support_len
+                    );
+
+            translate([
+                hinge_rail_end_x+0.1,
+                hinge_axis_y,
+                hinge_axis_z
+            ])
+                rotate([0,-90,0])
+                    cylinder(
+                        d=side_rod_sleeve_bore_d,
+                        h=right_side_rod_sleeve_len+0.2
+                    );
+        }
     }
 }
 
@@ -1571,7 +1339,7 @@ module equipment_side(side="right") {
     difference() {
         union() {
             side_wall_body(side);
-            side_rail_end_stop(side);
+            side_rod_retainer_sleeve(side);
             if (side == "right")
                 right_side_pins();
             else
