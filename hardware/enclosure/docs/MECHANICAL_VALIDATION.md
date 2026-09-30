@@ -29,7 +29,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - a 2 mm voxel floating-layer/island proxy;
 - no volumetric interference between the stationary base and removable backplane;
 - positive backplane seating in the recessed rear base groove;
-- top-down insertion clearance and 0.4 mm nominal groove clearance;
+- top-down insertion clearance and 0.6 mm nominal groove clearance;
 - dual **40 mm × 5 mm** structural side guides with 0.6 mm running clearance;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
 - hidden guide-tower junctions kept within the bed-connected lower band;
@@ -112,7 +112,7 @@ sets:
 7. confirm the 54 mm deep universal region spans the usable backplane width,
    the rounded 24 × 1 mm vents are confined to the reinforced lower transition and longer upper return
    ramp, the long rear boss-mount wall remains solid, the ramps need no slicer
-   supports, the final 10 mm upper wall is flat/parallel to the panel, there are
+   supports, the final 11.5 mm upper wall is flat/parallel to the panel, there are
    no rear cable/ribbon through-slots, and all three 4.5 mm top closure holes
    align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
