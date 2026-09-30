@@ -13,13 +13,18 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/static-web.yml'
       - 'simulator/**'
       - 'scripts/deploy-static.sh'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# New commits on the same pull request supersede stale validation runs.
+# Non-PR runs fall back to github.run_id, so production/manual runs remain unique.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 env:
   PYTHONPATH: hardware/matrixportal/firmware:backend:shared
@@ -63,6 +68,7 @@ jobs:
       id-token: write
     concurrency:
       group: led-production
+      queue: max
       cancel-in-progress: false
     steps:
       - name: Check out repository

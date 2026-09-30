@@ -12,7 +12,6 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/cloudflare.yml'
       - 'scripts/cloudflare_dns.py'
       - 'scripts/configure-cloudflare-dns.sh'
       - 'scripts/request-acm-certificate.sh'
@@ -20,6 +19,12 @@ on:
 
 permissions:
   contents: read
+
+# New commits on the same pull request supersede stale validation runs.
+# Non-PR runs fall back to github.run_id, so production/manual runs remain unique.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 env:
   AWS_REGION: eu-west-2
@@ -60,6 +65,7 @@ jobs:
       id-token: write
     concurrency:
       group: led-production
+      queue: max
       cancel-in-progress: false
     steps:
       - name: Check out repository

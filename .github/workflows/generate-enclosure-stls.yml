@@ -25,7 +25,6 @@ on:
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
       - '.windsor-slicer.yaml'
-      - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
 permissions:
@@ -34,7 +33,7 @@ permissions:
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
 concurrency:
-  group: enclosure-validate-${{ github.ref }}
+  group: enclosure-validate-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
