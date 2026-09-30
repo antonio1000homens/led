@@ -378,12 +378,13 @@ assert(abs(ramp_print_support_post_w-4) < 0.01 &&
 assert(abs(ramp_print_support_base_t-0.8) < 0.01,
        "ramp support bed rail must remain 0.8 mm thick");
 assert(abs(ramp_print_support_neck_w-0.8) < 0.01 &&
-       abs(ramp_print_support_neck_h-1.0) < 0.01,
-       "ramp support breakaway neck must remain 0.8 mm wide x 1.0 mm high");
-assert(ramp_print_support_levels[0] <= 0.15 &&
+       abs(ramp_print_support_neck_h-1.0) < 0.01 &&
+       abs(ramp_print_support_contact_overlap-0.4) < 0.01,
+       "ramp support breakaway neck/overlap contract drifted");
+assert(ramp_print_support_levels[0] <= 0.25 &&
        ramp_print_support_levels[4] >= 0.95 &&
        ramp_print_support_levels[4] < 1.0,
-       "ramp supports no longer cover the early-to-upper ramp span");
+       "ramp supports no longer cover the lower-to-upper ramp span");
 assert(abs(ramp_print_z0-
            (universal_deep_y1-equipment_backplane_y0)) < 0.01 &&
        abs(ramp_print_z1-
@@ -631,6 +632,7 @@ def assert_no_legacy_layout() -> None:
         "ramp_print_supports()",
         "ramp_print_support_neck_w",
         "ramp_print_support_neck_h",
+        "ramp_print_support_contact_overlap",
     ):
         if required not in source_text:
             raise SystemExit(
