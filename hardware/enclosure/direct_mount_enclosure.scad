@@ -288,7 +288,7 @@ universal_full_w = universal_deep_w;
 universal_deep_y0 = side_guide_y1;
 universal_top_flat_h = 10;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
-universal_return_ramp_h = 6;
+universal_return_ramp_h = 4;
 universal_deep_y1 = universal_deep_ramp_end_y-universal_return_ramp_h;
 
 universal_deep_rear_z =
