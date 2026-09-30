@@ -29,6 +29,8 @@ PARTS = {
 PREVIEWS = (
     "00_hinged_enclosure_ASSEMBLY.scad",
     "00_hinged_enclosure_CLOSED_ASSEMBLY.scad",
+    "00_complete_enclosure_OPEN_ASSEMBLY.scad",
+    "00_complete_enclosure_CLOSED_ASSEMBLY.scad",
 )
 
 def render(source: Path, output: Path) -> None:
