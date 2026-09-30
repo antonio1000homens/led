@@ -25,7 +25,6 @@ on:
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
       - '.windsor-slicer.yaml'
-      - '.github/workflows/generate-enclosure-stls.yml'
   workflow_dispatch:
 
 permissions:
