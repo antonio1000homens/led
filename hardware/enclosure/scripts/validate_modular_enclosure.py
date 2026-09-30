@@ -379,10 +379,22 @@ assert(universal_return_ramp_h >= 12,
        "upper return ramp is too steep for the narrow safety vent throat");
 assert(universal_guide_shoulder_t >= 8,
        "lower tongue/deep-shell transition shoulder is too thin");
-assert(bottom_ramp_vent_y >= universal_deep_y0 &&
-       bottom_ramp_vent_y+vent_slot_y_h <=
-           universal_deep_y0+universal_guide_shoulder_t+0.01,
-       "bottom vents must remain in the lower transition shoulder");
+assert(bottom_ramp_vent_rows == 3 && len(bottom_ramp_vent_y) == 3,
+       "lower transition shoulder must carry exactly three ventilation rows");
+assert(bottom_ramp_vent_margin_y >= 1.25,
+       "lower vent rows lost their structural end margin");
+assert(bottom_ramp_vent_row_gap >= 1.25,
+       "lower vent rows are too close together");
+assert(bottom_ramp_vent_y[0] >=
+           universal_deep_y0+bottom_ramp_vent_margin_y-0.01 &&
+       bottom_ramp_vent_y[2]+vent_slot_y_h <=
+           universal_deep_y0+universal_guide_shoulder_t-
+               bottom_ramp_vent_margin_y+0.01,
+       "bottom vent rows must remain inside the lower shoulder margins");
+for (row=[0:1])
+    assert(bottom_ramp_vent_y[row+1] -
+               (bottom_ramp_vent_y[row]+vent_slot_y_h) >= 1.25,
+           "bottom vent rows lost the minimum solid land between openings");
 assert(top_ramp_vent_rows == 4 && len(top_ramp_vent_y) == 4,
        "upper return ramp must carry exactly four ventilation rows");
 assert(top_ramp_vent_margin_y >= 1.5,
