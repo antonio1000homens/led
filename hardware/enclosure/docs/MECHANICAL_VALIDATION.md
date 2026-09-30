@@ -19,8 +19,8 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the installed backplane contains no permanent rear support feet;
 - the manufacturing wrapper adds five removable under-ramp support ribs, each
   with five vertical posts covering roughly 15% through 95% of the return ramp;
-- support ribs sit in solid X bands between ventilation slots and stop 0.20 mm
-  below the ramp to provide a one-layer PETG release interface;
+- support ribs sit in solid X bands between ventilation slots and touch the
+  ramp through 0.8 mm-wide × 1.0 mm-high breakaway necks;
 - the old transverse front/rear stabilisers remain absent;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
