@@ -217,8 +217,18 @@ These features provide alignment/retention, not the primary structural load.
 
 ## Assembly previews
 
-- `schematics/00_hinged_enclosure_ASSEMBLY.scad` — panel open to 90°
-- `schematics/00_hinged_enclosure_CLOSED_ASSEMBLY.scad` — panel closed
+Single-module service views:
+
+- `schematics/00_hinged_enclosure_ASSEMBLY.scad` — one module open to 90°
+- `schematics/00_hinged_enclosure_CLOSED_ASSEMBLY.scad` — one module closed
+
+Complete four-module display views:
+
+- `schematics/00_complete_enclosure_OPEN_ASSEMBLY.scad` — all four modules open to 90°
+- `schematics/00_complete_enclosure_CLOSED_ASSEMBLY.scad` — all four modules closed
+
+The complete views use the current self-mating modular geometry: internal seams do
+not carry detachable side retainers; only the two outside edges use end pieces.
 
 ## STL generation and validation
 
