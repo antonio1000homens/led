@@ -428,18 +428,26 @@ assert(top_connector_slot_bottom_y <
 assert(top_connector_slot_bottom_y + 15 <=
            top_connector_y-top_connector_tab_h/2,
        "top connector guide slot lacks 15 mm downward release travel");
-assert(top_connector_pad_y0 <= top_connector_slot_bottom_y &&
-       top_connector_pad_y1 >
-           top_connector_y+connector_socket_d/2,
-       "top connector support pad does not surround the final pin position");
+assert(top_connector_pad_y0 <=
+           top_connector_y-top_connector_tab_h/2-top_connector_pad_y_margin+0.01 &&
+       top_connector_pad_y1 >=
+           top_connector_y+top_connector_tab_h/2,
+       "compact top connector boss does not surround the seated tab");
+assert(top_connector_pad_y1 <= backplane_ramp_start_y+0.01 &&
+       top_connector_pad_y1-top_connector_pad_y0 <= 12,
+       "compact top connector boss grew back into a long vertical arm");
 assert(top_connector_pad_depth >=
            connector_socket_d+2*top_connector_support_margin,
-       "top connector support pad is too shallow for the locating slot");
-assert(abs(top_connector_pad_lower_depth-equipment_backplane_t) < 0.01,
-       "top connector pad must begin at native backplane thickness");
-assert(top_connector_pad_ramp_end_y <=
-           top_connector_y-top_connector_tab_h/2+0.01,
-       "top connector support pad must finish its ramp before the tab");
+       "compact top connector boss is too shallow for the locating slot");
+assert(abs(top_connector_pad_inner_depth-equipment_backplane_t) < 0.01,
+       "connector boss must taper back to native rear-wall thickness");
+assert(top_connector_pad_seam_w >= connector_socket_depth+0.8 &&
+       top_connector_pad_seam_w < top_connector_pad_w,
+       "connector boss full-depth seam land must continue beyond the release slot");
+assert(top_connector_pad_w-top_connector_pad_seam_w >=
+           top_connector_pad_depth-top_connector_pad_inner_depth &&
+       top_connector_pad_slice_w <= 1.0+0.01,
+       "connector boss X taper is too abrupt for side-on vertical printing");
 assert(top_connector_tab_t < connector_socket_d &&
        connector_socket_d-top_connector_tab_t >= 0.8,
        "ramped top connector tab lacks guide-slot clearance");
@@ -447,21 +455,18 @@ assert(top_connector_tab_h >=
            2*(top_connector_tab_len-top_connector_tab_root_len),
        "ramped top connector tab is too steep for support-free printing");
 assert(top_connector_tab_root_len > top_connector_overlap,
-       "ramped top connector tab root does not overlap its support pad");
+       "ramped top connector tab root does not overlap its support boss");
 assert(top_connector_z-connector_socket_d/2 >=
-           tapered_backplane_rear_z_at_y(top_connector_y)
-               - top_connector_pad_depth
+           universal_deep_rear_z-top_connector_pad_depth
                + top_connector_support_margin,
-       "top connector is too close to the inside face of its support pad");
+       "top connector is too close to the cavity face of its compact boss");
 assert(top_connector_z+connector_socket_d/2 <=
-           tapered_backplane_rear_z_at_y(top_connector_y)
-               - top_connector_support_margin,
-       "top connector breaks through the tapered outside face");
+           universal_deep_rear_z-top_connector_support_margin,
+       "top connector breaks through the external rear face");
 assert(top_connector_y < backplane_ramp_start_y,
        "top connector must remain below the enclosure ramp");
 assert(top_connector_y + top_connector_tab_h/2 <=
-           backplane_ramp_start_y + 0.01 &&
-       top_connector_pad_y1 <= backplane_ramp_start_y + 0.01,
+           backplane_ramp_start_y + 0.01,
        "solid top connector geometry must remain below the enclosure ramp");
 assert(top_connector_slot_top_y >=
            backplane_ramp_start_y + top_connector_release_travel,
@@ -548,7 +553,7 @@ cube([1,1,1]);
         )
     print(
         "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
-        "lower hidden junctions, upper backplane/end-plate alignment slot, "
+        "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
         "54 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
         "top wall, two slim boss rows, three aligned closure holes and "
         "hinge-rail side-sleeve contract"
@@ -610,6 +615,9 @@ def assert_no_legacy_layout() -> None:
         "universal_edge_transition_y0",
         "universal_edge_transition_y1",
         "universal_edge_rear_shell(",
+        "top_connector_pad_ramp_end_y",
+        "top_connector_pad_lower_depth",
+        "tapered_backplane_rear_z_at_y",
     ):
         if forbidden in source_text:
             raise SystemExit(

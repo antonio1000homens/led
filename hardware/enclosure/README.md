@@ -168,10 +168,14 @@ of truth. Longer screws pass through the stationary backplane into the existing
 panel mounting locations and act as removable closure fasteners. The three
 closure screws must be removed or loosened before opening the hinged panel.
 
-The upper module/end-plate alignment **solid** remains entirely below the 75 mm
-ramp start. Its vertical release slot is a void that extends 15 mm into the ramp,
-allowing the removable backplane to lift past an end plate without bringing any
-solid connector geometry into the clamp clearance zone.
+The upper module/end-plate alignment remains entirely below the 75 mm ramp
+start, but now uses only **compact local seam bosses** around the seated tab/slot
+instead of the previous long diagonal edge arms. Each boss is 10 mm high and
+tapers across the 8 mm edge width from the native 3 mm rear wall to the local
+connector thickness, which keeps the side-on print self-supporting. The vertical
+release slot still extends 15 mm into the ramp so the removable backplane can
+lift past an end plate without bringing solid connector geometry into the clamp
+clearance zone.
 
 The full-depth **rear wall** carries the accessory mounting grid and remains
 solid except for the blind boss holes on its inside face. Ventilation is moved

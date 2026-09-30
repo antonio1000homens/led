@@ -363,31 +363,48 @@ side_connector_bridge = side_panel_clearance + backplane_edge_inset;
 side_connector_pin_len =
     connector_pin_len + side_connector_bridge + side_connector_overlap;
 
-// Backplane/side alignment connector. Keep all SOLID connector/pad geometry
-// completely below the 75 mm ramp start so nothing protrudes toward the moving
-// panel. The vertical release SLOT is only a void and continues upward through
-// the ramp to allow 15 mm of top-down service motion at the end plates.
+// Backplane/side alignment connector. The upper seam key is still useful for
+// keeping adjacent removable backplanes/end plates aligned, but the old long
+// Y/Z ramped "arms" are no longer needed now that the backplane prints side-on.
+// Keep only a compact 10 mm-high local reinforcement around the final seated
+// tab/slot position. Across X, each reinforcement tapers from native wall
+// thickness to full connector depth so the late-print right edge grows
+// gradually instead of appearing as an unsupported shelf.
 top_connector_y = 71;
-top_connector_z = universal_deep_rear_z - 1.3;
 top_connector_release_travel = 15;
 top_connector_slot_lower_span = 20;
 top_connector_slot_bottom_y = top_connector_y - top_connector_slot_lower_span;
 top_connector_slot_top_y =
     backplane_ramp_start_y + top_connector_release_travel + 0.2;
-top_connector_pad_y0 = top_connector_slot_bottom_y;
-top_connector_pad_y1 = backplane_ramp_start_y;
-top_connector_pad_w = 8;
-top_connector_pad_depth = 11;
-top_connector_pad_lower_depth = equipment_backplane_t;
+
 top_connector_overlap = 0.4;
 top_connector_tab_len = connector_pin_len + top_connector_overlap;
 top_connector_tab_root_len = 0.8;
 top_connector_tab_h = 8;
 top_connector_tab_t = 3.6;
 top_connector_tab_slice_h = 1.0;
-top_connector_pad_ramp_end_y = top_connector_y - top_connector_tab_h/2;
+
+top_connector_pad_w = 8;
+top_connector_pad_depth = 6.5;
+top_connector_pad_inner_depth = equipment_backplane_t;
+// Keep full connector depth across the actual 3 mm X-axis release slot plus
+// 1 mm of structural continuation before tapering back to the native rear wall.
+// This prevents the cavity-side lip around the left slot becoming a detached
+// printable island after the slot is subtracted.
+top_connector_pad_seam_w = connector_socket_depth + 1.0;
+top_connector_pad_y_margin = 2;
+top_connector_pad_y0 =
+    top_connector_y - top_connector_tab_h/2 - top_connector_pad_y_margin;
+top_connector_pad_y1 = backplane_ramp_start_y;
+top_connector_pad_slice_w = 1.0;
+
+// Centre the tab/slot through the compact reinforcement. This keeps material
+// on both the cavity and rear sides of the 4.7 mm release slot.
+top_connector_z =
+    universal_deep_rear_z - top_connector_pad_depth/2;
+
 top_side_pin_len = connector_pin_len + side_connector_overlap;
-top_connector_support_margin = 0.5;
+top_connector_support_margin = 0.8;
 top_connector_min_engagement = 1.5;
 top_module_seam_gap = module_w - service_w;
 top_side_seam_gap = side_panel_clearance + backplane_edge_inset;
@@ -713,76 +730,57 @@ module internal_adapter_hole_cutters() {
                 );
 }
 
-function tapered_backplane_rear_z_at_y(y) =
-    y < universal_deep_y0
-        ? equipment_backplane_lower_rear_z
-        : y <= universal_deep_y1
-            ? universal_deep_rear_z
-            : y >= universal_deep_ramp_end_y
-                ? equipment_backplane_top_rear_z
-                : universal_deep_rear_z +
-                  (equipment_backplane_top_rear_z-universal_deep_rear_z) *
-                  ((y-universal_deep_y1)/
-                   (universal_deep_ramp_end_y-universal_deep_y1));
-
 module top_backplane_connector_pad(side="left") {
-    x0 = side == "left"
+    pad_h = top_connector_pad_y1-top_connector_pad_y0;
+    seam_x0 = side == "left"
         ? service_x
+        : service_x + service_w - top_connector_pad_seam_w;
+    taper_full_x = side == "left"
+        ? service_x + top_connector_pad_seam_w - top_connector_pad_slice_w
+        : service_x + service_w - top_connector_pad_seam_w;
+    taper_native_x = side == "left"
+        ? service_x + top_connector_pad_w - top_connector_pad_slice_w
         : service_x + service_w - top_connector_pad_w;
-    rear0 = tapered_backplane_rear_z_at_y(top_connector_pad_y0);
-    rear_mid = tapered_backplane_rear_z_at_y(top_connector_pad_ramp_end_y);
-    rear1 = tapered_backplane_rear_z_at_y(top_connector_pad_y1);
-    slice_h = 1;
 
-    // Start at the native 3 mm wall thickness, then grow inward at roughly
-    // 45 degrees before the connector band. This avoids introducing a high,
-    // horizontal cantilever in the upright backplane print orientation.
     union() {
+        // Full-depth local land around the seam. On the slotted left edge this
+        // continues beyond the complete X depth of the release slot, keeping
+        // both slot lips tied into the structural boss.
+        translate([
+            seam_x0,
+            top_connector_pad_y0,
+            universal_deep_rear_z-top_connector_pad_depth
+        ])
+            cube([
+                top_connector_pad_seam_w,
+                pad_h,
+                top_connector_pad_depth
+            ]);
+
+        // Then taper back to the native 3 mm wall over the remaining edge
+        // width. In the side-on manufacturing orientation this taper grows
+        // progressively with print Z and avoids a new horizontal cantilever.
         hull() {
             translate([
-                x0,
+                taper_full_x,
                 top_connector_pad_y0,
-                rear0-top_connector_pad_lower_depth
+                universal_deep_rear_z-top_connector_pad_depth
             ])
                 cube([
-                    top_connector_pad_w,
-                    slice_h,
-                    top_connector_pad_lower_depth
-                ]);
-
-            translate([
-                x0,
-                top_connector_pad_ramp_end_y-slice_h,
-                rear_mid-top_connector_pad_depth
-            ])
-                cube([
-                    top_connector_pad_w,
-                    slice_h,
-                    top_connector_pad_depth
-                ]);
-        }
-
-        hull() {
-            translate([
-                x0,
-                top_connector_pad_ramp_end_y-slice_h,
-                rear_mid-top_connector_pad_depth
-            ])
-                cube([
-                    top_connector_pad_w,
-                    slice_h,
+                    top_connector_pad_slice_w,
+                    pad_h,
                     top_connector_pad_depth
                 ]);
 
             translate([
-                x0,
-                top_connector_pad_y1-slice_h,
-                rear1-top_connector_pad_depth
+                taper_native_x,
+                top_connector_pad_y0,
+                universal_deep_rear_z-top_connector_pad_inner_depth
             ])
                 cube([
-                    top_connector_pad_w,
-                    slice_h,
-                    top_connector_pad_depth
+                    top_connector_pad_slice_w,
+                    pad_h,
+                    top_connector_pad_inner_depth
                 ]);
         }
     }
