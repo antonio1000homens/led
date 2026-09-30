@@ -48,6 +48,12 @@ on:
 permissions:
   contents: read
 
+# New commits on the same pull request supersede stale validation runs.
+# Non-PR runs fall back to github.run_id, so production/manual runs remain unique.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
   PYTHONPATH: hardware/matrixportal/firmware:backend:shared
 
