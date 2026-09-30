@@ -1644,6 +1644,35 @@ module direct_mount_assembly(open_angle=service_open_angle) {
     // may only open after those fasteners are removed/loosened.
 }
 
+
+// Full four-module display preview. Adjacent modules mate directly across their
+// seams; detachable side retainers are fitted only at the two outside edges.
+module complete_direct_mount_assembly(open_angle=service_open_angle) {
+    for (i=[0:3]) {
+        translate([i*module_w,0,0]) {
+            color([0.12,0.12,0.14])
+                hinged_equipment_base();
+
+            color([0.18,0.22,0.25])
+                universal_equipment_backplane();
+
+            color([0.62,0.62,0.66])
+                hinge_rail_preview();
+
+            color([0.25,0.25,0.28])
+                moving_panel_at_angle(open_angle);
+        }
+    }
+
+    // Only the outermost edges receive detachable end pieces. Internal module
+    // seams use the self-mating base/backplane connector geometry.
+    color([0.30,0.30,0.34]) {
+        equipment_side("left");
+        translate([3*module_w,0,0])
+            equipment_side("right");
+    }
+}
+
 if (!is_undef(hinge_part)) {
     if (hinge_part == "panel_template" || hinge_part == "fixed_template")
         moving_panel_template_print();
