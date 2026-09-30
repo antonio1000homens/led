@@ -377,8 +377,9 @@ assert(abs(ramp_print_support_post_w-4) < 0.01 &&
        "ramp support post footprint drifted");
 assert(abs(ramp_print_support_base_t-0.8) < 0.01,
        "ramp support bed rail must remain 0.8 mm thick");
-assert(abs(ramp_print_support_contact_gap-0.20) < 0.01,
-       "ramp support release gap must remain one 0.20 mm layer");
+assert(abs(ramp_print_support_neck_w-0.8) < 0.01 &&
+       abs(ramp_print_support_neck_h-1.0) < 0.01,
+       "ramp support breakaway neck must remain 0.8 mm wide x 1.0 mm high");
 assert(ramp_print_support_levels[0] <= 0.15 &&
        ramp_print_support_levels[4] >= 0.95 &&
        ramp_print_support_levels[4] < 1.0,
@@ -628,7 +629,8 @@ def assert_no_legacy_layout() -> None:
         "ramp_print_support_levels",
         "ramp_print_support_post(",
         "ramp_print_supports()",
-        "ramp_print_support_contact_gap",
+        "ramp_print_support_neck_w",
+        "ramp_print_support_neck_h",
     ):
         if required not in source_text:
             raise SystemExit(
