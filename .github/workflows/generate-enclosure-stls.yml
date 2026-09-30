@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - master
+      - fix/compact-backplane-connectors
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
@@ -29,7 +30,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -43,6 +44,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/compact-backplane-connectors
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -67,6 +70,30 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
+
+      - name: Commit refreshed connector-dependent STLs
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/fix/compact-backplane-connectors') || (github.event_name == 'pull_request' && github.head_ref == 'fix/compact-backplane-connectors')
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in \
+            03_universal_equipment_backplane_PRINT_1.stl \
+            04_left_equipment_side_PRINT_1.stl \
+            05_right_equipment_side_PRINT_1.stl; do
+            cp "build/enclosure-stls/$name" "hardware/enclosure/stl/$name"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl \
+            hardware/enclosure/stl/04_left_equipment_side_PRINT_1.stl \
+            hardware/enclosure/stl/05_right_equipment_side_PRINT_1.stl
+          if git diff --cached --quiet; then
+            echo "Connector-dependent STLs already current"
+            exit 0
+          fi
+          git commit -m "chore(enclosure): refresh compact connector STLs"
+          git push origin HEAD:fix/compact-backplane-connectors
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
