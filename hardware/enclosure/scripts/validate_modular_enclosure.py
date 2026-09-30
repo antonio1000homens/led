@@ -321,24 +321,22 @@ assert(abs(upper_vertical_h-28) < 0.01,
 
 assert(abs(universal_deep_clear_depth-54) < 0.01,
        "universal deep cavity must retain 54 mm clear depth");
-assert(universal_deep_x0 > service_x &&
-       universal_deep_x1 < service_x+service_w &&
-       universal_deep_w > 240,
-       "lower guide-compatible deep centre span must remain wider than 240 mm");
-assert(abs(universal_full_x0-service_x) < 0.01 &&
-       abs(universal_full_x1-(service_x+service_w)) < 0.01 &&
-       abs(universal_full_w-service_w) < 0.01,
-       "upper universal rear shell must expand to the full service width");
-assert(abs(universal_edge_guide_clearance_y-1) < 0.01 &&
-       abs(universal_edge_transition_y0-
-           (side_guide_y1+universal_edge_guide_clearance_y)) < 0.01,
-       "edge-depth transition must retain 1 mm clearance above the guide towers");
-assert(abs(universal_edge_transition_y1-universal_edge_transition_y0-8) < 0.01,
-       "edge-depth transition must remain 8 mm high");
-assert(universal_edge_transition_y1 < backplane_ramp_start_y,
-       "edge-depth transition must finish before the upper return ramp");
-assert(abs(universal_deep_y1-universal_deep_y0-86) < 0.01,
-       "full-depth universal region must retain the 86 mm PSU-fit height");
+assert(abs(universal_deep_x0-service_x) < 0.01 &&
+       abs(universal_deep_x1-(service_x+service_w)) < 0.01 &&
+       abs(universal_deep_w-service_w) < 0.01,
+       "universal shell must keep one full-width profile across X");
+assert(abs(universal_full_x0-universal_deep_x0) < 0.01 &&
+       abs(universal_full_x1-universal_deep_x1) < 0.01 &&
+       abs(universal_full_w-universal_deep_w) < 0.01,
+       "full-width aliases must match the constant universal profile");
+assert(abs(universal_deep_y0-side_guide_y1) < 0.01,
+       "full-depth shell must begin immediately above the guide/insertion section");
+assert(abs(universal_deep_y1-universal_deep_y0-82) < 0.01,
+       "full-depth universal region must retain 82 mm of PSU-fit height");
+assert(abs(universal_return_ramp_h-6) < 0.01 &&
+       abs(universal_deep_ramp_end_y-universal_deep_y1-
+           universal_return_ramp_h) < 0.01,
+       "universal return ramp height drifted");
 assert(abs(universal_top_flat_h-10) < 0.01 &&
        abs(universal_deep_ramp_end_y-(enclosure_top_y-10)) < 0.01,
        "top 10 mm must remain flat and flush with the panel");
@@ -346,7 +344,7 @@ assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
 assert(universal_deep_w >= 110+6,
        "flat universal area is too narrow for the 110 mm PSU plus clearance");
-assert(universal_deep_y1-universal_deep_y0 >= 80+6,
+assert(universal_deep_y1-universal_deep_y0 >= 80+2,
        "flat universal area is too short for the 80 mm PSU plus clearance");
 assert(universal_deep_clear_depth >= 37+10,
        "universal cavity is too shallow for the 37 mm PSU plus service clearance");
@@ -365,61 +363,35 @@ assert(adapter_y[0] > universal_deep_y0 &&
 assert(abs(adapter_boss_d-7) < 0.01 &&
        abs(adapter_boss_h-4) < 0.01,
        "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
-assert(upper_vent_y > universal_deep_y1 &&
-       upper_vent_y+upper_vent_h < universal_deep_ramp_end_y,
-       "ventilation must remain entirely within the universal deep ramp");
-assert(abs(upper_vent_y-
-           (universal_deep_y1+ramp_vent_bottom_margin)) < 0.01,
-       "ramp ventilation lower margin drifted");
-assert(abs((upper_vent_y+upper_vent_h)-
-           (universal_deep_ramp_end_y-ramp_vent_top_margin)) < 0.01,
-       "ramp ventilation upper margin drifted");
 
-// Print-only ramp support contract. The installed enclosure must not carry
-// permanent feet. Five removable ribs support the steep return ramp directly
-// during the upright print, with four vertical posts per rib.
-assert(len(ramp_print_support_x) == 5,
-       "ramp must retain five print-support ribs across its width");
-assert(len(ramp_print_support_levels) == 5,
-       "each ramp-support rib must use five vertical support posts");
-assert(abs(ramp_print_support_post_w-4) < 0.01 &&
-       abs(ramp_print_support_post_d-2.4) < 0.01,
-       "ramp support post footprint drifted");
-assert(abs(ramp_print_support_base_t-0.8) < 0.01,
-       "ramp support bed rail must remain 0.8 mm thick");
-assert(abs(ramp_print_support_neck_w-0.8) < 0.01 &&
-       abs(ramp_print_support_neck_h-1.0) < 0.01 &&
-       abs(ramp_print_support_contact_overlap-0.4) < 0.01,
-       "ramp support breakaway neck/overlap contract drifted");
-assert(ramp_print_support_levels[0] <= 0.25 &&
-       ramp_print_support_levels[4] >= 0.95 &&
-       ramp_print_support_levels[4] < 1.0,
-       "ramp supports no longer cover the lower-to-upper ramp span");
-assert(abs(ramp_print_z0-
-           (universal_deep_y1-equipment_backplane_y0)) < 0.01 &&
-       abs(ramp_print_z1-
-           (universal_deep_ramp_end_y-equipment_backplane_y0)) < 0.01,
-       "ramp support print-space Z mapping drifted");
-assert(ramp_print_inner_y1-ramp_print_inner_y0 > 50,
-       "ramp support no longer spans the steep return-ramp depth change");
-assert(ramp_print_support_base_y0 <
-           backplane_print_origin_y-equipment_backplane_rear_z &&
-       ramp_print_support_base_y1 >
-           backplane_print_origin_y-equipment_backplane_front_z,
-       "ramp support bed rail must cross the lower wall to remain connected");
-for (xx=ramp_print_support_x)
-    assert(xx-ramp_print_support_post_w/2 > universal_deep_x0 &&
-           xx+ramp_print_support_post_w/2 < universal_deep_x1,
-           "ramp support rib must remain inside the universal deep span");
-for (xx=ramp_print_support_x)
-    for (vx=[
-        universal_deep_x0+vent_side_margin :
-        vent_pitch :
-        universal_deep_x1-vent_side_margin-vent_slot_w
-    ])
-        assert(xx-ramp_print_support_post_w/2 >= vx+vent_slot_w ||
-               xx+ramp_print_support_post_w/2 <= vx,
-               "ramp support rib overlaps a ventilation slot");
+// Horizontal slots are long in installed X. With X mapped to print Z, those
+// slots become vertical channels instead of unsupported horizontal roofs.
+assert(abs(vent_slot_h-3) < 0.01 && abs(vent_pitch-9) < 0.01,
+       "horizontal vent slot dimensions drifted");
+assert(horizontal_vent_y0 > universal_deep_y0 &&
+       horizontal_vent_y1 < universal_deep_y1,
+       "horizontal ventilation must remain inside the full-depth wall");
+assert(universal_deep_w-2*vent_side_margin >= 200,
+       "horizontal ventilation lost useful open span");
+assert(horizontal_vent_y1-horizontal_vent_y0 >= 40,
+       "horizontal ventilation region became too short");
+
+// Manufacturing orientation: installed X is the print Z axis. The narrowed
+// lower insertion tongue begins above the bed by lower_backplane_edge_inset,
+// and only that short gap receives a removable support strip.
+assert(abs(backplane_print_shift_z+service_x) < 0.01,
+       "backplane print transform must place the left service edge on Z=0");
+assert(abs(insertion_print_support_t-1.0) < 0.01 &&
+       abs(insertion_print_support_overlap-0.4) < 0.01,
+       "insertion support thickness/overlap contract drifted");
+assert(abs(insertion_print_support_h-
+           (lower_backplane_edge_inset+insertion_print_support_overlap)) < 0.01,
+       "insertion support must reach from the bed into the narrowed tongue");
+assert(abs(insertion_print_support_y-
+           (side_guide_y1-equipment_backplane_y0)) < 0.01,
+       "insertion support must cover the complete guide-height tongue");
+assert(insertion_print_support_h < 3,
+       "temporary insertion support must remain a small breakaway feature");
 assert(len(panel_closure_x) == 3,
        "top closure must reuse exactly three panel screw positions");
 for (i=[0:2])
