@@ -268,7 +268,7 @@ adapter_x = [32,80,128,176,224];
 // Universal equipment envelope for side-on vertical printing.
 //
 // The production backplane is printed with its 256 mm X dimension vertical.
-// Above the 50 mm guide/insertion section, the shell therefore keeps one
+// Above the 40 mm guide/insertion section, the shell therefore keeps one
 // identical Y/Z cross-section across the complete X length. Only the narrowed
 // lower insertion tongue differs at the two ends; its first layers receive a
 // small print-only breakaway support in the manufacturing wrapper.
@@ -887,7 +887,7 @@ module panel_closure_hole_cutters() {
 
 module backplane_shell_solid() {
     union() {
-        // Stepped vertical lower section. For the first 50 mm the plate is
+        // Stepped vertical lower section. For the first 40 mm the plate is
         // only inset enough to clear the OUTER spines, so each edge projects
         // into and is captured by its 5 mm-deep U-channel. Above the rails the
         // backplane returns to the normal full module width.
@@ -1132,7 +1132,7 @@ insertion_print_support_x =
 
 module insertion_tongue_print_support() {
     // A 1 mm-thick sacrificial strip supports the centre of the 3 mm insertion
-    // wall for only the 1.6 mm end inset, with 0.4 mm overlap for a reliable
+    // wall for only the 1.8 mm end inset, with 0.4 mm overlap for a reliable
     // printable union. It snaps/cuts away after the print.
     translate([
         insertion_print_support_x,
