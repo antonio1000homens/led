@@ -370,8 +370,8 @@ assert(abs((upper_vent_y+upper_vent_h)-
 // during the upright print, with four vertical posts per rib.
 assert(len(ramp_print_support_x) == 5,
        "ramp must retain five print-support ribs across its width");
-assert(len(ramp_print_support_levels) == 4,
-       "each ramp-support rib must use four vertical support posts");
+assert(len(ramp_print_support_levels) == 5,
+       "each ramp-support rib must use five vertical support posts");
 assert(abs(ramp_print_support_post_w-4) < 0.01 &&
        abs(ramp_print_support_post_d-2.4) < 0.01,
        "ramp support post footprint drifted");
@@ -379,10 +379,10 @@ assert(abs(ramp_print_support_base_t-0.8) < 0.01,
        "ramp support bed rail must remain 0.8 mm thick");
 assert(abs(ramp_print_support_contact_gap-0.20) < 0.01,
        "ramp support release gap must remain one 0.20 mm layer");
-assert(ramp_print_support_levels[0] >= 0.20 &&
-       ramp_print_support_levels[3] >= 0.90 &&
-       ramp_print_support_levels[3] < 1.0,
-       "ramp supports no longer cover the lower-to-upper ramp span");
+assert(ramp_print_support_levels[0] <= 0.15 &&
+       ramp_print_support_levels[4] >= 0.95 &&
+       ramp_print_support_levels[4] < 1.0,
+       "ramp supports no longer cover the early-to-upper ramp span");
 assert(abs(ramp_print_z0-
            (universal_deep_y1-equipment_backplane_y0)) < 0.01 &&
        abs(ramp_print_z1-
