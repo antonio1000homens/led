@@ -19,7 +19,6 @@ on:
   push:
     branches:
       - master
-      - fix/support-return-ramp-during-print
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
@@ -30,7 +29,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -68,23 +67,6 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
-
-      - name: Commit refreshed ramp-support backplane STL
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/support-return-ramp-during-print'
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp build/enclosure-stls/03_universal_equipment_backplane_PRINT_1.stl \
-            hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
-          if git diff --cached --quiet; then
-            echo "Canonical backplane STL already current"
-            exit 0
-          fi
-          git commit -m "chore(enclosure): refresh under-ramp support STL [skip ci]"
-          git push origin HEAD:fix/support-return-ramp-during-print
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
