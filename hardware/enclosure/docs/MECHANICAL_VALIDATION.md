@@ -16,9 +16,12 @@ python hardware/enclosure/scripts/validate_enclosure.py
 The validator regenerates all five canonical OpenSCAD parts and verifies:
 
 - non-empty positive-volume meshes;
-- five permanent 12 mm-wide rear-wall feet reach the lower locating datum,
-  overlap the deep rear wall and extend their additional footprint rearward only;
-- the old sacrificial/transverse print stabilisers are absent;
+- the installed backplane contains no permanent rear support feet;
+- the manufacturing wrapper adds five removable under-ramp support ribs, each
+  with four vertical posts beneath the return ramp;
+- support ribs sit in solid X bands between ventilation slots and stop 0.20 mm
+  below the ramp to provide a one-layer PETG release interface;
+- the old transverse front/rear stabilisers remain absent;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
@@ -92,9 +95,9 @@ sets:
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
 4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
-5. print one universal backplane with the five permanent rear-wall feet,
-   confirm it remains stable through the tall print with no support projecting
-   into the equipment cavity, then confirm the narrowed lower 30 mm slides
+5. print one universal backplane with the removable under-ramp support ribs,
+   confirm the print remains stable as it enters and traverses the return ramp,
+   remove the ribs after cooling, then confirm the narrowed lower 30 mm slides
    between both 5 mm guides, seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
 7. confirm the 54 mm deep universal region spans the usable backplane width,
