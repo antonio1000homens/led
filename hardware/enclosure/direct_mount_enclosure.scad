@@ -36,13 +36,16 @@ hinge_outer_d = 14;
 hinge_radius = hinge_outer_d/2;
 hinge_axial_clearance = 1.0;
 
-// Physical rail/end-stop contract. The detachable left/right end pieces close
-// the rail axis and stop the 6 mm rod at its defined endpoints. The stop face
-// reaches the rod end but never extends toward the nearest hinge barrel.
+// Physical rail/side-support contract. The detachable outer end pieces retain
+// the 6 mm rod axially, then continue inward as hollow sleeves around the rod
+// until they meet the nearest hinge barrel. The sleeve uses the same outer
+// diameter as the hinge barrels and the same 7.2 mm running bore, so the rod is
+// supported without becoming bonded to the side piece.
 hinge_rail_start_x = 10;
 hinge_rail_length = 236;
 hinge_rail_end_x = hinge_rail_start_x + hinge_rail_length;
-hinge_end_stop_d = hinge_bore_d;
+side_rod_sleeve_outer_d = hinge_outer_d;
+side_rod_sleeve_bore_d = hinge_bore_d;
 
 ground_clearance = 20;
 hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
@@ -339,11 +342,17 @@ side_socket_depth = 2.2;
 side_t = 3;
 side_panel_clearance = 0.4;
 
-// Inner faces and axial lengths for the integrated rod end stops.
+// Inner faces and axial lengths for the integrated rod retainers/sleeves.
+// The capped portion stops the rod at X=10/246. From that point inward, the
+// support becomes a hollow sleeve and continues exactly to the nearest barrel.
 left_side_inner_x = -side_panel_clearance;
 right_side_inner_x = module_w + side_panel_clearance;
 left_rail_end_stop_len = hinge_rail_start_x - left_side_inner_x;
 right_rail_end_stop_len = right_side_inner_x - hinge_rail_end_x;
+left_side_rod_support_len = hinge_left_barrel_start - left_side_inner_x;
+right_side_rod_support_len = right_side_inner_x - hinge_right_barrel_end;
+left_side_rod_sleeve_len = hinge_left_barrel_start - hinge_rail_start_x;
+right_side_rod_sleeve_len = hinge_rail_end_x - hinge_right_barrel_end;
 
 side_connector_overlap = 0.4;
 side_connector_bridge = side_panel_clearance + backplane_edge_inset;
@@ -1487,19 +1496,51 @@ module side_wall_body(side="right") {
     }
 }
 
-module side_rail_end_stop(side="right") {
-    // Integrated solid end stop on each detachable outer side. Each plug grows
-    // inward exactly to the corresponding rod endpoint. In the side-piece
-    // print orientation this cylinder grows vertically from the wall, so it
-    // does not introduce a floating cantilever.
+module side_rod_retainer_sleeve(side="right") {
+    // The outer support runs continuously from the detachable side wall to the
+    // nearest hinge barrel. Only the segment overlapping the physical rod is
+    // bored out; the short outer segment remains capped so the rod is retained
+    // axially while still rotating freely inside the 7.2 mm clearance bore.
     if (side == "left") {
-        translate([left_side_inner_x,hinge_axis_y,hinge_axis_z])
-            rotate([0,90,0])
-                cylinder(d=hinge_end_stop_d,h=left_rail_end_stop_len);
+        difference() {
+            translate([left_side_inner_x,hinge_axis_y,hinge_axis_z])
+                rotate([0,90,0])
+                    cylinder(
+                        d=side_rod_sleeve_outer_d,
+                        h=left_side_rod_support_len
+                    );
+
+            translate([
+                hinge_rail_start_x-0.1,
+                hinge_axis_y,
+                hinge_axis_z
+            ])
+                rotate([0,90,0])
+                    cylinder(
+                        d=side_rod_sleeve_bore_d,
+                        h=left_side_rod_sleeve_len+0.2
+                    );
+        }
     } else {
-        translate([right_side_inner_x,hinge_axis_y,hinge_axis_z])
-            rotate([0,-90,0])
-                cylinder(d=hinge_end_stop_d,h=right_rail_end_stop_len);
+        difference() {
+            translate([right_side_inner_x,hinge_axis_y,hinge_axis_z])
+                rotate([0,-90,0])
+                    cylinder(
+                        d=side_rod_sleeve_outer_d,
+                        h=right_side_rod_support_len
+                    );
+
+            translate([
+                hinge_rail_end_x+0.1,
+                hinge_axis_y,
+                hinge_axis_z
+            ])
+                rotate([0,-90,0])
+                    cylinder(
+                        d=side_rod_sleeve_bore_d,
+                        h=right_side_rod_sleeve_len+0.2
+                    );
+        }
     }
 }
 
@@ -1571,7 +1612,7 @@ module equipment_side(side="right") {
     difference() {
         union() {
             side_wall_body(side);
-            side_rail_end_stop(side);
+            side_rod_retainer_sleeve(side);
             if (side == "right")
                 right_side_pins();
             else
