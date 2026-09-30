@@ -269,6 +269,7 @@ adapter_x = [32,80,128,176,224];
 // small print-only breakaway support in the manufacturing wrapper.
 universal_deep_clear_depth = 54;
 universal_deep_wall_t = equipment_backplane_t;
+universal_guide_shoulder_t = equipment_backplane_t;
 
 // The installed lower tongue remains narrow enough to slide inside the two
 // U-channel guides. Above the guide tops the shell immediately uses the full
@@ -943,6 +944,20 @@ module universal_native_backplane_opening() {
 
 module universal_deep_rear_shell() {
     slice_h = 1.0;
+
+    // Full-width shoulder immediately ABOVE the guide tops. It bridges the
+    // shallow insertion wall to the deep rear wall without intruding into the
+    // 50 mm U-channel insertion envelope below universal_deep_y0.
+    translate([
+        universal_deep_x0,
+        universal_deep_y0,
+        equipment_backplane_front_z
+    ])
+        cube([
+            universal_deep_w,
+            universal_guide_shoulder_t,
+            universal_deep_rear_z-equipment_backplane_front_z
+        ]);
 
     // Full-width 54 mm equipment wall.
     translate([
