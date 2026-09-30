@@ -153,8 +153,8 @@ designed around side-on vertical printing:
 - return ramp: **12 mm high**, repeated identically across X;
 - final upper wall: **11.5 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: seven **24 mm × 1 mm rounded horizontal slots** on the reinforced lower transition and
-  seven matching slots on the longer upper return ramp;
+- ventilation: one row of seven **24 mm × 1 mm rounded horizontal slots** on the reinforced lower transition and
+  **four rows** of seven matching slots on the longer upper return ramp;
 - the long full-depth rear wall remains solid for the M3 boss grid;
 - lower insertion wall and final 11.5 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
@@ -277,8 +277,9 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, the narrow rounded horizontal vent rows are clean on both the lower transition and
-   upper return ramp, and the long rear wall remains solid for the boss grid.
+   width, the narrow rounded horizontal vent row is clean on the lower transition,
+   all four rounded vent rows are clean on the upper return ramp, and the long
+   rear wall remains solid for the boss grid.
    Confirm the final 10 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
