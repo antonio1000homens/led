@@ -15,8 +15,9 @@ Only the lower U-channel insertion section is smaller; immediately above the
 guides the shell uses one identical full-width Y/Z profile for the complete
 256 mm length. That makes the long X dimension suitable as the print-vertical
 axis. The deep section returns toward the panel near the top and finishes with a
-**10 mm flat upper wall** parallel to the LED panel. Ventilation uses long
-**horizontal slots** through the deep rear wall. The backplane reuses all three
+**10 mm flat upper wall** parallel to the LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
+transition shoulder**. The long rear wall remains solid for the accessory-boss
+mounting grid. The backplane reuses all three
 existing top-row panel screw positions as aligned closure fasteners, so no
 rotating tab or local top cutout is required.
 
@@ -41,9 +42,9 @@ lower 40 mm-depth U-channel insertion section
    |
 full-width 54 mm enclosure profile with constant X cross-section
    |
-horizontal rear-wall ventilation
+solid rear boss-mount wall
    |
-short return ramp
+horizontal vents on lower transition + upper return ramp
    |
 10 mm flat upper wall flush with panel
    |
@@ -152,9 +153,10 @@ designed around side-on vertical printing:
 - return ramp: **4 mm high**, repeated identically across X;
 - final upper wall: **10 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: long **horizontal 3 mm slots** on a 9 mm pitch through the
-  full-depth rear wall;
-- lower insertion wall, return ramp and final 10 mm top wall remain solid;
+- ventilation: five **36 mm horizontal slots** on the lower transition and
+  five matching slots on the upper return ramp;
+- the long full-depth rear wall remains solid for the M3 boss grid;
+- lower insertion wall and final 10 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
@@ -171,9 +173,11 @@ ramp start. Its vertical release slot is a void that extends 15 mm into the ramp
 allowing the removable backplane to lift past an end plate without bringing any
 solid connector geometry into the clamp clearance zone.
 
-The full-depth section carries the accessory mounting grid. Horizontal
-ventilation slots are cut through its rear wall, while the lower insertion
-section, return ramp and final 10 mm flat upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
+The full-depth **rear wall** carries the accessory mounting grid and remains
+solid except for the blind boss holes on its inside face. Ventilation is moved
+off that mounting surface: horizontal slots are cut through the lower transition
+shoulder and upper return ramp. The lower insertion section and final 10 mm flat
+upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -269,9 +273,10 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, the horizontal rear-wall vents are clean, and the final 10 mm wall is
-   flat/parallel to the panel with all three top-row closure holes aligned.
-   Confirm there are still no rear cable/ribbon slots.
+   width, the horizontal vent rows are clean on both the lower transition and
+   upper return ramp, and the long rear wall remains solid for the boss grid.
+   Confirm the final 10 mm wall is flat/parallel to the panel with all three
+   top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, profile alignment, and that each capped rod retainer remains
    hollow around the 6 mm rod up to the nearest hinge barrel.
