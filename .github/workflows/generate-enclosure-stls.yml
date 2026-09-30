@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -42,6 +42,10 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Temporary issue #163 refresh mode: work on the actual same-repo PR
+          # branch so regenerated canonical meshes can be committed back.
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -66,6 +70,31 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
+
+      - name: Refresh issue 163 canonical STLs
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.head_ref == 'fix/issue-163-backplane-physical-fit'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in \
+            02_hinged_equipment_base_PRINT_1.stl \
+            03_universal_equipment_backplane_PRINT_1.stl \
+            04_left_equipment_side_PRINT_1.stl \
+            05_right_equipment_side_PRINT_1.stl
+          do
+            cp "build/enclosure-stls/$name" "hardware/enclosure/stl/$name"
+          done
+
+          if ! git diff --quiet -- hardware/enclosure/stl; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add hardware/enclosure/stl
+            git commit -m "chore(enclosure): refresh issue 163 canonical STLs [skip ci]"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
