@@ -204,20 +204,24 @@ equipment_backplane_top_front_z = enclosure_front_z;
 equipment_backplane_top_rear_z =
     equipment_backplane_top_front_z + equipment_backplane_t;
 
-backplane_guide_clearance = 0.4;
+// Physical PETG fit: give the removable tongue a little more running room in
+// the rear seat so it does not bow while being pushed home.
+backplane_guide_clearance = 0.6;
 backplane_guide_t = 1.2;
 backplane_seat_depth = 2.0;
 base_seat_y = 4.5;
 equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
 
-// Two genuine U-channel side rails rise from the base. For the first 50 mm,
-// the removable backplane edges slide DOWN inside these channels rather than
+// Two genuine U-channel side rails rise from the base. The physical-print
+// feedback showed that 50 mm of engagement was unnecessarily long and prone
+// to binding, so the removable backplane now uses a 40 mm guided insertion
+// length and slides DOWN inside these channels rather than
 // merely passing between solid guide towers. The 5 mm rail depth provides
 // positive side capture while leaving the channel open toward the enclosure
 // centre for top-down installation.
-side_guide_h = 50;
+side_guide_h = 40;
 side_guide_w = 5;
-side_guide_clearance = 0.4;
+side_guide_clearance = 0.6;
 side_guide_wall_t = backplane_guide_t;
 side_guide_y0 = service_base_y;
 side_guide_y1 = side_guide_y0 + side_guide_h;
@@ -254,7 +258,8 @@ lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 backplane_top_band = 1.5;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
-// Two slimmer boss rows are sufficient for detachable adapters.
+// Three centrally-biased boss rows give detachable adapters a useful middle
+// fixing line while keeping the outer rows away from the transition edges.
 adapter_boss_d = 7;
 adapter_hole_d = 3.4;
 adapter_boss_h = 4;
@@ -269,7 +274,10 @@ adapter_x = [32,80,128,176,224];
 // small print-only breakaway support in the manufacturing wrapper.
 universal_deep_clear_depth = 54;
 universal_deep_wall_t = equipment_backplane_t;
-universal_guide_shoulder_t = equipment_backplane_t;
+// The original 3 mm shoulder was the only bridge between the sliding tongue
+// and the deep enclosure and proved too fragile in a physical print. Make it
+// a real structural shelf instead of relying on the wall thickness alone.
+universal_guide_shoulder_t = 8;
 
 // The installed lower tongue remains narrow enough to slide inside the two
 // U-channel guides. Above the guide tops the shell immediately uses the full
@@ -287,9 +295,11 @@ universal_full_w = universal_deep_w;
 // vertical axis, this Y/Z return profile is repeated identically on every
 // structural layer and no under-ramp print supports are required.
 universal_deep_y0 = side_guide_y1;
-universal_top_flat_h = 10;
+// Keep the real panel screw line unchanged, but move the return-ramp bend
+// 1.5 mm farther away from the holes and lengthen the ramp substantially.
+universal_top_flat_h = 11.5;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
-universal_return_ramp_h = 4;
+universal_return_ramp_h = 12;
 universal_deep_y1 = universal_deep_ramp_end_y-universal_return_ramp_h;
 
 universal_deep_rear_z =
@@ -297,10 +307,12 @@ universal_deep_rear_z =
 universal_deep_front_z =
     universal_deep_rear_z-universal_deep_wall_t;
 
-// Keep the two accessory-boss rows inside the long full-depth mounting face.
-adapter_edge_inset_y = 10;
+// Keep three accessory-boss rows inside the long full-depth mounting face.
+// The outer rows are pulled inward and the third row is centred explicitly.
+adapter_edge_inset_y = 22;
 adapter_y = [
     universal_deep_y0 + adapter_edge_inset_y,
+    (universal_deep_y0 + universal_deep_y1)/2,
     universal_deep_y1 - adapter_edge_inset_y
 ];
 
@@ -309,15 +321,18 @@ adapter_y = [
 // horizontal slots across X on both the lower guide-to-depth shoulder and the
 // upper return ramp. With installed X mapped to print Z these slots become
 // vertical channels in the side-on print orientation.
-vent_slot_len = 36;
+// Use more, shorter vents with a 1 mm throat. Combined with the longer return
+// ramp this avoids the broad finger-sized openings produced by the old steep
+// 4 mm ramp while retaining distributed airflow.
+vent_slot_len = 24;
 vent_slot_gap = 10;
-vent_slot_count = 5;
+vent_slot_count = 7;
 vent_slot_x0 =
     universal_deep_x0 +
     (universal_deep_w -
      (vent_slot_count*vent_slot_len +
       (vent_slot_count-1)*vent_slot_gap))/2;
-vent_slot_y_h = 1.8;
+vent_slot_y_h = 1.0;
 bottom_ramp_vent_y =
     universal_deep_y0 +
     (universal_guide_shoulder_t-vent_slot_y_h)/2;
@@ -1029,34 +1044,28 @@ module universal_backplane_shell_solid() {
     }
 }
 
+module horizontal_rounded_vent_cutter(x0,y0) {
+    // Rounded slot ends avoid sharp stress raisers and make the openings read
+    // as deliberate ventilation rather than large rectangular access holes.
+    translate([
+        x0 + vent_slot_len/2,
+        y0 + vent_slot_y_h/2,
+        equipment_backplane_top_front_z-2
+    ])
+        linear_extrude(
+            height=universal_deep_rear_z-equipment_backplane_top_front_z+4
+        )
+            rounded_slot_2d(vent_slot_len,vent_slot_y_h);
+}
+
 module ramp_ventilation_cutters() {
-    // Five horizontal slots on the lower shoulder and five on the upper return
-    // ramp. The cutter spans Z so it follows the actual sloped/shoulder wall
-    // wherever it intersects; it never crosses the long rear boss-mount wall.
+    // Seven narrow rounded slots on the lower structural shoulder and seven
+    // matching slots on the longer upper return ramp. The rear boss wall stays
+    // solid and the final closure wall remains unperforated.
     for (i=[0:vent_slot_count-1]) {
         xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
-
-        translate([
-            xx,
-            bottom_ramp_vent_y,
-            equipment_backplane_top_front_z-2
-        ])
-            cube([
-                vent_slot_len,
-                vent_slot_y_h,
-                universal_deep_rear_z-equipment_backplane_top_front_z+4
-            ]);
-
-        translate([
-            xx,
-            top_ramp_vent_y,
-            equipment_backplane_top_front_z-2
-        ])
-            cube([
-                vent_slot_len,
-                vent_slot_y_h,
-                universal_deep_rear_z-equipment_backplane_top_front_z+4
-            ]);
+        horizontal_rounded_vent_cutter(xx,bottom_ramp_vent_y);
+        horizontal_rounded_vent_cutter(xx,top_ramp_vent_y);
     }
 }
 
