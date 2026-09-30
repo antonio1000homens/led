@@ -13,7 +13,6 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/static-web.yml'
       - 'simulator/**'
       - 'scripts/deploy-static.sh'
   workflow_dispatch:
