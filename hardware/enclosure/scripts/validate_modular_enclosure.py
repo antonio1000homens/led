@@ -364,17 +364,28 @@ assert(abs(adapter_boss_d-7) < 0.01 &&
        abs(adapter_boss_h-4) < 0.01,
        "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
 
-// Horizontal slots are long in installed X. With X mapped to print Z, those
-// slots become vertical channels instead of unsupported horizontal roofs.
-assert(abs(vent_slot_h-3) < 0.01 && abs(vent_pitch-9) < 0.01,
-       "horizontal vent slot dimensions drifted");
-assert(horizontal_vent_y0 > universal_deep_y0 &&
-       horizontal_vent_y1 < universal_deep_y1,
-       "horizontal ventilation must remain inside the full-depth wall");
-assert(universal_deep_w-2*vent_side_margin >= 200,
-       "horizontal ventilation lost useful open span");
-assert(horizontal_vent_y1-horizontal_vent_y0 >= 40,
-       "horizontal ventilation region became too short");
+// Ventilation belongs only on the lower shoulder and upper return ramp.
+// The rear mounting wall between them must remain solid for the boss grid.
+assert(abs(vent_slot_len-36) < 0.01 &&
+       abs(vent_slot_gap-10) < 0.01 &&
+       vent_slot_count == 5,
+       "ramp vent slot layout drifted");
+assert(abs(vent_slot_y_h-1.8) < 0.01,
+       "ramp vent slot height drifted");
+assert(bottom_ramp_vent_y >= universal_deep_y0 &&
+       bottom_ramp_vent_y+vent_slot_y_h <=
+           universal_deep_y0+universal_guide_shoulder_t+0.01,
+       "bottom vents must remain in the lower transition shoulder");
+assert(top_ramp_vent_y >= universal_deep_y1 &&
+       top_ramp_vent_y+vent_slot_y_h <=
+           universal_deep_ramp_end_y+0.01,
+       "top vents must remain in the upper return ramp");
+assert(vent_slot_x0 >= universal_deep_x0+10 &&
+       vent_slot_x0 +
+         vent_slot_count*vent_slot_len +
+         (vent_slot_count-1)*vent_slot_gap <=
+           universal_deep_x1-10,
+       "ramp vents lost structural side margin");
 
 // Manufacturing orientation: installed X is the print Z axis. The narrowed
 // lower insertion tongue begins above the bed by lower_backplane_edge_inset,
@@ -616,7 +627,7 @@ def assert_no_legacy_layout() -> None:
             )
 
     for required in (
-        "horizontal_ventilation_cutters()",
+        "ramp_ventilation_cutters()",
         "backplane_print_shift_z",
         "insertion_print_support_t",
         "insertion_print_support_overlap",
@@ -645,8 +656,39 @@ def main() -> None:
         assert_design_contract(work_dir)
         assert_empty_intersection(
             work_dir,
-            "vent_lower_insertion_keepout",
-            """    horizontal_ventilation_cutters();
+            "vent_rear_boss_wall_keepout",
+            """    ramp_ventilation_cutters();
+    translate([
+        universal_deep_x0-1,
+        universal_deep_y0+universal_guide_shoulder_t,
+        universal_deep_front_z-1
+    ])
+        cube([
+            universal_deep_w+2,
+            universal_deep_y1-
+                (universal_deep_y0+universal_guide_shoulder_t),
+            universal_deep_wall_t+2
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "vent_final_top_wall_keepout",
+            """    ramp_ventilation_cutters();
+    translate([
+        universal_deep_x0-1,
+        universal_deep_ramp_end_y,
+        -10
+    ])
+        cube([
+            universal_deep_w+2,
+            enclosure_top_y-universal_deep_ramp_end_y,
+            100
+        ]);""",
+        )
+        assert_empty_intersection(
+            work_dir,
+            "vent_lower_guide_keepout",
+            """    ramp_ventilation_cutters();
     translate([
         universal_deep_x0-1,
         equipment_backplane_y0,
@@ -655,21 +697,6 @@ def main() -> None:
         cube([
             universal_deep_w+2,
             universal_deep_y0-equipment_backplane_y0,
-            100
-        ]);""",
-        )
-        assert_empty_intersection(
-            work_dir,
-            "vent_return_and_top_keepout",
-            """    horizontal_ventilation_cutters();
-    translate([
-        universal_deep_x0-1,
-        universal_deep_y1,
-        -10
-    ])
-        cube([
-            universal_deep_w+2,
-            enclosure_top_y-universal_deep_y1,
             100
         ]);""",
         )
