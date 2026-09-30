@@ -46,7 +46,7 @@ solid rear boss-mount wall
    |
 horizontal vents on lower transition + upper return ramp
    |
-10 mm flat upper wall flush with panel
+11.5 mm flat upper wall flush with panel
    |
 three aligned top-row closure screw holes
    |
@@ -123,7 +123,7 @@ The base/backplane interface uses a **recessed groove at the rear edge of the
 base** plus two structural side guides. The centre groove is 2 mm deep with
 0.6 mm nominal clearance around the 3 mm backplane edge. Each side guide is
 **40 mm high × 5 mm wide** and grows directly from the base. The lower 40 mm of
-the backplane is stepped inward by 5 mm per side plus 0.4 mm running clearance;
+the backplane is stepped inward by 5 mm per side plus 0.6 mm running clearance;
 above the guide towers it returns to the normal full width.
 
 The guide towers are deliberately thickened toward the **inside** of the
@@ -133,7 +133,7 @@ outside. The rear exterior plane remains clean.
 
 The removable backplane/enclosure installs from directly above:
 
-1. lower the narrowed 50 mm backplane foot between the two 5 mm side guides;
+1. lower the shortened 40 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
 3. the full-width shoulder above the guides then sits over the tower tops;
@@ -144,19 +144,19 @@ designed around side-on vertical printing:
 
 - lower guide/insertion zone retains the original **40 mm** depth and narrowed
   width required by the U-channel capture;
-- immediately above the 50 mm guide section, the shell switches to the
+- immediately above the 40 mm guide section, the shell switches to the
   **full service width** and keeps the same Y/Z profile across the complete
   256 mm X length;
 - main equipment zone: **54 mm clear depth**;
 - full-depth vertical region: **84 mm high**, preserving 4 mm total clearance
   around the PSU's 80 mm dimension;
-- return ramp: **4 mm high**, repeated identically across X;
-- final upper wall: **10 mm high**, flat and parallel to the LED panel;
+- return ramp: **12 mm high**, repeated identically across X;
+- final upper wall: **11.5 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: seven **24 mm horizontal slots** on the lower transition and
-  seven matching slots on the upper return ramp;
+- ventilation: seven **24 mm × 1 mm rounded horizontal slots** on the reinforced lower transition and
+  seven matching slots on the longer upper return ramp;
 - the long full-depth rear wall remains solid for the M3 boss grid;
-- lower insertion wall and final 10 mm top wall remain solid;
+- lower insertion wall and final 11.5 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
@@ -180,7 +180,7 @@ clearance zone.
 The full-depth **rear wall** carries the accessory mounting grid and remains
 solid except for the blind boss holes on its inside face. Ventilation is moved
 off that mounting surface: horizontal slots are cut through the lower transition
-shoulder and upper return ramp. The lower insertion section and final 10 mm flat
+shoulder and upper return ramp. The lower insertion section and final 11.5 mm flat
 upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
@@ -197,7 +197,7 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **60 / 124 mm** (two rows, 10 mm inside the lower/upper edges of the 84 mm full-depth wall)
+- Y = **62.5 / 82.5 / 102.5 mm** (three rows; outer rows 22 mm inside the full-depth-region edges, plus a centred row)
 - boss OD = **7 mm**
 - boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
@@ -214,7 +214,7 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
 The base guide towers expose complementary pin/socket features on their left
 and right edges so identical neighbouring modules self-align. These junctions
-sit on the **inside/cavity-facing portion of the 50 mm guide towers**. End-panel
+sit on the **inside/cavity-facing portion of the 40 mm guide towers**. End-panel
 mating sockets are blind from the inside, leaving the outside side faces solid.
 
 - pin diameter: **4.0 mm**
