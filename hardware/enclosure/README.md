@@ -109,12 +109,12 @@ The panel/template rotates forward/down. The equipment base, removable backplane
 and electronics stay stationary.
 
 The 6 mm hinge rail is defined from **X=10 mm to X=246 mm**. Each detachable
-outer side now includes an integrated solid coaxial end stop that reaches the
-corresponding rod end. The stops do not extend inward beyond the rail endpoints:
-the left stop ends at X=10 mm, leaving 24 mm to the first hinge barrel at X=34,
-and the right stop begins at X=246 mm, leaving 26 mm from the final barrel end
-at X=220. Fit the rod before installing both end pieces; the end pieces then
-prevent axial escape of the rail.
+outer side now carries a hinge-style rod support with the same **14 mm OD** and
+**7.2 mm clearance bore** as the main hinge barrels. The outer section remains
+capped at the rail endpoint so the rod cannot escape axially; from that endpoint
+the support becomes a hollow sleeve around the rod and continues to the nearest
+hinge barrel (**X=34 mm** on the left and **X=220 mm** on the right). This removes
+the previous exposed solid-plug appearance while keeping the rod retained.
 
 ## Top-down tapered backplane
 
@@ -250,7 +250,7 @@ fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
 the 54 mm universal deep zone, **ramp-only ventilation**, the final 10 mm flat
-top wall, the three-screw top closure, integrated rail end stops, lower usable
+top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
 equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
