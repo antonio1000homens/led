@@ -331,9 +331,9 @@ assert(abs(universal_full_x0-universal_deep_x0) < 0.01 &&
        "full-width aliases must match the constant universal profile");
 assert(abs(universal_deep_y0-side_guide_y1) < 0.01,
        "full-depth shell must begin immediately above the guide/insertion section");
-assert(abs(universal_deep_y1-universal_deep_y0-82) < 0.01,
-       "full-depth universal region must retain 82 mm of PSU-fit height");
-assert(abs(universal_return_ramp_h-6) < 0.01 &&
+assert(abs(universal_deep_y1-universal_deep_y0-84) < 0.01,
+       "full-depth universal region must retain 84 mm of PSU-fit height");
+assert(abs(universal_return_ramp_h-4) < 0.01 &&
        abs(universal_deep_ramp_end_y-universal_deep_y1-
            universal_return_ramp_h) < 0.01,
        "universal return ramp height drifted");
@@ -344,7 +344,7 @@ assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
 assert(universal_deep_w >= 110+6,
        "flat universal area is too narrow for the 110 mm PSU plus clearance");
-assert(universal_deep_y1-universal_deep_y0 >= 80+2,
+assert(universal_deep_y1-universal_deep_y0 >= 80+4,
        "flat universal area is too short for the 80 mm PSU plus clearance");
 assert(universal_deep_clear_depth >= 37+10,
        "universal cavity is too shallow for the 37 mm PSU plus service clearance");
