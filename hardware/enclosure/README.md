@@ -116,7 +116,7 @@ the support becomes a hollow sleeve around the rod and continues to the nearest
 hinge barrel (**X=34 mm** on the left and **X=220 mm** on the right). This removes
 the previous exposed solid-plug appearance while keeping the rod retained.
 
-## Top-down tapered backplane
+## Top-down removable backplane
 
 The base/backplane interface uses a **recessed groove at the rear edge of the
 base** plus two structural side guides. The centre groove is 2 mm deep with
@@ -269,12 +269,12 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, the ventilation appears only in the return ramp, and the final 10 mm
-   wall is flat/parallel to the panel with all three top-row closure holes
-   aligned. Confirm there are still no rear cable/ribbon slots.
+   width, the horizontal rear-wall vents are clean, and the final 10 mm wall is
+   flat/parallel to the panel with all three top-row closure holes aligned.
+   Confirm there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
-   exterior faces, taper alignment, and that the integrated end stops terminate
-   the 6 mm rod at X=10/246 without touching either hinge barrel.
+   exterior faces, profile alignment, and that each capped rod retainer remains
+   hollow around the 6 mm rod up to the nearest hinge barrel.
 8. Verify two identical stationary equipment assemblies align side-by-side
    using the hidden guide-tower junctions.
 9. Fit representative M3 hardware/adapters to the **inside** lower boss grid
