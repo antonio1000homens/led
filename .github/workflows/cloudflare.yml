@@ -21,6 +21,12 @@ on:
 permissions:
   contents: read
 
+# New commits on the same pull request supersede stale validation runs.
+# Non-PR runs fall back to github.run_id, so production/manual runs remain unique.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 env:
   AWS_REGION: eu-west-2
   STACK_NAME: led-serverless
@@ -60,6 +66,7 @@ jobs:
       id-token: write
     concurrency:
       group: led-production
+      queue: max
       cancel-in-progress: false
     steps:
       - name: Check out repository
