@@ -383,10 +383,21 @@ assert(bottom_ramp_vent_y >= universal_deep_y0 &&
        bottom_ramp_vent_y+vent_slot_y_h <=
            universal_deep_y0+universal_guide_shoulder_t+0.01,
        "bottom vents must remain in the lower transition shoulder");
-assert(top_ramp_vent_y >= universal_deep_y1 &&
-       top_ramp_vent_y+vent_slot_y_h <=
-           universal_deep_ramp_end_y+0.01,
-       "top vents must remain in the upper return ramp");
+assert(top_ramp_vent_rows == 4 && len(top_ramp_vent_y) == 4,
+       "upper return ramp must carry exactly four ventilation rows");
+assert(top_ramp_vent_margin_y >= 1.5,
+       "upper vent rows lost their structural end margin");
+assert(top_ramp_vent_row_gap >= 1.5,
+       "upper vent rows are too close together");
+assert(top_ramp_vent_y[0] >=
+           universal_deep_y1+top_ramp_vent_margin_y-0.01 &&
+       top_ramp_vent_y[3]+vent_slot_y_h <=
+           universal_deep_ramp_end_y-top_ramp_vent_margin_y+0.01,
+       "top vent rows must remain inside the upper return ramp margins");
+for (row=[0:2])
+    assert(top_ramp_vent_y[row+1] -
+               (top_ramp_vent_y[row]+vent_slot_y_h) >= 1.5,
+           "top vent rows lost the minimum solid land between openings");
 assert(vent_slot_x0 >= universal_deep_x0+10 &&
        vent_slot_x0 +
          vent_slot_count*vent_slot_len +
