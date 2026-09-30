@@ -387,6 +387,11 @@ top_connector_tab_slice_h = 1.0;
 top_connector_pad_w = 8;
 top_connector_pad_depth = 6.5;
 top_connector_pad_inner_depth = equipment_backplane_t;
+// Keep full connector depth across the actual 3 mm X-axis release slot plus
+// 1 mm of structural continuation before tapering back to the native rear wall.
+// This prevents the cavity-side lip around the left slot becoming a detached
+// printable island after the slot is subtracted.
+top_connector_pad_seam_w = connector_socket_depth + 1.0;
 top_connector_pad_y_margin = 2;
 top_connector_pad_y0 =
     top_connector_y - top_connector_tab_h/2 - top_connector_pad_y_margin;
@@ -726,41 +731,58 @@ module internal_adapter_hole_cutters() {
 }
 
 module top_backplane_connector_pad(side="left") {
-    x_inner = side == "left"
+    pad_h = top_connector_pad_y1-top_connector_pad_y0;
+    seam_x0 = side == "left"
+        ? service_x
+        : service_x + service_w - top_connector_pad_seam_w;
+    taper_full_x = side == "left"
+        ? service_x + top_connector_pad_seam_w - top_connector_pad_slice_w
+        : service_x + service_w - top_connector_pad_seam_w;
+    taper_native_x = side == "left"
         ? service_x + top_connector_pad_w - top_connector_pad_slice_w
         : service_x + service_w - top_connector_pad_w;
-    x_outer = side == "left"
-        ? service_x
-        : service_x + service_w - top_connector_pad_slice_w;
-    pad_h = top_connector_pad_y1-top_connector_pad_y0;
 
-    // Compact edge boss: full depth only at the seam, tapering back to the
-    // native 3 mm rear wall across 8 mm of X. With installed X mapped to print
-    // Z, the right-hand boss therefore grows a little on each layer instead of
-    // beginning as a horizontal cantilever. The left-hand boss starts full
-    // depth on the bed and simply shrinks toward the interior.
-    hull() {
+    union() {
+        // Full-depth local land around the seam. On the slotted left edge this
+        // continues beyond the complete X depth of the release slot, keeping
+        // both slot lips tied into the structural boss.
         translate([
-            x_inner,
-            top_connector_pad_y0,
-            universal_deep_rear_z-top_connector_pad_inner_depth
-        ])
-            cube([
-                top_connector_pad_slice_w,
-                pad_h,
-                top_connector_pad_inner_depth
-            ]);
-
-        translate([
-            x_outer,
+            seam_x0,
             top_connector_pad_y0,
             universal_deep_rear_z-top_connector_pad_depth
         ])
             cube([
-                top_connector_pad_slice_w,
+                top_connector_pad_seam_w,
                 pad_h,
                 top_connector_pad_depth
             ]);
+
+        // Then taper back to the native 3 mm wall over the remaining edge
+        // width. In the side-on manufacturing orientation this taper grows
+        // progressively with print Z and avoids a new horizontal cantilever.
+        hull() {
+            translate([
+                taper_full_x,
+                top_connector_pad_y0,
+                universal_deep_rear_z-top_connector_pad_depth
+            ])
+                cube([
+                    top_connector_pad_slice_w,
+                    pad_h,
+                    top_connector_pad_depth
+                ]);
+
+            translate([
+                taper_native_x,
+                top_connector_pad_y0,
+                universal_deep_rear_z-top_connector_pad_inner_depth
+            ])
+                cube([
+                    top_connector_pad_slice_w,
+                    pad_h,
+                    top_connector_pad_inner_depth
+                ]);
+        }
     }
 }
 
