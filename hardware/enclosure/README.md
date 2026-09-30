@@ -281,9 +281,10 @@ return ramp**, so the manufacturing wrapper now supports that ramp directly.
 
 Five removable support ribs are placed across X in the solid bands between the
 ramp ventilation slots. Each rib contains five narrow vertical posts at roughly
-15%, 35%, 55%, 75% and 95% of the ramp depth change. The posts rise from a thin
-bed-connected rail and stop **0.20 mm below the ramp**, giving a one-layer PETG
-release interface while still supporting the first ramp layers.
+15%, 35%, 55%, 75% and 95% of the ramp depth change. The posts rise from a thin bed-connected rail and finish in a **0.8 mm-wide ×
+1.0 mm-high breakaway neck** that touches the ramp. This gives Bambu Studio real
+support under the ramp while keeping the contact small enough to snap/cut away
+after printing.
 
 The supports exist only in `03_universal_equipment_backplane_PRINT_1.stl`;
 `universal_equipment_backplane()` remains support-free for installed assembly
