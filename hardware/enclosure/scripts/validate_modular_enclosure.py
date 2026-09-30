@@ -579,7 +579,8 @@ def assert_no_legacy_layout() -> None:
             )
 
     # Rear cable/ribbon slots remain retired; cabling routes through open
-    # module sides. Ventilation is allowed only in the dedicated upper ramp.
+    # module sides. The production wrapper must use the side-on vertical
+    # orientation and only the small insertion-tongue breakaway support.
     source_text = SOURCE.read_text(encoding="utf-8")
     for forbidden in ("cable_slot_x", "cable_slot_len", "cable_slot_w", "cable_slot_y"):
         if forbidden in source_text:
@@ -591,10 +592,17 @@ def assert_no_legacy_layout() -> None:
         "backplane_print_stabiliser_x",
         "backplane_print_stabiliser(",
         "backplane_print_breakaway_t",
+        "ramp_print_support_x",
+        "ramp_print_support_levels",
+        "ramp_print_support_post(",
+        "ramp_print_supports()",
+        "universal_edge_transition_y0",
+        "universal_edge_transition_y1",
+        "universal_edge_rear_shell(",
     ):
         if forbidden in source_text:
             raise SystemExit(
-                f"retired transverse/sacrificial stabiliser returned: {forbidden}"
+                f"retired horizontal-print support/edge-transition geometry returned: {forbidden}"
             )
 
     for forbidden in (
@@ -608,17 +616,16 @@ def assert_no_legacy_layout() -> None:
             )
 
     for required in (
-        "ramp_print_support_x",
-        "ramp_print_support_levels",
-        "ramp_print_support_post(",
-        "ramp_print_supports()",
-        "ramp_print_support_neck_w",
-        "ramp_print_support_neck_h",
-        "ramp_print_support_contact_overlap",
+        "horizontal_ventilation_cutters()",
+        "backplane_print_shift_z",
+        "insertion_print_support_t",
+        "insertion_print_support_overlap",
+        "insertion_tongue_print_support()",
+        "rotate([0,-90,0])",
     ):
         if required not in source_text:
             raise SystemExit(
-                f"required print-only ramp support geometry missing: {required}"
+                f"required side-on vertical print geometry missing: {required}"
             )
 
 def main() -> None:
@@ -638,8 +645,8 @@ def main() -> None:
         assert_design_contract(work_dir)
         assert_empty_intersection(
             work_dir,
-            "vent_lower_vertical_keepout",
-            """    ramp_ventilation_cutters();
+            "vent_lower_insertion_keepout",
+            """    horizontal_ventilation_cutters();
     translate([
         universal_deep_x0-1,
         equipment_backplane_y0,
@@ -647,22 +654,22 @@ def main() -> None:
     ])
         cube([
             universal_deep_w+2,
-            universal_deep_y1-equipment_backplane_y0,
+            universal_deep_y0-equipment_backplane_y0,
             100
         ]);""",
         )
         assert_empty_intersection(
             work_dir,
-            "vent_top_flat_keepout",
-            """    ramp_ventilation_cutters();
+            "vent_return_and_top_keepout",
+            """    horizontal_ventilation_cutters();
     translate([
         universal_deep_x0-1,
-        universal_deep_ramp_end_y,
+        universal_deep_y1,
         -10
     ])
         cube([
             universal_deep_w+2,
-            enclosure_top_y-universal_deep_ramp_end_y,
+            enclosure_top_y-universal_deep_y1,
             100
         ]);""",
         )
@@ -738,37 +745,9 @@ def main() -> None:
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
-        # The old 40 mm-depth edge lands must not continue up beside the
-        # universal cavity. Probe both edge strips well above the guide/edge
-        # transition and below the return ramp; only the deep rear skin should
-        # exist there, leaving this intermediate depth volume empty.
-        for side, x0, width in (
-            (
-                "left",
-                "service_x+0.2",
-                "universal_deep_x0-service_x-0.4",
-            ),
-            (
-                "right",
-                "universal_deep_x1+0.2",
-                "service_x+service_w-universal_deep_x1-0.4",
-            ),
-        ):
-            assert_empty_intersection(
-                work_dir,
-                f"{side}_upper_edge_land_removed",
-                f"""    universal_equipment_backplane();
-    translate([
-        {x0},
-        universal_edge_transition_y1+20,
-        equipment_backplane_rear_z+0.5
-    ])
-        cube([
-            {width},
-            universal_deep_y1-universal_edge_transition_y1-24,
-            universal_deep_front_z-equipment_backplane_rear_z-1
-        ]);""",
-            )
+        # Above the guide section the shell profile is deliberately identical
+        # across the complete X length; the parameter contract above guards
+        # against reintroducing edge-specific depth transitions.
 
         # The upper connector aligns modules/end plates without making the
         # removable backplane horizontally captive. Test relative vertical
