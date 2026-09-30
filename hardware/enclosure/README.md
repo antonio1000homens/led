@@ -275,19 +275,20 @@ PETG remains preferred for repeated hinge testing.
 
 ### Backplane print stability
 
-The backplane no longer uses sacrificial transverse pads or braces through the
-equipment side of the enclosure. Instead, five **permanent rear-wall feet** are
-part of the backplane itself.
+The backplane's installed geometry has **no permanent rear feet**. The print
+failure was observed when the upright build reached the steep **54 mm -> shallow
+return ramp**, so the manufacturing wrapper now supports that ramp directly.
 
-Each foot is **12 mm wide** and runs vertically from the lower backplane locating
-datum up into the deep rear wall. The deep wall begins 9.5 mm above that datum,
-so the feet bridge that raised section and overlap 10 mm into the wall. Their
-extra footprint extends **12 mm rearward only**, behind the enclosure; no support
-projects forward into the 54 mm equipment cavity.
+Five removable support ribs are placed across X in the solid bands between the
+ramp ventilation slots. Each rib contains four narrow vertical posts at roughly
+25%, 50%, 75% and 93% of the ramp depth change. The posts rise from a thin
+bed-connected rail and stop **0.20 mm below the ramp**, giving a one-layer PETG
+release interface while still supporting the first ramp layers.
 
-This gives the upright print a wider rearward bed footprint while leaving the
-equipment volume unobstructed. The feet remain on the finished part and do not
-need trimming or removal after printing.
+The supports exist only in `03_universal_equipment_backplane_PRINT_1.stl`;
+`universal_equipment_backplane()` remains support-free for installed assembly
+and interference checks. After printing, snap/cut the support ribs away from
+under the ramp and clean the small contact areas.
 
 For the H2D production candidate use **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
 **0.20mm Standard @BBL H2D**, and the **Textured PEI Plate**.
