@@ -260,66 +260,57 @@ adapter_hole_d = 3.4;
 adapter_boss_h = 4;
 adapter_x = [32,80,128,176,224];
 
-// CI refresh marker: canonical STL corresponds to the 54 mm universal cavity.
-// Universal deeper equipment envelope. The 54 mm centre zone remains inset at
-// the lower guide interface, because the top-down U-channels need that capture
-// geometry. Above the guide towers the rear shell expands to the full service
-// width instead of carrying the old 40 mm-depth edge lands up the enclosure.
-// The two detachable end pieces now follow this deeper outer profile.
+// Universal equipment envelope for side-on vertical printing.
 //
-// The full-depth centre region is sized around the measured 110 x 80 x 37 mm
-// PSU: 54 mm clear depth leaves 17 mm beyond the 37 mm PSU thickness. The deep
-// wall remains vertical for 86 mm, then returns to the shallow panel plane
-// through a ventilated ramp. The final 10 mm is flat/parallel to the LED panel
-// so the enclosure finishes flush at the top edge.
+// The production backplane is printed with its 256 mm X dimension vertical.
+// Above the 50 mm guide/insertion section, the shell therefore keeps one
+// identical Y/Z cross-section across the complete X length. Only the narrowed
+// lower insertion tongue differs at the two ends; its first layers receive a
+// small print-only breakaway support in the manufacturing wrapper.
 universal_deep_clear_depth = 54;
 universal_deep_wall_t = equipment_backplane_t;
 
-// Lower guide-compatible centre span. This is the only place where the old
-// side inset remains mechanically necessary.
-universal_deep_x0 = service_x + side_guide_w + 0.5;
-universal_deep_x1 = service_x + service_w - side_guide_w - 0.5;
-universal_deep_w = universal_deep_x1-universal_deep_x0;
+// The installed lower tongue remains narrow enough to slide inside the two
+// U-channel guides. Above the guide tops the shell immediately uses the full
+// service width; there is no longer an X-dependent edge-depth transition.
+universal_deep_x0 = service_x;
+universal_deep_x1 = service_x + service_w;
+universal_deep_w = service_w;
+universal_full_x0 = universal_deep_x0;
+universal_full_x1 = universal_deep_x1;
+universal_full_w = universal_deep_w;
 
-// Above the guide towers the enclosure grows to the complete service width.
-// A short 8 mm depth transition avoids a sudden unsupported step in the
-// upright print while allowing the detachable ends to match the deep shell.
-universal_full_x0 = service_x;
-universal_full_x1 = service_x + service_w;
-universal_full_w = universal_full_x1-universal_full_x0;
-universal_edge_guide_clearance_y = 1;
-universal_edge_transition_y0 =
-    side_guide_y1 + universal_edge_guide_clearance_y;
-universal_edge_transition_y1 = universal_edge_transition_y0 + 8;
-
-universal_deep_transition_y0 = 6;
-universal_deep_y0 = 12;
-universal_deep_y1 = 98;
-
-// Keep the two accessory-boss rows close to the lower/upper edges of the
-// full-depth mounting region while retaining a 10 mm material border.
-adapter_edge_inset_y = 10;
-adapter_y = [
-    universal_deep_y0 + adapter_edge_inset_y,
-    universal_deep_y1 - adapter_edge_inset_y
-];
+// The full-depth equipment zone begins immediately above the guide section.
+// Keep at least 80 mm of vertical mounting height for the measured PSU, then
+// return to the shallow closure wall near the top. Because X is the print
+// vertical axis, this Y/Z return profile is repeated identically on every
+// structural layer and no under-ramp print supports are required.
+universal_deep_y0 = side_guide_y1;
 universal_top_flat_h = 10;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
+universal_return_ramp_h = 6;
+universal_deep_y1 = universal_deep_ramp_end_y-universal_return_ramp_h;
+
 universal_deep_rear_z =
     enclosure_front_z + universal_deep_clear_depth + universal_deep_wall_t;
 universal_deep_front_z =
     universal_deep_rear_z-universal_deep_wall_t;
 
-// Ventilation is confined to the universal deep ramp. The lower vertical wall
-// and final 10 mm top wall remain solid; rear cable slots remain retired.
-vent_side_margin = 12;
-vent_slot_w = 3;
-vent_pitch = 8;
-ramp_vent_bottom_margin = 6;
-ramp_vent_top_margin = 6;
-upper_vent_y = universal_deep_y1 + ramp_vent_bottom_margin;
-upper_vent_h =
-    universal_deep_ramp_end_y-ramp_vent_top_margin-upper_vent_y;
+// Keep the two accessory-boss rows inside the long full-depth mounting face.
+adapter_edge_inset_y = 10;
+adapter_y = [
+    universal_deep_y0 + adapter_edge_inset_y,
+    universal_deep_y1 - adapter_edge_inset_y
+];
+
+// Horizontal ventilation slots run across X. In the side-on print orientation
+// these become vertical channels in print Z, avoiding the unsupported roofs
+// created by the former X-local/installed-vertical slot pattern.
+vent_side_margin = 16;
+vent_slot_h = 3;
+vent_pitch = 9;
+horizontal_vent_y0 = universal_deep_y0 + 18;
+horizontal_vent_y1 = universal_deep_y1 - 18;
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -364,7 +355,7 @@ side_connector_pin_len =
 // panel. The vertical release SLOT is only a void and continues upward through
 // the ramp to allow 15 mm of top-down service motion at the end plates.
 top_connector_y = 71;
-top_connector_z = equipment_backplane_rear_z - 1.3;
+top_connector_z = universal_deep_rear_z - 1.3;
 top_connector_release_travel = 15;
 top_connector_slot_lower_span = 20;
 top_connector_slot_bottom_y = top_connector_y - top_connector_slot_lower_span;
