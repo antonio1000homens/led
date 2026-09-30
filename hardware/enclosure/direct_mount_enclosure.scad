@@ -923,74 +923,26 @@ module backplane_shell_solid() {
     }
 }
 
-// Replace the centre of the native/interface shell with the deeper universal
-// equipment volume. The lower guide-compatible side inset is retained only
-// below the edge-depth transition; above it the rear shell reaches full width.
+// Replace the native shell above the guide section with one constant-width
+// universal profile. The only reduced-width region is the lower insertion
+// tongue that remains in backplane_shell_solid().
 module universal_native_backplane_opening() {
-    // The centre deep zone starts low enough to preserve the PSU-fit height.
     translate([
-        universal_deep_x0,
+        service_x,
         universal_deep_y0-0.2,
         -1
     ])
         cube([
-            universal_deep_w,
+            service_w,
             enclosure_top_y-universal_deep_y0+0.4,
             universal_deep_rear_z+2
         ]);
 }
 
-module universal_edge_native_openings() {
-    // Remove the old 40 mm-depth side lands only after the U-channel guide
-    // interface has finished. The lower capture geometry therefore remains
-    // unchanged, while the upper enclosure can run at the full 54 mm profile.
-    edge_spans = [
-        [service_x, universal_deep_x0-service_x],
-        [universal_deep_x1, service_x+service_w-universal_deep_x1]
-    ];
-
-    for (span=edge_spans)
-        translate([
-            span[0],
-            universal_edge_transition_y0-0.2,
-            -1
-        ])
-            cube([
-                span[1],
-                enclosure_top_y-universal_edge_transition_y0+0.4,
-                universal_deep_rear_z+2
-            ]);
-}
-
 module universal_deep_rear_shell() {
     slice_h = 1.0;
 
-    // Print-friendly lower transition immediately above the base seat.
-    hull() {
-        translate([
-            universal_deep_x0,
-            universal_deep_transition_y0,
-            equipment_backplane_front_z
-        ])
-            cube([
-                universal_deep_w,
-                slice_h,
-                equipment_backplane_t
-            ]);
-
-        translate([
-            universal_deep_x0,
-            universal_deep_y0-slice_h,
-            universal_deep_front_z
-        ])
-            cube([
-                universal_deep_w,
-                slice_h,
-                universal_deep_wall_t
-            ]);
-    }
-
-    // Full 54 mm clear-depth centre equipment region.
+    // Full-width 54 mm equipment wall.
     translate([
         universal_deep_x0,
         universal_deep_y0-slice_h,
@@ -1002,7 +954,7 @@ module universal_deep_rear_shell() {
             universal_deep_wall_t
         ]);
 
-    // Ventilated return ramp.
+    // Full-width return ramp, repeated identically across X.
     hull() {
         translate([
             universal_deep_x0,
@@ -1027,7 +979,7 @@ module universal_deep_rear_shell() {
             ]);
     }
 
-    // Final 10 mm stays flat/parallel to the panel for a flush top edge.
+    // Final 10 mm closure wall remains flat/parallel to the LED panel.
     translate([
         universal_deep_x0,
         universal_deep_ramp_end_y-slice_h,
@@ -1040,165 +992,31 @@ module universal_deep_rear_shell() {
         ]);
 }
 
-module universal_edge_rear_shell(side="left") {
-    // Extend the rear shell from the guide-compatible centre span out to each
-    // module edge. The extension begins only above the lower guide towers.
-    x0 = side == "left" ? service_x : universal_deep_x1;
-    edge_w = side == "left"
-        ? universal_deep_x0-service_x
-        : service_x+service_w-universal_deep_x1;
-    slice_h = 1.0;
-
-    // 40 -> 54 mm depth transition immediately above the guide towers.
-    hull() {
-        translate([
-            x0,
-            universal_edge_transition_y0-slice_h,
-            equipment_backplane_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                equipment_backplane_t
-            ]);
-
-        translate([
-            x0,
-            universal_edge_transition_y1-slice_h,
-            universal_deep_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                universal_deep_wall_t
-            ]);
-    }
-
-    // Match the centre region at full depth once clear of the guide towers.
-    translate([
-        x0,
-        universal_edge_transition_y1-slice_h,
-        universal_deep_front_z
-    ])
-        cube([
-            edge_w,
-            universal_deep_y1-universal_edge_transition_y1+slice_h,
-            universal_deep_wall_t
-        ]);
-
-    // Follow the same return ramp as the centre shell.
-    hull() {
-        translate([
-            x0,
-            universal_deep_y1-slice_h,
-            universal_deep_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                universal_deep_wall_t
-            ]);
-
-        translate([
-            x0,
-            universal_deep_ramp_end_y-slice_h,
-            equipment_backplane_top_front_z
-        ])
-            cube([
-                edge_w,
-                slice_h,
-                equipment_backplane_t
-            ]);
-    }
-
-    translate([
-        x0,
-        universal_deep_ramp_end_y-slice_h,
-        equipment_backplane_top_front_z
-    ])
-        cube([
-            edge_w,
-            enclosure_top_y-universal_deep_ramp_end_y+slice_h,
-            equipment_backplane_t
-        ]);
-}
-
-module universal_deep_side_wall(side="left") {
-    // The centre-zone side walls are now only lower transition ribs. They stop
-    // once the outer edge shell has reached full depth, eliminating the tall
-    // internal "arms" that previously separated the centre from the end zones.
-    x0 = side == "left"
-        ? universal_deep_x0
-        : universal_deep_x1-universal_deep_wall_t;
-    slice_h = 1.0;
-
-    hull() {
-        translate([
-            x0,
-            universal_deep_transition_y0,
-            equipment_backplane_front_z
-        ])
-            cube([
-                universal_deep_wall_t,
-                slice_h,
-                equipment_backplane_t
-            ]);
-        translate([
-            x0,
-            universal_deep_y0-slice_h,
-            equipment_backplane_front_z
-        ])
-            cube([
-                universal_deep_wall_t,
-                slice_h,
-                universal_deep_rear_z-equipment_backplane_front_z
-            ]);
-    }
-
-    translate([
-        x0,
-        universal_deep_y0-slice_h,
-        equipment_backplane_front_z
-    ])
-        cube([
-            universal_deep_wall_t,
-            universal_edge_transition_y1-universal_deep_y0+slice_h,
-            universal_deep_rear_z-equipment_backplane_front_z
-        ]);
-}
-
-
-
 module universal_backplane_shell_solid() {
     union() {
         difference() {
             backplane_shell_solid();
             universal_native_backplane_opening();
-            universal_edge_native_openings();
         }
         universal_deep_rear_shell();
-        universal_edge_rear_shell("left");
-        universal_edge_rear_shell("right");
-        universal_deep_side_wall("left");
-        universal_deep_side_wall("right");
     }
 }
 
-module ramp_ventilation_cutters() {
-    for (x=[
-        universal_deep_x0+vent_side_margin :
+module horizontal_ventilation_cutters() {
+    for (yy=[
+        horizontal_vent_y0 :
         vent_pitch :
-        universal_deep_x1-vent_side_margin-vent_slot_w
+        horizontal_vent_y1-vent_slot_h
     ])
         translate([
-            x,
-            upper_vent_y,
-            equipment_backplane_top_front_z-2
+            universal_deep_x0+vent_side_margin,
+            yy,
+            universal_deep_front_z-2
         ])
             cube([
-                vent_slot_w,
-                upper_vent_h,
-                universal_deep_rear_z-equipment_backplane_top_front_z+4
+                universal_deep_w-2*vent_side_margin,
+                vent_slot_h,
+                universal_deep_wall_t+4
             ]);
 }
 
@@ -1223,7 +1041,7 @@ module universal_equipment_backplane() {
         // rear face remains a solid uninterrupted skin.
         internal_adapter_hole_cutters();
 
-        ramp_ventilation_cutters();
+        horizontal_ventilation_cutters();
 
         // Three aligned top-row clearance holes let longer panel screws clamp
         // the moving panel/template to the stationary enclosure when closed.
