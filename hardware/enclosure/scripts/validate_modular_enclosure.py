@@ -263,17 +263,25 @@ assert(abs(hinge_rail_start_x-10) < 0.01 &&
        abs(hinge_rail_length-236) < 0.01 &&
        abs(hinge_rail_end_x-246) < 0.01,
        "hinge rail endpoints must remain X=10..246 mm");
-assert(hinge_end_stop_d > hinge_rail_d &&
-       hinge_end_stop_d <= hinge_bore_d+0.01,
-       "rod end stop must cover the 6 mm rail without exceeding the bore envelope");
+assert(side_rod_sleeve_outer_d >= hinge_outer_d-0.01 &&
+       side_rod_sleeve_bore_d >= hinge_rail_d+0.8,
+       "side rod sleeve must be hinge-sized outside with clearance around the 6 mm rail");
+assert((side_rod_sleeve_outer_d-side_rod_sleeve_bore_d)/2 >= 2.5,
+       "side rod sleeve wall is too thin");
 assert(abs(left_side_inner_x+left_rail_end_stop_len-hinge_rail_start_x) < 0.01,
-       "left rod end stop no longer reaches the left rail endpoint");
+       "left capped rod stop no longer reaches the left rail endpoint");
 assert(abs(right_side_inner_x-right_rail_end_stop_len-hinge_rail_end_x) < 0.01,
-       "right rod end stop no longer reaches the right rail endpoint");
-assert(hinge_left_barrel_start-hinge_rail_start_x >= 10,
-       "left rod stop/rail end is too close to the first hinge barrel");
-assert(hinge_rail_end_x-hinge_right_barrel_end >= 10,
-       "right rod stop/rail end is too close to the last hinge barrel");
+       "right capped rod stop no longer reaches the right rail endpoint");
+assert(abs(left_side_inner_x+left_side_rod_support_len-hinge_left_barrel_start) < 0.01,
+       "left rod support no longer reaches the nearest hinge barrel");
+assert(abs(right_side_inner_x-right_side_rod_support_len-hinge_right_barrel_end) < 0.01,
+       "right rod support no longer reaches the nearest hinge barrel");
+assert(abs(left_side_rod_sleeve_len-
+           (hinge_left_barrel_start-hinge_rail_start_x)) < 0.01,
+       "left hollow sleeve no longer covers the rod-to-barrel span");
+assert(abs(right_side_rod_sleeve_len-
+           (hinge_rail_end_x-hinge_right_barrel_end)) < 0.01,
+       "right hollow sleeve no longer covers the rod-to-barrel span");
 assert(hinge_axis_y-hinge_radius < ground_clearance &&
        hinge_axis_y+hinge_radius > ground_clearance,
        "hinge barrel must straddle the moving panel lower edge");
@@ -560,7 +568,7 @@ cube([1,1,1]);
         "lower hidden junctions, upper backplane/end-plate alignment slot, "
         "54 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
         "top wall, two slim boss rows, three aligned closure holes and "
-        "hinge-rail end-stop contract"
+        "hinge-rail side-sleeve contract"
     )
 
 
@@ -819,6 +827,12 @@ def main() -> None:
                 f"{side}_side_retainer_fit",
                 f"""    stationary_equipment_module_core();
     equipment_side(\"{side}\");""",
+            )
+            assert_empty_intersection(
+                work_dir,
+                f"{side}_side_rod_sleeve_clearance",
+                f"""    equipment_side(\"{side}\");
+    hinge_rail_preview();""",
             )
         assert_hinge_sweep(work_dir)
         assert_neighboring_module_clearance(work_dir)
