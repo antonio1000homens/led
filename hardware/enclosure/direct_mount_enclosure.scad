@@ -347,7 +347,7 @@ connector_socket_d = 4.7;
 connector_pin_len = 3;
 connector_socket_depth = 3;
 
-// Self-mating junctions are carried by the 50 mm U-channel side rails. They sit
+// Self-mating junctions are carried by the 40 mm U-channel side rails. They sit
 // on the cavity-facing side and remain hidden from the external rear face.
 // Both A/B features are inset from the support-pad edges by at least 2 mm even
 // at the larger 4.7 mm socket diameter, avoiding the fragile edge condition.
