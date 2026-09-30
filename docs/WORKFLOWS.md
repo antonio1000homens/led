@@ -50,6 +50,8 @@ The enclosure validator uses the same principle with its existing branch/PR-scop
 
 Production mutations from Backend, Cloudflare and Static Web all share the `led-production` concurrency group. They use `queue: max` with `cancel-in-progress: false`: only one production mutation runs at a time, but later legitimate deployments wait in FIFO order instead of replacing an older pending production job.
 
+Workflow YAML files remain PR validation inputs, but are not production push inputs for Backend, Cloudflare or Static Web. Merging a workflow-only change therefore does not deploy unchanged application/infrastructure content. CircuitPython and Enclosure likewise do not repeat their validation solely because their own workflow YAML changed on `master`.
+
 ## Production versus validation-only inputs
 
 The production backend push trigger is intentionally narrower than its pull
