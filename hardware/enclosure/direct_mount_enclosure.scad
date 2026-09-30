@@ -304,14 +304,26 @@ adapter_y = [
     universal_deep_y1 - adapter_edge_inset_y
 ];
 
-// Horizontal ventilation slots run across X. In the side-on print orientation
-// these become vertical channels in print Z, avoiding the unsupported roofs
-// created by the former X-local/installed-vertical slot pattern.
-vent_side_margin = 16;
-vent_slot_h = 3;
-vent_pitch = 9;
-horizontal_vent_y0 = universal_deep_y0 + 18;
-horizontal_vent_y1 = universal_deep_y1 - 18;
+// Ventilation belongs on the enclosure's transition surfaces, NOT the rear
+// mounting wall. Keep a solid rear skin for the adapter bosses and place
+// horizontal slots across X on both the lower guide-to-depth shoulder and the
+// upper return ramp. With installed X mapped to print Z these slots become
+// vertical channels in the side-on print orientation.
+vent_slot_len = 36;
+vent_slot_gap = 10;
+vent_slot_count = 5;
+vent_slot_x0 =
+    universal_deep_x0 +
+    (universal_deep_w -
+     (vent_slot_count*vent_slot_len +
+      (vent_slot_count-1)*vent_slot_gap))/2;
+vent_slot_y_h = 1.8;
+bottom_ramp_vent_y =
+    universal_deep_y0 +
+    (universal_guide_shoulder_t-vent_slot_y_h)/2;
+top_ramp_vent_y =
+    universal_deep_y1 +
+    (universal_return_ramp_h-vent_slot_y_h)/2;
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -1019,22 +1031,35 @@ module universal_backplane_shell_solid() {
     }
 }
 
-module horizontal_ventilation_cutters() {
-    for (yy=[
-        horizontal_vent_y0 :
-        vent_pitch :
-        horizontal_vent_y1-vent_slot_h
-    ])
+module ramp_ventilation_cutters() {
+    // Five horizontal slots on the lower shoulder and five on the upper return
+    // ramp. The cutter spans Z so it follows the actual sloped/shoulder wall
+    // wherever it intersects; it never crosses the long rear boss-mount wall.
+    for (i=[0:vent_slot_count-1]) {
+        xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
+
         translate([
-            universal_deep_x0+vent_side_margin,
-            yy,
-            universal_deep_front_z-2
+            xx,
+            bottom_ramp_vent_y,
+            equipment_backplane_top_front_z-2
         ])
             cube([
-                universal_deep_w-2*vent_side_margin,
-                vent_slot_h,
-                universal_deep_wall_t+4
+                vent_slot_len,
+                vent_slot_y_h,
+                universal_deep_rear_z-equipment_backplane_top_front_z+4
             ]);
+
+        translate([
+            xx,
+            top_ramp_vent_y,
+            equipment_backplane_top_front_z-2
+        ])
+            cube([
+                vent_slot_len,
+                vent_slot_y_h,
+                universal_deep_rear_z-equipment_backplane_top_front_z+4
+            ]);
+    }
 }
 
 module universal_equipment_backplane() {
@@ -1058,7 +1083,7 @@ module universal_equipment_backplane() {
         // rear face remains a solid uninterrupted skin.
         internal_adapter_hole_cutters();
 
-        horizontal_ventilation_cutters();
+        ramp_ventilation_cutters();
 
         // Three aligned top-row clearance holes let longer panel screws clamp
         // the moving panel/template to the stationary enclosure when closed.
