@@ -280,8 +280,8 @@ failure was observed when the upright build reached the steep **54 mm -> shallow
 return ramp**, so the manufacturing wrapper now supports that ramp directly.
 
 Five removable support ribs are placed across X in the solid bands between the
-ramp ventilation slots. Each rib contains four narrow vertical posts at roughly
-25%, 50%, 75% and 93% of the ramp depth change. The posts rise from a thin
+ramp ventilation slots. Each rib contains five narrow vertical posts at roughly
+15%, 35%, 55%, 75% and 95% of the ramp depth change. The posts rise from a thin
 bed-connected rail and stop **0.20 mm below the ramp**, giving a one-layer PETG
 release interface while still supporting the first ramp layers.
 
