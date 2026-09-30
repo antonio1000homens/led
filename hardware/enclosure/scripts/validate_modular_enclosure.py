@@ -441,8 +441,11 @@ assert(top_connector_pad_depth >=
        "compact top connector boss is too shallow for the locating slot");
 assert(abs(top_connector_pad_inner_depth-equipment_backplane_t) < 0.01,
        "connector boss must taper back to native rear-wall thickness");
-assert(top_connector_pad_w >=
-           2*(top_connector_pad_depth-top_connector_pad_inner_depth) &&
+assert(top_connector_pad_seam_w >= connector_socket_depth+0.8 &&
+       top_connector_pad_seam_w < top_connector_pad_w,
+       "connector boss full-depth seam land must continue beyond the release slot");
+assert(top_connector_pad_w-top_connector_pad_seam_w >=
+           top_connector_pad_depth-top_connector_pad_inner_depth &&
        top_connector_pad_slice_w <= 1.0+0.01,
        "connector boss X taper is too abrupt for side-on vertical printing");
 assert(top_connector_tab_t < connector_socket_d &&
