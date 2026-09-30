@@ -1243,8 +1243,8 @@ module universal_equipment_backplane() {
 // removable supports directly UNDER the ramp in print coordinates.
 //
 // Installed +Y maps to print +Z and installed rearward +Z maps to print -Y.
-// The support posts rise vertically from the bed and stop one 0.20 mm layer
-// below the ramp's cavity-facing surface. Five X ribs are centred in solid
+// The support posts rise vertically from the bed and touch the ramp through
+// narrow breakaway necks rather than leaving an air gap. Five X ribs are centred in solid
 // bands between the 3 mm ventilation slots, and each rib supports four points
 // along the ramp. A thin bed rail ties each rib together and intersects the
 // lower backplane wall so the generated STL remains one printable shell.
@@ -1256,7 +1256,8 @@ ramp_print_support_post_w = 4;
 ramp_print_support_post_d = 2.4;
 ramp_print_support_slice_d = 0.4;
 ramp_print_support_base_t = 0.8;
-ramp_print_support_contact_gap = 0.20;
+ramp_print_support_neck_w = 0.8;
+ramp_print_support_neck_h = 1.0;
 
 // Print-space line followed by the cavity-facing surface of the return ramp.
 ramp_print_inner_y0 =
@@ -1286,34 +1287,63 @@ ramp_print_support_base_y1 =
     ) + ramp_print_support_post_d/2;
 
 // One vertical print-space post with a sloped top that follows the underside
-// of the ramp. The top terminates one print layer below the model to create a
-// predictable PETG breakaway interface rather than becoming permanent geometry.
+// of the ramp. The main 4 mm post stops 1 mm short of the ramp, then a narrow
+// 0.8 mm breakaway neck makes real contact. This prevents Bambu Studio from
+// treating the ramp as a floating cantilever while keeping removal practical.
 module ramp_print_support_post(xc, level) {
-    x0 = xc-ramp_print_support_post_w/2;
+    body_x0 = xc-ramp_print_support_post_w/2;
+    neck_x0 = xc-ramp_print_support_neck_w/2;
     yc = ramp_print_y_at_level(level);
     y0 = yc-ramp_print_support_post_d/2;
     y1 = yc+ramp_print_support_post_d/2;
-    z0 =
-        ramp_print_z_at_y(y0)-ramp_print_support_contact_gap;
-    z1 =
-        ramp_print_z_at_y(y1)-ramp_print_support_contact_gap;
+    ramp_z0 = ramp_print_z_at_y(y0);
+    ramp_z1 = ramp_print_z_at_y(y1);
+    body_z0 = max(ramp_z0-ramp_print_support_neck_h,0.1);
+    body_z1 = max(ramp_z1-ramp_print_support_neck_h,0.1);
 
+    // Main vertical post.
     hull() {
-        translate([x0,y0,0])
+        translate([body_x0,y0,0])
             cube([
                 ramp_print_support_post_w,
                 ramp_print_support_slice_d,
-                max(z0,0.1)
+                body_z0
             ]);
         translate([
-            x0,
+            body_x0,
             y1-ramp_print_support_slice_d,
             0
         ])
             cube([
                 ramp_print_support_post_w,
                 ramp_print_support_slice_d,
-                max(z1,0.1)
+                body_z1
+            ]);
+    }
+
+    // Thin sloped-top breakaway neck touching the ramp.
+    hull() {
+        translate([
+            neck_x0,
+            y0,
+            body_z0-ramp_print_support_slice_d
+        ])
+            cube([
+                ramp_print_support_neck_w,
+                ramp_print_support_slice_d,
+                ramp_print_support_neck_h+
+                    ramp_print_support_slice_d
+            ]);
+        translate([
+            neck_x0,
+            y1-ramp_print_support_slice_d,
+            body_z1-ramp_print_support_slice_d
+        ])
+            cube([
+                ramp_print_support_neck_w,
+                ramp_print_support_slice_d,
+                ramp_print_support_neck_h+
+                    ramp_print_support_slice_d
             ]);
     }
 }
