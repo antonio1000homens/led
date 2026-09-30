@@ -83,7 +83,7 @@ Horizontal rear-wall vents replace the old installed-vertical ramp slots.
 
 The manufacturing STL rotates this geometry so installed X becomes print Z.
 The only print-only support is a low breakaway strip beneath the narrowed lower
-tongue where that tongue starts 1.6 mm above the left-end print bed. The
+tongue where that tongue starts 1.8 mm above the left-end print bed. The
 backplane reuses the panel's three measured top-row screw positions
 (X=7.9/128.0/248.1 mm, installed Y=140.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
