@@ -30,8 +30,8 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - no volumetric interference between the stationary base and removable backplane;
 - positive backplane seating in the recessed rear base groove;
 - top-down insertion clearance and 0.4 mm nominal groove clearance;
-- dual **30 mm × 5 mm** structural side guides with 0.4 mm running clearance;
-- the lower 30 mm stepped/narrowed backplane section and full-width shoulder above it;
+- dual **50 mm × 5 mm** structural side guides with 0.4 mm running clearance;
+- the lower 50 mm stepped/narrowed backplane section and full-width shoulder above it;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), positioned 10 mm in from the lower/upper edges of the full-depth mounting region;
