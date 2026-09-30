@@ -281,7 +281,7 @@ return ramp**, so the manufacturing wrapper now supports that ramp directly.
 
 Five removable support ribs are placed across X in the solid bands between the
 ramp ventilation slots. Each rib contains five narrow vertical posts at roughly
-15%, 35%, 55%, 75% and 95% of the ramp depth change. The posts rise from a thin bed-connected rail and finish in a **0.8 mm-wide ×
+25%, 40%, 55%, 75% and 95% of the ramp depth change. The posts rise from a thin bed-connected rail and finish in a **0.8 mm-wide ×
 1.0 mm-high breakaway neck** that touches the ramp. This gives Bambu Studio real
 support under the ramp while keeping the contact small enough to snap/cut away
 after printing.
