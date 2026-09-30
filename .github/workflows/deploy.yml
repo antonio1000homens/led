@@ -39,7 +39,6 @@ on:
     branches:
       - master
     paths:
-      - '.github/workflows/deploy.yml'
       - 'backend/**'
       - 'shared/**'
       - 'requirements-server.txt'
