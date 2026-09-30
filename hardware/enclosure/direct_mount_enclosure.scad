@@ -1244,7 +1244,8 @@ module universal_equipment_backplane() {
 //
 // Installed +Y maps to print +Z and installed rearward +Z maps to print -Y.
 // The support posts rise vertically from the bed and touch the ramp through
-// narrow breakaway necks rather than leaving an air gap. Five X ribs are centred in solid
+// narrow breakaway necks with a small two-layer overlap rather than leaving
+// an air gap or relying on coplanar contact. Five X ribs are centred in solid
 // bands between the 3 mm ventilation slots, and each rib supports four points
 // along the ramp. A thin bed rail ties each rib together and intersects the
 // lower backplane wall so the generated STL remains one printable shell.
@@ -1258,6 +1259,7 @@ ramp_print_support_slice_d = 0.4;
 ramp_print_support_base_t = 0.8;
 ramp_print_support_neck_w = 0.8;
 ramp_print_support_neck_h = 1.0;
+ramp_print_support_contact_overlap = 0.4;
 
 // Print-space line followed by the cavity-facing surface of the return ramp.
 ramp_print_inner_y0 =
@@ -1321,7 +1323,9 @@ module ramp_print_support_post(xc, level) {
             ]);
     }
 
-    // Thin sloped-top breakaway neck touching the ramp.
+    // Thin sloped-top breakaway neck. It overlaps the ramp by two 0.20 mm
+    // layers so the slicer sees a true structural union rather than coplanar
+    // contact, while the 0.8 mm neck remains easy to cut after printing.
     hull() {
         translate([
             neck_x0,
@@ -1332,6 +1336,7 @@ module ramp_print_support_post(xc, level) {
                 ramp_print_support_neck_w,
                 ramp_print_support_slice_d,
                 ramp_print_support_neck_h+
+                    ramp_print_support_contact_overlap+
                     ramp_print_support_slice_d
             ]);
         translate([
@@ -1343,6 +1348,7 @@ module ramp_print_support_post(xc, level) {
                 ramp_print_support_neck_w,
                 ramp_print_support_slice_d,
                 ramp_print_support_neck_h+
+                    ramp_print_support_contact_overlap+
                     ramp_print_support_slice_d
             ]);
     }
