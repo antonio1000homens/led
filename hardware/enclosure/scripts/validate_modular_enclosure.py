@@ -365,33 +365,51 @@ assert(abs((upper_vent_y+upper_vent_h)-
            (universal_deep_ramp_end_y-ramp_vent_top_margin)) < 0.01,
        "ramp ventilation upper margin drifted");
 
-// Permanent rear-wall foot contract. These replace the old print-only
-// transverse pads/gussets. They must reach the lower backplane datum, overlap
-// the deep rear wall, and gain all extra footprint rearward so the equipment
-// cavity remains unobstructed.
-assert(len(rear_support_foot_x) == 5,
-       "backplane must retain five permanent rear-wall support feet");
-assert(abs(rear_support_foot_w-12) < 0.01,
-       "rear-wall support feet must remain 12 mm wide");
-assert(abs(rear_support_foot_y0-equipment_backplane_y0) < 0.01,
-       "rear-wall feet must reach the lower locating datum");
-assert(abs(rear_support_foot_drop-
-           (universal_deep_y0-equipment_backplane_y0)) < 0.01 &&
-       rear_support_foot_drop > 0,
-       "rear-wall feet must bridge the raised deep-wall/base offset");
-assert(rear_support_foot_overlap_h >= 8 &&
-       rear_support_foot_y1 >= universal_deep_y0+8,
-       "rear-wall feet need positive overlap into the deep rear wall");
-assert(rear_support_foot_rear_extension >= rear_support_foot_drop &&
-       rear_support_foot_rear_extension >= 10,
-       "rear-wall feet need enough rearward depth to stabilise the raised wall");
-assert(abs(rear_support_foot_z0-universal_deep_front_z) < 0.01 &&
-       abs(rear_support_foot_depth-
-           (universal_deep_wall_t+rear_support_foot_rear_extension)) < 0.01,
-       "rear-wall feet must start at the wall face and extend only rearward");
-assert(min(rear_support_foot_x)-rear_support_foot_w/2 > 0 &&
-       max(rear_support_foot_x)+rear_support_foot_w/2 < module_w,
-       "rear-wall feet must remain within the backplane X span");
+// Print-only ramp support contract. The installed enclosure must not carry
+// permanent feet. Five removable ribs support the steep return ramp directly
+// during the upright print, with four vertical posts per rib.
+assert(len(ramp_print_support_x) == 5,
+       "ramp must retain five print-support ribs across its width");
+assert(len(ramp_print_support_levels) == 5,
+       "each ramp-support rib must use five vertical support posts");
+assert(abs(ramp_print_support_post_w-4) < 0.01 &&
+       abs(ramp_print_support_post_d-2.4) < 0.01,
+       "ramp support post footprint drifted");
+assert(abs(ramp_print_support_base_t-0.8) < 0.01,
+       "ramp support bed rail must remain 0.8 mm thick");
+assert(abs(ramp_print_support_neck_w-0.8) < 0.01 &&
+       abs(ramp_print_support_neck_h-1.0) < 0.01 &&
+       abs(ramp_print_support_contact_overlap-0.4) < 0.01,
+       "ramp support breakaway neck/overlap contract drifted");
+assert(ramp_print_support_levels[0] <= 0.25 &&
+       ramp_print_support_levels[4] >= 0.95 &&
+       ramp_print_support_levels[4] < 1.0,
+       "ramp supports no longer cover the lower-to-upper ramp span");
+assert(abs(ramp_print_z0-
+           (universal_deep_y1-equipment_backplane_y0)) < 0.01 &&
+       abs(ramp_print_z1-
+           (universal_deep_ramp_end_y-equipment_backplane_y0)) < 0.01,
+       "ramp support print-space Z mapping drifted");
+assert(ramp_print_inner_y1-ramp_print_inner_y0 > 50,
+       "ramp support no longer spans the steep return-ramp depth change");
+assert(ramp_print_support_base_y0 <
+           backplane_print_origin_y-equipment_backplane_rear_z &&
+       ramp_print_support_base_y1 >
+           backplane_print_origin_y-equipment_backplane_front_z,
+       "ramp support bed rail must cross the lower wall to remain connected");
+for (xx=ramp_print_support_x)
+    assert(xx-ramp_print_support_post_w/2 > universal_deep_x0 &&
+           xx+ramp_print_support_post_w/2 < universal_deep_x1,
+           "ramp support rib must remain inside the universal deep span");
+for (xx=ramp_print_support_x)
+    for (vx=[
+        universal_deep_x0+vent_side_margin :
+        vent_pitch :
+        universal_deep_x1-vent_side_margin-vent_slot_w
+    ])
+        assert(xx-ramp_print_support_post_w/2 >= vx+vent_slot_w ||
+               xx+ramp_print_support_post_w/2 <= vx,
+               "ramp support rib overlaps a ventilation slot");
 assert(len(panel_closure_x) == 3,
        "top closure must reuse exactly three panel screw positions");
 for (i=[0:2])
@@ -597,14 +615,28 @@ def assert_no_legacy_layout() -> None:
                 f"retired transverse/sacrificial stabiliser returned: {forbidden}"
             )
 
-    for required in (
+    for forbidden in (
         "rear_support_foot_x",
         "rear_support_foot_rear_extension",
         "rear_support_feet()",
     ):
+        if forbidden in source_text:
+            raise SystemExit(
+                f"retired permanent rear-wall foot geometry returned: {forbidden}"
+            )
+
+    for required in (
+        "ramp_print_support_x",
+        "ramp_print_support_levels",
+        "ramp_print_support_post(",
+        "ramp_print_supports()",
+        "ramp_print_support_neck_w",
+        "ramp_print_support_neck_h",
+        "ramp_print_support_contact_overlap",
+    ):
         if required not in source_text:
             raise SystemExit(
-                f"required permanent rear-wall foot geometry missing: {required}"
+                f"required print-only ramp support geometry missing: {required}"
             )
 
 def main() -> None:
@@ -657,21 +689,6 @@ def main() -> None:
             "panel_top_closure_holes_clear",
             """    universal_equipment_backplane();
     panel_closure_hole_cutters();""",
-        )
-        assert_empty_intersection(
-            work_dir,
-            "rear_support_feet_cavity_keepout",
-            """    rear_support_feet();
-    translate([
-        service_x,
-        equipment_backplane_y0,
-        enclosure_front_z
-    ])
-        cube([
-            service_w,
-            universal_deep_y1-equipment_backplane_y0,
-            universal_deep_front_z-enclosure_front_z
-        ]);""",
         )
         assert_empty_intersection(
             work_dir,

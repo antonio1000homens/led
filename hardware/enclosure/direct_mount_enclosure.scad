@@ -1167,41 +1167,7 @@ module universal_deep_side_wall(side="left") {
         ]);
 }
 
-// ---------- Permanent rear-wall support feet ----------
-//
-// The deepest rear wall begins above the lower locating datum because the
-// enclosure grows from the 40 mm guide interface into the 54 mm equipment
-// zone. Instead of print-only transverse outriggers crossing both sides of the
-// wall, five permanent vertical feet extend that rear wall down to the lower
-// datum. Their extra depth is entirely REARWARD, outside the equipment cavity.
-rear_support_foot_x = [24,76,128,180,232];
-rear_support_foot_w = 12;
-rear_support_foot_y0 = equipment_backplane_y0;
-rear_support_foot_overlap_h = 10;
-rear_support_foot_y1 = universal_deep_y0 + rear_support_foot_overlap_h;
-rear_support_foot_drop = universal_deep_y0 - rear_support_foot_y0;
 
-// Make the rearward footprint slightly deeper than the unsupported vertical
-// drop created by the raised deep wall/base interface. This provides a stable
-// upright print footprint without consuming equipment-cavity space.
-rear_support_foot_rear_extension = 12;
-rear_support_foot_z0 = universal_deep_front_z;
-rear_support_foot_depth =
-    universal_deep_wall_t + rear_support_foot_rear_extension;
-
-module rear_support_feet() {
-    for (xc=rear_support_foot_x)
-        translate([
-            xc-rear_support_foot_w/2,
-            rear_support_foot_y0,
-            rear_support_foot_z0
-        ])
-            cube([
-                rear_support_foot_w,
-                rear_support_foot_y1-rear_support_foot_y0,
-                rear_support_foot_depth
-            ]);
-}
 
 module universal_backplane_shell_solid() {
     union() {
@@ -1215,7 +1181,6 @@ module universal_backplane_shell_solid() {
         universal_edge_rear_shell("right");
         universal_deep_side_wall("left");
         universal_deep_side_wall("right");
-        rear_support_feet();
     }
 }
 
@@ -1270,19 +1235,158 @@ module universal_equipment_backplane() {
     }
 }
 
-// ---------- Backplane print orientation ----------
+// ---------- Backplane print orientation + removable ramp supports ----------
 //
-// The permanent rear-wall feet are part of the installed backplane and reach
-// the lower locating datum, so the printable wrapper no longer adds sacrificial
-// pads or braces. Nothing projects forward across the equipment cavity.
+// The physical failure occurred when the tall upright print reached the
+// 54 mm -> shallow return ramp. The installed enclosure therefore stays clean:
+// no permanent rear feet are added. Instead, the manufacturing wrapper adds
+// removable supports directly UNDER the ramp in print coordinates.
+//
+// Installed +Y maps to print +Z and installed rearward +Z maps to print -Y.
+// The support posts rise vertically from the bed and touch the ramp through
+// narrow breakaway necks with a small two-layer overlap rather than leaving
+// an air gap or relying on coplanar contact. Five X ribs are centred in solid
+// bands between the 3 mm ventilation slots, and each rib supports four points
+// along the ramp. A thin bed rail ties each rib together and intersects the
+// lower backplane wall so the generated STL remains one printable shell.
+backplane_print_origin_y = equipment_backplane_rear_z + adapter_boss_h;
+
+ramp_print_support_x = [24,72,120,168,216];
+ramp_print_support_levels = [0.25,0.40,0.55,0.75,0.95];
+ramp_print_support_post_w = 4;
+ramp_print_support_post_d = 2.4;
+ramp_print_support_slice_d = 0.4;
+ramp_print_support_base_t = 0.8;
+ramp_print_support_neck_w = 0.8;
+ramp_print_support_neck_h = 1.0;
+ramp_print_support_contact_overlap = 0.4;
+
+// Print-space line followed by the cavity-facing surface of the return ramp.
+ramp_print_inner_y0 =
+    backplane_print_origin_y-universal_deep_front_z;
+ramp_print_inner_y1 =
+    backplane_print_origin_y-equipment_backplane_top_front_z;
+ramp_print_z0 = universal_deep_y1-equipment_backplane_y0;
+ramp_print_z1 =
+    universal_deep_ramp_end_y-equipment_backplane_y0;
+
+function ramp_print_y_at_level(level) =
+    ramp_print_inner_y0 +
+    (ramp_print_inner_y1-ramp_print_inner_y0)*level;
+
+function ramp_print_z_at_y(print_y) =
+    ramp_print_z0 +
+    (ramp_print_z1-ramp_print_z0) *
+    ((print_y-ramp_print_inner_y0)/
+     (ramp_print_inner_y1-ramp_print_inner_y0));
+
+ramp_print_support_base_y0 =
+    ramp_print_y_at_level(ramp_print_support_levels[0])
+    - ramp_print_support_post_d/2;
+ramp_print_support_base_y1 =
+    ramp_print_y_at_level(
+        ramp_print_support_levels[len(ramp_print_support_levels)-1]
+    ) + ramp_print_support_post_d/2;
+
+// One vertical print-space post with a sloped top that follows the underside
+// of the ramp. The main 4 mm post stops 1 mm short of the ramp, then a narrow
+// 0.8 mm breakaway neck makes real contact. This prevents Bambu Studio from
+// treating the ramp as a floating cantilever while keeping removal practical.
+module ramp_print_support_post(xc, level) {
+    body_x0 = xc-ramp_print_support_post_w/2;
+    neck_x0 = xc-ramp_print_support_neck_w/2;
+    yc = ramp_print_y_at_level(level);
+    y0 = yc-ramp_print_support_post_d/2;
+    y1 = yc+ramp_print_support_post_d/2;
+    ramp_z0 = ramp_print_z_at_y(y0);
+    ramp_z1 = ramp_print_z_at_y(y1);
+    body_z0 = max(ramp_z0-ramp_print_support_neck_h,0.1);
+    body_z1 = max(ramp_z1-ramp_print_support_neck_h,0.1);
+
+    // Main vertical post.
+    hull() {
+        translate([body_x0,y0,0])
+            cube([
+                ramp_print_support_post_w,
+                ramp_print_support_slice_d,
+                body_z0
+            ]);
+        translate([
+            body_x0,
+            y1-ramp_print_support_slice_d,
+            0
+        ])
+            cube([
+                ramp_print_support_post_w,
+                ramp_print_support_slice_d,
+                body_z1
+            ]);
+    }
+
+    // Thin sloped-top breakaway neck. It overlaps the ramp by two 0.20 mm
+    // layers so the slicer sees a true structural union rather than coplanar
+    // contact, while the 0.8 mm neck remains easy to cut after printing.
+    hull() {
+        translate([
+            neck_x0,
+            y0,
+            body_z0-ramp_print_support_slice_d
+        ])
+            cube([
+                ramp_print_support_neck_w,
+                ramp_print_support_slice_d,
+                ramp_print_support_neck_h+
+                    ramp_print_support_contact_overlap+
+                    ramp_print_support_slice_d
+            ]);
+        translate([
+            neck_x0,
+            y1-ramp_print_support_slice_d,
+            body_z1-ramp_print_support_slice_d
+        ])
+            cube([
+                ramp_print_support_neck_w,
+                ramp_print_support_slice_d,
+                ramp_print_support_neck_h+
+                    ramp_print_support_contact_overlap+
+                    ramp_print_support_slice_d
+            ]);
+    }
+}
+
+module ramp_print_supports() {
+    for (xc=ramp_print_support_x) {
+        // Thin bed-connected rail. It passes through the print-space location
+        // of the lower 40 mm wall, tying the removable supports to the model
+        // without adding any geometry to the installed enclosure.
+        translate([
+            xc-ramp_print_support_post_w/2,
+            ramp_print_support_base_y0,
+            0
+        ])
+            cube([
+                ramp_print_support_post_w,
+                ramp_print_support_base_y1-ramp_print_support_base_y0,
+                ramp_print_support_base_t
+            ]);
+
+        for (level=ramp_print_support_levels)
+            ramp_print_support_post(xc,level);
+    }
+}
+
 module universal_equipment_backplane_print() {
-    translate([
-        0,
-        equipment_backplane_rear_z+adapter_boss_h,
-        -equipment_backplane_y0
-    ])
-        rotate([90,0,0])
-            universal_equipment_backplane();
+    union() {
+        translate([
+            0,
+            backplane_print_origin_y,
+            -equipment_backplane_y0
+        ])
+            rotate([90,0,0])
+                universal_equipment_backplane();
+
+        ramp_print_supports();
+    }
 }
 
 // ---------- Detachable side/end pieces ----------
