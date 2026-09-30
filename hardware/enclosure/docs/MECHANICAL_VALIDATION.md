@@ -45,7 +45,7 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   4.5 mm top-row closure holes;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
 - no rear cable/ribbon through-slots;
-- side-piece fit, hinge-rod clearance, and integrated left/right rod end stops;
+- side-piece fit, hinge-rod clearance, and capped hollow left/right rod sleeves;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
   **0, 15, 30, 45, 60, 75 and 90°**;
@@ -64,8 +64,11 @@ The hinge regression contract includes:
 - 3 mm local pads at the stationary hinge roots;
 - **2 mm** stationary lower guard with **0.8 mm** barrel clearance;
 - **6 mm rail from X=10 to X=246 mm**;
-- integrated end-piece stops terminating exactly at those rail endpoints while
-  remaining clear of the first barrel at X=34 and final barrel end at X=220.
+- side-piece rod supports matching the **14 mm hinge-barrel OD** with a
+  **7.2 mm clearance bore** around the rod span;
+- capped outer sections retaining the rail at X=10/246, with hollow sleeves
+  continuing from those endpoints to the first barrel at X=34 and final barrel
+  end at X=220.
 
 The previous full-width captive tongue/channel is retired. The backplane enters
 a 2 mm-deep **recessed groove at the rear of the base**. The shallower side
@@ -105,8 +108,9 @@ sets:
    flat/parallel to the panel, there are no rear cable/ribbon through-slots, and
    all three 4.5 mm top closure holes align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
-   all exterior faces remain solid, and each integrated rod end stop reaches
-   its rail endpoint without extending into a hinge-barrel span;
+   all exterior faces remain solid, each capped rod stop retains the rail at
+   X=10/246, and the hollow 7.2 mm sleeve continues around the rod to the nearest
+   hinge barrel without binding;
 9. mate two equipment cores side-by-side at the 256 mm pitch and check the hidden pin/socket alignment;
 10. test representative M3 hardware on the inward-facing lower boss grid and verify the external rear skin is unbroken;
 11. verify connected HUB75/power cabling remains free through the opening arc.
