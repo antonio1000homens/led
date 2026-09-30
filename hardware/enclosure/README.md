@@ -223,6 +223,44 @@ mating sockets are blind from the inside, leaving the outside side faces solid.
 
 These features provide alignment/retention, not the primary structural load.
 
+## Left-side C14 mains inlet
+
+The detachable **left** equipment side includes a landscape snap-in opening for
+the fused/switched IEC C14 inlet shown during the enclosure fit review. The
+47 mm body dimension runs front-to-rear (installed Z), so the inlet, fuse drawer
+and rocker remain in their normal horizontal arrangement when viewed from the
+left end.
+
+The cutout is deliberately parameterised rather than hard-coded into the side
+wall:
+
+- nominal panel opening: **47 × 28 mm** with **R2** corners;
+- FDM allowance: **0.10 mm per edge**, producing a 47.2 × 28.2 mm printed opening;
+- nominal front-flange envelope used for keep-out checks: **50 × 30.5 mm**;
+- normal side-wall thickness: **3.0 mm**;
+- hidden latch relief leaves an initial **1.4 mm effective snap land** around
+  the opening while the surrounding side wall stays 3 mm thick;
+- the relief extends only **2 mm** beyond the opening and is cut from the
+  enclosure-facing surface, so the exterior remains flat.
+
+The spring lugs are expected to compress while the inlet body is pushed through
+the rounded rectangular opening, then expand into the hidden rear relief and
+catch behind the 1.4 mm land. The inlet is positioned high in the full-depth
+side region so its body and relief stay clear of the hinge hardware and the
+upper backplane/end-plate alignment connector.
+
+The photographed inlet's exact manufacturer/clip-thickness variant is not
+identified. The **47 × 28 mm R2 opening is the stable interface**, while
+c14_snap_panel_t is intentionally the one physical-fit tuning value. The
+initial 1.4 mm value targets the common thin-panel snap-in family; if the real
+part proves to be a 2 mm or thicker latch variant, change only that value after
+a physical fit test rather than enlarging the outside opening.
+
+Physical acceptance for the left side is: the front flange sits flat on the
+outside face, all spring lugs audibly/visibly clear the inner edge, the inlet
+cannot pull back out without deliberately compressing the lugs, and the 3 mm
+structural wall remains intact outside the local hidden relief.
+
 ## Assembly previews
 
 Single-module service views:
