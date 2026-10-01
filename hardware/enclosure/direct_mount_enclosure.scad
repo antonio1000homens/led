@@ -102,6 +102,12 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
 panel_band_h = 20;
 panel_side_w = 8;
 
+// Spread each moving hinge knuckle into the complete lower mounting band.
+// The panel's screw/locator X positions sit outside the moving knuckle spans,
+// so this broad triangular root can use the full 20 mm band without obscuring
+// any mounting holes.
+moving_hinge_panel_gusset_h = panel_band_h;
+
 module panel_mount_pattern_template() {
     difference() {
         union() {
@@ -126,11 +132,13 @@ module panel_mount_pattern_template() {
 }
 
 module moving_panel_root(x0,len) {
-    // PR #119: local reinforcement only. The moving leaf deliberately has no
-    // full-width lower hinge lip that could collide with the stationary base.
+    // Keep the reinforcement local to each moving knuckle, but spread the
+    // barrel load across the full 20 mm lower panel band. In side view this is
+    // a broad triangular gusset from the hinge barrel into the panel/template
+    // rather than the old narrow ~7 mm attachment.
     hull() {
         translate([x0,ground_clearance,0])
-            cube([len,7,moving_plate_t]);
+            cube([len,moving_hinge_panel_gusset_h,moving_plate_t]);
 
         translate([x0,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
@@ -250,6 +258,14 @@ base_rear_z = backplane_slot_back_z + backplane_guide_t;
 base_front_extension = 20;
 base_floor_front_z = service_front_z - base_front_extension;
 base_floor_rear_z = base_rear_z;
+
+// Reinforce the 20 mm forward floor extension with a shallow side-profile ramp.
+// It rises only 6 mm above the base at the original front line, keeping the
+// entire wedge well below the LED panel's 90-degree service sweep.
+base_front_ramp_h = 6;
+base_front_ramp_run = base_front_extension;
+base_front_ramp_slice_z = 1.0;
+base_front_ramp_floor_overlap = 0.5;
 
 // The old 20 mm hinge height needed a local front-floor relief for the open
 // panel. At the raised 40 mm hinge height that relief no longer reaches the
@@ -724,6 +740,36 @@ module side_guide_channel(side="left") {
     }
 }
 
+module base_front_reinforcement_ramp() {
+    // Full-width triangular wedge over the new 20 mm forward extension. The
+    // lower strip overlaps the floor at its front edge; the taller strip lands
+    // at the original front line. Keeping the top at only 10.5 mm installed Y
+    // leaves generous clearance below the open panel at 90 degrees.
+    hull() {
+        translate([
+            service_x,
+            base_seat_y-base_front_ramp_floor_overlap,
+            base_floor_front_z
+        ])
+            cube([
+                service_w,
+                base_front_ramp_floor_overlap,
+                base_front_ramp_slice_z
+            ]);
+
+        translate([
+            service_x,
+            base_seat_y-base_front_ramp_floor_overlap,
+            service_front_z-base_front_ramp_slice_z
+        ])
+            cube([
+                service_w,
+                base_front_ramp_h+base_front_ramp_floor_overlap,
+                base_front_ramp_slice_z
+            ]);
+    }
+}
+
 module base_structural_body() {
     difference() {
         union() {
@@ -735,6 +781,7 @@ module base_structural_body() {
                     base_floor_rear_z-base_floor_front_z
                 ]);
 
+            base_front_reinforcement_ramp();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
