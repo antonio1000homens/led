@@ -44,7 +44,7 @@ latch_base_len = 12;
 latch_base_t = 3.0;
 latch_mount_pitch = 7;
 
-latch_hook_depth = 4.0;     // reaches through wall into tray notch
+latch_hook_depth = 6.5;     // reaches from external latch base into tray notch
 latch_hook_len = 4.0;       // X length of retaining face/ramp
 latch_ramp_len = 6.0;       // gentle insertion ramp
 latch_release_len = 10.0;
@@ -58,8 +58,11 @@ tray_notch_z = 0.8;
 
 // External latch sits just outside the +Y channel wall.
 channel_y = tray_h/2 + slide_clearance;
-latch_inner_y = channel_y + dock_channel_wall + 0.2;
-latch_z = tray_assembled_z + 1.0;
+// Fixed dock pad overlaps the channel wall by 0.3 mm so it is one printable
+// body. The replaceable latch base then sits against the OUTER face of that pad.
+latch_mount_pad_y = channel_y + dock_channel_wall - 0.3;
+latch_base_y = latch_mount_pad_y + latch_base_t;
+latch_z = tray_assembled_z + tray_notch_z;
 
 // Window through the +Y channel wall for only the hook nose.
 latch_window_x = latch_hook_x;
@@ -122,7 +125,7 @@ module snap_latch_mount_pad() {
     difference() {
         translate([
             base_x-latch_base_len/2,
-            latch_inner_y,
+            latch_mount_pad_y,
             latch_z-0.8
         ])
             cube([
@@ -134,7 +137,7 @@ module snap_latch_mount_pad() {
         for (dz=[-latch_mount_pitch/2, latch_mount_pitch/2])
             translate([
                 base_x,
-                latch_inner_y-0.2,
+                latch_mount_pad_y-0.2,
                 latch_z+latch_arm_w/2+dz
             ])
                 rotate([-90,0,0])
@@ -225,7 +228,7 @@ module replaceable_snap_latch() {
     // end is at -X. The arm flexes outward in +Y.
     base_x = latch_hook_x + latch_arm_len;
     arm_x0 = latch_hook_x;
-    arm_y = latch_inner_y;
+    arm_y = latch_base_y;
     arm_z = latch_z;
 
     union() {
@@ -245,7 +248,7 @@ module replaceable_snap_latch() {
             for (dz=[-latch_mount_pitch/2, latch_mount_pitch/2])
                 translate([
                     base_x,
-                    latch_inner_y-0.2,
+                    latch_base_y-0.2,
                     arm_z+latch_arm_w/2+dz
                 ])
                     rotate([-90,0,0])
@@ -271,7 +274,7 @@ module replaceable_snap_latch() {
         translate([
             latch_hook_x-latch_hook_len/2,
             arm_y-latch_hook_depth,
-            arm_z+1.0
+            arm_z
         ])
             cube([
                 latch_hook_len,
@@ -286,14 +289,14 @@ module replaceable_snap_latch() {
             translate([
                 latch_hook_x-latch_ramp_len/2,
                 arm_y,
-                arm_z+1.0
+                arm_z
             ])
                 cube([0.8,0.8,tray_notch_h-0.4]);
 
             translate([
                 latch_hook_x+latch_ramp_len/2,
                 arm_y-latch_hook_depth,
-                arm_z+1.0
+                arm_z
             ])
                 cube([0.8,0.8,tray_notch_h-0.4]);
         }
@@ -302,7 +305,7 @@ module replaceable_snap_latch() {
         translate([
             latch_hook_x-latch_release_len/2,
             arm_y,
-            arm_z-(latch_release_w-latch_arm_w)/2
+            arm_z
         ])
             cube([
                 latch_release_len,
