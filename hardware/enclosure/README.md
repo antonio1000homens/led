@@ -46,7 +46,7 @@ solid rear boss-mount wall
    |
 horizontal vents on lower transition + upper return ramp
    |
-11.5 mm flat upper wall flush with panel
+31.5 mm flat upper wall flush with lifted panel
    |
 three aligned top-row closure screw holes
    |
@@ -94,8 +94,9 @@ than only its clearance numbers:
 - metal rail: **6.0 mm**
 - printed bore: **7.2 mm**
 - barrel OD: **14 mm**
-- moving panel/template lower edge: **20 mm above the stationary floor**
-- hinge axis: **y=27 mm, z=16 mm**
+- moving panel/template lower edge and hinge centreline: **40 mm above the stationary floor**
+  (**20 mm higher** than the previous installation)
+- hinge axis: **y=40 mm, z=16 mm**
 - closed moving-template back to barrel clearance: **7 mm**
 - moving panel/template knuckles: **34–60, 92–118, 166–194 mm**
 - stationary equipment knuckles: **62–90, 136–164, 196–220 mm**
@@ -107,7 +108,10 @@ than only its clearance numbers:
 - service/mechanical opening range: **0–90°**
 
 The panel/template rotates forward/down. The equipment base, removable backplane
-and electronics stay stationary.
+and electronics stay stationary. The raised hinge also allows the stationary
+base floor to extend **20 mm farther toward the front** without entering the
+0–90° moving-panel sweep. The moving template's printable geometry is unchanged:
+its print wrapper removes the 40 mm installation offset.
 
 The 6 mm hinge rail is defined from **X=10 mm to X=246 mm**. Each detachable
 outer side now carries a hinge-style rod support with the same **14 mm OD** and
@@ -167,13 +171,15 @@ designed around side-on vertical printing:
   of genuinely usable full-depth height above it**: 80 mm PSU height + 4 mm
   total vertical clearance;
 - return ramp: **4 mm high**, repeated identically across X;
-- final upper wall: **11.5 mm high**, flat and parallel to the LED panel;
+- final upper wall: **31.5 mm high**, flat and parallel to the LED panel; the
+  additional 20 mm follows the lifted panel while leaving the PSU/ramp geometry
+  at its previous installed height;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
 - ventilation: **three rows** of seven **24 mm × 1 mm rounded horizontal slots**
   on the reinforced lower transition plus **four rows** of seven matching slots
   in a dedicated **12 mm upper rear-wall band** below the return ramp;
 - the remaining full-depth rear wall stays solid for the M3 boss grid;
-- lower insertion wall and final 11.5 mm top wall remain solid;
+- lower insertion wall and final 31.5 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
 - closure-hole installed Y: **140.1 mm**;
@@ -300,7 +306,7 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    4 mm clearance). Confirm all three narrow rounded vent rows are clean on the
    reinforced lower transition and all four rounded rows are clean in the upper
    rear-wall band without touching the boss grid.
-   Confirm the final 11.5 mm wall is flat/parallel to the panel with all three
+   Confirm the final 31.5 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, profile alignment, and that each capped rod retainer remains
