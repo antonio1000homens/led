@@ -1,4 +1,4 @@
-// Option 1 — simple printed adapter plate for issue #166.
+// Option 1 - simple printed adapter plate for issue #166.
 //
 // Intended experiment:
 // - plate screws to the existing universal backplane boss rectangle;
