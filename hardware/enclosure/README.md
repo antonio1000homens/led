@@ -143,6 +143,16 @@ enclosure. Their self-mating pin/socket junctions are carried on that interior
 structure, so module-to-module and end-panel connections are hidden from the
 outside. The rear exterior plane remains clean.
 
+Each guide root is now additionally reinforced in two directions without
+changing the backplane slot:
+
+- the existing **16 mm-high junction support** continues forward until it
+  overlaps the stationary hinge plate/guard, making one continuous side load
+  path;
+- the rear of the guide gains a **10 mm-deep triangular buttress at the base**,
+  tapering back to the normal guide rear face at the top of the 40 mm rail;
+- the **3 mm backplane slot and 0.6 mm running clearance remain unchanged**.
+
 The removable backplane/enclosure installs from directly above:
 
 1. lower the shortened 40 mm backplane foot between the two 5 mm side guides;
