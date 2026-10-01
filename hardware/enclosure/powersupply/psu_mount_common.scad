@@ -49,6 +49,12 @@ boss_pocket_d = 7.5;
 boss_pocket_depth = 1.2;
 adapter_screw_clearance_d = 3.6;
 
+// Recess the M3 head/washer slightly on the equipment-facing side. Apart from
+// making the fixing points obvious in the model, this keeps the screw head out
+// of the PSU support plane.
+adapter_screw_head_d = 7.0;
+adapter_screw_head_depth = 0.8;
+
 // Experimental PSU underside/back mounting points.
 // Replace after measuring the real PSU.
 psu_rear_mount_points = [
@@ -78,6 +84,13 @@ module backplane_interface_cutters(t=plate_t, extra=0.6) {
             translate([xx, yy, -extra/2])
                 cylinder(d=adapter_screw_clearance_d, h=t+extra);
 
+            // Visible equipment-side recess for the M3 screw head/washer.
+            translate([xx, yy, t-adapter_screw_head_depth])
+                cylinder(
+                    d=adapter_screw_head_d,
+                    h=adapter_screw_head_depth+extra/2
+                );
+
             // Shallow socket on the BACK face of the adapter. The 7 mm boss
             // enters this pocket and provides positive X/Y registration.
             translate([xx, yy, -0.1])
@@ -105,11 +118,22 @@ module base_adapter_plate(include_psu_pilots=false, w=adapter_w, h=adapter_h) {
     }
 }
 
+support_rail_x = 34;
+support_rail_w = 5;
+
 module integrated_support_rails(length=psu_h-12) {
-    // Two low rails create an airflow/service gap without loose spacers.
-    for (xx = [-psu_w/2+10, psu_w/2-10])
-        translate([xx-2.5, -length/2, plate_t-0.2])
-            cube([5, length, support_gap+0.2]);
+    // Keep the support rails well inboard of the X=+/-48 enclosure fixing
+    // columns. The earlier +/-45 rail position partially refilled all six
+    // screw holes after the plate was cut.
+    assert(
+        support_rail_x + support_rail_w/2 <
+            abs(backplane_mount_x[0]) - adapter_screw_head_d/2 - 0.5,
+        "PSU support rails overlap enclosure screw access"
+    );
+
+    for (xx = [-support_rail_x, support_rail_x])
+        translate([xx-support_rail_w/2, -length/2, plate_t-0.2])
+            cube([support_rail_w, length, support_gap+0.2]);
 }
 
 module locating_pins() {
