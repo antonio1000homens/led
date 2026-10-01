@@ -1,4 +1,4 @@
-// Option 4 — hybrid adapter/cradle for issue #166.
+// Option 4 - hybrid adapter/cradle for issue #166.
 //
 // Preferred prototype:
 // - screws to the existing enclosure boss grid;
