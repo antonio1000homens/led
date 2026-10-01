@@ -62,12 +62,12 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
 - no rear cable/ribbon through-slots;
 - side-piece fit, hinge-rod clearance, and capped hollow left/right rod sleeves;
-- each moving hinge root spread into a triangular gusset across the full
-  **20 mm lower panel band** while retaining local knuckle spans;
+- moving/front-panel hinge-root geometry remains unchanged from the existing
+  validated template;
 - a **20 mm forward extension** of the stationary base floor, reinforced by a
   **20 mm run × 6 mm rise** triangular front ramp;
-- no volumetric intersection between the reinforced moving roots/front ramp and
-  the moving panel throughout the full hinge sweep;
+- no volumetric intersection between the reinforced stationary base/front ramp
+  and the unchanged moving panel throughout the full hinge sweep;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
   **0, 15, 30, 45, 60, 75 and 90°**;
@@ -86,8 +86,8 @@ The hinge regression contract includes:
 - front-extension reinforcement ramp fixed at **20 mm run × 6 mm rise** and
   constrained below the hinge sweep envelope;
 - **7 mm** closed template-to-barrel clearance;
-- local roots on the moving template only, with each root spreading across the
-  full **20 mm lower panel band**;
+- local roots on the moving template retained at their existing validated
+  geometry; no front-panel/template reprint is introduced by this change;
 - rearward support webs that terminate at the reinforced hinge shelf;
 - 3 mm local pads at the stationary hinge roots;
 - **2 mm** stationary lower guard with **0.8 mm** barrel clearance;
@@ -131,9 +131,9 @@ sets:
 3. fit the three top closure screws in the closed position, then remove/loosen
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
-4. confirm the moving panel never contacts the stationary barrel support webs,
-   lower guard or the new front-base ramp; inspect each moving knuckle's full-band
-   triangular gusset for a continuous bond into the panel/template;
+4. confirm the unchanged moving panel/template never contacts the stationary
+   barrel support webs, lower guard or the new front-base ramp through the
+   complete 0–90° motion;
 5. print one universal backplane **side-on with its 256 mm length vertical**,
    remove the small breakaway strip beneath the insertion tongue after cooling,
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
