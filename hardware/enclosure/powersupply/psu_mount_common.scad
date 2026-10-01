@@ -70,8 +70,6 @@ psu_rear_mount_points = [
 ];
 psu_mount_pilot_d = 2.8;
 psu_mount_boss_d = 8.0;
-locating_pin_d = 3.0;
-locating_pin_h = 3.0;
 
 // Adapter footprint. 118 x 82 mm contains the 110 x 80 mm PSU envelope while
 // fitting around the current 96 x 48 mm six-boss grid.
@@ -157,12 +155,6 @@ module raised_psu_mount_bosses(base_z=plate_t, h=support_gap) {
         }
 }
 
-module locating_pins() {
-    for (pt = psu_rear_mount_points)
-        translate([pt[0], pt[1], plate_t-0.2])
-            cylinder(d=locating_pin_d, h=support_gap+locating_pin_h+0.2);
-}
-
 module backplane_interface_preview() {
     // In the assembled position the boss tip enters the adapter by
     // boss_pocket_depth, so the backplane wall sits this far behind z=0.
@@ -196,30 +188,6 @@ module screw_stop_boss(x, y, h=6, d=8, pilot_d=2.8) {
         translate([x, y, plate_t-0.4])
             cylinder(d=pilot_d, h=h+0.6);
     }
-}
-
-module side_capture_rails(open_side="left") {
-    side_y = psu_h/2 + psu_xy_clearance + wall_t/2;
-    rail_len = psu_w + 2*psu_xy_clearance + 8;
-    x0 = -rail_len/2;
-
-    for (sy = [-1, 1]) {
-        y0 = sy*side_y - wall_t/2;
-        translate([x0, y0, plate_t-0.2])
-            cube([rail_len, wall_t, rail_h+0.2]);
-
-        lip_y = sy > 0
-            ? side_y - wall_t/2 - lip_inset
-            : -side_y - wall_t/2;
-        translate([x0, lip_y, plate_t+rail_h-lip_t-0.1])
-            cube([rail_len, wall_t+lip_inset, lip_t+0.1]);
-    }
-
-    stop_x = open_side == "left"
-        ? psu_w/2 + psu_xy_clearance
-        : -psu_w/2 - psu_xy_clearance - wall_t;
-    translate([stop_x, -psu_h/2-psu_xy_clearance, plate_t-0.2])
-        cube([wall_t, psu_h+2*psu_xy_clearance, rail_h+0.2]);
 }
 
 module corner_locators(h=5, arm=10, t=2.2) {
