@@ -112,9 +112,8 @@ than only its clearance numbers:
 The panel/template rotates forward/down. The equipment base, removable backplane
 and electronics stay stationary. The raised hinge also allows the stationary
 base floor to extend **20 mm farther toward the front** without entering the
-0–90° moving-panel sweep. That front extension now carries a shallow triangular
-reinforcement ramp: **20 mm run × 6 mm rise**, climbing from the new front edge
-to the original front line while staying well below the open panel. The moving
+0–90° moving-panel sweep. The extension remains a flat structural floor; the
+previous shallow front reinforcement ramp has been removed. The moving
 template/front-panel geometry is unchanged; its print wrapper removes the
 40 mm installation offset.
 
