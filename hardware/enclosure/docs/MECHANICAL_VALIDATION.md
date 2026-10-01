@@ -43,10 +43,14 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   guide/insertion section only where the U-channel capture requires it;
 - full-width rear-shell coverage immediately above the guide section with no
   X-dependent edge-depth transition;
-- an **84 mm** full-depth equipment region followed by a **12 mm** return ramp;
-- three rows of seven **24 mm × 1 mm rounded vent slots** on the reinforced lower transition shoulder, with 1.25 mm solid lands, and
-  four rows of seven matching slots on the upper return ramp, with at least 1.5 mm solid material between rows;
-- a solid full-depth rear mounting wall for the inward-facing M3 boss grid;
+- a **92 mm structural full-depth rear-wall region**, of which the lower **8 mm**
+  is the reinforced shoulder, leaving **84 mm usable full-depth height above the
+  shoulder** for the 80 mm PSU plus 4 mm clearance, followed by a **4 mm** return ramp;
+- three rows of seven **24 mm × 1 mm rounded vent slots** on the reinforced lower
+  transition shoulder, with 1.25 mm solid lands, and four rows of seven matching
+  slots in a dedicated **12 mm upper rear-wall ventilation band**, with at least
+  1.5 mm solid material between rows;
+- the M3 boss grid kept below and clear of the upper rear-wall ventilation band;
 - a final 11.5 mm flat upper wall parallel to the LED panel, keeping at least 1 mm of material between the ramp bend and the three aligned
   4.5 mm top-row closure holes;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
@@ -80,9 +84,12 @@ The previous full-width captive tongue/channel is retired. The backplane enters
 a 2 mm-deep **recessed groove at the rear of the base**. The shorter lower U-channel
 insertion section remains narrower and shallower, but immediately above the
 guide tops the backplane uses one full-width **54 mm** profile across the entire
-256 mm X length. The full-depth section is **84 mm high**, followed by a stronger
-**12 mm** return and an **11.5 mm flat upper wall** at the full 148 mm panel height.
-Horizontal rear-wall vents replace the old installed-vertical ramp slots.
+256 mm X length. The full-depth rear wall is **92 mm high** overall; its reinforced
+8 mm lower shoulder leaves **84 mm of usable full-depth height above it**, restoring
+80 mm PSU fit plus 4 mm clearance. A short **4 mm** return then reaches the
+**11.5 mm flat upper wall** at the full 148 mm panel height. Four upper ventilation
+rows now occupy a dedicated 12 mm band on the vertical rear wall rather than
+consuming PSU height on the return ramp.
 
 The manufacturing STL rotates this geometry so installed X becomes print Z.
 The only print-only support is a low breakaway strip beneath the narrowed lower
@@ -112,10 +119,12 @@ sets:
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
    seats 2 mm into the rear groove, and removes upward;
 6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
-7. confirm the 54 mm deep universal region spans the usable backplane width,
-   the rounded 24 × 1 mm vents are confined to three rows on the reinforced lower transition and four rows on the longer upper return
-   ramp, with solid lands between all rows; the long rear boss-mount wall remains solid, the ramps need no slicer
-   supports, the final 11.5 mm upper wall is flat/parallel to the panel, there are
+7. confirm the 54 mm deep universal region spans the usable backplane width and
+   provides **84 mm clear height above the reinforced shoulder**; verify the rounded
+   24 × 1 mm vents are confined to three rows on the lower transition and four
+   rows in the dedicated upper rear-wall band, with solid lands between all rows
+   and no overlap with the boss grid; the short return needs no slicer support,
+   the final 11.5 mm upper wall is flat/parallel to the panel, there are
    no rear cable/ribbon through-slots, and all three 4.5 mm top closure holes
    align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
