@@ -51,11 +51,15 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   slots in a dedicated **12 mm upper rear-wall ventilation band**, with at least
   1.5 mm solid material between rows;
 - the M3 boss grid kept below and clear of the upper rear-wall ventilation band;
-- a final 11.5 mm flat upper wall parallel to the LED panel, keeping at least 1 mm of material between the ramp bend and the three aligned
-  4.5 mm top-row closure holes;
+- a final **31.5 mm** flat upper wall parallel to the lifted LED panel; the extra
+  20 mm absorbs the installation lift while the PSU/return-ramp geometry remains
+  unchanged, and the three aligned 4.5 mm top-row closure holes retain at least
+  1 mm of material from the ramp bend;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
 - no rear cable/ribbon through-slots;
 - side-piece fit, hinge-rod clearance, and capped hollow left/right rod sleeves;
+- a **20 mm forward extension** of the stationary base floor, with no volumetric
+  intersection against the moving panel throughout the hinge sweep;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
   **0, 15, 30, 45, 60, 75 and 90°**;
@@ -67,7 +71,10 @@ The hinge regression contract includes:
 
 - **14 mm** barrel OD;
 - **7.2 mm** printed bore for the 6 mm rail;
-- hinge axis at **y=27 mm, z=16 mm**;
+- installed moving-panel lower edge and hinge axis at **y=40 mm, z=16 mm**,
+  representing a **20 mm lift** from the previous 20 mm baseline;
+- stationary base floor extended **20 mm toward the front** while remaining
+  clear of the full 0–90° moving-panel sweep;
 - **7 mm** closed template-to-barrel clearance;
 - local roots on the moving template only;
 - rearward support webs that terminate at the reinforced hinge shelf;
@@ -86,8 +93,9 @@ insertion section remains narrower and shallower, but immediately above the
 guide tops the backplane uses one full-width **54 mm** profile across the entire
 256 mm X length. The full-depth rear wall is **92 mm high** overall; its reinforced
 8 mm lower shoulder leaves **84 mm of usable full-depth height above it**, restoring
-80 mm PSU fit plus 4 mm clearance. A short **4 mm** return then reaches the
-**11.5 mm flat upper wall** at the full 148 mm panel height. Four upper ventilation
+80 mm PSU fit plus 4 mm clearance. A short **4 mm** return remains at the same
+installed Y position, then reaches the **31.5 mm flat upper wall** at the lifted
+**168 mm** enclosure/panel height. Four upper ventilation
 rows now occupy a dedicated 12 mm band on the vertical rear wall rather than
 consuming PSU height on the return ramp.
 
@@ -95,7 +103,7 @@ The manufacturing STL rotates this geometry so installed X becomes print Z.
 The only print-only support is a low breakaway strip beneath the narrowed lower
 tongue where that tongue starts 1.8 mm above the left-end print bed. The
 backplane reuses the panel's three measured top-row screw positions
-(X=7.9/128.0/248.1 mm, installed Y=140.1 mm) as 4.5 mm through-holes. The
+(X=7.9/128.0/248.1 mm, installed Y=160.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
 that all three holes are clear, together with the rear-groove contract, vertical
 insertion path, lower usable cavity and complete hinge sweep.
@@ -124,7 +132,7 @@ sets:
    24 × 1 mm vents are confined to three rows on the lower transition and four
    rows in the dedicated upper rear-wall band, with solid lands between all rows
    and no overlap with the boss grid; the short return needs no slicer support,
-   the final 11.5 mm upper wall is flat/parallel to the panel, there are
+   the final 31.5 mm upper wall is flat/parallel to the lifted panel, there are
    no rear cable/ribbon through-slots, and all three 4.5 mm top closure holes
    align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
