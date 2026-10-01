@@ -11,7 +11,6 @@
 
 include <psu_mount_common.scad>;
 
-show_psu = true;
 
 module psu_adapter_plate() {
     union() {
@@ -22,7 +21,4 @@ module psu_adapter_plate() {
 }
 
 psu_adapter_plate();
-if (show_psu) {
-    psu_preview();
-    backplane_boss_preview();
-}
+backplane_boss_preview();
