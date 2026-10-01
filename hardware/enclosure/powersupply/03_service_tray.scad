@@ -10,7 +10,6 @@
 include <psu_mount_common.scad>;
 
 layout = "print";          // "print" or "assembled"
-show_psu = true;
 
 tray_w = 114;
 tray_h = 80.6;
@@ -82,10 +81,6 @@ module assembled_service_tray() {
     dock();
     translate([0,0,plate_t+0.4])
         tray_plate();
-
-    if (show_psu)
-        %translate([-psu_w/2,-psu_h/2,plate_t+0.4+tray_t+support_gap])
-            cube([psu_w, psu_h, psu_d]);
 
     backplane_boss_preview();
 }
