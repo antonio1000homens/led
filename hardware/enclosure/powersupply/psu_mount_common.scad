@@ -55,13 +55,6 @@ adapter_screw_clearance_d = 3.6;
 adapter_screw_head_d = 7.0;
 adapter_screw_head_depth = 0.8;
 
-// Edge-lock geometry used by the slide/hybrid concepts. The printed boss body
-// stays 0.5 mm clear of the PSU/tray edge; an 8 mm OD washer fitted after
-// insertion overlaps that edge and becomes the positive stop.
-lock_boss_d = 6.0;
-lock_washer_d = 8.0;
-lock_edge_clearance = 0.5;
-
 // Experimental PSU underside/back mounting points.
 // Replace after measuring the real PSU.
 psu_rear_mount_points = [
@@ -179,15 +172,6 @@ module backplane_interface_preview() {
 // Backwards-compatible preview name used by the initial option files.
 module backplane_boss_preview() {
     backplane_interface_preview();
-}
-
-module screw_stop_boss(x, y, h=6, d=8, pilot_d=2.8) {
-    difference() {
-        translate([x, y, plate_t-0.2])
-            cylinder(d=d, h=h+0.2);
-        translate([x, y, plate_t-0.4])
-            cylinder(d=pilot_d, h=h+0.6);
-    }
 }
 
 module corner_locators(h=5, arm=10, t=2.2) {
