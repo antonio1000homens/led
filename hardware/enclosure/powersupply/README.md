@@ -75,22 +75,31 @@ before fitting inserts to the real enclosure.
 
 ## PSU support
 
-The PSU envelope is approximately **110 x 80 x 37 mm**.
+The measured PSU envelope is **110 x 80 x 37 mm**.
 
-The removable tray has two airflow/support bars and two raised PSU mounting
-bosses. The boss tops are raised by the same **2 mm** as the bars so all four
-support points form one plane.
-
-The PSU hole coordinates are still placeholders:
+The two mounting-hole centres are diagonally opposed and measured **3 mm from
+the adjacent long and short edges**. Relative to the centred PSU this resolves
+to:
 
 ```scad
 psu_rear_mount_points = [
-    [-42, -27],
-    [ 42,  27]
+    [-52, -37],
+    [ 52,  37]
 ];
 ```
 
-Measure the real PSU before treating those two fixing points as final.
+Those coordinates imply a diagonal centre-to-centre distance of **127.64 mm**.
+The separate hand measurement was approximately **125 mm**; the edge-inset
+measurements are used for the CAD because they uniquely locate both holes.
+
+The removable tray is now **84 mm** wide. With the Ø8 mm raised mounting bosses,
+the boss edges reach Y=+/-41 mm, leaving **1 mm** of tray material outside each
+boss. The dock is **89 mm** wide so the capture-channel walls remain fused to
+the dock base. This still fits inside the enclosure backplane's 92 mm full-depth
+mounting zone.
+
+The boss tops remain raised by the same **2 mm** as the airflow/support bars so
+the PSU sits on one common support plane.
 
 ## Render parts locally
 
