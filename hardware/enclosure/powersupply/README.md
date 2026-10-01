@@ -20,33 +20,38 @@ have been removed.
 
 ## How the latch works
 
-The tray moves along X. The latch is mounted outside the +Y dock wall and its
-30 mm cantilever arm also runs along X, but flexes **sideways in Y**.
+The latch is now **front-operated** so the assembled PSU mount needs no side
+access.
+
+The tray still slides along X. The replaceable 30 mm cantilever sits on the
+front/insertion (-X) face of the dock and flexes **vertically in Z**.
 
 During insertion:
 
 1. the tray slides toward +X;
-2. its edge rides over the hook's ramp;
-3. the printed cantilever bends outward in +Y;
+2. its trailing/front lip reaches the hook ramp;
+3. the lip pushes the cantilever **downward**;
 4. the tray reaches the separate hard +X stop;
-5. the hook aligns with the tray side notch and springs inward;
-6. the hook prevents withdrawal.
+5. the hook springs upward into an underside pocket behind the tray's front lip;
+6. that front lip prevents the tray withdrawing.
 
-To remove the tray, pull the external thumb tab outward in +Y and slide the
-tray back toward -X.
+To remove the tray, reach the insertion/front edge, press the thumb tab
+**down**, and pull the tray back toward -X. There is no side-release motion and
+nothing needs to be reached from either Y side.
 
-The latch is deliberately a separate part. PETG is preferred for repeated
-flexing. PLA can be used for a quick fit/geometry prototype.
+The latch remains a separate replaceable part. PETG is preferred for repeated
+flexing; PLA is useful for quick dimensional testing.
 
-Initial latch geometry:
+Initial front-latch geometry:
 
-- arm length: **30 mm**
-- arm width: **8 mm**
-- arm thickness: **1.6 mm**
-- hook reach from external latch base: **6.5 mm**, giving about **1.8 mm** effective engagement into the tray notch
-- tray notch depth: **2.6 mm**
+- cantilever length: **30 mm**
+- spring thickness in Z: **1.4 mm**
+- spring width in X: **1.6 mm**
+- tray retaining lip: **1.5 mm**
+- underside catch pocket: **4 mm long x 7 mm wide x 2 mm deep**
+- front release tab: **press down to unlatch**
 
-The hard stop takes insertion load; the latch only resists withdrawal.
+The hard +X stop takes insertion load; the latch only resists withdrawal.
 
 ## Enclosure attachment
 
@@ -109,6 +114,6 @@ Windsor validation uses:
 - bed: `Textured PEI Plate`
 
 The Textured PEI bed is specified explicitly because Bambu Studio's default Cool
-Plate preset rejects PETG before slicing. The latch is exported in its assembled
-orientation but translated down to Z=0 so the arm prints with its flex direction
-in the XY layer plane.
+Plate preset rejects PETG before slicing. The front-operated latch is authored
+with its spring arm directly on Z=0, so the separate latch prints flat without
+support.
