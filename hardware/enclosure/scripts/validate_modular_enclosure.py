@@ -415,16 +415,32 @@ assert(len(transition_rib_centres) == 3 &&
        abs(transition_rib_centres[2]-192) < 0.01,
        "transition reinforcement must retain three distributed rear ribs");
 assert(abs(transition_rib_half_w-12) < 0.01 &&
-       abs(transition_rib_slice_w-1.0) < 0.01 &&
-       abs(transition_rib_depth-10) < 0.01,
-       "transition rear-rib taper/depth drifted");
-assert(transition_rib_y0 > base_seat_y &&
+       abs(transition_rib_slice_w-1.0) < 0.01,
+       "transition rear-rib taper width drifted");
+assert(abs(rear_reinforcement_flush_z-
+           (side_guide_rear_z+side_guide_rear_buttress_depth)) < 0.01 &&
+       abs(rear_guardrail_rear_z-rear_reinforcement_flush_z) < 0.01,
+       "rear guide buttresses, guardrail and rib projections must share one flush rear plane");
+assert(abs(transition_rib_depth-
+           (rear_reinforcement_flush_z-equipment_backplane_rear_z)) < 0.01,
+       "transition ribs must reach the common rear reinforcement plane");
+assert(abs(transition_rib_y0-equipment_backplane_y0) < 0.01 &&
        abs(transition_rib_y1-
            (universal_deep_y0+universal_guide_shoulder_t)) < 0.01,
-       "transition ribs must bridge the sliding wall into the reinforced shoulder");
-assert(equipment_backplane_rear_z+transition_rib_depth <=
-           universal_deep_front_z+0.01,
-       "transition ribs must extend only toward the rear/cavity and stay clear of the deep rear wall");
+       "transition ribs must extend from the seated lower edge through the reinforced shoulder");
+assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
+       abs(rear_guardrail_y1-base_seat_y) < 0.01 &&
+       rear_guardrail_y1-rear_guardrail_y0 >= 4-0.01,
+       "rear guardrail must remain a low full-width continuation of the stationary base");
+assert(rear_guardrail_slot_clearance >= side_guide_clearance &&
+       rear_guardrail_slot_floor_clearance >= 0.2 &&
+       equipment_backplane_y0-rear_guardrail_slot_floor_clearance-
+           rear_guardrail_y0 >= 1.5,
+       "rear rib docking slots must retain running clearance and a continuous lower guardrail web");
+assert(base_seat_y-equipment_backplane_y0 >= backplane_seat_depth-0.01,
+       "downward rib extensions must key into the rear rail for the full backplane seat depth");
+assert(rear_reinforcement_flush_z <= universal_deep_front_z+0.01,
+       "rear reinforcement plane must stay clear of the deep equipment wall");
 assert(bottom_ramp_vent_rows == 3 && len(bottom_ramp_vent_y) == 3,
        "lower transition shoulder must carry exactly three ventilation rows");
 assert(bottom_ramp_vent_margin_y >= 1.25,

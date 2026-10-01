@@ -568,6 +568,18 @@ side_guide_rear_buttress_depth = 10;
 side_guide_rear_buttress_slice_h = 1.0;
 side_guide_rear_buttress_overlap = 0.4;
 
+// Use one rear reinforcement plane across the side-guide buttresses, the low
+// stationary rear rail and the three removable backplane ribs. This gives the
+// assembled rear edge a flush appearance without changing the backplane slot.
+rear_reinforcement_flush_z =
+    side_guide_rear_z + side_guide_rear_buttress_depth;
+rear_guardrail_front_z = base_rear_z - 0.4;
+rear_guardrail_rear_z = rear_reinforcement_flush_z;
+rear_guardrail_slot_clearance = 0.6;
+rear_guardrail_slot_floor_clearance = 0.2;
+rear_guardrail_y0 = service_base_y;
+rear_guardrail_y1 = base_seat_y;
+
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
         rail_hinge_barrel(segment[0],segment[1]);
@@ -733,6 +745,45 @@ module side_guide_channel(side="left") {
     }
 }
 
+module rear_guardrail() {
+    // Low full-width rear extension. Three top-open docking slots are cut from
+    // the assembled base later so the removable rib extensions can drop into
+    // the rail while a solid lower web remains continuous underneath.
+    translate([
+        service_x,
+        rear_guardrail_y0,
+        rear_guardrail_front_z
+    ])
+        cube([
+            service_w,
+            rear_guardrail_y1-rear_guardrail_y0,
+            rear_guardrail_rear_z-rear_guardrail_front_z
+        ]);
+}
+
+module rear_rib_docking_slot_cutters() {
+    // Slots are open at the top and retain material below equipment_backplane_y0.
+    // This preserves the base as one piece while allowing the removable
+    // backplane ribs to key 2 mm into the rear rail when fully seated.
+    slot_w = 2*transition_rib_half_w + 2*rear_guardrail_slot_clearance;
+    slot_y0 = equipment_backplane_y0-rear_guardrail_slot_floor_clearance;
+    slot_y1 = base_seat_y+rear_guardrail_slot_clearance;
+    slot_z0 = equipment_backplane_rear_z-0.3-rear_guardrail_slot_clearance;
+    slot_z1 = rear_guardrail_rear_z+rear_guardrail_slot_clearance;
+
+    for (xc=transition_rib_centres)
+        translate([
+            xc-slot_w/2,
+            slot_y0,
+            slot_z0
+        ])
+            cube([
+                slot_w,
+                slot_y1-slot_y0,
+                slot_z1-slot_z0
+            ]);
+}
+
 module base_front_reinforcement_ramp() {
     // Full-width triangular wedge over the new 20 mm forward extension. The
     // lower strip overlaps the floor at its front edge; the taller strip lands
@@ -775,6 +826,7 @@ module base_structural_body() {
                 ]);
 
             base_front_reinforcement_ramp();
+            rear_guardrail();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
@@ -785,6 +837,11 @@ module base_structural_body() {
             side_guide_channel("right");
 
         }
+
+        // Three top-open sockets in the rear rail receive the downward
+        // extensions of the removable transition ribs. They are deliberately
+        // wider/deeper than the ribs by the same 0.6 mm running-clearance rule.
+        rear_rib_docking_slot_cutters();
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
         // Only a 2 mm-deep locating groove is removed; there is no internal
@@ -1233,14 +1290,15 @@ module ramp_ventilation_cutters() {
 transition_rib_centres = [64,128,192];
 transition_rib_half_w = 12;
 transition_rib_slice_w = 1.0;
-transition_rib_depth = 10;
-transition_rib_y0 = base_seat_y + 3;
+transition_rib_depth =
+    rear_reinforcement_flush_z-equipment_backplane_rear_z;
+transition_rib_y0 = equipment_backplane_y0;
 transition_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
 
 module transition_rear_rib(xc) {
     z0 = equipment_backplane_rear_z - 0.3;
     z1 = min(
-        equipment_backplane_rear_z + transition_rib_depth,
+        rear_reinforcement_flush_z,
         universal_deep_front_z
     );
     yh = transition_rib_y1-transition_rib_y0;
