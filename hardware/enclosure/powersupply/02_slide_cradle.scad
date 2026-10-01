@@ -1,4 +1,4 @@
-// Option 2 — slide-in printed cradle for issue #166.
+// Option 2 - slide-in printed cradle for issue #166.
 //
 // The PSU slides in horizontally from the left. Side rails and shallow upper
 // lips constrain Y/Z movement; a closed stop constrains +X. After insertion,
