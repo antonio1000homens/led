@@ -257,6 +257,10 @@ def assert_design_contract(work_dir: Path) -> None:
     output = work_dir / "design_contract.csg"
     check_scad.write_text(
         f"""include <{SOURCE.as_posix()}>;
+assert(abs(hinge_install_lift-20) < 0.01 &&
+       abs(baseline_ground_clearance-20) < 0.01 &&
+       abs(ground_clearance-40) < 0.01,
+       "installed hinge/panel lift must remain 20 mm above the 20 mm baseline");
 assert(abs(hinge_axis_y-ground_clearance) < 0.01,
        "hinge axis must be centred on the moving panel lower edge");
 assert(abs(hinge_rail_start_x-10) < 0.01 &&
@@ -285,9 +289,15 @@ assert(abs(right_side_rod_sleeve_len-
 assert(hinge_axis_y-hinge_radius < ground_clearance &&
        hinge_axis_y+hinge_radius > ground_clearance,
        "hinge barrel must straddle the moving panel lower edge");
-assert(abs(base_panel_clearance_y-(ground_clearance-hinge_axis_z)) < 0.01 &&
+assert(abs(base_front_extension-20) < 0.01 &&
+       abs(base_floor_front_z-(service_front_z-base_front_extension)) < 0.01,
+       "stationary base floor must extend 20 mm toward the front");
+assert(abs(base_panel_clearance_y-
+           min(base_seat_y,ground_clearance-hinge_axis_z)) < 0.01 &&
        base_panel_clearance_z > hinge_axis_z+moving_plate_t,
-       "base front relief must clear the open panel lower band");
+       "base front relief threshold must follow the raised open-panel clearance");
+assert(base_panel_clearance_y >= base_seat_y-0.01,
+       "raised hinge should leave the extended structural floor unrelieved");
 assert(hinge_guard_t >= 2, "hinge shelf is too thin");
 assert(hinge_guard_start_y <= base_seat_y && hinge_guard_top_y >= hinge_axis_y,
        "hinge shelf no longer spans behind the hinge");
@@ -315,9 +325,9 @@ assert(abs(backplane_ramp_start_y-75) < 0.01,
 assert(abs(backplane_ramp_end_y-120) < 0.01,
        "backplane taper must reach shallow depth at 120 mm");
 assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
-       "stationary enclosure must match the full front-panel height");
-assert(abs(upper_vertical_h-28) < 0.01,
-       "full-height shallow upper wall must remain 28 mm high");
+       "stationary enclosure must match the lifted full front-panel height");
+assert(abs(upper_vertical_h-(28+hinge_install_lift)) < 0.01,
+       "native shallow upper wall must absorb the 20 mm panel lift");
 
 assert(abs(universal_deep_clear_depth-54) < 0.01,
        "universal deep cavity must retain 54 mm clear depth");
@@ -331,55 +341,149 @@ assert(abs(universal_full_x0-universal_deep_x0) < 0.01 &&
        "full-width aliases must match the constant universal profile");
 assert(abs(universal_deep_y0-side_guide_y1) < 0.01,
        "full-depth shell must begin immediately above the guide/insertion section");
-assert(abs(universal_deep_y1-universal_deep_y0-84) < 0.01,
-       "full-depth universal region must retain 84 mm of PSU-fit height");
-assert(abs(universal_return_ramp_h-4) < 0.01 &&
+assert(abs(universal_psu_h-80) < 0.01 &&
+       abs(universal_psu_vertical_clearance-4) < 0.01,
+       "measured PSU height/clearance contract drifted");
+assert(abs(universal_deep_y1-
+           (universal_deep_y0+universal_guide_shoulder_t+
+            universal_psu_h+universal_psu_vertical_clearance)) < 0.01,
+       "deep rear wall must preserve PSU height ABOVE the reinforced shoulder");
+assert(abs(universal_deep_y1-
+           (universal_deep_y0+universal_guide_shoulder_t)-84) < 0.01,
+       "usable full-depth height above the shoulder must remain 84 mm");
+assert(abs(universal_return_ramp_h-12) < 0.01 &&
        abs(universal_deep_ramp_end_y-universal_deep_y1-
            universal_return_ramp_h) < 0.01,
-       "universal return ramp height drifted");
-assert(abs(universal_top_flat_h-10) < 0.01 &&
-       abs(universal_deep_ramp_end_y-(enclosure_top_y-10)) < 0.01,
-       "top 10 mm must remain flat and flush with the panel");
+       "upper return ramp must retain the 12 mm ventilated profile");
+assert(abs(universal_top_flat_h-23.5) < 0.01 &&
+       abs(universal_deep_ramp_end_y-
+           (enclosure_top_y-universal_top_flat_h)) < 0.01,
+       "raised enclosure must leave a 23.5 mm shallow closure wall");
+assert(abs(universal_deep_ramp_end_y-144.5) < 0.01,
+       "restored ventilated return-ramp endpoint drifted");
 assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
 assert(universal_deep_w >= 110+6,
        "flat universal area is too narrow for the 110 mm PSU plus clearance");
-assert(universal_deep_y1-universal_deep_y0 >= 80+4,
-       "flat universal area is too short for the 80 mm PSU plus clearance");
+assert(universal_deep_y1-
+           (universal_deep_y0+universal_guide_shoulder_t) >= 80+4,
+       "usable cavity above the reinforced shoulder is too short for the 80 mm PSU plus clearance");
 assert(universal_deep_clear_depth >= 37+10,
        "universal cavity is too shallow for the 37 mm PSU plus service clearance");
 assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
        "PSU loses too much depth where the inward boss rows overlap its footprint");
-assert(len(adapter_y) == 2,
-       "universal accessory grid must use exactly two boss rows");
-assert(abs(adapter_edge_inset_y-10) < 0.01,
-       "boss-row edge inset must remain 10 mm");
+assert(len(adapter_y) == 3,
+       "universal accessory grid must use exactly three boss rows");
+assert(abs(adapter_edge_inset_y-22) < 0.01,
+       "outer boss-row edge inset must remain 22 mm");
 assert(abs(adapter_y[0]-(universal_deep_y0+adapter_edge_inset_y)) < 0.01 &&
-       abs(adapter_y[1]-(universal_deep_y1-adapter_edge_inset_y)) < 0.01,
-       "boss rows must stay 10 mm from the full-depth region edges");
+       abs(adapter_y[1]-(universal_deep_y0+universal_deep_y1)/2) < 0.01 &&
+       abs(adapter_y[2]-(universal_deep_y1-adapter_edge_inset_y)) < 0.01,
+       "boss rows must remain centred with symmetric outer rows");
 assert(adapter_y[0] > universal_deep_y0 &&
-       adapter_y[1] < universal_deep_y1,
-       "boss rows must remain inside the full-depth universal wall");
+       adapter_y[2] < universal_deep_y1 &&
+       adapter_y[0] < adapter_y[1] &&
+       adapter_y[1] < adapter_y[2],
+       "boss rows must remain ordered inside the full-depth universal wall");
 assert(abs(adapter_boss_d-7) < 0.01 &&
        abs(adapter_boss_h-4) < 0.01,
        "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
 
-// Ventilation belongs only on the lower shoulder and upper return ramp.
-// The rear mounting wall between them must remain solid for the boss grid.
-assert(abs(vent_slot_len-36) < 0.01 &&
+// Ventilation belongs on the lower shoulder and restored 12 mm upper return
+// ramp. The raised hinge provides enough upper height to keep the complete
+// 84 mm usable PSU envelope while returning the top vents to the ramp.
+assert(abs(vent_slot_len-24) < 0.01 &&
        abs(vent_slot_gap-10) < 0.01 &&
-       vent_slot_count == 5,
+       vent_slot_count == 7,
        "ramp vent slot layout drifted");
-assert(abs(vent_slot_y_h-1.8) < 0.01,
-       "ramp vent slot height drifted");
-assert(bottom_ramp_vent_y >= universal_deep_y0 &&
-       bottom_ramp_vent_y+vent_slot_y_h <=
-           universal_deep_y0+universal_guide_shoulder_t+0.01,
-       "bottom vents must remain in the lower transition shoulder");
-assert(top_ramp_vent_y >= universal_deep_y1 &&
-       top_ramp_vent_y+vent_slot_y_h <=
-           universal_deep_ramp_end_y+0.01,
-       "top vents must remain in the upper return ramp");
+assert(abs(vent_slot_y_h-1.0) < 0.01,
+       "ramp vent throat drifted");
+assert(universal_return_ramp_h >= 4,
+       "upper return ramp became shorter than the proven side-on profile");
+assert(universal_guide_shoulder_t >= 8,
+       "lower tongue/deep-shell transition shoulder is too thin");
+assert(len(transition_rib_centres) == 3 &&
+       abs(transition_rib_centres[0]-64) < 0.01 &&
+       abs(transition_rib_centres[1]-128) < 0.01 &&
+       abs(transition_rib_centres[2]-192) < 0.01,
+       "transition reinforcement must retain three distributed rear ribs");
+assert(abs(transition_rib_half_w-12) < 0.01 &&
+       abs(transition_rib_slice_w-1.0) < 0.01,
+       "transition rear-rib taper width drifted");
+assert(abs(rear_reinforcement_flush_z-
+           (side_guide_rear_z+side_guide_rear_buttress_depth)) < 0.01,
+       "rear guide buttresses and rib projections must share one flush rear plane");
+assert(abs(transition_rib_depth-
+           (rear_reinforcement_flush_z-equipment_backplane_rear_z)) < 0.01,
+       "transition ribs must reach the common rear reinforcement plane");
+assert(abs(transition_rib_y0-
+           (base_seat_y+side_guide_clearance)) < 0.01 &&
+       abs(transition_rib_y1-
+           (universal_deep_y0+universal_guide_shoulder_t)) < 0.01,
+       "transition ribs must stop 0.6 mm above the base seat and bridge into the reinforced shoulder");
+assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
+       abs(rear_guardrail_y1-
+           (base_seat_y+side_guide_clearance)) < 0.01 &&
+       rear_guardrail_y1-rear_guardrail_y0 >= 4.5,
+       "rear guardrail tabs must rise to the rib lower edge without entering the 2 mm seat");
+assert(abs(rear_guardrail_lip_front_z-side_guide_slot_back_z) < 0.01 &&
+       abs(rear_guardrail_lip_rear_z-side_guide_rear_z) < 0.01,
+       "rear guardrail tabs must continue the side-guide rear lip");
+assert(abs(rear_guardrail_shelf_rear_z-rear_reinforcement_flush_z) < 0.01 &&
+       rear_guardrail_shelf_top_y <= equipment_backplane_y0-0.19,
+       "rear shelf must reach the flush plane while staying below the removable tongue");
+assert(abs(transition_rib_channel_w-18) < 0.01 &&
+       abs(transition_rib_channel_flat_w-12) < 0.01 &&
+       abs(transition_rib_channel_taper_w-3) < 0.01,
+       "guardrail channel width/taper drifted");
+assert(abs(transition_rib_channel_front_z-side_guide_slot_back_z) < 0.01,
+       "guardrail channel must begin at the rear side-guide running envelope");
+assert(abs(transition_rib_channel_depth-
+           (side_guide_wall_t+side_guide_clearance)) < 0.01 &&
+       abs(transition_rib_channel_depth-1.8) < 0.01,
+       "guardrail channel must fit the 1.2 mm tab with 0.6 mm rear clearance");
+assert(abs(transition_rib_channel_front_z-equipment_backplane_rear_z-
+           side_guide_clearance) < 0.01,
+       "sliding tongue must retain 0.6 mm clearance before the guardrail channel");
+assert(abs(transition_rib_channel_rear_z-rear_guardrail_lip_rear_z-
+           side_guide_clearance) < 0.01,
+       "guardrail tab must retain 0.6 mm clearance to the rear rib wall");
+assert(transition_rib_channel_flat_w-
+           2*side_guide_clearance >= 10,
+       "guardrail tab lost useful width inside the rib channel");
+assert(rear_reinforcement_flush_z <= universal_deep_front_z+0.01,
+       "rear reinforcement plane must stay clear of the deep equipment wall");
+assert(bottom_ramp_vent_rows == 3 && len(bottom_ramp_vent_y) == 3,
+       "lower transition shoulder must carry exactly three ventilation rows");
+assert(bottom_ramp_vent_margin_y >= 1.25,
+       "lower vent rows lost their structural end margin");
+assert(bottom_ramp_vent_row_gap >= 1.25,
+       "lower vent rows are too close together");
+assert(bottom_ramp_vent_y[0] >=
+           universal_deep_y0+bottom_ramp_vent_margin_y-0.01 &&
+       bottom_ramp_vent_y[2]+vent_slot_y_h <=
+           universal_deep_y0+universal_guide_shoulder_t-
+               bottom_ramp_vent_margin_y+0.01,
+       "bottom vent rows must remain inside the lower shoulder margins");
+for (row=[0:1])
+    assert(bottom_ramp_vent_y[row+1] -
+               (bottom_ramp_vent_y[row]+vent_slot_y_h) >= 1.25,
+           "bottom vent rows lost the minimum solid land between openings");
+assert(top_ramp_vent_rows == 4 && len(top_ramp_vent_y) == 4,
+       "upper return ramp must carry exactly four ventilation rows");
+assert(top_ramp_vent_margin_y >= 1.5,
+       "upper vent rows lost their structural end margin");
+assert(top_ramp_vent_row_gap >= 1.5,
+       "upper vent rows are too close together");
+assert(top_ramp_vent_y[0] >=
+           universal_deep_y1+top_ramp_vent_margin_y-0.01 &&
+       top_ramp_vent_y[3]+vent_slot_y_h <=
+           universal_deep_ramp_end_y-top_ramp_vent_margin_y+0.01,
+       "top vent rows must remain inside the upper return-ramp margins");
+for (row=[0:2])
+    assert(top_ramp_vent_y[row+1] -
+               (top_ramp_vent_y[row]+vent_slot_y_h) >= 1.5,
+           "top vent rows lost the minimum solid land between openings");
 assert(vent_slot_x0 >= universal_deep_x0+10 &&
        vent_slot_x0 +
          vent_slot_count*vent_slot_len +
@@ -415,7 +519,10 @@ assert(abs(panel_closure_hole_d-panel_mount_hole_d) < 0.01 &&
        "top closure hole diameter must remain the measured 4.5 mm clearance");
 assert(panel_closure_y > universal_deep_ramp_end_y &&
        panel_closure_y+panel_closure_hole_d/2 < enclosure_top_y,
-       "top closure centres must remain in the final 10 mm flat wall");
+       "top closure centres must remain in the final flat wall");
+assert(panel_closure_y-panel_closure_hole_d/2 >=
+           universal_deep_ramp_end_y+1.0,
+       "top closure holes must keep at least 1 mm of material above the ramp bend");
 for (xx=panel_closure_x)
     assert(xx-panel_closure_hole_d/2 > service_x &&
            xx+panel_closure_hole_d/2 < service_x+service_w,
@@ -480,16 +587,26 @@ assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 
-assert(abs(backplane_guide_clearance-0.4) < 0.01,
-       "rear groove clearance is outside the FDM fit target");
-assert(abs(side_guide_h-50) < 0.01,
-       "side guide height must remain 50 mm");
+assert(abs(backplane_guide_clearance-0.6) < 0.01,
+       "rear groove clearance is outside the physical-print fit target");
+assert(abs(side_guide_h-40) < 0.01,
+       "side guide height must remain 40 mm");
 assert(abs(side_guide_w-5) < 0.01,
        "side guide engagement depth must remain 5 mm");
-assert(abs(side_guide_clearance-0.4) < 0.01,
-       "side-guide running clearance is outside the FDM fit target");
+assert(abs(side_guide_clearance-0.6) < 0.01,
+       "side-guide running clearance is outside the physical-print fit target");
 assert(abs(side_guide_wall_t-backplane_guide_t) < 0.01,
        "side-guide wall thickness must track the base rail wall");
+assert(abs(side_guide_front_tie_z0-hinge_guard_front_z) < 0.01 &&
+       abs(side_guide_front_tie_h-junction_pad_h) < 0.01,
+       "guide front reinforcement must tie the 16 mm junction support into the hinge plate");
+assert(junction_pad_front_z > side_guide_front_tie_z0 &&
+       side_guide_front_tie_z0 <= hinge_guard_front_z+0.01,
+       "guide front tie does not span continuously toward the hinge plate");
+assert(abs(side_guide_rear_buttress_depth-10) < 0.01 &&
+       abs(side_guide_rear_buttress_slice_h-1.0) < 0.01 &&
+       side_guide_rear_buttress_overlap >= 0.3,
+       "guide rear buttress must retain the 10 mm triangular base reinforcement");
 assert(side_guide_y1 < backplane_ramp_start_y,
        "side guides must end below the enclosure taper");
 assert(side_guide_slot_front_z < equipment_backplane_front_z &&
@@ -552,11 +669,15 @@ cube([1,1,1]);
             f"design contract failed:\n{completed.stdout}\n{completed.stderr}"
         )
     print(
-        "OK: reinforced hinge, rear top-down groove, dual 50x5 mm U-channels, "
-        "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
-        "54 mm universal deep cavity, ramp-only ventilation, 10 mm flush "
-        "top wall, two slim boss rows, three aligned closure holes and "
-        "hinge-rail side-sleeve contract"
+        "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
+        "lower hidden junctions, front-tied guide roots with 10 mm rear triangular buttresses, "
+        "compact upper backplane/end-plate seam bosses, "
+        "unchanged moving-panel hinge roots and 20 mm forward base-floor extension, "
+        "40 mm installed hinge with 20 mm forward base-floor extension, "
+        "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
+        "reinforced transition with three tapered rear ribs and guardrail channels, lower-shoulder plus upper-ramp ventilation, "
+        "23.5 mm shallow upper closure wall, three central boss rows, "
+        "three aligned closure holes and hinge-rail side-sleeve contract"
     )
 
 
@@ -636,10 +757,12 @@ def assert_no_legacy_layout() -> None:
 
     for required in (
         "ramp_ventilation_cutters()",
+        "horizontal_rounded_vent_cutter(",
         "backplane_print_shift_z",
         "insertion_print_support_t",
         "insertion_print_support_overlap",
         "insertion_tongue_print_support()",
+        "transition_rear_ribs()",
         "rotate([0,-90,0])",
     ):
         if required not in source_text:
@@ -662,21 +785,24 @@ def main() -> None:
             assert_tracked_stl_current(stl_name, generated)
 
         assert_design_contract(work_dir)
+        # The upper ventilation rows deliberately occupy a dedicated band on
+        # the rear wall. Keep that band clear of every accessory-boss row
+        # rather than incorrectly requiring the entire rear wall to be solid.
         assert_empty_intersection(
             work_dir,
-            "vent_rear_boss_wall_keepout",
+            "vent_adapter_boss_grid_keepout",
             """    ramp_ventilation_cutters();
-    translate([
-        universal_deep_x0-1,
-        universal_deep_y0+universal_guide_shoulder_t,
-        universal_deep_front_z-1
-    ])
-        cube([
-            universal_deep_w+2,
-            universal_deep_y1-
-                (universal_deep_y0+universal_guide_shoulder_t),
-            universal_deep_wall_t+2
-        ]);""",
+    for (yy=adapter_y)
+        translate([
+            universal_deep_x0-1,
+            yy-adapter_boss_d/2-2,
+            universal_deep_front_z-1
+        ])
+            cube([
+                universal_deep_w+2,
+                adapter_boss_d+4,
+                universal_deep_wall_t+2
+            ]);""",
         )
         assert_empty_intersection(
             work_dir,
@@ -763,20 +889,23 @@ def main() -> None:
         )
 
         # Guard the equipment cavity against a rail/lip creeping back into the
-        # lower usable volume. Hinge hardware intentionally occupies the first
-        # ~30 mm above the floor, so the keep-out starts above that mechanism.
+        # usable volume ABOVE the hinge mechanism. The hinge/panel was raised
+        # by 20 mm, so the former fixed Y=36 keep-out now legitimately crosses
+        # the raised hinge guard/supports. Start dynamically above the barrel
+        # envelope instead; the enlarged base and guide reinforcements below
+        # that line are intentional structure.
         assert_empty_intersection(
             work_dir,
             "lower_equipment_volume_clear",
             """    hinged_equipment_base();
     translate([
         service_x+5,
-        36,
+        hinge_axis_y+hinge_radius+2,
         enclosure_front_z+5
     ])
         cube([
             service_w-10,
-            backplane_ramp_start_y-38,
+            backplane_ramp_start_y-(hinge_axis_y+hinge_radius+4),
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
