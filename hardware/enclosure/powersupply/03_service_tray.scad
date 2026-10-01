@@ -89,8 +89,22 @@ module dock() {
     translate([dock_w/2-2.0, -tray_h/2, plate_t-0.2])
         cube([2.0, tray_h, dock_channel_h+0.2]);
 
-    // Lock screw boss at the insertion edge.
-    screw_stop_boss(-dock_w/2+5, 0, h=4.5);
+    // Low support ear sits below the sliding tray. The lock boss itself stays
+    // outside the tray envelope, so the tray can be inserted freely. Fit an M3
+    // screw with an 8 mm OD washer after insertion; only the washer overlaps the
+    // tray edge to prevent withdrawal.
+    lock_offset =
+        tray_w/2 + slide_clearance + lock_boss_d/2 + lock_edge_clearance;
+    lock_x = -lock_offset;
+
+    assert(
+        lock_washer_d/2 > lock_boss_d/2 + lock_edge_clearance,
+        "Service-tray lock washer does not overlap tray edge"
+    );
+
+    translate([lock_x-4, -5, 0])
+        cube([8, 10, plate_t]);
+    screw_stop_boss(lock_x, 0, h=4.5, d=lock_boss_d);
 }
 
 module assembled_service_tray() {
