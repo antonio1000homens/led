@@ -102,4 +102,14 @@ The three printable parts are also declared in `.windsor-slicer.yaml` as:
 - `psu-service-tray-tray`
 - `psu-service-tray-latch`
 
-Use the H2D PETG profile for the physical prototype, especially for the latch.
+Windsor validation uses:
+
+- machine: `Bambu Lab H2D 0.4 nozzle`
+- process: `0.20mm Standard @BBL H2D`
+- filament: `Bambu PETG Basic @BBL H2D 0.4 nozzle`
+- bed: `Textured PEI Plate`
+
+The Textured PEI bed is specified explicitly because Bambu Studio's default Cool
+Plate preset rejects PETG before slicing. The latch is exported in its assembled
+orientation but translated down to Z=0 so the arm prints with its flex direction
+in the XY layer plane.
