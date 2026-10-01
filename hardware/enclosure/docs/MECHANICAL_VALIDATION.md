@@ -49,16 +49,16 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   X-dependent edge-depth transition;
 - a **92 mm structural full-depth rear-wall region**, of which the lower **8 mm**
   is the reinforced shoulder, leaving **84 mm usable full-depth height above the
-  shoulder** for the 80 mm PSU plus 4 mm clearance, followed by a **4 mm** return ramp;
+  shoulder** for the 80 mm PSU plus 4 mm clearance, followed by a restored **12 mm** return ramp;
 - three rows of seven **24 mm × 1 mm rounded vent slots** on the reinforced lower
   transition shoulder, with 1.25 mm solid lands, and four rows of seven matching
-  slots in a dedicated **12 mm upper rear-wall ventilation band**, with at least
-  1.5 mm solid material between rows;
-- the M3 boss grid kept below and clear of the upper rear-wall ventilation band;
-- a final **31.5 mm** flat upper wall parallel to the lifted LED panel; the extra
-  20 mm absorbs the installation lift while the PSU/return-ramp geometry remains
-  unchanged, and the three aligned 4.5 mm top-row closure holes retain at least
-  1 mm of material from the ramp bend;
+  slots across the restored **12 mm upper return ramp**, with at least 1.5 mm
+  solid material between rows;
+- the full-depth M3 boss wall remains solid apart from its blind mounting holes;
+- a final **23.5 mm** flat upper wall parallel to the lifted LED panel; the raised
+  enclosure supplies the extra ramp height without reducing the PSU envelope,
+  and the three aligned 4.5 mm top-row closure holes retain at least 1 mm of
+  material from the ramp bend;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
 - no rear cable/ribbon through-slots;
 - side-piece fit, hinge-rod clearance, and capped hollow left/right rod sleeves;
@@ -97,11 +97,10 @@ insertion section remains narrower and shallower, but immediately above the
 guide tops the backplane uses one full-width **54 mm** profile across the entire
 256 mm X length. The full-depth rear wall is **92 mm high** overall; its reinforced
 8 mm lower shoulder leaves **84 mm of usable full-depth height above it**, restoring
-80 mm PSU fit plus 4 mm clearance. A short **4 mm** return remains at the same
-installed Y position, then reaches the **31.5 mm flat upper wall** at the lifted
-**168 mm** enclosure/panel height. Four upper ventilation
-rows now occupy a dedicated 12 mm band on the vertical rear wall rather than
-consuming PSU height on the return ramp.
+80 mm PSU fit plus 4 mm clearance. The raised enclosure then provides a restored
+**12 mm return ramp** carrying four upper ventilation rows before reaching the
+**23.5 mm flat upper wall** at the lifted **168 mm** enclosure/panel height.
+The full-depth rear mounting wall remains solid.
 
 The manufacturing STL rotates this geometry so installed X becomes print Z.
 The only print-only support is a low breakaway strip beneath the narrowed lower
@@ -137,9 +136,9 @@ sets:
 7. confirm the 54 mm deep universal region spans the usable backplane width and
    provides **84 mm clear height above the reinforced shoulder**; verify the rounded
    24 × 1 mm vents are confined to three rows on the lower transition and four
-   rows in the dedicated upper rear-wall band, with solid lands between all rows
-   and no overlap with the boss grid; the short return needs no slicer support,
-   the final 31.5 mm upper wall is flat/parallel to the lifted panel, there are
+   rows across the restored 12 mm upper return ramp, with solid lands between
+   all rows while the full-depth boss wall remains solid; the return needs no
+   slicer support, the final 23.5 mm upper wall is flat/parallel to the lifted panel, there are
    no rear cable/ribbon through-slots, and all three 4.5 mm top closure holes
    align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,

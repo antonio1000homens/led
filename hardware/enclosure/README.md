@@ -15,7 +15,7 @@ Only the lower U-channel insertion section is smaller; immediately above the
 guides the shell uses one identical full-width Y/Z profile for the complete
 256 mm length. That makes the long X dimension suitable as the print-vertical
 axis. The deep section returns toward the panel near the top and finishes with a
-**11.5 mm flat upper wall** parallel to the LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
+**23.5 mm flat upper wall** parallel to the lifted LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
 transition shoulder**. The long rear wall remains solid for the accessory-boss
 mounting grid. The backplane reuses all three
 existing top-row panel screw positions as aligned closure fasteners, so no
@@ -46,7 +46,7 @@ solid rear boss-mount wall
    |
 horizontal vents on lower transition + upper return ramp
    |
-31.5 mm flat upper wall flush with lifted panel
+23.5 mm flat upper wall flush with lifted panel
    |
 three aligned top-row closure screw holes
    |
@@ -180,19 +180,19 @@ designed around side-on vertical printing:
 - the reinforced lower shoulder occupies the first **8 mm**, leaving **84 mm
   of genuinely usable full-depth height above it**: 80 mm PSU height + 4 mm
   total vertical clearance;
-- return ramp: **4 mm high**, repeated identically across X;
-- final upper wall: **31.5 mm high**, flat and parallel to the LED panel; the
-  additional 20 mm follows the lifted panel while leaving the PSU/ramp geometry
-  at its previous installed height;
-- stationary enclosure top: **148 mm**, matching the front-panel height;
+- return ramp: **12 mm high**, repeated identically across X and carrying the restored top ventilation;
+- final upper wall: **23.5 mm high**, flat and parallel to the lifted LED panel;
+  the raised enclosure provides enough extra height to restore the 12 mm return
+  ramp while retaining the full PSU envelope;
+- stationary enclosure top: **168 mm**, matching the lifted front-panel height;
 - ventilation: **three rows** of seven **24 mm × 1 mm rounded horizontal slots**
   on the reinforced lower transition plus **four rows** of seven matching slots
-  in a dedicated **12 mm upper rear-wall band** below the return ramp;
-- the remaining full-depth rear wall stays solid for the M3 boss grid;
-- lower insertion wall and final 31.5 mm top wall remain solid;
+  across the restored **12 mm upper return ramp**;
+- the full-depth rear wall stays solid for the M3 boss grid;
+- lower insertion wall and final 23.5 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
-- closure-hole installed Y: **140.1 mm**;
+- closure-hole installed Y: **160.1 mm**;
 - closure-hole diameter: **4.5 mm**, identical to the panel mounting holes.
 
 These three holes are derived directly from the existing measured top-row panel
@@ -210,12 +210,10 @@ release slot still extends 15 mm into the ramp so the removable backplane can
 lift past an end plate without bringing solid connector geometry into the clamp
 clearance zone.
 
-The full-depth **rear wall** carries the accessory mounting grid. It remains
-solid around that grid except for the blind boss holes and the dedicated 12 mm
-upper ventilation band, which is kept above the highest boss row. Additional
-horizontal slots are cut through the reinforced lower transition shoulder. The
-short 4 mm return ramp, lower insertion section and final 11.5 mm flat upper
-wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
+The full-depth **rear wall** carries the accessory mounting grid and remains
+solid around that grid except for the blind boss holes. Ventilation is confined
+to the reinforced lower transition shoulder and the restored 12 mm upper return
+ramp. The lower insertion section and final 23.5 mm flat upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -292,7 +290,7 @@ fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
 the 54 mm universal deep zone, the **constant X profile and horizontal vents**,
-the final 11.5 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
+the final 23.5 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
 equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
@@ -314,9 +312,9 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
    width and **84 mm clear height above the reinforced shoulder** (80 mm PSU +
    4 mm clearance). Confirm all three narrow rounded vent rows are clean on the
-   reinforced lower transition and all four rounded rows are clean in the upper
-   rear-wall band without touching the boss grid.
-   Confirm the final 31.5 mm wall is flat/parallel to the panel with all three
+   reinforced lower transition and all four rounded rows are clean across the
+   restored 12 mm upper return ramp; the full-depth rear boss wall should remain solid.
+   Confirm the final 23.5 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, profile alignment, and that each capped rod retainer remains
@@ -333,7 +331,7 @@ PETG remains preferred for repeated hinge testing.
 
 The backplane now prints **side-on with the 256 mm X dimension vertical**. Above
 the guide section the shell has the same Y/Z profile on every structural layer,
-so the 54 mm deep wall, short return ramp and top wall build without the old
+so the 54 mm deep wall, 12 mm return ramp and top wall build without the old
 under-ramp support forest.
 
 The lower insertion tongue is intentionally narrower than the main shell so it

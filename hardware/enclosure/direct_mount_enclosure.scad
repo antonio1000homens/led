@@ -314,19 +314,20 @@ universal_deep_y0 = side_guide_y1;
 universal_psu_h = 80;
 universal_psu_vertical_clearance = 4;
 
-// Keep the lower PSU/ramp geometry unchanged when the moving panel is raised.
-// The extra 20 mm is absorbed entirely by the shallow upper closure wall, so
-// the 4 mm return ramp and the 84 mm usable PSU envelope stay exactly where
-// they were while the top closure holes follow the lifted panel.
-universal_top_flat_h = 11.5 + hinge_install_lift;
-universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
+// Preserve the full 80 mm PSU + 4 mm clearance above the reinforced
+// shoulder, then use part of the extra height created by the raised hinge to
+// restore the proven 12 mm upper return ramp. The remaining shallow closure
+// wall is still comfortably tall enough for the lifted top-row closure screws.
 universal_deep_y1 =
     universal_deep_y0 +
     universal_guide_shoulder_t +
     universal_psu_h +
     universal_psu_vertical_clearance;
-universal_return_ramp_h =
-    universal_deep_ramp_end_y-universal_deep_y1;
+universal_return_ramp_h = 12;
+universal_deep_ramp_end_y =
+    universal_deep_y1 + universal_return_ramp_h;
+universal_top_flat_h =
+    enclosure_top_y-universal_deep_ramp_end_y;
 
 universal_deep_rear_z =
     enclosure_front_z + universal_deep_clear_depth + universal_deep_wall_t;
@@ -377,24 +378,21 @@ bottom_ramp_vent_y = [
         row*(vent_slot_y_h+bottom_ramp_vent_row_gap)
 ];
 
-// Keep four finger-safe ventilation rows at the top, but place them in a
-// dedicated 12 mm band on the upper FULL-DEPTH rear wall instead of forcing
-// the return ramp to consume PSU height. The vertical rear wall preserves the
-// true 1 mm slot throat and remains clear of the highest accessory-boss row.
-top_rear_vent_rows = 4;
-top_rear_vent_band_h = 12;
-top_rear_vent_margin_y = 1.5;
-top_rear_vent_y0 = universal_deep_y1-top_rear_vent_band_h;
-top_rear_vent_row_gap =
-    (top_rear_vent_band_h -
-     2*top_rear_vent_margin_y -
-     top_rear_vent_rows*vent_slot_y_h) /
-    (top_rear_vent_rows-1);
-top_rear_vent_y = [
-    for (row=[0:top_rear_vent_rows-1])
-        top_rear_vent_y0 +
-        top_rear_vent_margin_y +
-        row*(vent_slot_y_h+top_rear_vent_row_gap)
+// Four ventilation rows cross the restored 12 mm upper return ramp. Keep
+// 1.5 mm solid margins at both ends and distribute the remaining material
+// evenly between rows. The main rear mounting wall therefore stays solid.
+top_ramp_vent_rows = 4;
+top_ramp_vent_margin_y = 1.5;
+top_ramp_vent_row_gap =
+    (universal_return_ramp_h -
+     2*top_ramp_vent_margin_y -
+     top_ramp_vent_rows*vent_slot_y_h) /
+    (top_ramp_vent_rows-1);
+top_ramp_vent_y = [
+    for (row=[0:top_ramp_vent_rows-1])
+        universal_deep_y1 +
+        top_ramp_vent_margin_y +
+        row*(vent_slot_y_h+top_ramp_vent_row_gap)
 ];
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
@@ -1174,14 +1172,14 @@ module horizontal_rounded_vent_cutter(x0,y0) {
 
 module ramp_ventilation_cutters() {
     // Three rows of seven narrow rounded slots cross the reinforced lower
-    // shoulder. Four matching rows sit in the dedicated upper rear-wall vent
-    // band, above the boss grid and below the short return ramp. The remainder
-    // of the rear mounting wall and final closure wall stay unperforated.
+    // shoulder and four matching rows cross the restored 12 mm upper return
+    // ramp. The full-depth rear mounting wall and final closure wall remain
+    // unperforated.
     for (i=[0:vent_slot_count-1]) {
         xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
         for (yy=bottom_ramp_vent_y)
             horizontal_rounded_vent_cutter(xx,yy);
-        for (yy=top_rear_vent_y)
+        for (yy=top_ramp_vent_y)
             horizontal_rounded_vent_cutter(xx,yy);
     }
 }
