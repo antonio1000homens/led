@@ -566,6 +566,16 @@ assert(abs(side_guide_clearance-0.6) < 0.01,
        "side-guide running clearance is outside the physical-print fit target");
 assert(abs(side_guide_wall_t-backplane_guide_t) < 0.01,
        "side-guide wall thickness must track the base rail wall");
+assert(abs(side_guide_front_tie_z0-hinge_guard_front_z) < 0.01 &&
+       abs(side_guide_front_tie_h-junction_pad_h) < 0.01,
+       "guide front reinforcement must tie the 16 mm junction support into the hinge plate");
+assert(junction_pad_front_z > side_guide_front_tie_z0 &&
+       side_guide_front_tie_z0 <= hinge_guard_front_z+0.01,
+       "guide front tie does not span continuously toward the hinge plate");
+assert(abs(side_guide_rear_buttress_depth-10) < 0.01 &&
+       abs(side_guide_rear_buttress_slice_h-1.0) < 0.01 &&
+       side_guide_rear_buttress_overlap >= 0.3,
+       "guide rear buttress must retain the 10 mm triangular base reinforcement");
 assert(side_guide_y1 < backplane_ramp_start_y,
        "side guides must end below the enclosure taper");
 assert(side_guide_slot_front_z < equipment_backplane_front_z &&
@@ -629,7 +639,8 @@ cube([1,1,1]);
         )
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
-        "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
+        "lower hidden junctions, front-tied guide roots with 10 mm rear triangular buttresses, "
+        "compact upper backplane/end-plate seam bosses, "
         "40 mm installed hinge with 20 mm forward base-floor extension, "
         "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
         "reinforced transition with three tapered rear ribs, lower-shoulder plus upper rear-wall ventilation, "
