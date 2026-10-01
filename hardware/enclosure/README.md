@@ -155,6 +155,11 @@ designed around side-on vertical printing:
 - immediately above the 40 mm guide section, the shell switches to the
   **full service width** and keeps the same Y/Z profile across the complete
   256 mm X length;
+- the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
+  tapered ribs**, centred at X = **64 / 128 / 192 mm**; each rib is 24 mm wide
+  at its reinforcement zone and projects up to **10 mm toward the cavity/rear
+  only**, leaving the slide-facing surface unchanged; the taper follows X so
+  the side-on print does not introduce an abrupt floating shelf;
 - main equipment zone: **54 mm clear depth**;
 - full-depth vertical region: **84 mm high**, preserving 4 mm total clearance
   around the PSU's 80 mm dimension;
@@ -283,7 +288,8 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    between both 5 mm guide towers with 0.6 mm running clearance, then seats
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
-   towers prevent lateral movement.
+   towers prevent lateral movement. Inspect all three tapered rear reinforcement
+   ribs and confirm the slide-facing surface remains flat/unmodified.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
    width, all three narrow rounded vent rows are clean on the reinforced lower
    transition, all four rounded vent rows are clean on the upper return ramp,

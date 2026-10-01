@@ -32,6 +32,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - top-down insertion clearance and 0.6 mm nominal groove clearance;
 - dual **40 mm × 5 mm** structural side guides with 0.6 mm running clearance;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
+- three rear-only tapered transition ribs centred at X = **64 / 128 / 192 mm**,
+  using a 24 mm taper width and up to 10 mm cavity-side depth while preserving
+  the original slide-facing surface;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;

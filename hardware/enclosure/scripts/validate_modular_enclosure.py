@@ -379,6 +379,22 @@ assert(universal_return_ramp_h >= 12,
        "upper return ramp is too steep for the narrow safety vent throat");
 assert(universal_guide_shoulder_t >= 8,
        "lower tongue/deep-shell transition shoulder is too thin");
+assert(len(transition_rib_centres) == 3 &&
+       abs(transition_rib_centres[0]-64) < 0.01 &&
+       abs(transition_rib_centres[1]-128) < 0.01 &&
+       abs(transition_rib_centres[2]-192) < 0.01,
+       "transition reinforcement must retain three distributed rear ribs");
+assert(abs(transition_rib_half_w-12) < 0.01 &&
+       abs(transition_rib_slice_w-1.0) < 0.01 &&
+       abs(transition_rib_depth-10) < 0.01,
+       "transition rear-rib taper/depth drifted");
+assert(transition_rib_y0 > base_seat_y &&
+       abs(transition_rib_y1-
+           (universal_deep_y0+universal_guide_shoulder_t)) < 0.01,
+       "transition ribs must bridge the sliding wall into the reinforced shoulder");
+assert(equipment_backplane_rear_z+transition_rib_depth <=
+           universal_deep_front_z+0.01,
+       "transition ribs must extend only toward the rear/cavity and stay clear of the deep rear wall");
 assert(bottom_ramp_vent_rows == 3 && len(bottom_ramp_vent_y) == 3,
        "lower transition shoulder must carry exactly three ventilation rows");
 assert(bottom_ramp_vent_margin_y >= 1.25,
@@ -587,8 +603,8 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
         "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
-        "54 mm universal deep cavity, reinforced transition, narrow rounded "
-        "ramp ventilation, 11.5 mm flush top wall, three central boss rows, "
+        "54 mm universal deep cavity, reinforced transition with three tapered rear ribs, "
+        "narrow rounded ramp ventilation, 11.5 mm flush top wall, three central boss rows, "
         "three aligned closure holes and hinge-rail side-sleeve contract"
     )
 
@@ -674,6 +690,7 @@ def assert_no_legacy_layout() -> None:
         "insertion_print_support_t",
         "insertion_print_support_overlap",
         "insertion_tongue_print_support()",
+        "transition_rear_ribs()",
         "rotate([0,-90,0])",
     ):
         if required not in source_text:

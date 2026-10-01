@@ -250,7 +250,7 @@ side_guide_front_z = side_guide_slot_front_z - side_guide_wall_t;
 side_guide_rear_z = side_guide_slot_back_z + side_guide_wall_t;
 
 // The lower backplane extends into each U-channel and stops short of the outer
-// spine by the running clearance. Above the 50 mm rails it returns to full width.
+// spine by the running clearance. Above the 40 mm rails it returns to full width.
 lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 
 // Small overlap band used to join the steeper ramp into the shallow vertical
@@ -1001,7 +1001,7 @@ module universal_deep_rear_shell() {
 
     // Full-width shoulder immediately ABOVE the guide tops. It bridges the
     // shallow insertion wall to the deep rear wall without intruding into the
-    // 50 mm U-channel insertion envelope below universal_deep_y0.
+    // 40 mm U-channel insertion envelope below universal_deep_y0.
     translate([
         universal_deep_x0,
         universal_deep_y0,
@@ -1050,7 +1050,7 @@ module universal_deep_rear_shell() {
             ]);
     }
 
-    // Final 10 mm closure wall remains flat/parallel to the LED panel.
+    // Final 11.5 mm closure wall remains flat/parallel to the LED panel.
     translate([
         universal_deep_x0,
         universal_deep_ramp_end_y-slice_h,
@@ -1102,47 +1102,46 @@ module ramp_ventilation_cutters() {
 }
 
 
-// ---------- EXPERIMENT: rear tapered transition ribs ----------
-// Test concept 1: viewed from above, change the lower sliding wall from a
-// continuous flat line into a flat line with three rear-only "+" stiffeners.
-// The slide-facing/front surface is untouched. Because installed X is the print
-// Z axis, each stiffener grows and shrinks gradually across X so it does not
-// appear as an abrupt unsupported shelf during the side-on print.
-transition_test_rib_centres = [64,128,192];
-transition_test_rib_half_w = 12;
-transition_test_rib_slice_w = 1.0;
-transition_test_rib_depth = 10;
-transition_test_rib_y0 = base_seat_y + 3;
-transition_test_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
+// ---------- Rear transition reinforcement ----------
+// Three rear-only tapered ribs stiffen the fragile tongue-to-deep-shell
+// transition without changing the slide-facing/front surface. Because installed
+// X is the print Z axis, each rib grows and shrinks gradually across X so it
+// never appears as an abrupt unsupported shelf during the side-on print.
+transition_rib_centres = [64,128,192];
+transition_rib_half_w = 12;
+transition_rib_slice_w = 1.0;
+transition_rib_depth = 10;
+transition_rib_y0 = base_seat_y + 3;
+transition_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
 
-module transition_test_rear_rib(xc) {
+module transition_rear_rib(xc) {
     z0 = equipment_backplane_rear_z - 0.3;
     z1 = min(
-        equipment_backplane_rear_z + transition_test_rib_depth,
+        equipment_backplane_rear_z + transition_rib_depth,
         universal_deep_front_z
     );
-    yh = transition_test_rib_y1-transition_test_rib_y0;
+    yh = transition_rib_y1-transition_rib_y0;
     shallow_d = 0.8;
 
     union() {
         hull() {
             translate([
-                xc-transition_test_rib_half_w,
-                transition_test_rib_y0,
+                xc-transition_rib_half_w,
+                transition_rib_y0,
                 z0
             ])
                 cube([
-                    transition_test_rib_slice_w,
+                    transition_rib_slice_w,
                     yh,
                     shallow_d
                 ]);
             translate([
-                xc-transition_test_rib_slice_w/2,
-                transition_test_rib_y0,
+                xc-transition_rib_slice_w/2,
+                transition_rib_y0,
                 z0
             ])
                 cube([
-                    transition_test_rib_slice_w,
+                    transition_rib_slice_w,
                     yh,
                     z1-z0
                 ]);
@@ -1150,22 +1149,22 @@ module transition_test_rear_rib(xc) {
 
         hull() {
             translate([
-                xc-transition_test_rib_slice_w/2,
-                transition_test_rib_y0,
+                xc-transition_rib_slice_w/2,
+                transition_rib_y0,
                 z0
             ])
                 cube([
-                    transition_test_rib_slice_w,
+                    transition_rib_slice_w,
                     yh,
                     z1-z0
                 ]);
             translate([
-                xc+transition_test_rib_half_w-transition_test_rib_slice_w,
-                transition_test_rib_y0,
+                xc+transition_rib_half_w-transition_rib_slice_w,
+                transition_rib_y0,
                 z0
             ])
                 cube([
-                    transition_test_rib_slice_w,
+                    transition_rib_slice_w,
                     yh,
                     shallow_d
                 ]);
@@ -1173,16 +1172,16 @@ module transition_test_rear_rib(xc) {
     }
 }
 
-module transition_test_rear_ribs() {
-    for (xc=transition_test_rib_centres)
-        transition_test_rear_rib(xc);
+module transition_rear_ribs() {
+    for (xc=transition_rib_centres)
+        transition_rear_rib(xc);
 }
 
 module universal_equipment_backplane() {
     difference() {
         union() {
             universal_backplane_shell_solid();
-            transition_test_rear_ribs();
+            transition_rear_ribs();
 
             top_backplane_connector_pad("left");
             top_backplane_connector_pad("right");
