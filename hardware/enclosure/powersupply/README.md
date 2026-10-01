@@ -83,6 +83,29 @@ pins or PSU pilot holes.
 All options are printed plastic plus ordinary fasteners. There is no metal
 adapter plate and no loose spacer/standoff scheme.
 
+## Completeness audit
+
+The enclosure-side attachment has now been reviewed for every option.
+
+| Option | Enclosure attachment | PSU retention | Current status |
+| --- | --- | --- | --- |
+| 1 - Adapter plate | Six registered boss pockets + six visible M3 fixing recesses | Two PSU screw pilots | **Enclosure-complete; PSU hole coordinates still need measurement** |
+| 2 - Slide cradle | Six registered boss pockets + six visible M3 fixing recesses | Side/top capture, closed end stop, M3 + 8 mm washer insertion lock | **Mechanically complete for fit testing without PSU-hole coordinates** |
+| 3 - Service tray | Fixed dock has six retained screw lands; tray slides in captured channels and uses an external washer lock | PSU screw pilots in removable tray | **Dock/tray mechanism complete; PSU hole coordinates still need measurement** |
+| 4 - Hybrid | Six registered boss pockets + six visible M3 fixing recesses | Side/top capture, closed end stop, washer lock, plus optional PSU locating pins | **Mechanically complete for fit testing; locating pins remain optional until measured** |
+
+The review also corrected three geometry problems found in the first prototypes:
+
+1. the service-tray centre relief used to remove all six enclosure screw lands;
+2. the shared PSU support rails used to overlap/refill the X=+/-48 enclosure screw holes;
+3. the slide/hybrid/service-tray lock bosses did not provide a usable insertion lock.
+
+The service-tray dock now retains two full-height fixing spines around X=+/-48.
+All six M3 holes therefore remain visible and connected to the dock perimeter.
+The shared support rails are now moved inboard, and the insertion locks use a
+printed boss that stays clear during insertion plus an **8 mm OD washer** fitted
+afterwards to overlap the PSU/tray edge.
+
 ## Before a production print
 
 Verify:
