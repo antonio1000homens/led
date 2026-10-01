@@ -1,0 +1,50 @@
+name: Temporary / Regenerate PR 164 enclosure STLs
+
+on:
+  push:
+    branches:
+      - fix/issue-163-backplane-physical-fit
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-pr164-stl-regeneration
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/issue-163-backplane-physical-fit
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate canonical enclosure STLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in hardware/enclosure/parts/*_PRINT_1.scad; do
+            output="hardware/enclosure/stl/$(basename "${source%.scad}.stl")"
+            openscad -o "$output" "$source"
+          done
+
+      - name: Commit regenerated meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- hardware/enclosure/stl; then
+            echo "Canonical STLs are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/stl
+          git commit -m "Regenerate enclosure STLs for restored PSU clearance [skip ci]"
+          git push origin HEAD:fix/issue-163-backplane-physical-fit
