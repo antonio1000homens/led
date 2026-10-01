@@ -50,7 +50,7 @@ latch_base_len = 12;
 latch_base_t = 3.0;
 latch_mount_pitch = 7;
 
-latch_hook_depth = 2.0;     // engagement into tray notch
+latch_hook_depth = 4.0;     // reaches through wall into tray notch
 latch_hook_len = 4.0;       // X length of retaining face/ramp
 latch_ramp_len = 6.0;       // gentle insertion ramp
 latch_release_len = 10.0;
@@ -64,7 +64,7 @@ tray_notch_z = 0.8;
 
 // External latch sits just outside the +Y channel wall.
 channel_y = tray_h/2 + slide_clearance;
-latch_inner_y = channel_y + dock_channel_wall + 0.4;
+latch_inner_y = channel_y + dock_channel_wall + 0.2;
 latch_z = tray_assembled_z + 1.0;
 
 // Window through the +Y channel wall for only the hook nose.
@@ -231,7 +231,7 @@ module replaceable_snap_latch() {
     // end is at -X. The arm flexes outward in +Y.
     base_x = latch_hook_x + latch_arm_len;
     arm_x0 = latch_hook_x;
-    arm_y = latch_inner_y + latch_base_t + 0.4;
+    arm_y = latch_inner_y;
     arm_z = latch_z;
 
     union() {
@@ -287,16 +287,18 @@ module replaceable_snap_latch() {
 
         // Insertion ramp. The tray's leading edge pushes this outward (+Y).
         hull() {
+            // Shallow nose first (-X), deeper engagement toward +X. A tray
+            // moving in +X therefore cams the arm outward progressively.
             translate([
                 latch_hook_x-latch_ramp_len/2,
-                arm_y-latch_hook_depth,
+                arm_y,
                 arm_z+1.0
             ])
                 cube([0.8,0.8,tray_notch_h-0.4]);
 
             translate([
                 latch_hook_x+latch_ramp_len/2,
-                arm_y,
+                arm_y-latch_hook_depth,
                 arm_z+1.0
             ])
                 cube([0.8,0.8,tray_notch_h-0.4]);
