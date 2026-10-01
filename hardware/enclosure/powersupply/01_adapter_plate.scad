@@ -1,7 +1,7 @@
 // Option 1 - simple printed adapter plate for issue #166.
 //
 // Intended experiment:
-// - plate screws to the existing universal backplane boss rectangle;
+// - plate screws to the current six-boss universal backplane interface;
 // - integral rails create a 2 mm gap below the PSU;
 // - the two PSU mounting points are represented as editable M3 pilot holes;
 // - low corner locators make positioning repeatable.

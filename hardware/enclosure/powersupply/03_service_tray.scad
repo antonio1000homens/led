@@ -47,7 +47,7 @@ module tray_plate() {
 module dock() {
     difference() {
         rounded_plate(w=dock_w, h=dock_h, t=plate_t, r=corner_r);
-        backplane_hole_cutters();
+        backplane_interface_cutters();
 
         // Large centre relief means the dock is mostly a perimeter frame and
         // does not create a second solid wall behind the tray/PSU.

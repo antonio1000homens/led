@@ -1,7 +1,7 @@
 // Option 4 - hybrid adapter/cradle for issue #166.
 //
 // Preferred prototype:
-// - screws to the existing enclosure boss grid;
+// - screws to the current six-boss enclosure boss grid;
 // - integral support rails provide an airflow gap;
 // - two configurable locating pins use the PSU's rear/bottom mounting holes;
 // - low corner guides constrain the envelope;

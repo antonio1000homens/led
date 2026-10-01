@@ -29,26 +29,50 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - a 2 mm voxel floating-layer/island proxy;
 - no volumetric interference between the stationary base and removable backplane;
 - positive backplane seating in the recessed rear base groove;
-- top-down insertion clearance and 0.4 mm nominal groove clearance;
-- dual **50 mm × 5 mm** structural side guides with 0.4 mm running clearance;
-- the lower 50 mm stepped/narrowed backplane section and full-width shoulder above it;
+- top-down insertion clearance and 0.6 mm nominal groove clearance;
+- dual **40 mm × 5 mm** structural side guides with 0.6 mm running clearance;
+- each guide's 16 mm-high lower junction support tied forward into the hinge
+  plate/guard at the same height;
+- a **10 mm rearward triangular buttress** at each guide root, tapering to the
+  native rail rear face at the guide top while leaving the slot unchanged;
+- a low full-width stationary **rear shelf** ending on the common rear plane,
+  plus three 1.2 mm-thick guardrail tabs aligned at X = **64 / 128 / 192 mm**;
+- the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
+- three rear-only tapered transition ribs centred at X = **64 / 128 / 192 mm**,
+  using a 24 mm taper width and extending down to **Y=5.1 mm**, 0.6 mm above the
+  4.5 mm base seat. This leaves the lowest 2.6 mm of the sliding tongue free for
+  the 2 mm rear-groove seat. Each rib has an 18 mm-wide shallow guardrail channel:
+  12 mm flat centre, 3 mm tapered entries, 0.6 mm tongue clearance, 1.2 mm tab
+  thickness and 0.6 mm rear-rib clearance;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
-- exactly two slimmer accessory-boss rows (7 mm OD × 4 mm high), positioned 10 mm in from the lower/upper edges of the full-depth mounting region;
+- exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;
 - the 2 mm seat depth and rear-edge groove location;
 - a 54 mm clear-depth universal equipment zone preserving the smaller lower
   guide/insertion section only where the U-channel capture requires it;
 - full-width rear-shell coverage immediately above the guide section with no
   X-dependent edge-depth transition;
-- an **84 mm** full-depth equipment region followed by a **4 mm** return ramp;
-- five **36 mm horizontal vent slots** on the lower transition shoulder and
-  five matching slots on the upper return ramp;
-- a solid full-depth rear mounting wall for the inward-facing M3 boss grid;
-- a final 10 mm flat upper wall parallel to the LED panel and three aligned
-  4.5 mm top-row closure holes;
+- a **92 mm structural full-depth rear-wall region**, of which the lower **8 mm**
+  is the reinforced shoulder, leaving **84 mm usable full-depth height above the
+  shoulder** for the 80 mm PSU plus 4 mm clearance, followed by a restored **12 mm** return ramp;
+- three rows of seven **24 mm × 1 mm rounded vent slots** on the reinforced lower
+  transition shoulder, with 1.25 mm solid lands, and four rows of seven matching
+  slots across the restored **12 mm upper return ramp**, with at least 1.5 mm
+  solid material between rows;
+- the full-depth M3 boss wall remains solid apart from its blind mounting holes;
+- a final **23.5 mm** flat upper wall parallel to the lifted LED panel; the raised
+  enclosure supplies the extra ramp height without reducing the PSU envelope,
+  and the three aligned 4.5 mm top-row closure holes retain at least 1 mm of
+  material from the ramp bend;
 - at least 15 mm of vertical release travel through the shortened upper alignment connector;
 - no rear cable/ribbon through-slots;
 - side-piece fit, hinge-rod clearance, and capped hollow left/right rod sleeves;
+- moving/front-panel hinge-root geometry remains unchanged from the existing
+  validated template;
+- a **20 mm forward extension** of the stationary base floor, retained as a
+  flat floor with no shallow front ramp;
+- no volumetric intersection between the stationary base and the unchanged
+  moving panel throughout the full hinge sweep;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
   **0, 15, 30, 45, 60, 75 and 90°**;
@@ -60,9 +84,13 @@ The hinge regression contract includes:
 
 - **14 mm** barrel OD;
 - **7.2 mm** printed bore for the 6 mm rail;
-- hinge axis at **y=27 mm, z=16 mm**;
+- installed moving-panel lower edge and hinge axis at **y=40 mm, z=16 mm**,
+  representing a **20 mm lift** from the previous 20 mm baseline;
+- stationary base floor extended **20 mm toward the front** while remaining
+  clear of the full 0–90° moving-panel sweep;
 - **7 mm** closed template-to-barrel clearance;
-- local roots on the moving template only;
+- local roots on the moving template retained at their existing validated
+  geometry; no front-panel/template reprint is introduced by this change;
 - rearward support webs that terminate at the reinforced hinge shelf;
 - 3 mm local pads at the stationary hinge roots;
 - **2 mm** stationary lower guard with **0.8 mm** barrel clearance;
@@ -74,18 +102,21 @@ The hinge regression contract includes:
   end at X=220.
 
 The previous full-width captive tongue/channel is retired. The backplane enters
-a 2 mm-deep **recessed groove at the rear of the base**. The lower U-channel
+a 2 mm-deep **recessed groove at the rear of the base**. The shorter lower U-channel
 insertion section remains narrower and shallower, but immediately above the
 guide tops the backplane uses one full-width **54 mm** profile across the entire
-256 mm X length. The full-depth section is **84 mm high**, followed by a short
-**4 mm** return and a **10 mm flat upper wall** at the full 148 mm panel height.
-Horizontal rear-wall vents replace the old installed-vertical ramp slots.
+256 mm X length. The full-depth rear wall is **92 mm high** overall; its reinforced
+8 mm lower shoulder leaves **84 mm of usable full-depth height above it**, restoring
+80 mm PSU fit plus 4 mm clearance. The raised enclosure then provides a restored
+**12 mm return ramp** carrying four upper ventilation rows before reaching the
+**23.5 mm flat upper wall** at the lifted **168 mm** enclosure/panel height.
+The full-depth rear mounting wall remains solid.
 
 The manufacturing STL rotates this geometry so installed X becomes print Z.
 The only print-only support is a low breakaway strip beneath the narrowed lower
-tongue where that tongue starts 1.6 mm above the left-end print bed. The
+tongue where that tongue starts 1.8 mm above the left-end print bed. The
 backplane reuses the panel's three measured top-row screw positions
-(X=7.9/128.0/248.1 mm, installed Y=140.1 mm) as 4.5 mm through-holes. The
+(X=7.9/128.0/248.1 mm, installed Y=160.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
 that all three holes are clear, together with the rear-groove contract, vertical
 insertion path, lower usable cavity and complete hinge sweep.
@@ -103,16 +134,25 @@ sets:
 3. fit the three top closure screws in the closed position, then remove/loosen
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
-4. confirm the moving panel never contacts the stationary barrel support webs or lower guard;
+4. confirm the unchanged moving panel/template never contacts the stationary
+   barrel support webs or lower guard through the complete 0–90° motion;
 5. print one universal backplane **side-on with its 256 mm length vertical**,
    remove the small breakaway strip beneath the insertion tongue after cooling,
-   then confirm the narrowed lower section slides between both 5 mm guides,
-   seats 2 mm into the rear groove, and removes upward;
-6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
-7. confirm the 54 mm deep universal region spans the usable backplane width,
-   the horizontal vents are confined to the lower transition and upper return
-   ramp, the long rear boss-mount wall remains solid, the ramps need no slicer
-   supports, the final 10 mm upper wall is flat/parallel to the panel, there are
+   then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
+   seats 2 mm into the rear groove without the ribs entering the seat, and
+   visibly retains the three shallow gaps between the sliding tongue and rear ribs;
+6. confirm the guide towers retain the backplane laterally and the full-width
+   shoulder clears their tops; inspect the forward 16 mm-high ties, 10 mm rear
+   guide-root buttresses and low full-width rear shelf. Confirm each 1.2 mm
+   guardrail tab rises to the Y=5.1 mm rib lower edge and enters its tapered
+   channel with 0.6 mm clearance on both functional faces while the original
+   backplane slot/running clearance remains unchanged;
+7. confirm the 54 mm deep universal region spans the usable backplane width and
+   provides **84 mm clear height above the reinforced shoulder**; verify the rounded
+   24 × 1 mm vents are confined to three rows on the lower transition and four
+   rows across the restored 12 mm upper return ramp, with solid lands between
+   all rows while the full-depth boss wall remains solid; the return needs no
+   slicer support, the final 23.5 mm upper wall is flat/parallel to the lifted panel, there are
    no rear cable/ribbon through-slots, and all three 4.5 mm top closure holes
    align with the panel's top-row mounting points;
 8. verify the hidden guide-tower junctions and both outer side pieces engage,
@@ -120,7 +160,7 @@ sets:
    X=10/246, and the hollow 7.2 mm sleeve continues around the rod to the nearest
    hinge barrel without binding;
 9. mate two equipment cores side-by-side at the 256 mm pitch and check the hidden pin/socket alignment;
-10. test representative M3 hardware on the inward-facing lower boss grid and verify the external rear skin is unbroken;
+10. test representative M3 hardware on all three inward-facing boss rows and verify the external rear skin is unbroken;
 11. verify connected HUB75/power cabling remains free through the opening arc.
 
 Record tolerance changes in `direct_mount_enclosure.scad`; never patch an STL directly.

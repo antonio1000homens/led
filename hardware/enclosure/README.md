@@ -15,7 +15,7 @@ Only the lower U-channel insertion section is smaller; immediately above the
 guides the shell uses one identical full-width Y/Z profile for the complete
 256 mm length. That makes the long X dimension suitable as the print-vertical
 axis. The deep section returns toward the panel near the top and finishes with a
-**10 mm flat upper wall** parallel to the LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
+**23.5 mm flat upper wall** parallel to the lifted LED panel. Ventilation uses **horizontal slots on the upper return ramp and lower
 transition shoulder**. The long rear wall remains solid for the accessory-boss
 mounting grid. The backplane reuses all three
 existing top-row panel screw positions as aligned closure fasteners, so no
@@ -46,7 +46,7 @@ solid rear boss-mount wall
    |
 horizontal vents on lower transition + upper return ramp
    |
-10 mm flat upper wall flush with panel
+23.5 mm flat upper wall flush with lifted panel
    |
 three aligned top-row closure screw holes
    |
@@ -94,12 +94,15 @@ than only its clearance numbers:
 - metal rail: **6.0 mm**
 - printed bore: **7.2 mm**
 - barrel OD: **14 mm**
-- moving panel/template lower edge: **20 mm above the stationary floor**
-- hinge axis: **y=27 mm, z=16 mm**
+- moving panel/template lower edge and hinge centreline: **40 mm above the stationary floor**
+  (**20 mm higher** than the previous installation)
+- hinge axis: **y=40 mm, z=16 mm**
 - closed moving-template back to barrel clearance: **7 mm**
 - moving panel/template knuckles: **34–60, 92–118, 166–194 mm**
 - stationary equipment knuckles: **62–90, 136–164, 196–220 mm**
-- moving template uses **local hinge roots only**, with no full-width lower lip
+- moving template uses the existing **local hinge roots only**, with no
+  full-width lower lip; the moving/front-panel geometry is intentionally
+  unchanged and remains outside this reinforcement change
 - stationary hinge roots use **rearward-sloping webs that terminate at the hinge shelf**
 - each stationary root has a **3 mm local pad** joining its barrel to the web
 - a **2 mm full-width stationary lower hinge guard** sits behind the barrel with
@@ -107,7 +110,12 @@ than only its clearance numbers:
 - service/mechanical opening range: **0–90°**
 
 The panel/template rotates forward/down. The equipment base, removable backplane
-and electronics stay stationary.
+and electronics stay stationary. The raised hinge also allows the stationary
+base floor to extend **20 mm farther toward the front** without entering the
+0–90° moving-panel sweep. The extension remains a flat structural floor; the
+previous shallow front reinforcement ramp has been removed. The moving
+template/front-panel geometry is unchanged; its print wrapper removes the
+40 mm installation offset.
 
 The 6 mm hinge rail is defined from **X=10 mm to X=246 mm**. Each detachable
 outer side now carries a hinge-style rod support with the same **14 mm OD** and
@@ -121,45 +129,86 @@ the previous exposed solid-plug appearance while keeping the rod retained.
 
 The base/backplane interface uses a **recessed groove at the rear edge of the
 base** plus two structural side guides. The centre groove is 2 mm deep with
-0.4 mm nominal clearance around the 3 mm backplane edge. Each side guide is
-**50 mm high × 5 mm wide** and grows directly from the base. The lower 50 mm of
-the backplane is stepped inward by 5 mm per side plus 0.4 mm running clearance;
+0.6 mm nominal clearance around the 3 mm backplane edge. Each side guide is
+**40 mm high × 5 mm wide** and grows directly from the base. The lower 40 mm of
+the backplane is stepped inward by 5 mm per side plus 0.6 mm running clearance;
 above the guide towers it returns to the normal full width.
+
+**Base/backplane compatibility:** the 40 mm guide height and 40 mm narrowed
+backplane foot are a matched interface. A backplane built to this geometry will
+not fully seat in the earlier 50 mm-guide base: its full-width shoulder contacts
+the final ~10 mm of the old towers before the lower edge reaches the 2 mm rear
+seat, leaving the assembly standing roughly 10 mm high. When adopting this
+revision, print/use the matching `02_hinged_equipment_base_PRINT_1` and
+`03_universal_equipment_backplane_PRINT_1` together.
 
 The guide towers are deliberately thickened toward the **inside** of the
 enclosure. Their self-mating pin/socket junctions are carried on that interior
 structure, so module-to-module and end-panel connections are hidden from the
 outside. The rear exterior plane remains clean.
 
+Each guide root is now additionally reinforced in two directions without
+changing the backplane slot:
+
+- the existing **16 mm-high junction support** continues forward until it
+  overlaps the stationary hinge plate/guard, making one continuous side load
+  path;
+- the rear of the guide gains a **10 mm-deep triangular buttress at the base**,
+  tapering back to the normal guide rear face at the top of the 40 mm rail;
+- a low **full-width rear shelf** extends the stationary base to the same rear
+  plane as those buttresses, while three narrow **1.2 mm-thick guardrail tabs**
+  rise behind the sliding tongue at X = 64 / 128 / 192 mm;
+- the **3 mm backplane slot and 0.6 mm running clearance remain unchanged**.
+
 The removable backplane/enclosure installs from directly above:
 
-1. lower the narrowed 50 mm backplane foot between the two 5 mm side guides;
+1. lower the shortened 40 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
-3. the full-width shoulder above the guides then sits over the tower tops;
-4. fit the detachable outer side/end piece where required.
+3. the 2 mm rear groove seats the sliding tongue independently. The three
+   guardrail tabs rise to **Y=5.1 mm**, while the rib lower edges start at the
+   same height; inside each rib channel the tongue keeps 0.6 mm clearance to
+   the tab and the tab keeps another 0.6 mm to the rear rib wall;
+4. the full-width shoulder above the guides then sits over the tower tops while
+   the low rear shelf and rib rear faces terminate on the same flush plane;
+5. fit the detachable outer side/end piece where required.
 
 The universal backplane keeps the existing lower guide interface but is now
 designed around side-on vertical printing:
 
 - lower guide/insertion zone retains the original **40 mm** depth and narrowed
   width required by the U-channel capture;
-- immediately above the 50 mm guide section, the shell switches to the
+- immediately above the 40 mm guide section, the shell switches to the
   **full service width** and keeps the same Y/Z profile across the complete
   256 mm X length;
+- the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
+  tapered ribs**, centred at X = **64 / 128 / 192 mm**; each rib is 24 mm wide
+  and extends down to **Y=5.1 mm**, 0.6 mm above the 4.5 mm base seat. The lowest
+  2.6 mm of the sliding tongue therefore remains rib-free and can enter the 2 mm
+  rear groove without any rib/base overlap. Behind the tongue, each rib contains
+  an **18 mm-wide shallow channel** with a 12 mm flat centre and 3 mm tapered
+  entries. The channel begins 0.6 mm behind the tongue and is 1.8 mm deep,
+  providing room for the 1.2 mm guardrail tab plus another 0.6 mm rear clearance.
+  The tapered entry keeps the side-on print support-free;
 - main equipment zone: **54 mm clear depth**;
-- full-depth vertical region: **84 mm high**, preserving 4 mm total clearance
-  around the PSU's 80 mm dimension;
-- return ramp: **4 mm high**, repeated identically across X;
-- final upper wall: **10 mm high**, flat and parallel to the LED panel;
-- stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: five **36 mm horizontal slots** on the lower transition and
-  five matching slots on the upper return ramp;
-- the long full-depth rear wall remains solid for the M3 boss grid;
-- lower insertion wall and final 10 mm top wall remain solid;
+- structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
+  top to the return ramp;
+- the reinforced lower shoulder occupies the first **8 mm**, leaving **84 mm
+  of genuinely usable full-depth height above it**: 80 mm PSU height + 4 mm
+  total vertical clearance;
+- return ramp: **12 mm high**, repeated identically across X and carrying the restored top ventilation;
+- final upper wall: **23.5 mm high**, flat and parallel to the lifted LED panel;
+  the raised enclosure provides enough extra height to restore the 12 mm return
+  ramp while retaining the full PSU envelope;
+- stationary enclosure top: **168 mm**, matching the lifted front-panel height;
+- ventilation: **three rows** of seven **24 mm × 1 mm rounded horizontal slots**
+  on the reinforced lower transition plus **four rows** of seven matching slots
+  across the restored **12 mm upper return ramp**;
+- the full-depth rear wall stays solid for the M3 boss grid;
+- lower insertion wall and final 23.5 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
-- closure-hole installed Y: **140.1 mm**;
+- closure-hole installed Y: **160.1 mm**;
 - closure-hole diameter: **4.5 mm**, identical to the panel mounting holes.
 
 These three holes are derived directly from the existing measured top-row panel
@@ -178,10 +227,9 @@ lift past an end plate without bringing solid connector geometry into the clamp
 clearance zone.
 
 The full-depth **rear wall** carries the accessory mounting grid and remains
-solid except for the blind boss holes on its inside face. Ventilation is moved
-off that mounting surface: horizontal slots are cut through the lower transition
-shoulder and upper return ramp. The lower insertion section and final 10 mm flat
-upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
+solid around that grid except for the blind boss holes. Ventilation is confined
+to the reinforced lower transition shoulder and the restored 12 mm upper return
+ramp. The lower insertion section and final 23.5 mm flat upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -197,7 +245,7 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **60 / 124 mm** (two rows, 10 mm inside the lower/upper edges of the 84 mm full-depth wall)
+- Y = **62.5 / 82.5 / 102.5 mm** (three rows; outer rows 22 mm inside the full-depth-region edges, plus a centred row)
 - boss OD = **7 mm**
 - boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
@@ -214,7 +262,7 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
 The base guide towers expose complementary pin/socket features on their left
 and right edges so identical neighbouring modules self-align. These junctions
-sit on the **inside/cavity-facing portion of the 50 mm guide towers**. End-panel
+sit on the **inside/cavity-facing portion of the 40 mm guide towers**. End-panel
 mating sockets are blind from the inside, leaving the outside side faces solid.
 
 - pin diameter: **4.0 mm**
@@ -252,13 +300,13 @@ Run the mechanical validator with:
 python hardware/enclosure/scripts/validate_enclosure.py
 ```
 
-CI regenerates all five canonical parts, verifies they match the checked-in
+CI regenerates all seven canonical parts, verifies they match the checked-in
 STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
 the 54 mm universal deep zone, the **constant X profile and horizontal vents**,
-the final 10 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
+the final 23.5 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
 equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
@@ -271,15 +319,21 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    remove/loosen them and confirm the real 6 mm rail lets the **panel/template**
    rotate freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
-4. Print one universal backplane and verify the narrowed lower 50 mm slides
-   between both 5 mm guide towers with 0.4 mm running clearance, then seats
+4. Print one universal backplane and verify the narrowed lower 40 mm slides
+   between both 5 mm guide towers with 0.6 mm running clearance, then seats
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
-   towers prevent lateral movement.
+   towers prevent lateral movement. Inspect all three tapered rear reinforcement
+   ribs and confirm the **gap behind the sliding tongue is visibly present**.
+   Check that each 1.2 mm guardrail tab enters its rib channel freely, with
+   0.6 mm clearance to the tongue and 0.6 mm clearance to the rear rib wall,
+   while the slide-facing surface remains flat/unmodified.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, the horizontal vent rows are clean on both the lower transition and
-   upper return ramp, and the long rear wall remains solid for the boss grid.
-   Confirm the final 10 mm wall is flat/parallel to the panel with all three
+   width and **84 mm clear height above the reinforced shoulder** (80 mm PSU +
+   4 mm clearance). Confirm all three narrow rounded vent rows are clean on the
+   reinforced lower transition and all four rounded rows are clean across the
+   restored 12 mm upper return ramp; the full-depth rear boss wall should remain solid.
+   Confirm the final 23.5 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, profile alignment, and that each capped rod retainer remains
@@ -296,12 +350,12 @@ PETG remains preferred for repeated hinge testing.
 
 The backplane now prints **side-on with the 256 mm X dimension vertical**. Above
 the guide section the shell has the same Y/Z profile on every structural layer,
-so the 54 mm deep wall, short return ramp and top wall build without the old
+so the 54 mm deep wall, 12 mm return ramp and top wall build without the old
 under-ramp support forest.
 
 The lower insertion tongue is intentionally narrower than the main shell so it
 can slide into the base U-channels. With the left end on the bed, that tongue
-starts about **1.6 mm above the bed**. The manufacturing wrapper therefore adds
+starts about **1.8 mm above the bed**. The manufacturing wrapper therefore adds
 one **1.0 mm-thick breakaway strip** under the tongue, extending through the
 guide-height section and overlapping the tongue by **0.4 mm**. It is the only
 print-only support geometry.

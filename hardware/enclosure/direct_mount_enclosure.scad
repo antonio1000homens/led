@@ -47,7 +47,12 @@ hinge_rail_end_x = hinge_rail_start_x + hinge_rail_length;
 side_rod_sleeve_outer_d = hinge_outer_d;
 side_rod_sleeve_bore_d = hinge_bore_d;
 
-ground_clearance = 20;
+// Raise the complete installed moving leaf/hinge 20 mm above the previous
+// 20 mm baseline. The print wrapper subtracts this installation offset, so the
+// moving panel/template STL itself remains unchanged.
+baseline_ground_clearance = 20;
+hinge_install_lift = 20;
+ground_clearance = baseline_ground_clearance + hinge_install_lift;
 hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
 
 moving_plate_t = 2;
@@ -96,6 +101,7 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
 
 panel_band_h = 20;
 panel_side_w = 8;
+
 
 module panel_mount_pattern_template() {
     difference() {
@@ -204,20 +210,24 @@ equipment_backplane_top_front_z = enclosure_front_z;
 equipment_backplane_top_rear_z =
     equipment_backplane_top_front_z + equipment_backplane_t;
 
-backplane_guide_clearance = 0.4;
+// Physical PETG fit: give the removable tongue a little more running room in
+// the rear seat so it does not bow while being pushed home.
+backplane_guide_clearance = 0.6;
 backplane_guide_t = 1.2;
 backplane_seat_depth = 2.0;
 base_seat_y = 4.5;
 equipment_backplane_y0 = base_seat_y - backplane_seat_depth;
 
-// Two genuine U-channel side rails rise from the base. For the first 50 mm,
-// the removable backplane edges slide DOWN inside these channels rather than
+// Two genuine U-channel side rails rise from the base. The physical-print
+// feedback showed that 50 mm of engagement was unnecessarily long and prone
+// to binding, so the removable backplane now uses a 40 mm guided insertion
+// length and slides DOWN inside these channels rather than
 // merely passing between solid guide towers. The 5 mm rail depth provides
 // positive side capture while leaving the channel open toward the enclosure
 // centre for top-down installation.
-side_guide_h = 50;
+side_guide_h = 40;
 side_guide_w = 5;
-side_guide_clearance = 0.4;
+side_guide_clearance = 0.6;
 side_guide_wall_t = backplane_guide_t;
 side_guide_y0 = service_base_y;
 side_guide_y1 = side_guide_y0 + side_guide_h;
@@ -235,9 +245,21 @@ junction_pad_h = 16;
 backplane_slot_front_z = equipment_backplane_front_z - backplane_guide_clearance;
 backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
 base_rear_z = backplane_slot_back_z + backplane_guide_t;
-base_floor_front_z = service_front_z;
+// Take advantage of the extra 20 mm installed hinge height to extend the
+// stationary base floor 20 mm toward the front without entering the moving
+// panel's 0-90 degree service sweep.
+base_front_extension = 20;
+base_floor_front_z = service_front_z - base_front_extension;
 base_floor_rear_z = base_rear_z;
-base_panel_clearance_y = ground_clearance-hinge_axis_z;
+
+
+// The old 20 mm hinge height needed a local front-floor relief for the open
+// panel. At the raised 40 mm hinge height that relief no longer reaches the
+// structural floor, so clamp it to the rear-seat edge and keep a full floor.
+base_panel_clearance_y = min(
+    base_seat_y,
+    ground_clearance-hinge_axis_z
+);
 base_panel_clearance_z = hinge_axis_z+moving_plate_t+0.5;
 
 side_guide_slot_front_z = backplane_slot_front_z;
@@ -246,7 +268,7 @@ side_guide_front_z = side_guide_slot_front_z - side_guide_wall_t;
 side_guide_rear_z = side_guide_slot_back_z + side_guide_wall_t;
 
 // The lower backplane extends into each U-channel and stops short of the outer
-// spine by the running clearance. Above the 50 mm rails it returns to full width.
+// spine by the running clearance. Above the 40 mm rails it returns to full width.
 lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 
 // Small overlap band used to join the steeper ramp into the shallow vertical
@@ -254,7 +276,8 @@ lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 backplane_top_band = 1.5;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
-// Two slimmer boss rows are sufficient for detachable adapters.
+// Three centrally-biased boss rows give detachable adapters a useful middle
+// fixing line while keeping the outer rows away from the transition edges.
 adapter_boss_d = 7;
 adapter_hole_d = 3.4;
 adapter_boss_h = 4;
@@ -263,13 +286,16 @@ adapter_x = [32,80,128,176,224];
 // Universal equipment envelope for side-on vertical printing.
 //
 // The production backplane is printed with its 256 mm X dimension vertical.
-// Above the 50 mm guide/insertion section, the shell therefore keeps one
+// Above the 40 mm guide/insertion section, the shell therefore keeps one
 // identical Y/Z cross-section across the complete X length. Only the narrowed
 // lower insertion tongue differs at the two ends; its first layers receive a
 // small print-only breakaway support in the manufacturing wrapper.
 universal_deep_clear_depth = 54;
 universal_deep_wall_t = equipment_backplane_t;
-universal_guide_shoulder_t = equipment_backplane_t;
+// The original 3 mm shoulder was the only bridge between the sliding tongue
+// and the deep enclosure and proved too fragile in a physical print. Make it
+// a real structural shelf instead of relying on the wall thickness alone.
+universal_guide_shoulder_t = 8;
 
 // The installed lower tongue remains narrow enough to slide inside the two
 // U-channel guides. Above the guide tops the shell immediately uses the full
@@ -282,25 +308,40 @@ universal_full_x1 = universal_deep_x1;
 universal_full_w = universal_deep_w;
 
 // The full-depth equipment zone begins immediately above the guide section.
-// Keep at least 80 mm of vertical mounting height for the measured PSU, then
-// return to the shallow closure wall near the top. Because X is the print
-// vertical axis, this Y/Z return profile is repeated identically on every
-// structural layer and no under-ramp print supports are required.
+// The reinforced 8 mm shoulder now consumes part of that nominal height, so
+// size the rear wall from the ACTUAL clear PSU envelope above the shoulder
+// rather than from the guide height alone. This prevents the shorter 40 mm
+// guides from pulling the upper taper down into the measured 80 mm PSU.
 universal_deep_y0 = side_guide_y1;
-universal_top_flat_h = 10;
-universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
-universal_return_ramp_h = 4;
-universal_deep_y1 = universal_deep_ramp_end_y-universal_return_ramp_h;
+universal_psu_h = 80;
+universal_psu_vertical_clearance = 4;
+
+// Preserve the full 80 mm PSU + 4 mm clearance above the reinforced
+// shoulder, then use part of the extra height created by the raised hinge to
+// restore the proven 12 mm upper return ramp. The remaining shallow closure
+// wall is still comfortably tall enough for the lifted top-row closure screws.
+universal_deep_y1 =
+    universal_deep_y0 +
+    universal_guide_shoulder_t +
+    universal_psu_h +
+    universal_psu_vertical_clearance;
+universal_return_ramp_h = 12;
+universal_deep_ramp_end_y =
+    universal_deep_y1 + universal_return_ramp_h;
+universal_top_flat_h =
+    enclosure_top_y-universal_deep_ramp_end_y;
 
 universal_deep_rear_z =
     enclosure_front_z + universal_deep_clear_depth + universal_deep_wall_t;
 universal_deep_front_z =
     universal_deep_rear_z-universal_deep_wall_t;
 
-// Keep the two accessory-boss rows inside the long full-depth mounting face.
-adapter_edge_inset_y = 10;
+// Keep three accessory-boss rows inside the long full-depth mounting face.
+// The outer rows are pulled inward and the third row is centred explicitly.
+adapter_edge_inset_y = 22;
 adapter_y = [
     universal_deep_y0 + adapter_edge_inset_y,
+    (universal_deep_y0 + universal_deep_y1)/2,
     universal_deep_y1 - adapter_edge_inset_y
 ];
 
@@ -309,21 +350,52 @@ adapter_y = [
 // horizontal slots across X on both the lower guide-to-depth shoulder and the
 // upper return ramp. With installed X mapped to print Z these slots become
 // vertical channels in the side-on print orientation.
-vent_slot_len = 36;
+// Use more, shorter vents with a 1 mm throat. Combined with the longer return
+// ramp this avoids the broad finger-sized openings produced by the old steep
+// 4 mm ramp while retaining distributed airflow.
+vent_slot_len = 24;
 vent_slot_gap = 10;
-vent_slot_count = 5;
+vent_slot_count = 7;
 vent_slot_x0 =
     universal_deep_x0 +
     (universal_deep_w -
      (vent_slot_count*vent_slot_len +
       (vent_slot_count-1)*vent_slot_gap))/2;
-vent_slot_y_h = 1.8;
-bottom_ramp_vent_y =
-    universal_deep_y0 +
-    (universal_guide_shoulder_t-vent_slot_y_h)/2;
-top_ramp_vent_y =
-    universal_deep_y1 +
-    (universal_return_ramp_h-vent_slot_y_h)/2;
+vent_slot_y_h = 1.0;
+
+// The reinforced lower shoulder is only 8 mm high, so use three rows rather
+// than squeezing four rows into it. Keep 1.25 mm solid margins at both ends
+// and 1.25 mm solid lands between each 1 mm opening.
+bottom_ramp_vent_rows = 3;
+bottom_ramp_vent_margin_y = 1.25;
+bottom_ramp_vent_row_gap =
+    (universal_guide_shoulder_t -
+     2*bottom_ramp_vent_margin_y -
+     bottom_ramp_vent_rows*vent_slot_y_h) /
+    (bottom_ramp_vent_rows-1);
+bottom_ramp_vent_y = [
+    for (row=[0:bottom_ramp_vent_rows-1])
+        universal_deep_y0 +
+        bottom_ramp_vent_margin_y +
+        row*(vent_slot_y_h+bottom_ramp_vent_row_gap)
+];
+
+// Four ventilation rows cross the restored 12 mm upper return ramp. Keep
+// 1.5 mm solid margins at both ends and distribute the remaining material
+// evenly between rows. The main rear mounting wall therefore stays solid.
+top_ramp_vent_rows = 4;
+top_ramp_vent_margin_y = 1.5;
+top_ramp_vent_row_gap =
+    (universal_return_ramp_h -
+     2*top_ramp_vent_margin_y -
+     top_ramp_vent_rows*vent_slot_y_h) /
+    (top_ramp_vent_rows-1);
+top_ramp_vent_y = [
+    for (row=[0:top_ramp_vent_rows-1])
+        universal_deep_y1 +
+        top_ramp_vent_margin_y +
+        row*(vent_slot_y_h+top_ramp_vent_row_gap)
+];
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
 // Right(A pin/B socket) mates Left(A socket/B pin) on another identical module.
@@ -332,7 +404,7 @@ connector_socket_d = 4.7;
 connector_pin_len = 3;
 connector_socket_depth = 3;
 
-// Self-mating junctions are carried by the 50 mm U-channel side rails. They sit
+// Self-mating junctions are carried by the 40 mm U-channel side rails. They sit
 // on the cavity-facing side and remain hidden from the external rear face.
 // Both A/B features are inset from the support-pad edges by at least 2 mm even
 // at the larger 4.7 mm socket diameter, avoiding the fragile edge condition.
@@ -473,9 +545,34 @@ hinge_support_landing_h = 2.0;
 // Continue the hinge load path down into the structural base floor. The anchor
 // is fully embedded in the remaining floor behind the 90-degree sweep relief.
 hinge_support_base_y = service_base_y;
-hinge_support_base_h = base_panel_clearance_y-service_base_y;
+hinge_support_base_h =
+    min(base_seat_y,base_panel_clearance_y)-service_base_y;
 hinge_support_base_z = hinge_guard_front_z;
 hinge_support_base_t = hinge_guard_t;
+
+// Reinforce each removable-backplane U-channel without changing the slot itself.
+// At the front, extend the existing 16 mm-high hidden-junction support forward
+// until it overlaps the stationary hinge plate/guard. At the rear, add a side-
+// view triangular buttress: 10 mm extra depth at the rail base tapering back to
+// the native rail rear face at the top of the 40 mm guide.
+side_guide_front_tie_z0 = hinge_guard_front_z;
+side_guide_front_tie_h = junction_pad_h;
+side_guide_rear_buttress_depth = 10;
+side_guide_rear_buttress_slice_h = 1.0;
+side_guide_rear_buttress_overlap = 0.4;
+
+// Use one rear reinforcement plane across the side-guide buttresses, the low
+// stationary rear rail and the three removable backplane ribs. This gives the
+// assembled rear edge a flush appearance without changing the backplane slot.
+rear_reinforcement_flush_z =
+    side_guide_rear_z + side_guide_rear_buttress_depth;
+rear_guardrail_lip_front_z = side_guide_slot_back_z;
+rear_guardrail_lip_rear_z = side_guide_rear_z;
+rear_guardrail_shelf_front_z = rear_guardrail_lip_front_z;
+rear_guardrail_shelf_rear_z = rear_reinforcement_flush_z;
+rear_guardrail_y0 = service_base_y;
+rear_guardrail_y1 = base_seat_y + side_guide_clearance;
+rear_guardrail_shelf_top_y = equipment_backplane_y0 - 0.2;
 
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
@@ -595,20 +692,96 @@ module side_guide_channel(side="left") {
                 junction_pad_h,
                 side_guide_front_z-junction_pad_front_z+0.2
             ]);
+
+        // Continue that same 16 mm-high support surface forward until it ties
+        // directly into the stationary hinge plate/guard. This turns the guide
+        // root and hinge plate into one continuous side load path instead of
+        // leaving the junction pad cantilevered behind the hinge structure.
+        translate([
+            x0,
+            side_guide_y0,
+            side_guide_front_tie_z0
+        ])
+            cube([
+                side_guide_w,
+                side_guide_front_tie_h,
+                junction_pad_front_z-side_guide_front_tie_z0+0.2
+            ]);
+
+        // Rearward 10 mm triangular gusset in side view. The lower rail root
+        // receives the full extra depth while the gusset tapers to the native
+        // rear face at the guide top. The U-channel slot dimensions are
+        // untouched because all added material is behind side_guide_rear_z.
+        hull() {
+            translate([
+                x0,
+                side_guide_y0,
+                side_guide_rear_z-side_guide_rear_buttress_overlap
+            ])
+                cube([
+                    side_guide_w,
+                    side_guide_rear_buttress_slice_h,
+                    side_guide_rear_buttress_depth+
+                        side_guide_rear_buttress_overlap
+                ]);
+
+            translate([
+                x0,
+                side_guide_y1-side_guide_rear_buttress_slice_h,
+                side_guide_rear_z-side_guide_rear_buttress_overlap
+            ])
+                cube([
+                    side_guide_w,
+                    side_guide_rear_buttress_slice_h,
+                    side_guide_rear_buttress_overlap
+                ]);
+        }
     }
+}
+
+module rear_guardrail() {
+    // Full-width low shelf extends the stationary base to the common rear plane
+    // while staying below the seated lower edge of the removable backplane.
+    translate([
+        service_x,
+        rear_guardrail_y0,
+        rear_guardrail_shelf_front_z
+    ])
+        cube([
+            service_w,
+            rear_guardrail_shelf_top_y-rear_guardrail_y0,
+            rear_guardrail_shelf_rear_z-rear_guardrail_shelf_front_z
+        ]);
+
+    // Three narrow upright tabs rise into the printable centre portion of each
+    // rib slot. They sit 0.6 mm behind the sliding tongue and retain 0.6 mm
+    // clearance to the rear rib wall.
+    tab_w = transition_rib_channel_flat_w - 2*side_guide_clearance;
+    for (xc=transition_rib_centres)
+        translate([
+            xc-tab_w/2,
+            rear_guardrail_y0,
+            rear_guardrail_lip_front_z
+        ])
+            cube([
+                tab_w,
+                rear_guardrail_y1-rear_guardrail_y0,
+                rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+            ]);
 }
 
 module base_structural_body() {
     difference() {
         union() {
             // Low unobstructed structural floor.
-            translate([service_x,service_base_y,service_front_z])
+            translate([service_x,service_base_y,base_floor_front_z])
                 cube([
                     service_w,
                     base_seat_y-service_base_y,
-                    base_rear_z-service_front_z
+                    base_floor_rear_z-base_floor_front_z
                 ]);
 
+            rear_guardrail_shelf();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
@@ -619,6 +792,10 @@ module base_structural_body() {
             side_guide_channel("right");
 
         }
+
+        // Clear the rear strip under each rib side wall before restoring the
+        // three centre guardrail tabs in the final base union.
+        rear_rib_seat_clearance_cutters();
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
         // Only a 2 mm-deep locating groove is removed; there is no internal
@@ -637,16 +814,17 @@ module base_structural_body() {
         // The centred bottom-edge hinge brings the open panel's lower band to
         // base_panel_clearance_y. Relieve the front floor lip below the hinge
         // depth while keeping the backplane seat and guide towers intact.
-        translate([
-            service_x-0.1,
-            base_panel_clearance_y,
-            base_floor_front_z-0.1
-        ])
-            cube([
-                service_w+0.2,
-                base_seat_y-base_panel_clearance_y+0.2,
-                base_panel_clearance_z-base_floor_front_z+0.2
-            ]);
+        if (base_panel_clearance_y < base_seat_y-0.01)
+            translate([
+                service_x-0.1,
+                base_panel_clearance_y,
+                base_floor_front_z-0.1
+            ])
+                cube([
+                    service_w+0.2,
+                    base_seat_y-base_panel_clearance_y+0.2,
+                    base_panel_clearance_z-base_floor_front_z+0.2
+                ]);
     }
 }
 
@@ -872,7 +1050,7 @@ module panel_closure_hole_cutters() {
 
 module backplane_shell_solid() {
     union() {
-        // Stepped vertical lower section. For the first 50 mm the plate is
+        // Stepped vertical lower section. For the first 40 mm the plate is
         // only inset enough to clear the OUTER spines, so each edge projects
         // into and is captured by its 5 mm-deep U-channel. Above the rails the
         // backplane returns to the normal full module width.
@@ -957,7 +1135,7 @@ module universal_deep_rear_shell() {
 
     // Full-width shoulder immediately ABOVE the guide tops. It bridges the
     // shallow insertion wall to the deep rear wall without intruding into the
-    // 50 mm U-channel insertion envelope below universal_deep_y0.
+    // 40 mm U-channel insertion envelope below universal_deep_y0.
     translate([
         universal_deep_x0,
         universal_deep_y0,
@@ -1006,7 +1184,7 @@ module universal_deep_rear_shell() {
             ]);
     }
 
-    // Final 10 mm closure wall remains flat/parallel to the LED panel.
+    // Final 11.5 mm closure wall remains flat/parallel to the LED panel.
     translate([
         universal_deep_x0,
         universal_deep_ramp_end_y-slice_h,
@@ -1029,41 +1207,172 @@ module universal_backplane_shell_solid() {
     }
 }
 
+module horizontal_rounded_vent_cutter(x0,y0) {
+    // Rounded slot ends avoid sharp stress raisers and make the openings read
+    // as deliberate ventilation rather than large rectangular access holes.
+    translate([
+        x0 + vent_slot_len/2,
+        y0 + vent_slot_y_h/2,
+        equipment_backplane_top_front_z-2
+    ])
+        linear_extrude(
+            height=universal_deep_rear_z-equipment_backplane_top_front_z+4
+        )
+            rounded_slot_2d(vent_slot_len,vent_slot_y_h);
+}
+
 module ramp_ventilation_cutters() {
-    // Five horizontal slots on the lower shoulder and five on the upper return
-    // ramp. The cutter spans Z so it follows the actual sloped/shoulder wall
-    // wherever it intersects; it never crosses the long rear boss-mount wall.
+    // Three rows of seven narrow rounded slots cross the reinforced lower
+    // shoulder and four matching rows cross the restored 12 mm upper return
+    // ramp. The full-depth rear mounting wall and final closure wall remain
+    // unperforated.
     for (i=[0:vent_slot_count-1]) {
         xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
-
-        translate([
-            xx,
-            bottom_ramp_vent_y,
-            equipment_backplane_top_front_z-2
-        ])
-            cube([
-                vent_slot_len,
-                vent_slot_y_h,
-                universal_deep_rear_z-equipment_backplane_top_front_z+4
-            ]);
-
-        translate([
-            xx,
-            top_ramp_vent_y,
-            equipment_backplane_top_front_z-2
-        ])
-            cube([
-                vent_slot_len,
-                vent_slot_y_h,
-                universal_deep_rear_z-equipment_backplane_top_front_z+4
-            ]);
+        for (yy=bottom_ramp_vent_y)
+            horizontal_rounded_vent_cutter(xx,yy);
+        for (yy=top_ramp_vent_y)
+            horizontal_rounded_vent_cutter(xx,yy);
     }
+}
+
+
+// ---------- Rear transition reinforcement ----------
+// Three rear-only tapered ribs stiffen the fragile tongue-to-deep-shell
+// transition without changing the slide-facing/front surface. Because installed
+// X is the print Z axis, each rib grows and shrinks gradually across X so it
+// never appears as an abrupt unsupported shelf during the side-on print.
+transition_rib_centres = [64,128,192];
+transition_rib_half_w = 12;
+transition_rib_slice_w = 1.0;
+transition_rib_depth =
+    rear_reinforcement_flush_z-equipment_backplane_rear_z;
+transition_rib_y0 = base_seat_y + side_guide_clearance;
+transition_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
+
+// Functional slot between the 3 mm sliding tongue and each rear rib.
+// The tongue already has 0.6 mm clearance before the slot begins; inside the
+// slot the 1.2 mm stationary tab keeps another 0.6 mm to the rear rib wall.
+transition_rib_channel_w = 18;
+transition_rib_channel_flat_w = 12;
+transition_rib_channel_taper_w =
+    (transition_rib_channel_w-transition_rib_channel_flat_w)/2;
+transition_rib_channel_front_z = side_guide_slot_back_z;
+transition_rib_channel_depth =
+    side_guide_wall_t + side_guide_clearance;
+transition_rib_channel_rear_z =
+    transition_rib_channel_front_z + transition_rib_channel_depth;
+transition_rib_channel_y1 = universal_deep_y0 + 0.8;
+
+module transition_rear_rib(xc) {
+    z0 = equipment_backplane_rear_z - 0.3;
+    z1 = min(
+        rear_reinforcement_flush_z,
+        universal_deep_front_z
+    );
+    yh = transition_rib_y1-transition_rib_y0;
+    shallow_d = 0.8;
+
+    union() {
+        hull() {
+            translate([
+                xc-transition_rib_half_w,
+                transition_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_rib_slice_w,
+                    yh,
+                    shallow_d
+                ]);
+            translate([
+                xc-transition_rib_slice_w/2,
+                transition_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_rib_slice_w,
+                    yh,
+                    z1-z0
+                ]);
+        }
+
+        hull() {
+            translate([
+                xc-transition_rib_slice_w/2,
+                transition_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_rib_slice_w,
+                    yh,
+                    z1-z0
+                ]);
+            translate([
+                xc+transition_rib_half_w-transition_rib_slice_w,
+                transition_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_rib_slice_w,
+                    yh,
+                    shallow_d
+                ]);
+        }
+    }
+}
+
+module transition_rear_ribs() {
+    for (xc=transition_rib_centres)
+        transition_rear_rib(xc);
+}
+
+module tapered_rib_guardrail_channel_cutter(xc) {
+    // Installed X is print Z. Open the 2.4 mm-deep channel progressively over
+    // 3 mm on each side, then keep a 12 mm flat centre. This avoids asking the
+    // side-on print to create the complete rear-wall overhang in one layer.
+    edge_slice_w = 0.5;
+    tiny_depth = 0.1;
+    y0 = base_seat_y-0.2;
+    yh = transition_rib_channel_y1-transition_rib_y0+0.4;
+    x0 = xc-transition_rib_channel_w/2;
+    x1 = xc-transition_rib_channel_flat_w/2;
+    x2 = xc+transition_rib_channel_flat_w/2;
+    x3 = xc+transition_rib_channel_w/2;
+
+    union() {
+        hull() {
+            translate([x0,y0,transition_rib_channel_front_z])
+                cube([edge_slice_w,yh,tiny_depth]);
+            translate([x1-edge_slice_w,y0,transition_rib_channel_front_z])
+                cube([edge_slice_w,yh,transition_rib_channel_depth]);
+        }
+
+        translate([x1-edge_slice_w,y0,transition_rib_channel_front_z])
+            cube([
+                x2-x1+2*edge_slice_w,
+                yh,
+                transition_rib_channel_depth
+            ]);
+
+        hull() {
+            translate([x2,y0,transition_rib_channel_front_z])
+                cube([edge_slice_w,yh,transition_rib_channel_depth]);
+            translate([x3-edge_slice_w,y0,transition_rib_channel_front_z])
+                cube([edge_slice_w,yh,tiny_depth]);
+        }
+    }
+}
+
+module transition_rib_guardrail_channel_cutters() {
+    for (xc=transition_rib_centres)
+        tapered_rib_guardrail_channel_cutter(xc);
 }
 
 module universal_equipment_backplane() {
     difference() {
         union() {
             universal_backplane_shell_solid();
+            transition_rear_ribs();
 
             top_backplane_connector_pad("left");
             top_backplane_connector_pad("right");
@@ -1082,6 +1391,10 @@ module universal_equipment_backplane() {
         internal_adapter_hole_cutters();
 
         ramp_ventilation_cutters();
+
+        // Three shallow, tapered guardrail channels preserve the original
+        // sliding tongue while allowing the stationary rear tabs to engage.
+        transition_rib_guardrail_channel_cutters();
 
         // Three aligned top-row clearance holes let longer panel screws clamp
         // the moving panel/template to the stationary enclosure when closed.
@@ -1123,7 +1436,7 @@ insertion_print_support_x =
 
 module insertion_tongue_print_support() {
     // A 1 mm-thick sacrificial strip supports the centre of the 3 mm insertion
-    // wall for only the 1.6 mm end inset, with 0.4 mm overlap for a reliable
+    // wall for only the 1.8 mm end inset, with 0.4 mm overlap for a reliable
     // printable union. It snaps/cuts away after the print.
     translate([
         insertion_print_support_x,

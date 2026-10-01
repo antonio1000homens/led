@@ -1,72 +1,100 @@
 # Power-supply mounting experiments
 
-Experimental fully printed mounting concepts for [issue #166](https://github.com/antonio1000homens/led/issues/166).
+Experimental fully printed mounting concepts for issue #166.
 
-These files deliberately live outside the canonical enclosure `parts/` and `stl/`
-sets. They are prototypes for physical fit testing and **must not** be treated as
-production geometry until the real PSU mounting-hole coordinates have been
-measured.
+These files live outside the canonical enclosure `parts/` and `stl/` sets.
+They are prototypes for physical fit testing and must not be treated as
+production geometry until the real PSU mounting-hole coordinates and retention
+method have been verified.
 
-## Known geometry
+## Current backplane interface
 
-The canonical universal backplane provides M3 accessory bosses at:
+PR #167 is based on the current enclosure geometry from PR #164.
 
-- X: `32 / 80 / 128 / 176 / 224 mm`
-- Y: `60 / 124 mm`
+The universal backplane currently provides five X columns and three Y rows of
+7 mm OD x 4 mm high bosses. For the PSU adapter these experiments use the two
+central outer columns and all three Y rows:
 
-The prototypes use the centred four-boss rectangle:
+- absolute X: **80 / 176 mm**
+- absolute Y: **62.5 / 86.5 / 110.5 mm**
+- local X about adapter centre: **-48 / +48 mm**
+- local Y about adapter centre: **-24 / 0 / +24 mm**
 
-- X: `80 / 176 mm`
-- Y: `60 / 124 mm`
-- relative spacing: **96 × 64 mm**
+That gives a six-boss interface spanning **96 x 48 mm**.
 
-The enclosure documentation currently records the PSU envelope as approximately
-**110 × 80 × 37 mm**.
+Every adapter base now has six 3.6 mm screw-clearance holes and six shallow
+**7.5 mm diameter x 1.2 mm deep** locating pockets on its back face. The 7 mm
+backplane bosses enter those pockets, so alignment is provided by the boss
+bodies themselves rather than by visually centring loose screw holes.
 
-`psu_mount_common.scad` therefore uses that envelope and the real enclosure boss
-spacing, but the two PSU rear/bottom mounting-hole coordinates are still
-explicitly marked as placeholders.
+Open `05_backplane_fit_preview.scad` to see this relationship directly. The
+solid object is the printable adapter; the transparent wall and six cylinders
+simulate the current backplane and bosses.
 
-## Options
+## Fastener retention
 
-| File | Concept | Depends on measured PSU holes? | Main purpose |
-| --- | --- | --- | --- |
-| `01_adapter_plate.scad` | Simple plate + support rails + corner guides | Yes, for final screw locations | Lowest-complexity baseline |
-| `02_slide_cradle.scad` | Horizontal slide-in cradle + one lock screw | No | Test service access and envelope capture |
-| `03_service_tray.scad` | Two-piece dock + removable PSU tray | Optional | Test removing PSU/wiring as a module |
-| `04_hybrid_mount.scad` | Plate + locating pins + corner guides + lock screw | Yes, for locating pins | Preferred issue #166 direction |
-| `00_compare_options.scad` | Four-up geometry view | N/A | Visual comparison only |
+The current backplane bosses contain **3.4 mm blind holes**. They are not
+modelled as threaded holes, so an ordinary M3 machine screw must not be assumed
+to grip them securely by itself.
 
-All options are printed plastic plus ordinary fasteners. There is **no metal
-adapter plate and no loose spacer/standoff scheme**.
+For the PSU experiment, the preferred retention test is:
 
-## Before a production print
+1. print `06_boss_insert_test.scad`, which reproduces the current boss and
+   blind-hole geometry;
+2. test the intended M3 heat-set insert and screw on the coupon;
+3. only use heat-set inserts in the real backplane bosses if the coupon shows
+   adequate wall thickness, insertion depth and pull-out strength;
+4. if the insert is too large for the 7 mm boss, do not force it - change the
+   canonical boss design in a separate revision instead.
 
-Measure the real PSU and update `psu_mount_common.scad`:
+This keeps PR #167 from silently changing the already-validated universal
+backplane while still providing an explicit, testable fastening path.
+
+## PSU geometry
+
+The enclosure documentation records the PSU envelope as approximately
+**110 x 80 x 37 mm**.
+
+`psu_mount_common.scad` uses that envelope, but these two PSU rear/bottom
+mounting-hole positions are still placeholders:
 
 ```scad
-psu_w = 110;
-psu_h = 80;
-psu_d = 37;
-
 psu_rear_mount_points = [
-    [x1, y1],
-    [x2, y2]
+    [-42, -27],
+    [ 42,  27]
 ];
 ```
 
-Use the PSU centre as `[0, 0]`. Positive X is toward the right of the backplane;
-positive Y is toward the top of the enclosure.
+Replace them with measurements from the real PSU before relying on the locating
+pins or PSU pilot holes.
 
-Also verify:
+## Options
 
-1. the PSU can be inserted with the enclosure side/terminal wiring present;
-2. the 82 mm prototype adapter height fits the real 84 mm deep equipment zone;
-3. terminal screws remain accessible;
-4. no printed feature blocks PSU case ventilation;
-5. locating pins actually match the PSU xole/slot shape;
-6. screw heads cannot touch the PSU PCB or mains wiring;
-7. the mount stays captive when the enclosure is opened or moved.
+| File | Concept | Purpose |
+| --- | --- | --- |
+| `01_adapter_plate.scad` | Simple plate + support rails + corner guides | Lowest-complexity baseline |
+| `02_slide_cradle.scad` | Horizontal slide-in cradle + lock screw | Test service access without relying on PSU hole coordinates |
+| `03_service_tray.scad` | Two-piece dock + removable PSU tray | Remove PSU/wiring as a module |
+| `04_hybrid_mount.scad` | Plate + PSU locating pins + corner guides + lock screw | Preferred issue #166 direction |
+| `05_backplane_fit_preview.scad` | Adapter assembled on current six-boss backplane interface | Verify boss alignment visually |
+| `06_boss_insert_test.scad` | Exact single-boss coupon | Test M3 insert/retention safely |
+| `00_compare_options.scad` | Four-up geometry view | Compare the four mount concepts |
+
+All options are printed plastic plus ordinary fasteners. There is no metal
+adapter plate and no loose spacer/standoff scheme.
+
+## Before a production print
+
+Verify:
+
+1. all six locating pockets seat over the real backplane bosses;
+2. the adapter sits flat without rocking;
+3. the chosen boss retention method survives the test coupon;
+4. the PSU can be inserted with terminal wiring present;
+5. terminal screws remain accessible;
+6. no printed feature blocks PSU ventilation;
+7. PSU mounting-hole coordinates match the real unit;
+8. screw heads/inserts cannot touch the PSU PCB or mains wiring.
 
 ## Rendering
 
@@ -77,16 +105,13 @@ openscad -o /tmp/psu-adapter.stl 01_adapter_plate.scad
 openscad -o /tmp/psu-cradle.stl 02_slide_cradle.scad
 openscad -o /tmp/psu-service-tray.stl 03_service_tray.scad
 openscad -o /tmp/psu-hybrid.stl 04_hybrid_mount.scad
+openscad -o /tmp/psu-fit-preview.stl 05_backplane_fit_preview.scad
+openscad -o /tmp/psu-boss-test.stl 06_boss_insert_test.scad
 ```
 
-For the service tray, switch:
+For the service tray, set `layout = "assembled"` in
+`03_service_tray.scad` to inspect the dock and tray together instead of the
+separated print layout.
 
-```scad
-layout = "assembled";
-```
-
-to inspect the dock/tray relationship instead of generating the separated print
-layout.
-
-The final chosen mount should then be promoted into the normal enclosure
+The final selected mount can then be promoted into the normal enclosure
 generation/validation flow and sliced with the configured H2D PETG profile.
