@@ -252,13 +252,6 @@ base_front_extension = 20;
 base_floor_front_z = service_front_z - base_front_extension;
 base_floor_rear_z = base_rear_z;
 
-// Reinforce the 20 mm forward floor extension with a shallow side-profile ramp.
-// It rises only 6 mm above the base at the original front line, keeping the
-// entire wedge well below the LED panel's 90-degree service sweep.
-base_front_ramp_h = 6;
-base_front_ramp_run = base_front_extension;
-base_front_ramp_slice_z = 1.0;
-base_front_ramp_floor_overlap = 0.5;
 
 // The old 20 mm hinge height needed a local front-floor relief for the open
 // panel. At the raised 40 mm hinge height that relief no longer reaches the
@@ -777,36 +770,6 @@ module rear_guardrail() {
             ]);
 }
 
-module base_front_reinforcement_ramp() {
-    // Full-width triangular wedge over the new 20 mm forward extension. The
-    // lower strip overlaps the floor at its front edge; the taller strip lands
-    // at the original front line. Keeping the top at only 10.5 mm installed Y
-    // leaves generous clearance below the open panel at 90 degrees.
-    hull() {
-        translate([
-            service_x,
-            base_seat_y-base_front_ramp_floor_overlap,
-            base_floor_front_z
-        ])
-            cube([
-                service_w,
-                base_front_ramp_floor_overlap,
-                base_front_ramp_slice_z
-            ]);
-
-        translate([
-            service_x,
-            base_seat_y-base_front_ramp_floor_overlap,
-            service_front_z-base_front_ramp_slice_z
-        ])
-            cube([
-                service_w,
-                base_front_ramp_h+base_front_ramp_floor_overlap,
-                base_front_ramp_slice_z
-            ]);
-    }
-}
-
 module base_structural_body() {
     difference() {
         union() {
@@ -818,7 +781,6 @@ module base_structural_body() {
                     base_floor_rear_z-base_floor_front_z
                 ]);
 
-            base_front_reinforcement_ramp();
             rear_guardrail_shelf();
             stationary_hinge_supports();
             stationary_hinge_barrels();
