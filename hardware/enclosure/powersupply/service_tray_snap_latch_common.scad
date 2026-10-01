@@ -1,18 +1,20 @@
-// Selected PSU mount - service tray with replaceable snap latch for issue #166.
+// Selected PSU mount - service tray with FRONT-OPERATED snap latch for issue #166.
 //
 // Parts:
 //   1. dock: fixed to the enclosure six-boss grid;
 //   2. tray: carries the PSU and slides horizontally from -X toward +X;
-//   3. latch: separate replaceable cantilever strip (PETG recommended; PLA is
-//      suitable for a short-life dimensional prototype).
+//   3. latch: separate replaceable cantilever strip.
 //
-// The latch sits OUTSIDE the +Y dock wall. Its hook reaches through a small
-// wall window. As the tray enters, the tray edge rides over the hook ramp and
-// flexes the cantilever outward. When the tray reaches the +X hard stop, a side
-// notch aligns with the hook and the latch snaps in automatically.
+// Access constraint:
+// The installed PSU/backplane assembly is tight at both Y sides. The latch
+// therefore lives on the FRONT / insertion (-X) face of the dock. The tray still
+// moves in X, while the spring flexes vertically in Z. Pressing the front thumb
+// tab DOWN releases the tray; no side access is required.
 //
-// To remove the tray, pull the external thumb tab outward (+Y) and slide the
-// tray back toward -X.
+// During insertion the trailing/front lip of the tray rides over the latch ramp
+// and bends the cantilever downward. At the +X hard stop, the hook rises into an
+// UNDERSIDE pocket behind the tray front lip. The lip then provides a positive
+// withdrawal stop.
 //
 // Module library for the selected snap-latch service tray.
 
@@ -34,41 +36,53 @@ tray_assembled_z = plate_t + 0.4;
 dock_relief_core_w = 80;
 dock_relief_core_h = tray_h-14;
 
-// Snap-latch position: close to the insertion (-X) end so the external release
-// tab stays easy to reach when the tray is fully installed.
-latch_hook_x = -48;
+// ---------- Front-operated latch geometry ----------
+
+dock_front_x = -dock_w/2;
+tray_front_x = -tray_w/2;
+
+// Cantilever runs in +Y from the free/release end toward its fixed base.
+// It bends vertically (Z), not sideways.
+latch_hook_y = 0;
 latch_arm_len = 30;
-latch_arm_w = 8;
-latch_arm_t = 1.6;
-latch_base_len = 12;
-latch_base_t = 3.0;
+latch_arm_x_t = 1.6;
+latch_arm_z_t = 1.4;
+
+latch_base_y = latch_hook_y + latch_arm_len;
+latch_base_len_y = 12;
+latch_base_x_t = 1.8;
+latch_base_z_h = 5.0;
 latch_mount_pitch = 7;
 
-latch_hook_depth = 6.5;     // reaches from external latch base into tray notch
-latch_hook_len = 4.0;       // X length of retaining face/ramp
-latch_ramp_len = 6.0;       // gentle insertion ramp
-latch_release_len = 10.0;
-latch_release_w = 12.0;
+// Dock pad overlaps the front wall by 0.3 mm and grows only toward -X.
+// The replaceable latch base sits immediately in front of it.
+latch_pad_x0 = dock_front_x - latch_base_x_t + 0.3;
+latch_base_x0 = latch_pad_x0 - latch_base_x_t;
+latch_arm_x0 = latch_base_x0 + 0.2;
 
-// Side notch in the tray. The hook aligns here only when tray translation is 0.
-tray_notch_len = 6.0;
-tray_notch_depth = 2.6;
-tray_notch_h = 3.0;
-tray_notch_z = 0.8;
+// Hook reaches from the external arm through a small front window and into the
+// tray underside pocket.
+latch_hook_reach_x = 8.4;
+latch_hook_w_y = 6.0;
+latch_hook_top_z = tray_assembled_z + 1.4;
+latch_ramp_nose_z = tray_assembled_z - 0.2;
 
-// External latch sits just outside the +Y channel wall.
-channel_y = tray_h/2 + slide_clearance;
-// Fixed dock pad overlaps the channel wall by 0.3 mm so it is one printable
-// body. The replaceable latch base then sits against the OUTER face of that pad.
-latch_mount_pad_y = channel_y + dock_channel_wall - 0.3;
-latch_base_y = latch_mount_pad_y + latch_base_t;
-latch_z = tray_assembled_z + tray_notch_z;
+// Leave a solid front lip on the tray. The hook engages a pocket immediately
+// behind that lip; the pocket does not open to the front.
+tray_lock_lip_x = 1.5;
+tray_lock_pocket_len_x = 4.0;
+tray_lock_pocket_w_y = 7.0;
+tray_lock_pocket_depth_z = 2.0;
 
-// Window through the +Y channel wall for only the hook nose.
-latch_window_x = latch_hook_x;
-latch_window_w = latch_ramp_len + 1.0;
-latch_window_h = tray_notch_h + 1.0;
-latch_window_z = tray_assembled_z + tray_notch_z - 0.5;
+latch_release_len_y = 12;
+latch_release_x_t = 2.6;
+latch_release_z_t = 1.8;
+
+// Window only for the hook/ramp at the front centre.
+latch_window_x0 = dock_front_x - 0.4;
+latch_window_x1 = tray_front_x + tray_lock_lip_x + tray_lock_pocket_len_x + 0.8;
+latch_window_y = latch_hook_w_y + 1.0;
+latch_window_z = latch_hook_top_z + 0.5;
 
 assert(
     dock_relief_core_w/2 + 2 <
@@ -77,15 +91,16 @@ assert(
 );
 
 module snap_tray_notch_cutter() {
+    // Underside pocket behind the front retaining lip.
     translate([
-        latch_hook_x-tray_notch_len/2,
-        tray_h/2-tray_notch_depth,
-        tray_notch_z
+        tray_front_x + tray_lock_lip_x,
+        -tray_lock_pocket_w_y/2,
+        -0.1
     ])
         cube([
-            tray_notch_len,
-            tray_notch_depth+0.4,
-            tray_notch_h
+            tray_lock_pocket_len_x,
+            tray_lock_pocket_w_y,
+            tray_lock_pocket_depth_z+0.1
         ]);
 }
 
@@ -98,8 +113,7 @@ module snap_tray_plate() {
             translate([pt[0], pt[1], -0.2])
                 cylinder(d=psu_mount_pilot_d, h=tray_t+0.4);
 
-        // The latch hook snaps into this side notch only at the fully seated
-        // tray position.
+        // Front-centre underside latch pocket.
         snap_tray_notch_cutter();
     }
 
@@ -117,33 +131,31 @@ module snap_tray_plate() {
         cube([2.2, psu_h, 5.2]);
 }
 
-module snap_latch_mount_pad() {
-    // Permanent external pad on the dock. Two small pilot holes let the
-    // replaceable latch be installed once with ordinary M3 screws.
-    base_x = latch_hook_x + latch_arm_len;
-
+module front_latch_mount_pad() {
+    // Permanent front pad fused to the dock. Two horizontal M3 pilots accept
+    // the replaceable latch base before the dock is installed.
     difference() {
         translate([
-            base_x-latch_base_len/2,
-            latch_mount_pad_y,
-            latch_z-0.8
+            latch_pad_x0,
+            latch_base_y-latch_base_len_y/2,
+            0
         ])
             cube([
-                latch_base_len,
-                latch_base_t,
-                latch_arm_w+1.6
+                latch_base_x_t,
+                latch_base_len_y,
+                latch_base_z_h
             ]);
 
-        for (dx=[-latch_mount_pitch/2, latch_mount_pitch/2])
+        for (dy=[-latch_mount_pitch/2, latch_mount_pitch/2])
             translate([
-                base_x+dx,
-                latch_mount_pad_y-0.2,
-                latch_z+latch_arm_w/2
+                latch_pad_x0-0.2,
+                latch_base_y+dy,
+                latch_base_z_h/2
             ])
-                rotate([-90,0,0])
+                rotate([0,90,0])
                     cylinder(
                         d=2.8,
-                        h=latch_base_t+0.4
+                        h=latch_base_x_t+0.4
                     );
     }
 }
@@ -164,7 +176,7 @@ module snap_dock() {
                             );
             }
 
-            // Top/bottom channel walls.
+            // +/-Y channels capture the tray edges while it slides in X.
             for (sy=[-1,1]) {
                 y_wall = sy*(tray_h/2 + slide_clearance);
 
@@ -206,111 +218,118 @@ module snap_dock() {
                     dock_channel_h+0.2
                 ]);
 
-            snap_latch_mount_pad();
+            front_latch_mount_pad();
         }
 
-        // Small window through +Y channel wall for the flexible hook only.
+        // Front-centre hook window. Nothing protrudes from either Y side.
         translate([
-            latch_window_x-latch_window_w/2,
-            channel_y-0.4,
-            latch_window_z
+            latch_window_x0,
+            -latch_window_y/2,
+            -0.2
         ])
             cube([
-                latch_window_w,
-                dock_channel_wall+0.8,
-                latch_window_h
+                latch_window_x1-latch_window_x0,
+                latch_window_y,
+                latch_window_z+0.4
             ]);
     }
 }
 
 module replaceable_snap_latch() {
-    // Coordinate the latch around its hook. The fixed base is at +X, the free
-    // end is at -X. The arm flexes outward in +Y.
-    base_x = latch_hook_x + latch_arm_len;
-    arm_x0 = latch_hook_x;
-    arm_y = latch_base_y;
-    arm_z = latch_z;
+    arm_x1 = latch_arm_x0 + latch_arm_x_t;
+    hook_x1 = arm_x1 + latch_hook_reach_x;
 
     union() {
-        // Fixed base.
+        // Fixed base against the front dock pad.
         difference() {
             translate([
-                base_x-latch_base_len/2,
-                latch_base_y,
-                arm_z
+                latch_base_x0,
+                latch_base_y-latch_base_len_y/2,
+                0
             ])
                 cube([
-                    latch_base_len,
-                    latch_base_t,
-                    latch_arm_w
+                    latch_base_x_t,
+                    latch_base_len_y,
+                    latch_base_z_h
                 ]);
 
-            for (dx=[-latch_mount_pitch/2, latch_mount_pitch/2])
+            for (dy=[-latch_mount_pitch/2, latch_mount_pitch/2])
                 translate([
-                    base_x+dx,
-                    latch_base_y-0.2,
-                    arm_z+latch_arm_w/2
+                    latch_base_x0-0.2,
+                    latch_base_y+dy,
+                    latch_base_z_h/2
                 ])
-                    rotate([-90,0,0])
+                    rotate([0,90,0])
                         cylinder(
                             d=3.2,
-                            h=latch_base_t+0.4
+                            h=latch_base_x_t+0.4
                         );
         }
 
-        // Cantilever arm.
+        // Leaf spring. It starts on Z=0 so the separate latch prints flat and
+        // can flex downward after assembly without needing side clearance.
         translate([
-            arm_x0,
-            arm_y,
-            arm_z
+            latch_arm_x0,
+            latch_hook_y,
+            0
         ])
             cube([
+                latch_arm_x_t,
                 latch_arm_len,
-                latch_arm_t,
-                latch_arm_w
+                latch_arm_z_t
             ]);
 
-        // Hook body protrudes inward (-Y) through the wall window.
+        // Low hook body through the front window.
         translate([
-            latch_hook_x-latch_hook_len/2,
-            arm_y-latch_hook_depth,
-            arm_z
+            arm_x1-0.2,
+            latch_hook_y-latch_hook_w_y/2,
+            0
         ])
             cube([
-                latch_hook_len,
-                latch_hook_depth+latch_arm_t,
-                tray_notch_h-0.4
+                latch_hook_reach_x+0.2,
+                latch_hook_w_y,
+                latch_ramp_nose_z
             ]);
 
-        // Insertion ramp. The tray's leading edge pushes this outward (+Y).
+        // Insertion ramp: low at the front, high inside the tray pocket.
         hull() {
-            // Shallow nose first (-X), deeper engagement toward +X. A tray
-            // moving in +X therefore cams the arm outward progressively.
             translate([
-                latch_hook_x-latch_ramp_len/2,
-                arm_y,
-                arm_z
+                tray_front_x-0.4,
+                latch_hook_y-latch_hook_w_y/2,
+                latch_ramp_nose_z-0.4
             ])
-                cube([0.8,0.8,tray_notch_h-0.4]);
+                cube([0.8,latch_hook_w_y,0.4]);
 
             translate([
-                latch_hook_x+latch_ramp_len/2,
-                arm_y-latch_hook_depth,
-                arm_z
+                tray_front_x + tray_lock_lip_x + 1.7,
+                latch_hook_y-latch_hook_w_y/2,
+                latch_hook_top_z-0.4
             ])
-                cube([0.8,0.8,tray_notch_h-0.4]);
+                cube([0.8,latch_hook_w_y,0.4]);
         }
 
-        // External thumb tab at free end.
+        // Square retaining tooth behind the tray front lip.
         translate([
-            latch_hook_x-latch_release_len/2,
-            arm_y,
-            arm_z
+            tray_front_x + tray_lock_lip_x + 0.4,
+            latch_hook_y-latch_hook_w_y/2,
+            latch_ramp_nose_z
         ])
             cube([
-                latch_release_len,
-                2.6,
-                latch_release_w
+                1.4,
+                latch_hook_w_y,
+                latch_hook_top_z-latch_ramp_nose_z
+            ]);
+
+        // Front thumb pad: press DOWN, then pull tray toward -X.
+        translate([
+            latch_base_x0-latch_release_x_t+0.2,
+            latch_hook_y-latch_release_len_y/2,
+            0
+        ])
+            cube([
+                latch_release_x_t,
+                latch_release_len_y,
+                latch_release_z_t
             ]);
     }
 }
@@ -325,4 +344,3 @@ module assembled_snap_service_tray() {
 
     backplane_boss_preview();
 }
-
