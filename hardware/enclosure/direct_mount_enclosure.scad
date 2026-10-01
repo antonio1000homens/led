@@ -763,39 +763,37 @@ module rear_guardrail_shelf() {
 
 module rear_rib_seat_clearance_cutters() {
     // The lower rib side walls extend through the final 2 mm seating travel.
-    // Clear only the rear 1.2 mm strip of the base seat under each complete
-    // 24 mm rib footprint. The centre guardrail tab is restored afterwards,
-    // so only the rib side/taper material receives these pockets.
-    pocket_w = 2*transition_rib_half_w + 2*side_guide_clearance;
-    for (xc=transition_rib_centres)
+    // Cut only the two SIDE pockets for each 24 mm rib footprint and deliberately
+    // leave the centre strip untouched. That retained base material is the
+    // 1.2 mm-thick guardrail tab itself, so the tab stays manifold with the base
+    // rather than being re-added as a separate touching solid.
+    pocket_outer_w = 2*transition_rib_half_w + 2*side_guide_clearance;
+    tab_w = transition_rib_channel_flat_w - 2*side_guide_clearance;
+    side_pocket_w = (pocket_outer_w-tab_w)/2;
+
+    for (xc=transition_rib_centres) {
         translate([
-            xc-pocket_w/2,
+            xc-pocket_outer_w/2,
             equipment_backplane_y0-0.1,
             backplane_slot_back_z-0.1
         ])
             cube([
-                pocket_w,
+                side_pocket_w,
                 base_seat_y-equipment_backplane_y0+0.3,
                 side_guide_rear_z-backplane_slot_back_z+0.2
             ]);
-}
 
-module rear_guardrail_tabs() {
-    // Three narrow upright tabs rise into the printable centre portion of each
-    // rib slot. They sit 0.6 mm behind the sliding tongue and retain 0.6 mm
-    // clearance to the rear rib wall.
-    tab_w = transition_rib_channel_flat_w - 2*side_guide_clearance;
-    for (xc=transition_rib_centres)
         translate([
-            xc-tab_w/2,
-            rear_guardrail_y0,
-            rear_guardrail_lip_front_z
+            xc+tab_w/2,
+            equipment_backplane_y0-0.1,
+            backplane_slot_back_z-0.1
         ])
             cube([
-                tab_w,
-                rear_guardrail_y1-rear_guardrail_y0,
-                rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+                side_pocket_w,
+                base_seat_y-equipment_backplane_y0+0.3,
+                side_guide_rear_z-backplane_slot_back_z+0.2
             ]);
+    }
 }
 
 module base_front_reinforcement_ramp() {
@@ -908,9 +906,6 @@ module hinged_equipment_base() {
     difference() {
         union() {
             base_structural_body();
-            // Restore the three intended guardrail tabs after the base-seat
-            // rib pockets have been subtracted.
-            rear_guardrail_tabs();
             base_connector_pins();
         }
 
