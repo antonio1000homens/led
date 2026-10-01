@@ -31,6 +31,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - positive backplane seating in the recessed rear base groove;
 - top-down insertion clearance and 0.6 mm nominal groove clearance;
 - dual **40 mm × 5 mm** structural side guides with 0.6 mm running clearance;
+- each guide's 16 mm-high lower junction support tied forward into the hinge
+  plate/guard at the same height;
+- a **10 mm rearward triangular buttress** at each guide root, tapering to the
+  native rail rear face at the guide top while leaving the slot unchanged;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
 - three rear-only tapered transition ribs centred at X = **64 / 128 / 192 mm**,
   using a 24 mm taper width and up to 10 mm cavity-side depth while preserving
@@ -126,7 +130,10 @@ sets:
    remove the small breakaway strip beneath the insertion tongue after cooling,
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
    seats 2 mm into the rear groove, and removes upward;
-6. confirm the guide towers retain the backplane laterally and the full-width shoulder clears their tops;
+6. confirm the guide towers retain the backplane laterally and the full-width
+   shoulder clears their tops; inspect the forward 16 mm-high ties into the
+   hinge plate and the 10 mm rear triangular root buttresses, while confirming
+   the backplane slot width/running clearance is unchanged;
 7. confirm the 54 mm deep universal region spans the usable backplane width and
    provides **84 mm clear height above the reinforced shoulder**; verify the rounded
    24 × 1 mm vents are confined to three rows on the lower transition and four
