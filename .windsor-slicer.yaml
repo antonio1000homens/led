@@ -25,3 +25,19 @@ models:
     source: hardware/enclosure/parts/05_right_equipment_side_PRINT_1.scad
     generator: openscad
     output: 05_right_equipment_side_PRINT_1.stl
+
+
+  psu-service-tray-dock:
+    source: hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad
+    generator: openscad
+    output: psu_service_tray_snap_dock.stl
+
+  psu-service-tray-tray:
+    source: hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
+    generator: openscad
+    output: psu_service_tray_snap_tray.stl
+
+  psu-service-tray-latch:
+    source: hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad
+    generator: openscad
+    output: psu_service_tray_snap_latch.stl
