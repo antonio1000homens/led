@@ -16,8 +16,13 @@
 // plate positively registers on the boss grid instead of being positioned only
 // by loose screw clearance.
 //
-// IMPORTANT: the PSU mounting-hole coordinates below remain placeholders until
-// the real PSU has been measured.
+// Measured PSU geometry:
+//   outer envelope = 110 x 80 mm
+//   two mounting holes = diagonally opposed, each centre 3 mm from its adjacent
+//   long and short edges. This gives local centres at +/-52, +/-37 mm.
+// The measured diagonal was approximately 125 mm; the edge-derived coordinates
+// imply 127.64 mm centre-to-centre, which is within the stated hand-measurement
+// tolerance and is more useful for locating the holes on the tray.
 
 $fn = 48;
 
@@ -55,17 +60,18 @@ adapter_screw_clearance_d = 3.6;
 adapter_screw_head_d = 7.0;
 adapter_screw_head_depth = 0.8;
 
-// Experimental PSU underside/back mounting points.
-// Replace after measuring the real PSU.
+// Measured PSU underside mounting points. For a centred 110 x 80 mm PSU,
+// 3 mm edge insets resolve to X=+/-52 and Y=+/-37 mm.
+psu_hole_edge_inset = 3;
 psu_rear_mount_points = [
-    [-42, -27],
-    [ 42,  27]
+    [-(psu_w/2-psu_hole_edge_inset), -(psu_h/2-psu_hole_edge_inset)],
+    [ +(psu_w/2-psu_hole_edge_inset), +(psu_h/2-psu_hole_edge_inset)]
 ];
 psu_mount_pilot_d = 2.8;
 psu_mount_boss_d = 8.0;
 
-// Adapter footprint. 118 x 82 mm contains the 110 x 80 mm PSU envelope while
-// fitting around the current 96 x 48 mm six-boss grid.
+// Legacy/shared interface footprint used by the backplane fit coupon. The
+// selected service tray defines its own 84 mm tray / 89 mm dock heights.
 adapter_w = 118;
 adapter_h = 82;
 corner_r = 3;
