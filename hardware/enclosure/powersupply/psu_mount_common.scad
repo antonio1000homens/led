@@ -69,6 +69,7 @@ psu_rear_mount_points = [
     [ 42,  27]
 ];
 psu_mount_pilot_d = 2.8;
+psu_mount_boss_d = 8.0;
 locating_pin_d = 3.0;
 locating_pin_h = 3.0;
 
@@ -141,6 +142,19 @@ module integrated_support_rails(length=psu_h-12) {
     for (xx = [-support_rail_x, support_rail_x])
         translate([xx-support_rail_w/2, -length/2, plate_t-0.2])
             cube([support_rail_w, length, support_gap+0.2]);
+}
+
+module raised_psu_mount_bosses(base_z=plate_t, h=support_gap) {
+    // Two integral screw bosses support the PSU at exactly the same Z height
+    // as the airflow rails. This avoids pulling the PSU down toward the plate
+    // when the mounting screws are tightened.
+    for (pt = psu_rear_mount_points)
+        difference() {
+            translate([pt[0], pt[1], base_z-0.2])
+                cylinder(d=psu_mount_boss_d, h=h+0.2);
+            translate([pt[0], pt[1], base_z-0.4])
+                cylinder(d=psu_mount_pilot_d, h=h+0.6);
+        }
 }
 
 module locating_pins() {
