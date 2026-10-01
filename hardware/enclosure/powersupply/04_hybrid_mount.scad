@@ -11,7 +11,6 @@
 
 include <psu_mount_common.scad>;
 
-show_psu = true;
 insertion_side = "left";
 
 module hybrid_mount() {
@@ -29,7 +28,4 @@ module hybrid_mount() {
 }
 
 hybrid_mount();
-if (show_psu) {
-    psu_preview();
-    backplane_boss_preview();
-}
+backplane_boss_preview();
