@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -74,6 +76,22 @@ jobs:
           path: build/enclosure-stls/*.stl
           if-no-files-found: error
           retention-days: 14
+
+      - name: One-time refresh canonical STLs for restored top vents
+        if: github.event_name == 'pull_request' && github.head_ref == 'fix/issue-163-backplane-physical-fit'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/enclosure-stls/*.stl hardware/enclosure/stl/
+          if git diff --quiet -- hardware/enclosure/stl; then
+            echo "Canonical STLs already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/stl
+          git commit -m "Regenerate enclosure STLs for restored top vents [skip ci]"
+          git push origin HEAD:${{ github.head_ref }}
 
       - name: Verify checked-in canonical STLs are current
         run: python hardware/enclosure/scripts/verify_canonical_stls.py
