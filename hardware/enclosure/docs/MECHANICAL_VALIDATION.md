@@ -69,10 +69,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - side-piece fit, hinge-rod clearance, and capped hollow left/right rod sleeves;
 - moving/front-panel hinge-root geometry remains unchanged from the existing
   validated template;
-- a **20 mm forward extension** of the stationary base floor, reinforced by a
-  **20 mm run × 6 mm rise** triangular front ramp;
-- no volumetric intersection between the reinforced stationary base/front ramp
-  and the unchanged moving panel throughout the full hinge sweep;
+- a **20 mm forward extension** of the stationary base floor, retained as a
+  flat floor with no shallow front ramp;
+- no volumetric intersection between the stationary base and the unchanged
+  moving panel throughout the full hinge sweep;
 - an unobstructed lower equipment volume ahead of the rear groove;
 - the stationary enclosure and 6 mm rail against the moving panel/template at
   **0, 15, 30, 45, 60, 75 and 90°**;
@@ -88,8 +88,6 @@ The hinge regression contract includes:
   representing a **20 mm lift** from the previous 20 mm baseline;
 - stationary base floor extended **20 mm toward the front** while remaining
   clear of the full 0–90° moving-panel sweep;
-- front-extension reinforcement ramp fixed at **20 mm run × 6 mm rise** and
-  constrained below the hinge sweep envelope;
 - **7 mm** closed template-to-barrel clearance;
 - local roots on the moving template retained at their existing validated
   geometry; no front-panel/template reprint is introduced by this change;
@@ -137,8 +135,7 @@ sets:
    them before rotating the panel/template through the full **0–90°** arc while
    the equipment base remains fixed;
 4. confirm the unchanged moving panel/template never contacts the stationary
-   barrel support webs, lower guard or the new front-base ramp through the
-   complete 0–90° motion;
+   barrel support webs or lower guard through the complete 0–90° motion;
 5. print one universal backplane **side-on with its 256 mm length vertical**,
    remove the small breakaway strip beneath the insertion tongue after cooling,
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
