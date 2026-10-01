@@ -55,6 +55,13 @@ adapter_screw_clearance_d = 3.6;
 adapter_screw_head_d = 7.0;
 adapter_screw_head_depth = 0.8;
 
+// Edge-lock geometry used by the slide/hybrid concepts. The printed boss body
+// stays 0.5 mm clear of the PSU/tray edge; an 8 mm OD washer fitted after
+// insertion overlaps that edge and becomes the positive stop.
+lock_boss_d = 6.0;
+lock_washer_d = 8.0;
+lock_edge_clearance = 0.5;
+
 // Experimental PSU underside/back mounting points.
 // Replace after measuring the real PSU.
 psu_rear_mount_points = [
