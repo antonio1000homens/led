@@ -21,6 +21,24 @@ dock_channel_h = 6.2;
 dock_lip = 1.6;
 slide_clearance = 0.5;
 
+// Service lock: the tray path stays completely clear during insertion.
+// Once the tray is fully seated against the +X stop, an M3 screw is inserted
+// from outside the +Y dock wall into a reinforced clearance hole in the tray.
+// Removing that screw restores a completely unobstructed slide path.
+tray_lock_x = -45;
+tray_lock_pad_w = 12;
+tray_lock_pad_depth = 10;
+tray_lock_pad_h = 4.0;
+tray_lock_hole_d = 3.8;
+
+dock_lock_boss_d = 8.0;
+dock_lock_boss_len = 6.0;
+dock_lock_pilot_d = 2.8;   // prototype M3 tapping pilot; heat-set can follow testing
+
+tray_assembled_z = plate_t + 0.4;
+tray_lock_axis_z_local = tray_lock_pad_h/2;
+dock_lock_axis_z = tray_assembled_z + tray_lock_axis_z_local;
+
 // Keep a large central opening, but preserve two full-height side fixing spines
 // around X=+/-48. With the 2 mm rounded offset below, an 80 mm core produces an
 // 84 mm-wide opening (X=-42..+42), leaving the six screw lands intact.
@@ -33,13 +51,47 @@ assert(
     "Service-tray relief cuts into enclosure screw lands"
 );
 
+module tray_lock_pad() {
+    translate([
+        tray_lock_x-tray_lock_pad_w/2,
+        tray_h/2-tray_lock_pad_depth,
+        0
+    ])
+        cube([
+            tray_lock_pad_w,
+            tray_lock_pad_depth,
+            tray_lock_pad_h
+        ]);
+}
+
+module tray_lock_hole_cutter() {
+    translate([
+        tray_lock_x,
+        tray_h/2-tray_lock_pad_depth-0.2,
+        tray_lock_axis_z_local
+    ])
+        rotate([-90,0,0])
+            cylinder(
+                d=tray_lock_hole_d,
+                h=tray_lock_pad_depth+0.6
+            );
+}
+
 module tray_plate() {
     difference() {
-        rounded_plate(w=tray_w, h=tray_h, t=tray_t, r=2.5);
+        union() {
+            rounded_plate(w=tray_w, h=tray_h, t=tray_t, r=2.5);
+            tray_lock_pad();
+        }
+
         // PSU screw pilots pass through both tray and raised support bosses.
         for (pt = psu_rear_mount_points)
             translate([pt[0], pt[1], -0.2])
                 cylinder(d=psu_mount_pilot_d, h=tray_t+0.4);
+
+        // Side-entry lock hole. It is only occupied by the M3 screw after the
+        // tray is fully home; nothing protrudes into the insertion path.
+        tray_lock_hole_cutter();
     }
 
     // Integral airflow rails on the removable tray.
@@ -78,10 +130,64 @@ module dock() {
     }
 
     // Top/bottom channels capture the tray edges while it slides in X.
+    // The +Y wall also carries an EXTERNAL lock boss. Its screw axis is
+    // perpendicular to tray travel, so the boss itself never enters the slide
+    // envelope.
     for (sy=[-1,1]) {
         y_wall = sy*(tray_h/2 + slide_clearance);
-        translate([-dock_w/2, y_wall-(sy<0 ? dock_channel_wall : 0), plate_t-0.2])
-            cube([dock_w, dock_channel_wall, dock_channel_h+0.2]);
+
+        if (sy > 0) {
+            difference() {
+                union() {
+                    translate([
+                        -dock_w/2,
+                        y_wall,
+                        plate_t-0.2
+                    ])
+                        cube([
+                            dock_w,
+                            dock_channel_wall,
+                            dock_channel_h+0.2
+                        ]);
+
+                    // External boss grows away from the tray channel.
+                    translate([
+                        tray_lock_x,
+                        y_wall+dock_channel_wall-0.3,
+                        dock_lock_axis_z
+                    ])
+                        rotate([-90,0,0])
+                            cylinder(
+                                d=dock_lock_boss_d,
+                                h=dock_lock_boss_len+0.3
+                            );
+                }
+
+                // M3 pilot passes through the external boss and channel wall.
+                // The screw is installed only after the tray is fully seated.
+                translate([
+                    tray_lock_x,
+                    y_wall-0.4,
+                    dock_lock_axis_z
+                ])
+                    rotate([-90,0,0])
+                        cylinder(
+                            d=dock_lock_pilot_d,
+                            h=dock_channel_wall+dock_lock_boss_len+1.0
+                        );
+            }
+        } else {
+            translate([
+                -dock_w/2,
+                y_wall-dock_channel_wall,
+                plate_t-0.2
+            ])
+                cube([
+                    dock_w,
+                    dock_channel_wall,
+                    dock_channel_h+0.2
+                ]);
+        }
 
         lip_y = sy>0
             ? y_wall-dock_lip
@@ -90,31 +196,15 @@ module dock() {
             cube([dock_w, dock_lip, dock_lip+0.1]);
     }
 
-    // +X end stop for the tray.
+    // +X end stop defines the fully seated position before the side-lock screw
+    // is inserted.
     translate([dock_w/2-2.0, -tray_h/2, plate_t-0.2])
         cube([2.0, tray_h, dock_channel_h+0.2]);
-
-    // Low support ear sits below the sliding tray. The lock boss itself stays
-    // outside the tray envelope, so the tray can be inserted freely. Fit an M3
-    // screw with an 8 mm OD washer after insertion; only the washer overlaps the
-    // tray edge to prevent withdrawal.
-    lock_offset =
-        tray_w/2 + slide_clearance + lock_boss_d/2 + lock_edge_clearance;
-    lock_x = -lock_offset;
-
-    assert(
-        lock_washer_d/2 > lock_boss_d/2 + lock_edge_clearance,
-        "Service-tray lock washer does not overlap tray edge"
-    );
-
-    translate([lock_x-4, -5, 0])
-        cube([8, 10, plate_t]);
-    screw_stop_boss(lock_x, 0, h=4.5, d=lock_boss_d);
 }
 
 module assembled_service_tray() {
     dock();
-    translate([0,0,plate_t+0.4])
+    translate([0,0,tray_assembled_z])
         tray_plate();
 
     backplane_boss_preview();
