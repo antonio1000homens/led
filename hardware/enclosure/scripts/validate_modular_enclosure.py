@@ -423,14 +423,16 @@ assert(abs(rear_reinforcement_flush_z-
 assert(abs(transition_rib_depth-
            (rear_reinforcement_flush_z-equipment_backplane_rear_z)) < 0.01,
        "transition ribs must reach the common rear reinforcement plane");
-assert(abs(transition_rib_y0-equipment_backplane_y0) < 0.01 &&
+assert(abs(transition_rib_y0-
+           (base_seat_y+side_guide_clearance)) < 0.01 &&
        abs(transition_rib_y1-
            (universal_deep_y0+universal_guide_shoulder_t)) < 0.01,
-       "transition ribs must extend from the seated lower edge through the reinforced shoulder");
+       "transition ribs must stop 0.6 mm above the base seat and bridge into the reinforced shoulder");
 assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
-       abs(rear_guardrail_y1-base_seat_y) < 0.01 &&
-       rear_guardrail_y1-rear_guardrail_y0 >= 4-0.01,
-       "rear guardrail tabs must span the low stationary base zone");
+       abs(rear_guardrail_y1-
+           (base_seat_y+side_guide_clearance)) < 0.01 &&
+       rear_guardrail_y1-rear_guardrail_y0 >= 4.5,
+       "rear guardrail tabs must rise to the rib lower edge without entering the 2 mm seat");
 assert(abs(rear_guardrail_lip_front_z-side_guide_slot_back_z) < 0.01 &&
        abs(rear_guardrail_lip_rear_z-side_guide_rear_z) < 0.01,
        "rear guardrail tabs must continue the side-guide rear lip");
@@ -680,7 +682,7 @@ cube([1,1,1]);
         "unchanged moving-panel hinge roots and a 20 mm x 6 mm front base ramp, "
         "40 mm installed hinge with 20 mm forward base-floor extension, "
         "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
-        "reinforced transition with three tapered rear ribs, lower-shoulder plus upper rear-wall ventilation, "
+        "reinforced transition with three tapered rear ribs and guardrail channels, lower-shoulder plus upper-ramp ventilation, "
         "23.5 mm shallow upper closure wall, three central boss rows, "
         "three aligned closure holes and hinge-rail side-sleeve contract"
     )

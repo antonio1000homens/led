@@ -166,9 +166,10 @@ The removable backplane/enclosure installs from directly above:
 1. lower the shortened 40 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
-3. the three guardrail tabs enter the shallow channels behind the ribs during
-   the final seating travel: the sliding tongue keeps 0.6 mm clearance to the
-   tab, and the tab keeps another 0.6 mm to the rear rib wall;
+3. the 2 mm rear groove seats the sliding tongue independently. The three
+   guardrail tabs rise to **Y=5.1 mm**, while the rib lower edges start at the
+   same height; inside each rib channel the tongue keeps 0.6 mm clearance to
+   the tab and the tab keeps another 0.6 mm to the rear rib wall;
 4. the full-width shoulder above the guides then sits over the tower tops while
    the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.
@@ -183,11 +184,13 @@ designed around side-on vertical printing:
   256 mm X length;
 - the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
   tapered ribs**, centred at X = **64 / 128 / 192 mm**; each rib is 24 mm wide
-  and extends to the seated lower backplane edge. Behind the 3 mm sliding tongue,
-  each rib contains an **18 mm-wide shallow channel** with a 12 mm flat centre
-  and 3 mm tapered entries. The channel begins 0.6 mm behind the tongue and is
-  1.8 mm deep, providing room for the 1.2 mm guardrail tab plus another 0.6 mm
-  rear clearance. The tapered entry keeps the side-on print support-free;
+  and extends down to **Y=5.1 mm**, 0.6 mm above the 4.5 mm base seat. The lowest
+  2.6 mm of the sliding tongue therefore remains rib-free and can enter the 2 mm
+  rear groove without any rib/base overlap. Behind the tongue, each rib contains
+  an **18 mm-wide shallow channel** with a 12 mm flat centre and 3 mm tapered
+  entries. The channel begins 0.6 mm behind the tongue and is 1.8 mm deep,
+  providing room for the 1.2 mm guardrail tab plus another 0.6 mm rear clearance.
+  The tapered entry keeps the side-on print support-free;
 - main equipment zone: **54 mm clear depth**;
 - structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
   top to the return ramp;
