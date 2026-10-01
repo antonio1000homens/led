@@ -1,4 +1,4 @@
-// Option 3 — removable printed PSU service tray for issue #166.
+// Option 3 - removable printed PSU service tray for issue #166.
 //
 // This is a two-piece prototype:
 //   1. dock: remains screwed to the enclosure boss grid;
