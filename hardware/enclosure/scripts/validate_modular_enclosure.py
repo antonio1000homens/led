@@ -728,21 +728,24 @@ def main() -> None:
             assert_tracked_stl_current(stl_name, generated)
 
         assert_design_contract(work_dir)
+        # The upper ventilation rows deliberately occupy a dedicated band on
+        # the rear wall. Keep that band clear of every accessory-boss row
+        # rather than incorrectly requiring the entire rear wall to be solid.
         assert_empty_intersection(
             work_dir,
-            "vent_rear_boss_wall_keepout",
+            "vent_adapter_boss_grid_keepout",
             """    ramp_ventilation_cutters();
-    translate([
-        universal_deep_x0-1,
-        universal_deep_y0+universal_guide_shoulder_t,
-        universal_deep_front_z-1
-    ])
-        cube([
-            universal_deep_w+2,
-            universal_deep_y1-
-                (universal_deep_y0+universal_guide_shoulder_t),
-            universal_deep_wall_t+2
-        ]);""",
+    for (yy=adapter_y)
+        translate([
+            universal_deep_x0-1,
+            yy-adapter_boss_d/2-2,
+            universal_deep_front_z-1
+        ])
+            cube([
+                universal_deep_w+2,
+                adapter_boss_d+4,
+                universal_deep_wall_t+2
+            ]);""",
         )
         assert_empty_intersection(
             work_dir,
