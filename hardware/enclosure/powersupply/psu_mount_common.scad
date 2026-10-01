@@ -118,11 +118,6 @@ module locating_pins() {
             cylinder(d=locating_pin_d, h=support_gap+locating_pin_h+0.2);
 }
 
-module psu_preview(z=plate_t+support_gap) {
-    %translate([-psu_w/2, -psu_h/2, z])
-        cube([psu_w, psu_h, psu_d]);
-}
-
 module backplane_interface_preview() {
     // In the assembled position the boss tip enters the adapter by
     // boss_pocket_depth, so the backplane wall sits this far behind z=0.
