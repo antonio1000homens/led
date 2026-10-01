@@ -34,21 +34,34 @@ simulate the current backplane and bosses.
 ## Fastener retention
 
 The current backplane bosses contain **3.4 mm blind holes**. They are not
-modelled as threaded holes, so an ordinary M3 machine screw must not be assumed
-to grip them securely by itself.
+modelled as threaded holes.
 
-For the PSU experiment, the preferred retention test is:
+A **heat-set insert is not a bolt**. It is a small purchased brass sleeve with
+an M3 internal thread. The insert is heated (normally with a soldering iron or
+heat-set-insert tip) and pressed into a correctly sized plastic boss. After it
+cools, an ordinary M3 machine screw threads into the brass insert.
 
-1. print `06_boss_insert_test.scad`, which reproduces the current boss and
-   blind-hole geometry;
-2. test the intended M3 heat-set insert and screw on the coupon;
-3. only use heat-set inserts in the real backplane bosses if the coupon shows
-   adequate wall thickness, insertion depth and pull-out strength;
-4. if the insert is too large for the 7 mm boss, do not force it - change the
-   canonical boss design in a separate revision instead.
+The attachment stack is therefore:
 
-This keeps PR #167 from silently changing the already-validated universal
-backplane while still providing an explicit, testable fastening path.
+```text
+M3 screw
+   |
+service-tray dock
+   |
+brass M3 heat-set insert
+   |
+printed enclosure boss
+```
+
+`06_boss_heatset_insert_test.scad` is **not** the insert. It is a small
+printable coupon that reproduces one current enclosure boss so the real brass
+insert can be tested without damaging the enclosure.
+
+The current boss is only 7 mm OD with a 3.4 mm blind hole, so insert fit must be
+proven on the coupon before fitting inserts to the real backplane. If the chosen
+M3 insert needs a larger boss or different pilot diameter, the canonical
+backplane boss geometry should be changed deliberately rather than forcing the
+insert into the existing part.
 
 ## PSU geometry
 
@@ -70,41 +83,37 @@ pins or PSU pilot holes.
 
 ## Options
 
+The direct-slide cradle and hybrid concepts have been removed because the PSU
+itself has no rail features and the selected direction is the removable service
+tray.
+
 | File | Concept | Purpose |
 | --- | --- | --- |
-| `01_adapter_plate.scad` | Simple plate + support rails + corner guides | Lowest-complexity baseline |
-| `02_slide_cradle.scad` | Horizontal slide-in cradle + lock screw | Test service access without relying on PSU hole coordinates |
-| `03_service_tray.scad` | Two-piece dock + removable PSU tray | Remove PSU/wiring as a module |
-| `04_hybrid_mount.scad` | Plate + PSU locating pins + corner guides + lock screw | Preferred issue #166 direction |
-| `05_backplane_fit_preview.scad` | Adapter assembled on current six-boss backplane interface | Verify boss alignment visually |
-| `06_boss_insert_test.scad` | Exact single-boss coupon | Test M3 insert/retention safely |
-| `00_compare_options.scad` | Four-up geometry view | Compare the four mount concepts |
-
-All options are printed plastic plus ordinary fasteners. There is no metal
-adapter plate and no loose spacer/standoff scheme.
+| `01_adapter_plate.scad` | Simple fixed adapter | Geometry/reference baseline |
+| `03_service_tray.scad` | Fixed dock + removable PSU tray | **Selected design direction** |
+| `05_backplane_fit_preview.scad` | Adapter against current six-boss backplane interface | Verify enclosure-side boss alignment |
+| `06_boss_heatset_insert_test.scad` | Exact single-boss coupon | Test a real brass M3 heat-set insert safely |
+| `00_compare_options.scad` | Adapter vs service-tray comparison | Visual comparison |
 
 ## Completeness audit
 
-The enclosure-side attachment has now been reviewed for every option.
+The enclosure-side attachment has now been reviewed for the remaining designs.
 
 | Option | Enclosure attachment | PSU retention | Current status |
 | --- | --- | --- | --- |
-| 1 - Adapter plate | Six registered boss pockets + six visible M3 fixing recesses | Two PSU screw pilots | **Enclosure-complete; PSU hole coordinates still need measurement** |
-| 2 - Slide cradle | Six registered boss pockets + six visible M3 fixing recesses | Side/top capture, closed end stop, M3 + 8 mm washer insertion lock | **Mechanically complete for fit testing without PSU-hole coordinates** |
-| 3 - Service tray | Fixed dock has six retained screw lands; tray slides in captured channels and uses an external washer lock | PSU screw pilots in removable tray | **Dock/tray mechanism complete; PSU hole coordinates still need measurement** |
-| 4 - Hybrid | Six registered boss pockets + six visible M3 fixing recesses | Side/top capture, closed end stop, washer lock, plus optional PSU locating pins | **Mechanically complete for fit testing; locating pins remain optional until measured** |
+| 1 - Adapter plate | Six registered boss pockets + six visible M3 fixing recesses | Two raised PSU screw bosses level with support bars | **Reference design; final PSU hole coordinates still need measurement** |
+| 3 - Service tray | Fixed dock has six retained screw lands; removable tray is captured in dock channels | Two raised PSU screw bosses level with support bars; tray retained by external washer lock | **Selected direction; final PSU hole coordinates still need measurement** |
 
-The review also corrected three geometry problems found in the first prototypes:
+The service-tray dock retains two full-height fixing spines around X=+/-48, so
+all six M3 enclosure fixing holes remain visible and connected to the dock
+perimeter.
 
-1. the service-tray centre relief used to remove all six enclosure screw lands;
-2. the shared PSU support rails used to overlap/refill the X=+/-48 enclosure screw holes;
-3. the slide/hybrid/service-tray lock bosses did not provide a usable insertion lock.
+The two PSU mounting points on the removable tray are now **raised by the same
+2 mm as the airflow/support bars**. Their top faces and the bars therefore form
+one common support plane; tightening the PSU screws will no longer pull the PSU
+down below the rails.
 
-The service-tray dock now retains two full-height fixing spines around X=+/-48.
-All six M3 holes therefore remain visible and connected to the dock perimeter.
-The shared support rails are now moved inboard, and the insertion locks use a
-printed boss that stays clear during insertion plus an **8 mm OD washer** fitted
-afterwards to overlap the PSU/tray edge.
+The direct-slide cradle and hybrid have been removed from the branch.
 
 ## Before a production print
 
@@ -125,11 +134,9 @@ From this directory:
 
 ```bash
 openscad -o /tmp/psu-adapter.stl 01_adapter_plate.scad
-openscad -o /tmp/psu-cradle.stl 02_slide_cradle.scad
 openscad -o /tmp/psu-service-tray.stl 03_service_tray.scad
-openscad -o /tmp/psu-hybrid.stl 04_hybrid_mount.scad
 openscad -o /tmp/psu-fit-preview.stl 05_backplane_fit_preview.scad
-openscad -o /tmp/psu-boss-test.stl 06_boss_insert_test.scad
+openscad -o /tmp/psu-boss-test.stl 06_boss_heatset_insert_test.scad
 ```
 
 For the service tray, set `layout = "assembled"` in
