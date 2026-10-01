@@ -21,6 +21,18 @@ dock_channel_h = 6.2;
 dock_lip = 1.6;
 slide_clearance = 0.5;
 
+// Keep a large central opening, but preserve two full-height side fixing spines
+// around X=+/-48. With the 2 mm rounded offset below, an 80 mm core produces an
+// 84 mm-wide opening (X=-42..+42), leaving the six screw lands intact.
+dock_relief_core_w = 80;
+dock_relief_core_h = tray_h-14;
+
+assert(
+    dock_relief_core_w/2 + 2 <
+        abs(backplane_mount_x[0]) - adapter_screw_head_d/2,
+    "Service-tray relief cuts into enclosure screw lands"
+);
+
 module tray_plate() {
     difference() {
         rounded_plate(w=tray_w, h=tray_h, t=tray_t, r=2.5);
@@ -48,12 +60,16 @@ module dock() {
         rounded_plate(w=dock_w, h=dock_h, t=plate_t, r=corner_r);
         backplane_interface_cutters();
 
-        // Large centre relief means the dock is mostly a perimeter frame and
-        // does not create a second solid wall behind the tray/PSU.
+        // Large centre relief keeps the dock light while deliberately stopping
+        // before the two X=+/-48 fixing spines. All six enclosure screw lands
+        // therefore remain connected to the dock perimeter.
         translate([0,0,-0.2])
             linear_extrude(height=plate_t+0.4)
                 offset(r=2)
-                    square([tray_w-12, tray_h-14], center=true);
+                    square(
+                        [dock_relief_core_w, dock_relief_core_h],
+                        center=true
+                    );
     }
 
     // Top/bottom channels capture the tray edges while it slides in X.
