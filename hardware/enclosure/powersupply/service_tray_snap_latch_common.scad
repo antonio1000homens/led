@@ -21,14 +21,28 @@
 include <psu_mount_common.scad>;
 
 tray_w = 114;
-tray_h = 80.6;
+tray_h = 84.0;
 tray_t = 2.8;
 dock_w = adapter_w;
-dock_h = adapter_h;
+dock_h = 89.0;
 dock_channel_wall = 1.5;
 dock_channel_h = 6.2;
 dock_lip = 1.6;
 slide_clearance = 0.5;
+
+// Measured PSU holes sit at Y=+/-37 mm. With 8 mm mounting bosses, their outer
+// edges reach Y=+/-41 mm. An 84 mm tray leaves 1 mm of printed material beyond
+// each boss. The 89 mm dock gives 0.5 mm overlap between its base and the outer
+// channel walls, keeping the channels fused while staying inside the 92 mm
+// full-depth backplane zone.
+assert(
+    tray_h/2 >= abs(psu_rear_mount_points[0][1]) + psu_mount_boss_d/2 + 1.0,
+    "Tray is too narrow for measured PSU mounting bosses"
+);
+assert(
+    dock_h/2 >= tray_h/2 + slide_clearance + dock_channel_wall,
+    "Dock base does not reach the service-tray channel walls"
+);
 
 tray_assembled_z = plate_t + 0.4;
 
