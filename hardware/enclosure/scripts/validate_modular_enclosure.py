@@ -331,12 +331,20 @@ assert(abs(universal_full_x0-universal_deep_x0) < 0.01 &&
        "full-width aliases must match the constant universal profile");
 assert(abs(universal_deep_y0-side_guide_y1) < 0.01,
        "full-depth shell must begin immediately above the guide/insertion section");
-assert(abs(universal_deep_y1-universal_deep_y0-84) < 0.01,
-       "full-depth universal region must retain 84 mm of PSU-fit height");
-assert(abs(universal_return_ramp_h-12) < 0.01 &&
+assert(abs(universal_psu_h-80) < 0.01 &&
+       abs(universal_psu_vertical_clearance-4) < 0.01,
+       "measured PSU height/clearance contract drifted");
+assert(abs(universal_deep_y1-
+           (universal_deep_y0+universal_guide_shoulder_t+
+            universal_psu_h+universal_psu_vertical_clearance)) < 0.01,
+       "deep rear wall must preserve PSU height ABOVE the reinforced shoulder");
+assert(abs(universal_deep_y1-
+           (universal_deep_y0+universal_guide_shoulder_t)-84) < 0.01,
+       "usable full-depth height above the shoulder must remain 84 mm");
+assert(abs(universal_return_ramp_h-4) < 0.01 &&
        abs(universal_deep_ramp_end_y-universal_deep_y1-
            universal_return_ramp_h) < 0.01,
-       "universal return ramp height drifted");
+       "short upper return ramp height drifted");
 assert(abs(universal_top_flat_h-11.5) < 0.01 &&
        abs(universal_deep_ramp_end_y-(enclosure_top_y-11.5)) < 0.01,
        "top 11.5 mm must remain flat and flush with the panel");
@@ -344,8 +352,9 @@ assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
 assert(universal_deep_w >= 110+6,
        "flat universal area is too narrow for the 110 mm PSU plus clearance");
-assert(universal_deep_y1-universal_deep_y0 >= 80+4,
-       "flat universal area is too short for the 80 mm PSU plus clearance");
+assert(universal_deep_y1-
+           (universal_deep_y0+universal_guide_shoulder_t) >= 80+4,
+       "usable cavity above the reinforced shoulder is too short for the 80 mm PSU plus clearance");
 assert(universal_deep_clear_depth >= 37+10,
        "universal cavity is too shallow for the 37 mm PSU plus service clearance");
 assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
@@ -367,16 +376,17 @@ assert(abs(adapter_boss_d-7) < 0.01 &&
        abs(adapter_boss_h-4) < 0.01,
        "accessory bosses must retain the slimmer 7 mm OD x 4 mm height");
 
-// Ventilation belongs only on the lower shoulder and upper return ramp.
-// The rear mounting wall between them must remain solid for the boss grid.
+// Ventilation belongs on the lower shoulder and a dedicated upper rear-wall
+// band. Keeping the top rows off the short return ramp preserves a true narrow
+// slot throat while the PSU retains its full usable height above the shoulder.
 assert(abs(vent_slot_len-24) < 0.01 &&
        abs(vent_slot_gap-10) < 0.01 &&
        vent_slot_count == 7,
        "ramp vent slot layout drifted");
 assert(abs(vent_slot_y_h-1.0) < 0.01,
        "ramp vent throat drifted");
-assert(universal_return_ramp_h >= 12,
-       "upper return ramp is too steep for the narrow safety vent throat");
+assert(universal_return_ramp_h >= 4,
+       "upper return ramp became shorter than the proven side-on profile");
 assert(universal_guide_shoulder_t >= 8,
        "lower tongue/deep-shell transition shoulder is too thin");
 assert(len(transition_rib_centres) == 3 &&
@@ -411,20 +421,24 @@ for (row=[0:1])
     assert(bottom_ramp_vent_y[row+1] -
                (bottom_ramp_vent_y[row]+vent_slot_y_h) >= 1.25,
            "bottom vent rows lost the minimum solid land between openings");
-assert(top_ramp_vent_rows == 4 && len(top_ramp_vent_y) == 4,
-       "upper return ramp must carry exactly four ventilation rows");
-assert(top_ramp_vent_margin_y >= 1.5,
+assert(top_rear_vent_rows == 4 && len(top_rear_vent_y) == 4,
+       "upper rear wall must carry exactly four ventilation rows");
+assert(abs(top_rear_vent_band_h-12) < 0.01,
+       "upper rear-wall ventilation band height drifted");
+assert(top_rear_vent_margin_y >= 1.5,
        "upper vent rows lost their structural end margin");
-assert(top_ramp_vent_row_gap >= 1.5,
+assert(top_rear_vent_row_gap >= 1.5,
        "upper vent rows are too close together");
-assert(top_ramp_vent_y[0] >=
-           universal_deep_y1+top_ramp_vent_margin_y-0.01 &&
-       top_ramp_vent_y[3]+vent_slot_y_h <=
-           universal_deep_ramp_end_y-top_ramp_vent_margin_y+0.01,
-       "top vent rows must remain inside the upper return ramp margins");
+assert(top_rear_vent_y0 >= max(adapter_y)+adapter_boss_d/2+2,
+       "upper vent band overlaps the accessory-boss grid");
+assert(top_rear_vent_y[0] >=
+           top_rear_vent_y0+top_rear_vent_margin_y-0.01 &&
+       top_rear_vent_y[3]+vent_slot_y_h <=
+           universal_deep_y1-top_rear_vent_margin_y+0.01,
+       "top vent rows must remain inside the upper rear-wall band margins");
 for (row=[0:2])
-    assert(top_ramp_vent_y[row+1] -
-               (top_ramp_vent_y[row]+vent_slot_y_h) >= 1.5,
+    assert(top_rear_vent_y[row+1] -
+               (top_rear_vent_y[row]+vent_slot_y_h) >= 1.5,
            "top vent rows lost the minimum solid land between openings");
 assert(vent_slot_x0 >= universal_deep_x0+10 &&
        vent_slot_x0 +
@@ -603,8 +617,9 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
         "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
-        "54 mm universal deep cavity, reinforced transition with three tapered rear ribs, "
-        "narrow rounded ramp ventilation, 11.5 mm flush top wall, three central boss rows, "
+        "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
+        "reinforced transition with three tapered rear ribs, lower-shoulder plus upper rear-wall ventilation, "
+        "11.5 mm flush top wall, three central boss rows, "
         "three aligned closure holes and hinge-rail side-sleeve contract"
     )
 
