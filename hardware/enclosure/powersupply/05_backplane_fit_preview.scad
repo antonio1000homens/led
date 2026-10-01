@@ -7,11 +7,7 @@
 
 include <psu_mount_common.scad>;
 
-show_psu = true;
 
 base_adapter_plate();
-
-if (show_psu)
-    psu_preview();
 
 backplane_interface_preview();
