@@ -292,13 +292,6 @@ assert(hinge_axis_y-hinge_radius < ground_clearance &&
 assert(abs(base_front_extension-20) < 0.01 &&
        abs(base_floor_front_z-(service_front_z-base_front_extension)) < 0.01,
        "stationary base floor must extend 20 mm toward the front");
-assert(abs(base_front_ramp_run-base_front_extension) < 0.01 &&
-       abs(base_front_ramp_h-6) < 0.01 &&
-       abs(base_front_ramp_slice_z-1.0) < 0.01,
-       "front base reinforcement must retain the 20 mm run / 6 mm rise profile");
-assert(base_seat_y+base_front_ramp_h <=
-           hinge_axis_y-hinge_radius-2,
-       "front base ramp rises too close to the 90-degree panel sweep");
 assert(abs(base_panel_clearance_y-
            min(base_seat_y,ground_clearance-hinge_axis_z)) < 0.01 &&
        base_panel_clearance_z > hinge_axis_z+moving_plate_t,
@@ -679,7 +672,7 @@ cube([1,1,1]);
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
         "lower hidden junctions, front-tied guide roots with 10 mm rear triangular buttresses, "
         "compact upper backplane/end-plate seam bosses, "
-        "unchanged moving-panel hinge roots and a 20 mm x 6 mm front base ramp, "
+        "unchanged moving-panel hinge roots and 20 mm forward base-floor extension, "
         "40 mm installed hinge with 20 mm forward base-floor extension, "
         "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
         "reinforced transition with three tapered rear ribs and guardrail channels, lower-shoulder plus upper-ramp ventilation, "
