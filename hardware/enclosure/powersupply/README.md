@@ -53,10 +53,10 @@ backplane while still providing an explicit, testable fastening path.
 ## PSU geometry
 
 The enclosure documentation records the PSU envelope as approximately
-**110 x 80 x 37 mm**.
+**110 x 80 x 37 mm**. Those dimensions are used only to size the mount geometry;
+there is no longer a transparent simulated PSU body in any SCAD preview.
 
-`psu_mount_common.scad` uses that envelope, but these two PSU rear/bottom
-mounting-hole positions are still placeholders:
+The two PSU rear/bottom mounting-hole positions are still placeholders:
 
 ```scad
 psu_rear_mount_points = [
