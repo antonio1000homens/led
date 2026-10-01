@@ -263,9 +263,6 @@ assert(abs(hinge_install_lift-20) < 0.01 &&
        "installed hinge/panel lift must remain 20 mm above the 20 mm baseline");
 assert(abs(hinge_axis_y-ground_clearance) < 0.01,
        "hinge axis must be centred on the moving panel lower edge");
-assert(abs(moving_hinge_panel_gusset_h-panel_band_h) < 0.01 &&
-       moving_hinge_panel_gusset_h >= 20,
-       "moving hinge roots must spread across the full 20 mm lower panel band");
 assert(abs(hinge_rail_start_x-10) < 0.01 &&
        abs(hinge_rail_length-236) < 0.01 &&
        abs(hinge_rail_end_x-246) < 0.01,
@@ -647,7 +644,7 @@ cube([1,1,1]);
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
         "lower hidden junctions, front-tied guide roots with 10 mm rear triangular buttresses, "
         "compact upper backplane/end-plate seam bosses, "
-        "full-band moving hinge gussets and a 20 mm x 6 mm front base ramp, "
+        "unchanged moving-panel hinge roots and a 20 mm x 6 mm front base ramp, "
         "40 mm installed hinge with 20 mm forward base-floor extension, "
         "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
         "reinforced transition with three tapered rear ribs, lower-shoulder plus upper rear-wall ventilation, "
