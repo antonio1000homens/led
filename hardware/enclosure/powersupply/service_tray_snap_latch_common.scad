@@ -134,11 +134,11 @@ module snap_latch_mount_pad() {
                 latch_arm_w+1.6
             ]);
 
-        for (dz=[-latch_mount_pitch/2, latch_mount_pitch/2])
+        for (dx=[-latch_mount_pitch/2, latch_mount_pitch/2])
             translate([
-                base_x,
+                base_x+dx,
                 latch_mount_pad_y-0.2,
-                latch_z+latch_arm_w/2+dz
+                latch_z+latch_arm_w/2
             ])
                 rotate([-90,0,0])
                     cylinder(
@@ -236,7 +236,7 @@ module replaceable_snap_latch() {
         difference() {
             translate([
                 base_x-latch_base_len/2,
-                latch_inner_y,
+                latch_base_y,
                 arm_z
             ])
                 cube([
@@ -245,11 +245,11 @@ module replaceable_snap_latch() {
                     latch_arm_w
                 ]);
 
-            for (dz=[-latch_mount_pitch/2, latch_mount_pitch/2])
+            for (dx=[-latch_mount_pitch/2, latch_mount_pitch/2])
                 translate([
-                    base_x,
+                    base_x+dx,
                     latch_base_y-0.2,
-                    arm_z+latch_arm_w/2+dz
+                    arm_z+latch_arm_w/2
                 ])
                     rotate([-90,0,0])
                         cylinder(
