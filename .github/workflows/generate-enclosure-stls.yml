@@ -57,6 +57,16 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet \
             trimesh manifold3d numpy networkx scipy
 
+      - name: Validate experimental PSU SCAD entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in hardware/enclosure/powersupply/0[0-6]_*.scad; do
+            output="/tmp/$(basename "${source%.scad}.stl")"
+            openscad -o "$output" "$source"
+            test -s "$output"
+          done
+
       - name: Generate canonical STL outputs
         shell: bash
         run: |
