@@ -1101,10 +1101,88 @@ module ramp_ventilation_cutters() {
     }
 }
 
+
+// ---------- EXPERIMENT: rear tapered transition ribs ----------
+// Test concept 1: viewed from above, change the lower sliding wall from a
+// continuous flat line into a flat line with three rear-only "+" stiffeners.
+// The slide-facing/front surface is untouched. Because installed X is the print
+// Z axis, each stiffener grows and shrinks gradually across X so it does not
+// appear as an abrupt unsupported shelf during the side-on print.
+transition_test_rib_centres = [64,128,192];
+transition_test_rib_half_w = 12;
+transition_test_rib_slice_w = 1.0;
+transition_test_rib_depth = 10;
+transition_test_rib_y0 = base_seat_y + 3;
+transition_test_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
+
+module transition_test_rear_rib(xc) {
+    z0 = equipment_backplane_rear_z - 0.3;
+    z1 = min(
+        equipment_backplane_rear_z + transition_test_rib_depth,
+        universal_deep_front_z
+    );
+    yh = transition_test_rib_y1-transition_test_rib_y0;
+    shallow_d = 0.8;
+
+    union() {
+        hull() {
+            translate([
+                xc-transition_test_rib_half_w,
+                transition_test_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_test_rib_slice_w,
+                    yh,
+                    shallow_d
+                ]);
+            translate([
+                xc-transition_test_rib_slice_w/2,
+                transition_test_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_test_rib_slice_w,
+                    yh,
+                    z1-z0
+                ]);
+        }
+
+        hull() {
+            translate([
+                xc-transition_test_rib_slice_w/2,
+                transition_test_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_test_rib_slice_w,
+                    yh,
+                    z1-z0
+                ]);
+            translate([
+                xc+transition_test_rib_half_w-transition_test_rib_slice_w,
+                transition_test_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_test_rib_slice_w,
+                    yh,
+                    shallow_d
+                ]);
+        }
+    }
+}
+
+module transition_test_rear_ribs() {
+    for (xc=transition_test_rib_centres)
+        transition_test_rear_rib(xc);
+}
+
 module universal_equipment_backplane() {
     difference() {
         union() {
             universal_backplane_shell_solid();
+            transition_test_rear_ribs();
 
             top_backplane_connector_pad("left");
             top_backplane_connector_pad("right");
