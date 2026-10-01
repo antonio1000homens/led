@@ -93,7 +93,8 @@ tray.
 | `03_service_tray.scad` | Fixed dock + removable PSU tray | **Selected design direction** |
 | `05_backplane_fit_preview.scad` | Adapter against current six-boss backplane interface | Verify enclosure-side boss alignment |
 | `06_boss_heatset_insert_test.scad` | Exact single-boss coupon | Test a real brass M3 heat-set insert safely |
-| `00_compare_options.scad` | Adapter vs service-tray comparison | Visual comparison |
+| `07_service_tray_snap_latch.scad` | Service tray + replaceable cantilever latch | **Alternative tool-free service lock for visual/physical testing** |
+| `00_compare_options.scad` | Adapter + screw-lock tray + snap-latch tray | Visual comparison |
 
 ## Completeness audit
 
@@ -113,12 +114,24 @@ The two PSU mounting points on the removable tray are now **raised by the same
 one common support plane; tightening the PSU screws will no longer pull the PSU
 down below the rails.
 
-The service-tray lock no longer uses an insertion-edge boss. The +Y channel
-wall carries an **external** lock boss, outside the tray envelope. With the M3
-lock screw removed, the tray path is completely unobstructed. Push the tray
-fully home against the +X stop, then insert the M3 screw sideways through the
-dock wall into the reinforced clearance hole in the tray. Remove that screw
-before pulling the tray out for service.
+Option 03 keeps the removable side-entry M3 lock as the baseline.
+
+Option 07 is a new **tool-free snap-latch alternative**. It keeps the same
+dock/tray geometry and hard +X insertion stop, but adds a separate replaceable
+cantilever latch outside the +Y channel wall. The latch arm runs parallel to
+tray travel. Its hook reaches through a small wall window into a side notch in
+the tray.
+
+During insertion the tray edge rides up the hook ramp and flexes the latch
+outward. When the tray reaches the hard +X stop, the notch aligns with the hook
+and the latch snaps inward automatically. Pull the external thumb tab outward
+to release the hook, then slide the tray back out.
+
+The latch is a separate part so it can be replaced without reprinting the dock.
+PETG is recommended for repeated use; PLA is useful for a quick dimensional
+prototype but is expected to fatigue sooner. The first prototype uses a
+1.6 mm-thick, 8 mm-wide, 30 mm-long cantilever arm with about 2 mm of effective
+notch engagement.
 
 The current side-lock boss uses a 2.8 mm tapping pilot for prototype testing.
 If repeated servicing shows that plastic threads wear too quickly, that external
@@ -149,6 +162,7 @@ openscad -o /tmp/psu-adapter.stl 01_adapter_plate.scad
 openscad -o /tmp/psu-service-tray.stl 03_service_tray.scad
 openscad -o /tmp/psu-fit-preview.stl 05_backplane_fit_preview.scad
 openscad -o /tmp/psu-boss-test.stl 06_boss_heatset_insert_test.scad
+openscad -o /tmp/psu-snap-tray.stl 07_service_tray_snap_latch.scad
 ```
 
 For the service tray, set `layout = "assembled"` in
