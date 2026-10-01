@@ -257,6 +257,10 @@ def assert_design_contract(work_dir: Path) -> None:
     output = work_dir / "design_contract.csg"
     check_scad.write_text(
         f"""include <{SOURCE.as_posix()}>;
+assert(abs(hinge_install_lift-20) < 0.01 &&
+       abs(baseline_ground_clearance-20) < 0.01 &&
+       abs(ground_clearance-40) < 0.01,
+       "installed hinge/panel lift must remain 20 mm above the 20 mm baseline");
 assert(abs(hinge_axis_y-ground_clearance) < 0.01,
        "hinge axis must be centred on the moving panel lower edge");
 assert(abs(hinge_rail_start_x-10) < 0.01 &&
@@ -285,9 +289,15 @@ assert(abs(right_side_rod_sleeve_len-
 assert(hinge_axis_y-hinge_radius < ground_clearance &&
        hinge_axis_y+hinge_radius > ground_clearance,
        "hinge barrel must straddle the moving panel lower edge");
-assert(abs(base_panel_clearance_y-(ground_clearance-hinge_axis_z)) < 0.01 &&
+assert(abs(base_front_extension-20) < 0.01 &&
+       abs(base_floor_front_z-(service_front_z-base_front_extension)) < 0.01,
+       "stationary base floor must extend 20 mm toward the front");
+assert(abs(base_panel_clearance_y-
+           min(base_seat_y,ground_clearance-hinge_axis_z)) < 0.01 &&
        base_panel_clearance_z > hinge_axis_z+moving_plate_t,
-       "base front relief must clear the open panel lower band");
+       "base front relief threshold must follow the raised open-panel clearance");
+assert(base_panel_clearance_y >= base_seat_y-0.01,
+       "raised hinge should leave the extended structural floor unrelieved");
 assert(hinge_guard_t >= 2, "hinge shelf is too thin");
 assert(hinge_guard_start_y <= base_seat_y && hinge_guard_top_y >= hinge_axis_y,
        "hinge shelf no longer spans behind the hinge");
@@ -315,9 +325,9 @@ assert(abs(backplane_ramp_start_y-75) < 0.01,
 assert(abs(backplane_ramp_end_y-120) < 0.01,
        "backplane taper must reach shallow depth at 120 mm");
 assert(abs(enclosure_top_y-(ground_clearance+module_h)) < 0.01,
-       "stationary enclosure must match the full front-panel height");
-assert(abs(upper_vertical_h-28) < 0.01,
-       "full-height shallow upper wall must remain 28 mm high");
+       "stationary enclosure must match the lifted full front-panel height");
+assert(abs(upper_vertical_h-(28+hinge_install_lift)) < 0.01,
+       "native shallow upper wall must absorb the 20 mm panel lift");
 
 assert(abs(universal_deep_clear_depth-54) < 0.01,
        "universal deep cavity must retain 54 mm clear depth");
@@ -345,9 +355,12 @@ assert(abs(universal_return_ramp_h-4) < 0.01 &&
        abs(universal_deep_ramp_end_y-universal_deep_y1-
            universal_return_ramp_h) < 0.01,
        "short upper return ramp height drifted");
-assert(abs(universal_top_flat_h-11.5) < 0.01 &&
-       abs(universal_deep_ramp_end_y-(enclosure_top_y-11.5)) < 0.01,
-       "top 11.5 mm must remain flat and flush with the panel");
+assert(abs(universal_top_flat_h-(11.5+hinge_install_lift)) < 0.01 &&
+       abs(universal_deep_ramp_end_y-
+           (enclosure_top_y-universal_top_flat_h)) < 0.01,
+       "lift must extend only the shallow upper closure wall");
+assert(abs(universal_deep_ramp_end_y-136.5) < 0.01,
+       "PSU/return-ramp geometry moved when the panel was lifted");
 assert(universal_deep_front_z-enclosure_front_z >= 54-0.01,
        "universal deep cavity lost required equipment depth");
 assert(universal_deep_w >= 110+6,
@@ -617,9 +630,10 @@ cube([1,1,1]);
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
         "lower hidden junctions, compact upper backplane/end-plate seam bosses, "
+        "40 mm installed hinge with 20 mm forward base-floor extension, "
         "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
         "reinforced transition with three tapered rear ribs, lower-shoulder plus upper rear-wall ventilation, "
-        "11.5 mm flush top wall, three central boss rows, "
+        "31.5 mm shallow upper closure wall, three central boss rows, "
         "three aligned closure holes and hinge-rail side-sleeve contract"
     )
 
