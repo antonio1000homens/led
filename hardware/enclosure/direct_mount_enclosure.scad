@@ -746,7 +746,7 @@ module side_guide_channel(side="left") {
     }
 }
 
-module rear_guardrail() {
+module rear_guardrail_shelf() {
     // Full-width low shelf extends the stationary base to the common rear plane
     // while staying below the seated lower edge of the removable backplane.
     translate([
@@ -759,7 +759,28 @@ module rear_guardrail() {
             rear_guardrail_shelf_top_y-rear_guardrail_y0,
             rear_guardrail_shelf_rear_z-rear_guardrail_shelf_front_z
         ]);
+}
 
+module rear_rib_seat_clearance_cutters() {
+    // The lower rib side walls extend through the final 2 mm seating travel.
+    // Clear only the rear 1.2 mm strip of the base seat under each complete
+    // 24 mm rib footprint. The centre guardrail tab is restored afterwards,
+    // so only the rib side/taper material receives these pockets.
+    pocket_w = 2*transition_rib_half_w + 2*side_guide_clearance;
+    for (xc=transition_rib_centres)
+        translate([
+            xc-pocket_w/2,
+            equipment_backplane_y0-0.1,
+            backplane_slot_back_z-0.1
+        ])
+            cube([
+                pocket_w,
+                base_seat_y-equipment_backplane_y0+0.3,
+                side_guide_rear_z-backplane_slot_back_z+0.2
+            ]);
+}
+
+module rear_guardrail_tabs() {
     // Three narrow upright tabs rise into the printable centre portion of each
     // rib slot. They sit 0.6 mm behind the sliding tongue and retain 0.6 mm
     // clearance to the rear rib wall.
@@ -819,7 +840,7 @@ module base_structural_body() {
                 ]);
 
             base_front_reinforcement_ramp();
-            rear_guardrail();
+            rear_guardrail_shelf();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
@@ -830,6 +851,10 @@ module base_structural_body() {
             side_guide_channel("right");
 
         }
+
+        // Clear the rear strip under each rib side wall before restoring the
+        // three centre guardrail tabs in the final base union.
+        rear_rib_seat_clearance_cutters();
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
         // Only a 2 mm-deep locating groove is removed; there is no internal
@@ -883,6 +908,9 @@ module hinged_equipment_base() {
     difference() {
         union() {
             base_structural_body();
+            // Restore the three intended guardrail tabs after the base-seat
+            // rib pockets have been subtracted.
+            rear_guardrail_tabs();
             base_connector_pins();
         }
 
