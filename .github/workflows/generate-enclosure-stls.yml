@@ -61,7 +61,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for source in hardware/enclosure/powersupply/0[0-7]_*.scad; do
+          for source in \
+            hardware/enclosure/powersupply/01_service_tray_snap_latch.scad \
+            hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad \
+            hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad \
+            hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad \
+            hardware/enclosure/powersupply/05_backplane_fit_preview.scad \
+            hardware/enclosure/powersupply/06_boss_heatset_insert_test.scad; do
             output="/tmp/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
             test -s "$output"
