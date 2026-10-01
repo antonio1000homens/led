@@ -83,6 +83,17 @@ jobs:
             openscad -o "$output" "$source"
           done
 
+      - name: Generate selected PSU service-tray STL outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          openscad -o build/enclosure-stls/psu_service_tray_snap_dock.stl \
+            hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad
+          openscad -o build/enclosure-stls/psu_service_tray_snap_tray.stl \
+            hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
+          openscad -o build/enclosure-stls/psu_service_tray_snap_latch.stl \
+            hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad
+
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
         with:
