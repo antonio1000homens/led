@@ -156,10 +156,9 @@ changing the backplane slot:
   path;
 - the rear of the guide gains a **10 mm-deep triangular buttress at the base**,
   tapering back to the normal guide rear face at the top of the 40 mm rail;
-- a low **full-width rear guardrail** extends the stationary base to the same
-  rear plane as those buttresses. Three top-open docking slots align with the
-  removable backplane ribs; the slots keep **0.6 mm lateral/rear clearance** and
-  leave a continuous ~1.8 mm lower web beneath them;
+- a low **full-width rear shelf** extends the stationary base to the same rear
+  plane as those buttresses, while three narrow **1.2 mm-thick guardrail tabs**
+  rise behind the sliding tongue at X = 64 / 128 / 192 mm;
 - the **3 mm backplane slot and 0.6 mm running clearance remain unchanged**.
 
 The removable backplane/enclosure installs from directly above:
@@ -167,10 +166,11 @@ The removable backplane/enclosure installs from directly above:
 1. lower the shortened 40 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
-3. the three downward rib extensions enter the matching top-open slots in the
-   rear guardrail for the same 2 mm final seating travel;
-4. the full-width shoulder above the guides then sits over the tower tops, with
-   the rib and rail rear faces forming one flush reinforcement plane;
+3. the three guardrail tabs enter the shallow channels behind the ribs during
+   the final seating travel: the sliding tongue keeps 0.6 mm clearance to the
+   tab, and the tab keeps another 0.6 mm to the rear rib wall;
+4. the full-width shoulder above the guides then sits over the tower tops while
+   the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.
 
 The universal backplane keeps the existing lower guide interface but is now
@@ -183,11 +183,11 @@ designed around side-on vertical printing:
   256 mm X length;
 - the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
   tapered ribs**, centred at X = **64 / 128 / 192 mm**; each rib is 24 mm wide
-  at its reinforcement zone, extends down to the seated lower backplane edge,
-  and projects about **11.8 mm** to the shared rear reinforcement plane. The
-  lower 2 mm of each rib keys into a matching top-open guardrail slot while the
-  slide-facing surface remains unchanged; the taper follows X so the side-on
-  print does not introduce an abrupt floating shelf;
+  and extends to the seated lower backplane edge. Behind the 3 mm sliding tongue,
+  each rib contains an **18 mm-wide shallow channel** with a 12 mm flat centre
+  and 3 mm tapered entries. The channel begins 0.6 mm behind the tongue and is
+  1.8 mm deep, providing room for the 1.2 mm guardrail tab plus another 0.6 mm
+  rear clearance. The tapered entry keeps the side-on print support-free;
 - main equipment zone: **54 mm clear depth**;
 - structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
   top to the return ramp;
@@ -322,9 +322,10 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement. Inspect all three tapered rear reinforcement
-   ribs, confirm their lower extensions drop into the three rear-guardrail slots
-   without binding, and verify the assembled rear faces are flush while the
-   slide-facing surface remains flat/unmodified.
+   ribs and confirm the **gap behind the sliding tongue is visibly present**.
+   Check that each 1.2 mm guardrail tab enters its rib channel freely, with
+   0.6 mm clearance to the tongue and 0.6 mm clearance to the rear rib wall,
+   while the slide-facing surface remains flat/unmodified.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
    width and **84 mm clear height above the reinforced shoulder** (80 mm PSU +
    4 mm clearance). Confirm all three narrow rounded vent rows are clean on the

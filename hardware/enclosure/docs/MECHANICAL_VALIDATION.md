@@ -35,14 +35,14 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   plate/guard at the same height;
 - a **10 mm rearward triangular buttress** at each guide root, tapering to the
   native rail rear face at the guide top while leaving the slot unchanged;
-- a low full-width stationary **rear guardrail** ending on the same rear plane,
-  with three top-open docking slots that retain 0.6 mm lateral/rear clearance
-  and a continuous lower web beneath the slots;
+- a low full-width stationary **rear shelf** ending on the common rear plane,
+  plus three 1.2 mm-thick guardrail tabs aligned at X = **64 / 128 / 192 mm**;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
 - three rear-only tapered transition ribs centred at X = **64 / 128 / 192 mm**,
-  using a 24 mm taper width, extending down to the seated lower edge and about
-  11.8 mm rearward to the common reinforcement plane while preserving the
-  original slide-facing surface;
+  using a 24 mm taper width and extending to the seated lower edge. Each rib has
+  an 18 mm-wide shallow guardrail channel behind the sliding tongue: 12 mm flat
+  centre, 3 mm tapered entries, 0.6 mm tongue clearance, 1.2 mm tab thickness
+  and 0.6 mm rear-rib clearance;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;
@@ -141,13 +141,13 @@ sets:
 5. print one universal backplane **side-on with its 256 mm length vertical**,
    remove the small breakaway strip beneath the insertion tongue after cooling,
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
-   seats 2 mm into the rear groove, and its three downward rib extensions enter
-   the matching top-open rear-guardrail slots without binding before removing upward;
+   seats 2 mm into the rear groove, and visibly retains the three shallow gaps
+   between the sliding tongue and rear ribs;
 6. confirm the guide towers retain the backplane laterally and the full-width
-   shoulder clears their tops; inspect the forward 16 mm-high ties, the 10 mm
-   rear triangular guide-root buttresses and the full-width rear guardrail, then
-   confirm the three rib/rail junctions form one flush rear plane while the
-   original backplane slot width/running clearance remains unchanged;
+   shoulder clears their tops; inspect the forward 16 mm-high ties, 10 mm rear
+   guide-root buttresses and low full-width rear shelf. Confirm each 1.2 mm
+   guardrail tab enters its tapered rib channel with 0.6 mm clearance on both
+   functional faces while the original backplane slot/running clearance remains unchanged;
 7. confirm the 54 mm deep universal region spans the usable backplane width and
    provides **84 mm clear height above the reinforced shoulder**; verify the rounded
    24 × 1 mm vents are confined to three rows on the lower transition and four

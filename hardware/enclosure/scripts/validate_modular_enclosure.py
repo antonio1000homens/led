@@ -418,9 +418,8 @@ assert(abs(transition_rib_half_w-12) < 0.01 &&
        abs(transition_rib_slice_w-1.0) < 0.01,
        "transition rear-rib taper width drifted");
 assert(abs(rear_reinforcement_flush_z-
-           (side_guide_rear_z+side_guide_rear_buttress_depth)) < 0.01 &&
-       abs(rear_guardrail_rear_z-rear_reinforcement_flush_z) < 0.01,
-       "rear guide buttresses, guardrail and rib projections must share one flush rear plane");
+           (side_guide_rear_z+side_guide_rear_buttress_depth)) < 0.01,
+       "rear guide buttresses and rib projections must share one flush rear plane");
 assert(abs(transition_rib_depth-
            (rear_reinforcement_flush_z-equipment_backplane_rear_z)) < 0.01,
        "transition ribs must reach the common rear reinforcement plane");
@@ -431,14 +430,32 @@ assert(abs(transition_rib_y0-equipment_backplane_y0) < 0.01 &&
 assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
        abs(rear_guardrail_y1-base_seat_y) < 0.01 &&
        rear_guardrail_y1-rear_guardrail_y0 >= 4-0.01,
-       "rear guardrail must remain a low full-width continuation of the stationary base");
-assert(rear_guardrail_slot_clearance >= side_guide_clearance &&
-       rear_guardrail_slot_floor_clearance >= 0.2 &&
-       equipment_backplane_y0-rear_guardrail_slot_floor_clearance-
-           rear_guardrail_y0 >= 1.5,
-       "rear rib docking slots must retain running clearance and a continuous lower guardrail web");
-assert(base_seat_y-equipment_backplane_y0 >= backplane_seat_depth-0.01,
-       "downward rib extensions must key into the rear rail for the full backplane seat depth");
+       "rear guardrail tabs must span the low stationary base zone");
+assert(abs(rear_guardrail_lip_front_z-side_guide_slot_back_z) < 0.01 &&
+       abs(rear_guardrail_lip_rear_z-side_guide_rear_z) < 0.01,
+       "rear guardrail tabs must continue the side-guide rear lip");
+assert(abs(rear_guardrail_shelf_rear_z-rear_reinforcement_flush_z) < 0.01 &&
+       rear_guardrail_shelf_top_y <= equipment_backplane_y0-0.19,
+       "rear shelf must reach the flush plane while staying below the removable tongue");
+assert(abs(transition_rib_channel_w-18) < 0.01 &&
+       abs(transition_rib_channel_flat_w-12) < 0.01 &&
+       abs(transition_rib_channel_taper_w-3) < 0.01,
+       "guardrail channel width/taper drifted");
+assert(abs(transition_rib_channel_front_z-side_guide_slot_back_z) < 0.01,
+       "guardrail channel must begin at the rear side-guide running envelope");
+assert(abs(transition_rib_channel_depth-
+           (side_guide_wall_t+side_guide_clearance)) < 0.01 &&
+       abs(transition_rib_channel_depth-1.8) < 0.01,
+       "guardrail channel must fit the 1.2 mm tab with 0.6 mm rear clearance");
+assert(abs(transition_rib_channel_front_z-equipment_backplane_rear_z-
+           side_guide_clearance) < 0.01,
+       "sliding tongue must retain 0.6 mm clearance before the guardrail channel");
+assert(abs(transition_rib_channel_rear_z-rear_guardrail_lip_rear_z-
+           side_guide_clearance) < 0.01,
+       "guardrail tab must retain 0.6 mm clearance to the rear rib wall");
+assert(transition_rib_channel_flat_w-
+           2*side_guide_clearance >= 10,
+       "guardrail tab lost useful width inside the rib channel");
 assert(rear_reinforcement_flush_z <= universal_deep_front_z+0.01,
        "rear reinforcement plane must stay clear of the deep equipment wall");
 assert(bottom_ramp_vent_rows == 3 && len(bottom_ramp_vent_y) == 3,
