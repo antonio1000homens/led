@@ -10,7 +10,6 @@
 
 include <psu_mount_common.scad>;
 
-show_psu = true;
 insertion_side = "left";
 
 module slide_cradle() {
@@ -28,7 +27,4 @@ module slide_cradle() {
 }
 
 slide_cradle();
-if (show_psu) {
-    psu_preview();
-    backplane_boss_preview();
-}
+backplane_boss_preview();
