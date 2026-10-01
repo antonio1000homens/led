@@ -1,13 +1,11 @@
-// Issue #166 - assembled fit preview against the current backplane boss grid.
+// Issue #166 - actual selected dock against the current backplane boss grid.
 //
-// The solid plate is the common dock/backplane interface geometry.
-// Transparent geometry is the simulated current universal backplane interface.
-// The six 7 mm bosses should enter the six shallow locating pockets in the
-// adapter underside. This is the easiest file to inspect when checking alignment.
+// Solid geometry is the production snap-latch dock. Transparent geometry is the
+// universal backplane wall + six accessory bosses. Use this view to confirm
+// that the widened 89 mm dock still sits inside the available full-depth zone
+// and that all six locating pockets align with the backplane bosses.
 
-include <psu_mount_common.scad>;
+include <service_tray_snap_latch_common.scad>;
 
-
-base_adapter_plate(); // shared enclosure-interface test geometry
-
+snap_dock();
 backplane_interface_preview();
