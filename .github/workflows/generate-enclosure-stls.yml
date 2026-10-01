@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -42,8 +42,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -76,22 +74,6 @@ jobs:
           path: build/enclosure-stls/*.stl
           if-no-files-found: error
           retention-days: 14
-
-      - name: Refresh PR 164 canonical meshes
-        if: github.event_name == 'pull_request' && github.head_ref == 'fix/issue-163-backplane-physical-fit'
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp build/enclosure-stls/*.stl hardware/enclosure/stl/
-          if git diff --quiet -- hardware/enclosure/stl; then
-            echo "Canonical STLs already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add hardware/enclosure/stl
-          git commit -m "Regenerate rear guardrail docking STLs [skip ci]"
-          git push origin HEAD:${{ github.head_ref }}
 
       - name: Verify checked-in canonical STLs are current
         run: python hardware/enclosure/scripts/verify_canonical_stls.py
