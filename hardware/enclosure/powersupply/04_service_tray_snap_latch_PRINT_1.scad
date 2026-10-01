@@ -1,3 +1,4 @@
 // Printable replaceable cantilever latch for the selected PSU service tray.
-render_part = "latch";
-include <01_service_tray_snap_latch.scad>;
+include <service_tray_snap_latch_common.scad>;
+
+replaceable_snap_latch();
