@@ -857,20 +857,23 @@ def main() -> None:
         )
 
         # Guard the equipment cavity against a rail/lip creeping back into the
-        # lower usable volume. Hinge hardware intentionally occupies the first
-        # ~30 mm above the floor, so the keep-out starts above that mechanism.
+        # usable volume ABOVE the hinge mechanism. The hinge/panel was raised
+        # by 20 mm, so the former fixed Y=36 keep-out now legitimately crosses
+        # the raised hinge guard/supports. Start dynamically above the barrel
+        # envelope instead; the enlarged base and guide reinforcements below
+        # that line are intentional structure.
         assert_empty_intersection(
             work_dir,
             "lower_equipment_volume_clear",
             """    hinged_equipment_base();
     translate([
         service_x+5,
-        36,
+        hinge_axis_y+hinge_radius+2,
         enclosure_front_z+5
     ])
         cube([
             service_w-10,
-            backplane_ramp_start_y-38,
+            backplane_ramp_start_y-(hinge_axis_y+hinge_radius+4),
             equipment_backplane_front_z-enclosure_front_z-10
         ]);""",
         )
