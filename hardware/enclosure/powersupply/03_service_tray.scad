@@ -36,7 +36,7 @@ assert(
 module tray_plate() {
     difference() {
         rounded_plate(w=tray_w, h=tray_h, t=tray_t, r=2.5);
-        // Optional PSU screw pilots; keep them editable in the common file.
+        // PSU screw pilots pass through both tray and raised support bosses.
         for (pt = psu_rear_mount_points)
             translate([pt[0], pt[1], -0.2])
                 cylinder(d=psu_mount_pilot_d, h=tray_t+0.4);
@@ -45,6 +45,11 @@ module tray_plate() {
     // Integral airflow rails on the removable tray.
     translate([0,0,tray_t-plate_t])
         integrated_support_rails(length=psu_h-14);
+
+    // The two PSU fixing points are raised by the same 2 mm as the support
+    // rails, so the PSU sits on one common plane instead of bridging between
+    // rails and lower screw locations.
+    raised_psu_mount_bosses(base_z=tray_t, h=support_gap);
 
     // Rear stop at +X, leaving the left side open for insertion/service.
     translate([
