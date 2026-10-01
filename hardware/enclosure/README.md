@@ -161,14 +161,18 @@ designed around side-on vertical printing:
   only**, leaving the slide-facing surface unchanged; the taper follows X so
   the side-on print does not introduce an abrupt floating shelf;
 - main equipment zone: **54 mm clear depth**;
-- full-depth vertical region: **84 mm high**, preserving 4 mm total clearance
-  around the PSU's 80 mm dimension;
-- return ramp: **12 mm high**, repeated identically across X;
+- structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
+  top to the return ramp;
+- the reinforced lower shoulder occupies the first **8 mm**, leaving **84 mm
+  of genuinely usable full-depth height above it**: 80 mm PSU height + 4 mm
+  total vertical clearance;
+- return ramp: **4 mm high**, repeated identically across X;
 - final upper wall: **11.5 mm high**, flat and parallel to the LED panel;
 - stationary enclosure top: **148 mm**, matching the front-panel height;
-- ventilation: **three rows** of seven **24 mm × 1 mm rounded horizontal slots** on the reinforced lower transition and
-  **four rows** of seven matching slots on the longer upper return ramp;
-- the long full-depth rear wall remains solid for the M3 boss grid;
+- ventilation: **three rows** of seven **24 mm × 1 mm rounded horizontal slots**
+  on the reinforced lower transition plus **four rows** of seven matching slots
+  in a dedicated **12 mm upper rear-wall band** below the return ramp;
+- the remaining full-depth rear wall stays solid for the M3 boss grid;
 - lower insertion wall and final 11.5 mm top wall remain solid;
 - rear cable/ribbon slots remain absent;
 - three closure-hole X positions: **7.9 / 128.0 / 248.1 mm**;
@@ -190,11 +194,12 @@ release slot still extends 15 mm into the ramp so the removable backplane can
 lift past an end plate without bringing solid connector geometry into the clamp
 clearance zone.
 
-The full-depth **rear wall** carries the accessory mounting grid and remains
-solid except for the blind boss holes on its inside face. Ventilation is moved
-off that mounting surface: horizontal slots are cut through the lower transition
-shoulder and upper return ramp. The lower insertion section and final 11.5 mm flat
-upper wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
+The full-depth **rear wall** carries the accessory mounting grid. It remains
+solid around that grid except for the blind boss holes and the dedicated 12 mm
+upper ventilation band, which is kept above the highest boss row. Additional
+horizontal slots are cut through the reinforced lower transition shoulder. The
+short 4 mm return ramp, lower insertion section and final 11.5 mm flat upper
+wall remain solid. Rear cable/ribbon through-slots remain intentionally absent.
 
 In a joined row, side pieces are installed only at the two outside edges;
 neighboring guide-tower pin/socket features mate across internal seams.
@@ -291,9 +296,10 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    towers prevent lateral movement. Inspect all three tapered rear reinforcement
    ribs and confirm the slide-facing surface remains flat/unmodified.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
-   width, all three narrow rounded vent rows are clean on the reinforced lower
-   transition, all four rounded vent rows are clean on the upper return ramp,
-   and the long rear wall remains solid for the boss grid.
+   width and **84 mm clear height above the reinforced shoulder** (80 mm PSU +
+   4 mm clearance). Confirm all three narrow rounded vent rows are clean on the
+   reinforced lower transition and all four rounded rows are clean in the upper
+   rear-wall band without touching the boss grid.
    Confirm the final 11.5 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
