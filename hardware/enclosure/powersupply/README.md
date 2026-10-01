@@ -102,7 +102,7 @@ The enclosure-side attachment has now been reviewed for the remaining designs.
 | Option | Enclosure attachment | PSU retention | Current status |
 | --- | --- | --- | --- |
 | 1 - Adapter plate | Six registered boss pockets + six visible M3 fixing recesses | Two raised PSU screw bosses level with support bars | **Reference design; final PSU hole coordinates still need measurement** |
-| 3 - Service tray | Fixed dock has six retained screw lands; removable tray is captured in dock channels | Two raised PSU screw bosses level with support bars; tray retained by external washer lock | **Selected direction; final PSU hole coordinates still need measurement** |
+| 3 - Service tray | Fixed dock has six retained screw lands; removable tray is captured in dock channels | Two raised PSU screw bosses level with support bars; tray retained by removable side-entry M3 lock screw | **Selected direction; final PSU hole coordinates still need measurement** |
 
 The service-tray dock retains two full-height fixing spines around X=+/-48, so
 all six M3 enclosure fixing holes remain visible and connected to the dock
@@ -112,6 +112,18 @@ The two PSU mounting points on the removable tray are now **raised by the same
 2 mm as the airflow/support bars**. Their top faces and the bars therefore form
 one common support plane; tightening the PSU screws will no longer pull the PSU
 down below the rails.
+
+The service-tray lock no longer uses an insertion-edge boss. The +Y channel
+wall carries an **external** lock boss, outside the tray envelope. With the M3
+lock screw removed, the tray path is completely unobstructed. Push the tray
+fully home against the +X stop, then insert the M3 screw sideways through the
+dock wall into the reinforced clearance hole in the tray. Remove that screw
+before pulling the tray out for service.
+
+The current side-lock boss uses a 2.8 mm tapping pilot for prototype testing.
+If repeated servicing shows that plastic threads wear too quickly, that external
+boss can be dimensioned for a brass M3 heat-set insert once the actual insert
+dimensions are known.
 
 The direct-slide cradle and hybrid have been removed from the branch.
 
