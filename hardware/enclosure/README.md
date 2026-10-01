@@ -126,6 +126,14 @@ base** plus two structural side guides. The centre groove is 2 mm deep with
 the backplane is stepped inward by 5 mm per side plus 0.6 mm running clearance;
 above the guide towers it returns to the normal full width.
 
+**Base/backplane compatibility:** the 40 mm guide height and 40 mm narrowed
+backplane foot are a matched interface. A backplane built to this geometry will
+not fully seat in the earlier 50 mm-guide base: its full-width shoulder contacts
+the final ~10 mm of the old towers before the lower edge reaches the 2 mm rear
+seat, leaving the assembly standing roughly 10 mm high. When adopting this
+revision, print/use the matching `02_hinged_equipment_base_PRINT_1` and
+`03_universal_equipment_backplane_PRINT_1` together.
+
 The guide towers are deliberately thickened toward the **inside** of the
 enclosure. Their self-mating pin/socket junctions are carried on that interior
 structure, so module-to-module and end-panel connections are hidden from the
@@ -258,7 +266,7 @@ fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
 at 0, 15, 30, 45, 60, 75 and 90°. It also checks the rear-groove location,
 the 54 mm universal deep zone, the **constant X profile and horizontal vents**,
-the final 10 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
+the final 11.5 mm flat top wall, the three-screw top closure, capped hollow rail sleeves, lower usable
 equipment volume, and neighboring-module clearance.
 
 During design/iteration, Windsor Slicer can be invoked explicitly using the repository-root
@@ -272,7 +280,7 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    rotate freely from 0–90° while the equipment base stays fixed.
 3. Confirm the stationary lower guard and rearward hinge support webs never touch the moving panel.
 4. Print one universal backplane and verify the narrowed lower 40 mm slides
-   between both 5 mm guide towers with 0.4 mm running clearance, then seats
+   between both 5 mm guide towers with 0.6 mm running clearance, then seats
    2 mm into the rear groove and removes upward.
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement.
@@ -280,7 +288,7 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
    width, all three narrow rounded vent rows are clean on the reinforced lower
    transition, all four rounded vent rows are clean on the upper return ramp,
    and the long rear wall remains solid for the boss grid.
-   Confirm the final 10 mm wall is flat/parallel to the panel with all three
+   Confirm the final 11.5 mm wall is flat/parallel to the panel with all three
    top-row closure holes aligned and there are still no rear cable/ribbon slots.
 7. Print both side pieces and verify the hidden pin/socket engagement, solid
    exterior faces, profile alignment, and that each capped rod retainer remains
@@ -302,7 +310,7 @@ under-ramp support forest.
 
 The lower insertion tongue is intentionally narrower than the main shell so it
 can slide into the base U-channels. With the left end on the bed, that tongue
-starts about **1.6 mm above the bed**. The manufacturing wrapper therefore adds
+starts about **1.8 mm above the bed**. The manufacturing wrapper therefore adds
 one **1.0 mm-thick breakaway strip** under the tongue, extending through the
 guide-height section and overlapping the tongue by **0.4 mm**. It is the only
 print-only support geometry.
