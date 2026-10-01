@@ -47,7 +47,12 @@ hinge_rail_end_x = hinge_rail_start_x + hinge_rail_length;
 side_rod_sleeve_outer_d = hinge_outer_d;
 side_rod_sleeve_bore_d = hinge_bore_d;
 
-ground_clearance = 20;
+// Raise the complete installed moving leaf/hinge 20 mm above the previous
+// 20 mm baseline. The print wrapper subtracts this installation offset, so the
+// moving panel/template STL itself remains unchanged.
+baseline_ground_clearance = 20;
+hinge_install_lift = 20;
+ground_clearance = baseline_ground_clearance + hinge_install_lift;
 hinge_axis_y = ground_clearance; // hinge centreline matches the moving panel's lower edge
 
 moving_plate_t = 2;
@@ -239,9 +244,20 @@ junction_pad_h = 16;
 backplane_slot_front_z = equipment_backplane_front_z - backplane_guide_clearance;
 backplane_slot_back_z = equipment_backplane_rear_z + backplane_guide_clearance;
 base_rear_z = backplane_slot_back_z + backplane_guide_t;
-base_floor_front_z = service_front_z;
+// Take advantage of the extra 20 mm installed hinge height to extend the
+// stationary base floor 20 mm toward the front without entering the moving
+// panel's 0-90 degree service sweep.
+base_front_extension = 20;
+base_floor_front_z = service_front_z - base_front_extension;
 base_floor_rear_z = base_rear_z;
-base_panel_clearance_y = ground_clearance-hinge_axis_z;
+
+// The old 20 mm hinge height needed a local front-floor relief for the open
+// panel. At the raised 40 mm hinge height that relief no longer reaches the
+// structural floor, so clamp it to the rear-seat edge and keep a full floor.
+base_panel_clearance_y = min(
+    base_seat_y,
+    ground_clearance-hinge_axis_z
+);
 base_panel_clearance_z = hinge_axis_z+moving_plate_t+0.5;
 
 side_guide_slot_front_z = backplane_slot_front_z;
@@ -298,10 +314,11 @@ universal_deep_y0 = side_guide_y1;
 universal_psu_h = 80;
 universal_psu_vertical_clearance = 4;
 
-// Keep the real panel screw line unchanged and preserve the 11.5 mm flat
-// closure wall. The return ramp uses whatever space remains after guaranteeing
-// 80 mm PSU height plus 4 mm vertical clearance ABOVE the 8 mm shoulder.
-universal_top_flat_h = 11.5;
+// Keep the lower PSU/ramp geometry unchanged when the moving panel is raised.
+// The extra 20 mm is absorbed entirely by the shallow upper closure wall, so
+// the 4 mm return ramp and the 84 mm usable PSU envelope stay exactly where
+// they were while the top closure holes follow the lifted panel.
+universal_top_flat_h = 11.5 + hinge_install_lift;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
 universal_deep_y1 =
     universal_deep_y0 +
@@ -528,7 +545,8 @@ hinge_support_landing_h = 2.0;
 // Continue the hinge load path down into the structural base floor. The anchor
 // is fully embedded in the remaining floor behind the 90-degree sweep relief.
 hinge_support_base_y = service_base_y;
-hinge_support_base_h = base_panel_clearance_y-service_base_y;
+hinge_support_base_h =
+    min(base_seat_y,base_panel_clearance_y)-service_base_y;
 hinge_support_base_z = hinge_guard_front_z;
 hinge_support_base_t = hinge_guard_t;
 
@@ -657,11 +675,11 @@ module base_structural_body() {
     difference() {
         union() {
             // Low unobstructed structural floor.
-            translate([service_x,service_base_y,service_front_z])
+            translate([service_x,service_base_y,base_floor_front_z])
                 cube([
                     service_w,
                     base_seat_y-service_base_y,
-                    base_rear_z-service_front_z
+                    base_floor_rear_z-base_floor_front_z
                 ]);
 
             stationary_hinge_supports();
@@ -692,16 +710,17 @@ module base_structural_body() {
         // The centred bottom-edge hinge brings the open panel's lower band to
         // base_panel_clearance_y. Relieve the front floor lip below the hinge
         // depth while keeping the backplane seat and guide towers intact.
-        translate([
-            service_x-0.1,
-            base_panel_clearance_y,
-            base_floor_front_z-0.1
-        ])
-            cube([
-                service_w+0.2,
-                base_seat_y-base_panel_clearance_y+0.2,
-                base_panel_clearance_z-base_floor_front_z+0.2
-            ]);
+        if (base_panel_clearance_y < base_seat_y-0.01)
+            translate([
+                service_x-0.1,
+                base_panel_clearance_y,
+                base_floor_front_z-0.1
+            ])
+                cube([
+                    service_w+0.2,
+                    base_seat_y-base_panel_clearance_y+0.2,
+                    base_panel_clearance_z-base_floor_front_z+0.2
+                ]);
     }
 }
 
