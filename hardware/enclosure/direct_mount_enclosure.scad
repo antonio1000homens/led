@@ -550,6 +550,17 @@ hinge_support_base_h =
 hinge_support_base_z = hinge_guard_front_z;
 hinge_support_base_t = hinge_guard_t;
 
+// Reinforce each removable-backplane U-channel without changing the slot itself.
+// At the front, extend the existing 16 mm-high hidden-junction support forward
+// until it overlaps the stationary hinge plate/guard. At the rear, add a side-
+// view triangular buttress: 10 mm extra depth at the rail base tapering back to
+// the native rail rear face at the top of the 40 mm guide.
+side_guide_front_tie_z0 = hinge_guard_front_z;
+side_guide_front_tie_h = junction_pad_h;
+side_guide_rear_buttress_depth = 10;
+side_guide_rear_buttress_slice_h = 1.0;
+side_guide_rear_buttress_overlap = 0.4;
+
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
         rail_hinge_barrel(segment[0],segment[1]);
@@ -668,6 +679,50 @@ module side_guide_channel(side="left") {
                 junction_pad_h,
                 side_guide_front_z-junction_pad_front_z+0.2
             ]);
+
+        // Continue that same 16 mm-high support surface forward until it ties
+        // directly into the stationary hinge plate/guard. This turns the guide
+        // root and hinge plate into one continuous side load path instead of
+        // leaving the junction pad cantilevered behind the hinge structure.
+        translate([
+            x0,
+            side_guide_y0,
+            side_guide_front_tie_z0
+        ])
+            cube([
+                side_guide_w,
+                side_guide_front_tie_h,
+                junction_pad_front_z-side_guide_front_tie_z0+0.2
+            ]);
+
+        // Rearward 10 mm triangular gusset in side view. The lower rail root
+        // receives the full extra depth while the gusset tapers to the native
+        // rear face at the guide top. The U-channel slot dimensions are
+        // untouched because all added material is behind side_guide_rear_z.
+        hull() {
+            translate([
+                x0,
+                side_guide_y0,
+                side_guide_rear_z-side_guide_rear_buttress_overlap
+            ])
+                cube([
+                    side_guide_w,
+                    side_guide_rear_buttress_slice_h,
+                    side_guide_rear_buttress_depth+
+                        side_guide_rear_buttress_overlap
+                ]);
+
+            translate([
+                x0,
+                side_guide_y1-side_guide_rear_buttress_slice_h,
+                side_guide_rear_z-side_guide_rear_buttress_overlap
+            ])
+                cube([
+                    side_guide_w,
+                    side_guide_rear_buttress_slice_h,
+                    side_guide_rear_buttress_overlap
+                ]);
+        }
     }
 }
 
