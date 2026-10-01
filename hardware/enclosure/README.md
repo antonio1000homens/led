@@ -100,10 +100,9 @@ than only its clearance numbers:
 - closed moving-template back to barrel clearance: **7 mm**
 - moving panel/template knuckles: **34–60, 92–118, 166–194 mm**
 - stationary equipment knuckles: **62–90, 136–164, 196–220 mm**
-- moving template uses **local hinge roots only**, with no full-width lower lip;
-  each moving knuckle now spreads through a triangular gusset across the full
-  **20 mm lower panel band**, distributing the 90° service load into the panel
-  rather than concentrating it in the former ~7 mm root
+- moving template uses the existing **local hinge roots only**, with no
+  full-width lower lip; the moving/front-panel geometry is intentionally
+  unchanged and remains outside this reinforcement change
 - stationary hinge roots use **rearward-sloping webs that terminate at the hinge shelf**
 - each stationary root has a **3 mm local pad** joining its barrel to the web
 - a **2 mm full-width stationary lower hinge guard** sits behind the barrel with
@@ -116,8 +115,8 @@ base floor to extend **20 mm farther toward the front** without entering the
 0–90° moving-panel sweep. That front extension now carries a shallow triangular
 reinforcement ramp: **20 mm run × 6 mm rise**, climbing from the new front edge
 to the original front line while staying well below the open panel. The moving
-template's overall printable envelope remains unchanged; its print wrapper
-removes the 40 mm installation offset.
+template/front-panel geometry is unchanged; its print wrapper removes the
+40 mm installation offset.
 
 The 6 mm hinge rail is defined from **X=10 mm to X=246 mm**. Each detachable
 outer side now carries a hinge-style rod support with the same **14 mm OD** and
