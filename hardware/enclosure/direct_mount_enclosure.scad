@@ -102,11 +102,6 @@ module rail_hinge_barrel(x0, len, axis_z=hinge_axis_z) {
 panel_band_h = 20;
 panel_side_w = 8;
 
-// Spread each moving hinge knuckle into the complete lower mounting band.
-// The panel's screw/locator X positions sit outside the moving knuckle spans,
-// so this broad triangular root can use the full 20 mm band without obscuring
-// any mounting holes.
-moving_hinge_panel_gusset_h = panel_band_h;
 
 module panel_mount_pattern_template() {
     difference() {
@@ -132,13 +127,11 @@ module panel_mount_pattern_template() {
 }
 
 module moving_panel_root(x0,len) {
-    // Keep the reinforcement local to each moving knuckle, but spread the
-    // barrel load across the full 20 mm lower panel band. In side view this is
-    // a broad triangular gusset from the hinge barrel into the panel/template
-    // rather than the old narrow ~7 mm attachment.
+    // PR #119: local reinforcement only. The moving leaf deliberately has no
+    // full-width lower hinge lip that could collide with the stationary base.
     hull() {
         translate([x0,ground_clearance,0])
-            cube([len,moving_hinge_panel_gusset_h,moving_plate_t]);
+            cube([len,7,moving_plate_t]);
 
         translate([x0,hinge_axis_y,hinge_axis_z])
             rotate([0,90,0])
