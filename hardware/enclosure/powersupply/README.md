@@ -43,9 +43,8 @@ Initial latch geometry:
 - arm length: **30 mm**
 - arm width: **8 mm**
 - arm thickness: **1.6 mm**
-- hook reach: **4 mm through the dock wall**
+- hook reach from external latch base: **6.5 mm**, giving about **1.8 mm** effective engagement into the tray notch
 - tray notch depth: **2.6 mm**
-- effective hook/notch engagement: approximately **2 mm**
 
 The hard stop takes insertion load; the latch only resists withdrawal.
 
