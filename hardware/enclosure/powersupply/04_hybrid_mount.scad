@@ -3,9 +3,9 @@
 // Preferred prototype:
 // - screws to the current six-boss enclosure boss grid;
 // - integral support rails provide an airflow gap;
-// - two configurable locating pins use the PSU's rear/bottom mounting holes;
-// - low corner guides constrain the envelope;
-// - one accessible M3 stop screw provides positive anti-slide retention.
+// - side capture rails provide positive vertical/lateral retention;
+// - two configurable locating pins can additionally use the PSU's rear/bottom holes;
+// - one accessible M3 screw + 8 mm washer provides positive anti-slide retention.
 //
 // The locating-pin coordinates are placeholders until the real PSU is measured.
 
@@ -17,13 +17,19 @@ module hybrid_mount() {
     union() {
         base_adapter_plate();
         integrated_support_rails();
+        side_capture_rails(open_side=insertion_side);
         locating_pins();
-        corner_locators(h=4.5, arm=8);
 
-        lock_x = insertion_side == "left"
-            ? -psu_w/2 - psu_xy_clearance - 4
-            :  psu_w/2 + psu_xy_clearance + 4;
-        screw_stop_boss(lock_x, 0, h=5.5);
+        lock_offset =
+            psu_w/2 + psu_xy_clearance + lock_boss_d/2 + lock_edge_clearance;
+        lock_x = insertion_side == "left" ? -lock_offset : lock_offset;
+
+        assert(
+            lock_washer_d/2 > lock_boss_d/2 + lock_edge_clearance,
+            "Hybrid lock washer does not overlap the PSU edge"
+        );
+
+        screw_stop_boss(lock_x, 0, h=5.5, d=lock_boss_d);
     }
 }
 
