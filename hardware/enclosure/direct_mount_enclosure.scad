@@ -290,17 +290,26 @@ universal_full_x1 = universal_deep_x1;
 universal_full_w = universal_deep_w;
 
 // The full-depth equipment zone begins immediately above the guide section.
-// Keep at least 80 mm of vertical mounting height for the measured PSU, then
-// return to the shallow closure wall near the top. Because X is the print
-// vertical axis, this Y/Z return profile is repeated identically on every
-// structural layer and no under-ramp print supports are required.
+// The reinforced 8 mm shoulder now consumes part of that nominal height, so
+// size the rear wall from the ACTUAL clear PSU envelope above the shoulder
+// rather than from the guide height alone. This prevents the shorter 40 mm
+// guides from pulling the upper taper down into the measured 80 mm PSU.
 universal_deep_y0 = side_guide_y1;
-// Keep the real panel screw line unchanged, but move the return-ramp bend
-// 1.5 mm farther away from the holes and lengthen the ramp substantially.
+universal_psu_h = 80;
+universal_psu_vertical_clearance = 4;
+
+// Keep the real panel screw line unchanged and preserve the 11.5 mm flat
+// closure wall. The return ramp uses whatever space remains after guaranteeing
+// 80 mm PSU height plus 4 mm vertical clearance ABOVE the 8 mm shoulder.
 universal_top_flat_h = 11.5;
 universal_deep_ramp_end_y = enclosure_top_y-universal_top_flat_h;
-universal_return_ramp_h = 12;
-universal_deep_y1 = universal_deep_ramp_end_y-universal_return_ramp_h;
+universal_deep_y1 =
+    universal_deep_y0 +
+    universal_guide_shoulder_t +
+    universal_psu_h +
+    universal_psu_vertical_clearance;
+universal_return_ramp_h =
+    universal_deep_ramp_end_y-universal_deep_y1;
 
 universal_deep_rear_z =
     enclosure_front_z + universal_deep_clear_depth + universal_deep_wall_t;
@@ -351,22 +360,24 @@ bottom_ramp_vent_y = [
         row*(vent_slot_y_h+bottom_ramp_vent_row_gap)
 ];
 
-// Four ventilation rows across the 12 mm upper return ramp: retain 1.5 mm
-// solid margins at both ends and distribute the remaining material evenly
-// between rows. This adds three rows without turning the return into one large
-// finger-accessible opening.
-top_ramp_vent_rows = 4;
-top_ramp_vent_margin_y = 1.5;
-top_ramp_vent_row_gap =
-    (universal_return_ramp_h -
-     2*top_ramp_vent_margin_y -
-     top_ramp_vent_rows*vent_slot_y_h) /
-    (top_ramp_vent_rows-1);
-top_ramp_vent_y = [
-    for (row=[0:top_ramp_vent_rows-1])
-        universal_deep_y1 +
-        top_ramp_vent_margin_y +
-        row*(vent_slot_y_h+top_ramp_vent_row_gap)
+// Keep four finger-safe ventilation rows at the top, but place them in a
+// dedicated 12 mm band on the upper FULL-DEPTH rear wall instead of forcing
+// the return ramp to consume PSU height. The vertical rear wall preserves the
+// true 1 mm slot throat and remains clear of the highest accessory-boss row.
+top_rear_vent_rows = 4;
+top_rear_vent_band_h = 12;
+top_rear_vent_margin_y = 1.5;
+top_rear_vent_y0 = universal_deep_y1-top_rear_vent_band_h;
+top_rear_vent_row_gap =
+    (top_rear_vent_band_h -
+     2*top_rear_vent_margin_y -
+     top_rear_vent_rows*vent_slot_y_h) /
+    (top_rear_vent_rows-1);
+top_rear_vent_y = [
+    for (row=[0:top_rear_vent_rows-1])
+        top_rear_vent_y0 +
+        top_rear_vent_margin_y +
+        row*(vent_slot_y_h+top_rear_vent_row_gap)
 ];
 
 // Self-mating side alignment. Each edge carries one pin and one socket.
@@ -1088,15 +1099,15 @@ module horizontal_rounded_vent_cutter(x0,y0) {
 }
 
 module ramp_ventilation_cutters() {
-    // Three rows of seven narrow rounded slots now cross the reinforced lower
-    // shoulder, while the upper return carries four matching rows. Both areas
-    // keep deliberate solid lands between rows; the rear boss wall and final
-    // closure wall remain unperforated.
+    // Three rows of seven narrow rounded slots cross the reinforced lower
+    // shoulder. Four matching rows sit in the dedicated upper rear-wall vent
+    // band, above the boss grid and below the short return ramp. The remainder
+    // of the rear mounting wall and final closure wall stay unperforated.
     for (i=[0:vent_slot_count-1]) {
         xx = vent_slot_x0 + i*(vent_slot_len+vent_slot_gap);
         for (yy=bottom_ramp_vent_y)
             horizontal_rounded_vent_cutter(xx,yy);
-        for (yy=top_ramp_vent_y)
+        for (yy=top_rear_vent_y)
             horizontal_rounded_vent_cutter(xx,yy);
     }
 }
