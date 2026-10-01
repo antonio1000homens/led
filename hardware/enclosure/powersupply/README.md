@@ -89,20 +89,18 @@ tray.
 
 | File | Concept | Purpose |
 | --- | --- | --- |
-| `01_adapter_plate.scad` | Simple fixed adapter | Geometry/reference baseline |
 | `03_service_tray.scad` | Fixed dock + removable PSU tray | **Selected design direction** |
 | `05_backplane_fit_preview.scad` | Adapter against current six-boss backplane interface | Verify enclosure-side boss alignment |
 | `06_boss_heatset_insert_test.scad` | Exact single-boss coupon | Test a real brass M3 heat-set insert safely |
 | `07_service_tray_snap_latch.scad` | Service tray + replaceable cantilever latch | **Alternative tool-free service lock for visual/physical testing** |
-| `00_compare_options.scad` | Adapter + screw-lock tray + snap-latch tray | Visual comparison |
+| `00_compare_options.scad` | Screw-lock tray + snap-latch tray | Visual comparison |
 
 ## Completeness audit
 
-The enclosure-side attachment has now been reviewed for the remaining designs.
+The enclosure-side attachment has now been reviewed for the remaining service-tray designs.
 
 | Option | Enclosure attachment | PSU retention | Current status |
 | --- | --- | --- | --- |
-| 1 - Adapter plate | Six registered boss pockets + six visible M3 fixing recesses | Two raised PSU screw bosses level with support bars | **Reference design; final PSU hole coordinates still need measurement** |
 | 3 - Service tray | Fixed dock has six retained screw lands; removable tray is captured in dock channels | Two raised PSU screw bosses level with support bars; tray retained by removable side-entry M3 lock screw | **Selected direction; final PSU hole coordinates still need measurement** |
 
 The service-tray dock retains two full-height fixing spines around X=+/-48, so
@@ -158,7 +156,6 @@ Verify:
 From this directory:
 
 ```bash
-openscad -o /tmp/psu-adapter.stl 01_adapter_plate.scad
 openscad -o /tmp/psu-service-tray.stl 03_service_tray.scad
 openscad -o /tmp/psu-fit-preview.stl 05_backplane_fit_preview.scad
 openscad -o /tmp/psu-boss-test.stl 06_boss_heatset_insert_test.scad
