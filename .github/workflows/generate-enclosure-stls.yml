@@ -95,6 +95,11 @@ jobs:
           openscad -o build/enclosure-stls/07_psu_service_tray_snap_tray_PRINT_1.stl \
             hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
 
+      - name: Generate MatrixPortal adapter STL output
+        run: |
+          openscad -o build/enclosure-stls/08_matrixportal_adapter_PRINT_1.stl \
+            hardware/enclosure/matrixportal/01_matrixportal_adapter_PRINT_1.scad
+
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -105,6 +110,9 @@ jobs:
 
       - name: Validate PSU dock interface and flexure geometry
         run: python hardware/enclosure/scripts/validate_psu_adapter.py --generated-dir build/enclosure-stls
+
+      - name: Validate MatrixPortal adapter geometry
+        run: python hardware/enclosure/scripts/validate_matrixportal_adapter.py --generated-dir build/enclosure-stls
 
       - name: Verify checked-in canonical STLs are current
         run: python hardware/enclosure/scripts/verify_canonical_stls.py

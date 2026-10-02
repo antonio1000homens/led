@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DIRECT = ROOT / "hardware/enclosure"
+MATRIXPORTAL = DIRECT / "matrixportal"
 STL_DIR = DIRECT / "stl"
 
 OUTPUTS = (
@@ -39,6 +40,10 @@ OUTPUTS = (
     (
         DIRECT / "powersupply/03_service_tray_snap_tray_PRINT_1.scad",
         "07_psu_service_tray_snap_tray_PRINT_1.stl",
+    ),
+    (
+        MATRIXPORTAL / "01_matrixportal_adapter_PRINT_1.scad",
+        "08_matrixportal_adapter_PRINT_1.stl",
     ),
 )
 

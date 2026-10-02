@@ -14,6 +14,7 @@ import trimesh
 ROOT = Path(__file__).resolve().parents[3]
 PARTS_DIR = ROOT / "hardware/enclosure/parts"
 PSU_DIR = ROOT / "hardware/enclosure/powersupply"
+MATRIXPORTAL_DIR = ROOT / "hardware/enclosure/matrixportal"
 CANONICAL_DIR = ROOT / "hardware/enclosure/stl"
 GENERATED_DIR = ROOT / "build/enclosure-stls"
 
@@ -36,6 +37,8 @@ SOURCE_BY_STL = {
         PSU_DIR / "02_service_tray_snap_dock_PRINT_1.scad",
     "07_psu_service_tray_snap_tray_PRINT_1.stl":
         PSU_DIR / "03_service_tray_snap_tray_PRINT_1.scad",
+    "08_matrixportal_adapter_PRINT_1.stl":
+        MATRIXPORTAL_DIR / "01_matrixportal_adapter_PRINT_1.scad",
 }
 
 

@@ -24,6 +24,8 @@ Canonical pairs:
   → `06_psu_service_tray_snap_dock_PRINT_1.stl`
 - `../powersupply/03_service_tray_snap_tray_PRINT_1.scad`
   → `07_psu_service_tray_snap_tray_PRINT_1.stl`
+- `../matrixportal/01_matrixportal_adapter_PRINT_1.scad`
+  → `08_matrixportal_adapter_PRINT_1.stl`
 
 ## Development workflow
 
@@ -49,7 +51,7 @@ outputs.
 
 ## Pull-request validation
 
-GitHub Actions regenerates all **eight** canonical STLs with OpenSCAD and runs
+GitHub Actions regenerates all **nine** canonical STLs with OpenSCAD and runs
 the normal mechanical/geometry checks. The regenerated meshes are also uploaded
 as a downloadable workflow artifact.
 
