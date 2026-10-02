@@ -753,18 +753,42 @@ module rear_guardrail() {
             rear_guardrail_shelf_rear_z-rear_guardrail_shelf_front_z
         ]);
 
-    // Three narrow upright tabs rise into the printable centre portion of each
-    // rib slot. They sit 0.6 mm behind the sliding tongue and retain 0.6 mm
-    // clearance to the rear rib wall.
-    tab_w = transition_rib_channel_flat_w - 2*side_guide_clearance;
+    // Continue the left/right side-guide rear lips inward until each reaches
+    // the nearest outer rib tab. These remain behind the 0.6 mm tongue running
+    // clearance, so they strengthen the base without narrowing the slide path.
+    translate([
+        rear_guardrail_left_x0,
+        rear_guardrail_y0,
+        rear_guardrail_lip_front_z
+    ])
+        cube([
+            rear_guardrail_left_x1-rear_guardrail_left_x0,
+            rear_guardrail_y1-rear_guardrail_y0,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+        ]);
+
+    translate([
+        rear_guardrail_right_x0,
+        rear_guardrail_y0,
+        rear_guardrail_lip_front_z
+    ])
+        cube([
+            rear_guardrail_right_x1-rear_guardrail_right_x0,
+            rear_guardrail_y1-rear_guardrail_y0,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+        ]);
+
+    // Three narrow upright tabs rise into the printable flat centre of each
+    // rib channel. The two outer tabs overlap the longer side rails by 0.4 mm;
+    // the centre tab remains isolated so the centre span stays open.
     for (xc=transition_rib_centres)
         translate([
-            xc-tab_w/2,
+            xc-rear_guardrail_tab_w/2,
             rear_guardrail_y0,
             rear_guardrail_lip_front_z
         ])
             cube([
-                tab_w,
+                rear_guardrail_tab_w,
                 rear_guardrail_y1-rear_guardrail_y0,
                 rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
             ]);
@@ -781,7 +805,7 @@ module base_structural_body() {
                     base_floor_rear_z-base_floor_front_z
                 ]);
 
-            rear_guardrail_shelf();
+            rear_guardrail();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
@@ -792,10 +816,6 @@ module base_structural_body() {
             side_guide_channel("right");
 
         }
-
-        // Clear the rear strip under each rib side wall before restoring the
-        // three centre guardrail tabs in the final base union.
-        rear_rib_seat_clearance_cutters();
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
         // Only a 2 mm-deep locating groove is removed; there is no internal
@@ -1263,6 +1283,53 @@ transition_rib_channel_rear_z =
     transition_rib_channel_front_z + transition_rib_channel_depth;
 transition_rib_channel_y1 = universal_deep_y0 + 0.8;
 
+// Below the guardrail/rib interface, continue only the REAR section of each
+// rib down to the removable backplane's lower edge. The foot begins behind the
+// complete guardrail channel, preserving the 0.6 mm clearance behind the
+// stationary rail and leaving the sliding tongue/2 mm seat path untouched.
+transition_rib_rear_foot_w = transition_rib_channel_flat_w;
+transition_rib_rear_foot_y0 = equipment_backplane_y0;
+transition_rib_rear_foot_overlap_y = 0.4;
+transition_rib_rear_foot_y1 =
+    transition_rib_y0 + transition_rib_rear_foot_overlap_y;
+transition_rib_rear_foot_front_z = transition_rib_channel_rear_z;
+transition_rib_rear_foot_rear_z = min(
+    rear_reinforcement_flush_z,
+    universal_deep_front_z
+);
+
+// Extend the two outer stationary guardrails from the side guides to the
+// nearest outer rib channel. Keep the middle span open; the existing three
+// rib tabs remain the only raised guardrail features through the centre.
+// A small overlap into each outer tab makes the side-to-rib load path manifold.
+rear_guardrail_tab_w =
+    transition_rib_channel_flat_w - 2*side_guide_clearance;
+rear_guardrail_join_overlap = 0.4;
+rear_guardrail_left_x0 = service_x;
+rear_guardrail_left_x1 =
+    transition_rib_centres[0] - rear_guardrail_tab_w/2
+    + rear_guardrail_join_overlap;
+rear_guardrail_right_x0 =
+    transition_rib_centres[2] + rear_guardrail_tab_w/2
+    - rear_guardrail_join_overlap;
+rear_guardrail_right_x1 = service_x + service_w;
+
+module transition_rear_rib_rear_foot(xc) {
+    // A central rear spine continues below the rail while the front/channel
+    // side remains absent. This reaches the backplane bottom without closing
+    // the guardrail slot or entering the tongue's recessed base seat.
+    translate([
+        xc-transition_rib_rear_foot_w/2,
+        transition_rib_rear_foot_y0,
+        transition_rib_rear_foot_front_z
+    ])
+        cube([
+            transition_rib_rear_foot_w,
+            transition_rib_rear_foot_y1-transition_rib_rear_foot_y0,
+            transition_rib_rear_foot_rear_z-transition_rib_rear_foot_front_z
+        ]);
+}
+
 module transition_rear_rib(xc) {
     z0 = equipment_backplane_rear_z - 0.3;
     z1 = min(
@@ -1273,6 +1340,8 @@ module transition_rear_rib(xc) {
     shallow_d = 0.8;
 
     union() {
+        transition_rear_rib_rear_foot(xc);
+
         hull() {
             translate([
                 xc-transition_rib_half_w,

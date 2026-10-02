@@ -156,8 +156,10 @@ changing the backplane slot:
 - the rear of the guide gains a **10 mm-deep triangular buttress at the base**,
   tapering back to the normal guide rear face at the top of the 40 mm rail;
 - a low **full-width rear shelf** extends the stationary base to the same rear
-  plane as those buttresses, while three narrow **1.2 mm-thick guardrail tabs**
-  rise behind the sliding tongue at X = 64 / 128 / 192 mm;
+  plane as those buttresses; the left and right **1.2 mm-thick upright
+  guardrails now continue from each side guide to the nearest outer rib**
+  (about 58.5 mm each), with a small overlap into the X=64 / 192 mm rib tabs;
+  the centre span stays open apart from the existing X=128 mm tab;
 - the **3 mm backplane slot and 0.6 mm running clearance remain unchanged**.
 
 The removable backplane/enclosure installs from directly above:
@@ -166,9 +168,10 @@ The removable backplane/enclosure installs from directly above:
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
 3. the 2 mm rear groove seats the sliding tongue independently. The three
-   guardrail tabs rise to **Y=5.1 mm**, while the rib lower edges start at the
-   same height; inside each rib channel the tongue keeps 0.6 mm clearance to
-   the tab and the tab keeps another 0.6 mm to the rear rib wall;
+   guardrail tabs and the tongue-side rib sections rise/start at **Y=5.1 mm**.
+   Behind each rail/channel, a **12 mm-wide rear rib foot** continues down to
+   the backplane bottom at **Y=2.5 mm**. The foot starts 0.6 mm behind the rail,
+   so the tongue-to-tab and tab-to-rib clearances remain open;
 4. the full-width shoulder above the guides then sits over the tower tops while
    the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.
@@ -182,14 +185,16 @@ designed around side-on vertical printing:
   **full service width** and keeps the same Y/Z profile across the complete
   256 mm X length;
 - the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
-  tapered ribs**, centred at X = **64 / 128 / 192 mm**; each rib is 24 mm wide
-  and extends down to **Y=5.1 mm**, 0.6 mm above the 4.5 mm base seat. The lowest
-  2.6 mm of the sliding tongue therefore remains rib-free and can enter the 2 mm
-  rear groove without any rib/base overlap. Behind the tongue, each rib contains
-  an **18 mm-wide shallow channel** with a 12 mm flat centre and 3 mm tapered
-  entries. The channel begins 0.6 mm behind the tongue and is 1.8 mm deep,
-  providing room for the 1.2 mm guardrail tab plus another 0.6 mm rear clearance.
-  The tapered entry keeps the side-on print support-free;
+  tapered ribs**, centred at X = **64 / 128 / 192 mm**. The 24 mm-wide
+  tongue-side/tapered rib still stops at **Y=5.1 mm**, 0.6 mm above the 4.5 mm
+  base seat. Behind the guardrail channel, however, a central **12 mm-wide rear
+  foot** continues down to the removable backplane bottom at **Y=2.5 mm**, with
+  0.4 mm vertical overlap into the upper rib. The foot begins at the channel's
+  rear face, which remains 0.6 mm behind the stationary rail. The lowest 2.6 mm
+  of the sliding-tongue/seat path therefore remains unobstructed. Each rib keeps
+  its **18 mm-wide shallow channel**, 12 mm flat centre, 3 mm tapered entries,
+  0.6 mm tongue clearance, 1.2 mm guardrail tab and 0.6 mm rear clearance. The
+  tapered entry keeps the side-on print support-free;
 - main equipment zone: **54 mm clear depth**;
 - structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
   top to the return ramp;
@@ -325,9 +330,12 @@ During design/iteration, Windsor Slicer can be invoked explicitly using the repo
 5. Verify the backplane returns to full width above the guide towers and the
    towers prevent lateral movement. Inspect all three tapered rear reinforcement
    ribs and confirm the **gap behind the sliding tongue is visibly present**.
-   Check that each 1.2 mm guardrail tab enters its rib channel freely, with
-   0.6 mm clearance to the tongue and 0.6 mm clearance to the rear rib wall,
-   while the slide-facing surface remains flat/unmodified.
+   Check that the left/right upright guardrails run continuously from the side
+   guides to the first outer rib on each side, and that all three 1.2 mm tabs
+   enter their rib channels freely with 0.6 mm clearance to the tongue and
+   0.6 mm clearance to the rear rib foot/wall. Confirm the 12 mm-wide rear foot
+   continues below each rail to Y=2.5 mm without closing the channel. The centre
+   span must remain open and the slide-facing surface must remain flat/unmodified.
 6. Verify the main equipment zone provides 54 mm clear depth across the usable
    width and **84 mm clear height above the reinforced shoulder** (80 mm PSU +
    4 mm clearance). Confirm all three narrow rounded vent rows are clean on the

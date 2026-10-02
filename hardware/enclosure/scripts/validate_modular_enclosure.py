@@ -429,6 +429,27 @@ assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
 assert(abs(rear_guardrail_lip_front_z-side_guide_slot_back_z) < 0.01 &&
        abs(rear_guardrail_lip_rear_z-side_guide_rear_z) < 0.01,
        "rear guardrail tabs must continue the side-guide rear lip");
+assert(abs(rear_guardrail_tab_w-
+           (transition_rib_channel_flat_w-2*side_guide_clearance)) < 0.01 &&
+       abs(rear_guardrail_join_overlap-0.4) < 0.01,
+       "rear guardrail tab width/join overlap drifted");
+assert(abs(rear_guardrail_left_x0-service_x) < 0.01 &&
+       abs(rear_guardrail_left_x1-
+           (transition_rib_centres[0]-rear_guardrail_tab_w/2+
+            rear_guardrail_join_overlap)) < 0.01 &&
+       rear_guardrail_left_x1-rear_guardrail_left_x0 >= 58,
+       "left outer guardrail must run from the side guide to the first rib");
+assert(abs(rear_guardrail_right_x1-(service_x+service_w)) < 0.01 &&
+       abs(rear_guardrail_right_x0-
+           (transition_rib_centres[2]+rear_guardrail_tab_w/2-
+            rear_guardrail_join_overlap)) < 0.01 &&
+       rear_guardrail_right_x1-rear_guardrail_right_x0 >= 58,
+       "right outer guardrail must run from the side guide to the first rib");
+assert(rear_guardrail_left_x1 <
+           transition_rib_centres[1]-rear_guardrail_tab_w/2 &&
+       rear_guardrail_right_x0 >
+           transition_rib_centres[1]+rear_guardrail_tab_w/2,
+       "outer guardrails must leave the centre span open");
 assert(abs(rear_guardrail_shelf_rear_z-rear_reinforcement_flush_z) < 0.01 &&
        rear_guardrail_shelf_top_y <= equipment_backplane_y0-0.19,
        "rear shelf must reach the flush plane while staying below the removable tongue");
@@ -448,6 +469,26 @@ assert(abs(transition_rib_channel_front_z-equipment_backplane_rear_z-
 assert(abs(transition_rib_channel_rear_z-rear_guardrail_lip_rear_z-
            side_guide_clearance) < 0.01,
        "guardrail tab must retain 0.6 mm clearance to the rear rib wall");
+assert(abs(transition_rib_rear_foot_w-transition_rib_channel_flat_w) < 0.01 &&
+       abs(transition_rib_rear_foot_y0-equipment_backplane_y0) < 0.01,
+       "rear rib foot must use the 12 mm centre and reach the backplane bottom");
+assert(abs(transition_rib_rear_foot_front_z-
+           transition_rib_channel_rear_z) < 0.01 &&
+       abs(transition_rib_rear_foot_front_z-
+           rear_guardrail_lip_rear_z-side_guide_clearance) < 0.01,
+       "rear rib foot must begin behind the complete guardrail slot/clearance");
+assert(transition_rib_rear_foot_y1 >=
+           transition_rib_y0+transition_rib_rear_foot_overlap_y-0.01 &&
+       transition_rib_rear_foot_overlap_y >= 0.4,
+       "rear rib foot must overlap the upper rib vertically");
+assert(abs(transition_rib_rear_foot_rear_z-
+           min(rear_reinforcement_flush_z,universal_deep_front_z)) < 0.01 &&
+       transition_rib_rear_foot_rear_z >
+           transition_rib_rear_foot_front_z,
+       "rear rib foot must reach the existing rear reinforcement plane");
+assert(rear_guardrail_shelf_top_y <=
+           transition_rib_rear_foot_y0-0.19,
+       "rear rib foot must stay above the stationary rear shelf");
 assert(transition_rib_channel_flat_w-
            2*side_guide_clearance >= 10,
        "guardrail tab lost useful width inside the rib channel");
@@ -746,6 +787,8 @@ def assert_no_legacy_layout() -> None:
             )
 
     for forbidden in (
+        "rear_guardrail_shelf();",
+        "rear_rib_seat_clearance_cutters();",
         "rear_support_foot_x",
         "rear_support_foot_rear_extension",
         "rear_support_feet()",
