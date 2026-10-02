@@ -235,12 +235,16 @@ def assert_empty_intersection(
     )
     diagnostic = f"{completed.stdout}\n{completed.stderr}"
     if completed.returncode == 0 and output.is_file():
-        # OpenSCAD can export a degenerate STL for exact coplanar contact.
-        # Treat only an intersection with measurable extent in all three axes
-        # as a real 3D collision. A zero-thickness face is contact, not volume.
+        # OpenSCAD can export degenerate STL shells at exact coplanar/circular
+        # contact. Require both measurable 3D extent and positive enclosed
+        # volume; a zero-volume shell around a cutter edge is not interference.
         contact = load_mesh(name, output)
         components = contact.split(only_watertight=False)
-        volumetric = [component for component in components if min(component.extents) > 0.01]
+        volumetric = [
+            component
+            for component in components
+            if min(component.extents) > 0.01 and abs(component.volume) > 1e-9
+        ]
         if volumetric:
             collision = max(volumetric, key=lambda component: component.volume)
             dims = collision.extents
