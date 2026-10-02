@@ -71,12 +71,6 @@ detent_anchor_link_y0 = detent_beam_free_len_y;
 detent_anchor_link_y1 = detent_beam_free_len_y+3.5;
 detent_anchor_link_z0 = plate_t;
 detent_anchor_link_z1 = tray_assembled_z+0.55;
-detent_print_tether_y0 = -0.1;
-detent_print_tether_y1 = detent_beam_free_len_y+0.1;
-detent_print_tether_x0 = detent_beam_x1-0.45;
-detent_print_tether_x1 = detent_beam_x1+0.45;
-detent_print_tether_z0 = detent_beam_z1-tray_assembled_z-0.2;
-detent_print_tether_z1 = 0.2;
 
 psu_pilot_edge_margin =
     tray_h/2 - (abs(psu_rear_mount_points[0][1]) + psu_mount_pilot_d/2);
@@ -186,24 +180,6 @@ module snap_tray_with_detent() {
         snap_tray_plate();
         translate([0,0,-tray_assembled_z])
             integral_tray_detent_dock_frame();
-    }
-}
-
-// A narrow continuous breakaway rib supports the cantilever at every layer
-// while the tray prints edge-on. It is print-only and must be cut away before
-// fitting; the functional assembly module above remains clean.
-module detent_print_breakaway_tethers() {
-    translate([detent_print_tether_x0,detent_print_tether_y0,
-               detent_print_tether_z0])
-        cube([detent_print_tether_x1-detent_print_tether_x0,
-              detent_print_tether_y1-detent_print_tether_y0,
-              detent_print_tether_z1-detent_print_tether_z0]);
-}
-
-module snap_tray_with_detent_printable() {
-    union() {
-        snap_tray_with_detent();
-        detent_print_breakaway_tethers();
     }
 }
 
