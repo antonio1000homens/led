@@ -13,6 +13,7 @@ slide_z_clearance = 0.25;
 tray_assembled_z = plate_t + slide_z_clearance;
 psu_support_height = 2.0;
 psu_support_plane_z = tray_t + psu_support_height;
+psu_support_bar_overlap = 0.4;
 
 // Keep the screw-land ring and internal runner webs around the open centre.
 dock_relief_core_w = 80;
@@ -133,8 +134,10 @@ module snap_tray_plate() {
 
     // The rails and PSU bosses share the same top plane at Z=4.8.
     for (xx=[-support_rail_x,support_rail_x])
-        translate([xx-support_rail_w/2,-(psu_h-14)/2,tray_t])
-            cube([support_rail_w,psu_h-14,psu_support_height]);
+        translate([xx-support_rail_w/2,-(psu_h-14)/2,
+                   tray_t-psu_support_bar_overlap])
+            cube([support_rail_w,psu_h-14,
+                  psu_support_height+psu_support_bar_overlap]);
     clipped_psu_mount_bosses();
     translate([psu_w/2+psu_xy_clearance,-tray_h/2,tray_t-0.2])
         cube([2.2,tray_h,5.2]);
