@@ -171,8 +171,9 @@ The removable backplane/enclosure installs from directly above:
    three **continuous 24 mm ribs reaches the actual enclosure floor at
    Y=0.5 mm**. The stationary guardrail enters a channel carved through the
    front of the rib: 0.6 mm tongue clearance, 1.2 mm guardrail thickness and
-   0.6 mm clearance to the solid rear rib wall. Matching rear-shelf pockets
-   clear the complete rib footprint while leaving the #170 outer rails intact;
+   0.6 mm clearance to the solid rear rib wall. The low rear shelf is pocketed
+   beneath the complete rib footprint, while the #170 outer rails/tabs are
+   restored as separate stationary solids and enter dedicated lower side slots;
 4. the full-width shoulder above the guides then sits over the tower tops while
    the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.

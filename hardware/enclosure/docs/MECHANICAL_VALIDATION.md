@@ -47,8 +47,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   **Y=0.5 mm**. The stationary guardrail occupies an 18 mm tapered channel
   carved into the lower/front portion of the solid rib, preserving 0.6 mm
   tongue clearance, 1.2 mm guardrail thickness and 0.6 mm rear clearance.
-  Matching rear-shelf pockets clear the complete rib footprint while the
-  existing 24 mm X/print-Z taper prevents floating regions;
+  Matching rear-shelf pockets clear the complete rib footprint. The #170 outer
+  rails/tabs remain separate stationary solids and enter lower side slots in the
+  ribs, while the existing 24 mm X/print-Z taper prevents floating regions;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;

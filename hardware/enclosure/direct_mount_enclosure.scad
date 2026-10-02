@@ -741,7 +741,7 @@ module side_guide_channel(side="left") {
     }
 }
 
-module rear_guardrail() {
+module rear_guardrail_shelf() {
     // Full-width low shelf extends the stationary base to the common rear plane
     // while staying below the seated lower edge of the removable backplane.
     translate([
@@ -755,6 +755,9 @@ module rear_guardrail() {
             rear_guardrail_shelf_rear_z-rear_guardrail_shelf_front_z
         ]);
 
+}
+
+module rear_guardrail_rails() {
     // Continue the left/right side-guide rear lips inward until each reaches
     // the nearest outer rib tab. These remain behind the 0.6 mm tongue running
     // clearance, so they strengthen the base without narrowing the slide path.
@@ -797,9 +800,9 @@ module rear_guardrail() {
 }
 
 module rear_rib_ground_clearance_cutters() {
-    // Matching open pockets through only the REAR part of the low shelf let
-    // the full continuous ribs reach the enclosure floor. The #170 outer
-    // guardrails and centre/outer tabs remain intact in front of these pockets.
+    // Matching open pockets remove the low shelf under each complete 24 mm
+    // continuous rib. The #170 outer guardrails and centre/outer tabs are
+    // separate solids restored after this subtraction and enter rib slots.
     for (xc=transition_rib_centres)
         translate([
             xc-rear_rib_ground_pocket_w/2,
@@ -824,7 +827,7 @@ module base_structural_body() {
                     base_floor_rear_z-base_floor_front_z
                 ]);
 
-            rear_guardrail();
+            rear_guardrail_shelf();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
@@ -892,6 +895,9 @@ module hinged_equipment_base() {
     difference() {
         union() {
             base_structural_body();
+            // Keep the #170 side guardrails/tabs intact: the floor-reaching
+            // rib pockets are cut from the low shelf only.
+            rear_guardrail_rails();
             base_connector_pins();
         }
 
@@ -1314,7 +1320,7 @@ transition_rib_channel_y1 = universal_deep_y0 + 0.8;
 rear_rib_ground_pocket_w =
     2*transition_rib_half_w + 2*side_guide_clearance;
 rear_rib_ground_pocket_front_z =
-    rear_guardrail_lip_rear_z - 0.01;
+    equipment_backplane_rear_z - 0.4;
 
 // Extend the two outer stationary guardrails from the side guides to the
 // nearest outer rib channel. Keep the middle span open; the existing three
@@ -1432,9 +1438,37 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     }
 }
 
+module outer_guardrail_entry_cutter(xc,side="left") {
+    // The PR170 outer guardrails approach the outer ribs from the enclosure
+    // sides. Open only the lower guardrail-height band from the relevant rib
+    // edge into the existing central channel; leave the rest of the 24 mm rib
+    // continuous to the floor.
+    x0 = side == "left"
+        ? xc-transition_rib_half_w-0.2
+        : xc+transition_rib_channel_flat_w/2-0.2;
+    x1 = side == "left"
+        ? xc-transition_rib_channel_flat_w/2+0.2
+        : xc+transition_rib_half_w+0.2;
+
+    translate([
+        x0,
+        service_base_y-0.2,
+        rear_guardrail_lip_front_z-0.1
+    ])
+        cube([
+            x1-x0,
+            rear_guardrail_y1-service_base_y+0.4,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z+
+                side_guide_clearance+0.2
+        ]);
+}
+
 module transition_rib_guardrail_channel_cutters() {
     for (xc=transition_rib_centres)
         tapered_rib_guardrail_channel_cutter(xc);
+
+    outer_guardrail_entry_cutter(transition_rib_centres[0],"left");
+    outer_guardrail_entry_cutter(transition_rib_centres[2],"right");
 }
 
 module universal_equipment_backplane() {

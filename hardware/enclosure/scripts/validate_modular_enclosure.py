@@ -548,6 +548,9 @@ assert(abs(transition_rib_channel_rear_z-rear_guardrail_lip_rear_z-
 assert(abs(rear_rib_ground_pocket_w-
            (2*transition_rib_half_w+2*side_guide_clearance)) < 0.01,
        "rear shelf pocket must clear the complete continuous rib footprint");
+assert(rear_rib_ground_pocket_front_z <=
+           equipment_backplane_rear_z-0.29,
+       "rear shelf pocket must begin ahead of the continuous rib rear-face root");
 assert(transition_rib_y0 <= rear_guardrail_y0+0.01,
        "continuous ribs must extend below the guardrail interface to the enclosure floor");
 assert(transition_rib_channel_flat_w-
@@ -863,7 +866,6 @@ def assert_no_legacy_layout() -> None:
             )
 
     for forbidden in (
-        "rear_guardrail_shelf();",
         "rear_rib_seat_clearance_cutters();",
         "rear_support_foot_x",
         "rear_support_foot_rear_extension",
@@ -882,6 +884,9 @@ def assert_no_legacy_layout() -> None:
         "insertion_print_support_overlap",
         "insertion_tongue_print_support()",
         "transition_rear_ribs()",
+        "rear_guardrail_shelf()",
+        "rear_guardrail_rails()",
+        "outer_guardrail_entry_cutter(",
         "rotate([0,-90,0])",
     ):
         if required not in source_text:
