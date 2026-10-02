@@ -57,6 +57,22 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet \
             trimesh manifold3d numpy networkx scipy
 
+      - name: Validate experimental PSU SCAD entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          for source in \
+            hardware/enclosure/powersupply/01_service_tray_snap_latch.scad \
+            hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad \
+            hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad \
+            hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad \
+            hardware/enclosure/powersupply/05_backplane_fit_preview.scad \
+            hardware/enclosure/powersupply/06_boss_heatset_insert_test.scad; do
+            output="/tmp/$(basename "${source%.scad}.stl")"
+            openscad -o "$output" "$source"
+            test -s "$output"
+          done
+
       - name: Generate canonical STL outputs
         shell: bash
         run: |
@@ -66,6 +82,17 @@ jobs:
             output="build/enclosure-stls/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
           done
+
+      - name: Generate selected PSU service-tray STL outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          openscad -o build/enclosure-stls/psu_service_tray_snap_dock.stl \
+            hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad
+          openscad -o build/enclosure-stls/psu_service_tray_snap_tray.stl \
+            hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
+          openscad -o build/enclosure-stls/psu_service_tray_snap_latch.stl \
+            hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
