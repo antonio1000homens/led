@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -93,6 +95,31 @@ jobs:
             hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
           openscad -o build/enclosure-stls/08_psu_service_tray_snap_latch_PRINT_1.stl \
             hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad
+
+      - name: Bootstrap canonical PSU STL files on follow-up branch
+        if: github.event_name == 'pull_request' && github.head_ref == 'canonical-psu-service-tray-stls'
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          cp build/enclosure-stls/06_psu_service_tray_snap_dock_PRINT_1.stl hardware/enclosure/stl/
+          cp build/enclosure-stls/07_psu_service_tray_snap_tray_PRINT_1.stl hardware/enclosure/stl/
+          cp build/enclosure-stls/08_psu_service_tray_snap_latch_PRINT_1.stl hardware/enclosure/stl/
+
+          git add hardware/enclosure/stl/06_psu_service_tray_snap_dock_PRINT_1.stl
+          git add hardware/enclosure/stl/07_psu_service_tray_snap_tray_PRINT_1.stl
+          git add hardware/enclosure/stl/08_psu_service_tray_snap_latch_PRINT_1.stl
+
+          if git diff --cached --quiet; then
+            echo "Canonical PSU STL files already match generated geometry."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(enclosure): add canonical PSU service-tray STLs"
+          git push origin "HEAD:${HEAD_BRANCH}"
 
       - name: Upload generated STL validation artifacts
         uses: actions/upload-artifact@v7
