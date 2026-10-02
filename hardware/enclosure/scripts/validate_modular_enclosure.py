@@ -550,7 +550,11 @@ assert(abs(rear_rib_ground_pocket_w-
        "rear shelf pocket must clear the complete continuous rib footprint");
 assert(rear_rib_ground_pocket_front_z <=
            equipment_backplane_rear_z-0.29,
-       "rear shelf pocket must begin ahead of the continuous rib rear-face root");
+       "rear rib socket must begin ahead of the continuous rib rear-face root");
+assert(rear_rib_ground_pocket_y1 >=
+           rear_guardrail_y1+0.19 &&
+       rear_rib_ground_pocket_y1 > base_seat_y,
+       "rear rib socket must clear the complete base-floor/seat band");
 assert(transition_rib_y0 <= rear_guardrail_y0+0.01,
        "continuous ribs must extend below the guardrail interface to the enclosure floor");
 assert(transition_rib_channel_flat_w-

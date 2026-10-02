@@ -807,10 +807,10 @@ module rear_guardrail() {
 }
 
 module rear_rib_ground_clearance_cutters() {
-    // Remove the low shelf under each complete 24 mm continuous rib while
-    // explicitly preserving the #170 guardrail rails/tabs. The retained shelf
-    // under those rail footprints keeps the rail system manifold with the base;
-    // the rib's carved front/side slots receive that complete guardrail shape.
+    // Remove a vertical socket through the low rear shelf AND the complete
+    // rear base-floor/seat band under each 24 mm continuous rib. Preserve the
+    // #170 guardrail rails/tabs inside that socket; the rib's carved front/side
+    // slots receive the complete retained guardrail shape during insertion.
     difference() {
         union() {
             for (xc=transition_rib_centres)
@@ -821,7 +821,7 @@ module rear_rib_ground_clearance_cutters() {
                 ])
                     cube([
                         rear_rib_ground_pocket_w,
-                        rear_guardrail_shelf_top_y-service_base_y+0.3,
+                        rear_rib_ground_pocket_y1-service_base_y+0.1,
                         rear_reinforcement_flush_z-rear_rib_ground_pocket_front_z+0.2
                     ]);
         }
@@ -1332,6 +1332,8 @@ rear_rib_ground_pocket_w =
     2*transition_rib_half_w + 2*side_guide_clearance;
 rear_rib_ground_pocket_front_z =
     equipment_backplane_rear_z - 0.4;
+rear_rib_ground_pocket_y1 =
+    rear_guardrail_y1 + 0.2;
 
 // Extend the two outer stationary guardrails from the side guides to the
 // nearest outer rib channel. Keep the middle span open; the existing three
