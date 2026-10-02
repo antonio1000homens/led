@@ -3,10 +3,15 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import subprocess
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import trimesh
@@ -32,6 +37,44 @@ PREVIEWS = (
     "00_complete_enclosure_OPEN_ASSEMBLY.scad",
     "00_complete_enclosure_CLOSED_ASSEMBLY.scad",
 )
+
+Check = tuple[str, Callable[[], None]]
+
+
+def run_parallel_checks(checks: list[Check], workers: int) -> None:
+    """Run independent OpenSCAD checks with bounded concurrency."""
+    if workers <= 1:
+        for name, check in checks:
+            started = time.perf_counter()
+            check()
+            print(f"TIMING: {name} {time.perf_counter() - started:.1f}s", flush=True)
+        return
+
+    print(f"Running {len(checks)} independent checks with {workers} workers", flush=True)
+
+    def timed(check: Callable[[], None]) -> float:
+        started = time.perf_counter()
+        check()
+        return time.perf_counter() - started
+
+    failures: list[tuple[str, BaseException]] = []
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(timed, check): name
+            for name, check in checks
+        }
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                elapsed = future.result()
+                print(f"TIMING: {name} {elapsed:.1f}s", flush=True)
+            except (Exception, SystemExit) as exc:
+                failures.append((name, exc))
+
+    if failures:
+        detail = "\n\n".join(f"{name}: {exc}" for name, exc in failures)
+        raise SystemExit(f"parallel enclosure validation failed:\n{detail}")
+
 
 def render(source: Path, output: Path) -> None:
     completed = subprocess.run(
@@ -218,14 +261,20 @@ def assert_empty_intersection(
         raise SystemExit(f"{name}: intersection evaluation failed:\n{diagnostic}")
     print(f"OK: {name} has no volumetric interference")
 
-def assert_hinge_sweep(work_dir: Path) -> None:
+def assert_hinge_sweep(work_dir: Path, workers: int) -> None:
     """Guard the proven PR #119 motion, shelf and 6 mm rod clearance."""
-    assert_empty_intersection(
-        work_dir,
-        "hinge_rod_stationary_clearance",
-        """    stationary_equipment_enclosure();
+    checks: list[Check] = [
+        (
+            "hinge_rod_stationary_clearance",
+            partial(
+                assert_empty_intersection,
+                work_dir,
+                "hinge_rod_stationary_clearance",
+                """    stationary_equipment_enclosure();
     hinge_rail_preview();""",
-    )
+            ),
+        ),
+    ]
     for angle in (0, 15, 30, 45, 60, 75, 90):
         body = f"""    stationary_equipment_enclosure();
 
@@ -233,7 +282,6 @@ def assert_hinge_sweep(work_dir: Path) -> None:
         rotate([-{angle},0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
                 moving_panel_template_installed();"""
-        assert_empty_intersection(work_dir, f"hinge_sweep_{angle}", body)
         floor_check = f"""    intersection() {{
         translate([-1,-100,-1]) cube([module_w+2,100,hinge_axis_z+hinge_radius+2]);
         translate([0,hinge_axis_y,hinge_axis_z])
@@ -241,15 +289,44 @@ def assert_hinge_sweep(work_dir: Path) -> None:
                 translate([0,-hinge_axis_y,-hinge_axis_z])
                     moving_panel_template_installed();
     }}"""
-        assert_empty_intersection(work_dir, f"hinge_floor_clearance_{angle}", floor_check)
         panel_rod = f"""    translate([0,hinge_axis_y,hinge_axis_z])
         rotate([-{angle},0,0])
             translate([0,-hinge_axis_y,-hinge_axis_z])
                 moving_panel_template_installed();
     hinge_rail_preview();"""
-        assert_empty_intersection(
-            work_dir, f"hinge_rod_panel_clearance_{angle}", panel_rod
+        checks.extend(
+            [
+                (
+                    f"hinge_sweep_{angle}",
+                    partial(
+                        assert_empty_intersection,
+                        work_dir,
+                        f"hinge_sweep_{angle}",
+                        body,
+                    ),
+                ),
+                (
+                    f"hinge_floor_clearance_{angle}",
+                    partial(
+                        assert_empty_intersection,
+                        work_dir,
+                        f"hinge_floor_clearance_{angle}",
+                        floor_check,
+                    ),
+                ),
+                (
+                    f"hinge_rod_panel_clearance_{angle}",
+                    partial(
+                        assert_empty_intersection,
+                        work_dir,
+                        f"hinge_rod_panel_clearance_{angle}",
+                        panel_rod,
+                    ),
+                ),
+            ]
         )
+    run_parallel_checks(checks, workers)
+
 
 def assert_design_contract(work_dir: Path) -> None:
     """Check the reinforced hinge and tapered top-down backplane contract."""
@@ -722,13 +799,9 @@ cube([1,1,1]);
     )
 
 
-def assert_neighboring_module_clearance(work_dir: Path) -> None:
-    """Check a joined two-module row at closed and fully-open positions.
-
-    Side retainers are used at the outside edges of a joined row. The
-    detachable retainers on the two internal edges are omitted; their base and
-    backplane pin/socket features mate directly across the module seam.
-    """
+def assert_neighboring_module_clearance(work_dir: Path, workers: int) -> None:
+    """Check a joined two-module row at closed and fully-open positions."""
+    checks: list[Check] = []
     for angle in (0, 90):
         declaration = f"""module row_member() {{
     stationary_equipment_module_core();
@@ -739,12 +812,20 @@ def assert_neighboring_module_clearance(work_dir: Path) -> None:
                 moving_panel_template_installed();
 }}
 """
-        assert_empty_intersection(
-            work_dir,
-            f"neighboring_module_clearance_{angle}",
-            "row_member();\ntranslate([module_w,0,0]) row_member();",
-            declarations=declaration,
+        checks.append(
+            (
+                f"neighboring_module_clearance_{angle}",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    f"neighboring_module_clearance_{angle}",
+                    "row_member();\ntranslate([module_w,0,0]) row_member();",
+                    declarations=declaration,
+                ),
+            )
         )
+    run_parallel_checks(checks, workers)
+
 
 def assert_no_legacy_layout() -> None:
     for path in (DIRECT / "hinge-prototype-v2", DIRECT / "hinge-version"):
@@ -814,13 +895,35 @@ def assert_no_legacy_layout() -> None:
             )
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--generated-dir",
+        type=Path,
+        help="Reuse STL files already generated by CI instead of rendering them again.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Maximum number of independent OpenSCAD checks to run concurrently.",
+    )
+    args = parser.parse_args()
+    if args.workers < 1:
+        parser.error("--workers must be at least 1")
+
+    generated_dir = args.generated_dir.resolve() if args.generated_dir else None
     assert_no_legacy_layout()
     with tempfile.TemporaryDirectory(prefix="led-hinged-enclosure-") as tmp:
         work_dir = Path(tmp)
         for scad_name, stl_name in PARTS.items():
             source = PARTS_DIR / scad_name
-            generated = work_dir / stl_name
-            render(source, generated)
+            if generated_dir is None:
+                generated = work_dir / stl_name
+                render(source, generated)
+            else:
+                generated = generated_dir / stl_name
+                if not generated.is_file():
+                    raise SystemExit(f"missing pre-generated STL: {generated}")
 
             name = source.stem
             assert_mesh_health(name, generated)
@@ -889,13 +992,21 @@ def main() -> None:
             """    hinged_equipment_base();
     universal_equipment_backplane();""",
         )
+        backplane_checks: list[Check] = []
         for lift in (1, 20, 80, 140):
-            assert_empty_intersection(
-                work_dir,
-                f"backplane_top_down_insertion_{lift}",
-                f"""    hinged_equipment_base();
+            backplane_checks.append(
+                (
+                    f"backplane_top_down_insertion_{lift}",
+                    partial(
+                        assert_empty_intersection,
+                        work_dir,
+                        f"backplane_top_down_insertion_{lift}",
+                        f"""    hinged_equipment_base();
     translate([0,{lift},0]) universal_equipment_backplane();""",
+                    ),
+                )
             )
+        run_parallel_checks(backplane_checks, args.workers)
 
         # Prove the side guides are real U-channels rather than solid towers:
         # the slot volume under each 5 mm lip must remain empty through the
@@ -959,41 +1070,73 @@ def main() -> None:
         # The upper connector aligns modules/end plates without making the
         # removable backplane horizontally captive. Test relative vertical
         # travel through the guide slot in both neighbour and end-plate cases.
+        connector_checks: list[Check] = []
         for lift in (1, 5, 10, 15):
-            assert_empty_intersection(
-                work_dir,
-                f"top_connector_neighbor_vertical_release_{lift}",
-                f"""    universal_equipment_backplane();
+            connector_checks.extend(
+                [
+                    (
+                        f"top_connector_neighbor_vertical_release_{lift}",
+                        partial(
+                            assert_empty_intersection,
+                            work_dir,
+                            f"top_connector_neighbor_vertical_release_{lift}",
+                            f"""    universal_equipment_backplane();
     translate([module_w,{lift},0]) universal_equipment_backplane();""",
-            )
-            assert_empty_intersection(
-                work_dir,
-                f"top_connector_left_end_vertical_release_{lift}",
-                f"""    equipment_side("left");
+                        ),
+                    ),
+                    (
+                        f"top_connector_left_end_vertical_release_{lift}",
+                        partial(
+                            assert_empty_intersection,
+                            work_dir,
+                            f"top_connector_left_end_vertical_release_{lift}",
+                            f"""    equipment_side("left");
     translate([0,{lift},0]) universal_equipment_backplane();""",
-            )
-            assert_empty_intersection(
-                work_dir,
-                f"top_connector_right_end_vertical_release_{lift}",
-                f"""    equipment_side("right");
+                        ),
+                    ),
+                    (
+                        f"top_connector_right_end_vertical_release_{lift}",
+                        partial(
+                            assert_empty_intersection,
+                            work_dir,
+                            f"top_connector_right_end_vertical_release_{lift}",
+                            f"""    equipment_side("right");
     translate([0,{lift},0]) universal_equipment_backplane();""",
+                        ),
+                    ),
+                ]
             )
+        run_parallel_checks(connector_checks, args.workers)
 
+        side_checks: list[Check] = []
         for side in ("left", "right"):
-            assert_empty_intersection(
-                work_dir,
-                f"{side}_side_retainer_fit",
-                f"""    stationary_equipment_module_core();
+            side_checks.extend(
+                [
+                    (
+                        f"{side}_side_retainer_fit",
+                        partial(
+                            assert_empty_intersection,
+                            work_dir,
+                            f"{side}_side_retainer_fit",
+                            f"""    stationary_equipment_module_core();
     equipment_side(\"{side}\");""",
-            )
-            assert_empty_intersection(
-                work_dir,
-                f"{side}_side_rod_sleeve_clearance",
-                f"""    equipment_side(\"{side}\");
+                        ),
+                    ),
+                    (
+                        f"{side}_side_rod_sleeve_clearance",
+                        partial(
+                            assert_empty_intersection,
+                            work_dir,
+                            f"{side}_side_rod_sleeve_clearance",
+                            f"""    equipment_side(\"{side}\");
     hinge_rail_preview();""",
+                        ),
+                    ),
+                ]
             )
-        assert_hinge_sweep(work_dir)
-        assert_neighboring_module_clearance(work_dir)
+        run_parallel_checks(side_checks, args.workers)
+        assert_hinge_sweep(work_dir, args.workers)
+        assert_neighboring_module_clearance(work_dir, args.workers)
 
         for preview in PREVIEWS:
             render(SCHEMATICS / preview, work_dir / f"{Path(preview).stem}.csg")
