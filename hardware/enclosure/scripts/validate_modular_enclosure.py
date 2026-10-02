@@ -47,10 +47,10 @@ def run_parallel_checks(checks: list[Check], workers: int) -> None:
         for name, check in checks:
             started = time.perf_counter()
             check()
-            print(f"TIMING: {name} {time.perf_counter() - started:.1f}s")
+            print(f"TIMING: {name} {time.perf_counter() - started:.1f}s", flush=True)
         return
 
-    print(f"Running {len(checks)} independent checks with {workers} workers")
+    print(f"Running {len(checks)} independent checks with {workers} workers", flush=True)
 
     def timed(check: Callable[[], None]) -> float:
         started = time.perf_counter()
@@ -67,7 +67,7 @@ def run_parallel_checks(checks: list[Check], workers: int) -> None:
             name = futures[future]
             try:
                 elapsed = future.result()
-                print(f"TIMING: {name} {elapsed:.1f}s")
+                print(f"TIMING: {name} {elapsed:.1f}s", flush=True)
             except (Exception, SystemExit) as exc:
                 failures.append((name, exc))
 
