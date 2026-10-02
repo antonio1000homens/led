@@ -11,6 +11,8 @@
 //
 // The tray still moves in X. The separate front latch flexes vertically in Z:
 // press the front thumb tab DOWN and pull the tray toward -X to release it.
+// The replaceable latch is secured to the dock by two front-loaded M3 heat-set
+// inserts, avoiding repeated thread-forming directly into PETG.
 
 include <psu_mount_common.scad>;
 
