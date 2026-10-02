@@ -1,11 +1,12 @@
 # Canonical STL outputs
 
 The printable STL meshes in this directory are **versioned manufacturing
-outputs** generated from the canonical OpenSCAD wrappers in `../parts/`.
+outputs** generated from the canonical OpenSCAD wrappers in `../parts/` and
+`../powersupply/`.
 
-The SCAD files remain the editable source of truth, but each production SCAD
-wrapper must have a matching checked-in STL so a user can inspect or print the
-current design directly from the repository.
+The SCAD files remain the editable source of truth, but each production print
+wrapper has a matching checked-in STL so the current design can be inspected or
+loaded directly into Bambu Studio without relying on an expiring CI artifact.
 
 Canonical pairs:
 
@@ -19,6 +20,12 @@ Canonical pairs:
   → `04_left_equipment_side_PRINT_1.stl`
 - `../parts/05_right_equipment_side_PRINT_1.scad`
   → `05_right_equipment_side_PRINT_1.stl`
+- `../powersupply/02_service_tray_snap_dock_PRINT_1.scad`
+  → `06_psu_service_tray_snap_dock_PRINT_1.stl`
+- `../powersupply/03_service_tray_snap_tray_PRINT_1.scad`
+  → `07_psu_service_tray_snap_tray_PRINT_1.stl`
+- `../powersupply/04_service_tray_snap_latch_PRINT_1.scad`
+  → `08_psu_service_tray_snap_latch_PRINT_1.stl`
 
 ## Development workflow
 
@@ -44,9 +51,30 @@ outputs.
 
 ## Pull-request validation
 
-GitHub Actions regenerates all five STLs with OpenSCAD and performs the
-mechanical/geometry checks. The regenerated meshes are also uploaded as a
-downloadable workflow artifact.
+GitHub Actions regenerates all **eight** canonical STLs with OpenSCAD and runs
+the normal mechanical/geometry checks. The regenerated meshes are also uploaded
+as a downloadable workflow artifact.
 
 CI additionally verifies that each regenerated mesh is geometrically equivalent
 to the corresponding checked-in STL, preventing SCAD and STL from drifting.
+
+
+## Loop safety
+
+The GitHub Actions enclosure workflow **never commits generated STL files**.
+
+- SCAD changes on an open PR trigger regeneration and comparison.
+- SCAD/STL changes merged to `master` trigger the same read-only validation.
+- STL-only changes can trigger one validation run so stale/manual replacements
+  are caught.
+- The workflow has `contents: read` permission and cannot push generated files
+  back into the repository.
+
+This deliberately prevents the pattern:
+
+`SCAD change → bot STL commit → workflow trigger → bot STL commit → ...`
+
+Canonical STL updates are created with
+`python hardware/enclosure/scripts/generate_stls.py` and committed together
+with the corresponding SCAD change. CI independently regenerates the meshes and
+fails if the committed STL differs from the source-generated geometry.

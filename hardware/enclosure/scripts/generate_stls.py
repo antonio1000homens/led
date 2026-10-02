@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the canonical direct-mount STL files from their OpenSCAD wrappers."""
+"""Generate the canonical enclosure STL files from their OpenSCAD wrappers."""
 
 from __future__ import annotations
 
@@ -8,25 +8,49 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DIRECT = ROOT / "hardware/enclosure"
-PARTS_DIR = DIRECT / "parts"
 STL_DIR = DIRECT / "stl"
 
-PARTS = (
-    "01_panel_hinge_template_PRINT_1",
-    "02_hinged_equipment_base_PRINT_1",
-    "03_universal_equipment_backplane_PRINT_1",
-    "04_left_equipment_side_PRINT_1",
-    "05_right_equipment_side_PRINT_1",
-    "06_panel_rotating_clamp_PRINT_1",
+OUTPUTS = (
+    (
+        DIRECT / "parts/01_panel_hinge_template_PRINT_1.scad",
+        "01_panel_hinge_template_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "parts/02_hinged_equipment_base_PRINT_1.scad",
+        "02_hinged_equipment_base_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "parts/03_universal_equipment_backplane_PRINT_1.scad",
+        "03_universal_equipment_backplane_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "parts/04_left_equipment_side_PRINT_1.scad",
+        "04_left_equipment_side_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "parts/05_right_equipment_side_PRINT_1.scad",
+        "05_right_equipment_side_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "powersupply/02_service_tray_snap_dock_PRINT_1.scad",
+        "06_psu_service_tray_snap_dock_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "powersupply/03_service_tray_snap_tray_PRINT_1.scad",
+        "07_psu_service_tray_snap_tray_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "powersupply/04_service_tray_snap_latch_PRINT_1.scad",
+        "08_psu_service_tray_snap_latch_PRINT_1.stl",
+    ),
 )
 
 
 def main() -> None:
     STL_DIR.mkdir(parents=True, exist_ok=True)
 
-    for stem in PARTS:
-        source = PARTS_DIR / f"{stem}.scad"
-        output = STL_DIR / f"{stem}.stl"
+    for source, output_name in OUTPUTS:
+        output = STL_DIR / output_name
         subprocess.run(
             ["openscad", "-o", str(output), str(source)],
             check=True,

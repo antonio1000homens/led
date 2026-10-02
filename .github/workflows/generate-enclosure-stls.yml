@@ -6,6 +6,10 @@ name: Enclosure / Validate
 # Canonical STLs are versioned in hardware/enclosure/stl/. CI
 # regenerates OpenSCAD meshes for validation and exposes that generated set as a
 # downloadable workflow artifact.
+#
+# LOOP SAFETY: this workflow is intentionally read-only. It MUST NOT commit or
+# push generated STL files. A SCAD/STL change may trigger validation once, but
+# validation can never create a new repository change that triggers itself.
 
 on:
   pull_request:
@@ -87,11 +91,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          openscad -o build/enclosure-stls/psu_service_tray_snap_dock.stl \
+          openscad -o build/enclosure-stls/06_psu_service_tray_snap_dock_PRINT_1.stl \
             hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad
-          openscad -o build/enclosure-stls/psu_service_tray_snap_tray.stl \
+          openscad -o build/enclosure-stls/07_psu_service_tray_snap_tray_PRINT_1.stl \
             hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
-          openscad -o build/enclosure-stls/psu_service_tray_snap_latch.stl \
+          openscad -o build/enclosure-stls/08_psu_service_tray_snap_latch_PRINT_1.stl \
             hardware/enclosure/powersupply/04_service_tray_snap_latch_PRINT_1.scad
 
       - name: Upload generated STL validation artifacts
