@@ -75,12 +75,14 @@ def main() -> None:
         backplane = mesh(actual_backplane_path, "universal enclosure backplane")
         if abs(float(dock.extents[1])-79.0) > 0.05:
             raise SystemExit("PSU dock must retain the 79 mm opening envelope")
-        if abs(float(tray.extents[1])-79.0) > 0.05:
-            raise SystemExit("PSU tray must retain the 79 mm opening envelope")
+        if abs(float(tray.extents[2])-79.0) > 0.05:
+            raise SystemExit("PSU tray must retain its 79 mm Y envelope in the edge-on print pose")
         if abs(float(dock.bounds[0][2])) > 0.01:
             raise SystemExit("PSU dock print wrapper must contact the bed at Z=0")
-        if abs(float(tray.bounds[0][2])-(-4.95)) > 0.05:
-            raise SystemExit("PSU flexure geometry changed; re-evaluate print orientation/support")
+        if abs(float(tray.bounds[0][2])) > 0.01 or abs(float(tray.extents[2])-79.0)>0.05:
+            raise SystemExit("PSU tray print pose must stand 79 mm tall and contact the bed at Z=0")
+        if abs(float(tray.extents[1])-12.75)>0.05:
+            raise SystemExit("PSU tray print pose must preserve the 12.75 mm edge-on footprint")
 
         # Place local dock on the actual 80/176 boss columns. Local +Z points
         # toward the enclosure cavity; exposed boss tips enter pockets by 1.2 mm.
