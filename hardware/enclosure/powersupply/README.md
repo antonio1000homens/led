@@ -6,7 +6,6 @@ Issue #177 replaces the fixed dock's front screw-mounted latch with a pull-relea
 
 | File | Purpose |
 | --- | --- |
-| `01_service_tray_snap_latch.scad` | Dock/tray assembly preview |
 | `02_service_tray_snap_dock_PRINT_1.scad` | Fixed dock with enclosure pockets, runners, stop and underside detent groove |
 | `03_service_tray_snap_tray_PRINT_1.scad` | Removable tray with open-ended runner grooves and integral flexure |
 | `05_backplane_fit_preview.scad` | Actual enclosure backplane, fit states, PSU envelope and detent section |
