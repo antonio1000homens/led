@@ -738,6 +738,17 @@ assert(abs(side_guide_rear_buttress_depth-10) < 0.01 &&
        abs(side_guide_rear_buttress_slice_h-1.0) < 0.01 &&
        side_guide_rear_buttress_overlap >= 0.3,
        "guide rear buttress must retain the 10 mm triangular base reinforcement");
+assert(abs(side_guide_floor_gusset_footprint-26) < 0.01 &&
+       abs(side_guide_floor_gusset_h-side_guide_h*0.75) < 0.01 &&
+       side_guide_floor_gusset_h < side_guide_h &&
+       side_guide_floor_gusset_overlap >= 0.3,
+       "each vertical slider must have a broad triangular floor gusset below its upper rail");
+assert(side_guide_front_z-side_guide_floor_gusset_footprint >=
+           base_floor_front_z-0.01 &&
+       side_guide_front_z+side_guide_floor_gusset_overlap <
+           side_guide_slot_front_z &&
+       side_guide_floor_gusset_h > junction_pad_h,
+       "floor gusset must fit on the base, overlap the guide, and stay ahead of the insertion slot");
 assert(side_guide_y1 < backplane_ramp_start_y,
        "side guides must end below the enclosure taper");
 assert(side_guide_slot_front_z < equipment_backplane_front_z &&
@@ -801,7 +812,8 @@ cube([1,1,1]);
         )
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
-        "lower hidden junctions, front-tied guide roots with 10 mm rear triangular buttresses, "
+        "lower hidden junctions, two 26 mm triangular floor gussets, "
+        "front-tied guide roots with 10 mm rear triangular buttresses, "
         "compact upper backplane/end-plate seam bosses, "
         "unchanged moving-panel hinge roots and 20 mm forward base-floor extension, "
         "40 mm installed hinge with 20 mm forward base-floor extension, "

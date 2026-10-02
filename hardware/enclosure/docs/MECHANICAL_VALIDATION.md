@@ -35,6 +35,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - dual **40 mm × 5 mm** structural side guides with 0.6 mm running clearance;
 - each guide's 16 mm-high lower junction support tied forward into the hinge
   plate/guard at the same height;
+- one 26 mm-footprint triangular floor gusset under each guide, full guide width
+  and rising to 75% of guide height; the gussets overlap the guide roots while
+  staying completely ahead of the insertion slot;
 - a **10 mm rearward triangular buttress** at each guide root, tapering to the
   native rail rear face at the guide top while leaving the slot unchanged;
 - a low full-width stationary **rear shelf** ending on the common rear plane;
@@ -149,9 +152,12 @@ sets:
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
    seats 2 mm into the rear groove without the ribs entering the seat, and
    visibly retains the three shallow gaps between the sliding tongue and rear ribs;
-6. confirm the guide towers retain the backplane laterally and the full-width
-   shoulder clears their tops; inspect the forward 16 mm-high ties, 10 mm rear
-   guide-root buttresses and low full-width rear shelf. Confirm the two outer
+6. inspect the new full-width triangular floor gussets beneath both sliders;
+   confirm their broad footprints blend into the base and their tapered tops
+   blend into the guide fronts without narrowing the sliding channel. Confirm
+   the guide towers retain the backplane laterally and the full-width shoulder
+   clears their tops; inspect the forward 16 mm-high ties, 10 mm rear guide-root
+   buttresses and low full-width rear shelf. Confirm the two outer
    upright guardrails run continuously from each side guide to the nearest rib,
    the centre span remains open, and each 1.2 mm rib tab rises to the Y=5.1 mm
    tongue-side rib lower edge. Verify the 12 mm-wide rear rib foot continues
