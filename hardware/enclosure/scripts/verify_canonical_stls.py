@@ -12,12 +12,32 @@ import trimesh
 
 ROOT = Path(__file__).resolve().parents[3]
 PARTS_DIR = ROOT / "hardware/enclosure/parts"
+PSU_DIR = ROOT / "hardware/enclosure/powersupply"
 CANONICAL_DIR = ROOT / "hardware/enclosure/stl"
 GENERATED_DIR = ROOT / "build/enclosure-stls"
 
 # OpenSCAD output can contain tiny floating-point representation differences.
 # Quantize coordinates at 10 nm while ignoring facet/vertex ordering.
 COORD_TOLERANCE_MM = 1e-5
+
+SOURCE_BY_STL = {
+    "01_panel_hinge_template_PRINT_1.stl":
+        PARTS_DIR / "01_panel_hinge_template_PRINT_1.scad",
+    "02_hinged_equipment_base_PRINT_1.stl":
+        PARTS_DIR / "02_hinged_equipment_base_PRINT_1.scad",
+    "03_universal_equipment_backplane_PRINT_1.stl":
+        PARTS_DIR / "03_universal_equipment_backplane_PRINT_1.scad",
+    "04_left_equipment_side_PRINT_1.stl":
+        PARTS_DIR / "04_left_equipment_side_PRINT_1.scad",
+    "05_right_equipment_side_PRINT_1.stl":
+        PARTS_DIR / "05_right_equipment_side_PRINT_1.scad",
+    "06_psu_service_tray_snap_dock_PRINT_1.stl":
+        PSU_DIR / "02_service_tray_snap_dock_PRINT_1.scad",
+    "07_psu_service_tray_snap_tray_PRINT_1.stl":
+        PSU_DIR / "03_service_tray_snap_tray_PRINT_1.scad",
+    "08_psu_service_tray_snap_latch_PRINT_1.stl":
+        PSU_DIR / "04_service_tray_snap_latch_PRINT_1.scad",
+}
 
 
 def _triangle_counter(path: Path) -> Counter[tuple[tuple[int, int, int], ...]]:
@@ -41,15 +61,8 @@ def _triangle_counter(path: Path) -> Counter[tuple[tuple[int, int, int], ...]]:
     )
 
 
-def _expected_names() -> set[str]:
-    return {
-        source.with_suffix(".stl").name
-        for source in PARTS_DIR.glob("*_PRINT_1.scad")
-    }
-
-
 def main() -> int:
-    expected = _expected_names()
+    expected = set(SOURCE_BY_STL)
     canonical = {path.name for path in CANONICAL_DIR.glob("*_PRINT_1.stl")}
     generated = {path.name for path in GENERATED_DIR.glob("*_PRINT_1.stl")}
 
@@ -66,13 +79,14 @@ def main() -> int:
         failures.append(f"unexpected canonical STL: hardware/enclosure/stl/{name}")
         print(
             f"::error file=hardware/enclosure/stl/{name}::"
-            "Canonical STL has no matching *_PRINT_1.scad wrapper."
+            "Canonical STL has no registered OpenSCAD source."
         )
 
     for name in sorted(expected - generated):
+        source = SOURCE_BY_STL[name].relative_to(ROOT)
         failures.append(f"missing generated STL: build/enclosure-stls/{name}")
         print(
-            f"::error file=hardware/enclosure/parts/{Path(name).with_suffix('.scad').name}::"
+            f"::error file={source}::"
             "CI did not generate the expected STL."
         )
 
@@ -102,11 +116,11 @@ def main() -> int:
             f"({sum(generated_only.values())} generated-only triangles, "
             f"{sum(canonical_only.values())} canonical-only triangles)"
         )
+        source = SOURCE_BY_STL[name].relative_to(ROOT)
         print(
             f"::error file=hardware/enclosure/stl/{name}::"
-            "Canonical STL is stale. Regenerate it from the matching "
-            "hardware/enclosure/parts/*_PRINT_1.scad wrapper and commit the "
-            "updated STL with the source change."
+            f"Canonical STL is stale. Regenerate it from {source} and commit "
+            "the updated STL with the source change."
         )
 
     if failures:
