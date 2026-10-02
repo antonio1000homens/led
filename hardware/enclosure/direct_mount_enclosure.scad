@@ -796,6 +796,23 @@ module rear_guardrail() {
             ]);
 }
 
+module rear_rib_ground_clearance_cutters() {
+    // Matching open pockets through only the REAR part of the low shelf let
+    // the removable rib spines reach the enclosure floor. The #170 outer
+    // guardrails and centre/outer tabs remain intact in front of these pockets.
+    for (xc=transition_rib_centres)
+        translate([
+            xc-rear_rib_ground_pocket_w/2,
+            service_base_y-0.1,
+            rear_rib_ground_pocket_front_z
+        ])
+            cube([
+                rear_rib_ground_pocket_w,
+                rear_guardrail_shelf_top_y-service_base_y+0.3,
+                rear_reinforcement_flush_z-rear_rib_ground_pocket_front_z+0.2
+            ]);
+}
+
 module base_structural_body() {
     difference() {
         union() {
@@ -818,6 +835,10 @@ module base_structural_body() {
             side_guide_channel("right");
 
         }
+
+        // Open three rear shelf pockets so the removable floor-reaching rib
+        // spines can descend behind the #170 guardrails without collision.
+        rear_rib_ground_clearance_cutters();
 
         // Recess the top-down backplane rail INTO the rear edge of the base.
         // Only a 2 mm-deep locating groove is removed; there is no internal
@@ -1285,20 +1306,30 @@ transition_rib_channel_rear_z =
     transition_rib_channel_front_z + transition_rib_channel_depth;
 transition_rib_channel_y1 = universal_deep_y0 + 0.8;
 
-// Below the guardrail/rib interface, continue only the REAR section of each
-// rib down to the removable backplane's lower edge. The foot begins behind the
+// Below the guardrail/rib interface, continue only the REAR spine of each
+// rib all the way to the actual enclosure floor. The spine stays behind the
 // complete guardrail channel, preserving the 0.6 mm clearance behind the
 // stationary rail and leaving the sliding tongue/2 mm seat path untouched.
-transition_rib_rear_foot_w = transition_rib_channel_flat_w;
-transition_rib_rear_foot_y0 = equipment_backplane_y0;
-transition_rib_rear_foot_overlap_y = 0.4;
-transition_rib_rear_foot_y1 =
-    transition_rib_y0 + transition_rib_rear_foot_overlap_y;
-transition_rib_rear_foot_front_z = transition_rib_channel_rear_z;
-transition_rib_rear_foot_rear_z = min(
+//
+// Installed X is print Z, so the floor-reaching section tapers in X rather than
+// appearing as an abrupt unsupported rectangle during side-on printing.
+transition_rib_ground_leg_w = transition_rib_channel_flat_w;
+transition_rib_ground_leg_flat_w = 6;
+transition_rib_ground_leg_taper_w =
+    (transition_rib_ground_leg_w-transition_rib_ground_leg_flat_w)/2;
+transition_rib_ground_leg_slice_w = 0.5;
+transition_rib_ground_leg_y0 = service_base_y;
+transition_rib_ground_leg_y1 = transition_rib_y0 + 0.8;
+transition_rib_ground_leg_shallow_h = 0.8;
+transition_rib_ground_leg_front_z = transition_rib_channel_rear_z;
+transition_rib_ground_leg_rear_z = min(
     rear_reinforcement_flush_z,
     universal_deep_front_z
 );
+rear_rib_ground_pocket_w =
+    transition_rib_ground_leg_w + 2*side_guide_clearance;
+rear_rib_ground_pocket_front_z =
+    rear_guardrail_lip_rear_z - 0.01;
 
 // Extend the two outer stationary guardrails from the side guides to the
 // nearest outer rib channel. Keep the middle span open; the existing three
@@ -1316,20 +1347,68 @@ rear_guardrail_right_x0 =
     - rear_guardrail_join_overlap;
 rear_guardrail_right_x1 = service_x + service_w;
 
-module transition_rear_rib_rear_foot(xc) {
-    // A central rear spine continues below the rail while the front/channel
-    // side remains absent. This reaches the backplane bottom without closing
-    // the guardrail slot or entering the tongue's recessed base seat.
-    translate([
-        xc-transition_rib_rear_foot_w/2,
-        transition_rib_rear_foot_y0,
-        transition_rib_rear_foot_front_z
-    ])
-        cube([
-            transition_rib_rear_foot_w,
-            transition_rib_rear_foot_y1-transition_rib_rear_foot_y0,
-            transition_rib_rear_foot_rear_z-transition_rib_rear_foot_front_z
-        ]);
+module transition_rib_ground_leg(xc) {
+    // Taper the floor-reaching Y extension in installed X / print Z so the
+    // side-on print grows continuously. The centre 6 mm reaches the floor;
+    // 3 mm shoulders on each side taper back into the existing upper rib.
+    x0 = xc-transition_rib_ground_leg_w/2;
+    x1 = xc-transition_rib_ground_leg_flat_w/2;
+    x2 = xc+transition_rib_ground_leg_flat_w/2;
+    x3 = xc+transition_rib_ground_leg_w/2;
+    z0 = transition_rib_ground_leg_front_z;
+    zd = transition_rib_ground_leg_rear_z-transition_rib_ground_leg_front_z;
+    full_h = transition_rib_ground_leg_y1-transition_rib_ground_leg_y0;
+
+    union() {
+        hull() {
+            translate([x0,transition_rib_y0,z0])
+                cube([
+                    transition_rib_ground_leg_slice_w,
+                    transition_rib_ground_leg_shallow_h,
+                    zd
+                ]);
+            translate([
+                x1-transition_rib_ground_leg_slice_w,
+                transition_rib_ground_leg_y0,
+                z0
+            ])
+                cube([
+                    transition_rib_ground_leg_slice_w,
+                    full_h,
+                    zd
+                ]);
+        }
+
+        translate([
+            x1-transition_rib_ground_leg_slice_w,
+            transition_rib_ground_leg_y0,
+            z0
+        ])
+            cube([
+                x2-x1+2*transition_rib_ground_leg_slice_w,
+                full_h,
+                zd
+            ]);
+
+        hull() {
+            translate([x2,transition_rib_ground_leg_y0,z0])
+                cube([
+                    transition_rib_ground_leg_slice_w,
+                    full_h,
+                    zd
+                ]);
+            translate([
+                x3-transition_rib_ground_leg_slice_w,
+                transition_rib_y0,
+                z0
+            ])
+                cube([
+                    transition_rib_ground_leg_slice_w,
+                    transition_rib_ground_leg_shallow_h,
+                    zd
+                ]);
+        }
+    }
 }
 
 module transition_rear_rib(xc) {
@@ -1342,7 +1421,7 @@ module transition_rear_rib(xc) {
     shallow_d = 0.8;
 
     union() {
-        transition_rear_rib_rear_foot(xc);
+        transition_rib_ground_leg(xc);
 
         hull() {
             translate([
@@ -1491,8 +1570,13 @@ backplane_print_shift_x = universal_deep_rear_z + 1;
 backplane_print_shift_y = -equipment_backplane_y0;
 backplane_print_shift_z = -service_x;
 
-insertion_print_support_t = 1.0;
-insertion_print_support_overlap = 0.4;
+// Physical printing showed the 258 mm-tall side-on backplane can lever away
+// from a narrow breakaway strip. Use a tapered sacrificial pedestal instead.
+insertion_print_support_t = 6.0;            // top/contact width
+insertion_print_support_overlap = 4.0;      // overlap into structural tongue
+insertion_print_support_foot_w = 32;        // bed-contact width
+insertion_print_support_foot_y_extra = 20;  // 10 mm beyond each end
+insertion_print_support_foot_h = 0.8;       // four 0.20 mm layers
 insertion_print_support_h =
     lower_backplane_edge_inset + insertion_print_support_overlap;
 insertion_print_support_y =
@@ -1506,21 +1590,36 @@ insertion_print_support_x =
     - insertion_print_support_t/2;
 
 module insertion_tongue_print_support() {
-    // A 1 mm-thick sacrificial strip supports the centre of the 3 mm insertion
-    // wall for only the 1.8 mm end inset, with 0.4 mm overlap for a reliable
-    // printable union. It snaps/cuts away after the print.
-    translate([
-        insertion_print_support_x,
-        0,
-        0
-    ])
-        cube([
-            insertion_print_support_t,
-            insertion_print_support_y,
-            insertion_print_support_h
-        ]);
-}
+    // Tapered sacrificial pedestal/cradle: broad at the bed, narrow at the
+    // tongue. This gives the tall side-on print a triangulated load path rather
+    // than concentrating bending load at one vertical tear seam.
+    bottom_x =
+        insertion_print_support_x
+        -(insertion_print_support_foot_w-insertion_print_support_t)/2;
+    bottom_y = -insertion_print_support_foot_y_extra/2;
+    bottom_y_len =
+        insertion_print_support_y+insertion_print_support_foot_y_extra;
 
+    hull() {
+        translate([bottom_x,bottom_y,0])
+            cube([
+                insertion_print_support_foot_w,
+                bottom_y_len,
+                insertion_print_support_foot_h
+            ]);
+
+        translate([
+            insertion_print_support_x,
+            0,
+            insertion_print_support_h-insertion_print_support_foot_h
+        ])
+            cube([
+                insertion_print_support_t,
+                insertion_print_support_y,
+                insertion_print_support_foot_h
+            ]);
+    }
+}
 module universal_equipment_backplane_print() {
     union() {
         translate([

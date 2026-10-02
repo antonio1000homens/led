@@ -168,10 +168,12 @@ The removable backplane/enclosure installs from directly above:
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
 3. the 2 mm rear groove seats the sliding tongue independently. The three
-   guardrail tabs and the tongue-side rib sections rise/start at **Y=5.1 mm**.
-   Behind each rail/channel, a **12 mm-wide rear rib foot** continues down to
-   the backplane bottom at **Y=2.5 mm**. The foot starts 0.6 mm behind the rail,
-   so the tongue-to-tab and tab-to-rib clearances remain open;
+   guardrail tabs and tongue-side rib sections rise/start at **Y=5.1 mm**.
+   Behind each rail/channel, a tapered **12 mm-wide rear rib spine** continues
+   through a matching rear-shelf pocket to the actual enclosure floor at
+   **Y=0.5 mm**. Its 6 mm centre reaches the floor, with 3 mm print-Z tapers on
+   each side. The spine still starts 0.6 mm behind the rail, so both functional
+   clearances remain open;
 4. the full-width shoulder above the guides then sits over the tower tops while
    the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.
@@ -186,15 +188,13 @@ designed around side-on vertical printing:
   256 mm X length;
 - the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
   tapered ribs**, centred at X = **64 / 128 / 192 mm**. The 24 mm-wide
-  tongue-side/tapered rib still stops at **Y=5.1 mm**, 0.6 mm above the 4.5 mm
-  base seat. Behind the guardrail channel, however, a central **12 mm-wide rear
-  foot** continues down to the removable backplane bottom at **Y=2.5 mm**, with
-  0.4 mm vertical overlap into the upper rib. The foot begins at the channel's
-  rear face, which remains 0.6 mm behind the stationary rail. The lowest 2.6 mm
-  of the sliding-tongue/seat path therefore remains unobstructed. Each rib keeps
-  its **18 mm-wide shallow channel**, 12 mm flat centre, 3 mm tapered entries,
-  0.6 mm tongue clearance, 1.2 mm guardrail tab and 0.6 mm rear clearance. The
-  tapered entry keeps the side-on print support-free;
+  tongue-side rib still begins at **Y=5.1 mm**, preserving the #170 seat and
+  guardrail interface. Behind that channel, a **12 mm rear spine** continues to
+  the enclosure floor at **Y=0.5 mm** through matching pockets in the low shelf.
+  Its **6 mm full-height centre** is flanked by **3 mm print-Z tapers** so the
+  floor extension grows continuously during the side-on print. The spine starts
+  at the channel rear face, preserving 0.6 mm tongue clearance, the 1.2 mm
+  guardrail, and 0.6 mm rear clearance;
 - main equipment zone: **54 mm clear depth**;
 - structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
   top to the return ramp;
@@ -364,14 +364,15 @@ under-ramp support forest.
 The lower insertion tongue is intentionally narrower than the main shell so it
 can slide into the base U-channels. With the left end on the bed, that tongue
 starts about **1.8 mm above the bed**. The manufacturing wrapper therefore adds
-one **1.0 mm-thick breakaway strip** under the tongue, extending through the
-guide-height section and overlapping the tongue by **0.4 mm**. It is the only
-print-only support geometry.
+a **tapered sacrificial pedestal** under the tongue. It is **32 mm wide at the
+bed**, narrows to **6 mm at the tongue**, overlaps **4 mm** into structural
+material, and uses a **0.8 mm-high** bed layer extending **10 mm beyond each
+end**. This is the only print-only support geometry.
 
-The support exists only in `03_universal_equipment_backplane_PRINT_1.stl`;
-`universal_equipment_backplane()` remains support-free for installed assembly
-and interference checks. After printing, snap/cut the low strip away from the
-insertion tongue and clean the contact line.
+The pedestal exists only in `03_universal_equipment_backplane_PRINT_1.stl`;
+installed geometry remains unchanged. After printing, peel/cut the 0.8 mm bed
+layer away first, then remove the tapered pedestal from the 6 mm tongue contact
+with flush cutters and clean the contact line.
 
 For the H2D production candidate use **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
 **0.20mm Standard @BBL H2D**, and the **Textured PEI Plate**.

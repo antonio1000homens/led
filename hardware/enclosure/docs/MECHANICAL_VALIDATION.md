@@ -22,8 +22,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the shell above the guide section keeps one constant Y/Z profile across X;
 - the old under-ramp support forest and transverse front/rear stabilisers remain
   absent;
-- the narrowed lower insertion tongue uses one **1.0 mm-thick** print-only
-  breakaway support strip with **0.4 mm overlap**;
+- the narrowed lower insertion tongue uses a tapered print-only pedestal:
+  **32 mm wide at the bed**, **6 mm wide at the tongue**, **4 mm overlap** into
+  structural material and a **0.8 mm-high** bed layer extending 10 mm beyond
+  each end;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
 - a 2 mm voxel floating-layer/island proxy;
@@ -41,12 +43,12 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   remains open apart from the existing X = **128 mm** centre tab;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
 - three rear-only tapered transition ribs centred at X = **64 / 128 / 192 mm**.
-  The 24 mm-wide tongue-side rib remains stopped at **Y=5.1 mm**, 0.6 mm above
-  the 4.5 mm base seat, while a central **12 mm-wide rear foot** behind each
-  channel continues to the backplane bottom at **Y=2.5 mm** and overlaps the
-  upper rib by 0.4 mm. Each 18 mm-wide shallow guardrail channel remains open:
-  12 mm flat centre, 3 mm tapered entries, 0.6 mm tongue clearance, 1.2 mm tab
-  thickness and 0.6 mm clearance before the rear foot;
+  The #170 tongue-side rib/guardrail interface remains at **Y=5.1 mm**, while
+  a **12 mm rear spine** behind each channel continues through a matching shelf
+  pocket to the enclosure floor at **Y=0.5 mm**. A 6 mm full-height centre with
+  3 mm print-Z tapers keeps the extension support-free. Each 18 mm guardrail
+  channel remains open with 0.6 mm tongue clearance, 1.2 mm tab thickness and
+  0.6 mm rear clearance;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;
@@ -116,8 +118,10 @@ guide tops the backplane uses one full-width **54 mm** profile across the entire
 The full-depth rear mounting wall remains solid.
 
 The manufacturing STL rotates this geometry so installed X becomes print Z.
-The only print-only support is a low breakaway strip beneath the narrowed lower
-tongue where that tongue starts 1.8 mm above the left-end print bed. The
+The only print-only support is the tapered pedestal beneath the narrowed lower
+tongue where that tongue starts 1.8 mm above the left-end print bed. It is
+32 mm wide at the bed, narrows to 6 mm at the tongue, overlaps 4 mm into the
+structural tongue and uses a 0.8 mm sacrificial bed layer. The
 backplane reuses the panel's three measured top-row screw positions
 (X=7.9/128.0/248.1 mm, installed Y=160.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
@@ -140,7 +144,8 @@ sets:
 4. confirm the unchanged moving panel/template never contacts the stationary
    barrel support webs or lower guard through the complete 0–90° motion;
 5. print one universal backplane **side-on with its 256 mm length vertical**,
-   remove the small breakaway strip beneath the insertion tongue after cooling,
+   remove the 0.8 mm sacrificial bed layer and tapered pedestal beneath the
+   insertion tongue after cooling,
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
    seats 2 mm into the rear groove without the ribs entering the seat, and
    visibly retains the three shallow gaps between the sliding tongue and rear ribs;
