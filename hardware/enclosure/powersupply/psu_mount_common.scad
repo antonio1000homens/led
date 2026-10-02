@@ -3,13 +3,16 @@
 // This file models the PSU adapter in a LOCAL coordinate system centred on the
 // six accessory bosses selected from the current universal backplane.
 //
-// Current master interface (PR #164):
+// Current master interface:
 //   absolute X = 80 / 176 mm
-//   absolute Y = 62.5 / 86.5 / 110.5 mm
+//   absolute Y = 67.5 / 86.5 / 105.5 mm
 //
 // Local adapter coordinates:
 //   X = -48 / +48 mm
-//   Y = -24 / 0 / +24 mm
+//   Y = -19 / 0 / +19 mm
+//
+// The two outer Y rows were moved 5 mm inward after physical fit testing of
+// the PSU dock in the 80 mm-wide enclosure opening.
 //
 // The backplane bosses are 7 mm OD x 4 mm high with 3.4 mm blind holes.
 // The adapter uses shallow underside pockets around the boss bodies so that the
@@ -42,7 +45,7 @@ lip_inset = 1.8;
 
 // Current six-boss accessory interface, local to its centre.
 backplane_mount_x = [-48, 48];
-backplane_mount_y = [-24, 0, 24];
+backplane_mount_y = [-19, 0, 19];
 
 backplane_boss_d = 7.0;
 backplane_boss_h = 4.0;
@@ -70,10 +73,11 @@ psu_rear_mount_points = [
 psu_mount_pilot_d = 2.8;
 psu_mount_boss_d = 8.0;
 
-// Legacy/shared interface footprint used by the backplane fit coupon. The
-// selected service tray defines its own 84 mm tray / 89 mm dock heights.
+// Shared interface footprint. Keep the Y envelope below the physical 80 mm
+// enclosure opening so helper/previews cannot silently reintroduce the old
+// over-width geometry.
 adapter_w = 118;
-adapter_h = 82;
+adapter_h = 79;
 corner_r = 3;
 
 module rounded_plate(w=adapter_w, h=adapter_h, t=plate_t, r=corner_r) {

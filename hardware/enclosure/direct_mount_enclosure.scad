@@ -337,8 +337,10 @@ universal_deep_front_z =
     universal_deep_rear_z-universal_deep_wall_t;
 
 // Keep three accessory-boss rows inside the long full-depth mounting face.
-// The outer rows are pulled inward and the third row is centred explicitly.
-adapter_edge_inset_y = 22;
+// Physical PSU-dock fit showed the original outer rows sat too close to the
+// constrained 80 mm equipment opening. Pull both outer rows 5 mm inward while
+// keeping the centre row fixed.
+adapter_edge_inset_y = 27;
 adapter_y = [
     universal_deep_y0 + adapter_edge_inset_y,
     (universal_deep_y0 + universal_deep_y1)/2,
