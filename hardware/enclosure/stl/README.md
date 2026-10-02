@@ -57,3 +57,24 @@ as a downloadable workflow artifact.
 
 CI additionally verifies that each regenerated mesh is geometrically equivalent
 to the corresponding checked-in STL, preventing SCAD and STL from drifting.
+
+
+## Loop safety
+
+The GitHub Actions enclosure workflow **never commits generated STL files**.
+
+- SCAD changes on an open PR trigger regeneration and comparison.
+- SCAD/STL changes merged to `master` trigger the same read-only validation.
+- STL-only changes can trigger one validation run so stale/manual replacements
+  are caught.
+- The workflow has `contents: read` permission and cannot push generated files
+  back into the repository.
+
+This deliberately prevents the pattern:
+
+`SCAD change → bot STL commit → workflow trigger → bot STL commit → ...`
+
+Canonical STL updates are created with
+`python hardware/enclosure/scripts/generate_stls.py` and committed together
+with the corresponding SCAD change. CI independently regenerates the meshes and
+fails if the committed STL differs from the source-generated geometry.
