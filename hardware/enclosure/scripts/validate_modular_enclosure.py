@@ -1138,9 +1138,20 @@ def main() -> None:
         assert_hinge_sweep(work_dir, args.workers)
         assert_neighboring_module_clearance(work_dir, args.workers)
 
+        preview_checks: list[Check] = [
+            (
+                f"preview_{Path(preview).stem}",
+                partial(
+                    render,
+                    SCHEMATICS / preview,
+                    work_dir / f"{Path(preview).stem}.csg",
+                ),
+            )
+            for preview in PREVIEWS
+        ]
+        run_parallel_checks(preview_checks, args.workers)
         for preview in PREVIEWS:
-            render(SCHEMATICS / preview, work_dir / f"{Path(preview).stem}.csg")
-            print(f"OK: {preview}")
+            print(f"OK: {preview}", flush=True)
 
     print("All canonical hinged enclosure checks passed.")
 
