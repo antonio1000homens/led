@@ -45,13 +45,17 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   from each side guide to the nearest outer rib tab, while the centre span
   remains open apart from the existing X = **128 mm** centre tab;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
-- three rear-only tapered transition ribs centred at X = **64 / 128 / 192 mm**.
-  The #170 tongue-side rib/guardrail interface remains at **Y=5.1 mm**, while
-  a **12 mm rear spine** behind each channel continues through a matching shelf
-  pocket to the enclosure floor at **Y=0.5 mm**. A 6 mm full-height centre with
-  3 mm print-Z tapers keeps the extension support-free. Each 18 mm guardrail
-  channel remains open with 0.6 mm tongue clearance, 1.2 mm tab thickness and
-  0.6 mm rear clearance;
+- three **continuous 24 mm transition ribs** centred at X = **64 / 128 / 192 mm**,
+  each running from the reinforced shoulder to the enclosure floor at
+  **Y=0.5 mm**. The stationary guardrail occupies an 18 mm tapered channel
+  carved into the lower/front portion of the solid rib, preserving 0.6 mm
+  tongue clearance, 1.2 mm guardrail thickness and 0.6 mm rear clearance.
+  Matching vertical sockets clear the complete rib footprint through the rear
+  shelf/base-seat band. The #170 rails/tabs are retained inside those sockets
+  and enter lower side/front slots in the ribs. Two short low spurs root the
+  centre tab into the surrounding shelf across the centre-rib socket without
+  closing the full centre span; the existing 24 mm X/print-Z taper prevents
+  floating regions;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;
@@ -150,8 +154,8 @@ sets:
    remove the 0.8 mm sacrificial bed layer and tapered pedestal beneath the
    insertion tongue after cooling,
    then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
-   seats 2 mm into the rear groove without the ribs entering the seat, and
-   visibly retains the three shallow gaps between the sliding tongue and rear ribs;
+   seats 2 mm into the rear groove and visibly confirms the guardrail slots
+   remain open through all three continuous floor-reaching ribs;
 6. inspect the new full-width triangular floor gussets beneath both sliders;
    confirm their broad footprints blend into the base and their tapered tops
    blend into the guide fronts without narrowing the sliding channel. Confirm

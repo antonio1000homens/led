@@ -170,13 +170,16 @@ The removable backplane/enclosure installs from directly above:
 1. lower the shortened 40 mm backplane foot between the two 5 mm side guides;
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
-3. the 2 mm rear groove seats the sliding tongue independently. The three
-   guardrail tabs and tongue-side rib sections rise/start at **Y=5.1 mm**.
-   Behind each rail/channel, a tapered **12 mm-wide rear rib spine** continues
-   through a matching rear-shelf pocket to the actual enclosure floor at
-   **Y=0.5 mm**. Its 6 mm centre reaches the floor, with 3 mm print-Z tapers on
-   each side. The spine still starts 0.6 mm behind the rail, so both functional
-   clearances remain open;
+3. the 2 mm rear groove seats the sliding tongue independently. Each of the
+   three **continuous 24 mm ribs reaches the actual enclosure floor at
+   Y=0.5 mm**. The stationary guardrail enters a channel carved through the
+   front of the rib: 0.6 mm tongue clearance, 1.2 mm guardrail thickness and
+   0.6 mm clearance to the solid rear rib wall. The low rear shelf is pocketed
+   through the complete rear shelf/base-seat band beneath the rib footprint,
+   while the #170 outer rails/tabs are deliberately retained inside those
+   sockets and enter dedicated lower/front side slots. The centre tab uses two
+   short low root spurs across the centre-rib socket so it remains manifold with
+   the surrounding shelf without closing the full centre span;
 4. the full-width shoulder above the guides then sits over the tower tops while
    the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.
@@ -189,15 +192,14 @@ designed around side-on vertical printing:
 - immediately above the 40 mm guide section, the shell switches to the
   **full service width** and keeps the same Y/Z profile across the complete
   256 mm X length;
-- the fragile tongue-to-deep-shell junction is reinforced by **three rear-only
-  tapered ribs**, centred at X = **64 / 128 / 192 mm**. The 24 mm-wide
-  tongue-side rib still begins at **Y=5.1 mm**, preserving the #170 seat and
-  guardrail interface. Behind that channel, a **12 mm rear spine** continues to
-  the enclosure floor at **Y=0.5 mm** through matching pockets in the low shelf.
-  Its **6 mm full-height centre** is flanked by **3 mm print-Z tapers** so the
-  floor extension grows continuously during the side-on print. The spine starts
-  at the channel rear face, preserving 0.6 mm tongue clearance, the 1.2 mm
-  guardrail, and 0.6 mm rear clearance;
+- the fragile tongue-to-deep-shell junction is reinforced by **three continuous
+  rear ribs**, centred at X = **64 / 128 / 192 mm**. Each keeps the existing
+  **24 mm print-Z taper** but now runs as one solid object from the reinforced
+  shoulder to **Y=0.5 mm floor level**. The existing **18 mm-wide guardrail
+  channel** is subtracted through the lower/front portion of that solid rib,
+  preserving the 0.6 mm tongue clearance, 1.2 mm guardrail and 0.6 mm rear
+  clearance. Because the whole rib retains the existing gradual X/print-Z taper,
+  Windsor/Bambu Studio does not detect a floating region;
 - main equipment zone: **54 mm clear depth**;
 - structural full-depth rear-wall region: **92 mm high** from the 40 mm guide
   top to the return ramp;

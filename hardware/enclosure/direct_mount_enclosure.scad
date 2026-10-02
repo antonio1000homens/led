@@ -766,7 +766,7 @@ module side_guide_channel(side="left") {
     }
 }
 
-module rear_guardrail() {
+module rear_guardrail_shelf() {
     // Full-width low shelf extends the stationary base to the common rear plane
     // while staying below the seated lower edge of the removable backplane.
     translate([
@@ -780,6 +780,9 @@ module rear_guardrail() {
             rear_guardrail_shelf_rear_z-rear_guardrail_shelf_front_z
         ]);
 
+}
+
+module rear_guardrail_rails() {
     // Continue the left/right side-guide rear lips inward until each reaches
     // the nearest outer rib tab. These remain behind the 0.6 mm tongue running
     // clearance, so they strengthen the base without narrowing the slide path.
@@ -819,23 +822,61 @@ module rear_guardrail() {
                 rear_guardrail_y1-rear_guardrail_y0,
                 rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
             ]);
+
+    // Short low spurs root the centre tab into the shelf on both sides of the
+    // centre-rib socket without closing the full centre span.
+    translate([
+        rear_guardrail_center_left_x0,
+        rear_guardrail_y0,
+        rear_guardrail_lip_front_z
+    ])
+        cube([
+            rear_guardrail_center_left_x1-rear_guardrail_center_left_x0,
+            rear_guardrail_center_root_y1-rear_guardrail_y0,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+        ]);
+
+    translate([
+        rear_guardrail_center_right_x0,
+        rear_guardrail_y0,
+        rear_guardrail_lip_front_z
+    ])
+        cube([
+            rear_guardrail_center_right_x1-rear_guardrail_center_right_x0,
+            rear_guardrail_center_root_y1-rear_guardrail_y0,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+        ]);
+}
+
+module rear_guardrail() {
+    union() {
+        rear_guardrail_shelf();
+        rear_guardrail_rails();
+    }
 }
 
 module rear_rib_ground_clearance_cutters() {
-    // Matching open pockets through only the REAR part of the low shelf let
-    // the removable rib spines reach the enclosure floor. The #170 outer
-    // guardrails and centre/outer tabs remain intact in front of these pockets.
-    for (xc=transition_rib_centres)
-        translate([
-            xc-rear_rib_ground_pocket_w/2,
-            service_base_y-0.1,
-            rear_rib_ground_pocket_front_z
-        ])
-            cube([
-                rear_rib_ground_pocket_w,
-                rear_guardrail_shelf_top_y-service_base_y+0.3,
-                rear_reinforcement_flush_z-rear_rib_ground_pocket_front_z+0.2
-            ]);
+    // Remove a vertical socket through the low rear shelf AND the complete
+    // rear base-floor/seat band under each 24 mm continuous rib. Preserve the
+    // #170 guardrail rails/tabs inside that socket; the rib's carved front/side
+    // slots receive the complete retained guardrail shape during insertion.
+    difference() {
+        union() {
+            for (xc=transition_rib_centres)
+                translate([
+                    xc-rear_rib_ground_pocket_w/2,
+                    service_base_y-0.1,
+                    rear_rib_ground_pocket_front_z
+                ])
+                    cube([
+                        rear_rib_ground_pocket_w,
+                        rear_rib_ground_pocket_y1-service_base_y+0.1,
+                        rear_reinforcement_flush_z-rear_rib_ground_pocket_front_z+0.2
+                    ]);
+        }
+
+        rear_guardrail_rails();
+    }
 }
 
 module base_structural_body() {
@@ -1314,7 +1355,7 @@ transition_rib_half_w = 12;
 transition_rib_slice_w = 1.0;
 transition_rib_depth =
     rear_reinforcement_flush_z-equipment_backplane_rear_z;
-transition_rib_y0 = base_seat_y + side_guide_clearance;
+transition_rib_y0 = service_base_y;
 transition_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
 
 // Functional slot between the 3 mm sliding tongue and each rear rib.
@@ -1331,30 +1372,17 @@ transition_rib_channel_rear_z =
     transition_rib_channel_front_z + transition_rib_channel_depth;
 transition_rib_channel_y1 = universal_deep_y0 + 0.8;
 
-// Below the guardrail/rib interface, continue only the REAR spine of each
-// rib all the way to the actual enclosure floor. The spine stays behind the
-// complete guardrail channel, preserving the 0.6 mm clearance behind the
-// stationary rail and leaving the sliding tongue/2 mm seat path untouched.
-//
-// Installed X is print Z, so the floor-reaching section tapers in X rather than
-// appearing as an abrupt unsupported rectangle during side-on printing.
-transition_rib_ground_leg_w = transition_rib_channel_flat_w;
-transition_rib_ground_leg_flat_w = 6;
-transition_rib_ground_leg_taper_w =
-    (transition_rib_ground_leg_w-transition_rib_ground_leg_flat_w)/2;
-transition_rib_ground_leg_slice_w = 0.5;
-transition_rib_ground_leg_y0 = service_base_y;
-transition_rib_ground_leg_y1 = transition_rib_y0 + 0.8;
-transition_rib_ground_leg_shallow_h = 0.8;
-transition_rib_ground_leg_front_z = transition_rib_channel_rear_z;
-transition_rib_ground_leg_rear_z = min(
-    rear_reinforcement_flush_z,
-    universal_deep_front_z
-);
+// The three transition ribs are continuous solids from the reinforced shoulder
+// down to the actual enclosure floor. The guardrail interface is a channel
+// carved through the front of each rib rather than a separate lower spine.
+// Matching rear-shelf pockets clear the complete rib footprint while preserving
+// the #170 outer guardrails and centre/outer tabs in front of the pockets.
 rear_rib_ground_pocket_w =
-    transition_rib_ground_leg_w + 2*side_guide_clearance;
+    2*transition_rib_half_w + 2*side_guide_clearance;
 rear_rib_ground_pocket_front_z =
-    rear_guardrail_lip_rear_z - 0.01;
+    equipment_backplane_rear_z - 0.4;
+rear_rib_ground_pocket_y1 =
+    rear_guardrail_y1 + 0.2;
 
 // Extend the two outer stationary guardrails from the side guides to the
 // nearest outer rib channel. Keep the middle span open; the existing three
@@ -1372,69 +1400,24 @@ rear_guardrail_right_x0 =
     - rear_guardrail_join_overlap;
 rear_guardrail_right_x1 = service_x + service_w;
 
-module transition_rib_ground_leg(xc) {
-    // Taper the floor-reaching Y extension in installed X / print Z so the
-    // side-on print grows continuously. The centre 6 mm reaches the floor;
-    // 3 mm shoulders on each side taper back into the existing upper rib.
-    x0 = xc-transition_rib_ground_leg_w/2;
-    x1 = xc-transition_rib_ground_leg_flat_w/2;
-    x2 = xc+transition_rib_ground_leg_flat_w/2;
-    x3 = xc+transition_rib_ground_leg_w/2;
-    z0 = transition_rib_ground_leg_front_z;
-    zd = transition_rib_ground_leg_rear_z-transition_rib_ground_leg_front_z;
-    full_h = transition_rib_ground_leg_y1-transition_rib_ground_leg_y0;
-
-    union() {
-        hull() {
-            translate([x0,transition_rib_y0,z0])
-                cube([
-                    transition_rib_ground_leg_slice_w,
-                    transition_rib_ground_leg_shallow_h,
-                    zd
-                ]);
-            translate([
-                x1-transition_rib_ground_leg_slice_w,
-                transition_rib_ground_leg_y0,
-                z0
-            ])
-                cube([
-                    transition_rib_ground_leg_slice_w,
-                    full_h,
-                    zd
-                ]);
-        }
-
-        translate([
-            x1-transition_rib_ground_leg_slice_w,
-            transition_rib_ground_leg_y0,
-            z0
-        ])
-            cube([
-                x2-x1+2*transition_rib_ground_leg_slice_w,
-                full_h,
-                zd
-            ]);
-
-        hull() {
-            translate([x2,transition_rib_ground_leg_y0,z0])
-                cube([
-                    transition_rib_ground_leg_slice_w,
-                    full_h,
-                    zd
-                ]);
-            translate([
-                x3-transition_rib_ground_leg_slice_w,
-                transition_rib_y0,
-                z0
-            ])
-                cube([
-                    transition_rib_ground_leg_slice_w,
-                    transition_rib_ground_leg_shallow_h,
-                    zd
-                ]);
-        }
-    }
-}
+// The centre guardrail tab needs a manifold root after the continuous-rib
+// socket removes the shelf around it. Keep two short LOW spurs local to the
+// centre rib only; they overlap the surrounding shelf by 0.4 mm and remain
+// below the removable tongue.
+rear_guardrail_center_root_overlap = 0.4;
+rear_guardrail_center_root_y1 = rear_guardrail_shelf_top_y;
+rear_guardrail_center_left_x0 =
+    transition_rib_centres[1] - rear_rib_ground_pocket_w/2
+    - rear_guardrail_center_root_overlap;
+rear_guardrail_center_left_x1 =
+    transition_rib_centres[1] - rear_guardrail_tab_w/2
+    + rear_guardrail_center_root_overlap;
+rear_guardrail_center_right_x0 =
+    transition_rib_centres[1] + rear_guardrail_tab_w/2
+    - rear_guardrail_center_root_overlap;
+rear_guardrail_center_right_x1 =
+    transition_rib_centres[1] + rear_rib_ground_pocket_w/2
+    + rear_guardrail_center_root_overlap;
 
 module transition_rear_rib(xc) {
     z0 = equipment_backplane_rear_z - 0.3;
@@ -1446,8 +1429,6 @@ module transition_rear_rib(xc) {
     shallow_d = 0.8;
 
     union() {
-        transition_rib_ground_leg(xc);
-
         hull() {
             translate([
                 xc-transition_rib_half_w,
@@ -1507,8 +1488,8 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     // side-on print to create the complete rear-wall overhang in one layer.
     edge_slice_w = 0.5;
     tiny_depth = 0.1;
-    y0 = base_seat_y-0.2;
-    yh = transition_rib_channel_y1-transition_rib_y0+0.4;
+    y0 = service_base_y-0.2;
+    yh = transition_rib_channel_y1-y0+0.2;
     x0 = xc-transition_rib_channel_w/2;
     x1 = xc-transition_rib_channel_flat_w/2;
     x2 = xc+transition_rib_channel_flat_w/2;
@@ -1538,9 +1519,53 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     }
 }
 
+module outer_guardrail_entry_cutter(
+    xc,
+    side="left",
+    y1=rear_guardrail_y1
+) {
+    // The PR170 outer guardrails approach the outer ribs from the enclosure
+    // sides. Open only the lower guardrail-height band from the relevant rib
+    // edge into the existing central channel; leave the rest of the 24 mm rib
+    // continuous to the floor.
+    x0 = side == "left"
+        ? xc-transition_rib_half_w-0.2
+        : xc+transition_rib_channel_flat_w/2-0.2;
+    x1 = side == "left"
+        ? xc-transition_rib_channel_flat_w/2+0.2
+        : xc+transition_rib_half_w+0.2;
+
+    translate([
+        x0,
+        service_base_y-0.2,
+        rear_guardrail_lip_front_z-0.1
+    ])
+        cube([
+            x1-x0,
+            y1-service_base_y+0.4,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z+
+                side_guide_clearance+0.2
+        ]);
+}
+
 module transition_rib_guardrail_channel_cutters() {
     for (xc=transition_rib_centres)
         tapered_rib_guardrail_channel_cutter(xc);
+
+    outer_guardrail_entry_cutter(transition_rib_centres[0],"left");
+    outer_guardrail_entry_cutter(transition_rib_centres[2],"right");
+
+    // Local low entries for the centre-tab root spurs.
+    outer_guardrail_entry_cutter(
+        transition_rib_centres[1],
+        "left",
+        rear_guardrail_center_root_y1+0.2
+    );
+    outer_guardrail_entry_cutter(
+        transition_rib_centres[1],
+        "right",
+        rear_guardrail_center_root_y1+0.2
+    );
 }
 
 module universal_equipment_backplane() {
