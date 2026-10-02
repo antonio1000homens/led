@@ -546,26 +546,28 @@ assert(abs(transition_rib_channel_front_z-equipment_backplane_rear_z-
 assert(abs(transition_rib_channel_rear_z-rear_guardrail_lip_rear_z-
            side_guide_clearance) < 0.01,
        "guardrail tab must retain 0.6 mm clearance to the rear rib wall");
-assert(abs(transition_rib_rear_foot_w-transition_rib_channel_flat_w) < 0.01 &&
-       abs(transition_rib_rear_foot_y0-equipment_backplane_y0) < 0.01,
-       "rear rib foot must use the 12 mm centre and reach the backplane bottom");
-assert(abs(transition_rib_rear_foot_front_z-
+assert(abs(transition_rib_ground_leg_y0-service_base_y) < 0.01,
+       "rear rib spine must reach the actual enclosure floor");
+assert(abs(transition_rib_ground_leg_y1-
+           (transition_rib_y0+0.8)) < 0.01,
+       "floor-reaching rib spine must overlap the upper rib structurally");
+assert(abs(transition_rib_ground_leg_w-12) < 0.01 &&
+       abs(transition_rib_ground_leg_flat_w-6) < 0.01 &&
+       abs(transition_rib_ground_leg_taper_w-3) < 0.01,
+       "floor-reaching rib spine width/taper contract drifted");
+assert(abs(transition_rib_ground_leg_front_z-
            transition_rib_channel_rear_z) < 0.01 &&
-       abs(transition_rib_rear_foot_front_z-
+       abs(transition_rib_ground_leg_front_z-
            rear_guardrail_lip_rear_z-side_guide_clearance) < 0.01,
-       "rear rib foot must begin behind the complete guardrail slot/clearance");
-assert(transition_rib_rear_foot_y1 >=
-           transition_rib_y0+transition_rib_rear_foot_overlap_y-0.01 &&
-       transition_rib_rear_foot_overlap_y >= 0.4,
-       "rear rib foot must overlap the upper rib vertically");
-assert(abs(transition_rib_rear_foot_rear_z-
+       "floor-reaching rib spine must remain behind the complete guardrail slot/clearance");
+assert(abs(transition_rib_ground_leg_rear_z-
            min(rear_reinforcement_flush_z,universal_deep_front_z)) < 0.01 &&
-       transition_rib_rear_foot_rear_z >
-           transition_rib_rear_foot_front_z,
-       "rear rib foot must reach the existing rear reinforcement plane");
-assert(rear_guardrail_shelf_top_y <=
-           transition_rib_rear_foot_y0-0.19,
-       "rear rib foot must stay above the stationary rear shelf");
+       transition_rib_ground_leg_rear_z >
+           transition_rib_ground_leg_front_z,
+       "floor-reaching rib spine must reach the existing rear reinforcement plane");
+assert(abs(rear_rib_ground_pocket_w-
+           (transition_rib_ground_leg_w+2*side_guide_clearance)) < 0.01,
+       "rear shelf pocket lost running clearance around the floor-reaching rib spine");
 assert(transition_rib_channel_flat_w-
            2*side_guide_clearance >= 10,
        "guardrail tab lost useful width inside the rib channel");
@@ -610,21 +612,32 @@ assert(vent_slot_x0 >= universal_deep_x0+10 &&
        "ramp vents lost structural side margin");
 
 // Manufacturing orientation: installed X is the print Z axis. The narrowed
-// lower insertion tongue begins above the bed by lower_backplane_edge_inset,
-// and only that short gap receives a removable support strip.
+// lower insertion tongue begins above the bed by lower_backplane_edge_inset.
+// Use a tapered pedestal so the 258 mm-tall print has a broad triangulated
+// load path into the bed instead of a narrow tear seam.
 assert(abs(backplane_print_shift_z+service_x) < 0.01,
        "backplane print transform must place the left service edge on Z=0");
-assert(abs(insertion_print_support_t-1.0) < 0.01 &&
-       abs(insertion_print_support_overlap-0.4) < 0.01,
-       "insertion support thickness/overlap contract drifted");
+assert(abs(insertion_print_support_t-6.0) < 0.01 &&
+       abs(insertion_print_support_overlap-4.0) < 0.01,
+       "tapered pedestal top width/overlap contract drifted");
+assert(abs(insertion_print_support_foot_w-32) < 0.01 &&
+       abs(insertion_print_support_foot_y_extra-20) < 0.01 &&
+       abs(insertion_print_support_foot_h-0.8) < 0.01,
+       "tapered pedestal bed-foot dimensions drifted");
 assert(abs(insertion_print_support_h-
            (lower_backplane_edge_inset+insertion_print_support_overlap)) < 0.01,
        "insertion support must reach from the bed into the narrowed tongue");
 assert(abs(insertion_print_support_y-
            (side_guide_y1-equipment_backplane_y0)) < 0.01,
        "insertion support must cover the complete guide-height tongue");
-assert(insertion_print_support_h < 3,
-       "temporary insertion support must remain a small breakaway feature");
+assert(abs(insertion_print_support_h-
+           (lower_backplane_edge_inset+4.0)) < 0.01,
+       "tapered pedestal must overlap 4 mm into the structural tongue");
+assert(insertion_print_support_foot_w >=
+           insertion_print_support_t+24,
+       "pedestal lost the wide triangulated bed footprint");
+assert(insertion_print_support_foot_y_extra >= 20,
+       "pedestal lost the fore/aft anti-rocking extension");
 assert(len(panel_closure_x) == 3,
        "top closure must reuse exactly three panel screw positions");
 for (i=[0:2])
