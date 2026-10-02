@@ -110,4 +110,4 @@ jobs:
         run: python hardware/enclosure/scripts/verify_canonical_stls.py
 
       - name: Validate current enclosure design
-        run: python hardware/enclosure/scripts/validate_enclosure.py --generated-dir build/enclosure-stls --workers 3
+        run: python hardware/enclosure/scripts/validate_enclosure.py --generated-dir build/enclosure-stls --workers 4
