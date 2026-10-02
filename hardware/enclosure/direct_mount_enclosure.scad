@@ -799,21 +799,35 @@ module rear_guardrail_rails() {
             ]);
 }
 
+module rear_guardrail() {
+    union() {
+        rear_guardrail_shelf();
+        rear_guardrail_rails();
+    }
+}
+
 module rear_rib_ground_clearance_cutters() {
-    // Matching open pockets remove the low shelf under each complete 24 mm
-    // continuous rib. The #170 outer guardrails and centre/outer tabs are
-    // separate solids restored after this subtraction and enter rib slots.
-    for (xc=transition_rib_centres)
-        translate([
-            xc-rear_rib_ground_pocket_w/2,
-            service_base_y-0.1,
-            rear_rib_ground_pocket_front_z
-        ])
-            cube([
-                rear_rib_ground_pocket_w,
-                rear_guardrail_shelf_top_y-service_base_y+0.3,
-                rear_reinforcement_flush_z-rear_rib_ground_pocket_front_z+0.2
-            ]);
+    // Remove the low shelf under each complete 24 mm continuous rib while
+    // explicitly preserving the #170 guardrail rails/tabs. The retained shelf
+    // under those rail footprints keeps the rail system manifold with the base;
+    // the rib's carved front/side slots receive that complete guardrail shape.
+    difference() {
+        union() {
+            for (xc=transition_rib_centres)
+                translate([
+                    xc-rear_rib_ground_pocket_w/2,
+                    service_base_y-0.1,
+                    rear_rib_ground_pocket_front_z
+                ])
+                    cube([
+                        rear_rib_ground_pocket_w,
+                        rear_guardrail_shelf_top_y-service_base_y+0.3,
+                        rear_reinforcement_flush_z-rear_rib_ground_pocket_front_z+0.2
+                    ]);
+        }
+
+        rear_guardrail_rails();
+    }
 }
 
 module base_structural_body() {
@@ -827,7 +841,7 @@ module base_structural_body() {
                     base_floor_rear_z-base_floor_front_z
                 ]);
 
-            rear_guardrail_shelf();
+            rear_guardrail();
             stationary_hinge_supports();
             stationary_hinge_barrels();
             lower_hinge_guard();
@@ -895,9 +909,6 @@ module hinged_equipment_base() {
     difference() {
         union() {
             base_structural_body();
-            // Keep the #170 side guardrails/tabs intact: the floor-reaching
-            // rib pockets are cut from the low shelf only.
-            rear_guardrail_rails();
             base_connector_pins();
         }
 
