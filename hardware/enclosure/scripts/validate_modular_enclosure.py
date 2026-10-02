@@ -454,13 +454,22 @@ assert(universal_deep_clear_depth >= 37+10,
 assert(universal_deep_clear_depth-adapter_boss_h >= 37+10,
        "PSU loses too much depth where the inward boss rows overlap its footprint");
 assert(len(adapter_y) == 3,
-       "universal accessory grid must use exactly three boss rows");
-assert(abs(adapter_edge_inset_y-27) < 0.01,
-       "outer boss-row edge inset must remain 27 mm after physical-fit correction");
-assert(abs(adapter_y[0]-(universal_deep_y0+adapter_edge_inset_y)) < 0.01 &&
-       abs(adapter_y[1]-(universal_deep_y0+universal_deep_y1)/2) < 0.01 &&
-       abs(adapter_y[2]-(universal_deep_y1-adapter_edge_inset_y)) < 0.01,
-       "boss rows must remain centred with symmetric outer rows");
+       "universal accessory grid must use exactly three boss rows")
+assert(abs(usable_y0-(universal_deep_y0+universal_guide_shoulder_t)) < 0.01 &&
+       abs(usable_y1-universal_deep_y1) < 0.01 &&
+       abs(usable_y0-48.5) < 0.01 && abs(usable_y1-132.5) < 0.01 &&
+       abs(usable_yc-90.5) < 0.01,
+       "PSU grid must be derived from the usable cavity above the 8 mm shoulder")
+assert(adapter_x == psu_adapter_all_columns &&
+       psu_adapter_selected_columns == [80,176],
+       "PSU adapter must retain five universal columns and select X=80/176")
+assert(abs(adapter_y[0]-71.5) < 0.01 &&
+       abs(adapter_y[1]-90.5) < 0.01 &&
+       abs(adapter_y[2]-109.5) < 0.01 &&
+       abs(adapter_y[0]-(usable_yc-19)) < 0.01 &&
+       abs(adapter_y[1]-usable_yc) < 0.01 &&
+       abs(adapter_y[2]-(usable_yc+19)) < 0.01,
+       "boss rows must be centred at 71.5/90.5/109.5 mm")
 assert(adapter_y[0] > universal_deep_y0 &&
        adapter_y[2] < universal_deep_y1 &&
        adapter_y[0] < adapter_y[1] &&
@@ -820,7 +829,7 @@ cube([1,1,1]);
         "40 mm installed hinge with 20 mm forward base-floor extension, "
         "54 mm universal deep cavity with 84 mm usable PSU height above the shoulder, "
         "reinforced transition with three tapered rear ribs and guardrail channels, lower-shoulder plus upper-ramp ventilation, "
-        "23.5 mm shallow upper closure wall, three central boss rows, "
+        "23.5 mm shallow upper closure wall, five universal boss columns and three centred rows, "
         "three aligned closure holes and hinge-rail side-sleeve contract"
     )
 

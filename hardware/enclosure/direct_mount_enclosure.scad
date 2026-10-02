@@ -276,12 +276,11 @@ lower_backplane_edge_inset = side_guide_wall_t + side_guide_clearance;
 backplane_top_band = 1.5;
 
 // Generic M3 adapter pattern. Component-specific geometry belongs on adapters.
-// Three centrally-biased boss rows give detachable adapters a useful middle
-// fixing line while keeping the outer rows away from the transition edges.
 adapter_boss_d = 7;
 adapter_hole_d = 3.4;
 adapter_boss_h = 4;
-adapter_x = [32,80,128,176,224];
+include <psu_adapter_interface.scad>;
+adapter_x = psu_adapter_all_columns;
 
 // Universal equipment envelope for side-on vertical printing.
 //
@@ -336,16 +335,16 @@ universal_deep_rear_z =
 universal_deep_front_z =
     universal_deep_rear_z-universal_deep_wall_t;
 
-// Keep three accessory-boss rows inside the long full-depth mounting face.
-// Physical PSU-dock fit showed the original outer rows sat too close to the
-// constrained 80 mm equipment opening. Pull both outer rows 5 mm inward while
-// keeping the centre row fixed.
-adapter_edge_inset_y = 27;
-adapter_y = [
-    universal_deep_y0 + adapter_edge_inset_y,
-    (universal_deep_y0 + universal_deep_y1)/2,
-    universal_deep_y1 - adapter_edge_inset_y
-];
+// Centre all universal accessory bosses on the usable PSU cavity ABOVE the
+// reinforced 8 mm shoulder. The five columns remain universal; the PSU dock
+// uses only X=80/176 and its two unused central-column bosses must clear.
+usable_y0 = universal_deep_y0 + universal_guide_shoulder_t;
+usable_y1 = universal_deep_y1;
+usable_yc = (usable_y0 + usable_y1)/2;
+adapter_y = [for (dy=psu_adapter_mount_row_offsets) usable_yc+dy];
+assert(abs(usable_y0-48.5)<0.01 && abs(usable_y1-132.5)<0.01 &&
+       abs(usable_yc-90.5)<0.01,
+       "PSU adapter interface must centre on the 84 mm usable cavity");
 
 // Ventilation belongs on the enclosure's transition surfaces, NOT the rear
 // mounting wall. Keep a solid rear skin for the adapter bosses and place

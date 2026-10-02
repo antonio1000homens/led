@@ -1,18 +1,11 @@
-// Shared geometry for issue #166 PSU mounting experiments.
+// Measured PSU envelope and local hardware geometry for issue #177.
 //
 // This file models the PSU adapter in a LOCAL coordinate system centred on the
 // six accessory bosses selected from the current universal backplane.
 //
-// Current master interface:
-//   absolute X = 80 / 176 mm
-//   absolute Y = 67.5 / 86.5 / 105.5 mm
-//
-// Local adapter coordinates:
-//   X = -48 / +48 mm
-//   Y = -19 / 0 / +19 mm
-//
-// The two outer Y rows were moved 5 mm inward after physical fit testing of
-// the PSU dock in the 80 mm-wide enclosure opening.
+// The shared psu_adapter_interface.scad supplies local row offsets and selects
+// the two enclosure columns at X=80/176. The enclosure derives absolute rows
+// from the usable cavity above its reinforced shoulder.
 //
 // The backplane bosses are 7 mm OD x 4 mm high with 3.4 mm blind holes.
 // The adapter uses shallow underside pockets around the boss bodies so that the
@@ -107,7 +100,6 @@ module backplane_interface_cutters(t=plate_t, extra=0.6) {
         }
 }
 
-// Compatibility name retained for the experimental service tray.
 module backplane_hole_cutters(t=plate_t, extra=0.6) {
     backplane_interface_cutters(t=t, extra=extra);
 }

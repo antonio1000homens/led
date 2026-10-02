@@ -1,177 +1,72 @@
-# PSU snap-latch service tray
+# Enclosure-centred PSU service tray
 
-Issue #166 now has one selected PSU mounting design: a **removable service tray
-with a replaceable cantilever snap latch**.
+Issue #177 replaces the fixed dock's front screw-mounted latch with a pull-release flexure integral to the removable tray. Source geometry is OpenSCAD; checked-in meshes are generated artifacts.
 
-The previous adapter, direct-slide, hybrid and side-screw service-tray concepts
-have been removed.
-
-## Parts
+## Parts and interface
 
 | File | Purpose |
 | --- | --- |
-| `01_service_tray_snap_latch.scad` | Source design and assembled visualisation |
-| `02_service_tray_snap_dock_PRINT_1.scad` | Printable fixed dock |
-| `03_service_tray_snap_tray_PRINT_1.scad` | Printable removable PSU tray |
-| `04_service_tray_snap_latch_PRINT_1.scad` | Printable replaceable flexible latch |
-| `05_backplane_fit_preview.scad` | Supporting enclosure-boss alignment preview |
-| `06_boss_heatset_insert_test.scad` | Supporting M3 heat-set-insert test coupon |
-| `psu_mount_common.scad` | Shared dimensions and enclosure interface |
+| `02_service_tray_snap_dock_PRINT_1.scad` | Fixed dock with enclosure pockets, runners, stop and underside detent groove |
+| `03_service_tray_snap_tray_PRINT_1.scad` | Removable tray with open-ended runner grooves and integral flexure |
+| `05_backplane_fit_preview.scad` | Actual enclosure backplane, fit states, PSU envelope and detent section |
+| `06_boss_heatset_insert_test.scad` | Optional M3 insert test coupon for the enclosure's blind boss holes |
+| `07_detent_test_coupon_TEST_1.scad` | Parametric production flexure and mating-groove coupon for PETG fit testing |
+| `psu_mount_common.scad` | PSU measurements and common mount geometry |
+| `service_tray_snap_latch_common.scad` | Dock, tray and flexure geometry |
+| `../psu_adapter_interface.scad` | Shared geometry-free mounting-grid offsets and column selection |
 
-## How the latch works
+## Measured dimensions
 
-The latch is now **front-operated** so the assembled PSU mount needs no side
-access.
+The enclosure's reinforced 8 mm shoulder leaves a usable cavity from Y=48.5 to 132.5 mm, centred at Y=90.5. The shared grid uses five X columns `[32,80,128,176,224]` and rows `[71.5,90.5,109.5]`. The dock selects columns 80 and 176, represented locally by X=±48 and row offsets Y=−19/0/+19. The other enclosure bosses remain available for accessories; the dock has relief for the two upper/lower bosses in the unused X=128 column.
 
-The tray still slides along X. The replaceable 30 mm cantilever sits on the
-front/insertion (-X) face of the dock and flexes **vertically in Z**.
+A revised dock only fits a backplane with the revised boss rows. Previously printed backplanes retain Y=67.5/86.5/105.5 and will not align. The dock and tray remain 118 × 79 mm and 114 × 79 × 2.8 mm respectively. The 110 × 80 × 37 mm PSU overhangs the tray by 0.5 mm per side. Its diagonally opposed pilots are at (−52,−37) and (+52,+37), Ø2.8 mm. The pilot edge retains 1.1 mm of material.
 
-During insertion:
+The two support bars and PSU screw bosses share a top plane at tray-local Z=4.8 mm (2.8 mm plate + 2 mm support). Bars are at X=±34 mm, 5 mm wide and 66 mm long. This is separate from the six enclosure fixings (Ø3.6 clearance, Ø7 × 0.8 mm head recess, Ø7.5 × 1.2 mm locating pockets).
 
-1. the tray slides toward +X;
-2. its trailing/front lip reaches the hook ramp;
-3. the lip pushes the cantilever **downward**;
-4. the tray reaches the separate hard +X stop;
-5. the hook springs upward into an underside pocket behind the tray's front lip;
-6. that front lip prevents the tray withdrawing.
+## Slide and pull-release flexure
 
-To remove the tray, reach the insertion/front edge, press the thumb tab
-**down**, and pull the tray back toward -X. There is no side-release motion and
-nothing needs to be reached from either Y side.
+The tray inserts along +X. Two internal runners at Y=±25 mm use a 2.4 mm base, 4 mm top and 1.8 mm height. Their 96 mm length ends at X=+39 mm; the former +49 mm end was shortened by 10 mm. Matching grooves retain 0.3 mm lateral clearance and open through the tray's +X leading edge. A separate wall at +X stops insertion.
 
-The latch remains a separate replaceable part. PETG is preferred for repeated
-flexing; PLA is useful for quick dimensional testing.
+The tray flexure wraps around the dock's −X edge. Its initial PETG coupon geometry uses a 30 mm cantilever, 5 mm X width and 1.2 mm thickness, with 0.5 mm nominal detent engagement into a 0.8 mm deep underside groove (0.3 mm seated clearance above the detent). Pulling the tray cams the detent down; no button press is needed. Beam thickness and engagement are parameters for physical tuning. No release-force value has been measured. Check deflection against the actual backplane and use a PETG coupon before relying on repeated flexing.
 
-Initial front-latch geometry:
+Use six M3 ISO 7380 button-head screws with head diameter no greater than 5.7 mm and height no greater than 1.65 mm. With the 0.8 mm recess, the head sits 0.75 mm below the 4.8 mm PSU support plane. Other screw heads require a fresh clearance check.
 
-- cantilever length: **30 mm**
-- spring thickness in Z: **1.4 mm**
-- spring width in X: **1.6 mm**
-- tray retaining lip: **1.5 mm**
-- underside catch pocket: **4 mm long x 7 mm wide x 2 mm deep**
-- front release tab: **press down to unlatch**
+The dock's six bosses have a nominal 4 mm height and overlap the 3 mm backplane by 0.3 mm, leaving 3.7 mm exposed toward the dock. The assembly preview places the dock so those tips enter the registration pockets by 1.2 mm. The shared interface preserves Ø7 bosses, Ø3.4 blind holes and the 1.2 mm external wall skin. Confirm screw-head clearance for the actual hardware before assembly.
 
-The hard +X stop takes insertion load; the latch only resists withdrawal.
+## Bill of materials
 
-### Latch-to-dock attachment
+| Qty | Item | Specification / note |
+| ---: | --- | --- |
+| 1 | Universal equipment backplane | Must use the revised boss rows Y=71.5/90.5/109.5; older printed backplanes are incompatible. |
+| 1 | Fixed PSU dock | Print in PETG; 118 × 79 × 3.2 mm. |
+| 1 | Sliding PSU tray | Print in PETG; 114 × 79 × 2.8 mm plate with integral flexure. |
+| 1 | PSU | Measured envelope 110 × 80 × 37 mm; diagonal mounting pilots at (−52,−37) and (+52,+37) mm. |
+| 6 | Dock-to-backplane screws | M3 ISO 7380 button head; head diameter ≤5.7 mm and head height ≤1.65 mm. Screw length is not established by the available measurements: verify engagement in the Ø3.4 mm blind boss bores and ensure the tips preserve the 1.2 mm exterior wall skin before ordering. |
+| 2 | PSU-to-tray screws | Use the PSU's specified thread and length through the Ø2.8 mm tray pilots; the PSU thread and screw length were not measured here. |
+| 1 each | Detent coupon pieces | Optional PETG fit test: flexure coupon and matching groove coupon from `07_detent_test_coupon_TEST_1.scad`. |
 
-The **latch does not snap onto the dock**. It is a replaceable part retained by
-two horizontal M3 machine screws. The screws pass through the 3.2 mm clearance
-holes in the latch base and thread into **brass M3 heat-set inserts** installed
-in the front (-X) dock pad.
+Assembly order: attach the dock to the revised backplane using the six M3 screws and locating pockets; fit the PSU to the tray with the PSU-specified fasteners; then feed the loaded tray from −X along the runners until its +X hard stop seats and the flexure engages. Pull the tray deliberately to release it. Verify the coupon and assembled fit physically before relying on repeated service cycles.
 
-The dock pad is now sized specifically for this serviceable fixing:
+## Render and validate
 
-- pad depth in X: **5.4 mm**
-- pad width in Y: **16 mm**
-- pad height in Z: **7 mm**
-- insert pitch: **7 mm**
-- insert pilot/bore: **3.4 mm**, matching the existing heat-set test coupon
-- insert socket depth: **4.2 mm**
-- blind PETG wall behind each socket: **1.2 mm**
-
-Heat-set the two inserts horizontally from the service/front face **before**
-fitting the latch. The latch can then be removed without repeatedly cutting M3
-threads into PETG. An M3x6 screw is the expected starting length for the 1.8 mm
-latch base plus the insert engagement, but verify the usable thread depth of the
-actual purchased insert before tightening.
-
-The thicker insert pad grows only toward -X, so it does **not** change the
-critical 79 mm Y envelope. The latch hook is lengthened by the same amount that
-the base moves outward, keeping the hook/tooth engagement position in the tray
-pocket unchanged.
-
-Use `06_boss_heatset_insert_test.scad` to prove the 3.4 mm bore against the
-actual inserts before heat-setting the production dock. If the real insert
-requires a different pilot diameter, change the latch bore to match the proven
-coupon rather than forcing the insert.
-
-## Enclosure attachment
-
-The dock uses six enclosure bosses. Physical fit testing required the outer Y
-rows to move **5 mm inward**:
-
-- absolute X: **80 / 176 mm**
-- absolute Y: **67.5 / 86.5 / 105.5 mm**
-- local dock X: **-48 / +48 mm**
-- local dock Y: **-19 / 0 / +19 mm**
-
-Each dock fixing has:
-
-- 7.5 mm locating pocket around the 7 mm enclosure boss;
-- 3.6 mm M3 clearance hole;
-- 7 mm equipment-side screw-head recess.
-
-The current enclosure boss contains a 3.4 mm blind hole. A heat-set insert is a
-purchased brass M3 threaded sleeve, not a bolt. Print
-`06_boss_heatset_insert_test.scad` and prove the chosen insert on the coupon
-before fitting inserts to the real enclosure.
-
-## PSU support
-
-The measured PSU envelope is **110 x 80 x 37 mm**.
-
-The two mounting-hole centres are diagonally opposed and measured **3 mm from
-the adjacent long and short edges**. Relative to the centred PSU this resolves
-to:
-
-```scad
-psu_rear_mount_points = [
-    [-52, -37],
-    [ 52,  37]
-];
-```
-
-Those coordinates imply a diagonal centre-to-centre distance of **127.64 mm**.
-The separate hand measurement was approximately **125 mm**; the edge-inset
-measurements are used for the CAD because they uniquely locate both holes.
-
-Physical fit testing established an **80 mm maximum usable enclosure opening**.
-The previous 84 mm tray / 89 mm dock therefore did not fit.
-
-The corrected design uses:
-
-- removable tray Y envelope: **79 mm**
-- fixed dock Y envelope: **79 mm**
-- clearance inside an 80 mm opening: **0.5 mm per side**
-- PSU width: **80 mm**, overhanging the tray by only **0.5 mm per side**
-- two **internal dovetail runners** at Y=+/-25 mm instead of external side
-  capture rails
-
-The dovetails positively capture the tray without adding anything outside the
-79 mm envelope. Their matching underside grooves stop 8 mm short of the rear
-edge so the tray remains a connected, support-friendly print.
-
-The measured PSU screw pilots remain at Y=+/-37 mm. Their 2.8 mm holes still
-retain just over **1 mm** of PETG to the 79 mm tray edge. The Ø8 mm raised
-support bosses are clipped flush at the tray boundary rather than widening the
-part.
-
-The boss tops remain raised by the same **2 mm** as the airflow/support bars so
-the PSU sits on one common support plane.
-
-## Render parts locally
+From the repository root:
 
 ```bash
-openscad -o /tmp/psu-service-tray-dock.stl 02_service_tray_snap_dock_PRINT_1.scad
-openscad -o /tmp/psu-service-tray-tray.stl 03_service_tray_snap_tray_PRINT_1.scad
-openscad -o /tmp/psu-service-tray-latch.stl 04_service_tray_snap_latch_PRINT_1.scad
+python hardware/enclosure/scripts/generate_stls.py --output-dir build/enclosure-stls
+python hardware/enclosure/scripts/validate_psu_adapter.py --generated-dir build/enclosure-stls
+python hardware/enclosure/scripts/validate_enclosure.py --generated-dir build/enclosure-stls --workers 4
+python hardware/enclosure/scripts/verify_canonical_stls.py --generated-dir build/enclosure-stls
 ```
 
-The three printable parts are also declared in `.windsor-slicer.yaml` as:
+The canonical model IDs remain `psu-service-tray-dock` and `psu-service-tray-tray`. Slice the dock flat. The tray print wrapper stands the plate on its 2.8 mm lower edge for a 118.8 × 12.75 × 79 mm pose; the underside flexure requires generated supports in this orientation. With Bambu Lab H2D 0.4 nozzle, 0.20 mm Standard, Bambu PETG Basic and Textured PEI, use `enable_support=1`, `support_type=tree(auto)`, `support_on_build_plate_only=0`, `support_threshold_angle=30`, `support_top_z_distance=0.2`, `support_bottom_z_distance=0.2`, and `brim_type=auto_brim` / `brim_width=5`. Bambu Studio 02.08.02.61 sliced the tray successfully with those settings and generated support features. Windsor's stock profile leaves support disabled and therefore reports `FLOATING_REGION`; that result means the unsupported profile is not print-ready, not that CAD should contain a permanent support rib. Inspect the generated supports around the flexure and open grooves before printing. A trial PSU-retention-edge pose (118.8 × 79 × 12.75 mm) was rejected by the 1 mm proxy at the upper flexure layers. Slicer validation does not start a printer job.
 
-- `psu-service-tray-dock`
-- `psu-service-tray-tray`
-- `psu-service-tray-latch`
+Render the two PETG detent coupon pieces separately (the default is the flexure):
 
-Windsor validation uses:
+```bash
+openscad -o /tmp/psu-detent-flexure-coupon.stl hardware/enclosure/powersupply/07_detent_test_coupon_TEST_1.scad
+openscad -D coupon_part=1 -o /tmp/psu-detent-groove-coupon.stl hardware/enclosure/powersupply/07_detent_test_coupon_TEST_1.scad
+```
 
-- machine: `Bambu Lab H2D 0.4 nozzle`
-- process: `0.20mm Standard @BBL H2D`
-- filament: `Bambu PETG Basic @BBL H2D 0.4 nozzle`
-- bed: `Textured PEI Plate`
+The flexure coupon reuses the production tab geometry and edge-on pose; slice it with the tray's support and brim settings. The matching groove is cropped from the production dock and prints flat without support. The coupon is for checking fit and qualitative release feel, not measuring a specified force. Adjust `detent_beam_thickness_z` or `detent_peak_z` in the common source if the printed sample needs tuning, then regenerate and revalidate all affected models.
 
-The Textured PEI bed is specified explicitly because Bambu Studio's default Cool
-Plate preset rejects PETG before slicing. The front-operated latch is authored
-with its spring arm directly on Z=0, so the separate latch prints flat without
-support.
+Physical acceptance is separate: first check the PETG coupon for engagement and deliberate pull release. Then assemble the real dock and tray, confirm full seating, a perceptible click and no PSU rocking, and complete 20 insertion/removal cycles without cracks or permanent flexure deformation. Record physical acceptance separately from CAD and slicer validation.
