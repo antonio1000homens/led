@@ -95,19 +95,30 @@ latch_arm_x_t = 1.6;
 latch_arm_z_t = 1.4;
 
 latch_base_y = latch_hook_y + latch_arm_len;
-latch_base_len_y = 12;
+latch_base_len_y = 16;
 latch_base_x_t = 1.8;
-latch_base_z_h = 5.0;
+latch_base_z_h = 7.0;
 latch_mount_pitch = 7;
 
-// Dock pad grows only toward -X. It stays inside the 79 mm Y envelope.
-latch_pad_x0 = dock_front_x - latch_base_x_t + 0.3;
+// The replaceable latch is bolted to brass M3 heat-set inserts in the dock pad.
+// The insert bore deliberately matches the existing 3.4 mm heat-set test coupon.
+// Heat-set the inserts horizontally from the service/front (-X) face.
+latch_insert_bore_d = backplane_boss_hole_d;
+latch_insert_depth = 4.2;
+latch_insert_back_wall = 1.2;
+latch_pad_x_overlap = 0.3;
+latch_pad_x_t = latch_insert_depth + latch_insert_back_wall;
+
+// Grow the insert pad outward toward -X so the 79 mm Y fit and tray slide path
+// are unchanged. Moving the latch base outward requires an equal increase in
+// hook reach so the retaining tooth stays at the original tray-pocket position.
+latch_pad_x0 = dock_front_x - latch_pad_x_t + latch_pad_x_overlap;
 latch_base_x0 = latch_pad_x0 - latch_base_x_t;
 latch_arm_x0 = latch_base_x0 + 0.2;
 
 // Hook reaches from the external arm through a small front window and into the
 // tray underside pocket.
-latch_hook_reach_x = 8.4;
+latch_hook_reach_x = 8.4 + (latch_pad_x_t - latch_base_x_t);
 latch_hook_w_y = 6.0;
 latch_hook_top_z = tray_assembled_z + 1.4;
 latch_ramp_nose_z = tray_assembled_z - 0.2;
@@ -128,6 +139,19 @@ latch_window_x0 = dock_front_x - 0.4;
 latch_window_x1 = tray_front_x + tray_lock_lip_x + tray_lock_pocket_len_x + 0.8;
 latch_window_y = latch_hook_w_y + 1.0;
 latch_window_z = latch_hook_top_z + 0.5;
+
+assert(
+    latch_pad_x_t - latch_insert_depth >= latch_insert_back_wall,
+    "Latch heat-set insert socket leaves too little blind back wall"
+);
+assert(
+    (latch_base_len_y-latch_mount_pitch)/2 - latch_insert_bore_d/2 >= 1.5,
+    "Latch heat-set insert sockets leave too little PETG at the Y edges"
+);
+assert(
+    latch_base_z_h/2 - latch_insert_bore_d/2 >= 1.5,
+    "Latch heat-set insert sockets leave too little PETG above/below the bore"
+);
 
 module snap_tray_notch_cutter() {
     translate([
@@ -213,6 +237,9 @@ module snap_tray_plate() {
 }
 
 module front_latch_mount_pad() {
+    // Permanent dock pad for two front-loaded brass M3 heat-set inserts.
+    // The bores are blind: a solid rear wall remains before the pad overlaps
+    // the dock, so an insert cannot be pushed into the tray slide path.
     difference() {
         translate([
             latch_pad_x0,
@@ -220,21 +247,21 @@ module front_latch_mount_pad() {
             0
         ])
             cube([
-                latch_base_x_t,
+                latch_pad_x_t,
                 latch_base_len_y,
                 latch_base_z_h
             ]);
 
         for (dy=[-latch_mount_pitch/2, latch_mount_pitch/2])
             translate([
-                latch_pad_x0-0.2,
+                latch_pad_x0-0.1,
                 latch_base_y+dy,
                 latch_base_z_h/2
             ])
                 rotate([0,90,0])
                     cylinder(
-                        d=2.8,
-                        h=latch_base_x_t+0.4
+                        d=latch_insert_bore_d,
+                        h=latch_insert_depth+0.1
                     );
     }
 }

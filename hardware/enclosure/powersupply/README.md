@@ -53,6 +53,39 @@ Initial front-latch geometry:
 
 The hard +X stop takes insertion load; the latch only resists withdrawal.
 
+### Latch-to-dock attachment
+
+The **latch does not snap onto the dock**. It is a replaceable part retained by
+two horizontal M3 machine screws. The screws pass through the 3.2 mm clearance
+holes in the latch base and thread into **brass M3 heat-set inserts** installed
+in the front (-X) dock pad.
+
+The dock pad is now sized specifically for this serviceable fixing:
+
+- pad depth in X: **5.4 mm**
+- pad width in Y: **16 mm**
+- pad height in Z: **7 mm**
+- insert pitch: **7 mm**
+- insert pilot/bore: **3.4 mm**, matching the existing heat-set test coupon
+- insert socket depth: **4.2 mm**
+- blind PETG wall behind each socket: **1.2 mm**
+
+Heat-set the two inserts horizontally from the service/front face **before**
+fitting the latch. The latch can then be removed without repeatedly cutting M3
+threads into PETG. An M3x6 screw is the expected starting length for the 1.8 mm
+latch base plus the insert engagement, but verify the usable thread depth of the
+actual purchased insert before tightening.
+
+The thicker insert pad grows only toward -X, so it does **not** change the
+critical 79 mm Y envelope. The latch hook is lengthened by the same amount that
+the base moves outward, keeping the hook/tooth engagement position in the tray
+pocket unchanged.
+
+Use `06_boss_heatset_insert_test.scad` to prove the 3.4 mm bore against the
+actual inserts before heat-setting the production dock. If the real insert
+requires a different pilot diameter, change the latch bore to match the proven
+coupon rather than forcing the insert.
+
 ## Enclosure attachment
 
 The dock uses six enclosure bosses. Physical fit testing required the outer Y
