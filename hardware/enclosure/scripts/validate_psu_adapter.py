@@ -73,6 +73,30 @@ def main() -> None:
         dock = mesh(dock_path, "PSU dock")
         tray = mesh(tray_path, "PSU tray with integral flexure")
         backplane = mesh(actual_backplane_path, "universal enclosure backplane")
+
+        # The physical PETG coupon uses the production flexure and matching
+        # real dock-groove geometry, cropped to hand-sized test pieces.
+        coupon_source = PSU / "07_detent_test_coupon_TEST_1.scad"
+        flex_coupon_path = tmp / "detent-flexure-coupon.stl"
+        groove_coupon_path = tmp / "detent-groove-coupon.stl"
+        render(coupon_source, flex_coupon_path)
+        groove_result = subprocess.run(
+            ["openscad", "-D", "coupon_part=1", "-o", str(groove_coupon_path),
+             str(coupon_source)], capture_output=True, text=True)
+        if (groove_result.returncode or not groove_coupon_path.is_file()
+                or not groove_coupon_path.stat().st_size):
+            raise SystemExit(
+                f"OpenSCAD failed for groove coupon:\n{groove_result.stdout}\n{groove_result.stderr}")
+        flex_coupon = mesh(flex_coupon_path, "PETG detent flexure coupon")
+        groove_coupon = mesh(groove_coupon_path, "PETG detent groove coupon")
+        if abs(float(flex_coupon.bounds[0][2])) > 0.01:
+            raise SystemExit("Detent flexure coupon print pose must contact the bed at Z=0")
+        if abs(float(flex_coupon.extents[2])-39.5) > 0.05:
+            raise SystemExit("Detent coupon must retain its 39.5 mm free cantilever test length")
+        if (abs(float(groove_coupon.bounds[0][2])) > 0.01
+                or abs(float(groove_coupon.extents[2])-3.2) > 0.05):
+            raise SystemExit("Detent groove coupon must preserve the 3.2 mm dock section and print flat")
+        print("OK: test coupon reuses production flexure and dock groove geometry")
         if abs(float(dock.extents[1])-79.0) > 0.05:
             raise SystemExit("PSU dock must retain the 79 mm opening envelope")
         if abs(float(tray.extents[2])-79.0) > 0.05:

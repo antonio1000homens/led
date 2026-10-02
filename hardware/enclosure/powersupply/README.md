@@ -11,6 +11,7 @@ Issue #177 replaces the fixed dock's front screw-mounted latch with a pull-relea
 | `03_service_tray_snap_tray_PRINT_1.scad` | Removable tray with open-ended runner grooves and integral flexure |
 | `05_backplane_fit_preview.scad` | Actual enclosure backplane, fit states, PSU envelope and detent section |
 | `06_boss_heatset_insert_test.scad` | Optional M3 insert test coupon for the enclosure's blind boss holes |
+| `07_detent_test_coupon_TEST_1.scad` | Parametric production flexure and mating-groove coupon for PETG fit testing |
 | `psu_mount_common.scad` | PSU measurements and common mount geometry |
 | `service_tray_snap_latch_common.scad` | Dock, tray and flexure geometry |
 | `../psu_adapter_interface.scad` | Shared geometry-free mounting-grid offsets and column selection |
@@ -46,4 +47,13 @@ python hardware/enclosure/scripts/verify_canonical_stls.py --generated-dir build
 
 The canonical model IDs remain `psu-service-tray-dock` and `psu-service-tray-tray`. Slice the dock flat. The tray print wrapper stands the plate on its 2.8 mm lower edge for a 118.8 × 12.75 × 79 mm pose; the underside flexure requires generated supports in this orientation. With Bambu Lab H2D 0.4 nozzle, 0.20 mm Standard, Bambu PETG Basic and Textured PEI, use `enable_support=1`, `support_type=tree(auto)`, `support_on_build_plate_only=0`, `support_threshold_angle=30`, `support_top_z_distance=0.2`, `support_bottom_z_distance=0.2`, and `brim_type=auto_brim` / `brim_width=5`. Bambu Studio 02.08.02.61 sliced the tray successfully with those settings and generated support features. Windsor's stock profile leaves support disabled and therefore reports `FLOATING_REGION`; that result means the unsupported profile is not print-ready, not that CAD should contain a permanent support rib. Inspect the generated supports around the flexure and open grooves before printing. A trial PSU-retention-edge pose (118.8 × 79 × 12.75 mm) was rejected by the 1 mm proxy at the upper flexure layers. Slicer validation does not start a printer job.
 
-Physical acceptance is separate: print a PETG detent coupon, assemble the real dock and tray, confirm full seating/click/pull release and no PSU rocking, then complete 20 insertion/removal cycles without cracks or permanent flexure deformation.
+Render the two PETG detent coupon pieces separately (the default is the flexure):
+
+```bash
+openscad -o /tmp/psu-detent-flexure-coupon.stl hardware/enclosure/powersupply/07_detent_test_coupon_TEST_1.scad
+openscad -D coupon_part=1 -o /tmp/psu-detent-groove-coupon.stl hardware/enclosure/powersupply/07_detent_test_coupon_TEST_1.scad
+```
+
+The flexure coupon reuses the production tab geometry and edge-on pose; slice it with the tray's support and brim settings. The matching groove is cropped from the production dock and prints flat without support. The coupon is for checking fit and qualitative release feel, not measuring a specified force. Adjust `detent_beam_thickness_z` or `detent_peak_z` in the common source if the printed sample needs tuning, then regenerate and revalidate all affected models.
+
+Physical acceptance is separate: first check the PETG coupon for engagement and deliberate pull release. Then assemble the real dock and tray, confirm full seating, a perceptible click and no PSU rocking, and complete 20 insertion/removal cycles without cracks or permanent flexure deformation. Record physical acceptance separately from CAD and slicer validation.

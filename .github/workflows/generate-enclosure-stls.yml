@@ -70,7 +70,8 @@ jobs:
             hardware/enclosure/powersupply/02_service_tray_snap_dock_PRINT_1.scad \
             hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad \
             hardware/enclosure/powersupply/05_backplane_fit_preview.scad \
-            hardware/enclosure/powersupply/06_boss_heatset_insert_test.scad; do
+            hardware/enclosure/powersupply/06_boss_heatset_insert_test.scad \
+            hardware/enclosure/powersupply/07_detent_test_coupon_TEST_1.scad; do
             output="/tmp/$(basename "${source%.scad}.stl")"
             openscad -o "$output" "$source"
             test -s "$output"
