@@ -55,12 +55,13 @@ The hard +X stop takes insertion load; the latch only resists withdrawal.
 
 ## Enclosure attachment
 
-The dock uses six enclosure bosses:
+The dock uses six enclosure bosses. Physical fit testing required the outer Y
+rows to move **5 mm inward**:
 
 - absolute X: **80 / 176 mm**
-- absolute Y: **62.5 / 86.5 / 110.5 mm**
+- absolute Y: **67.5 / 86.5 / 105.5 mm**
 - local dock X: **-48 / +48 mm**
-- local dock Y: **-24 / 0 / +24 mm**
+- local dock Y: **-19 / 0 / +19 mm**
 
 Each dock fixing has:
 
@@ -92,11 +93,26 @@ Those coordinates imply a diagonal centre-to-centre distance of **127.64 mm**.
 The separate hand measurement was approximately **125 mm**; the edge-inset
 measurements are used for the CAD because they uniquely locate both holes.
 
-The removable tray is now **84 mm** wide. With the Ø8 mm raised mounting bosses,
-the boss edges reach Y=+/-41 mm, leaving **1 mm** of tray material outside each
-boss. The dock is **89 mm** wide so the capture-channel walls remain fused to
-the dock base. This still fits inside the enclosure backplane's 92 mm full-depth
-mounting zone.
+Physical fit testing established an **80 mm maximum usable enclosure opening**.
+The previous 84 mm tray / 89 mm dock therefore did not fit.
+
+The corrected design uses:
+
+- removable tray Y envelope: **79 mm**
+- fixed dock Y envelope: **79 mm**
+- clearance inside an 80 mm opening: **0.5 mm per side**
+- PSU width: **80 mm**, overhanging the tray by only **0.5 mm per side**
+- two **internal dovetail runners** at Y=+/-25 mm instead of external side
+  capture rails
+
+The dovetails positively capture the tray without adding anything outside the
+79 mm envelope. Their matching underside grooves stop 8 mm short of the rear
+edge so the tray remains a connected, support-friendly print.
+
+The measured PSU screw pilots remain at Y=+/-37 mm. Their 2.8 mm holes still
+retain just over **1 mm** of PETG to the 79 mm tray edge. The Ø8 mm raised
+support bosses are clipped flush at the tray boundary rather than widening the
+part.
 
 The boss tops remain raised by the same **2 mm** as the airflow/support bars so
 the PSU sits on one common support plane.
