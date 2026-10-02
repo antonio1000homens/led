@@ -34,6 +34,20 @@ Use six M3 ISO 7380 button-head screws with head diameter no greater than 5.7 mm
 
 The dock's six bosses have a nominal 4 mm height and overlap the 3 mm backplane by 0.3 mm, leaving 3.7 mm exposed toward the dock. The assembly preview places the dock so those tips enter the registration pockets by 1.2 mm. The shared interface preserves Ø7 bosses, Ø3.4 blind holes and the 1.2 mm external wall skin. Confirm screw-head clearance for the actual hardware before assembly.
 
+## Bill of materials
+
+| Qty | Item | Specification / note |
+| ---: | --- | --- |
+| 1 | Universal equipment backplane | Must use the revised boss rows Y=71.5/90.5/109.5; older printed backplanes are incompatible. |
+| 1 | Fixed PSU dock | Print in PETG; 118 × 79 × 3.2 mm. |
+| 1 | Sliding PSU tray | Print in PETG; 114 × 79 × 2.8 mm plate with integral flexure. |
+| 1 | PSU | Measured envelope 110 × 80 × 37 mm; diagonal mounting pilots at (−52,−37) and (+52,+37) mm. |
+| 6 | Dock-to-backplane screws | M3 ISO 7380 button head; head diameter ≤5.7 mm and head height ≤1.65 mm. Screw length is not established by the available measurements: verify engagement in the Ø3.4 mm blind boss bores and ensure the tips preserve the 1.2 mm exterior wall skin before ordering. |
+| 2 | PSU-to-tray screws | Use the PSU's specified thread and length through the Ø2.8 mm tray pilots; the PSU thread and screw length were not measured here. |
+| 1 each | Detent coupon pieces | Optional PETG fit test: flexure coupon and matching groove coupon from `07_detent_test_coupon_TEST_1.scad`. |
+
+Assembly order: attach the dock to the revised backplane using the six M3 screws and locating pockets; fit the PSU to the tray with the PSU-specified fasteners; then feed the loaded tray from −X along the runners until its +X hard stop seats and the flexure engages. Pull the tray deliberately to release it. Verify the coupon and assembled fit physically before relying on repeated service cycles.
+
 ## Render and validate
 
 From the repository root:
