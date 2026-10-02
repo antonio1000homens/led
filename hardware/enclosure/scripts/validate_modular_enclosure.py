@@ -493,16 +493,15 @@ assert(abs(rear_reinforcement_flush_z-
 assert(abs(transition_rib_depth-
            (rear_reinforcement_flush_z-equipment_backplane_rear_z)) < 0.01,
        "transition ribs must reach the common rear reinforcement plane");
-assert(abs(transition_rib_y0-
-           (base_seat_y+side_guide_clearance)) < 0.01 &&
+assert(abs(transition_rib_y0-service_base_y) < 0.01 &&
        abs(transition_rib_y1-
            (universal_deep_y0+universal_guide_shoulder_t)) < 0.01,
-       "transition ribs must stop 0.6 mm above the base seat and bridge into the reinforced shoulder");
+       "continuous transition ribs must reach the enclosure floor and bridge into the reinforced shoulder");
 assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
        abs(rear_guardrail_y1-
            (base_seat_y+side_guide_clearance)) < 0.01 &&
        rear_guardrail_y1-rear_guardrail_y0 >= 4.5,
-       "rear guardrail tabs must rise to the rib lower edge without entering the 2 mm seat");
+       "rear guardrail tabs must retain the proven Y=5.1 mm interface height");
 assert(abs(rear_guardrail_lip_front_z-side_guide_slot_back_z) < 0.01 &&
        abs(rear_guardrail_lip_rear_z-side_guide_rear_z) < 0.01,
        "rear guardrail tabs must continue the side-guide rear lip");
@@ -546,28 +545,11 @@ assert(abs(transition_rib_channel_front_z-equipment_backplane_rear_z-
 assert(abs(transition_rib_channel_rear_z-rear_guardrail_lip_rear_z-
            side_guide_clearance) < 0.01,
        "guardrail tab must retain 0.6 mm clearance to the rear rib wall");
-assert(abs(transition_rib_ground_leg_y0-service_base_y) < 0.01,
-       "rear rib spine must reach the actual enclosure floor");
-assert(abs(transition_rib_ground_leg_y1-
-           (transition_rib_y0+0.8)) < 0.01,
-       "floor-reaching rib spine must overlap the upper rib structurally");
-assert(abs(transition_rib_ground_leg_w-12) < 0.01 &&
-       abs(transition_rib_ground_leg_flat_w-6) < 0.01 &&
-       abs(transition_rib_ground_leg_taper_w-3) < 0.01,
-       "floor-reaching rib spine width/taper contract drifted");
-assert(abs(transition_rib_ground_leg_front_z-
-           transition_rib_channel_rear_z) < 0.01 &&
-       abs(transition_rib_ground_leg_front_z-
-           rear_guardrail_lip_rear_z-side_guide_clearance) < 0.01,
-       "floor-reaching rib spine must remain behind the complete guardrail slot/clearance");
-assert(abs(transition_rib_ground_leg_rear_z-
-           min(rear_reinforcement_flush_z,universal_deep_front_z)) < 0.01 &&
-       transition_rib_ground_leg_rear_z >
-           transition_rib_ground_leg_front_z,
-       "floor-reaching rib spine must reach the existing rear reinforcement plane");
 assert(abs(rear_rib_ground_pocket_w-
-           (transition_rib_ground_leg_w+2*side_guide_clearance)) < 0.01,
-       "rear shelf pocket lost running clearance around the floor-reaching rib spine");
+           (2*transition_rib_half_w+2*side_guide_clearance)) < 0.01,
+       "rear shelf pocket must clear the complete continuous rib footprint");
+assert(transition_rib_y0 <= rear_guardrail_y0+0.01,
+       "continuous ribs must extend below the guardrail interface to the enclosure floor");
 assert(transition_rib_channel_flat_w-
            2*side_guide_clearance >= 10,
        "guardrail tab lost useful width inside the rib channel");
