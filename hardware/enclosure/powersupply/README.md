@@ -44,6 +44,6 @@ python hardware/enclosure/scripts/validate_enclosure.py --generated-dir build/en
 python hardware/enclosure/scripts/verify_canonical_stls.py --generated-dir build/enclosure-stls
 ```
 
-The canonical model IDs remain `psu-service-tray-dock` and `psu-service-tray-tray`. Windsor Slicer profiles are Bambu Lab H2D 0.4 nozzle, 0.20 mm Standard, Bambu PETG Basic and Textured PEI. The fixed dock prints flat. The tray wrapper stands it on the 2.8 mm lower edge so the flexure grows upward from its anchored end; this yields a 118.8 × 12.75 × 79 mm print pose. Validate edge adhesion, open grooves and warnings in the H2D slice. Slicer validation does not start a printer job.
+The canonical model IDs remain `psu-service-tray-dock` and `psu-service-tray-tray`. Windsor Slicer profiles are Bambu Lab H2D 0.4 nozzle, 0.20 mm Standard, Bambu PETG Basic and Textured PEI. The fixed dock prints flat. The tray wrapper stands the plate on its 2.8 mm lower edge so the flexure grows upward from its anchored end; this yields a 118.8 × 12.75 × 79 mm print pose. Six 0.3 mm breakaway tethers support the flexure during printing and must be clipped away before installation. Inspect edge adhesion and open grooves in the H2D slice. Slicer validation does not start a printer job.
 
 Physical acceptance is separate: print a PETG detent coupon, assemble the real dock and tray, confirm full seating/click/pull release and no PSU rocking, then complete 20 insertion/removal cycles without cracks or permanent flexure deformation.
