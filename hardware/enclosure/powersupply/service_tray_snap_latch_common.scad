@@ -1,54 +1,86 @@
 // Selected PSU mount - service tray with FRONT-OPERATED snap latch for issue #166.
 //
-// Parts:
-//   1. dock: fixed to the enclosure six-boss grid;
-//   2. tray: carries the PSU and slides horizontally from -X toward +X;
-//   3. latch: separate replaceable cantilever strip.
+// Physical-fit correction:
+//   * usable enclosure opening in Y = 80 mm;
+//   * dock Y envelope = 79 mm;
+//   * removable tray Y envelope = 79 mm;
+//   * PSU itself remains 80 mm wide and therefore overhangs the tray by 0.5 mm
+//     per side;
+//   * external side channels are removed. Two internal dovetail runners under
+//     the tray provide positive capture without increasing the outer width.
 //
-// Access constraint:
-// The installed PSU/backplane assembly is tight at both Y sides. The latch
-// therefore lives on the FRONT / insertion (-X) face of the dock. The tray still
-// moves in X, while the spring flexes vertically in Z. Pressing the front thumb
-// tab DOWN releases the tray; no side access is required.
-//
-// During insertion the trailing/front lip of the tray rides over the latch ramp
-// and bends the cantilever downward. At the +X hard stop, the hook rises into an
-// UNDERSIDE pocket behind the tray front lip. The lip then provides a positive
-// withdrawal stop.
-//
-// Module library for the selected snap-latch service tray.
+// The tray still moves in X. The separate front latch flexes vertically in Z:
+// press the front thumb tab DOWN and pull the tray toward -X to release it.
 
 include <psu_mount_common.scad>;
 
 tray_w = 114;
-tray_h = 84.0;
+tray_h = 79.0;
 tray_t = 2.8;
 dock_w = adapter_w;
-dock_h = 89.0;
-dock_channel_wall = 1.5;
-dock_channel_h = 6.2;
-dock_lip = 1.6;
-slide_clearance = 0.5;
+dock_h = 79.0;
 
-// Measured PSU holes sit at Y=+/-37 mm. With 8 mm mounting bosses, their outer
-// edges reach Y=+/-41 mm. An 84 mm tray leaves 1 mm of printed material beyond
-// each boss. The 89 mm dock gives 0.5 mm overlap between its base and the outer
-// channel walls, keeping the channels fused while staying inside the 92 mm
-// full-depth backplane zone.
-assert(
-    tray_h/2 >= abs(psu_rear_mount_points[0][1]) + psu_mount_boss_d/2 + 1.0,
-    "Tray is too narrow for measured PSU mounting bosses"
-);
-assert(
-    dock_h/2 >= tray_h/2 + slide_clearance + dock_channel_wall,
-    "Dock base does not reach the service-tray channel walls"
-);
+fit_envelope_h = 80.0;
+slide_z_clearance = 0.25;
 
-tray_assembled_z = plate_t + 0.4;
+tray_assembled_z = plate_t + slide_z_clearance;
 
-// Keep the dock centre open but preserve the two X=+/-48 fixing spines.
+// Keep the dock centre open while preserving both the six-boss screw lands and
+// solid strips under the internal dovetail rails.
 dock_relief_core_w = 80;
-dock_relief_core_h = tray_h-14;
+dock_relief_core_h = 26;
+
+// ---------- Internal dovetail slide ----------
+//
+// Two longitudinal rails sit well inside the 80 mm opening. Their matching
+// underside grooves widen upward at a printable slope. The groove stops 8 mm
+// short of the +X end, so the tray remains one connected print on the bed and
+// the solid tail meets the separate +X hard stop.
+
+dovetail_y = [-25, 25];
+dovetail_base_w = 2.4;
+dovetail_top_w = 4.0;
+dovetail_h = 1.8;
+dovetail_skin = 0.4;
+dovetail_clearance = 0.3;
+dovetail_groove_depth = 1.9;
+
+dovetail_rail_x0 = -dock_w/2 + 2;
+dovetail_rail_x1 = tray_w/2 - 8;
+dovetail_rail_len = dovetail_rail_x1-dovetail_rail_x0;
+
+dovetail_groove_x0 = -tray_w/2 - 0.2;
+dovetail_groove_x1 = tray_w/2 - 7.8;
+dovetail_groove_len = dovetail_groove_x1-dovetail_groove_x0;
+
+dovetail_groove_bottom_w = dovetail_base_w + 2*dovetail_clearance;
+dovetail_groove_top_w = dovetail_top_w + 2*dovetail_clearance;
+
+// The measured PSU mounting holes are only 3 mm from the 80 mm PSU edges.
+// Their 2.8 mm pilots still retain >1 mm of tray material at the 79 mm edge.
+// The larger 8 mm support bosses are clipped flush to the tray envelope.
+psu_pilot_edge_margin =
+    tray_h/2 - (abs(psu_rear_mount_points[0][1]) + psu_mount_pilot_d/2);
+
+assert(dock_h <= fit_envelope_h,
+       "PSU dock exceeds the physical 80 mm enclosure opening");
+assert(tray_h <= fit_envelope_h,
+       "PSU tray exceeds the physical 80 mm enclosure opening");
+assert(psu_pilot_edge_margin >= 1.0,
+       "Measured PSU pilot holes are too close to the narrowed tray edge");
+assert(dovetail_groove_depth < tray_t-0.6,
+       "Dovetail groove leaves too little tray roof thickness");
+
+assert(
+    dock_relief_core_w/2 + 2 <
+        abs(backplane_mount_x[0]) - adapter_screw_head_d/2,
+    "Snap-latch service-tray relief cuts into enclosure screw lands in X"
+);
+assert(
+    dock_relief_core_h/2 + 2 <
+        abs(backplane_mount_y[0]) - adapter_screw_head_d/2,
+    "Snap-latch service-tray relief cuts into enclosure screw lands in Y"
+);
 
 // ---------- Front-operated latch geometry ----------
 
@@ -68,8 +100,7 @@ latch_base_x_t = 1.8;
 latch_base_z_h = 5.0;
 latch_mount_pitch = 7;
 
-// Dock pad overlaps the front wall by 0.3 mm and grows only toward -X.
-// The replaceable latch base sits immediately in front of it.
+// Dock pad grows only toward -X. It stays inside the 79 mm Y envelope.
 latch_pad_x0 = dock_front_x - latch_base_x_t + 0.3;
 latch_base_x0 = latch_pad_x0 - latch_base_x_t;
 latch_arm_x0 = latch_base_x0 + 0.2;
@@ -98,14 +129,7 @@ latch_window_x1 = tray_front_x + tray_lock_lip_x + tray_lock_pocket_len_x + 0.8;
 latch_window_y = latch_hook_w_y + 1.0;
 latch_window_z = latch_hook_top_z + 0.5;
 
-assert(
-    dock_relief_core_w/2 + 2 <
-        abs(backplane_mount_x[0]) - adapter_screw_head_d/2,
-    "Snap-latch service-tray relief cuts into enclosure screw lands"
-);
-
 module snap_tray_notch_cutter() {
-    // Underside pocket behind the front retaining lip.
     translate([
         tray_front_x + tray_lock_lip_x,
         -tray_lock_pocket_w_y/2,
@@ -118,36 +142,77 @@ module snap_tray_notch_cutter() {
         ]);
 }
 
+module dovetail_groove_cutter(yc) {
+    hull() {
+        translate([
+            dovetail_groove_x0,
+            yc-dovetail_groove_bottom_w/2,
+            -0.2
+        ])
+            cube([
+                dovetail_groove_len,
+                dovetail_groove_bottom_w,
+                dovetail_skin
+            ]);
+
+        translate([
+            dovetail_groove_x0,
+            yc-dovetail_groove_top_w/2,
+            dovetail_groove_depth-dovetail_skin
+        ])
+            cube([
+                dovetail_groove_len,
+                dovetail_groove_top_w,
+                dovetail_skin+0.2
+            ]);
+    }
+}
+
+module clipped_psu_mount_bosses() {
+    intersection() {
+        raised_psu_mount_bosses(base_z=tray_t, h=support_gap);
+
+        translate([
+            -tray_w/2,
+            -tray_h/2,
+            tray_t-0.5
+        ])
+            cube([
+                tray_w,
+                tray_h,
+                support_gap+1.0
+            ]);
+    }
+}
+
 module snap_tray_plate() {
     difference() {
         rounded_plate(w=tray_w, h=tray_h, t=tray_t, r=2.5);
 
-        // PSU screw pilots.
         for (pt = psu_rear_mount_points)
             translate([pt[0], pt[1], -0.2])
                 cylinder(d=psu_mount_pilot_d, h=tray_t+0.4);
 
-        // Front-centre underside latch pocket.
         snap_tray_notch_cutter();
+
+        for (yy=dovetail_y)
+            dovetail_groove_cutter(yy);
     }
 
     translate([0,0,tray_t-plate_t])
         integrated_support_rails(length=psu_h-14);
 
-    raised_psu_mount_bosses(base_z=tray_t, h=support_gap);
+    clipped_psu_mount_bosses();
 
-    // Existing hard +X end stop on the tray/PSU side.
     translate([
         psu_w/2 + psu_xy_clearance,
-        -psu_h/2,
+        -tray_h/2,
         tray_t-0.2
     ])
-        cube([2.2, psu_h, 5.2]);
+        cube([2.2, tray_h, 5.2]);
 }
 
 module front_latch_mount_pad() {
-    // Permanent front pad fused to the dock. Two horizontal M3 pilots accept
-    // the replaceable latch base before the dock is installed.
     difference() {
         translate([
             latch_pad_x0,
@@ -174,6 +239,32 @@ module front_latch_mount_pad() {
     }
 }
 
+module dovetail_rail(yc) {
+    hull() {
+        translate([
+            dovetail_rail_x0,
+            yc-dovetail_base_w/2,
+            plate_t-0.2
+        ])
+            cube([
+                dovetail_rail_len,
+                dovetail_base_w,
+                dovetail_skin
+            ]);
+
+        translate([
+            dovetail_rail_x0,
+            yc-dovetail_top_w/2,
+            plate_t+dovetail_h-dovetail_skin
+        ])
+            cube([
+                dovetail_rail_len,
+                dovetail_top_w,
+                dovetail_skin
+            ]);
+    }
+}
+
 module snap_dock() {
     difference() {
         union() {
@@ -190,37 +281,9 @@ module snap_dock() {
                             );
             }
 
-            // +/-Y channels capture the tray edges while it slides in X.
-            for (sy=[-1,1]) {
-                y_wall = sy*(tray_h/2 + slide_clearance);
+            for (yy=dovetail_y)
+                dovetail_rail(yy);
 
-                translate([
-                    -dock_w/2,
-                    y_wall-(sy<0 ? dock_channel_wall : 0),
-                    plate_t-0.2
-                ])
-                    cube([
-                        dock_w,
-                        dock_channel_wall,
-                        dock_channel_h+0.2
-                    ]);
-
-                lip_y = sy>0
-                    ? y_wall-dock_lip
-                    : y_wall;
-                translate([
-                    -dock_w/2,
-                    lip_y,
-                    plate_t+dock_channel_h-dock_lip-0.1
-                ])
-                    cube([
-                        dock_w,
-                        dock_lip,
-                        dock_lip+0.1
-                    ]);
-            }
-
-            // Hard +X stop takes insertion force; latch only prevents withdrawal.
             translate([
                 dock_w/2-2.0,
                 -tray_h/2,
@@ -229,13 +292,12 @@ module snap_dock() {
                 cube([
                     2.0,
                     tray_h,
-                    dock_channel_h+0.2
+                    dovetail_h+0.8
                 ]);
 
             front_latch_mount_pad();
         }
 
-        // Front-centre hook window. Nothing protrudes from either Y side.
         translate([
             latch_window_x0,
             -latch_window_y/2,
@@ -251,10 +313,8 @@ module snap_dock() {
 
 module replaceable_snap_latch() {
     arm_x1 = latch_arm_x0 + latch_arm_x_t;
-    hook_x1 = arm_x1 + latch_hook_reach_x;
 
     union() {
-        // Fixed base against the front dock pad.
         difference() {
             translate([
                 latch_base_x0,
@@ -280,8 +340,6 @@ module replaceable_snap_latch() {
                         );
         }
 
-        // Leaf spring. It starts on Z=0 so the separate latch prints flat and
-        // can flex downward after assembly without needing side clearance.
         translate([
             latch_arm_x0,
             latch_hook_y,
@@ -293,7 +351,6 @@ module replaceable_snap_latch() {
                 latch_arm_z_t
             ]);
 
-        // Low hook body through the front window.
         translate([
             arm_x1-0.2,
             latch_hook_y-latch_hook_w_y/2,
@@ -305,7 +362,6 @@ module replaceable_snap_latch() {
                 latch_ramp_nose_z
             ]);
 
-        // Insertion ramp: low at the front, high inside the tray pocket.
         hull() {
             translate([
                 tray_front_x-0.4,
@@ -322,7 +378,6 @@ module replaceable_snap_latch() {
                 cube([0.8,latch_hook_w_y,0.4]);
         }
 
-        // Square retaining tooth behind the tray front lip.
         translate([
             tray_front_x + tray_lock_lip_x + 0.4,
             latch_hook_y-latch_hook_w_y/2,
@@ -334,7 +389,6 @@ module replaceable_snap_latch() {
                 latch_hook_top_z-latch_ramp_nose_z
             ]);
 
-        // Front thumb pad: press DOWN, then pull tray toward -X.
         translate([
             latch_base_x0-latch_release_x_t+0.2,
             latch_hook_y-latch_release_len_y/2,
