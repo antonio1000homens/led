@@ -16,6 +16,7 @@ on:
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
+      - 'hardware/enclosure/**/*.svg'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
       - '.windsor-slicer.yaml'
@@ -26,6 +27,7 @@ on:
     paths:
       - 'hardware/enclosure/**/*.scad'
       - 'hardware/enclosure/**/*.stl'
+      - 'hardware/enclosure/**/*.svg'
       - 'hardware/enclosure/**/*.py'
       - 'hardware/enclosure/**/*.json'
       - '.windsor-slicer.yaml'

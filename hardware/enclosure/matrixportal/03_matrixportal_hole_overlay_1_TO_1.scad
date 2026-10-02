@@ -16,6 +16,21 @@ module hole_overlay() {
     // 20 mm scale bar, contained within the PCB outline so SVG page bounds
     // remain exactly the measured 63.50 x 44.45 mm board envelope.
     translate([1,1]) square([20,0.35]);
+
+    // Dimensions and orientation notes sit outside the board outline. All
+    // coordinates remain millimetres, so the exported SVG stays 1:1.
+    translate([0,-6])
+        text("MATRIXPORTAL S3 PCB OUTLINE 63.50 x 44.45 mm - PRINT AT 100%",
+             size=2.0,halign="left",valign="center");
+    translate([0,-10])
+        text("Hole centres from lower-left: X 7.620 / 48.260; Y 15.875 / 35.560 mm",
+             size=1.7,halign="left",valign="center");
+    translate([0,pcb_h+2])
+        text("USB-C / BUTTON SERVICE EDGE  ->  RIGHT",
+             size=1.8,halign="left",valign="center");
+    translate([28,-3])
+        text("X pitch 40.640 mm; Y pitch 19.685 mm",
+             size=1.8,halign="center",valign="center");
 }
 
 hole_overlay();

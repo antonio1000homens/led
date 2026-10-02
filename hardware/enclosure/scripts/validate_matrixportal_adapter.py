@@ -113,6 +113,21 @@ def main() -> None:
         if (abs(page_w-view_w) > 0.01 or abs(page_h-view_h) > 0.01
                 or "pcb_w = 63.5;" not in source or "pcb_h = 44.45;" not in source):
             raise SystemExit("1:1 SVG scale or 63.5 x 44.45 mm PCB dimensions are incorrect")
+        printable_overlay = MATRIXPORTAL / "matrixportal_s3_hole_overlay_1_TO_1.svg"
+        if not printable_overlay.is_file():
+            raise SystemExit("Printable 1:1 MatrixPortal hole overlay is missing")
+        printable_svg = printable_overlay.read_text(encoding="utf-8")
+        printable_root = re.search(
+            r'<svg width="([\d.]+)mm" height="([\d.]+)mm" '
+            r'viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"',
+            printable_svg,
+        )
+        if not printable_root:
+            raise SystemExit("Printable MatrixPortal overlay has no physical SVG dimensions")
+        printed_width, printed_height = float(printable_root.group(1)), float(printable_root.group(2))
+        view_width, view_height = float(printable_root.group(5)), float(printable_root.group(6))
+        if abs(printed_width-view_width) > 0.01 or abs(printed_height-view_height) > 0.01:
+            raise SystemExit("Printable MatrixPortal SVG must have a 1:1 mm viewBox")
         print("OK: 1:1 PCB hole-pattern SVG renders at the specified board size")
 
 

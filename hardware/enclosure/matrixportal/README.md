@@ -23,15 +23,18 @@ openscad -o hardware/enclosure/stl/08_matrixportal_adapter_PRINT_1.stl \
   hardware/enclosure/matrixportal/01_matrixportal_adapter_PRINT_1.scad
 ```
 
-Export the 1:1 hole overlay as SVG and print at Actual Size (100%):
+Print the checked-in [`matrixportal_s3_hole_overlay_1_TO_1.svg`](matrixportal_s3_hole_overlay_1_TO_1.svg)
+at Actual Size (100%). It includes the four hole locations, board outline,
+service-edge orientation, pitch values and a 20 mm scale bar. Regenerate it
+from its SCAD source when the measured board reference changes:
 
 ```sh
-openscad -o /tmp/matrixportal-hole-overlay.svg \
+openscad -o hardware/enclosure/matrixportal/matrixportal_s3_hole_overlay_1_TO_1.svg \
   hardware/enclosure/matrixportal/03_matrixportal_hole_overlay_1_TO_1.scad
 ```
 
-The overlay has a 20 mm scale bar. Verify all four holes against the real board
-before printing the full adapter. Automated mesh and preview checks are run by
+Verify the overlay page is printed at 100%, then check all four holes against
+the real board before printing the full adapter. Automated mesh and preview checks are run by
 `hardware/enclosure/scripts/validate_matrixportal_adapter.py`.
 
 ## Prototype hardware
