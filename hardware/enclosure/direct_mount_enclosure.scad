@@ -797,6 +797,30 @@ module rear_guardrail_rails() {
                 rear_guardrail_y1-rear_guardrail_y0,
                 rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
             ]);
+
+    // Short low spurs root the centre tab into the shelf on both sides of the
+    // centre-rib socket without closing the full centre span.
+    translate([
+        rear_guardrail_center_left_x0,
+        rear_guardrail_y0,
+        rear_guardrail_lip_front_z
+    ])
+        cube([
+            rear_guardrail_center_left_x1-rear_guardrail_center_left_x0,
+            rear_guardrail_center_root_y1-rear_guardrail_y0,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+        ]);
+
+    translate([
+        rear_guardrail_center_right_x0,
+        rear_guardrail_y0,
+        rear_guardrail_lip_front_z
+    ])
+        cube([
+            rear_guardrail_center_right_x1-rear_guardrail_center_right_x0,
+            rear_guardrail_center_root_y1-rear_guardrail_y0,
+            rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z
+        ]);
 }
 
 module rear_guardrail() {
@@ -1351,6 +1375,25 @@ rear_guardrail_right_x0 =
     - rear_guardrail_join_overlap;
 rear_guardrail_right_x1 = service_x + service_w;
 
+// The centre guardrail tab needs a manifold root after the continuous-rib
+// socket removes the shelf around it. Keep two short LOW spurs local to the
+// centre rib only; they overlap the surrounding shelf by 0.4 mm and remain
+// below the removable tongue.
+rear_guardrail_center_root_overlap = 0.4;
+rear_guardrail_center_root_y1 = rear_guardrail_shelf_top_y;
+rear_guardrail_center_left_x0 =
+    transition_rib_centres[1] - rear_rib_ground_pocket_w/2
+    - rear_guardrail_center_root_overlap;
+rear_guardrail_center_left_x1 =
+    transition_rib_centres[1] - rear_guardrail_tab_w/2
+    + rear_guardrail_center_root_overlap;
+rear_guardrail_center_right_x0 =
+    transition_rib_centres[1] + rear_guardrail_tab_w/2
+    - rear_guardrail_center_root_overlap;
+rear_guardrail_center_right_x1 =
+    transition_rib_centres[1] + rear_rib_ground_pocket_w/2
+    + rear_guardrail_center_root_overlap;
+
 module transition_rear_rib(xc) {
     z0 = equipment_backplane_rear_z - 0.3;
     z1 = min(
@@ -1451,7 +1494,11 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     }
 }
 
-module outer_guardrail_entry_cutter(xc,side="left") {
+module outer_guardrail_entry_cutter(
+    xc,
+    side="left",
+    y1=rear_guardrail_y1
+) {
     // The PR170 outer guardrails approach the outer ribs from the enclosure
     // sides. Open only the lower guardrail-height band from the relevant rib
     // edge into the existing central channel; leave the rest of the 24 mm rib
@@ -1470,7 +1517,7 @@ module outer_guardrail_entry_cutter(xc,side="left") {
     ])
         cube([
             x1-x0,
-            rear_guardrail_y1-service_base_y+0.4,
+            y1-service_base_y+0.4,
             rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z+
                 side_guide_clearance+0.2
         ]);
@@ -1482,6 +1529,18 @@ module transition_rib_guardrail_channel_cutters() {
 
     outer_guardrail_entry_cutter(transition_rib_centres[0],"left");
     outer_guardrail_entry_cutter(transition_rib_centres[2],"right");
+
+    // Local low entries for the centre-tab root spurs.
+    outer_guardrail_entry_cutter(
+        transition_rib_centres[1],
+        "left",
+        rear_guardrail_center_root_y1+0.2
+    );
+    outer_guardrail_entry_cutter(
+        transition_rib_centres[1],
+        "right",
+        rear_guardrail_center_root_y1+0.2
+    );
 }
 
 module universal_equipment_backplane() {

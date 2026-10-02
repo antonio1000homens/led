@@ -174,7 +174,9 @@ The removable backplane/enclosure installs from directly above:
    0.6 mm clearance to the solid rear rib wall. The low rear shelf is pocketed
    through the complete rear shelf/base-seat band beneath the rib footprint,
    while the #170 outer rails/tabs are deliberately retained inside those
-   sockets and enter dedicated lower/front side slots;
+   sockets and enter dedicated lower/front side slots. The centre tab uses two
+   short low root spurs across the centre-rib socket so it remains manifold with
+   the surrounding shelf without closing the full centre span;
 4. the full-width shoulder above the guides then sits over the tower tops while
    the low rear shelf and rib rear faces terminate on the same flush plane;
 5. fit the detachable outer side/end piece where required.

@@ -526,6 +526,14 @@ assert(rear_guardrail_left_x1 <
        rear_guardrail_right_x0 >
            transition_rib_centres[1]+rear_guardrail_tab_w/2,
        "outer guardrails must leave the centre span open");
+assert(abs(rear_guardrail_center_root_overlap-0.4) < 0.01 &&
+       rear_guardrail_center_root_y1 <= equipment_backplane_y0-0.19,
+       "centre-tab root spurs must remain low and locally overlap the surrounding shelf");
+assert(rear_guardrail_center_left_x0 <
+           transition_rib_centres[1]-rear_rib_ground_pocket_w/2 &&
+       rear_guardrail_center_right_x1 >
+           transition_rib_centres[1]+rear_rib_ground_pocket_w/2,
+       "centre-tab root spurs must bridge beyond the centre-rib socket");
 assert(abs(rear_guardrail_shelf_rear_z-rear_reinforcement_flush_z) < 0.01 &&
        rear_guardrail_shelf_top_y <= equipment_backplane_y0-0.19,
        "rear shelf must reach the flush plane while staying below the removable tongue");

@@ -49,8 +49,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   tongue clearance, 1.2 mm guardrail thickness and 0.6 mm rear clearance.
   Matching vertical sockets clear the complete rib footprint through the rear
   shelf/base-seat band. The #170 rails/tabs are retained inside those sockets
-  and enter lower side/front slots in the ribs, while the existing 24 mm
-  X/print-Z taper prevents floating regions;
+  and enter lower side/front slots in the ribs. Two short low spurs root the
+  centre tab into the surrounding shelf across the centre-rib socket without
+  closing the full centre span; the existing 24 mm X/print-Z taper prevents
+  floating regions;
 - hidden guide-tower junctions kept within the bed-connected lower band;
 - blind inside accessory bosses with a solid external rear skin;
 - exactly three slimmer accessory-boss rows (7 mm OD × 4 mm high), with the outer rows 22 mm in from the full-depth-region edges and the third row centred;
