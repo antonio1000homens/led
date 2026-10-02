@@ -24,8 +24,6 @@ Canonical pairs:
   → `06_psu_service_tray_snap_dock_PRINT_1.stl`
 - `../powersupply/03_service_tray_snap_tray_PRINT_1.scad`
   → `07_psu_service_tray_snap_tray_PRINT_1.stl`
-- `../powersupply/04_service_tray_snap_latch_PRINT_1.scad`
-  → `08_psu_service_tray_snap_latch_PRINT_1.stl`
 
 ## Development workflow
 

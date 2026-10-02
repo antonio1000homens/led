@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import subprocess
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -39,25 +40,33 @@ OUTPUTS = (
         DIRECT / "powersupply/03_service_tray_snap_tray_PRINT_1.scad",
         "07_psu_service_tray_snap_tray_PRINT_1.stl",
     ),
-    (
-        DIRECT / "powersupply/04_service_tray_snap_latch_PRINT_1.scad",
-        "08_psu_service_tray_snap_latch_PRINT_1.stl",
-    ),
 )
 
 
 def main() -> None:
-    STL_DIR.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=STL_DIR,
+        help="Output directory (defaults to the checked-in canonical STL directory).",
+    )
+    output_dir = parser.parse_args().output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for source, output_name in OUTPUTS:
-        output = STL_DIR / output_name
+        output = output_dir / output_name
         subprocess.run(
             ["openscad", "-o", str(output), str(source)],
             check=True,
         )
         if not output.is_file() or output.stat().st_size == 0:
             raise SystemExit(f"OpenSCAD produced no output for {source}")
-        print(f"generated {output.relative_to(ROOT)}")
+        try:
+            label = output.relative_to(ROOT)
+        except ValueError:
+            label = output
+        print(f"generated {label}")
 
 
 if __name__ == "__main__":

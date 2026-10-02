@@ -1,4 +1,3 @@
-// Assembled preview of the selected snap-latch PSU service tray.
+// PSU dock/tray assembly preview; the actual enclosure preview is in 05_*.scad.
 include <service_tray_snap_latch_common.scad>;
-
-assembled_snap_service_tray();
+assembled_psu_mount();

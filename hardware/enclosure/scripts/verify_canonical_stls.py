@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 from collections import Counter
 from pathlib import Path
@@ -35,8 +36,6 @@ SOURCE_BY_STL = {
         PSU_DIR / "02_service_tray_snap_dock_PRINT_1.scad",
     "07_psu_service_tray_snap_tray_PRINT_1.stl":
         PSU_DIR / "03_service_tray_snap_tray_PRINT_1.scad",
-    "08_psu_service_tray_snap_latch_PRINT_1.stl":
-        PSU_DIR / "04_service_tray_snap_latch_PRINT_1.scad",
 }
 
 
@@ -62,9 +61,12 @@ def _triangle_counter(path: Path) -> Counter[tuple[tuple[int, int, int], ...]]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--generated-dir", type=Path, default=GENERATED_DIR)
+    generated_dir = parser.parse_args().generated_dir.resolve()
     expected = set(SOURCE_BY_STL)
     canonical = {path.name for path in CANONICAL_DIR.glob("*_PRINT_1.stl")}
-    generated = {path.name for path in GENERATED_DIR.glob("*_PRINT_1.stl")}
+    generated = {path.name for path in generated_dir.glob("*_PRINT_1.stl")}
 
     failures: list[str] = []
 
@@ -92,7 +94,7 @@ def main() -> int:
 
     for name in sorted(expected & canonical & generated):
         canonical_path = CANONICAL_DIR / name
-        generated_path = GENERATED_DIR / name
+        generated_path = generated_dir / name
 
         try:
             canonical_triangles = _triangle_counter(canonical_path)
