@@ -563,6 +563,13 @@ side_guide_rear_buttress_depth = 10;
 side_guide_rear_buttress_slice_h = 1.0;
 side_guide_rear_buttress_overlap = 0.4;
 
+// Broad front-side floor gussets carry the vertical guide load into the base.
+// Their triangular Y/Z section uses the available floor ahead of the guide;
+// the upper tip overlaps the guide's front lip without entering its slot.
+side_guide_floor_gusset_footprint = 26;
+side_guide_floor_gusset_h = side_guide_h * 0.75;
+side_guide_floor_gusset_overlap = 0.4;
+
 // Use one rear reinforcement plane across the side-guide buttresses, the low
 // stationary rear rail and the three removable backplane ribs. This gives the
 // assembled rear edge a flush appearance without changing the backplane slot.
@@ -709,6 +716,24 @@ module side_guide_channel(side="left") {
                 side_guide_front_tie_h,
                 junction_pad_front_z-side_guide_front_tie_z0+0.2
             ]);
+
+        // Broad triangular support under the front of each vertical slider.
+        // Its 26 mm floor footprint tapers to 75% of guide height and overlaps
+        // the guide front lip by 0.4 mm. The whole wedge stays ahead of the
+        // backplane slot; mirrored placement is supplied by x0 above.
+        translate([
+            x0,
+            side_guide_y0,
+            side_guide_front_z+side_guide_floor_gusset_overlap
+        ])
+            rotate([0,90,0])
+                linear_extrude(height=side_guide_w)
+                    polygon(points=[
+                        [0,0],
+                        [side_guide_floor_gusset_footprint+
+                            side_guide_floor_gusset_overlap,0],
+                        [0,side_guide_floor_gusset_h]
+                    ]);
 
         // Rearward 10 mm triangular gusset in side view. The lower rail root
         // receives the full extra depth while the gusset tapers to the native

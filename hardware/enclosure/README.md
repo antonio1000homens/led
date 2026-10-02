@@ -153,6 +153,9 @@ changing the backplane slot:
 - the existing **16 mm-high junction support** continues forward until it
   overlaps the stationary hinge plate/guard, making one continuous side load
   path;
+- each guide also has a **26 mm-footprint triangular floor gusset**, spanning
+  the full 5 mm guide width and rising to 75% of the 40 mm guide height. The
+  wedges sit ahead of the insertion slot and overlap the guide's front lip;
 - the rear of the guide gains a **10 mm-deep triangular buttress at the base**,
   tapering back to the normal guide rear face at the top of the 40 mm rail;
 - a low **full-width rear shelf** extends the stationary base to the same rear
