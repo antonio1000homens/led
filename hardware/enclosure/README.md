@@ -261,12 +261,20 @@ The bosses project into the equipment cavity and use blind holes; at least
 hole is visible from outside:
 
 - X = **32 / 80 / 128 / 176 / 224 mm**
-- Y = **62.5 / 82.5 / 102.5 mm** (three rows; outer rows 22 mm inside the full-depth-region edges, plus a centred row)
+- Y = **71.5 / 90.5 / 109.5 mm** (three rows centred in the 84 mm usable equipment cavity)
 - boss OD = **7 mm**
 - boss height = **4 mm**
 - blind M3 clearance hole = **3.4 mm**, stopping before the external rear skin
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
+
+The MatrixPortal S3 right-side docking plate is specified in issue #178 and
+modelled under `matrixportal/`. It uses the X=224 boss column. The landscape
+board reference is rotated so USB-C/buttons face the detachable right side;
+service requires opening the panel and removing that side. Adapter dimensions
+remain prototype values until the 1:1 hole overlay and physical fit are checked.
+The current three boss rows are Y=71.5/90.5/109.5 mm; the shared interface SCAD
+is authoritative if this prose drifts.
 
 For the measured ~110 × 80 × 37 mm PSU, the full-width ~255 × 84 × 54 mm
 equipment region leaves ample horizontal room, 2 mm above/below the 80 mm

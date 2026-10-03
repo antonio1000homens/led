@@ -36,3 +36,8 @@ models:
     source: hardware/enclosure/powersupply/03_service_tray_snap_tray_PRINT_1.scad
     generator: openscad
     output: psu_service_tray_snap_tray.stl
+
+  matrixportal-adapter:
+    source: hardware/enclosure/matrixportal/01_matrixportal_adapter_PRINT_1.scad
+    generator: openscad
+    output: matrixportal_adapter.stl
