@@ -19,9 +19,9 @@ Issue #177 replaces the fixed dock's front screw-mounted latch with a pull-relea
 
 The enclosure's reinforced 8 mm shoulder leaves a usable cavity from Y=48.5 to 132.5 mm, centred at Y=90.5. The shared grid uses five X columns `[32,80,128,176,224]` and rows `[71.5,90.5,109.5]`. The dock selects columns 80 and 176, represented locally by X=±48 and row offsets Y=−19/0/+19. The other enclosure bosses remain available for accessories; the dock has relief for the two upper/lower bosses in the unused X=128 column.
 
-A revised dock only fits a backplane with the revised boss rows. Previously printed backplanes retain Y=67.5/86.5/105.5 and will not align. The dock and tray remain 118 × 79 mm and 114 × 79 × 2.8 mm respectively. The 110 × 80 × 37 mm PSU overhangs the tray by 0.5 mm per side. Its diagonally opposed pilots are at (−52,−37) and (+52,+37), Ø2.8 mm. The pilot edge retains 1.1 mm of material.
+A revised dock only fits a backplane with the revised boss rows. Previously printed backplanes retain Y=67.5/86.5/105.5 and will not align. The dock is 118 × 79 × 4.2 mm and the tray remains 114 × 79 × 2.8 mm. The extra 1 mm dock thickness permits the enclosure screw heads to be recessed below the sliding surface without reducing the structural web above the rear boss pockets. The 110 × 80 × 37 mm PSU overhangs the tray by 0.5 mm per side. After physical fit correction, its diagonally opposed pilots are at (−52,−36) and (+52,+36), Ø2.8 mm: the landscape bottom-left hole moved up 1 mm and the top-right hole moved down 1 mm. The pilot edge now retains 2.1 mm of material.
 
-The two support bars and PSU screw bosses share a top plane at tray-local Z=4.8 mm (2.8 mm plate + 2 mm support). Bars are at X=±34 mm, 5 mm wide and 66 mm long. This is separate from the six enclosure fixings (Ø3.6 clearance, Ø7 × 0.8 mm head recess, Ø7.5 × 1.2 mm locating pockets).
+The two support bars and PSU screw bosses share a top plane at tray-local Z=4.8 mm (2.8 mm plate + 2 mm support). Bars are at X=±34 mm, 5 mm wide and 66 mm long. This is separate from the six enclosure fixings (Ø3.6 clearance, Ø7 × 1.8 mm head recess, Ø7.5 × 1.2 mm locating pockets).
 
 ## Slide and pull-release flexure
 
@@ -29,7 +29,7 @@ The tray inserts along +X. Two internal runners at Y=±25 mm use a 2.4 mm base, 
 
 The tray flexure wraps around the dock's −X edge. Its initial PETG coupon geometry uses a 30 mm cantilever, 5 mm X width and 1.2 mm thickness, with 0.5 mm nominal detent engagement into a 0.8 mm deep underside groove (0.3 mm seated clearance above the detent). Pulling the tray cams the detent down; no button press is needed. Beam thickness and engagement are parameters for physical tuning. No release-force value has been measured. Check deflection against the actual backplane and use a PETG coupon before relying on repeated flexing.
 
-Use six M3 ISO 7380 button-head screws with head diameter no greater than 5.7 mm and height no greater than 1.65 mm. With the 0.8 mm recess, the head sits 0.75 mm below the 4.8 mm PSU support plane. Other screw heads require a fresh clearance check.
+Use six M3 ISO 7380 button-head screws with head diameter no greater than 5.7 mm and height no greater than 1.65 mm. The 1.8 mm recess puts that maximum head 0.15 mm below the 4.2 mm dock surface. The tray underside runs at Z=4.45 mm when seated, leaving 0.40 mm over the supported screw-head envelope during insertion/removal. The 4.2 mm dock still retains 1.2 mm of material between the head recess and the 1.2 mm rear registration pocket. Other screw heads require a fresh clearance check.
 
 The dock's six bosses have a nominal 4 mm height and overlap the 3 mm backplane by 0.3 mm, leaving 3.7 mm exposed toward the dock. The assembly preview places the dock so those tips enter the registration pockets by 1.2 mm. The shared interface preserves Ø7 bosses, Ø3.4 blind holes and the 1.2 mm external wall skin. Confirm screw-head clearance for the actual hardware before assembly.
 
@@ -38,9 +38,9 @@ The dock's six bosses have a nominal 4 mm height and overlap the 3 mm backplane 
 | Qty | Item | Specification / note |
 | ---: | --- | --- |
 | 1 | Universal equipment backplane | Must use the revised boss rows Y=71.5/90.5/109.5; older printed backplanes are incompatible. |
-| 1 | Fixed PSU dock | Print in PETG; 118 × 79 × 3.2 mm. |
+| 1 | Fixed PSU dock | Print in PETG; 118 × 79 × 4.2 mm. |
 | 1 | Sliding PSU tray | Print in PETG; 114 × 79 × 2.8 mm plate with integral flexure. |
-| 1 | PSU | Measured envelope 110 × 80 × 37 mm; diagonal mounting pilots at (−52,−37) and (+52,+37) mm. |
+| 1 | PSU | Measured envelope 110 × 80 × 37 mm; corrected diagonal mounting pilots at (−52,−36) and (+52,+36) mm. |
 | 6 | Dock-to-backplane screws | M3 ISO 7380 button head; head diameter ≤5.7 mm and head height ≤1.65 mm. Screw length is not established by the available measurements: verify engagement in the Ø3.4 mm blind boss bores and ensure the tips preserve the 1.2 mm exterior wall skin before ordering. |
 | 2 | PSU-to-tray screws | Use the PSU's specified thread and length through the Ø2.8 mm tray pilots; the PSU thread and screw length were not measured here. |
 | 1 each | Detent coupon pieces | Optional PETG fit test: flexure coupon and matching groove coupon from `07_detent_test_coupon_TEST_1.scad`. |
