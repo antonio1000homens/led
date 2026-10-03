@@ -38,6 +38,10 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - one 26 mm-footprint triangular floor gusset under each guide, full guide width
   and rising to 75% of guide height; the gussets overlap the guide roots while
   staying completely ahead of the insertion slot;
+- both 1.2 mm front/rear capture lips extend inward from each 5 mm side guide to
+  the outer edge of the nearest X=64 / X=192 mm continuous-rib socket. The
+  extension overlaps the original guide by 0.4 mm, remains 40 mm high, preserves
+  the original backplane slot, and leaves 0.6 mm clearance before the rib;
 - a **10 mm rearward triangular buttress** at each guide root, tapering to the
   native rail rear face at the guide top while leaving the slot unchanged;
 - a low full-width stationary **rear shelf** ending on the common rear plane;

@@ -156,6 +156,12 @@ changing the backplane slot:
 - each guide also has a **26 mm-footprint triangular floor gusset**, spanning
   the full 5 mm guide width and rising to 75% of the 40 mm guide height. The
   wedges sit ahead of the insertion slot and overlap the guide's front lip;
+- both 1.2 mm capture lips of each 40 mm side guide now continue **inward toward
+  the centre as backup backplane support**, stopping at the outer edge of the
+  first continuous-rib socket (around X=51.4 mm on the left and X=204.6 mm on
+  the right). The resulting first rib gaps remain open with the existing
+  0.6 mm rib clearance, so a damaged end tongue does not leave the backplane
+  supported only at the extreme enclosure edge;
 - the rear of the guide gains a **10 mm-deep triangular buttress at the base**,
   tapering back to the normal guide rear face at the top of the 40 mm rail;
 - a low **full-width rear shelf** extends the stationary base to the same rear

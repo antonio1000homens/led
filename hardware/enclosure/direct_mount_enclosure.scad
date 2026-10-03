@@ -899,6 +899,11 @@ module base_structural_body() {
             side_guide_channel("left");
             side_guide_channel("right");
 
+            // Follow-up to #175: continue both guide lips toward the centre
+            // until the first rib socket on each side, leaving that socket open
+            // for the removable backplane's continuous reinforcement rib.
+            side_guide_inward_extensions();
+
         }
 
         // Open three rear shelf pockets so the removable floor-reaching rib
@@ -1398,6 +1403,46 @@ rear_guardrail_right_x0 =
     transition_rib_centres[2] + rear_guardrail_tab_w/2
     - rear_guardrail_join_overlap;
 rear_guardrail_right_x1 = service_x + service_w;
+
+// Extend the two 40 mm side-guide capture lips inward as backup support for
+// the removable backplane. Each extension intentionally stops at the OUTER
+// edge of the nearest continuous-rib socket, so the first rib gap on each side
+// stays completely open. A small overlap keeps the extension manifold with the
+// existing 5 mm-wide side guide without changing the 3 mm + 0.6 mm slot fit.
+side_guide_inward_extension_overlap = 0.4;
+side_guide_left_extension_x0 =
+    service_x + side_guide_w - side_guide_inward_extension_overlap;
+side_guide_left_extension_x1 =
+    transition_rib_centres[0] - rear_rib_ground_pocket_w/2;
+side_guide_right_extension_x0 =
+    transition_rib_centres[2] + rear_rib_ground_pocket_w/2;
+side_guide_right_extension_x1 =
+    service_x + service_w - side_guide_w
+    + side_guide_inward_extension_overlap;
+
+module side_guide_inward_extensions() {
+    for (span=[
+        [side_guide_left_extension_x0,side_guide_left_extension_x1],
+        [side_guide_right_extension_x0,side_guide_right_extension_x1]
+    ]) {
+        // Front capture lip.
+        translate([span[0],side_guide_y0,side_guide_front_z])
+            cube([
+                span[1]-span[0],
+                side_guide_h,
+                side_guide_wall_t
+            ]);
+
+        // Rear capture lip. The open Z gap between these two lips remains the
+        // original backplane slot, including its 0.6 mm running clearance.
+        translate([span[0],side_guide_y0,side_guide_slot_back_z])
+            cube([
+                span[1]-span[0],
+                side_guide_h,
+                side_guide_wall_t
+            ]);
+    }
+}
 
 // The centre guardrail tab needs a manifold root after the continuous-rib
 // socket removes the shelf around it. Keep two short LOW spurs local to the
