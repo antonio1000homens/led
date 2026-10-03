@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 # Mechanical validation is relatively expensive. A newer commit on the same
 # branch/PR makes an older run obsolete, so cancel the superseded run.
@@ -46,6 +46,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -102,6 +104,25 @@ jobs:
           path: build/enclosure-stls/*.stl
           if-no-files-found: error
           retention-days: 14
+
+      # Temporary branch-only helper for PR #185 canonical dock refresh.
+      # Removed immediately after it commits the generated STL.
+      - name: Refresh centred-detent canonical dock
+        if: github.event_name == 'pull_request' && github.head_ref == 'fix/issue-177-center-detent'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/enclosure-stls/06_psu_service_tray_snap_dock_PRINT_1.stl \
+            hardware/enclosure/stl/06_psu_service_tray_snap_dock_PRINT_1.stl
+          if git diff --quiet -- hardware/enclosure/stl/06_psu_service_tray_snap_dock_PRINT_1.stl; then
+            echo "Canonical dock already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hardware/enclosure/stl/06_psu_service_tray_snap_dock_PRINT_1.stl
+          git commit -m "Refresh centred-detent PSU dock STL [skip ci]"
+          git push origin "HEAD:${{ github.head_ref }}"
 
       - name: Validate PSU dock interface and flexure geometry
         run: python hardware/enclosure/scripts/validate_psu_adapter.py --generated-dir build/enclosure-stls
