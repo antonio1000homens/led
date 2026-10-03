@@ -534,6 +534,27 @@ assert(abs(rear_guardrail_right_x1-(service_x+service_w)) < 0.01 &&
             rear_guardrail_join_overlap)) < 0.01 &&
        rear_guardrail_right_x1-rear_guardrail_right_x0 >= 58,
        "right outer guardrail must run from the side guide to the first rib");
+assert(abs(side_guide_inward_extension_overlap-0.4) < 0.01,
+       "inward guide extensions must retain a manifold overlap with each side guide");
+assert(abs(side_guide_left_extension_x0-
+           (service_x+side_guide_w-side_guide_inward_extension_overlap)) < 0.01 &&
+       abs(side_guide_left_extension_x1-
+           (transition_rib_centres[0]-rear_rib_ground_pocket_w/2)) < 0.01 &&
+       side_guide_left_extension_x1-side_guide_left_extension_x0 > 40,
+       "left guide lips must extend inward to the first rib socket");
+assert(abs(side_guide_right_extension_x0-
+           (transition_rib_centres[2]+rear_rib_ground_pocket_w/2)) < 0.01 &&
+       abs(side_guide_right_extension_x1-
+           (service_x+service_w-side_guide_w+
+            side_guide_inward_extension_overlap)) < 0.01 &&
+       side_guide_right_extension_x1-side_guide_right_extension_x0 > 40,
+       "right guide lips must extend inward to the first rib socket");
+assert(abs((transition_rib_centres[0]-transition_rib_half_w)-
+           side_guide_left_extension_x1-side_guide_clearance) < 0.01 &&
+       abs(side_guide_right_extension_x0-
+           (transition_rib_centres[2]+transition_rib_half_w)-
+           side_guide_clearance) < 0.01,
+       "inward guide extensions must preserve the 0.6 mm rib clearance at both first gaps");
 assert(rear_guardrail_left_x1 <
            transition_rib_centres[1]-rear_guardrail_tab_w/2 &&
        rear_guardrail_right_x0 >
@@ -822,7 +843,8 @@ cube([1,1,1]);
         )
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
-        "lower hidden junctions, two 26 mm triangular floor gussets, "
+        "lower hidden junctions, two 26 mm triangular floor gussets, " 
+        "inward guide-lip extensions to the first outer rib sockets, "
         "front-tied guide roots with 10 mm rear triangular buttresses, "
         "compact upper backplane/end-plate seam bosses, "
         "unchanged moving-panel hinge roots and 20 mm forward base-floor extension, "
