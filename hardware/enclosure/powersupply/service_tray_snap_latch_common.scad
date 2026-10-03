@@ -58,8 +58,18 @@ m3_tray_slide_clearance = tray_assembled_z-
 dock_screw_web = plate_t-boss_pocket_depth-adapter_screw_head_depth;
 detent_groove_x0 = -58.3;
 detent_groove_x1 = -55.7;
-detent_groove_y0 = -3.3;
-detent_groove_y1 = 3.3;
+
+// Keep the existing tray nose and cantilever untouched for identical flexure
+// stiffness and print geometry. Centre the dock pocket on the existing Y=0..3
+// nose instead, shifting only the fixed dock pocket by +1.5 mm in Y.
+detent_nose_width_y = 3;
+detent_nose_y0 = 0;
+detent_nose_y1 = detent_nose_y0+detent_nose_width_y;
+detent_nose_center_y = (detent_nose_y0+detent_nose_y1)/2;
+detent_groove_half_width_y = 3.3;
+detent_groove_center_y = detent_nose_center_y;
+detent_groove_y0 = detent_groove_center_y-detent_groove_half_width_y;
+detent_groove_y1 = detent_groove_center_y+detent_groove_half_width_y;
 detent_anchor_x0 = -61;
 detent_anchor_x1 = -59.4;
 detent_anchor_y0 = detent_beam_free_len_y-2.5;
@@ -94,6 +104,12 @@ assert(abs(psu_support_plane_z-4.8)<0.01,
 assert(abs(detent_groove_clearance-0.3)<0.01 &&
        abs(detent_nominal_engagement-0.5)<0.01,
        "Integral detent engagement/clearance contract drifted");
+assert(abs(detent_nose_center_y-detent_groove_center_y)<0.01 &&
+       detent_nose_y0 > detent_groove_y0 &&
+       detent_nose_y1 < detent_groove_y1 &&
+       abs((detent_nose_y0-detent_groove_y0)-1.8)<0.01 &&
+       abs((detent_groove_y1-detent_nose_y1)-1.8)<0.01,
+       "Dock pocket must stay centred around the unchanged detent nose with 1.8 mm side clearance");
 assert(m3_button_head_max_d <= adapter_screw_head_d &&
        m3_head_above_dock <= -0.1 &&
        m3_tray_slide_clearance >= 0.35,
@@ -155,10 +171,10 @@ module integral_tray_detent_dock_frame() {
             cube([detent_beam_width_x,detent_beam_free_len_y,
                   detent_beam_thickness_z]);
         hull() {
-            translate([detent_groove_x0,0,detent_beam_z1-0.05])
-                cube([0.6,3,0.1]);
-            translate([detent_groove_x1-0.6,0,detent_peak_z-0.1])
-                cube([0.6,3,0.1]);
+            translate([detent_groove_x0,detent_nose_y0,detent_beam_z1-0.05])
+                cube([0.6,detent_nose_width_y,0.1]);
+            translate([detent_groove_x1-0.6,detent_nose_y0,detent_peak_z-0.1])
+                cube([0.6,detent_nose_width_y,0.1]);
         }
         // Fixed wrap-over anchor and roof link join the beam to the tray while
         // staying outside the dock edge until the link clears the top surface.

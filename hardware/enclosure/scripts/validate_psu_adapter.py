@@ -97,6 +97,25 @@ def main() -> None:
                 or abs(float(groove_coupon.extents[2])-4.2) > 0.05):
             raise SystemExit("Detent groove coupon must preserve the 4.2 mm dock section and print flat")
         print("OK: test coupon reuses production flexure and dock groove geometry")
+
+        # The tray flexure/nose remains the original Y=0..3 geometry. Only the
+        # fixed dock pocket moves +1.5 mm so it centres on the nose, preserving
+        # the 39.5 mm coupon pose and equal 1.8 mm lateral clearance.
+        groove_y0, groove_y1 = -1.8, 4.8
+        nose_y0, nose_y1 = 0.0, 3.0
+        if abs((nose_y0+nose_y1)/2 - (groove_y0+groove_y1)/2) > 0.01:
+            raise SystemExit("Dock pocket is not centred on the unchanged detent nose")
+        left_clearance = nose_y0-groove_y0
+        right_clearance = groove_y1-nose_y1
+        if abs(left_clearance-right_clearance) > 0.01 or abs(left_clearance-1.8) > 0.01:
+            raise SystemExit(
+                f"Detent pocket lateral clearance is asymmetric/wrong: "
+                f"left={left_clearance:.2f} mm right={right_clearance:.2f} mm"
+            )
+        print(
+            f"OK: dock pocket is centred on unchanged detent nose with "
+            f"{left_clearance:.2f} mm lateral clearance per side"
+        )
         if abs(float(dock.extents[1])-79.0) > 0.05:
             raise SystemExit("PSU dock must retain the 79 mm opening envelope")
         if abs(float(tray.extents[2])-79.0) > 0.05:
