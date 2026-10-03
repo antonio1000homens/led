@@ -31,6 +31,10 @@ PARTS = {
     "05_right_equipment_side_PRINT_1.scad": "05_right_equipment_side_PRINT_1.stl",
 }
 
+SLICER_SUPPORT_REQUIRED_PARTS = {
+    "03_universal_equipment_backplane_PRINT_1.stl",
+}
+
 PREVIEWS = (
     "00_hinged_enclosure_ASSEMBLY.scad",
     "00_hinged_enclosure_CLOSED_ASSEMBLY.scad",
@@ -506,10 +510,12 @@ assert(abs(rear_reinforcement_flush_z-
 assert(abs(transition_rib_depth-
            (rear_reinforcement_flush_z-equipment_backplane_rear_z)) < 0.01,
        "transition ribs must reach the common rear reinforcement plane");
-assert(abs(transition_rib_y0-service_base_y) < 0.01 &&
+assert(abs(transition_rib_floor_extension-1.0) < 0.01 &&
+       abs(transition_rib_y0-
+           (service_base_y-transition_rib_floor_extension)) < 0.01 &&
        abs(transition_rib_y1-
            (universal_deep_y0+universal_guide_shoulder_t)) < 0.01,
-       "continuous transition ribs must reach the enclosure floor and bridge into the reinforced shoulder");
+       "transition ribs must extend 1 mm below the nominal floor and bridge into the reinforced shoulder");
 assert(abs(rear_guardrail_y0-service_base_y) < 0.01 &&
        abs(rear_guardrail_y1-
            (base_seat_y+side_guide_clearance)) < 0.01 &&
@@ -643,32 +649,10 @@ assert(vent_slot_x0 >= universal_deep_x0+10 &&
        "ramp vents lost structural side margin");
 
 // Manufacturing orientation: installed X is the print Z axis. The narrowed
-// lower insertion tongue begins above the bed by lower_backplane_edge_inset.
-// Use a tapered pedestal so the 258 mm-tall print has a broad triangulated
-// load path into the bed instead of a narrow tear seam.
+// lower insertion tongue intentionally starts above the bed and is supported
+// by the declared Windsor tree-auto variant rather than fused CAD geometry.
 assert(abs(backplane_print_shift_z+service_x) < 0.01,
        "backplane print transform must place the left service edge on Z=0");
-assert(abs(insertion_print_support_t-6.0) < 0.01 &&
-       abs(insertion_print_support_overlap-4.0) < 0.01,
-       "tapered pedestal top width/overlap contract drifted");
-assert(abs(insertion_print_support_foot_w-32) < 0.01 &&
-       abs(insertion_print_support_foot_y_extra-20) < 0.01 &&
-       abs(insertion_print_support_foot_h-0.8) < 0.01,
-       "tapered pedestal bed-foot dimensions drifted");
-assert(abs(insertion_print_support_h-
-           (lower_backplane_edge_inset+insertion_print_support_overlap)) < 0.01,
-       "insertion support must reach from the bed into the narrowed tongue");
-assert(abs(insertion_print_support_y-
-           (side_guide_y1-equipment_backplane_y0)) < 0.01,
-       "insertion support must cover the complete guide-height tongue");
-assert(abs(insertion_print_support_h-
-           (lower_backplane_edge_inset+4.0)) < 0.01,
-       "tapered pedestal must overlap 4 mm into the structural tongue");
-assert(insertion_print_support_foot_w >=
-           insertion_print_support_t+24,
-       "pedestal lost the wide triangulated bed footprint");
-assert(insertion_print_support_foot_y_extra >= 20,
-       "pedestal lost the fore/aft anti-rocking extension");
 assert(len(panel_closure_x) == 3,
        "top closure must reuse exactly three panel screw positions");
 for (i=[0:2])
@@ -896,7 +880,7 @@ def assert_no_legacy_layout() -> None:
 
     # Rear cable/ribbon slots remain retired; cabling routes through open
     # module sides. The production wrapper must use the side-on vertical
-    # orientation and only the small insertion-tongue breakaway support.
+    # orientation without fused sacrificial support geometry.
     source_text = SOURCE.read_text(encoding="utf-8")
     for forbidden in ("cable_slot_x", "cable_slot_len", "cable_slot_w", "cable_slot_y"):
         if forbidden in source_text:
@@ -912,6 +896,9 @@ def assert_no_legacy_layout() -> None:
         "ramp_print_support_levels",
         "ramp_print_support_post(",
         "ramp_print_supports()",
+        "insertion_print_support_t",
+        "insertion_print_support_overlap",
+        "insertion_tongue_print_support()",
         "universal_edge_transition_y0",
         "universal_edge_transition_y1",
         "universal_edge_rear_shell(",
@@ -939,9 +926,7 @@ def assert_no_legacy_layout() -> None:
         "ramp_ventilation_cutters()",
         "horizontal_rounded_vent_cutter(",
         "backplane_print_shift_z",
-        "insertion_print_support_t",
-        "insertion_print_support_overlap",
-        "insertion_tongue_print_support()",
+        "transition_rib_floor_extension",
         "transition_rear_ribs()",
         "rear_guardrail_shelf()",
         "rear_guardrail_rails()",
@@ -986,7 +971,12 @@ def main() -> None:
 
             name = source.stem
             assert_mesh_health(name, generated)
-            assert_no_floating_layer_islands(name, generated)
+            if stl_name not in SLICER_SUPPORT_REQUIRED_PARTS:
+                assert_no_floating_layer_islands(name, generated)
+            else:
+                print(
+                    f"OK: {name} floating-layer proxy delegated to declared slicer support"
+                )
             assert_tracked_stl_current(stl_name, generated)
 
         assert_design_contract(work_dir)
