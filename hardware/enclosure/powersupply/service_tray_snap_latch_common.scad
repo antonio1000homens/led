@@ -52,9 +52,10 @@ detent_nominal_engagement = detent_peak_z;
 detent_groove_clearance = detent_groove_depth-detent_peak_z;
 m3_button_head_max_d = 5.7;
 m3_button_head_max_h = 1.65;
-m3_head_recessed_protrusion = m3_button_head_max_h-adapter_screw_head_depth;
-m3_psu_support_clearance = psu_support_plane_z-
-    (plate_t+m3_head_recessed_protrusion);
+m3_head_above_dock = m3_button_head_max_h-adapter_screw_head_depth;
+m3_tray_slide_clearance = tray_assembled_z-
+    (plate_t+m3_head_above_dock);
+dock_screw_web = plate_t-boss_pocket_depth-adapter_screw_head_depth;
 detent_groove_x0 = -58.3;
 detent_groove_x1 = -55.7;
 detent_groove_y0 = -3.3;
@@ -82,10 +83,10 @@ assert(dovetail_groove_x1 > tray_w/2,
        "Tray dovetail grooves must open through the leading +X edge");
 assert(psu_pilot_edge_margin >= 1.0,
        "Measured PSU pilot holes need at least 1 mm of tray edge material");
-assert(abs(psu_pilot_edge_margin-1.1)<0.01 &&
+assert(abs(psu_pilot_edge_margin-2.1)<0.01 &&
        psu_w == 110 && psu_h == 80 && psu_d == 37 &&
-       psu_rear_mount_points == [[-52,-37],[52,37]],
-       "PSU envelope, measured pilots, or tray edge material drifted");
+       psu_rear_mount_points == [[-52,-36],[52,36]],
+       "PSU envelope, corrected pilots, or tray edge material drifted");
 assert(dovetail_groove_depth < tray_t-0.6,
        "Dovetail groove leaves too little tray roof thickness");
 assert(abs(psu_support_plane_z-4.8)<0.01,
@@ -94,8 +95,11 @@ assert(abs(detent_groove_clearance-0.3)<0.01 &&
        abs(detent_nominal_engagement-0.5)<0.01,
        "Integral detent engagement/clearance contract drifted");
 assert(m3_button_head_max_d <= adapter_screw_head_d &&
-       m3_psu_support_clearance >= 0.7,
-       "Selected M3 button-head screw envelope must clear the PSU support plane");
+       m3_head_above_dock <= -0.1 &&
+       m3_tray_slide_clearance >= 0.35,
+       "Selected M3 button-head screw envelope must sit below the dock and clear the sliding tray");
+assert(dock_screw_web >= 1.1,
+       "Deep dock counterbore must retain at least 1.1 mm above the registration pocket");
 assert(detent_anchor_x1 < -dock_w/2,
        "Flexure anchor must clear the dock's -X edge");
 

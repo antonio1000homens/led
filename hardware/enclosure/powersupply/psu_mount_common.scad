@@ -14,11 +14,9 @@
 //
 // Measured PSU geometry:
 //   outer envelope = 110 x 80 mm
-//   two mounting holes = diagonally opposed, each centre 3 mm from its adjacent
-//   long and short edges. This gives local centres at +/-52, +/-37 mm.
-// The measured diagonal was approximately 125 mm; the edge-derived coordinates
-// imply 127.64 mm centre-to-centre, which is within the stated hand-measurement
-// tolerance and is more useful for locating the holes on the tray.
+//   two mounting holes = diagonally opposed. Physical fit correction keeps the
+//   horizontal inset at 3 mm and moves each vertical position 1 mm inward, so
+//   the working local centres are (-52,-36) and (+52,+36) mm.
 
 $fn = 48;
 
@@ -29,7 +27,7 @@ psu_d = 37;
 
 // Fit allowances.
 psu_xy_clearance = 0.6;
-plate_t = 3.2;
+plate_t = 4.2; // +1 mm keeps recessed dock screw heads below the slide surface.
 support_gap = 2.0;
 wall_t = 2.4;
 rail_h = 7.0;
@@ -50,18 +48,22 @@ boss_pocket_d = 7.5;
 boss_pocket_depth = 1.2;
 adapter_screw_clearance_d = 3.6;
 
-// Recess the M3 head/washer slightly on the equipment-facing side. Apart from
-// making the fixing points obvious in the model, this keeps the screw head out
-// of the PSU support plane.
+// Recess the M3 button head fully below the dock's tray-facing surface. The
+// 4.2 mm dock thickness preserves the same 1.2 mm structural web above the
+// 1.2 mm rear registration pocket while allowing a 1.65 mm head to sit 0.15 mm
+// below flush.
 adapter_screw_head_d = 7.0;
-adapter_screw_head_depth = 0.8;
+adapter_screw_head_depth = 1.8;
 
-// Measured PSU underside mounting points. For a centred 110 x 80 mm PSU,
-// 3 mm edge insets resolve to X=+/-52 and Y=+/-37 mm.
-psu_hole_edge_inset = 3;
+// PSU underside mounting points after physical fit correction. Keep the
+// horizontal X inset at 3 mm, but bring both diagonal holes 1 mm inward in Y:
+// landscape bottom-left moves up and top-right moves down. This yields
+// (-52,-36) and (+52,+36) mm.
+psu_hole_edge_inset_x = 3;
+psu_hole_edge_inset_y = 4;
 psu_rear_mount_points = [
-    [-(psu_w/2-psu_hole_edge_inset), -(psu_h/2-psu_hole_edge_inset)],
-    [ +(psu_w/2-psu_hole_edge_inset), +(psu_h/2-psu_hole_edge_inset)]
+    [-(psu_w/2-psu_hole_edge_inset_x), -(psu_h/2-psu_hole_edge_inset_y)],
+    [ +(psu_w/2-psu_hole_edge_inset_x), +(psu_h/2-psu_hole_edge_inset_y)]
 ];
 psu_mount_pilot_d = 2.8;
 psu_mount_boss_d = 8.0;
