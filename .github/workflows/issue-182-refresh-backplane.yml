@@ -1,0 +1,47 @@
+name: Issue 182 / Refresh backplane STL
+
+on:
+  push:
+    branches:
+      - fix/issue-182-backplane-seating-supports
+    paths:
+      - '.github/workflows/issue-182-refresh-backplane.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: fix/issue-182-backplane-seating-supports
+
+      - name: Install OpenSCAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate backplane STL only
+        shell: bash
+        run: |
+          set -euo pipefail
+          openscad -o hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl \
+            hardware/enclosure/parts/03_universal_equipment_backplane_PRINT_1.scad
+          test -s hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl
+
+      - name: Commit mesh and remove one-shot helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/issue-182-refresh-backplane.yml
+          git add hardware/enclosure/stl/03_universal_equipment_backplane_PRINT_1.stl \
+                  .github/workflows/issue-182-refresh-backplane.yml
+          git commit -m "Refresh issue 182 backplane STL [skip ci]"
+          git push origin HEAD:fix/issue-182-backplane-seating-supports
