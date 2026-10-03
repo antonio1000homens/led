@@ -67,7 +67,7 @@ detachable side pieces or accessory adapters.
 | --- | --- |
 | `parts/01_panel_hinge_template_PRINT_1.scad` | **Moving** LED/panel mounting template with local hinge roots |
 | `parts/02_hinged_equipment_base_PRINT_1.scad` | **Stationary** universal equipment base, hinge knuckles/support webs/guard and recessed rear backplane groove |
-| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable enclosure backplane, oriented with its 256 mm length vertical for printing, with a breakaway insertion-tongue support |
+| `parts/03_universal_equipment_backplane_PRINT_1.scad` | Top-down removable enclosure backplane, oriented with its 256 mm length vertical for printing; the STL is clean and uses slicer-generated support under the insertion tongue |
 | `parts/04_left_equipment_side_PRINT_1.scad` | Detachable left end wall matching the lower insertion section, constant full-depth zone and upper return |
 | `parts/05_right_equipment_side_PRINT_1.scad` | Detachable right end wall matching the lower insertion section, constant full-depth zone and upper return |
 
@@ -177,8 +177,9 @@ The removable backplane/enclosure installs from directly above:
 2. continue downward into the rear groove until the backplane reaches the
    positive 2 mm-deep seat;
 3. the 2 mm rear groove seats the sliding tongue independently. Each of the
-   three **continuous 24 mm ribs reaches the actual enclosure floor at
-   Y=0.5 mm**. The stationary guardrail enters a channel carved through the
+   three **continuous 24 mm ribs now extends 1 mm below the nominal Y=0.5 mm
+   floor reference**. This compensates for the observed ~1 mm physical assembly
+   lift without changing the stationary base. The stationary guardrail enters a channel carved through the
    front of the rib: 0.6 mm tongue clearance, 1.2 mm guardrail thickness and
    0.6 mm clearance to the solid rear rib wall. The low rear shelf is pocketed
    through the complete rear shelf/base-seat band beneath the rib footprint,
@@ -201,7 +202,8 @@ designed around side-on vertical printing:
 - the fragile tongue-to-deep-shell junction is reinforced by **three continuous
   rear ribs**, centred at X = **64 / 128 / 192 mm**. Each keeps the existing
   **24 mm print-Z taper** but now runs as one solid object from the reinforced
-  shoulder to **Y=0.5 mm floor level**. The existing **18 mm-wide guardrail
+  shoulder to **Y=-0.5 mm**, providing 1 mm of rib-only seating compensation
+  below the nominal Y=0.5 mm base reference. The existing **18 mm-wide guardrail
   channel** is subtracted through the lower/front portion of that solid rib,
   preserving the 0.6 mm tongue clearance, 1.2 mm guardrail and 0.6 mm rear
   clearance. Because the whole rib retains the existing gradual X/print-Z taper,
@@ -374,16 +376,12 @@ under-ramp support forest.
 
 The lower insertion tongue is intentionally narrower than the main shell so it
 can slide into the base U-channels. With the left end on the bed, that tongue
-starts about **1.8 mm above the bed**. The manufacturing wrapper therefore adds
-a **tapered sacrificial pedestal** under the tongue. It is **32 mm wide at the
-bed**, narrows to **6 mm at the tongue**, overlaps **4 mm** into structural
-material, and uses a **0.8 mm-high** bed layer extending **10 mm beyond each
-end**. This is the only print-only support geometry.
+starts above the bed. The manufacturing STL now leaves this region **clean**:
+no sacrificial pedestal is fused into the CAD.
 
-The pedestal exists only in `03_universal_equipment_backplane_PRINT_1.stl`;
-installed geometry remains unchanged. After printing, peel/cut the 0.8 mm bed
-layer away first, then remove the tapered pedestal from the 6 mm tongue contact
-with flush cutters and clean the contact line.
-
-For the H2D production candidate use **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
-**0.20mm Standard @BBL H2D**, and the **Textured PEI Plate**.
+Use the repository-root Windsor Slicer manifest with the
+`petg-supported` variant. It selects **Bambu Lab H2D 0.4 nozzle**,
+**0.20mm Standard @BBL H2D**, **Bambu PETG Basic @BBL H2D 0.4 nozzle**,
+**Textured PEI Plate**, and **tree-auto support**. The separate
+`support-free-check` variant deliberately leaves support off so unsupported
+regions remain visible during diagnostics.

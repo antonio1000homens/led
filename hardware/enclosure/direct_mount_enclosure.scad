@@ -1359,7 +1359,12 @@ transition_rib_half_w = 12;
 transition_rib_slice_w = 1.0;
 transition_rib_depth =
     rear_reinforcement_flush_z-equipment_backplane_rear_z;
-transition_rib_y0 = service_base_y;
+// Issue #182 physical assembly showed the ribs stopping about 1 mm above the stationary
+// base even though their nominal CAD floor matched service_base_y. Compensate
+// on the removable backplane only: extend the rib feet 1 mm below the nominal
+// floor so they land on the real base when the fitted backplane sits ~1 mm high.
+transition_rib_floor_extension = 1.0;
+transition_rib_y0 = service_base_y - transition_rib_floor_extension;
 transition_rib_y1 = universal_deep_y0 + universal_guide_shoulder_t;
 
 // Functional slot between the 3 mm sliding tongue and each rear rib.
@@ -1532,7 +1537,10 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     // side-on print to create the complete rear-wall overhang in one layer.
     edge_slice_w = 0.5;
     tiny_depth = 0.1;
-    y0 = service_base_y-0.2;
+    // Issue #182: extend the rib-foot guardrail relief below the nominal floor. Carry the
+    // stationary-guardrail relief through that complete extension so the last
+    // millimetre of top-down insertion remains collision-free.
+    y0 = transition_rib_y0-0.2;
     yh = transition_rib_channel_y1-y0+0.2;
     x0 = xc-transition_rib_channel_w/2;
     x1 = xc-transition_rib_channel_flat_w/2;
@@ -1579,14 +1587,16 @@ module outer_guardrail_entry_cutter(
         ? xc-transition_rib_channel_flat_w/2+0.2
         : xc+transition_rib_half_w+0.2;
 
+    y0 = transition_rib_y0-0.2;
+
     translate([
         x0,
-        service_base_y-0.2,
+        y0,
         rear_guardrail_lip_front_z-0.1
     ])
         cube([
             x1-x0,
-            y1-service_base_y+0.4,
+            y1-y0+0.2,
             rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z+
                 side_guide_clearance+0.2
         ]);
@@ -1653,79 +1663,24 @@ module universal_equipment_backplane() {
 // ---------- Backplane print orientation: 256 mm length vertical ----------
 //
 // Print the backplane on its left end so installed +X becomes print +Z.
-// Because the shell above the guide section now has one constant Y/Z profile
-// across X, the return ramp is reproduced layer-by-layer and needs no slicer
-// support. The only intentionally smaller feature is the lower insertion tongue:
-// it begins lower_backplane_edge_inset above the bed, so a narrow print-only
-// breakaway strip supports those first layers and is removed after printing.
+// Because the shell above the guide section has one constant Y/Z profile
+// across X, the return ramp is reproduced layer-by-layer. The narrowed lower
+// insertion tongue starts above the bed and is intentionally left CLEAN in the
+// STL; removable slicer-generated support is used instead of fused CAD support.
 //
 // Rotation [0,-90,0] maps installed +X -> print +Z and installed +Z -> print -X.
 backplane_print_shift_x = universal_deep_rear_z + 1;
 backplane_print_shift_y = -equipment_backplane_y0;
 backplane_print_shift_z = -service_x;
 
-// Physical printing showed the 258 mm-tall side-on backplane can lever away
-// from a narrow breakaway strip. Use a tapered sacrificial pedestal instead.
-insertion_print_support_t = 6.0;            // top/contact width
-insertion_print_support_overlap = 4.0;      // overlap into structural tongue
-insertion_print_support_foot_w = 32;        // bed-contact width
-insertion_print_support_foot_y_extra = 20;  // 10 mm beyond each end
-insertion_print_support_foot_h = 0.8;       // four 0.20 mm layers
-insertion_print_support_h =
-    lower_backplane_edge_inset + insertion_print_support_overlap;
-insertion_print_support_y =
-    side_guide_y1 - equipment_backplane_y0;
-insertion_print_lower_wall_x0 =
-    backplane_print_shift_x-equipment_backplane_rear_z;
-insertion_print_lower_wall_x1 =
-    backplane_print_shift_x-equipment_backplane_front_z;
-insertion_print_support_x =
-    (insertion_print_lower_wall_x0+insertion_print_lower_wall_x1)/2
-    - insertion_print_support_t/2;
-
-module insertion_tongue_print_support() {
-    // Tapered sacrificial pedestal/cradle: broad at the bed, narrow at the
-    // tongue. This gives the tall side-on print a triangulated load path rather
-    // than concentrating bending load at one vertical tear seam.
-    bottom_x =
-        insertion_print_support_x
-        -(insertion_print_support_foot_w-insertion_print_support_t)/2;
-    bottom_y = -insertion_print_support_foot_y_extra/2;
-    bottom_y_len =
-        insertion_print_support_y+insertion_print_support_foot_y_extra;
-
-    hull() {
-        translate([bottom_x,bottom_y,0])
-            cube([
-                insertion_print_support_foot_w,
-                bottom_y_len,
-                insertion_print_support_foot_h
-            ]);
-
-        translate([
-            insertion_print_support_x,
-            0,
-            insertion_print_support_h-insertion_print_support_foot_h
-        ])
-            cube([
-                insertion_print_support_t,
-                insertion_print_support_y,
-                insertion_print_support_foot_h
-            ]);
-    }
-}
 module universal_equipment_backplane_print() {
-    union() {
-        translate([
-            backplane_print_shift_x,
-            backplane_print_shift_y,
-            backplane_print_shift_z
-        ])
-            rotate([0,-90,0])
-                universal_equipment_backplane();
-
-        insertion_tongue_print_support();
-    }
+    translate([
+        backplane_print_shift_x,
+        backplane_print_shift_y,
+        backplane_print_shift_z
+    ])
+        rotate([0,-90,0])
+            universal_equipment_backplane();
 }
 
 // ---------- Detachable side/end pieces ----------
