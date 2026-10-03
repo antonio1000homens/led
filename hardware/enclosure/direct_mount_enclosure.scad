@@ -1537,7 +1537,7 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     // side-on print to create the complete rear-wall overhang in one layer.
     edge_slice_w = 0.5;
     tiny_depth = 0.1;
-    // Issue #182 extends the rib foot below the nominal floor. Carry the
+    // Issue #182: extend the rib-foot guardrail relief below the nominal floor. Carry the
     // stationary-guardrail relief through that complete extension so the last
     // millimetre of top-down insertion remains collision-free.
     y0 = transition_rib_y0-0.2;
