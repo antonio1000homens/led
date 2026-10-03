@@ -112,7 +112,14 @@ class RotationTests(unittest.TestCase):
         interrupted = rotation.pause(4)
         self.assertEqual(interrupted[0]["id"], "one")
         self.assertEqual(interrupted[1], 4)
+        rotation.update(
+            [{"id": "one", "duration_seconds": 10, "revision": 2}, {"id": "two", "duration_seconds": 10}],
+            9,
+        )
         rotation.resume(9, *interrupted)
+        resumed_screen, resumed_phase = rotation.current(9)
+        self.assertEqual(resumed_screen["revision"], 2)
+        self.assertEqual(resumed_phase, 4)
         self.assertEqual(rotation.current(12)[0]["id"], "one")
         self.assertEqual(rotation.current(19)[0]["id"], "two")
 

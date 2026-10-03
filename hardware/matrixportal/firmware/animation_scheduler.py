@@ -27,3 +27,21 @@ def earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep, fallback=
         if value is not None:
             values.append(max(0.05, float(value)))
     return min(values) if values else max(0.05, float(fallback))
+
+
+def screen_fetch_decision(
+    now,
+    next_fetch,
+    animation_active,
+    safe_window=None,
+    retry_seconds=0.5,
+    min_window_seconds=3.0,
+):
+    """Avoid starting a blocking fetch during motion or just before it resumes."""
+    if now < next_fetch:
+        return False, next_fetch
+    if animation_active or (
+        safe_window is not None and safe_window < min_window_seconds
+    ):
+        return False, now + max(0.05, float(retry_seconds))
+    return True, next_fetch

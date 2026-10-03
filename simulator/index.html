@@ -209,7 +209,6 @@
     const RAIL_MARQUEE_GAP = 112;
     const CALLING_LABEL = 'CALLING AT: ';
     const CALLING_MARQUEE_PAUSE_SECONDS = 3.0;
-    const CALLING_MARQUEE_END_PAUSE_SECONDS = 3.0;
     const HEADER_HOLD_SECONDS = 4.0;
     const HEADER_SLIDE_SECONDS = 0.6;
     const HEADER_SLOT_WIDTH = 128;
@@ -452,7 +451,7 @@
       return { screen: screens[0], phase: 0, index: 0 };
     }
     function stationMarqueeSpeed(screen) {
-      return boundedNumber(screen.station_scroll_speed, 30, 10, 80) * 4;
+      return boundedNumber(screen.station_scroll_speed, 20, 10, 80) * 4;
     }
     function stationMarqueeGap() {
       return RAIL_MARQUEE_GAP;
@@ -469,11 +468,7 @@
         return { stations, offset: stationX - prefixWidth, width, prefixWidth };
       }
       const travelWidth = 1024 - prefixWidth + width + gap;
-      const travelSeconds = travelWidth / speed;
-      const cycleSeconds = travelSeconds + CALLING_MARQUEE_END_PAUSE_SECONDS;
-      const withinCycle = cycleSeconds > 0 ? elapsed % cycleSeconds : 0;
-      if (withinCycle >= travelSeconds) return null;
-      const stationX = 1024 - withinCycle * speed;
+      const stationX = 1024 - (Math.floor(elapsed * speed) % travelWidth);
       const offset = stationX - prefixWidth;
       return { stations, offset, width, prefixWidth };
     }
@@ -538,6 +533,13 @@
       const total = summary + RAIL_CALLING_SECONDS;
       const value = Math.max(0, Number(phase) || 0) % total;
       return value < summary ? value : value - summary;
+    }
+    function railMarqueeElapsed(phase) {
+      const summary = RAIL_SUMMARY_SECONDS;
+      const calling = RAIL_CALLING_SECONDS;
+      const total = summary + calling;
+      const value = Math.max(0, Number(phase) || 0);
+      return Math.floor(value / total) * calling + Math.max(0, (value % total) - summary);
     }
     function railRows(services, phase) {
       const list = Array.isArray(services) ? services : [];
@@ -700,7 +702,7 @@
             const ordinal = railPhase(phase) === 'calling' ? (rowIndex === 0 ? 1 : 2) : rowIndex;
             drawRailService(row.service, y, 0, headerRight, row.service.cancelled ? '#ff3300' : '#ffffff', ordinal);
           } else if (row.kind === 'calling' && row.service) {
-            const calling = callingMarqueeState(callingText(row.service), railPhaseElapsed(phase), stationMarqueeSpeed(screen), stationMarqueeGap());
+            const calling = callingMarqueeState(callingText(row.service), railMarqueeElapsed(phase), stationMarqueeSpeed(screen), stationMarqueeGap());
             context.fillStyle = '#ffaa00';
             drawLedText(CALLING_LABEL, 0, y);
             if (calling) {

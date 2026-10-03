@@ -30,7 +30,7 @@ if local:
 from queue_display import create
 from fixtures import animated_services
 from flash_events import FlashState
-from animation_scheduler import earliest_wake_seconds, next_deadline
+from animation_scheduler import earliest_wake_seconds, next_deadline, screen_fetch_decision
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from matrix_config import (
@@ -95,6 +95,8 @@ if settings.DISPLAY_BACKEND == "matrix":
 _pending_button_events = []
 _BUTTON_POLL_SECONDS = 0.05
 _MQTT_SLEEP_POLL_SECONDS = 0.25
+_ANIMATION_FETCH_RETRY_SECONDS = 0.5
+_ANIMATION_FETCH_GUARD_SECONDS = 3.0
 
 
 def _sleep_interruptible(seconds, service_mqtt=False):
@@ -291,37 +293,58 @@ while True:
         _sleep_interruptible(settings.FRAME_SECONDS)
         continue
 
-    should_fetch = settings.SCREEN_SOURCE == "fixture" or now >= next_fetch
+    should_fetch = settings.SCREEN_SOURCE == "fixture"
     fetch_during_animation = False
-    if should_fetch and rotation.screens:
-        candidate = rotation.screens[rotation.index % len(rotation.screens)]
-        fetch_during_animation = _smooth_todoist(candidate) or _smooth_departures(candidate)
+    if settings.SCREEN_SOURCE != "fixture":
+        candidate = None
+        candidate_phase = 0
+        if rotation.screens and not flash.active(now):
+            candidate, candidate_phase = rotation.current(now)
+            fetch_during_animation = _smooth_todoist(candidate) or _smooth_departures(candidate)
+        animation_active = bool(
+            fetch_during_animation
+            and display.animation_active(candidate, candidate_phase)
+        )
+        safe_window = None
+        if fetch_during_animation and not animation_active:
+            safe_window = display.animation_sleep_seconds(candidate, candidate_phase)
+        should_fetch, next_fetch = screen_fetch_decision(
+            now,
+            next_fetch,
+            animation_active,
+            safe_window,
+            _ANIMATION_FETCH_RETRY_SECONDS,
+            _ANIMATION_FETCH_GUARD_SECONDS,
+        )
     if should_fetch:
         fetch_started = time.monotonic()
         try:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = payload.get("screens")
-            fetch_duration = time.monotonic() - fetch_started
+            fetch_completed = time.monotonic()
+            fetch_duration = fetch_completed - fetch_started
             telemetry_fetches += 1
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
-            rotation.update(screens, now)
+            rotation.update(screens, fetch_completed)
             _apply_flash_config(payload)
             fetched_at = payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
-                clock.sync(fetched_at, now)
+                clock.sync(fetched_at, fetch_completed)
                 fixture_clock_synced = True
             transport_stale = False
         except Exception as error:
-            fetch_duration = time.monotonic() - fetch_started
+            fetch_completed = time.monotonic()
+            fetch_duration = fetch_completed - fetch_started
             telemetry_fetches += 1
             telemetry_fetch_failures += 1
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
             transport_stale = bool(rotation.screens)
+        now = fetch_completed
         next_fetch = now + settings.POLL_SECONDS
         if fetch_during_animation and hasattr(display, "note_fetch_overlap"):
             display.note_fetch_overlap()

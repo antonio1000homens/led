@@ -39,8 +39,8 @@ from formatting import (
     RAIL_ROW_Y,
     RAIL_CALLING_SECONDS,
     RAIL_SUMMARY_SECONDS,
+    rail_marquee_elapsed,
     rail_phase,
-    rail_phase_elapsed,
     rail_rows,
     ordinal_label,
     format_row,
@@ -68,7 +68,7 @@ HEADER_GAP = 4
 HEADER_HOLD_SECONDS = 4.0
 HEADER_SLIDE_SECONDS = 0.6
 HEADER_SLOT_WIDTH = DISPLAY_WIDTH - HEADER_SLOT_X
-CALLING_SCROLL_SPEED = 30.0
+CALLING_SCROLL_SPEED = 20.0
 CALLING_SCROLL_GAP = 28
 MIN_CALLING_SCROLL_SPEED = 10.0
 MAX_CALLING_SCROLL_SPEED = 80.0
@@ -422,6 +422,7 @@ class MatrixDisplay:
         # Departures use the same persistent-scene approach as Todoist.  Only
         # the calling-at labels move between frames; rebuilding the complete
         # four-panel scene is deliberately avoided.
+        self._rail_scenes = {}
         self._rail_group = None
         self._rail_services = None
         self._rail_title = None
@@ -617,6 +618,10 @@ class MatrixDisplay:
             return 0
         return MATRIX_ANIMATION_PROFILES[MATRIX_ANIMATION_PROFILE][animation_class]
 
+    def animation_active(self, screen, phase):
+        """Return whether the screen has pixels moving at this phase."""
+        return self._animation_class(screen, phase) is not None
+
     def animation_sleep_seconds(self, screen, phase):
         """Return a conservative sleep until the next known animation boundary."""
         # Every adaptive experiment profile must wake at the next animation
@@ -652,28 +657,30 @@ class MatrixDisplay:
                 return max(0.05, min(boundaries))
         if kind == "rail_combined":
             boundaries = [_header_next_boundary_seconds(phase, screen.get("weather"))]
+            try:
+                value = max(0.0, float(phase or 0))
+            except (TypeError, ValueError):
+                value = 0.0
+            cycle = RAIL_SUMMARY_SECONDS + RAIL_CALLING_SECONDS
+            within = value % cycle
             if rail_phase(phase) == "summary":
-                try:
-                    value = max(0.0, float(phase or 0))
-                except (TypeError, ValueError):
-                    value = 0.0
-                cycle = RAIL_SUMMARY_SECONDS + RAIL_CALLING_SECONDS
-                within = value % cycle
                 boundaries.append(RAIL_SUMMARY_SECONDS - within)
+            else:
+                boundaries.append(cycle - within)
             return max(0.05, min(boundaries))
         return _header_next_boundary_seconds(phase, screen.get("weather"))
 
     def _departures_calling_moving(self, screen, phase):
         if rail_phase(phase) != "calling":
             return False
-        local_phase = rail_phase_elapsed(phase)
+        marquee_phase = rail_marquee_elapsed(phase)
         services = screen.get("services") or ()
         scroll_speed, scroll_gap = _station_scroll_settings(screen)
         for service in services[:2]:
             text = calling_text(service)
             x = calling_marquee_x(
                 text,
-                local_phase,
+                marquee_phase,
                 display_width=DISPLAY_WIDTH,
                 font_width=WEATHER_FONT_WIDTH,
                 speed=scroll_speed,
@@ -801,37 +808,56 @@ class MatrixDisplay:
     def _rail_cache_matches(self, screen):
         return (
             self._rail_group is not None
-            and self._rail_services is screen.get("services")
+            and self._rail_services == screen.get("services")
             and self._rail_title == screen.get("title")
             and self._rail_stale == bool(screen.get("stale"))
             and self._rail_weather == screen.get("weather")
         )
 
     def _build_rail_scene(self, screen, clock_time, phase):
-        """Build a departures scene once; animation mutates only child labels."""
+        """Build both departures layouts once; phase changes only swap roots."""
         import displayio
 
-        root = displayio.Group()
-        self._rail(root, screen, phase)
+        scenes = {}
+        for scene_phase in (0, RAIL_SUMMARY_SECONDS):
+            root = displayio.Group()
+            self._rail(root, screen, scene_phase)
+            calling_labels = self._rail_calling_labels
 
-        # Departures owns all four physical rows.  The generic header mask and
-        # clock/weather overlay used by other screens would cover row 1.
-        clock_group = displayio.Group()
-        clock_label = self._label(clock_group, "", 0xFFAA00, CLOCK_X, 3)
-        weather_group = displayio.Group()
-        if isinstance(screen.get("weather"), dict):
-            self._header_weather(weather_group, screen.get("weather"), 0)
-        root.append(clock_group)
-        root.append(weather_group)
+            # Departures owns all four physical rows. The generic header mask
+            # used by other screens would cover row 1.
+            clock_group = displayio.Group()
+            clock_label = self._label(clock_group, "", 0xFFAA00, CLOCK_X, 3)
+            weather_group = displayio.Group()
+            if isinstance(screen.get("weather"), dict):
+                self._header_weather(weather_group, screen.get("weather"), 0)
+            root.append(clock_group)
+            root.append(weather_group)
+            scenes[rail_phase(scene_phase)] = {
+                "group": root,
+                "calling_labels": calling_labels,
+                "clock_group": clock_group,
+                "clock_label": clock_label,
+                "weather_group": weather_group,
+            }
 
-        self._rail_group = root
+        self._rail_scenes = scenes
         self._rail_services = screen.get("services")
         self._rail_title = screen.get("title")
         self._rail_stale = bool(screen.get("stale"))
         self._rail_weather = screen.get("weather")
-        self._rail_clock_group = clock_group
-        self._rail_clock_label = clock_label
-        self._rail_weather_group = weather_group
+        self._select_rail_scene(phase)
+
+    def _select_rail_scene(self, phase):
+        """Select a cached summary/calling layout without rebuilding labels."""
+        state = rail_phase(phase)
+        scene = self._rail_scenes[state]
+        self._rail_group = scene["group"]
+        self._rail_calling_labels = scene["calling_labels"]
+        self._rail_clock_group = scene["clock_group"]
+        self._rail_clock_label = scene["clock_label"]
+        self._rail_weather_group = scene["weather_group"]
+        self._rail_phase = state
 
     def _update_rail_scene(self, screen, clock_time, phase):
         """Update only the calling-at marquee and rotating header item."""
@@ -843,7 +869,7 @@ class MatrixDisplay:
             calling = calling_text(service)
             calling_x = calling_marquee_x(
                 calling,
-                rail_phase_elapsed(phase),
+                rail_marquee_elapsed(phase),
                 display_width=DISPLAY_WIDTH,
                 font_width=WEATHER_FONT_WIDTH,
                 speed=scroll_speed,
@@ -879,8 +905,10 @@ class MatrixDisplay:
     def _show_rail(self, screen, clock_time, phase):
         """Render departures with a persistent scene and live calling marquee."""
         state = rail_phase(phase)
-        if not self._rail_cache_matches(screen) or self._rail_phase != state:
+        if not self._rail_cache_matches(screen):
             self._build_rail_scene(screen, clock_time, phase)
+        elif self._rail_phase != state:
+            self._select_rail_scene(phase)
         update_started = time.monotonic()
         changed = self._update_rail_scene(screen, clock_time, phase)
         self._attach_brightness_overlay(self._rail_group)
@@ -985,7 +1013,7 @@ class MatrixDisplay:
         weather_stale = bool(weather.get("stale")) if isinstance(weather, dict) else False
         return (
             self._todoist_group is not None
-            and self._todoist_events is screen.get("events")
+            and self._todoist_events == screen.get("events")
             and self._todoist_clock_date == clock_date
             and self._todoist_title == screen.get("title")
             and self._todoist_stale == bool(screen.get("stale"))
@@ -1408,7 +1436,7 @@ class FixtureDisplay:
                 elif row_kind == "calling" and service is not None:
                     text = calling_text(service)
                     scroll_speed, scroll_gap = _station_scroll_settings(screen)
-                    calling_x = calling_marquee_x(text, rail_phase_elapsed(phase), display_width=DISPLAY_WIDTH,
+                    calling_x = calling_marquee_x(text, rail_marquee_elapsed(phase), display_width=DISPLAY_WIDTH,
                                                   font_width=WEATHER_FONT_WIDTH, speed=scroll_speed, gap=scroll_gap)
                     self._text(CALLING_LABEL, 0, y, (255, 170, 0))
                     if calling_x is not None:

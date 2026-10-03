@@ -78,10 +78,9 @@ MATRIX_ANIMATION_PROFILES = {
     },
 }
 
-# The physical comparison found the 20 Hz transition cadence smooth without
-# refresh failures. Keep marquee and departures cadence unchanged; only page
-# and header transitions use the higher cadence.
-MATRIX_ANIMATION_PROFILE = "transition_20"
+# Keep the conservative B8 cadence as the default. The 15/20 Hz transition
+# profiles remain available for explicit board-local experiments.
+MATRIX_ANIMATION_PROFILE = "baseline"
 try:
     import settings_local as _animation_settings_local
     MATRIX_ANIMATION_PROFILE = getattr(

@@ -107,6 +107,12 @@ class QueueAwareDisplay:
             return self.base.animation_sleep_seconds(screen, phase)
         return None
 
+    def animation_active(self, screen, phase):
+        """Expose the base display's moving-pixel check through the adapter."""
+        if hasattr(self.base, "animation_active"):
+            return self.base.animation_active(screen, phase)
+        return False
+
     def note_fetch_overlap(self):
         if hasattr(self.base, "note_fetch_overlap"):
             self.base.note_fetch_overlap()

@@ -1,3 +1,4 @@
+import copy
 import sys
 import types
 import unittest
@@ -407,6 +408,13 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display.animation_cadence(long_screen, 10.0), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(long_screen, 12.5), DEPARTURES_CALLING_FPS)
 
+    def test_animation_active_tracks_pixels_that_are_moving(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            long_screen = departures_screen(long_calling=True)
+            self.assertFalse(display.animation_active(long_screen, 3.0))
+            self.assertTrue(display.animation_active(long_screen, 10.0))
+
     def test_departures_scene_attaches_clock_and_weather_overlay(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
@@ -417,6 +425,76 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertIsNotNone(display._rail_weather_group)
             self.assertIn(display._rail_clock_group, display._rail_group)
             self.assertIn(display._rail_weather_group, display._rail_group)
+
+    def test_departures_phase_switch_reuses_prebuilt_layouts(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+
+            display.show(screen, clock_time="19:40", phase=0)
+            summary_group = display._rail_group
+            summary_labels = display._rail_calling_labels
+
+            display.show(screen, clock_time="19:40", phase=8)
+            calling_group = display._rail_group
+            calling_labels = display._rail_calling_labels
+            self.assertIsNot(summary_group, calling_group)
+            self.assertTrue(calling_labels)
+
+            display.show(screen, clock_time="19:40", phase=20)
+            self.assertIs(display._rail_group, summary_group)
+            self.assertIs(display._rail_calling_labels, summary_labels)
+            display.show(screen, clock_time="19:40", phase=28)
+            self.assertIs(display._rail_group, calling_group)
+            self.assertIs(display._rail_calling_labels, calling_labels)
+
+    def test_departures_cache_reuses_scenes_for_equal_new_api_payload(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            display.show(screen, clock_time="19:40", phase=0)
+            scenes = display._rail_scenes
+            calling_group = scenes["calling"]["group"]
+
+            refreshed_screen = copy.deepcopy(screen)
+            self.assertIsNot(refreshed_screen["services"], screen["services"])
+            self.assertEqual(refreshed_screen["services"], screen["services"])
+            display.show(refreshed_screen, clock_time="19:40", phase=8)
+
+            self.assertIs(display._rail_scenes, scenes)
+            self.assertIs(display._rail_group, calling_group)
+
+    def test_todoist_cache_reuses_scene_for_equal_new_api_payload(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(6)
+            date = "2026-09-20"
+            display.show(screen, clock_time="19:40", clock_date=date, phase=0)
+            scene = display._todoist_group
+            rows = [row[0] for row in display._todoist_rows]
+
+            refreshed_screen = copy.deepcopy(screen)
+            self.assertIsNot(refreshed_screen["events"], screen["events"])
+            self.assertEqual(refreshed_screen["events"], screen["events"])
+            display.show(refreshed_screen, clock_time="19:40", clock_date=date, phase=0.1)
+
+            self.assertIs(display._todoist_group, scene)
+            self.assertEqual([row[0] for row in display._todoist_rows], rows)
+
+    def test_departures_marquee_moves_visible_segments_with_stable_text(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen(long_calling=True)
+
+            display.show(screen, clock_time="19:40", phase=10.0)
+            labels = display._rail_calling_labels[0]
+            label_text = tuple(label.text for label in labels)
+            first_x = tuple(label.x for label in labels)
+
+            display.show(screen, clock_time="19:40", phase=10.1)
+
+            self.assertNotEqual(tuple(label.x for label in labels), first_x)
+            self.assertEqual(tuple(label.text for label in labels), label_text)
 
     def test_boundary_sleep_uses_earliest_header_event(self):
         with patch.dict(sys.modules, fake_modules()):

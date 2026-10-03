@@ -16,6 +16,7 @@ from formatting import (
     todoist_page_timing,
     RAIL_ROW_Y,
     rail_phase,
+    rail_marquee_elapsed,
     rail_rows,
     departure_scroll_state,
     ordinal_label,
@@ -82,11 +83,28 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(calling_marquee_x(text, 0), 256)
         self.assertEqual(calling_marquee_x(text, 1), 208)
         self.assertEqual(calling_marquee_x(text, 2), 160)
-        self.assertIsNone(calling_marquee_x(text, 11.3))
-        self.assertEqual(calling_marquee_x(text, 14.25), 256)
+        self.assertEqual(calling_marquee_x(text, 11.3), 254)
+        self.assertEqual(calling_marquee_x(text, 14.25), 112)
         short = "CALLING AT: x"
         self.assertEqual(calling_marquee_x(short, 0), 256)
         self.assertGreater(calling_marquee_x(short, 1), 72)
+
+    def test_calling_marquee_clock_does_not_rewind_at_rail_phase_boundary(self):
+        text = "CALLING AT: " + "x" * 115
+        # One calling phase ends at 20s; the next visible phase starts at 28s.
+        # Scroll time pauses during that 8s summary and resumes continuously.
+        self.assertEqual(rail_marquee_elapsed(8), 0)
+        self.assertEqual(rail_marquee_elapsed(20), 12)
+        self.assertEqual(rail_marquee_elapsed(40), 24)
+        before_elapsed = rail_marquee_elapsed(19.9)
+        after_elapsed = rail_marquee_elapsed(28.1)
+        self.assertAlmostEqual(before_elapsed, 11.9)
+        self.assertAlmostEqual(after_elapsed, 12.1)
+        before = calling_marquee_x(text, before_elapsed, font_width=5, speed=30, gap=10)
+        after = calling_marquee_x(text, after_elapsed, font_width=5, speed=30, gap=10)
+        self.assertIsNotNone(before)
+        self.assertIsNotNone(after)
+        self.assertAlmostEqual(before - after, 6, delta=1)
 
     def test_queue_scroll_holds_then_slides_up(self):
         self.assertEqual(queue_scroll_state(0.9, 6), (0, 0.0))

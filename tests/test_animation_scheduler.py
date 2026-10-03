@@ -1,9 +1,29 @@
 import unittest
 
-from animation_scheduler import earliest_wake_seconds, next_deadline
+from animation_scheduler import earliest_wake_seconds, next_deadline, screen_fetch_decision
 
 
 class AnimationSchedulerTests(unittest.TestCase):
+    def test_due_fetch_waits_while_animation_is_active(self):
+        should_fetch, retry_at = screen_fetch_decision(10.0, 9.0, True, 4.0)
+        self.assertFalse(should_fetch)
+        self.assertEqual(retry_at, 10.5)
+
+    def test_due_fetch_waits_for_a_long_enough_static_window(self):
+        should_fetch, retry_at = screen_fetch_decision(10.0, 9.0, False, 2.9)
+        self.assertFalse(should_fetch)
+        self.assertEqual(retry_at, 10.5)
+
+    def test_due_fetch_runs_when_static_window_is_safe(self):
+        should_fetch, next_fetch = screen_fetch_decision(10.0, 9.0, False, 3.0)
+        self.assertTrue(should_fetch)
+        self.assertEqual(next_fetch, 9.0)
+
+    def test_not_due_fetch_keeps_its_scheduled_time(self):
+        should_fetch, next_fetch = screen_fetch_decision(8.0, 9.0, True, 0.0)
+        self.assertFalse(should_fetch)
+        self.assertEqual(next_fetch, 9.0)
+
     def test_wake_arbitration_uses_earliest_boundary(self):
         self.assertEqual(earliest_wake_seconds(7.5, 20, 3.5), 3.5)
         self.assertEqual(earliest_wake_seconds(7.5, 20, None), 7.5)

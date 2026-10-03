@@ -8,9 +8,9 @@ FRAME_SECONDS = 0.2
 
 # Optional issue #94 override for a board-local comparison: adaptive,
 # transition_15, transition_20, or baseline. The checked-in default is
-# transition_20; this changes transition cadence only and does not change
+# baseline; this changes transition cadence only and does not change
 # marquee speed or the Matrix presentation mode.
-# MATRIX_ANIMATION_PROFILE = "transition_20"
+# MATRIX_ANIMATION_PROFILE = "baseline"
 
 WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"

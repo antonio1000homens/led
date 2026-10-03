@@ -10,7 +10,6 @@ RAIL_MARQUEE_DELAY_SECONDS = 1.2
 RAIL_MARQUEE_GAP = 56
 CALLING_LABEL = "CALLING AT: "
 CALLING_MARQUEE_PAUSE_SECONDS = 3.0
-CALLING_MARQUEE_END_PAUSE_SECONDS = 3.0
 CALLING_STATION_FONT_WIDTH = 5
 DEFAULT_STATION_LIST_SPACING = 10
 # Shared four-row grid for the physical 32px panel.
@@ -157,27 +156,23 @@ def calling_marquee_x(
     delay_seconds=RAIL_MARQUEE_DELAY_SECONDS,
     gap=RAIL_MARQUEE_GAP,
     pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS,
-    end_pause_seconds=CALLING_MARQUEE_END_PAUSE_SECONDS,
 ):
     """Return station-text x while keeping ``CALLING AT:`` fixed.
 
     The row starts with only the fixed label visible. Station text enters from
     the right immediately; long text continues into a seamless marquee.
-    Legacy delay and pause arguments remain accepted for caller compatibility;
-    the pause is now applied after the complete station list has passed.
+    Legacy delay and pause arguments remain accepted for caller compatibility.
     """
     try:
         phase = max(0.0, float(phase or 0))
         delay_seconds = max(0.0, float(delay_seconds or 0))
         speed = max(1.0, float(speed or RAIL_MARQUEE_SPEED))
         pause_seconds = max(0.0, float(pause_seconds or 0))
-        end_pause_seconds = max(0.0, float(end_pause_seconds or 0))
     except (TypeError, ValueError):
         phase = 0.0
         delay_seconds = RAIL_MARQUEE_DELAY_SECONDS
         speed = RAIL_MARQUEE_SPEED
         pause_seconds = CALLING_MARQUEE_PAUSE_SECONDS
-        end_pause_seconds = CALLING_MARQUEE_END_PAUSE_SECONDS
     text = str(text or "")
     prefix_width = len(CALLING_LABEL) * int(font_width)
     stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
@@ -186,13 +181,9 @@ def calling_marquee_x(
     phase = max(0.0, phase)
     if text_width <= visible_width:
         return max(prefix_width, display_width - int(phase * speed))
-    travel_width = display_width - prefix_width + text_width + max(0, int(gap or 0))
-    travel_seconds = travel_width / speed
-    cycle_seconds = travel_seconds + end_pause_seconds
-    within_cycle = phase % cycle_seconds if cycle_seconds > 0 else 0
-    if within_cycle >= travel_seconds:
-        return None
-    return display_width - int(within_cycle * speed)
+    travel_width = display_width - prefix_width + text_width
+    cycle_width = travel_width + max(0, int(gap or 0))
+    return display_width - int((phase * speed) % cycle_width)
 
 
 def _iso_date_parts(value):
@@ -549,6 +540,17 @@ def rail_phase_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seco
     total = summary_seconds + max(0.1, float(calling_seconds))
     value = max(0.0, float(phase or 0)) % total
     return value if value < summary_seconds else value - summary_seconds
+
+
+def rail_marquee_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
+    """Return cumulative visible calling-phase time without rewinding the marquee."""
+    summary_seconds = max(0.1, float(summary_seconds))
+    calling_seconds = max(0.1, float(calling_seconds))
+    total = summary_seconds + calling_seconds
+    value = max(0.0, float(phase or 0))
+    cycles = int(value // total)
+    within = value % total
+    return cycles * calling_seconds + max(0.0, within - summary_seconds)
 
 
 def rail_rows(services, phase):
