@@ -94,8 +94,8 @@ def main() -> None:
         if abs(float(flex_coupon.extents[2])-39.5) > 0.05:
             raise SystemExit("Detent coupon must retain its 39.5 mm free cantilever test length")
         if (abs(float(groove_coupon.bounds[0][2])) > 0.01
-                or abs(float(groove_coupon.extents[2])-3.2) > 0.05):
-            raise SystemExit("Detent groove coupon must preserve the 3.2 mm dock section and print flat")
+                or abs(float(groove_coupon.extents[2])-4.2) > 0.05):
+            raise SystemExit("Detent groove coupon must preserve the 4.2 mm dock section and print flat")
         print("OK: test coupon reuses production flexure and dock groove geometry")
         if abs(float(dock.extents[1])-79.0) > 0.05:
             raise SystemExit("PSU dock must retain the 79 mm opening envelope")
@@ -143,13 +143,29 @@ def main() -> None:
         print("OK: rigid tray clears the dock through the full 115 mm insertion sweep")
 
         # Button-head M3 screws with a maximum 1.65 mm head are the supported
-        # hardware. 0.8 mm recess leaves 0.75 mm above the support plane.
-        support_plane = 4.8
-        screw_head_top = 3.2 + 1.65 - 0.8
-        clearance = support_plane - screw_head_top
-        if clearance < 0.7:
-            raise SystemExit(f"M3 head does not clear PSU support plane: {clearance:.2f} mm")
-        print(f"OK: specified M3 button-head hardware clears PSU support by {clearance:.2f} mm")
+        # hardware. The 4.2 mm dock and 1.8 mm counterbore put the head 0.15 mm
+        # below the dock surface, so the tray's 0.25 mm nominal slide gap becomes
+        # 0.40 mm clearance over the real screw-head envelope.
+        dock_plate = 4.2
+        head_height = 1.65
+        head_recess = 1.8
+        boss_pocket = 1.2
+        tray_underside = dock_plate + 0.25
+        screw_head_top = dock_plate + head_height - head_recess
+        clearance = tray_underside - screw_head_top
+        web = dock_plate - boss_pocket - head_recess
+        if screw_head_top > dock_plate - 0.1:
+            raise SystemExit(
+                f"M3 head must sit at least 0.10 mm below dock surface: top={screw_head_top:.2f} mm"
+            )
+        if clearance < 0.35:
+            raise SystemExit(f"M3 head does not clear sliding tray: {clearance:.2f} mm")
+        if web < 1.1:
+            raise SystemExit(f"Dock screw counterbore leaves too little structural web: {web:.2f} mm")
+        print(
+            f"OK: M3 button head is {dock_plate-screw_head_top:.2f} mm below dock surface, "
+            f"clears sliding tray by {clearance:.2f} mm, and retains {web:.2f} mm web"
+        )
 
 
 if __name__ == "__main__":
