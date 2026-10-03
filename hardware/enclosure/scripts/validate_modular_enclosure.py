@@ -843,7 +843,7 @@ cube([1,1,1]);
         )
     print(
         "OK: reinforced hinge, rear top-down groove, dual 40x5 mm U-channels, "
-        "lower hidden junctions, two 26 mm triangular floor gussets, " 
+        "lower hidden junctions, two 26 mm triangular floor gussets, "
         "inward guide-lip extensions to the first outer rib sockets, "
         "front-tied guide roots with 10 mm rear triangular buttresses, "
         "compact upper backplane/end-plate seam bosses, "
