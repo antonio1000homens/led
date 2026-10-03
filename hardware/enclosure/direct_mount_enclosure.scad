@@ -1537,7 +1537,10 @@ module tapered_rib_guardrail_channel_cutter(xc) {
     // side-on print to create the complete rear-wall overhang in one layer.
     edge_slice_w = 0.5;
     tiny_depth = 0.1;
-    y0 = service_base_y-0.2;
+    // Issue #182 extends the rib foot below the nominal floor. Carry the
+    // stationary-guardrail relief through that complete extension so the last
+    // millimetre of top-down insertion remains collision-free.
+    y0 = transition_rib_y0-0.2;
     yh = transition_rib_channel_y1-y0+0.2;
     x0 = xc-transition_rib_channel_w/2;
     x1 = xc-transition_rib_channel_flat_w/2;
@@ -1584,14 +1587,16 @@ module outer_guardrail_entry_cutter(
         ? xc-transition_rib_channel_flat_w/2+0.2
         : xc+transition_rib_half_w+0.2;
 
+    y0 = transition_rib_y0-0.2;
+
     translate([
         x0,
-        service_base_y-0.2,
+        y0,
         rear_guardrail_lip_front_z-0.1
     ])
         cube([
             x1-x0,
-            y1-service_base_y+0.4,
+            y1-y0+0.2,
             rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z+
                 side_guide_clearance+0.2
         ]);
