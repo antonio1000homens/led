@@ -22,13 +22,14 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
 - the shell above the guide section keeps one constant Y/Z profile across X;
 - the old under-ramp support forest and transverse front/rear stabilisers remain
   absent;
-- the narrowed lower insertion tongue uses a tapered print-only pedestal:
-  **32 mm wide at the bed**, **6 mm wide at the tongue**, **4 mm overlap** into
-  structural material and a **0.8 mm-high** bed layer extending 10 mm beyond
-  each end;
+- the narrowed lower insertion tongue remains clean in the generated STL; its
+  elevated first layers are intentionally delegated to the Windsor Slicer
+  `petg-supported` tree-auto variant rather than fused CAD support;
 - watertight/single-shell geometry after mesh processing;
 - bounded printable extents;
-- a 2 mm voxel floating-layer/island proxy;
+- a 2 mm voxel floating-layer/island proxy for support-free parts; the
+  backplane is excluded because its tongue support is intentionally
+  slicer-generated;
 - no volumetric interference between the stationary base and removable backplane;
 - positive backplane seating in the recessed rear base groove;
 - top-down insertion clearance and 0.6 mm nominal groove clearance;
@@ -50,8 +51,9 @@ The validator regenerates all five canonical OpenSCAD parts and verifies:
   remains open apart from the existing X = **128 mm** centre tab;
 - the shorter lower stepped/narrowed backplane insertion section and full-width shoulder above it;
 - three **continuous 24 mm transition ribs** centred at X = **64 / 128 / 192 mm**,
-  each running from the reinforced shoulder to the enclosure floor at
-  **Y=0.5 mm**. The stationary guardrail occupies an 18 mm tapered channel
+  each running from the reinforced shoulder to **Y=-0.5 mm**, i.e. **1 mm below
+  the nominal Y=0.5 mm base reference**, so the correction is entirely on the
+  removable backplane and the stationary base remains unchanged. The stationary guardrail occupies an 18 mm tapered channel
   carved into the lower/front portion of the solid rib, preserving 0.6 mm
   tongue clearance, 1.2 mm guardrail thickness and 0.6 mm rear clearance.
   Matching vertical sockets clear the complete rib footprint through the rear
@@ -129,10 +131,8 @@ guide tops the backplane uses one full-width **54 mm** profile across the entire
 The full-depth rear mounting wall remains solid.
 
 The manufacturing STL rotates this geometry so installed X becomes print Z.
-The only print-only support is the tapered pedestal beneath the narrowed lower
-tongue where that tongue starts 1.8 mm above the left-end print bed. It is
-32 mm wide at the bed, narrows to 6 mm at the tongue, overlaps 4 mm into the
-structural tongue and uses a 0.8 mm sacrificial bed layer. The
+The narrowed lower tongue remains clean in CAD and uses the repository
+`petg-supported` Windsor variant for removable tree-auto support. The
 backplane reuses the panel's three measured top-row screw positions
 (X=7.9/128.0/248.1 mm, installed Y=160.1 mm) as 4.5 mm through-holes. The
 validator proves those coordinates remain tied to the panel source geometry and
@@ -154,12 +154,12 @@ sets:
    the equipment base remains fixed;
 4. confirm the unchanged moving panel/template never contacts the stationary
    barrel support webs or lower guard through the complete 0–90° motion;
-5. print one universal backplane **side-on with its 256 mm length vertical**,
-   remove the 0.8 mm sacrificial bed layer and tapered pedestal beneath the
-   insertion tongue after cooling,
-   then confirm the shortened narrowed lower section slides freely between both 5 mm guides,
-   seats 2 mm into the rear groove and visibly confirms the guardrail slots
-   remain open through all three continuous floor-reaching ribs;
+5. print one universal backplane **side-on with its 256 mm length vertical**
+   using the `petg-supported` Windsor variant, remove only the generated tree
+   support after cooling, then confirm the shortened narrowed lower section
+   slides freely between both 5 mm guides, seats 2 mm into the rear groove and
+   the three extended rib feet close the previously observed ~1 mm gap without
+   requiring a stationary-base reprint;
 6. inspect the new full-width triangular floor gussets beneath both sliders;
    confirm their broad footprints blend into the base and their tapered tops
    blend into the guide fronts without narrowing the sliding channel. Confirm
