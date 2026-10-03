@@ -14,11 +14,9 @@
 //
 // Measured PSU geometry:
 //   outer envelope = 110 x 80 mm
-//   two mounting holes = diagonally opposed, each centre 3 mm from its adjacent
-//   long and short edges. This gives local centres at +/-52, +/-37 mm.
-// The measured diagonal was approximately 125 mm; the edge-derived coordinates
-// imply 127.64 mm centre-to-centre, which is within the stated hand-measurement
-// tolerance and is more useful for locating the holes on the tray.
+//   two mounting holes = diagonally opposed. Physical fit correction keeps the
+//   horizontal inset at 3 mm and moves each vertical position 1 mm inward, so
+//   the working local centres are (-52,-36) and (+52,+36) mm.
 
 $fn = 48;
 
