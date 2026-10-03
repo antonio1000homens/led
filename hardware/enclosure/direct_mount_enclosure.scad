@@ -1359,7 +1359,7 @@ transition_rib_half_w = 12;
 transition_rib_slice_w = 1.0;
 transition_rib_depth =
     rear_reinforcement_flush_z-equipment_backplane_rear_z;
-// Physical assembly showed the ribs stopping about 1 mm above the stationary
+// Issue #182 physical assembly showed the ribs stopping about 1 mm above the stationary
 // base even though their nominal CAD floor matched service_base_y. Compensate
 // on the removable backplane only: extend the rib feet 1 mm below the nominal
 // floor so they land on the real base when the fitted backplane sits ~1 mm high.
