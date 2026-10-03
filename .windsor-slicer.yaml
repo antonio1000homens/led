@@ -1,4 +1,4 @@
-version: 1
+version: 2
 
 models:
   panel-hinge-template:
@@ -15,6 +15,15 @@ models:
     source: hardware/enclosure/parts/03_universal_equipment_backplane_PRINT_1.scad
     generator: openscad
     output: 03_universal_equipment_backplane_PRINT_1.stl
+    variants:
+      support-free-check:
+        support_mode: "off"
+      petg-supported:
+        machine_profile: "Bambu Lab H2D 0.4 nozzle"
+        process_profile: "0.20mm Standard @BBL H2D"
+        filament_profile: "Bambu PETG Basic @BBL H2D 0.4 nozzle"
+        bed_type: "Textured PEI Plate"
+        support_mode: "tree-auto"
 
   left-equipment-side:
     source: hardware/enclosure/parts/04_left_equipment_side_PRINT_1.scad
