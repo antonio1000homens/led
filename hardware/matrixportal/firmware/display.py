@@ -223,12 +223,11 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
         left, right = _weather_column_bounds(index, display_width)
         width = right - left
         weekday = _fit_text_pixels(str(day.get("weekday") or "").upper()[:3], width)
-        maximum = _weekly_temperature_text(day.get("temperature_max_c"))
-        icon_width = WEATHER_ICON_WIDTH * WEEKLY_WEATHER_ICON_SCALE
-        maximum_width = len(maximum) * WEATHER_FONT_WIDTH * WEEKLY_WEATHER_TEXT_SCALE
+        maximum = "MAX" + _weekly_temperature_text(day.get("temperature_max_c")).replace("C", "")
+        minimum = "MIN" + _weekly_temperature_text(day.get("temperature_min_c")).replace("C", "")
         icon_name, rows = _weather_icon(day)
 
-        def centered_x(text, pixel_width):
+        def centered_x(pixel_width):
             return left + max(0, (width - pixel_width) // 2)
 
         layout.append({
@@ -236,13 +235,15 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
             "left": left,
             "right": right,
             "weekday": weekday,
-            "weekday_x": centered_x(weekday, len(weekday) * WEATHER_FONT_WIDTH),
+            "weekday_x": centered_x(len(weekday) * WEATHER_FONT_WIDTH),
             "icon_name": icon_name,
             "icon_rows": rows,
-            "icon_x": centered_x("", icon_width),
+            "icon_x": centered_x(WEATHER_ICON_WIDTH),
             "max_text": maximum,
-            "max_x": left + max(0, (width - maximum_width) // 2),
-            "icon_width": icon_width,
+            "max_x": centered_x(len(maximum) * WEATHER_FONT_WIDTH),
+            "min_text": minimum,
+            "min_x": centered_x(len(minimum) * WEATHER_FONT_WIDTH),
+            "icon_width": WEATHER_ICON_WIDTH,
         })
     return layout
 
@@ -1626,23 +1627,22 @@ class MatrixDisplay:
         weekday_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
             self._label(group, item["weekday"], weekday_color, item["weekday_x"], 3)
-            bitmap = displayio.Bitmap(item["icon_width"], 14, 2)
+            bitmap = displayio.Bitmap(WEATHER_ICON_WIDTH, WEATHER_ICON_WIDTH, 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
             palette[1] = _weather_rgb(item["icon_name"], stale)
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
-                        for dx in range(WEEKLY_WEATHER_ICON_SCALE):
-                            for dy in range(WEEKLY_WEATHER_ICON_SCALE):
-                                bitmap[x * WEEKLY_WEATHER_ICON_SCALE + dx, y * WEEKLY_WEATHER_ICON_SCALE + dy] = 1
+                        bitmap[x, y] = 1
             group.append(displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
                 x=item["icon_x"],
-                y=6,
+                y=8,
             ))
-            self._temperature_label(group, item["max_text"], text_color, item["max_x"], 22)
+            self._label(group, item["max_text"], text_color, item["max_x"], 19)
+            self._label(group, item["min_text"], text_color, item["min_x"], 27)
 
     def _weather_day(self, group, screen):
         import displayio
@@ -1862,11 +1862,9 @@ class FixtureDisplay:
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
-                        for dx in range(WEEKLY_WEATHER_ICON_SCALE):
-                            for dy in range(WEEKLY_WEATHER_ICON_SCALE):
-                                self._pixel(item["icon_x"] + x * WEEKLY_WEATHER_ICON_SCALE + dx,
-                                            6 + y * WEEKLY_WEATHER_ICON_SCALE + dy, icon_color)
-            self._text_scaled(item["max_text"], item["max_x"], 22, text_color)
+                        self._pixel(item["icon_x"] + x, 8 + y, icon_color)
+            self._text(item["max_text"], item["max_x"], 16, text_color)
+            self._text(item["min_text"], item["min_x"], 24, text_color)
 
     def _weather_day(self, screen):
         layout = _weather_day_layout(screen.get("day"))
