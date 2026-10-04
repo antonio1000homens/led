@@ -229,8 +229,6 @@ def _display_phase(screen, phase):
         return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
-    if _smooth_queue(screen):
-        return phase
     return 2
 
 
@@ -246,13 +244,6 @@ def _smooth_departures(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "rail_combined"
-    )
-
-
-def _smooth_queue(screen):
-    return (
-        settings.DISPLAY_BACKEND == "matrix"
-        and screen.get("kind") == "theme_park_queues"
     )
 
 
@@ -449,7 +440,7 @@ while True:
             )
         )
         last_render_key = render_key
-    smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen) or _smooth_queue(screen)
+    smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen)
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)
         if desired_cadence <= 0:

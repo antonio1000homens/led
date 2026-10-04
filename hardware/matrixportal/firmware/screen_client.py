@@ -4,8 +4,6 @@ The module keeps hardware imports lazy so its rotation and clock logic can be
 unit-tested on CPython.
 """
 
-from formatting import departure_scroll_duration, rail_calling_duration
-
 
 def _weekday_sunday_zero(year, month, day):
     """Return 0=Sunday .. 6=Saturday for a Gregorian date."""
@@ -204,24 +202,6 @@ class ScreenRotation:
                 1,
                 int(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
             )
-            if screen.get("kind") == "rail_combined" and screen.get("services"):
-                calling_seconds = int(rail_calling_duration(
-                    screen.get("services"),
-                    screen.get("station_scroll_speed", 20),
-                ) + 0.999)
-                upcoming_services = screen.get("services")[1:]
-                train_cycle_seconds = departure_scroll_duration(
-                    len(upcoming_services),
-                    screen.get("upcoming_train_pause_seconds", 2),
-                )
-                train_cycle_seconds = int(train_cycle_seconds + 0.999)
-                # Keep train 1 and its calling marquee on screen while every
-                # configured upcoming-train window gets a complete cycle.
-                duration = max(1, duration, calling_seconds, train_cycle_seconds)
-                screen = dict(screen)
-                screen["duration_seconds"] = duration
-                screen["calling_seconds"] = duration
-                screen["summary_seconds"] = 0
             elapsed = max(0, now - self.started_at)
             if elapsed < duration:
                 return screen, elapsed

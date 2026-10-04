@@ -100,7 +100,7 @@
     const AGENDA_FIRST_Y = 11 * FONT_PIXEL_SCALE;
     const UPCOMING_FIRST_Y = 17 * FONT_PIXEL_SCALE;
     const RAIL_ROW_Y = [4, 12, 20, 28].map(value => value * FONT_PIXEL_SCALE);
-    const RAIL_SUMMARY_SECONDS = 0;
+    const RAIL_SUMMARY_SECONDS = 8;
     const RAIL_CALLING_SECONDS = 12;
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
@@ -444,35 +444,14 @@
       let remaining = elapsed % total;
       for (let index = 0; index < screens.length; index += 1) {
         const screen = screens[(index + screenOffset + screens.length * 1000) % screens.length];
-        const configuredDuration = Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8);
-        const duration = (screen.kind === 'rail_combined' ? railScreenTiming(screen).duration : configuredDuration) * 1000;
+        const duration = Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8) * 1000;
         if (remaining < duration) return { screen, phase: remaining / 1000, index: (index + screenOffset + screens.length * 1000) % screens.length };
         remaining -= duration;
       }
       return { screen: screens[0], phase: 0, index: 0 };
     }
     function stationMarqueeSpeed(screen) {
-      return boundedNumber(screen.station_scroll_speed, 20, 10, 80) * 4;
-    }
-    function railScreenTiming(screen) {
-      const configuredDuration = Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8);
-      const service = (Array.isArray(screen.services) ? screen.services : [])[0];
-      if (!service) return { duration: configuredDuration, callingSeconds: RAIL_CALLING_SECONDS, summarySeconds: RAIL_SUMMARY_SECONDS };
-      const text = callingText(service);
-      const stations = text.startsWith(CALLING_LABEL) ? text.slice(CALLING_LABEL.length) : text;
-      const prefixWidth = measureLedText(CALLING_LABEL).width;
-      const width = measureLedText(stations).width;
-      const speed = stationMarqueeSpeed(screen);
-      const travelSeconds = (1024 - prefixWidth + width) / speed;
-      const callingSeconds = Math.ceil(Math.max(RAIL_CALLING_SECONDS, travelSeconds + CALLING_MARQUEE_PAUSE_SECONDS));
-      const upcomingCount = Math.max(0, (Array.isArray(screen.services) ? screen.services.length : 0) - 1);
-      const trainCycleSeconds = departureScrollDuration(
-        upcomingCount,
-        screen.upcoming_train_pause_seconds,
-        2,
-      );
-      const duration = Math.max(configuredDuration, callingSeconds, trainCycleSeconds);
-      return { duration, callingSeconds: duration, summarySeconds: 0 };
+      return boundedNumber(screen.station_scroll_speed, 10, 10, 80) * 4;
     }
     function stationMarqueeGap() {
       return RAIL_MARQUEE_GAP;
@@ -482,11 +461,14 @@
       const stations = text.startsWith(CALLING_LABEL) ? text.slice(CALLING_LABEL.length) : text;
       const prefixWidth = measureLedText(CALLING_LABEL).width;
       const width = measureLedText(stations).width;
+      const availableWidth = Math.max(1, 1024 - prefixWidth);
       const elapsed = Math.max(0, Number(phase) || 0);
-      const travelSeconds = (1024 - prefixWidth + width) / speed;
-      const cycleSeconds = travelSeconds + CALLING_MARQUEE_PAUSE_SECONDS;
-      const cycleElapsed = elapsed % cycleSeconds;
-      const stationX = cycleElapsed >= travelSeconds ? prefixWidth - width : 1024 - Math.floor(cycleElapsed * speed);
+      if (width <= availableWidth) {
+        const stationX = Math.max(prefixWidth, 1024 - elapsed * speed);
+        return { stations, offset: stationX - prefixWidth, width, prefixWidth };
+      }
+      const travelWidth = 1024 - prefixWidth + width + gap;
+      const stationX = 1024 - (Math.floor(elapsed * speed) % travelWidth);
       const offset = stationX - prefixWidth;
       return { stations, offset, width, prefixWidth };
     }
@@ -516,29 +498,6 @@
         return value;
       }).join(stationSeparator(service));
     }
-    function callingColorSegments(service) {
-      const text = callingText(service);
-      const value = text.startsWith(CALLING_LABEL) ? text.slice(CALLING_LABEL.length) : text;
-      const stops = Array.isArray(service.stops) ? service.stops : [];
-      if (!stops.length) {
-        const destination = service.destination || 'destination';
-        return value.startsWith(destination)
-          ? [[destination, '#ffffff'], [value.slice(destination.length), '#ffaa00']].filter(part => part[0])
-          : [[value, '#ffaa00']];
-      }
-      const segments = [];
-      let cursor = 0;
-      stops.forEach(stop => {
-        const station = String(stop.station || 'Unknown');
-        const stationAt = value.indexOf(station, cursor);
-        if (stationAt < 0) return;
-        if (stationAt > cursor) segments.push([value.slice(cursor, stationAt), '#ffaa00']);
-        segments.push([station, '#ffffff']);
-        cursor = stationAt + station.length;
-      });
-      if (cursor < value.length) segments.push([value.slice(cursor), '#ffaa00']);
-      return segments.length ? segments : [[value, '#ffaa00']];
-    }
     function listPage(screen) {
       const services = Array.isArray(screen.services) ? screen.services : [];
       if (!services.length) return { services: [{ time: '--:--', destination: feedError ? 'Feed error' : 'No services', platform: '-', status: '' }] };
@@ -565,33 +524,26 @@
       const within = cyclePhase - step * stepSeconds;
       return { start: step, progress: within <= pause ? 0 : Math.min(1, (within - pause) / DEPARTURE_SLIDE_SECONDS), resetProgress: 0 };
     }
-    function departureScrollDuration(serviceCount, pauseSeconds = 2, visibleRows = 2) {
-      const maxStart = Math.max(0, serviceCount - visibleRows);
-      if (!maxStart) return 0;
-      const pause = Math.max(0, Number(pauseSeconds) || 0);
-      const normalDuration = (maxStart + 1) * (pause + DEPARTURE_SLIDE_SECONDS);
-      return normalDuration + 0.4 + 0.8;
+    function railPhase(phase) {
+      const total = RAIL_SUMMARY_SECONDS + RAIL_CALLING_SECONDS;
+      return (Math.max(0, Number(phase) || 0) % total) < RAIL_SUMMARY_SECONDS ? 'summary' : 'calling';
     }
-    function railPhase(phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS) {
-      const total = summarySeconds + callingSeconds;
-      return (Math.max(0, Number(phase) || 0) % total) < summarySeconds ? 'summary' : 'calling';
-    }
-    function railPhaseElapsed(phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS) {
-      const summary = summarySeconds;
-      const total = summary + callingSeconds;
+    function railPhaseElapsed(phase) {
+      const summary = RAIL_SUMMARY_SECONDS;
+      const total = summary + RAIL_CALLING_SECONDS;
       const value = Math.max(0, Number(phase) || 0) % total;
       return value < summary ? value : value - summary;
     }
-    function railMarqueeElapsed(phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS) {
-      const summary = summarySeconds;
-      const calling = callingSeconds;
+    function railMarqueeElapsed(phase) {
+      const summary = RAIL_SUMMARY_SECONDS;
+      const calling = RAIL_CALLING_SECONDS;
       const total = summary + calling;
       const value = Math.max(0, Number(phase) || 0);
       return Math.floor(value / total) * calling + Math.max(0, (value % total) - summary);
     }
-    function railRows(services, phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS) {
+    function railRows(services, phase) {
       const list = Array.isArray(services) ? services : [];
-      if (railPhase(phase, summarySeconds, callingSeconds) === 'summary') return [
+      if (railPhase(phase) === 'summary') return [
         { kind: 'header', service: null },
         { kind: 'service', service: list[0] || null },
         { kind: 'service', service: list[1] || null },
@@ -601,7 +553,7 @@
         { kind: 'service', service: list[0] || null },
         { kind: 'calling', service: list[0] || null },
         { kind: 'service', service: list[1] || null },
-        { kind: 'service', service: list[2] || null }
+        { kind: 'calling', service: list[1] || null }
       ];
     }
     function clockLayout(now = new Date()) {
@@ -725,7 +677,7 @@
       const active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -739,24 +691,18 @@
         suppressHeader = true;
         status.dataset.detail = message;
       } else if (screen.kind === 'rail_combined') {
-        const { callingSeconds, summarySeconds } = railScreenTiming(screen);
         const railServices = listPage(screen).services;
         const headerRight = (screen.stale || forceStale) ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
-        const rows = railRows(railServices, phase, summarySeconds, callingSeconds);
-        const firstServiceRow = rows[0]?.kind === 'service' ? 0 : 1;
-        const callingOnly = railPhase(phase, summarySeconds, callingSeconds) === 'calling';
-        rows.slice(0, callingOnly ? 2 : rows.length).forEach((row, rowIndex) => {
+        railRows(railServices, phase).forEach((row, rowIndex) => {
           const y = RAIL_ROW_Y[rowIndex];
           if (row.kind === 'header') {
             context.fillStyle = '#ffaa00';
             drawLedText('DEPARTURES', 0, y);
           } else if (row.kind === 'service' && row.service) {
-          const ordinal = railPhase(phase, summarySeconds, callingSeconds) === 'calling'
-            ? (rowIndex === 0 ? 1 : rowIndex)
-            : rowIndex - firstServiceRow + 1;
+            const ordinal = railPhase(phase) === 'calling' ? (rowIndex === 0 ? 1 : 2) : rowIndex;
             drawRailService(row.service, y, 0, headerRight, row.service.cancelled ? '#ff3300' : '#ffffff', ordinal);
           } else if (row.kind === 'calling' && row.service) {
-            const calling = callingMarqueeState(callingText(row.service), railMarqueeElapsed(phase, summarySeconds, callingSeconds), stationMarqueeSpeed(screen), stationMarqueeGap());
+            const calling = callingMarqueeState(callingText(row.service), railMarqueeElapsed(phase), stationMarqueeSpeed(screen), stationMarqueeGap());
             context.fillStyle = '#ffaa00';
             drawLedText(CALLING_LABEL, 0, y);
             if (calling) {
@@ -764,63 +710,12 @@
               context.beginPath();
               context.rect(calling.prefixWidth, y, 1024 - calling.prefixWidth, 28);
               context.clip();
-              const coloredSegments = callingColorSegments(row.service);
-              for (const baseX of [calling.prefixWidth + calling.offset]) {
-                let segmentX = baseX;
-                for (const [segment, color] of coloredSegments) {
-                  context.fillStyle = color;
-                  drawLedText(segment, segmentX, y);
-                  segmentX += measureLedText(segment).width;
-                }
-              }
+              drawLedText(calling.stations, calling.prefixWidth + calling.offset, y);
+              drawLedText(calling.stations, calling.prefixWidth + calling.offset + calling.width + stationMarqueeGap(), y);
               context.restore();
             }
           }
         });
-        if (callingOnly) {
-          const upcoming = railServices.slice(1);
-          const scroll = departureScrollState(
-            railMarqueeElapsed(phase, summarySeconds, callingSeconds),
-            upcoming.length,
-            screen.upcoming_train_pause_seconds,
-            2,
-          );
-          const rowStep = RAIL_ROW_Y[3] - RAIL_ROW_Y[2];
-          const visibleRows = [];
-          if (scroll.resetProgress === null) {
-            // Leave a brief gap before the first upcoming pair re-enters.
-          } else if (scroll.resetProgress > 0) {
-            for (let index = 0; index < Math.min(2, upcoming.length); index += 1) {
-              visibleRows.push({
-                index,
-                y: RAIL_ROW_Y[2] + 2 * rowStep - scroll.resetProgress * 2 * rowStep + index * rowStep,
-              });
-            }
-          } else {
-            for (let index = scroll.start; index < Math.min(upcoming.length, scroll.start + 3); index += 1) {
-              visibleRows.push({
-                index,
-                y: RAIL_ROW_Y[2] + (index - scroll.start) * rowStep - scroll.progress * rowStep,
-              });
-            }
-          }
-          context.save();
-          context.beginPath();
-          context.rect(0, RAIL_ROW_Y[2], 1024, 128 - RAIL_ROW_Y[2]);
-          context.clip();
-          for (const row of visibleRows) {
-            const service = upcoming[row.index];
-            drawRailService(
-              service,
-              row.y,
-              0,
-              headerRight,
-              service.cancelled ? '#ff3300' : '#ffffff',
-              row.index + 2,
-            );
-          }
-          context.restore();
-        }
         if (screen.stale || forceStale) { context.fillStyle = '#ff3300'; drawLedText('STALE', STALE_X, HEADER_TEXT_Y); }
         status.dataset.detail = 'Combined departures';
       } else if (screen.kind === 'theme_park_queues') {

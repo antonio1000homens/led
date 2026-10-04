@@ -57,28 +57,24 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": MATRIX_REFRESH_FPS,
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": MATRIX_REFRESH_FPS,
-        "queue_rows": MATRIX_REFRESH_FPS,
     },
     "adaptive": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
         "todoist_page_slide": TODOIST_PAGE_SLIDE_FPS,
         "header_slide": HEADER_SLIDE_FPS,
         "departures_calling": DEPARTURES_CALLING_FPS,
-        "queue_rows": MATRIX_REFRESH_FPS,
     },
     "transition_15": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
         "todoist_page_slide": 15,
         "header_slide": 15,
         "departures_calling": DEPARTURES_CALLING_FPS,
-        "queue_rows": MATRIX_REFRESH_FPS,
     },
     "transition_20": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
         "todoist_page_slide": 20,
         "header_slide": 20,
         "departures_calling": DEPARTURES_CALLING_FPS,
-        "queue_rows": MATRIX_REFRESH_FPS,
     },
 }
 
