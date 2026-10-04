@@ -16,6 +16,8 @@ def sample_forecast():
             "temperature_min_c": 9.4,
             "weather_code": 61,
             "icon": "rain",
+            "sunrise_time": "07:08",
+            "sunset_time": "18:29",
         },
         {
             "date": "2026-10-05",
@@ -24,6 +26,8 @@ def sample_forecast():
             "temperature_min_c": 10.4,
             "weather_code": 2,
             "icon": "partly_cloudy_day",
+            "sunrise_time": "07:10",
+            "sunset_time": "18:27",
         },
     ]
 
@@ -70,6 +74,14 @@ class OpenMeteoProviderTests(unittest.TestCase):
                 "weather_code": [61, 2, 3, 0, 45, 71, 95, 80][:days],
                 "temperature_2m_max": [16.2 + index for index in range(days)],
                 "temperature_2m_min": [9.4 + index for index in range(days)],
+                "sunrise": [
+                    "2026-10-{:02d}T{:02d}:{:02d}".format(4 + index, 7, 8 + index * 2)
+                    for index in range(days)
+                ],
+                "sunset": [
+                    "2026-10-{:02d}T{:02d}:{:02d}".format(4 + index, 18, 29 - index * 2)
+                    for index in range(days)
+                ],
             },
         }
 
@@ -87,7 +99,7 @@ class OpenMeteoProviderTests(unittest.TestCase):
         self.assertEqual(query["latitude"], ["51.4039"])
         self.assertEqual(query["longitude"], ["-0.256"])
         self.assertEqual(query["current"], ["temperature_2m,weather_code,is_day"])
-        self.assertEqual(query["daily"], ["weather_code,temperature_2m_max,temperature_2m_min"])
+        self.assertEqual(query["daily"], ["weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset"])
         self.assertEqual(query["forecast_days"], ["7"])
         self.assertEqual(query["timezone"], ["auto"])
         self.assertEqual(captured["timeout"], 10)
@@ -108,6 +120,21 @@ class OpenMeteoProviderTests(unittest.TestCase):
         self.assertEqual(forecast[0]["weekday"], "SUN")
         self.assertEqual(forecast[1]["weekday"], "MON")
         self.assertEqual(forecast[-1]["date"], "2026-10-10")
+
+    def test_skips_daily_entry_with_invalid_solar_time_when_other_days_are_usable(self):
+        payload = self._payload(days=2)
+        payload["daily"]["sunrise"][0] = "not-a-time"
+
+        def opener(url, timeout):
+            del url, timeout
+            return io.BytesIO(json.dumps(payload).encode("utf-8"))
+
+        forecast = OpenMeteoProvider(51.4, -0.25, opener=opener).fetch()["forecast"]
+
+        self.assertEqual(len(forecast), 1)
+        self.assertEqual(forecast[0]["weekday"], "MON")
+        self.assertEqual(forecast[0]["sunrise_time"], "07:10")
+        self.assertEqual(forecast[0]["sunset_time"], "18:27")
 
     def test_rejects_response_without_current_weather(self):
         def opener(url, timeout):
@@ -136,6 +163,8 @@ class OpenMeteoProviderTests(unittest.TestCase):
                     "weather_code": [3],
                     "temperature_2m_max": [14],
                     "temperature_2m_min": [8],
+                    "sunrise": ["2026-10-04T07:08"],
+                    "sunset": ["2026-10-04T18:29"],
                 },
             },
         ]
@@ -193,10 +222,13 @@ class WeatherFeedTests(unittest.TestCase):
         departures = DepartureFeed(FixtureProvider(10), "NEM", 60)
         payload = ScreenFeed(departures, weather_feed=weather_feed).get()
 
-        weekly = payload["screens"][-1]
-        self.assertEqual(weekly["kind"], "weather_weekly")
+        weekly = next(screen for screen in payload["screens"] if screen["kind"] == "weather_weekly")
+        details = [screen for screen in payload["screens"] if screen["kind"] == "weather_day"]
         self.assertEqual(weekly["days"], sample_forecast())
         self.assertEqual(weekly["duration_seconds"], 8)
+        self.assertEqual([screen["day_index"] for screen in details], [0, 1])
+        self.assertEqual([screen["day"] for screen in details], sample_forecast())
+        self.assertTrue(all(screen["duration_seconds"] == 8 for screen in details))
         for screen in payload["screens"]:
             self.assertEqual(screen["weather"]["temperature_c"], 17.4)
             self.assertEqual(screen["weather"]["icon"], "partly_cloudy_day")
