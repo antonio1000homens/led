@@ -20,8 +20,8 @@ def sample_forecast():
         {
             "date": "2026-10-05",
             "weekday": "MON",
-            "temperature_max_c": 17.0,
-            "temperature_min_c": 10.0,
+            "temperature_max_c": 17.2,
+            "temperature_min_c": 10.4,
             "weather_code": 2,
             "icon": "partly_cloudy_day",
         },
