@@ -42,8 +42,16 @@ def weather_icon(weather_code, is_day=True):
     return "unknown"
 
 
+def _local_clock(value):
+    """Normalize an Open-Meteo local daily timestamp to HH:MM."""
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%H:%M")
+    except (TypeError, ValueError):
+        raise ValueError("invalid local weather timestamp")
+
+
 class OpenMeteoProvider:
-    """Fetch current temperature and WMO weather code from Open-Meteo."""
+    """Fetch current conditions and seven-day forecast data from Open-Meteo."""
 
     source = "open_meteo"
 
@@ -59,7 +67,7 @@ class OpenMeteoProvider:
                 "latitude": self.latitude,
                 "longitude": self.longitude,
                 "current": "temperature_2m,weather_code,is_day",
-                "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset",
                 "forecast_days": 7,
                 "timezone": "auto",
             }
@@ -83,7 +91,14 @@ class OpenMeteoProvider:
         daily = payload.get("daily") if isinstance(payload, dict) else None
         if not isinstance(daily, dict):
             raise WeatherFeedUnavailable("Open-Meteo response has no daily forecast")
-        required = ("time", "weather_code", "temperature_2m_max", "temperature_2m_min")
+        required = (
+            "time",
+            "weather_code",
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "sunrise",
+            "sunset",
+        )
         arrays = [daily.get(name) for name in required]
         if any(not isinstance(values, list) for values in arrays):
             raise WeatherFeedUnavailable("Open-Meteo daily forecast is invalid")
@@ -97,6 +112,8 @@ class OpenMeteoProvider:
                 daily_code = int(arrays[1][index])
                 temperature_max = float(arrays[2][index])
                 temperature_min = float(arrays[3][index])
+                sunrise_time = _local_clock(arrays[4][index])
+                sunset_time = _local_clock(arrays[5][index])
             except (TypeError, ValueError):
                 continue
             forecast.append(
@@ -107,6 +124,8 @@ class OpenMeteoProvider:
                     "temperature_min_c": round(temperature_min, 1),
                     "weather_code": daily_code,
                     "icon": weather_icon(daily_code, True),
+                    "sunrise_time": sunrise_time,
+                    "sunset_time": sunset_time,
                 }
             )
         if not forecast:
