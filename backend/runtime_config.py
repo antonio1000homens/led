@@ -37,6 +37,7 @@ MIN_QUEUE_SCROLL_PAUSE_SECONDS = 1
 MAX_QUEUE_SCROLL_PAUSE_SECONDS = 30
 DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS = 1
 DEFAULT_QUEUE_SCREEN_DURATION_SECONDS = 16
+DEFAULT_WEATHER_SCREEN_DURATION_SECONDS = 8
 DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
 MIN_FLASH_SCREEN_DURATION_SECONDS = 2
 MAX_FLASH_SCREEN_DURATION_SECONDS = 60
@@ -167,8 +168,8 @@ FEED_REGISTRY = {
     "weather": {
         "label": "Weather",
         "provider": "open_meteo",
-        "mutable_fields": ("enabled", "poll_seconds"),
-        "screen_duration": False,
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "screen_duration": True,
     },
     "calendar": {
         "label": "Calendar",
@@ -283,6 +284,13 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
             "weather": {
                 "enabled": weather_enabled,
                 "poll_seconds": _int_env(env, "LED_WEATHER_CACHE_SECONDS", 600),
+                "screen_duration_seconds": _int_env(
+                    env,
+                    "LED_WEATHER_DURATION_SECONDS",
+                    DEFAULT_WEATHER_SCREEN_DURATION_SECONDS,
+                    minimum=MIN_SCREEN_DURATION_SECONDS,
+                    maximum=MAX_SCREEN_DURATION_SECONDS,
+                ),
             },
             "calendar": {
                 "enabled": calendar_enabled,
@@ -512,6 +520,8 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if feed_id == "calendar":
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
+        if feed_id == "weather":
+            raw.setdefault("screen_duration_seconds", DEFAULT_WEATHER_SCREEN_DURATION_SECONDS)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
         if set(raw) != expected:
