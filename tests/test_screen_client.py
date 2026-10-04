@@ -47,7 +47,9 @@ class ClockTests(unittest.TestCase):
         clock = ClockState()
         clock.sync("2026-09-21T17:42:12Z", 100.0)
         self.assertEqual(clock.epoch(100.0), 1790012532)
-        self.assertEqual(clock.epoch(112.5), 1790012544.5)
+        self.assertEqual(clock.epoch(112.5), 1790012544)
+        self.assertIsInstance(clock.epoch(112.5), int)
+        self.assertEqual(clock.epoch(113.0) - clock.epoch(112.0), 1)
         self.assertIsNone(ClockState().epoch(100.0))
 
 
@@ -159,6 +161,28 @@ class FakeSession:
 
 
 class ClientTests(unittest.TestCase):
+    def test_current_http_date_sets_clock_without_changing_data_age(self):
+        response = CircuitPythonResponse({"fetched_at": "2026-10-04T21:30:00Z", "screens": []})
+        response.headers = {"date": "Sun, 04 Oct 2026 21:31:05 GMT"}
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        payload = ScreenClient(settings, session=FakeSession(response)).fetch()
+        self.assertEqual(payload["fetched_at"], "2026-10-04T21:30:00Z")
+        clock = ClockState()
+        clock.sync(payload["clock_at"], 10)
+        self.assertEqual(clock.text(11), "22:31")
+        self.assertEqual(clock.epoch(11), 1791149466)
+        self.assertTrue(response.closed)
+
+    def test_bad_http_date_does_not_break_screen_fetch(self):
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        for date in (None, "invalid", "Sun, 32 Oct 2026 21:31:05 GMT",
+                     "Sun, 04 Oct 2026 25:31:05 GMT"):
+            response = CircuitPythonResponse({"fetched_at": "2026-10-04T21:30:00Z", "screens": []})
+            response.headers = {"Date": date}
+            payload = ScreenClient(settings, session=FakeSession(response)).fetch()
+            self.assertNotIn("clock_at", payload)
+            self.assertTrue(response.closed)
+
     def test_fetches_screen_contract_and_closes_response(self):
         response = FakeResponse({"fetched_at": "2026-09-12T19:45:30Z", "screens": []})
         session = FakeSession(response)

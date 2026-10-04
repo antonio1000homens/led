@@ -66,6 +66,8 @@ QUEUE_ROW_HEIGHT = 8
 AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
+WEEKLY_WEATHER_ICON_SCALE = 2
+WEEKLY_WEATHER_TEXT_SCALE = 2
 WEATHER_FONT_WIDTH = 5
 WEATHER_GAP = 1
 HEADER_GAP = 4
@@ -196,12 +198,12 @@ def _weather_column_bounds(index, display_width=DISPLAY_WIDTH):
     return left, right
 
 
-def _weekly_temperature_text(prefix, value):
+def _weekly_temperature_text(value):
     try:
         rounded = int(round(float(value)))
     except (TypeError, ValueError):
-        return "{}--".format(prefix)
-    return "{}{}".format(prefix, rounded)
+        return "--C"
+    return "{}C".format(rounded)
 
 
 def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
@@ -214,8 +216,9 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
         left, right = _weather_column_bounds(index, display_width)
         width = right - left
         weekday = _fit_text_pixels(str(day.get("weekday") or "").upper()[:3], width)
-        maximum = _fit_text_pixels(_weekly_temperature_text("MAX", day.get("temperature_max_c")), width)
-        minimum = _fit_text_pixels(_weekly_temperature_text("MIN", day.get("temperature_min_c")), width)
+        maximum = _weekly_temperature_text(day.get("temperature_max_c"))
+        icon_width = WEATHER_ICON_WIDTH * WEEKLY_WEATHER_ICON_SCALE
+        maximum_width = len(maximum) * WEATHER_FONT_WIDTH * WEEKLY_WEATHER_TEXT_SCALE
         icon_name, rows = _weather_icon(day)
 
         def centered_x(text, pixel_width):
@@ -229,11 +232,10 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
             "weekday_x": centered_x(weekday, len(weekday) * WEATHER_FONT_WIDTH),
             "icon_name": icon_name,
             "icon_rows": rows,
-            "icon_x": centered_x("", WEATHER_ICON_WIDTH),
+            "icon_x": centered_x("", icon_width),
             "max_text": maximum,
-            "max_x": centered_x(maximum, len(maximum) * WEATHER_FONT_WIDTH),
-            "min_text": minimum,
-            "min_x": centered_x(minimum, len(minimum) * WEATHER_FONT_WIDTH),
+            "max_x": left + max(0, (width - maximum_width) // 2),
+            "icon_width": icon_width,
         })
     return layout
 
@@ -543,6 +545,29 @@ class MatrixDisplay:
         item = self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y))
         group.append(item)
         return item
+
+    def _temperature_label(self, group, text, color, x, y):
+        import displayio
+
+        glyphs = {"0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0),
+                  "2": (1, 0, 1, 1, 1), "3": (1, 0, 1, 0, 1),
+                  "4": (1, 1, 1, 0, 0), "5": (1, 1, 0, 0, 1),
+                  "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0),
+                  "8": (1, 1, 1, 1, 1), "9": (1, 1, 1, 0, 1),
+                  "C": (1, 0, 0, 1, 1), "-": (0, 0, 1, 0, 0)}
+        scale = WEEKLY_WEATHER_TEXT_SCALE
+        bitmap = displayio.Bitmap(len(text) * WEATHER_FONT_WIDTH * scale, 5 * scale, 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette[1] = color
+        for index, char in enumerate(str(text)):
+            columns = glyphs.get(char, (0, 0, 0, 0, 0))
+            for column, bit in enumerate(columns):
+                if bit:
+                    for dx in range(scale):
+                        for dy in range(5 * scale):
+                            bitmap[index * WEATHER_FONT_WIDTH * scale + column * scale + dx, dy] = 1
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=int(x), y=int(y)))
 
     def _chunked_label_group(self, text, color, y, chunk_chars=24):
         """Build fixed text chunks so scrolling moves groups without reflowing labels."""
@@ -1570,22 +1595,23 @@ class MatrixDisplay:
         weekday_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
             self._label(group, item["weekday"], weekday_color, item["weekday_x"], 3)
-            bitmap = displayio.Bitmap(WEATHER_ICON_WIDTH, 7, 2)
+            bitmap = displayio.Bitmap(item["icon_width"], 14, 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
             palette[1] = _weather_rgb(item["icon_name"], stale)
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
-                        bitmap[x, y] = 1
+                        for dx in range(WEEKLY_WEATHER_ICON_SCALE):
+                            for dy in range(WEEKLY_WEATHER_ICON_SCALE):
+                                bitmap[x * WEEKLY_WEATHER_ICON_SCALE + dx, y * WEEKLY_WEATHER_ICON_SCALE + dy] = 1
             group.append(displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
                 x=item["icon_x"],
-                y=8,
+                y=6,
             ))
-            self._label(group, item["max_text"], text_color, item["max_x"], 19)
-            self._label(group, item["min_text"], text_color, item["min_x"], 27)
+            self._temperature_label(group, item["max_text"], text_color, item["max_x"], 22)
 
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
@@ -1698,6 +1724,22 @@ class FixtureDisplay:
                         self._pixel(x + column, y + row, color)
             x += WEATHER_FONT_WIDTH
 
+    def _text_scaled(self, value, x, y, color):
+        scale = WEEKLY_WEATHER_TEXT_SCALE
+        glyphs = {"0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0),
+                  "2": (1, 0, 1, 1, 1), "3": (1, 0, 1, 0, 1),
+                  "4": (1, 1, 1, 0, 0), "5": (1, 1, 0, 0, 1),
+                  "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0),
+                  "8": (1, 1, 1, 1, 1), "9": (1, 1, 1, 0, 1),
+                  "C": (1, 0, 0, 1, 1), "-": (0, 0, 1, 0, 0)}
+        for index, char in enumerate(str(value)):
+            for column, bit in enumerate(glyphs.get(char, (0, 0, 0, 0, 0))):
+                if bit:
+                    for dx in range(scale):
+                        for dy in range(5 * scale):
+                            self._pixel(x + index * WEATHER_FONT_WIDTH * scale + column * scale + dx,
+                                        y + dy, color)
+
     def _clear_rect(self, start_x, start_y, end_x, end_y):
         if self.pixels is None:
             return
@@ -1740,9 +1782,11 @@ class FixtureDisplay:
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
-                        self._pixel(item["icon_x"] + x, 7 + y, icon_color)
-            self._text(item["max_text"], item["max_x"], 16, text_color)
-            self._text(item["min_text"], item["min_x"], 24, text_color)
+                        for dx in range(WEEKLY_WEATHER_ICON_SCALE):
+                            for dy in range(WEEKLY_WEATHER_ICON_SCALE):
+                                self._pixel(item["icon_x"] + x * WEEKLY_WEATHER_ICON_SCALE + dx,
+                                            6 + y * WEEKLY_WEATHER_ICON_SCALE + dy, icon_color)
+            self._text_scaled(item["max_text"], item["max_x"], 22, text_color)
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
@@ -1923,11 +1967,10 @@ class FixtureDisplay:
             if not days:
                 print("Weather unavailable")
             for day in days[:7]:
-                print("{} {} {} {}".format(
+                print("{} {} {}".format(
                     str(day.get("weekday") or "---")[:3].upper(),
                     day.get("icon") or "unknown",
-                    _weekly_temperature_text("MAX", day.get("temperature_max_c")),
-                    _weekly_temperature_text("MIN", day.get("temperature_min_c")),
+                    _weekly_temperature_text(day.get("temperature_max_c")),
                 ))
         elif kind == "rail_combined":
             services = screen.get("services") or []

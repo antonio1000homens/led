@@ -77,7 +77,7 @@ def parse_flash_event(payload, now=None):
                 return None
         elif payload.get("event") == "scheduled":
             return None
-        if now is not None and expires_at <= float(now):
+        if now is not None and expires_at <= int(now):
             return None
     except (TypeError, ValueError):
         return None

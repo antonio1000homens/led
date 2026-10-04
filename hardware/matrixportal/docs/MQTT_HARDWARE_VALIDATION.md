@@ -315,3 +315,50 @@ or cancellation can take up to 60 seconds to be received; reminders created
 just before due time can be late. Only the nearest occurrence is cached.
 The synthetic publisher's `scheduled` mode must include `published_at` and a
 future `due_at`; it now schedules a flash rather than being rejected.
+
+## Wi-Fi readback and clock correction (2026-10-04)
+
+The board was located through the GLBuddy DHCP lease at `192.168.8.88`
+(MAC `68:ee:8f:f7:07:50`), then identified through Web Workflow as
+MatrixPortal S3 UID `86EEF87F7005`, CircuitPython 10.3.0. Authenticated Wi-Fi
+readback showed `code.py`, `mqtt_client.py`, and `flash_events.py` already
+matched checkout `309f31f`. Both local MQTT gates were enabled, the MiniMQTT
+library was present, and the production runtime flash duration was 30 seconds.
+The board was reloaded to ensure the files on disk were active.
+
+Live testing exposed two clock faults which CPython tests had not caught:
+
+- `/api/screens` payload `fetched_at` is screen-data generation time, sometimes
+  approximately a minute behind the current response. The HTTP `Date` header
+  was current. Firmware now uses that header for clock synchronization while
+  retaining `fetched_at` as the data-age timestamp and as a compatibility
+  fallback when the header is absent/invalid.
+- Unix epoch arithmetic passed through CircuitPython floating-point values.
+  A physical REPL check produced `int(1791150000 + 0.0) == 1791149952`, a
+  48-second rounding error. Epoch advancement and expiry comparison now use
+  integers. The physical replacement clock returned `1791150000` and
+  `1791150001`, both `int`, for adjacent seconds.
+
+Only `flash_events.py`, `screen_client.py`, and `code.py` were uploaded for
+these corrections, with `code.py` last and SHA-256 readback verified. Local
+settings, credentials, libraries, and the renderer were preserved. The board
+then reloaded, subscribed to `led/flash/reminder`, and fetched the normal HTTP
+screens successfully.
+
+Deployed file SHA-256 values:
+
+- `flash_events.py`: `fc338dfdd2c8fe936c49e62836dffd19d4d8c26271bd1b586cffc7d80133b4d5`
+- `screen_client.py`: `7eac90051bb92e5f779354776feba87ed339bd2704696c0fff042780e8bf0a87`
+- `code.py`: `6b6f44bcb3a6954ad5bf82d05f104f6096df50beaf935094ccc8c31f3fbb4c14`
+- Unchanged `mqtt_client.py`: `ea11d006cb3ebc3a0f6b05d5dd6aefbe851ae7b2f253aaed3f75874210b38d8f`
+
+The 46 focused clock/reminder/transport/safety tests passed. The complete suite
+ran 313 tests with two existing weekly-weather layout problems (one failure,
+one error), also present before these clock changes. Unrelated concurrent
+renderer edits were preserved and were not uploaded by this deployment.
+
+These source changes implement the user's updated minute-snapshot contract;
+the original issue #74 body still describes due-only, non-retained events.
+Real Alexa, Home Assistant minute publication, recurrence/restart, matched
+performance comparisons, and user-visible tearing remain separate acceptance
+gates. Do not close #74 on a synthetic test alone.

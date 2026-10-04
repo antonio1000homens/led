@@ -7,6 +7,28 @@ unit-tested on CPython.
 from formatting import departure_scroll_duration, rail_calling_duration
 
 
+def _http_date_timestamp(value):
+    """Normalize an HTTP Date header without CPython-only datetime imports."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parts = value.split()
+        if len(parts) != 6 or parts[5] != "GMT":
+            return None
+        months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        month = months.index(parts[2]) + 1
+        year, day = int(parts[3]), int(parts[1])
+        hour, minute, second = (int(part) for part in parts[4].split(":"))
+        if not (2022 <= year <= 9999 and 1 <= day <= _days_in_month(year, month)
+                and 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+            return None
+        return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}Z".format(
+            year, month, day, hour, minute, second)
+    except (ValueError, IndexError):
+        return None
+
+
 def _weekday_sunday_zero(year, month, day):
     """Return 0=Sunday .. 6=Saturday for a Gregorian date."""
     offsets = (0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)
@@ -133,7 +155,9 @@ class ClockState:
         """Return UTC epoch time derived from the last API timestamp."""
         if self._epoch is None or self._synced_at is None:
             return None
-        return self._epoch + max(0, now - self._synced_at)
+        # CircuitPython's 32-bit float cannot represent epoch seconds precisely.
+        # Keep epoch arithmetic integral; only uptime/duration uses floats.
+        return self._epoch + max(0, int(now - self._synced_at))
 
     def _parts(self, now):
         if self._date is None or self._seconds is None or self._synced_at is None:
@@ -313,6 +337,12 @@ class ScreenClient:
             payload = response.json()
             if not isinstance(payload, dict) or not isinstance(payload.get("screens"), list):
                 raise ValueError("Invalid screen API response")
+            # fetched_at is the screen-data age, not the current wall clock.
+            # The response Date advances even while that payload is cached.
+            headers = getattr(response, "headers", {}) or {}
+            clock_at = _http_date_timestamp(headers.get("date") or headers.get("Date"))
+            if clock_at:
+                payload["clock_at"] = clock_at
             return payload
         finally:
             if response is not None:

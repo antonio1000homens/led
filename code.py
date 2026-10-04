@@ -382,7 +382,7 @@ while True:
             if fetch_resume is not None:
                 rotation.resume(fetch_completed, fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
-            fetched_at = payload.get("fetched_at")
+            fetched_at = payload.get("clock_at") or payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, fetch_completed)
                 fixture_clock_synced = True
