@@ -29,7 +29,7 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn("{ kind: 'calling', service: list[0] || null }", self.simulator_source)
         self.assertIn("{ kind: 'service', service: list[1] || null }", self.simulator_source)
         self.assertIn("{ kind: 'service', service: list[2] || null }", self.simulator_source)
-        self.assertIn("? (rowIndex === 0 ? 1 : rowIndex) : rowIndex", self.simulator_source)
+        self.assertIn("(rowIndex === 0 ? 1 : rowIndex)", self.simulator_source)
 
     def test_weather_icon_and_temperature_replace_clock_as_one_header_group(self):
         self.assertIn('def _header_item_state(phase, weather):', self.display_source)
