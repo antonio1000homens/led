@@ -394,6 +394,7 @@ class Publisher:
                 "events": copy.deepcopy(calendar_events[:task_count]),
             })
         if config_feeds["weather"]["enabled"]:
+            weather_config = config_feeds["weather"]
             weather = feeds.get("weather") or {}
             data = weather.get("data")
             if data is not None:
@@ -412,15 +413,35 @@ class Publisher:
                 source = "unavailable"
                 stale = True
             overlay["stale"] = stale
-            screens.append({
-                "id": "weather-weekly",
-                "kind": "weather_weekly",
-                "duration_seconds": config_feeds["weather"]["screen_duration_seconds"],
-                "title": "7 DAY WEATHER",
-                "source": source,
-                "stale": stale,
-                "days": forecast,
-            })
+
+            if weather_config.get("overview_enabled", True):
+                screens.append({
+                    "id": "weather-weekly",
+                    "kind": "weather_weekly",
+                    "duration_seconds": weather_config["screen_duration_seconds"],
+                    "title": "7 DAY WEATHER",
+                    "source": source,
+                    "stale": stale,
+                    "days": forecast,
+                })
+
+            for day_index, day in enumerate(forecast):
+                if not weather_config.get("day_{}_enabled".format(day_index), True):
+                    continue
+                screens.append({
+                    "id": "weather-day-{}".format(day_index),
+                    "kind": "weather_day",
+                    "duration_seconds": weather_config.get(
+                        "day_{}_duration_seconds".format(day_index),
+                        8,
+                    ),
+                    "title": str(day.get("weekday") or "WEATHER"),
+                    "source": source,
+                    "stale": stale,
+                    "day_index": day_index,
+                    "day": copy.deepcopy(day),
+                })
+
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
         return {
