@@ -4,7 +4,8 @@ This module is intentionally not imported unless both safety flags in
 ``settings.py`` are enabled. It contains no credentials or broker defaults.
 """
 
-MQTT_LOOP_INTERVAL_SECONDS = 2.0
+MQTT_LOOP_INTERVAL_SECONDS = 60.0
+MQTT_KEEP_ALIVE_SECONDS = 180
 MQTT_SOCKET_TIMEOUT_SECONDS = 0.01
 
 
@@ -15,8 +16,19 @@ class FlashMqttClient:
         self.mqtt_factory = mqtt_factory
         self.client = None
         self.connected = False
+        self.enabled = True
         self.next_attempt = 0
         self.next_loop = 0
+
+    def set_enabled(self, enabled):
+        """Apply the admin runtime gate and close the connection when disabled."""
+        enabled = bool(enabled)
+        if self.enabled == enabled:
+            return
+        self.enabled = enabled
+        if not enabled:
+            self._discard_client()
+            self.next_attempt = 0
 
     def _connect(self, now):
         if self.client is not None and self.connected:
@@ -40,6 +52,7 @@ class FlashMqttClient:
                     username=self.settings.MQTT_USERNAME or None,
                     password=self.settings.MQTT_PASSWORD or None,
                     socket_pool=pool,
+                    keep_alive=MQTT_KEEP_ALIVE_SECONDS,
                     socket_timeout=MQTT_SOCKET_TIMEOUT_SECONDS,
                 )
             else:
@@ -69,6 +82,8 @@ class FlashMqttClient:
                 pass
 
     def poll(self, now):
+        if not self.enabled:
+            return
         self._connect(now)
         if not self.client or not self.connected:
             return
@@ -76,8 +91,8 @@ class FlashMqttClient:
             return
         try:
             # Keep MiniMQTT's blocking read below one 8 FPS display frame.
-            # Polling every two seconds still keeps reminder delivery prompt and
-            # services the broker keepalive while sharply limiting idle cost.
+            # Receive schedule updates once a minute; due-time checks use no I/O.
+            # Keepalive spans three polls so the broker tolerates this cadence.
             self.client.loop(timeout=MQTT_SOCKET_TIMEOUT_SECONDS)
             self.next_loop = now + MQTT_LOOP_INTERVAL_SECONDS
         except Exception as error:

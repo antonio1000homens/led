@@ -51,6 +51,8 @@ def main():
     parser.add_argument("--label", default="Manual MQTT test")
     parser.add_argument("--event-id", help="Reuse an ID to test duplicate suppression")
     parser.add_argument("--event", choices=("due", "scheduled"), default="due")
+    parser.add_argument("--due-in-seconds", type=int,
+                        help="Defaults to 120 for scheduled events, 0 for due events")
     parser.add_argument("--expires-in-seconds", type=int, default=300)
     args = parser.parse_args()
 
@@ -67,15 +69,17 @@ def main():
         return 2
 
     now = datetime.now(timezone.utc)
+    due = now + timedelta(seconds=(args.due_in_seconds if args.due_in_seconds is not None
+                                   else 120 if args.event == "scheduled" else 0))
     event_id = args.event_id or "manual-" + uuid4().hex
     payload = {
         "id": event_id,
         "type": "reminder",
         "event": args.event,
         "label": args.label,
-        "due_at": utc_iso(now),
+        "due_at": utc_iso(due),
         "published_at": utc_iso(now),
-        "expires_at": utc_iso(now + timedelta(seconds=args.expires_in_seconds)),
+        "expires_at": utc_iso(due + timedelta(seconds=args.expires_in_seconds)),
         "source": "manual-test",
     }
 

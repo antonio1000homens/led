@@ -295,3 +295,23 @@ Still outstanding: repeated workload-aligned captures that allow CPU use to
 be measured directly, visual inspection for tearing, and the live Home
 Assistant #4 Alexa recurrence and restart scenarios. Do not close #74 on these
 partial measurements.
+
+## Minute schedule protocol (2026-10-04)
+
+The current implementation supersedes the due-only protocol described in the
+historical captures above. HA publishes retained QoS-1 `scheduled` snapshots
+every minute and `clear` when no next reminder exists. Firmware polls every
+60 seconds with a 180-second keepalive, caches the nearest occurrence, and
+checks its due time locally during rendering and static-screen sleeps.
+Duplicate IDs do not restart a flash; cancellation clears pending work and
+older publication timestamps cannot restore it. IDs are remembered in RAM
+across broker reconnects, but not firmware reboots.
+
+Upgrade the board before reloading the HA package. Validate repeated snapshots
+without an early flash, a single flash at due time, edit/cancel behavior,
+expiry, reconnect, and clock synchronization. Compare identical animated
+workloads to determine whether minute polling reduces jumps. A new reminder
+or cancellation can take up to 60 seconds to be received; reminders created
+just before due time can be late. Only the nearest occurrence is cached.
+The synthetic publisher's `scheduled` mode must include `published_at` and a
+future `due_at`; it now schedules a flash rather than being rejected.

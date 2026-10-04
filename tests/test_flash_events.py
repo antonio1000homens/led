@@ -1,6 +1,6 @@
 import unittest
 
-from flash_events import FlashState, parse_flash_event
+from flash_events import FlashState, parse_flash_event, _iso_epoch
 from mqtt_client import (
     FlashMqttClient,
     MQTT_LOOP_INTERVAL_SECONDS,
@@ -97,8 +97,8 @@ class FlashEventTests(unittest.TestCase):
             "due_at": "2026-09-28T18:00:00+01:00",
             "expires_at": "2026-09-28T18:05:00+01:00",
         }
-        self.assertTrue(state.accept(first, 0, epoch_now=1790000000))
-        self.assertTrue(state.accept(second, 1, epoch_now=1790000001))
+        self.assertTrue(state.accept(first, 0, epoch_now=_iso_epoch(EVENT["due_at"])))
+        self.assertTrue(state.accept(second, 1, epoch_now=_iso_epoch(second["due_at"])))
         self.assertEqual(state.screen()["id"], "flash-" + second["id"])
 
     def test_malformed_event_is_ignored(self):
@@ -112,7 +112,7 @@ class FlashEventTests(unittest.TestCase):
 
     def test_discovery_or_non_due_event_is_ignored(self):
         self.assertIsNone(parse_flash_event({key: value for key, value in EVENT.items() if key != "event"}, 0))
-        self.assertIsNone(parse_flash_event({**EVENT, "event": "scheduled"}, 0))
+        self.assertIsNotNone(parse_flash_event({**EVENT, "event": "scheduled"}, 0))
 
     def test_duplicate_is_ignored_and_new_event_replaces_active(self):
         state = FlashState(enabled=True, duration_seconds=5)
@@ -129,16 +129,79 @@ class FlashEventTests(unittest.TestCase):
         self.assertFalse(state.accept(EVENT, 0))
         self.assertIsNone(state.screen())
         state.configure(enabled=True, duration_seconds=10)
-        self.assertTrue(state.accept(EVENT, 0, epoch_now=1790000000))
+        self.assertTrue(state.accept(EVENT, 0, epoch_now=_iso_epoch(EVENT["due_at"])))
         state.configure(enabled=False)
         self.assertIsNone(state.screen())
 
     def test_epoch_expiry_and_monotonic_duration_are_separate(self):
         state = FlashState(enabled=True, duration_seconds=5)
-        self.assertTrue(state.accept(EVENT, 100.0, epoch_now=1790000000))
+        self.assertTrue(state.accept(EVENT, 100.0, epoch_now=_iso_epoch(EVENT["due_at"])))
         self.assertTrue(state.active(104.9))
         self.assertFalse(state.active(105.1))
         self.assertFalse(state.accept(EVENT, 200.0, epoch_now=1790010400))
+
+
+class ScheduledReminderTests(unittest.TestCase):
+    def setUp(self):
+        self.state = FlashState(enabled=True)
+        self.due = _iso_epoch(EVENT["due_at"])
+        self.payload = {**EVENT, "event": "scheduled",
+                        "published_at": "2026-09-21T17:59:00+01:00"}
+
+    def test_minute_republication_does_not_fire_early_or_restart_flash(self):
+        self.assertFalse(self.state.accept(self.payload, 0, self.due - 60))
+        self.assertFalse(self.state.accept(self.payload, 59, self.due - 1))
+        self.assertFalse(self.state.active(59))
+        self.assertTrue(self.state.tick(60, self.due))
+        self.assertFalse(self.state.accept(self.payload, 61, self.due + 1))
+        self.assertEqual(self.state.started_at, 60)
+        self.assertFalse(self.state.tick(66, self.due + 6))
+        self.assertFalse(self.state.accept(self.payload, 67, self.due + 7))
+
+    def test_cancellation_and_older_replay(self):
+        self.state.accept(self.payload, 0, self.due - 60)
+        clear = {"type": "reminder", "event": "clear",
+                 "published_at": "2026-09-21T17:59:30+01:00"}
+        self.state.accept(clear, 30, self.due - 30)
+        self.state.accept(self.payload, 31, self.due - 29)
+        self.assertFalse(self.state.tick(60, self.due))
+        self.assertIsNone(self.state.pending)
+
+    def test_edit_replaces_future_occurrence(self):
+        self.state.accept(self.payload, 0, self.due - 60)
+        edited = {**self.payload, "id": "edited",
+                  "due_at": "2026-09-21T18:01:00+01:00",
+                  "published_at": "2026-09-21T17:59:30+01:00"}
+        self.state.accept(edited, 30, self.due - 30)
+        self.assertFalse(self.state.tick(60, self.due))
+        self.assertTrue(self.state.tick(120, self.due + 60))
+        self.assertEqual(self.state.event["id"], "edited")
+
+    def test_late_receipt_and_expiry(self):
+        self.assertTrue(self.state.accept(self.payload, 0, self.due + 60))
+        other = FlashState(enabled=True)
+        self.assertFalse(other.accept(self.payload, 0, self.due + 300))
+        self.assertIsNone(other.pending)
+        other.accept(self.payload, 0, self.due - 1)
+        self.assertFalse(other.tick(400, self.due + 300))
+        self.assertIsNone(other.pending)
+
+    def test_clock_required_and_disable_cancels_pending(self):
+        self.assertFalse(self.state.accept(self.payload, 0))
+        self.assertIsNone(self.state.pending)
+        self.state.accept(self.payload, 0, self.due - 60)
+        self.assertFalse(self.state.tick(60, None))
+        self.state.configure(enabled=False)
+        self.state.configure(enabled=True)
+        self.assertFalse(self.state.tick(60, self.due))
+
+    def test_invalid_snapshot_does_not_replace_valid_schedule(self):
+        self.state.accept(self.payload, 0, self.due - 60)
+        for invalid in ({**self.payload, "due_at": None},
+                        {**self.payload, "published_at": "invalid"},
+                        {**self.payload, "expires_at": self.payload["due_at"]}):
+            self.assertFalse(self.state.accept(invalid, 1, self.due - 59))
+        self.assertTrue(self.state.tick(60, self.due))
 
 
 class FakeSettings:
@@ -181,6 +244,42 @@ class FakeMqtt:
 
 
 class MqttTransportTests(unittest.TestCase):
+    def test_runtime_disable_disconnects_and_stops_polling_until_reenabled(self):
+        first = FakeMqtt()
+        second = FakeMqtt()
+        clients = [first, second]
+        transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=lambda settings: clients.pop(0))
+        transport.poll(0)
+        self.assertTrue(transport.connected)
+
+        transport.set_enabled(False)
+        self.assertFalse(transport.connected)
+        self.assertEqual(first.disconnect_calls, 1)
+        loop_calls_at_disable = first.loop_calls
+        transport.poll(1)
+        self.assertEqual(first.loop_calls, loop_calls_at_disable)
+        self.assertEqual(len(clients), 1)
+
+        transport.set_enabled(True)
+        transport.poll(2)
+        self.assertTrue(transport.connected)
+        self.assertEqual(second.subscriptions, [("led/flash/reminder", 1)])
+
+    def test_runtime_disable_before_first_poll_prevents_connection(self):
+        attempts = []
+
+        def factory(settings):
+            attempts.append(True)
+            return FakeMqtt()
+
+        transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=factory)
+        transport.set_enabled(False)
+        transport.poll(0)
+        self.assertEqual(attempts, [])
+        transport.set_enabled(True)
+        transport.poll(1)
+        self.assertEqual(attempts, [True])
+
     def test_connects_qos_one_and_delivers_string_payload(self):
         received = []
         client = FakeMqtt(json_payload := '{"id":"x","type":"reminder","label":"Hi","expires_at":"2099-01-01T00:00:00Z"}')
@@ -196,6 +295,9 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(0)
         transport.poll(0.1)
         self.assertEqual(client.loop_calls, 1)
+        transport.poll(59.999)
+        self.assertEqual(client.loop_calls, 1)
+        self.assertEqual(MQTT_LOOP_INTERVAL_SECONDS, 60.0)
         transport.poll(MQTT_LOOP_INTERVAL_SECONDS)
         self.assertEqual(client.loop_calls, 2)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])

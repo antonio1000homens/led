@@ -63,7 +63,7 @@ def parse_flash_event(payload, now=None):
         not isinstance(event_id, str)
         or not event_id.strip()
         or payload.get("type") != "reminder"
-        or payload.get("event") != "due"
+        or payload.get("event") not in ("due", "scheduled")
     ):
         return None
     if not isinstance(label, str) or not label.strip():
@@ -72,7 +72,11 @@ def parse_flash_event(payload, now=None):
         expires_at = _iso_epoch(payload.get("expires_at"))
         due_at = payload.get("due_at")
         if due_at is not None:
-            _iso_epoch(due_at)
+            due_epoch = _iso_epoch(due_at)
+            if expires_at <= due_epoch:
+                return None
+        elif payload.get("event") == "scheduled":
+            return None
         if now is not None and expires_at <= float(now):
             return None
     except (TypeError, ValueError):
@@ -97,13 +101,64 @@ class FlashState:
         self.seen = []
         self.event = None
         self.started_at = None
+        self.pending = None
+        self.last_published = None
 
     def accept(self, payload, now, epoch_now=None):
         if not self.enabled:
             return False
-        event = parse_flash_event(payload, epoch_now if epoch_now is not None else now)
-        if event is None or event["id"] in self.seen:
+        if isinstance(payload, (str, bytes, bytearray)):
+            try:
+                payload = json.loads(payload if isinstance(payload, str) else payload.decode("utf-8"))
+            except (ValueError, UnicodeError):
+                return False
+        if not isinstance(payload, dict):
             return False
+        snapshot = payload.get("event") in ("scheduled", "clear")
+        if snapshot:
+            if payload.get("type") != "reminder" or epoch_now is None:
+                return False
+            try:
+                published = _iso_epoch(payload.get("published_at"))
+            except ValueError:
+                return False
+            if self.last_published is not None and published < self.last_published:
+                return False
+            if payload.get("event") == "clear":
+                self.last_published = published
+                self.pending = None
+                return False
+        event = parse_flash_event(payload, epoch_now if epoch_now is not None else now)
+        if event is None:
+            return False
+        if snapshot:
+            self.last_published = published
+            self.pending = event if event["id"] not in self.seen else None
+            return self.tick(now, epoch_now)
+        if event["id"] in self.seen:
+            return False
+        # Legacy due messages also obey due_at whenever a clock is available.
+        if epoch_now is not None and event["due_at"] is not None:
+            self.pending = event
+            return self.tick(now, epoch_now)
+        return self._start(event, now)
+
+    def tick(self, now, epoch_now):
+        """Fire the cached occurrence using the local clock, without network I/O."""
+        if not self.enabled or self.pending is None or epoch_now is None:
+            return False
+        event = self.pending
+        if _iso_epoch(event["expires_at"]) <= epoch_now:
+            self.pending = None
+            return False
+        if _iso_epoch(event["due_at"]) > epoch_now:
+            return False
+        self.pending = None
+        if event["id"] in self.seen:
+            return False
+        return self._start(event, now)
+
+    def _start(self, event, now):
         self.seen.append(event["id"])
         del self.seen[:-self.seen_limit]
         self.event = event
@@ -121,6 +176,7 @@ class FlashState:
                 pass
         if not self.enabled:
             self.clear()
+            self.pending = None
 
     def active(self, now):
         return self.event is not None and float(now) - self.started_at < self.duration_seconds

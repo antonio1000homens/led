@@ -43,7 +43,7 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertNotIn('drawWeatherIcon(screen.weather);', self.simulator_source)
 
     def test_station_marquee_defaults_are_slower_and_keep_fixed_wrap_gap(self):
-        self.assertRegex(self.display_source, r'CALLING_SCROLL_SPEED\s*=\s*30\.0')
+        self.assertRegex(self.display_source, r'CALLING_SCROLL_SPEED\s*=\s*10\.0')
         self.assertRegex(self.display_source, r'CALLING_SCROLL_GAP\s*=\s*28')
         self.assertRegex(self.simulator_source, r'const RAIL_MARQUEE_SPEED\s*=\s*120;')
         self.assertRegex(self.simulator_source, r'const RAIL_MARQUEE_GAP\s*=\s*112;')
