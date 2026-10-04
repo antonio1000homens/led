@@ -527,9 +527,9 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             screen["services"][1]["stops"] = long_stops
             screen["services"][2]["stops"] = long_stops
 
-            self.assertFalse(display.animation_active(screen, 17.9))
+            self.assertFalse(display._departures_calling_moving(screen, 17.9))
             screen["services"][0]["stops"] = long_stops
-            self.assertTrue(display.animation_active(screen, 17.9))
+            self.assertTrue(display._departures_calling_moving(screen, 17.9))
 
     def test_departures_cache_reuses_scenes_for_equal_new_api_payload(self):
         with patch.dict(sys.modules, fake_modules()):
