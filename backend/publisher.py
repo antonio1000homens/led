@@ -396,10 +396,31 @@ class Publisher:
         if config_feeds["weather"]["enabled"]:
             weather = feeds.get("weather") or {}
             data = weather.get("data")
-            overlay = copy.deepcopy(data) if data is not None else {
-                "source": "unavailable", "temperature_c": None, "weather_code": None, "icon": "unknown"
-            }
-            overlay["stale"] = bool(weather.get("stale")) if data is not None else True
+            if data is not None:
+                overlay = copy.deepcopy(data)
+                forecast = copy.deepcopy(overlay.pop("forecast", [])[:7])
+                source = data.get("source", "open_meteo")
+                stale = bool(weather.get("stale"))
+            else:
+                overlay = {
+                    "source": "unavailable",
+                    "temperature_c": None,
+                    "weather_code": None,
+                    "icon": "unknown",
+                }
+                forecast = []
+                source = "unavailable"
+                stale = True
+            overlay["stale"] = stale
+            screens.append({
+                "id": "weather-weekly",
+                "kind": "weather_weekly",
+                "duration_seconds": config_feeds["weather"]["screen_duration_seconds"],
+                "title": "7 DAY WEATHER",
+                "source": source,
+                "stale": stale,
+                "days": forecast,
+            })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
         return {
