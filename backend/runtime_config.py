@@ -38,6 +38,22 @@ MAX_QUEUE_SCROLL_PAUSE_SECONDS = 30
 DEFAULT_QUEUE_SCROLL_PAUSE_SECONDS = 1
 DEFAULT_QUEUE_SCREEN_DURATION_SECONDS = 16
 DEFAULT_WEATHER_SCREEN_DURATION_SECONDS = 8
+DEFAULT_WEATHER_DAY_SCREEN_DURATION_SECONDS = 8
+WEATHER_DAY_COUNT = 7
+WEATHER_DAY_ENABLED_FIELDS = tuple("day_{}_enabled".format(index) for index in range(WEATHER_DAY_COUNT))
+WEATHER_DAY_DURATION_FIELDS = tuple(
+    "day_{}_duration_seconds".format(index) for index in range(WEATHER_DAY_COUNT)
+)
+WEATHER_MUTABLE_FIELDS = (
+    "enabled",
+    "poll_seconds",
+    "overview_enabled",
+    "screen_duration_seconds",
+) + tuple(
+    field
+    for index in range(WEATHER_DAY_COUNT)
+    for field in ("day_{}_enabled".format(index), "day_{}_duration_seconds".format(index))
+)
 DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
 MIN_FLASH_SCREEN_DURATION_SECONDS = 2
 MAX_FLASH_SCREEN_DURATION_SECONDS = 60
@@ -168,7 +184,7 @@ FEED_REGISTRY = {
     "weather": {
         "label": "Weather",
         "provider": "open_meteo",
-        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "mutable_fields": WEATHER_MUTABLE_FIELDS,
         "screen_duration": True,
     },
     "calendar": {
@@ -284,6 +300,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
             "weather": {
                 "enabled": weather_enabled,
                 "poll_seconds": _int_env(env, "LED_WEATHER_CACHE_SECONDS", 600),
+                "overview_enabled": True,
                 "screen_duration_seconds": _int_env(
                     env,
                     "LED_WEATHER_DURATION_SECONDS",
@@ -291,6 +308,14 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     minimum=MIN_SCREEN_DURATION_SECONDS,
                     maximum=MAX_SCREEN_DURATION_SECONDS,
                 ),
+                **{
+                    field: True
+                    for field in WEATHER_DAY_ENABLED_FIELDS
+                },
+                **{
+                    field: DEFAULT_WEATHER_DAY_SCREEN_DURATION_SECONDS
+                    for field in WEATHER_DAY_DURATION_FIELDS
+                },
             },
             "calendar": {
                 "enabled": calendar_enabled,
@@ -358,6 +383,16 @@ def schema_metadata() -> dict[str, Any]:
                     "maximum": metadata["maximum"],
                 }
             fields["splash_enabled"] = {"type": "boolean"}
+        if feed_id == "weather":
+            fields["overview_enabled"] = {"type": "boolean"}
+            for field in WEATHER_DAY_ENABLED_FIELDS:
+                fields[field] = {"type": "boolean"}
+            for field in WEATHER_DAY_DURATION_FIELDS:
+                fields[field] = {
+                    "type": "integer",
+                    "minimum": MIN_SCREEN_DURATION_SECONDS,
+                    "maximum": MAX_SCREEN_DURATION_SECONDS,
+                }
         if feed_id == "calendar":
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 fields[field] = {
@@ -435,6 +470,24 @@ def validate_feed_patch(
             MIN_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MIN_SCREEN_DURATION_SECONDS,
             MAX_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MAX_SCREEN_DURATION_SECONDS,
         )
+    if "overview_enabled" in patch:
+        if not isinstance(patch["overview_enabled"], bool):
+            raise RuntimeConfigValidationError(f"{feed_id}.overview_enabled must be boolean")
+        result["overview_enabled"] = patch["overview_enabled"]
+    for field in WEATHER_DAY_ENABLED_FIELDS:
+        if field in patch:
+            if not isinstance(patch[field], bool):
+                raise RuntimeConfigValidationError(f"{feed_id}.{field} must be boolean")
+            result[field] = patch[field]
+    for field in WEATHER_DAY_DURATION_FIELDS:
+        if field in patch:
+            result[field] = _validate_integer(
+                feed_id,
+                field,
+                patch[field],
+                MIN_SCREEN_DURATION_SECONDS,
+                MAX_SCREEN_DURATION_SECONDS,
+            )
     for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
         if field in patch:
             result[field] = _validate_integer(
@@ -521,7 +574,12 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
         if feed_id == "weather":
+            raw.setdefault("overview_enabled", True)
             raw.setdefault("screen_duration_seconds", DEFAULT_WEATHER_SCREEN_DURATION_SECONDS)
+            for field in WEATHER_DAY_ENABLED_FIELDS:
+                raw.setdefault(field, True)
+            for field in WEATHER_DAY_DURATION_FIELDS:
+                raw.setdefault(field, DEFAULT_WEATHER_DAY_SCREEN_DURATION_SECONDS)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
         if set(raw) != expected:
