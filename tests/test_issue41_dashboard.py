@@ -23,9 +23,13 @@ class Issue41DashboardTests(unittest.TestCase):
         ast.parse(self.publisher_source)
 
     def test_departures_cycle_configured_upcoming_services_without_label_row(self):
-        self.assertIn('rail_rows(services, phase)', self.display_source)
-        self.assertIn('function railRows(services, phase)', self.simulator_source)
+        self.assertIn('rail_rows(services, phase, calling_seconds, summary_seconds)', self.display_source)
+        self.assertIn('function railRows(services, phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS)', self.simulator_source)
         self.assertIn("{ kind: 'header', service: null }", self.simulator_source)
+        self.assertIn("{ kind: 'calling', service: list[0] || null }", self.simulator_source)
+        self.assertIn("{ kind: 'service', service: list[1] || null }", self.simulator_source)
+        self.assertIn("{ kind: 'service', service: list[2] || null }", self.simulator_source)
+        self.assertIn("(rowIndex === 0 ? 1 : rowIndex)", self.simulator_source)
 
     def test_weather_icon_and_temperature_replace_clock_as_one_header_group(self):
         self.assertIn('def _header_item_state(phase, weather):', self.display_source)
@@ -43,7 +47,7 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertNotIn('drawWeatherIcon(screen.weather);', self.simulator_source)
 
     def test_station_marquee_defaults_are_slower_and_keep_fixed_wrap_gap(self):
-        self.assertRegex(self.display_source, r'CALLING_SCROLL_SPEED\s*=\s*10\.0')
+        self.assertRegex(self.display_source, r'CALLING_SCROLL_SPEED\s*=\s*20\.0')
         self.assertRegex(self.display_source, r'CALLING_SCROLL_GAP\s*=\s*28')
         self.assertRegex(self.simulator_source, r'const RAIL_MARQUEE_SPEED\s*=\s*120;')
         self.assertRegex(self.simulator_source, r'const RAIL_MARQUEE_GAP\s*=\s*112;')
@@ -72,8 +76,8 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('service.station_spacing_px', self.simulator_source)
         self.assertIn('.join(stationSeparator(service))', self.simulator_source)
         self.assertNotIn('boundedNumber(screen.station_list_spacing', self.simulator_source)
-        self.assertIn('rail_rows(services, phase)', self.display_source)
-        self.assertIn('function railRows(services, phase)', self.simulator_source)
+        self.assertIn('rail_rows(services, phase, calling_seconds, summary_seconds)', self.display_source)
+        self.assertIn('function railRows(services, phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS)', self.simulator_source)
         self.assertIn('ordinal_label', self.display_source)
         self.assertIn('function ordinalLabel(number)', self.simulator_source)
 

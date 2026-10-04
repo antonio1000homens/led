@@ -167,10 +167,10 @@ class DisplayLayoutTests(unittest.TestCase):
         display._draw_screen(screen, phase=0, clock_date="2026-09-15")
 
         status_x = [x for text, x, _y, _color in display.drawn if text == "On time"]
-        self.assertEqual(len(status_x), 3)
+        self.assertEqual(len(status_x), 4)
         self.assertEqual(len(set(status_x)), 1)
         ordinals = [text for text, _x, _y, _color in display.drawn if text in ("1st", "2nd", "3rd", "4th")]
-        self.assertEqual(ordinals[:3], ["1st", "2nd", "3rd"])
+        self.assertEqual(ordinals[:4], ["1st", "2nd", "3rd", "4th"])
 
 
 if __name__ == "__main__":

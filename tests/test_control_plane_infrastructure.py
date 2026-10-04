@@ -64,11 +64,12 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
         self.assertNotIn("sessionStorage", self.admin)
         self.assertNotIn("Bearer ", self.admin)
 
-    def test_docs_keep_admin_human_only_and_control_api_service_token_enabled(self):
+    def test_docs_keep_admin_human_only_and_scope_service_auth_to_control_api(self):
         self.assertIn("/admin*", self.docs)
-        self.assertIn("interactive Google/two-user allow policy only", self.docs)
+        self.assertIn("shared human allow policy", self.docs)
         self.assertIn("/api/control/v1/*", self.docs)
         self.assertIn("Service Auth", self.docs)
+        self.assertIn("never attach Service Auth to the HTML admin application", self.docs)
         self.assertIn("CF-Access-Client-Id", self.docs)
         self.assertIn("CF-Access-Client-Secret", self.docs)
         self.assertIn("Do not add an Access application covering `https://<led-host>/api/screens`", self.docs)

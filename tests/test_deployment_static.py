@@ -81,7 +81,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("const RAIL_MARQUEE_SPEED = 120;", simulator)
         self.assertIn("const RAIL_MARQUEE_GAP = 112;", simulator)
         self.assertIn("return { services: services.slice(0, 1 + count) };", simulator)
-        self.assertIn("function railRows(services, phase)", simulator)
+        self.assertIn("function railRows(services, phase, summarySeconds = RAIL_SUMMARY_SECONDS, callingSeconds = RAIL_CALLING_SECONDS)", simulator)
         self.assertIn("RAIL_ROW_Y[rowIndex]", simulator)
         self.assertIn("drawRailService(row.service, y, 0, headerRight", simulator)
         self.assertNotIn("context.fillText('UPCOMING', 0, 64);", simulator)
@@ -124,7 +124,7 @@ class DeploymentStaticTests(unittest.TestCase):
     def test_physical_renderer_uses_both_departure_rows_and_clips_agenda_title(self):
         display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
         self.assertIn("RAIL_ROW_Y", display)
-        self.assertIn("rail_rows(services, phase)", display)
+        self.assertIn("rail_rows(services, phase, calling_seconds, summary_seconds)", display)
         self.assertIn('self._label(group, "DEPARTURES", 0xFFAA00, 0, y)', display)
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
