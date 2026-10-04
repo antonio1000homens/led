@@ -19,7 +19,7 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 | `departures` | National Rail | `enabled`, `poll_seconds`, `screen_duration_seconds` |
 | `thorpe_park` | Queue-Times park 2 | `enabled`, `poll_seconds`, `screen_duration_seconds`, ordered `rides` |
 | `chessington` | Queue-Times park 3 | `enabled`, `poll_seconds`, `screen_duration_seconds`, ordered `rides` |
-| `weather` | Open-Meteo | `enabled`, `poll_seconds`, `screen_duration_seconds` |
+| `weather` | Open-Meteo | `enabled`, `poll_seconds`, `overview_enabled`, overview `screen_duration_seconds`, `day_0_enabled` … `day_6_enabled`, and matching per-day duration fields |
 | `calendar` | Todoist | `enabled`, `poll_seconds`, `screen_duration_seconds` |
 | `flash` | Pending MQTT event path | `enabled` (starts or stops board MQTT polling), `screen_duration_seconds` (default 5) |
 
@@ -29,7 +29,7 @@ Deployment settings still own provider credentials, station CRS, weather coordin
 
 For Flash events, the runtime `enabled` setting is applied on the MatrixPortal as well as by the publisher: disabled means the board disconnects from MQTT and does not poll the transport. The local `MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL` settings remain hard safety gates; runtime enablement cannot override either local gate.
 
-If the DynamoDB item does not exist, callers see safe defaults derived from the deployment configuration. The first authenticated configuration read seeds those defaults as version 1. After that, the DynamoDB values are authoritative for supported runtime fields. Existing persisted configs that predate the weekly weather screen are upgraded in memory with the default 8-second Weather screen duration, so no DynamoDB reset is required.
+If the DynamoDB item does not exist, callers see safe defaults derived from the deployment configuration. The first authenticated configuration read seeds those defaults as version 1. After that, the DynamoDB values are authoritative for supported runtime fields. Existing persisted configs that predate the Weather screen controls are upgraded in memory: the seven-day overview defaults enabled, every individual forecast day defaults enabled, and all Weather screen durations default to 8 seconds. No DynamoDB reset is required.
 
 ## Control API
 
@@ -39,7 +39,7 @@ All endpoints return JSON and `Cache-Control: no-store`. Configuration responses
 
 `GET /api/control/v1/config`
 
-Returns the effective configuration, `config_version`, `updated_at`, `updated_by`, field limits, provider/display metadata, and live ride choices for Queue-Times feeds.
+Returns the effective configuration, `config_version`, `updated_at`, `updated_by`, field limits, provider/display metadata, and live ride choices for Queue-Times feeds. The admin page renders Weather as a dedicated overview/day grid so the individual day toggles and durations do not appear as raw field names.
 
 ### Read status
 
