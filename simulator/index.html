@@ -679,7 +679,7 @@
         drawLedText(weekday, centeredX(weekday), 0);
         context.fillStyle = stale ? '#777777' : weatherColors[iconName];
         pattern.forEach((line, y) => [...line].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect(iconX + x * 4, 28 + y * 4, 4, 4);
+          if (pixel === '#') context.fillRect(iconX + x * 4, 32 + y * 4, 4, 4);
         }));
         context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
         drawLedText(maxText, centeredX(maxText), 64);
