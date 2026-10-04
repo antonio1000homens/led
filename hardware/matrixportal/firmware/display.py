@@ -68,6 +68,13 @@ AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 WEEKLY_WEATHER_TEXT_SCALE = 2
+WEATHER_DAY_ICON_SCALE = 4
+WEATHER_DAY_WEEKDAY_X = 6
+WEATHER_DAY_ICON_X = 20
+WEATHER_DAY_ICON_Y = 2
+WEATHER_DAY_METRICS_X = 54
+WEATHER_DAY_METRIC_ROWS = (0, 8, 16, 24)
+WEATHER_DAY_WEEKDAY_ROWS = (0, 10, 20)
 WEATHER_FONT_WIDTH = 5
 WEATHER_GAP = 1
 HEADER_GAP = 4
@@ -238,6 +245,30 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
             "icon_width": icon_width,
         })
     return layout
+
+
+def _weather_day_layout(day):
+    """Build the static full-height layout for one forecast day."""
+    if not isinstance(day, dict):
+        return None
+    weekday = str(day.get("weekday") or "---").upper()[:3].ljust(3, "-")
+    icon_name, rows = _weather_icon(day)
+    return {
+        "weekday": weekday,
+        "weekday_x": WEATHER_DAY_WEEKDAY_X,
+        "weekday_rows": WEATHER_DAY_WEEKDAY_ROWS,
+        "icon_name": icon_name,
+        "icon_rows": rows,
+        "icon_x": WEATHER_DAY_ICON_X,
+        "icon_y": WEATHER_DAY_ICON_Y,
+        "icon_scale": WEATHER_DAY_ICON_SCALE,
+        "metrics_x": WEATHER_DAY_METRICS_X,
+        "metric_rows": WEATHER_DAY_METRIC_ROWS,
+        "rise_text": "RISE {}".format(day.get("sunrise_time") or "--:--"),
+        "set_text": "SET {}".format(day.get("sunset_time") or "--:--"),
+        "max_text": "MAX {}".format(_weekly_temperature_text(day.get("temperature_max_c"))),
+        "min_text": "MIN {}".format(_weekly_temperature_text(day.get("temperature_min_c"))),
+    }
 
 
 def _calling_segments(text, x, gap):
@@ -1613,6 +1644,49 @@ class MatrixDisplay:
             ))
             self._temperature_label(group, item["max_text"], text_color, item["max_x"], 22)
 
+    def _weather_day(self, group, screen):
+        import displayio
+
+        layout = _weather_day_layout(screen.get("day"))
+        if layout is None:
+            text = "Weather unavailable"
+            x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
+            self._label(group, text, 0xAAAAAA, x, 18)
+            return
+
+        stale = bool(screen.get("stale"))
+        text_color = 0xAAAAAA if stale else 0xFFFFFF
+        weekday_color = 0x777777 if stale else 0xFFAA00
+        for letter, row_y in zip(layout["weekday"], layout["weekday_rows"]):
+            self._label(group, letter, weekday_color, layout["weekday_x"], row_y + 3)
+
+        scale = layout["icon_scale"]
+        bitmap = displayio.Bitmap(WEATHER_ICON_WIDTH * scale, WEATHER_ICON_WIDTH * scale, 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette[1] = _weather_rgb(layout["icon_name"], stale)
+        for y, row in enumerate(layout["icon_rows"]):
+            for x, pixel in enumerate(row):
+                if pixel == "#":
+                    for dx in range(scale):
+                        for dy in range(scale):
+                            bitmap[x * scale + dx, y * scale + dy] = 1
+        group.append(displayio.TileGrid(
+            bitmap,
+            pixel_shader=palette,
+            x=layout["icon_x"],
+            y=layout["icon_y"],
+        ))
+
+        metrics = (
+            layout["rise_text"],
+            layout["set_text"],
+            layout["max_text"],
+            layout["min_text"],
+        )
+        for text, row_y in zip(metrics, layout["metric_rows"]):
+            self._label(group, text, text_color, layout["metrics_x"], row_y + 3)
+
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
             return
@@ -1652,6 +1726,12 @@ class MatrixDisplay:
         if not empty_state and kind == "weather_weekly":
             group = displayio.Group()
             self._weekly_weather(group, screen)
+            self._present(group)
+            return
+
+        if not empty_state and kind == "weather_day":
+            group = displayio.Group()
+            self._weather_day(group, screen)
             self._present(group)
             return
 
@@ -1788,10 +1868,48 @@ class FixtureDisplay:
                                             6 + y * WEEKLY_WEATHER_ICON_SCALE + dy, icon_color)
             self._text_scaled(item["max_text"], item["max_x"], 22, text_color)
 
+    def _weather_day(self, screen):
+        layout = _weather_day_layout(screen.get("day"))
+        if layout is None:
+            text = "Weather unavailable"
+            x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
+            self._text(text, x, 13, (170, 170, 170))
+            return
+
+        stale = bool(screen.get("stale"))
+        text_color = (170, 170, 170) if stale else (255, 255, 255)
+        weekday_color = (119, 119, 119) if stale else (255, 170, 0)
+        for letter, row_y in zip(layout["weekday"], layout["weekday_rows"]):
+            self._text(letter, layout["weekday_x"], row_y, weekday_color)
+
+        icon_color = _rgb_tuple(_weather_rgb(layout["icon_name"], stale))
+        scale = layout["icon_scale"]
+        for y, row in enumerate(layout["icon_rows"]):
+            for x, pixel in enumerate(row):
+                if pixel == "#":
+                    for dx in range(scale):
+                        for dy in range(scale):
+                            self._pixel(
+                                layout["icon_x"] + x * scale + dx,
+                                layout["icon_y"] + y * scale + dy,
+                                icon_color,
+                            )
+
+        metrics = (
+            layout["rise_text"],
+            layout["set_text"],
+            layout["max_text"],
+            layout["min_text"],
+        )
+        for text, row_y in zip(metrics, layout["metric_rows"]):
+            self._text(text, layout["metrics_x"], row_y, text_color)
+
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
         if kind == "weather_weekly":
             self._weekly_weather(screen)
+        elif kind == "weather_day":
+            self._weather_day(screen)
         elif kind == "rail_combined":
             services = screen.get("services") or []
             rail_right_edge = _header_content_right(screen)
@@ -1946,7 +2064,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date)
-            if kind != "weather_weekly":
+            if kind not in ("weather_weekly", "weather_day"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
@@ -1972,6 +2090,16 @@ class FixtureDisplay:
                     day.get("icon") or "unknown",
                     _weekly_temperature_text(day.get("temperature_max_c")),
                 ))
+        elif kind == "weather_day":
+            day = screen.get("day") or {}
+            print("{} {} RISE {} SET {} MAX {} MIN {}".format(
+                str(day.get("weekday") or "---")[:3].upper(),
+                day.get("icon") or "unknown",
+                day.get("sunrise_time") or "--:--",
+                day.get("sunset_time") or "--:--",
+                _weekly_temperature_text(day.get("temperature_max_c")),
+                _weekly_temperature_text(day.get("temperature_min_c")),
+            ))
         elif kind == "rail_combined":
             services = screen.get("services") or []
             if services:
@@ -1999,9 +2127,9 @@ class FixtureDisplay:
         elif kind == "flash":
             print(str(screen.get("label") or ""))
         weather = screen.get("weather")
-        if kind != "weather_weekly" and isinstance(weather, dict):
+        if kind not in ("weather_weekly", "weather_day") and isinstance(weather, dict):
             print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))
-        if kind != "weather_weekly" and screen.get("stale"):
+        if kind not in ("weather_weekly", "weather_day") and screen.get("stale"):
             print("STALE")
 
     def show_diagnostic(self, color):
