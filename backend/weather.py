@@ -1,4 +1,4 @@
-"""Current-weather provider and cache for the LED backend."""
+"""Current weather and seven-day forecast provider/cache for the LED backend."""
 
 from __future__ import annotations
 
@@ -59,6 +59,9 @@ class OpenMeteoProvider:
                 "latitude": self.latitude,
                 "longitude": self.longitude,
                 "current": "temperature_2m,weather_code,is_day",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+                "forecast_days": 7,
+                "timezone": "auto",
             }
         )
         response = self.opener(OPEN_METEO_URL + "?" + query, timeout=self.timeout)
@@ -77,11 +80,44 @@ class OpenMeteoProvider:
         except (KeyError, TypeError, ValueError) as error:
             raise WeatherFeedUnavailable("Open-Meteo current weather is invalid") from error
 
+        daily = payload.get("daily") if isinstance(payload, dict) else None
+        if not isinstance(daily, dict):
+            raise WeatherFeedUnavailable("Open-Meteo response has no daily forecast")
+        required = ("time", "weather_code", "temperature_2m_max", "temperature_2m_min")
+        arrays = [daily.get(name) for name in required]
+        if any(not isinstance(values, list) for values in arrays):
+            raise WeatherFeedUnavailable("Open-Meteo daily forecast is invalid")
+
+        forecast = []
+        count = min(7, *(len(values) for values in arrays))
+        for index in range(count):
+            try:
+                date_text = str(arrays[0][index])
+                date_value = datetime.strptime(date_text, "%Y-%m-%d")
+                daily_code = int(arrays[1][index])
+                temperature_max = float(arrays[2][index])
+                temperature_min = float(arrays[3][index])
+            except (TypeError, ValueError):
+                continue
+            forecast.append(
+                {
+                    "date": date_text,
+                    "weekday": date_value.strftime("%a").upper(),
+                    "temperature_max_c": round(temperature_max, 1),
+                    "temperature_min_c": round(temperature_min, 1),
+                    "weather_code": daily_code,
+                    "icon": weather_icon(daily_code, True),
+                }
+            )
+        if not forecast:
+            raise WeatherFeedUnavailable("Open-Meteo daily forecast has no usable entries")
+
         return {
             "temperature_c": round(temperature, 1),
             "weather_code": code,
             "icon": weather_icon(code, is_day),
             "is_day": is_day,
+            "forecast": forecast,
             "attribution": "Weather data by Open-Meteo.com",
             "attribution_url": "https://open-meteo.com/",
         }
