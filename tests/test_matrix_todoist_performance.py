@@ -165,6 +165,12 @@ def departures_screen(long_calling=False):
                 "platform": "4",
                 "stops": second_stops,
             },
+            {
+                "time": "20:00",
+                "destination": "Waterloo",
+                "platform": "1",
+                "stops": [{"station": "Wimbledon", "time": "20:08"}],
+            },
         ],
         "weather": {"temperature_c": 17, "icon": "clear_day"},
     }
@@ -397,6 +403,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
+            screen["summary_seconds"] = 8
             display.show(screen, clock_time="19:40", phase=0)
 
             self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
@@ -405,6 +412,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertGreater(display.animation_sleep_seconds(screen, 0.5), 0)
 
             long_screen = departures_screen(long_calling=True)
+            long_screen["summary_seconds"] = 8
             self.assertEqual(display.animation_cadence(long_screen, 10.0), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(long_screen, 12.5), DEPARTURES_CALLING_FPS)
 
@@ -412,6 +420,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             long_screen = departures_screen(long_calling=True)
+            long_screen["summary_seconds"] = 8
             self.assertFalse(display.animation_active(long_screen, 3.0))
             self.assertTrue(display.animation_active(long_screen, 10.0))
 
@@ -430,6 +439,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
+            screen["summary_seconds"] = 8
 
             display.show(screen, clock_time="19:40", phase=0)
             summary_group = display._rail_group
@@ -447,6 +457,79 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.show(screen, clock_time="19:40", phase=28)
             self.assertIs(display._rail_group, calling_group)
             self.assertIs(display._rail_calling_labels, calling_labels)
+
+    def test_calling_layout_has_one_marquee_between_trains_one_and_two(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            display.show(screen, clock_time="19:40", phase=10.0)
+
+            rows = led_display.rail_rows(screen["services"], 10.0)
+            self.assertEqual(
+                [kind for kind, _ in rows],
+                ["service", "calling", "service", "service"],
+            )
+            self.assertIs(rows[0][1], screen["services"][0])
+            self.assertIs(rows[1][1], screen["services"][0])
+            self.assertIs(rows[2][1], screen["services"][1])
+            self.assertIs(rows[3][1], screen["services"][2])
+            self.assertEqual(len(display._rail_calling_labels), 1)
+            self.assertEqual(
+                display._rail_calling_labels[0]["text"],
+                led_display.calling_text(screen["services"][0]),
+            )
+            visible_labels = [child.text for row in display._rail_departure_rows
+                              for child in row if hasattr(child, "text")]
+            self.assertIn("2nd", visible_labels)
+            self.assertIn("3rd", visible_labels)
+
+    def test_moving_train_viewport_preserves_fixed_rows_and_full_lower_glyphs(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["summary_seconds"] = 0
+            screen["calling_seconds"] = 120
+            screen["weather"] = None
+            # More than two upcoming services activates the row slide.
+            screen["services"].append(copy.deepcopy(screen["services"][-1]))
+            for phase in (0, 2.2, 2.4):
+                with self.subTest(phase=phase):
+                    display.show(screen, clock_time="19:40", phase=phase)
+                    root = display._rail_group
+                    mask = next(child for child in root
+                                if isinstance(child, FakeTileGrid)
+                                and child.bitmap.width == led_display.DISPLAY_WIDTH
+                                and child.bitmap.height > 8)
+                    mask_index = next(i for i, child in enumerate(root) if child is mask)
+                    self.assertEqual(mask.y, 0)
+                    # The first lower row's seven-pixel glyph spans y=17..23.
+                    self.assertEqual(mask.y + mask.bitmap.height, 17)
+                    for row in display._rail_departure_rows:
+                        self.assertLess(next(i for i, child in enumerate(root)
+                                             if child is row), mask_index)
+                    fixed = root[mask_index + 1]
+                    self.assertIn("1st", [child.text for child in fixed
+                                          if isinstance(child, FakeLabel)])
+                    calling_prefix = display._rail_calling_labels[0]["prefix"]
+                    self.assertTrue(any(isinstance(child, FakeGroup)
+                                        and any(item is calling_prefix for item in child)
+                                        for child in fixed))
+
+    def test_departures_animation_activity_tracks_only_first_train_calling_row(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["weather"] = None
+            long_stops = [
+                {"station": "Long station name {}".format(index), "time": "20:{:02d}".format(index)}
+                for index in range(10)
+            ]
+            screen["services"][1]["stops"] = long_stops
+            screen["services"][2]["stops"] = long_stops
+
+            self.assertFalse(display.animation_active(screen, 17.9))
+            screen["services"][0]["stops"] = long_stops
+            self.assertTrue(display.animation_active(screen, 17.9))
 
     def test_departures_cache_reuses_scenes_for_equal_new_api_payload(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -488,17 +571,19 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
             display.show(screen, clock_time="19:40", phase=10.0)
             labels = display._rail_calling_labels[0]
-            label_text = (
-                labels["prefix"].text,
-                labels["first"].text,
-                labels["second"].text,
+            label_text = tuple(
+                tuple(label.text for label in labels[key])
+                for key in ("first", "second")
             )
             first_x = tuple(labels[key].x for key in ("first", "second"))
 
             display.show(screen, clock_time="19:40", phase=10.125)
             self.assertNotEqual(tuple(labels[key].x for key in ("first", "second")), first_x)
             self.assertEqual(
-                (labels["prefix"].text, labels["first"].text, labels["second"].text),
+                tuple(
+                    tuple(label.text for label in labels[key])
+                    for key in ("first", "second")
+                ),
                 label_text,
             )
 
@@ -509,11 +594,29 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                     phase=10.0 + frame / MATRIX_REFRESH_FPS,
                 )
 
-            final_text = (labels["prefix"].text, labels["first"].text, labels["second"].text)
-            self.assertNotEqual(final_text, label_text)
-            self.assertTrue(
-                all(len(labels[key].text) <= 39 for key in ("first", "second"))
+            final_text = tuple(
+                tuple(label.text for label in labels[key])
+                for key in ("first", "second")
             )
+            self.assertEqual(final_text, label_text)
+            self.assertTrue(all(len(label.text) <= 24 for key in ("first", "second") for label in labels[key]))
+
+    def test_todoist_long_titles_use_fixed_chunks_while_the_group_moves(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = todoist_screen(1)
+            screen["events"][0]["title"] = "A" * 140
+
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+            _, title_group, _, _ = display._todoist_rows[0]
+            self.assertGreater(len(title_group), 1)
+            self.assertTrue(all(len(label.text) <= 24 for label in title_group))
+            labels = tuple(label.text for label in title_group)
+            initial_x = title_group.x
+
+            display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=1.0 / MATRIX_REFRESH_FPS)
+            self.assertLess(title_group.x, initial_x)
+            self.assertEqual(tuple(label.text for label in title_group), labels)
 
     def test_boundary_sleep_uses_earliest_header_event(self):
         with patch.dict(sys.modules, fake_modules()):
