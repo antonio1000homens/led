@@ -113,9 +113,13 @@ def _sleep_interruptible(seconds, service_mqtt=False):
             return
         time.sleep(min(_BUTTON_POLL_SECONDS, remaining))
         now = time.monotonic()
-        if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
+        if service_mqtt and _service_reminder_clock(now):
+            return
+        if service_mqtt and mqtt is not None and flash.enabled and now >= next_mqtt_poll:
             mqtt.poll(now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
+            if flash.active(now):
+                return
         if buttons is not None:
             events = buttons.poll(now)
             if events:
@@ -128,31 +132,54 @@ transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
 flash = FlashState(
-    enabled=(settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL),
+    # Runtime transport stays stopped until the screen payload confirms that
+    # Flash events are enabled in the admin control plane.
+    enabled=False,
 )
 flash_resume = None
 mqtt = None
+
+
+def _reminder_epoch(now):
+    epoch_now = clock.epoch(now)
+    if epoch_now is None:
+        system_epoch = time.time()
+        epoch_now = system_epoch if system_epoch >= 1000000000 else None
+    return epoch_now
+
+
+def _flash_started(now):
+    global flash_resume, last_render_key
+    if flash_resume is None:
+        flash_resume = rotation.pause(now)
+    last_render_key = None
+    print("FLASH START id={}".format(flash.event["id"]))
+
+
+def _service_reminder_clock(now):
+    if not flash.enabled or flash.pending is None:
+        return False
+    if flash.tick(now, _reminder_epoch(now)):
+        _flash_started(now)
+        return True
+    return False
+
+
 if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL:
     from mqtt_client import FlashMqttClient
 
     def receive_flash(payload):
-        global flash_resume, last_render_key
         now = time.monotonic()
-        epoch_now = clock.epoch(now)
-        if epoch_now is None:
-            system_epoch = time.time()
-            epoch_now = system_epoch if system_epoch >= 1000000000 else None
+        epoch_now = _reminder_epoch(now)
         if epoch_now is None:
             print("FLASH ignored: clock not synchronized")
             return
         if flash.accept(payload, now, epoch_now=epoch_now):
-            # A replacement must not advance the frozen underlying rotation.
-            if flash_resume is None:
-                flash_resume = rotation.pause(now)
-            last_render_key = None
-            print("FLASH START id={}".format(flash.event["id"]))
+            _flash_started(now)
 
     mqtt = FlashMqttClient(settings, receive_flash)
+    # Wait for the first screen payload to apply the admin Flash events gate.
+    mqtt.set_enabled(False)
 rendered_diagnostic_index = None
 last_render_key = None
 
@@ -202,6 +229,8 @@ def _display_phase(screen, phase):
         return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
+    if _smooth_queue(screen):
+        return phase
     return 2
 
 
@@ -217,6 +246,13 @@ def _smooth_departures(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "rail_combined"
+    )
+
+
+def _smooth_queue(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "theme_park_queues"
     )
 
 
@@ -263,15 +299,23 @@ def _apply_flash_config(payload):
         return
     # The public screen payload carries only non-secret operational settings.
     # Transport activation remains controlled exclusively by local board flags.
+    runtime_enabled = (
+        settings.MQTT_ENABLED
+        and settings.MQTT_ENABLE_EXPERIMENTAL
+        and config.get("enabled", False)
+    )
     flash.configure(
-        enabled=(settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and config.get("enabled", False)),
+        enabled=runtime_enabled,
         duration_seconds=config.get("screen_duration_seconds"),
     )
+    if mqtt is not None:
+        mqtt.set_enabled(runtime_enabled)
 
 
 while True:
     now = time.monotonic()
-    if mqtt is not None:
+    _service_reminder_clock(now)
+    if mqtt is not None and flash.enabled:
         mqtt.poll(now)
     button_events = list(_pending_button_events)
     _pending_button_events[:] = []
@@ -405,7 +449,7 @@ while True:
             )
         )
         last_render_key = render_key
-    smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen)
+    smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen) or _smooth_queue(screen)
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)
         if desired_cadence <= 0:

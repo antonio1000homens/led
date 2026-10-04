@@ -17,7 +17,7 @@ DEFAULT_STATION_LIST_SPACING = 10
 # ascender is above the label coordinate, so this uses the full 32px panel
 # without clipping the first row or leaving a large unused bottom band.
 RAIL_ROW_Y = (4, 12, 20, 28)
-RAIL_SUMMARY_SECONDS = 8.0
+RAIL_SUMMARY_SECONDS = 0.0
 RAIL_CALLING_SECONDS = 12.0
 AGENDA_VISIBLE_ROWS = 3
 AGENDA_SLIDE_SECONDS = 0.4
@@ -30,6 +30,9 @@ AGENDA_TITLE_X = (AGENDA_WHEN_WIDTH + AGENDA_TITLE_GAP) * AGENDA_FONT_WIDTH
 AGENDA_TITLE_VISIBLE_CHARS = AGENDA_ROW_WIDTH - AGENDA_WHEN_WIDTH - AGENDA_TITLE_GAP
 AGENDA_MARQUEE_SPEED = 30.0
 AGENDA_MARQUEE_PAUSE_SECONDS = 1.25
+DEPARTURE_SLIDE_SECONDS = 0.4
+DEPARTURE_RESET_GAP_SECONDS = 0.4
+DEPARTURE_RESET_SLIDE_SECONDS = 0.8
 
 
 def _pad_right(value, width):
@@ -156,6 +159,7 @@ def calling_marquee_x(
     delay_seconds=RAIL_MARQUEE_DELAY_SECONDS,
     gap=RAIL_MARQUEE_GAP,
     pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS,
+    stop_at_end=False,
 ):
     """Return station-text x while keeping ``CALLING AT:`` fixed.
 
@@ -179,7 +183,17 @@ def calling_marquee_x(
     visible_width = max(1, int(display_width) - prefix_width)
     text_width = len(stations) * int(font_width)
     phase = max(0.0, phase)
+    if stop_at_end:
+        travel_seconds = (display_width - prefix_width + text_width) / speed
+        cycle_seconds = travel_seconds + pause_seconds
+        phase %= cycle_seconds
+        if phase >= travel_seconds:
+            return prefix_width - text_width
+        return display_width - int(phase * speed)
     if text_width <= visible_width:
+        travel_seconds = (display_width - prefix_width) / speed
+        if phase >= travel_seconds:
+            return prefix_width
         return max(prefix_width, display_width - int(phase * speed))
     travel_width = display_width - prefix_width + text_width
     cycle_width = travel_width + max(0, int(gap or 0))
@@ -388,11 +402,27 @@ def row_slide_phase(phase, index, stagger=1.0):
     return max(0.0, min(1.0, (phase - index * stagger) / 1.2))
 
 
+def departure_scroll_duration(service_count, pause_seconds=2, visible_rows=2):
+    """Return the time for all overlapping upcoming-train windows to cycle."""
+    service_count = max(0, int(service_count or 0))
+    visible_rows = max(1, int(visible_rows or 1))
+    max_start = max(0, service_count - visible_rows)
+    if max_start == 0:
+        return 0.0
+    try:
+        pause_seconds = max(0.0, float(pause_seconds or 0))
+    except (TypeError, ValueError):
+        pause_seconds = 2.0
+    step_seconds = pause_seconds + DEPARTURE_SLIDE_SECONDS
+    normal_duration = (max_start + 1) * step_seconds
+    return normal_duration + DEPARTURE_RESET_GAP_SECONDS + DEPARTURE_RESET_SLIDE_SECONDS
+
+
 def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2):
-    """Return (window start, upward progress, left-entry reset progress).
+    """Return (window start, upward progress, reset-entry progress).
 
     ``reset_progress`` is ``None`` during the intentional blank gap before the
-    first two upcoming rows re-enter from the left.
+    first upcoming rows re-enter from below.
     """
     service_count = max(0, int(service_count or 0))
     visible_rows = max(1, int(visible_rows or 1))
@@ -407,9 +437,9 @@ def departure_scroll_state(phase, service_count, pause_seconds=2, visible_rows=2
         pause_seconds = max(0.0, float(pause_seconds or 0))
     except (TypeError, ValueError):
         pause_seconds = 2.0
-    slide_seconds = 0.4
-    reset_gap_seconds = 0.4
-    reset_slide_seconds = 0.8
+    slide_seconds = DEPARTURE_SLIDE_SECONDS
+    reset_gap_seconds = DEPARTURE_RESET_GAP_SECONDS
+    reset_slide_seconds = DEPARTURE_RESET_SLIDE_SECONDS
     step_seconds = pause_seconds + slide_seconds
     normal_duration = (max_start + 1) * step_seconds
     cycle_duration = normal_duration + reset_gap_seconds + reset_slide_seconds
@@ -523,20 +553,71 @@ def calling_text(service):
     return "CALLING AT: " + _station_separator(service).join(parts)
 
 
+def rail_calling_duration(services, speed=20.0, pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS):
+    """Return enough calling-phase time for the first train's stops to pass once."""
+    services = list(services or [])
+    if not services:
+        return RAIL_CALLING_SECONDS
+    try:
+        speed = max(1.0, float(speed or 20.0))
+        pause_seconds = max(0.0, float(pause_seconds or 0.0))
+    except (TypeError, ValueError):
+        speed = 20.0
+        pause_seconds = CALLING_MARQUEE_PAUSE_SECONDS
+    text = calling_text(services[0])
+    stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+    display_width = 256
+    prefix_width = len(CALLING_LABEL) * CALLING_STATION_FONT_WIDTH
+    text_width = len(stations) * CALLING_STATION_FONT_WIDTH
+    travel = (display_width - prefix_width + text_width) / speed
+    return max(RAIL_CALLING_SECONDS, travel + pause_seconds)
+
+
+def calling_color_segments(service):
+    """Return marquee text segments with station names white and details orange."""
+    text = calling_text(service)
+    value = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+    stops = service.get("stops") or []
+    if not stops:
+        destination = str(service.get("destination", "destination"))
+        if value.startswith(destination):
+            segments = [(destination, 0xFFFFFF)]
+            if value[len(destination):]:
+                segments.append((value[len(destination):], 0xFFAA00))
+            return segments
+        return [(value, 0xFFAA00)]
+
+    segments = []
+    cursor = 0
+    for stop in stops:
+        station = str(stop.get("station", "Unknown"))
+        station_at = value.find(station, cursor)
+        if station_at < 0:
+            continue
+        if station_at > cursor:
+            segments.append((value[cursor:station_at], 0xFFAA00))
+        segments.append((station, 0xFFFFFF))
+        cursor = station_at + len(station)
+    if cursor < len(value):
+        segments.append((value[cursor:], 0xFFAA00))
+    return segments or [(value, 0xFFAA00)]
+
+
 def rail_phase(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
     """Return the departures presentation state for the supplied phase."""
     try:
-        total = max(0.1, float(summary_seconds)) + max(0.1, float(calling_seconds))
+        summary_seconds = max(0.0, float(summary_seconds))
+        total = summary_seconds + max(0.1, float(calling_seconds))
         value = max(0.0, float(phase or 0)) % total
     except (TypeError, ValueError):
         value = 0.0
         summary_seconds = RAIL_SUMMARY_SECONDS
-    return "summary" if value < max(0.1, float(summary_seconds)) else "calling"
+    return "summary" if summary_seconds > 0 and value < summary_seconds else "calling"
 
 
 def rail_phase_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
     """Return phase-local elapsed seconds, resetting at the calling state."""
-    summary_seconds = max(0.1, float(summary_seconds))
+    summary_seconds = max(0.0, float(summary_seconds))
     total = summary_seconds + max(0.1, float(calling_seconds))
     value = max(0.0, float(phase or 0)) % total
     return value if value < summary_seconds else value - summary_seconds
@@ -544,7 +625,7 @@ def rail_phase_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seco
 
 def rail_marquee_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
     """Return cumulative visible calling-phase time without rewinding the marquee."""
-    summary_seconds = max(0.1, float(summary_seconds))
+    summary_seconds = max(0.0, float(summary_seconds))
     calling_seconds = max(0.1, float(calling_seconds))
     total = summary_seconds + calling_seconds
     value = max(0.0, float(phase or 0))
@@ -553,11 +634,17 @@ def rail_marquee_elapsed(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_se
     return cycles * calling_seconds + max(0.0, within - summary_seconds)
 
 
-def rail_rows(services, phase):
+def rail_rows(
+        services,
+        phase,
+        calling_seconds=RAIL_CALLING_SECONDS,
+        summary_seconds=RAIL_SUMMARY_SECONDS):
     """Return four logical departures rows shared by hardware and fixtures."""
     services = list(services or [])
-    state = rail_phase(phase)
+    state = rail_phase(phase, summary_seconds=summary_seconds, calling_seconds=calling_seconds)
     if state == "summary":
+        if len(services) >= 4:
+            return [("service", services[index]) for index in range(4)]
         return [
             ("header", None),
             ("service", services[0] if len(services) > 0 else None),
@@ -568,5 +655,5 @@ def rail_rows(services, phase):
         ("service", services[0] if len(services) > 0 else None),
         ("calling", services[0] if len(services) > 0 else None),
         ("service", services[1] if len(services) > 1 else None),
-        ("calling", services[1] if len(services) > 1 else None),
+        ("service", services[2] if len(services) > 2 else None),
     ]

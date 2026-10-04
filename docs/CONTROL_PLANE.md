@@ -21,11 +21,13 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 | `chessington` | Queue-Times park 3 | `enabled`, `poll_seconds`, `screen_duration_seconds`, ordered `rides` |
 | `weather` | Open-Meteo | `enabled`, `poll_seconds` |
 | `calendar` | Todoist | `enabled`, `poll_seconds`, `screen_duration_seconds` |
-| `flash` | Pending MQTT event path | `enabled`, `screen_duration_seconds` (default 5) |
+| `flash` | Pending MQTT event path | `enabled` (starts or stops board MQTT polling), `screen_duration_seconds` (default 5) |
 
 `poll_seconds` is between 60 and 86400 seconds. Screen duration is between 2 and 300 seconds. Queue-Times `park_id` is implementation metadata and cannot be patched.
 
 Deployment settings still own provider credentials, station CRS, weather coordinates, Todoist OAuth storage, AWS resource names, and Cloudflare Access validation metadata. The control API has no endpoint for arbitrary environment variables and its IAM role does not receive National Rail or Todoist credentials.
+
+For Flash events, the runtime `enabled` setting is applied on the MatrixPortal as well as by the publisher: disabled means the board disconnects from MQTT and does not poll the transport. The local `MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL` settings remain hard safety gates; runtime enablement cannot override either local gate.
 
 If the DynamoDB item does not exist, callers see safe defaults derived from the deployment configuration. The first authenticated configuration read seeds those defaults as version 1. After that, the DynamoDB values are authoritative for supported runtime fields.
 
@@ -75,12 +77,12 @@ After the conditional write succeeds, the control Lambda logs the actor type, fe
 
 ## Cloudflare Access setup
 
-The repository intentionally does not contain Cloudflare service-token credentials or a second interactive authentication system. Configure Access on the existing LED hostname using the existing Google identity provider and existing reusable two-user allow policy.
+Cloudflare Access is configured in the Windsor Zero Trust account rather than managed by this repository. The applications use the existing Google identity provider. Keep the shared `email and github access` policy unchanged: it is used by 11 applications. The `home1000homens` Allow policy includes `garypunt@gmail.com` and is attached to both LED admin applications alongside the shared policy.
 
 Use two path-scoped Access applications so the Home Assistant service token never grants access to the HTML admin page:
 
-1. Protect `https://<led-host>/admin*` with the existing interactive Google/two-user allow policy only.
-2. Protect `https://<led-host>/api/control/v1/*` with the same human allow policy plus a Service Auth policy that includes the dedicated Home Assistant service token.
+1. Protect `https://<led-host>/admin*` with the shared human allow policy and the `home1000homens` Allow policy.
+2. Protect `https://<led-host>/api/control/v1/*` with the same human policies. If Home Assistant uses a Cloudflare service token, add its own Service Auth policy to this API application only; never attach Service Auth to the HTML admin application. The live API application had no Service Auth policy when checked on 4 October 2026, so Home Assistant service-token access is unverified.
 3. Do not add an Access application covering `https://<led-host>/api/screens` or the public simulator path.
 
 Set these GitHub repository variables before production deployment:
