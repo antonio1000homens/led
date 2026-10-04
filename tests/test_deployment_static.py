@@ -138,6 +138,13 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('empty_state = screen.get("empty_state")', display)
         self.assertIn("No services duration", admin)
 
+    def test_admin_weather_duration_label_is_feed_specific(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("seconds this screen remains visible", admin)
+        self.assertIn("seconds for the complete Queue-Times block", admin)
+        self.assertIn("seconds the 7-day forecast remains visible", admin)
+        self.assertIn("feedId==='weather'", admin)
+
     def test_admin_bootstraps_access_before_fetching_api(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn('<link rel="icon" href="data:,">', admin)
