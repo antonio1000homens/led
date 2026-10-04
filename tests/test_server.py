@@ -174,13 +174,18 @@ class ScreenFeedTests(unittest.TestCase):
         self.assertEqual(calendar["page_seconds"], 5)
         self.assertGreater(calendar["duration_seconds"], 8)
         self.assertEqual(calendar["weather"]["source"], "weather_fixture")
-        weekly = payload["screens"][-1]
-        self.assertEqual(weekly["kind"], "weather_weekly")
+        weekly = next(screen for screen in payload["screens"] if screen["kind"] == "weather_weekly")
+        details = [screen for screen in payload["screens"] if screen["kind"] == "weather_day"]
         self.assertEqual(weekly["duration_seconds"], 8)
         self.assertEqual(len(weekly["days"]), 7)
+        self.assertEqual(len(details), 7)
+        self.assertEqual([screen["day_index"] for screen in details], list(range(7)))
+        self.assertEqual(details[0]["day"], weekly["days"][0])
         self.assertEqual(weekly["days"][0]["date"], datetime.now().astimezone().date().isoformat())
         self.assertIn("temperature_max_c", weekly["days"][0])
         self.assertIn("temperature_min_c", weekly["days"][0])
+        self.assertIn("sunrise_time", weekly["days"][0])
+        self.assertIn("sunset_time", weekly["days"][0])
         self.assertIn("icon", weekly["days"][0])
         for screen in payload["screens"]:
             self.assertEqual(screen["weather"]["source"], "weather_fixture")
