@@ -93,11 +93,11 @@ class FormattingTests(unittest.TestCase):
         text = "CALLING AT: " + "x" * 115
         # One calling phase ends at 20s; the next visible phase starts at 28s.
         # Scroll time pauses during that 8s summary and resumes continuously.
-        self.assertEqual(rail_marquee_elapsed(8), 0)
-        self.assertEqual(rail_marquee_elapsed(20), 12)
-        self.assertEqual(rail_marquee_elapsed(40), 24)
-        before_elapsed = rail_marquee_elapsed(19.9)
-        after_elapsed = rail_marquee_elapsed(28.1)
+        self.assertEqual(rail_marquee_elapsed(8, summary_seconds=8), 0)
+        self.assertEqual(rail_marquee_elapsed(20, summary_seconds=8), 12)
+        self.assertEqual(rail_marquee_elapsed(40, summary_seconds=8), 24)
+        before_elapsed = rail_marquee_elapsed(19.9, summary_seconds=8)
+        after_elapsed = rail_marquee_elapsed(28.1, summary_seconds=8)
         self.assertAlmostEqual(before_elapsed, 11.9)
         self.assertAlmostEqual(after_elapsed, 12.1)
         before = calling_marquee_x(text, before_elapsed, font_width=5, speed=30, gap=10)
@@ -219,22 +219,26 @@ class FormattingTests(unittest.TestCase):
 
     def test_rail_summary_and_calling_rows_match_issue_72_contract(self):
         services = [{"time": "12:{:02d}".format(index), "destination": "Waterloo"} for index in range(4)]
-        summary_rows = rail_rows(services, 0)
+        summary_rows = rail_rows(services, 0, summary_seconds=8)
         self.assertEqual([kind for kind, _ in summary_rows], ["service", "service", "service", "service"])
         self.assertIs(summary_rows[0][1], services[0])
         self.assertIs(summary_rows[1][1], services[1])
         self.assertIs(summary_rows[2][1], services[2])
         self.assertIs(summary_rows[3][1], services[3])
-        calling_rows = rail_rows(services, 8)
+        calling_rows = rail_rows(services, 8, summary_seconds=8)
         self.assertEqual([kind for kind, _ in calling_rows], ["service", "calling", "service", "service"])
         self.assertIs(calling_rows[0][1], services[0])
         self.assertIs(calling_rows[1][1], services[0])
         self.assertIs(calling_rows[2][1], services[1])
         self.assertIs(calling_rows[3][1], services[2])
-        self.assertEqual(rail_phase(0), "summary")
-        self.assertEqual(rail_phase(8), "calling")
-        self.assertEqual(rail_phase(19.9), "calling")
-        self.assertEqual(rail_phase(20), "summary")
+        self.assertEqual(rail_phase(0, summary_seconds=8), "summary")
+        self.assertEqual(rail_phase(8, summary_seconds=8), "calling")
+        self.assertEqual(rail_phase(19.9, summary_seconds=8), "calling")
+        self.assertEqual(rail_phase(20, summary_seconds=8), "summary")
+
+        immediate_rows = rail_rows(services, 0)
+        self.assertEqual([kind for kind, _ in immediate_rows], ["service", "calling", "service", "service"])
+        self.assertEqual(rail_phase(0), "calling")
 
     def test_agenda_page_holds_then_slides_to_second_three(self):
         self.assertEqual(agenda_scroll_state(4.9, 6, 5), (0, 0.0))

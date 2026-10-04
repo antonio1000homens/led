@@ -10,7 +10,6 @@ sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 import display as led_display
 from matrix_config import (
     DEPARTURES_CALLING_FPS,
-    HEADER_SLIDE_FPS,
     MATRIX_PRESENTATION_MODE,
     MATRIX_ANIMATION_PROFILES,
     MATRIX_REFRESH_FPS,
@@ -234,7 +233,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(adaptive_sleep, transition_20_sleep)
             self.assertGreater(adaptive_sleep, 0)
             self.assertLessEqual(adaptive_sleep, transition_at - 0.5)
-            self.assertIsNone(baseline_sleep)
+            self.assertEqual(baseline_sleep, adaptive_sleep)
 
             # Once the boundary is reached, each candidate selects its own
             # transition cadence rather than remaining asleep at the control
@@ -366,20 +365,25 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 TODOIST_MARQUEE_FPS,
             )
 
-    def test_header_cadence_and_position_use_the_same_phase(self):
+    def test_header_switches_stationary_items_every_seven_seconds(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = todoist_screen(3)
             screen["weather"] = {"temperature_c": 17, "icon": "clear_day"}
-            phase = 4.2
+            phase = 7.5
             display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=phase)
 
             expected_item, expected_offset = led_display._header_item_state(phase, screen["weather"])
-            self.assertEqual(display.animation_cadence(screen, phase), HEADER_SLIDE_FPS)
+            self.assertEqual(expected_item, "weather")
+            self.assertEqual(expected_offset, 0)
+            self.assertEqual(display.animation_cadence(screen, phase), TODOIST_MARQUEE_FPS)
+            self.assertNotEqual(display._animation_class(screen, phase), "header_slide")
             self.assertEqual(
                 display._todoist_clock_group.x if expected_item == "clock" else display._todoist_weather_group.x,
                 expected_offset,
             )
+            self.assertEqual(led_display._header_item_state(13.99, screen["weather"]), ("weather", 0))
+            self.assertEqual(led_display._header_item_state(14.0, screen["weather"]), ("clock", 0))
 
     def test_baseline_gate_keeps_fixed_b8_schedule(self):
         with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
@@ -399,7 +403,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display.animation_cadence(screen, 100), 0)
             self.assertGreater(display.animation_sleep_seconds(screen, 100), 0)
 
-    def test_departures_calling_and_header_slides_select_temporary_cadence(self):
+    def test_departures_calling_animates_but_header_switch_does_not(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
@@ -407,7 +411,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.show(screen, clock_time="19:40", phase=0)
 
             self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
-            self.assertEqual(display.animation_cadence(screen, 4.2), HEADER_SLIDE_FPS)
+            self.assertEqual(display.animation_cadence(screen, 4.2), 0)
             self.assertEqual(display.animation_cadence(screen, 0.5), 0)
             self.assertGreater(display.animation_sleep_seconds(screen, 0.5), 0)
 
@@ -423,6 +427,47 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             long_screen["summary_seconds"] = 8
             self.assertFalse(display.animation_active(long_screen, 3.0))
             self.assertTrue(display.animation_active(long_screen, 10.0))
+
+    def test_calling_marquee_motion_detection_tracks_repeating_cycle(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen(long_calling=True)
+            screen["summary_seconds"] = 8
+            text = led_display.calling_text(screen["services"][0])
+            prefix_width = len(led_display.CALLING_LABEL) * led_display.WEATHER_FONT_WIDTH
+            station_text = text[len(led_display.CALLING_LABEL):]
+            speed, _ = led_display._station_scroll_settings(screen)
+            travel = (led_display.DISPLAY_WIDTH - prefix_width
+                      + len(station_text) * led_display.WEATHER_FONT_WIDTH) / speed
+
+            def phase_for_calling_elapsed(elapsed):
+                cycle_index = int(elapsed // 12.0)
+                within_call = elapsed % 12.0
+                return cycle_index * 20.0 + 8.0 + within_call
+
+            self.assertFalse(display._departures_calling_moving(
+                screen, phase_for_calling_elapsed(travel + 0.5), 12, 8
+            ))
+            self.assertTrue(display._departures_calling_moving(
+                screen, phase_for_calling_elapsed(
+                    travel + led_display.CALLING_MARQUEE_PAUSE_SECONDS + 0.1
+                ), 12, 8
+            ))
+
+    def test_rail_cache_ignores_nonvisual_weather_metadata(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["weather"] = {
+                "temperature_c": 17,
+                "icon": "clear_day",
+                "stale": False,
+                "fetched_at": "2026-10-04T10:00:00Z",
+            }
+            display.show(screen, clock_time="19:40", phase=0)
+            screen["weather"]["fetched_at"] = "2026-10-04T10:00:10Z"
+
+            self.assertTrue(display._rail_cache_matches(screen))
 
     def test_departures_scene_attaches_clock_and_weather_overlay(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -532,14 +577,24 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             screen["summary_seconds"] = 0
             screen["calling_seconds"] = 30
 
-            self.assertFalse(display._departures_calling_moving(screen, 14.0, 30, 0))
+            short_text = led_display.calling_text(screen["services"][0])
+            short_station_text = short_text[len(led_display.CALLING_LABEL):]
+            short_speed, _ = led_display._station_scroll_settings(screen)
+            short_travel = (
+                led_display.DISPLAY_WIDTH
+                - len(led_display.CALLING_LABEL) * led_display.WEATHER_FONT_WIDTH
+                + len(short_station_text) * led_display.WEATHER_FONT_WIDTH
+            ) / short_speed
+            quiet_phase = short_travel + 0.5
+            self.assertFalse(display.animation_active(screen, quiet_phase))
             screen["services"][0]["stops"] = long_stops
-            self.assertTrue(display._departures_calling_moving(screen, 14.0, 30, 0))
+            self.assertTrue(display.animation_active(screen, quiet_phase))
 
     def test_departures_cache_reuses_scenes_for_equal_new_api_payload(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
+            screen["summary_seconds"] = 8
             display.show(screen, clock_time="19:40", phase=0)
             scenes = display._rail_scenes
             calling_group = scenes["calling"]["group"]
@@ -627,18 +682,19 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
+            screen["summary_seconds"] = 8
             display.show(screen, clock_time="19:40", phase=0)
 
             sleep_seconds = display.animation_sleep_seconds(screen, 0.5)
-            self.assertLessEqual(sleep_seconds, 3.5)
-            self.assertEqual(display.animation_cadence(screen, 4.0), HEADER_SLIDE_FPS)
+            self.assertEqual(sleep_seconds, 6.5)
+            self.assertEqual(display.animation_cadence(screen, 4.0), 0)
 
             todoist = todoist_screen(6)
             todoist["weather"] = {"temperature_c": 17, "icon": "clear_day"}
             display.show(todoist, clock_time="19:40", clock_date="2026-09-20", phase=0)
             sleep_seconds = display.animation_sleep_seconds(todoist, 0.5)
-            self.assertLessEqual(sleep_seconds, 3.5)
-            self.assertEqual(display.animation_cadence(todoist, 4.0), HEADER_SLIDE_FPS)
+            self.assertLessEqual(sleep_seconds, 6.5)
+            self.assertEqual(display.animation_cadence(todoist, 4.0), TODOIST_MARQUEE_FPS)
 
     def test_unchanged_partial_scene_does_not_present_duplicate_frame(self):
         with patch.dict(sys.modules, fake_modules()):
