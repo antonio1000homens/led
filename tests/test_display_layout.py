@@ -42,6 +42,8 @@ def weekly_days():
             "temperature_min_c": 9 - index,
             "weather_code": index,
             "icon": icons[index],
+            "sunrise_time": "07:{:02d}".format(8 + index * 2),
+            "sunset_time": "18:{:02d}".format(29 - index * 2),
         }
         for index in range(7)
     ]
@@ -150,6 +152,60 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertNotIn("12:34", text)
         self.assertNotIn("17C", text)
         self.assertNotIn("STALE", text)
+        self.assertEqual(display.pixels.shown, 1)
+
+    def test_weather_day_layout_uses_full_height_regions_and_all_metrics(self):
+        day = weekly_days()[0]
+        layout = led_display._weather_day_layout(day)
+
+        self.assertEqual(layout["weekday"], "SUN")
+        self.assertEqual(layout["weekday_rows"], (0, 10, 20))
+        self.assertEqual(layout["icon_scale"], 4)
+        self.assertEqual(layout["icon_y"], 2)
+        self.assertLessEqual(
+            layout["icon_y"] + led_display.WEATHER_ICON_WIDTH * layout["icon_scale"],
+            32,
+        )
+        self.assertEqual(layout["rise_text"], "RISE 07:08")
+        self.assertEqual(layout["set_text"], "SET 18:29")
+        self.assertEqual(layout["max_text"], "MAX 16C")
+        self.assertEqual(layout["min_text"], "MIN 9C")
+        self.assertGreater(layout["metrics_x"], layout["icon_x"])
+
+    def test_weather_day_fixture_draws_weekday_and_four_metric_rows(self):
+        display = CapturingFixture()
+        display._draw_screen(
+            {"kind": "weather_day", "day": weekly_days()[0], "stale": False},
+            phase=0,
+        )
+
+        drawn = [item[0] for item in display.drawn]
+        self.assertEqual([value for value in drawn if value in ("S", "U", "N")], ["S", "U", "N"])
+        self.assertIn("RISE 07:08", drawn)
+        self.assertIn("SET 18:29", drawn)
+        self.assertIn("MAX 16C", drawn)
+        self.assertIn("MIN 9C", drawn)
+
+    def test_weather_day_show_suppresses_shared_header_and_stale_label(self):
+        display = CapturingFixture()
+        display.pixels = FakePixels()
+        display.show(
+            {
+                "kind": "weather_day",
+                "title": "SUN",
+                "stale": True,
+                "day": weekly_days()[0],
+                "weather": {"temperature_c": 17, "icon": "clear_day", "stale": True},
+            },
+            clock_time="12:34",
+            phase=2,
+        )
+
+        drawn = [item[0] for item in display.drawn]
+        self.assertNotIn("12:34", drawn)
+        self.assertNotIn("17C", drawn)
+        self.assertNotIn("STALE", drawn)
+        self.assertIn("RISE 07:08", drawn)
         self.assertEqual(display.pixels.shown, 1)
 
     def test_departure_statuses_share_one_vertical_column(self):
