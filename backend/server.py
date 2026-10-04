@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 from fixtures import CALENDAR_EVENTS, PAGES
 from formatting import todoist_effective_duration
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
-from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable
+from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable, weather_icon
 
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
@@ -196,9 +196,24 @@ class FixtureCalendarProvider:
 
 
 class FixtureWeatherProvider:
-    """Deterministic weather overlay for matched physical-board runs."""
+    """Deterministic current weather plus a rolling seven-day local fixture."""
 
     def get(self):
+        today = datetime.now().astimezone().date()
+        weather_codes = (2, 3, 61, 1, 0, 80, 45)
+        highs = (17, 16, 14, 15, 18, 13, 12)
+        lows = (10, 9, 8, 7, 9, 8, 6)
+        forecast = []
+        for offset, (code, high, low) in enumerate(zip(weather_codes, highs, lows)):
+            day = today + timedelta(days=offset)
+            forecast.append({
+                "date": day.isoformat(),
+                "weekday": day.strftime("%a").upper(),
+                "temperature_max_c": high,
+                "temperature_min_c": low,
+                "weather_code": code,
+                "icon": weather_icon(code, True),
+            })
         return {
             "source": "weather_fixture",
             "stale": False,
@@ -206,6 +221,7 @@ class FixtureWeatherProvider:
             "weather_code": 2,
             "icon": "partly_cloudy_day",
             "is_day": True,
+            "forecast": forecast,
         }
 
 
@@ -430,9 +446,22 @@ class ScreenFeed:
                     "temperature_c": None,
                     "weather_code": None,
                     "icon": "unknown",
+                    "forecast": [],
                 }
+
+            overlay = copy.deepcopy(weather)
+            forecast = copy.deepcopy(overlay.pop("forecast", [])[:7])
+            screens.append({
+                "id": "weather-weekly",
+                "kind": "weather_weekly",
+                "duration_seconds": 8,
+                "title": "7 DAY WEATHER",
+                "source": weather.get("source", "unavailable"),
+                "stale": bool(weather.get("stale")),
+                "days": forecast,
+            })
             for screen in screens:
-                screen["weather"] = copy.deepcopy(weather)
+                screen["weather"] = copy.deepcopy(overlay)
 
         return {
             "fetched_at": self.utcnow().isoformat().replace("+00:00", "Z"),
