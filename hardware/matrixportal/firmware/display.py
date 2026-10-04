@@ -67,7 +67,16 @@ AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
-WEEKLY_WEATHER_TEXT_SCALE = 2
+WEEKLY_WEATHER_TEXT_SCALE = 1
+WEEKLY_WEATHER_GLYPH_WIDTH = 3
+WEEKLY_WEATHER_GLYPHS = {
+    "0": (7, 5, 5, 5, 7), "1": (2, 6, 2, 2, 7),
+    "2": (7, 1, 7, 4, 7), "3": (7, 1, 7, 1, 7),
+    "4": (5, 5, 7, 1, 1), "5": (7, 4, 7, 1, 7),
+    "6": (7, 4, 7, 5, 7), "7": (7, 1, 2, 2, 2),
+    "8": (7, 5, 7, 5, 7), "9": (7, 5, 7, 1, 7),
+    "C": (3, 4, 4, 4, 3), "-": (0, 0, 7, 0, 0),
+}
 WEATHER_FONT_WIDTH = 5
 WEATHER_GAP = 1
 HEADER_GAP = 4
@@ -218,7 +227,7 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
         weekday = _fit_text_pixels(str(day.get("weekday") or "").upper()[:3], width)
         maximum = _weekly_temperature_text(day.get("temperature_max_c"))
         icon_width = WEATHER_ICON_WIDTH * WEEKLY_WEATHER_ICON_SCALE
-        maximum_width = len(maximum) * WEATHER_FONT_WIDTH * WEEKLY_WEATHER_TEXT_SCALE
+        maximum_width = len(maximum) * (WEEKLY_WEATHER_GLYPH_WIDTH + 1) * WEEKLY_WEATHER_TEXT_SCALE
         icon_name, rows = _weather_icon(day)
 
         def centered_x(text, pixel_width):
@@ -549,24 +558,20 @@ class MatrixDisplay:
     def _temperature_label(self, group, text, color, x, y):
         import displayio
 
-        glyphs = {"0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0),
-                  "2": (1, 0, 1, 1, 1), "3": (1, 0, 1, 0, 1),
-                  "4": (1, 1, 1, 0, 0), "5": (1, 1, 0, 0, 1),
-                  "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0),
-                  "8": (1, 1, 1, 1, 1), "9": (1, 1, 1, 0, 1),
-                  "C": (1, 0, 0, 1, 1), "-": (0, 0, 1, 0, 0)}
         scale = WEEKLY_WEATHER_TEXT_SCALE
-        bitmap = displayio.Bitmap(len(text) * WEATHER_FONT_WIDTH * scale, 5 * scale, 2)
+        bitmap = displayio.Bitmap(len(text) * (WEEKLY_WEATHER_GLYPH_WIDTH + 1) * scale, 5 * scale, 2)
         palette = displayio.Palette(2)
         palette[0] = 0x000000
         palette[1] = color
         for index, char in enumerate(str(text)):
-            columns = glyphs.get(char, (0, 0, 0, 0, 0))
-            for column, bit in enumerate(columns):
-                if bit:
-                    for dx in range(scale):
-                        for dy in range(5 * scale):
-                            bitmap[index * WEATHER_FONT_WIDTH * scale + column * scale + dx, dy] = 1
+            rows = WEEKLY_WEATHER_GLYPHS.get(char, (0, 0, 0, 0, 0))
+            for row_index, row_bits in enumerate(rows):
+                for column in range(WEEKLY_WEATHER_GLYPH_WIDTH):
+                    if row_bits & (1 << (WEEKLY_WEATHER_GLYPH_WIDTH - column - 1)):
+                        for dx in range(scale):
+                            for dy in range(scale):
+                                bitmap[index * (WEEKLY_WEATHER_GLYPH_WIDTH + 1) * scale + column * scale + dx,
+                                       row_index * scale + dy] = 1
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=int(x), y=int(y)))
 
     def _chunked_label_group(self, text, color, y, chunk_chars=24):
@@ -1726,19 +1731,15 @@ class FixtureDisplay:
 
     def _text_scaled(self, value, x, y, color):
         scale = WEEKLY_WEATHER_TEXT_SCALE
-        glyphs = {"0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0),
-                  "2": (1, 0, 1, 1, 1), "3": (1, 0, 1, 0, 1),
-                  "4": (1, 1, 1, 0, 0), "5": (1, 1, 0, 0, 1),
-                  "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0),
-                  "8": (1, 1, 1, 1, 1), "9": (1, 1, 1, 0, 1),
-                  "C": (1, 0, 0, 1, 1), "-": (0, 0, 1, 0, 0)}
         for index, char in enumerate(str(value)):
-            for column, bit in enumerate(glyphs.get(char, (0, 0, 0, 0, 0))):
-                if bit:
-                    for dx in range(scale):
-                        for dy in range(5 * scale):
-                            self._pixel(x + index * WEATHER_FONT_WIDTH * scale + column * scale + dx,
-                                        y + dy, color)
+            rows = WEEKLY_WEATHER_GLYPHS.get(char, (0, 0, 0, 0, 0))
+            for row_index, row_bits in enumerate(rows):
+                for column in range(WEEKLY_WEATHER_GLYPH_WIDTH):
+                    if row_bits & (1 << (WEEKLY_WEATHER_GLYPH_WIDTH - column - 1)):
+                        for dx in range(scale):
+                            for dy in range(scale):
+                                self._pixel(x + index * (WEEKLY_WEATHER_GLYPH_WIDTH + 1) * scale + column * scale + dx,
+                                            y + row_index * scale + dy, color)
 
     def _clear_rect(self, start_x, start_y, end_x, end_y):
         if self.pixels is None:
