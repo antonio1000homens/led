@@ -44,6 +44,26 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("status.dataset.detail = '7-day weather forecast';", simulator)
         self.assertIn("suppressHeader = true;", simulator)
 
+    def test_simulator_has_full_height_daily_weather_screen(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("function drawWeatherDay(screen)", simulator)
+        self.assertIn("screen.kind === 'weather_day'", simulator)
+        self.assertIn("drawLedText(letter, 24, index * 40)", simulator)
+        self.assertIn("context.fillRect(80 + x * 16, 8 + y * 16, 16, 16)", simulator)
+        self.assertIn("'RISE ' + (day.sunrise_time || '--:--')", simulator)
+        self.assertIn("'SET ' + (day.sunset_time || '--:--')", simulator)
+        self.assertIn("weeklyTemperature('MAX ', day.temperature_max_c)", simulator)
+        self.assertIn("weeklyTemperature('MIN ', day.temperature_min_c)", simulator)
+
+    def test_admin_renders_weather_overview_and_individual_day_controls(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("function weatherCardHtml()", admin)
+        self.assertIn("Seven-day overview", admin)
+        self.assertIn("day_${index}_enabled", admin)
+        self.assertIn("day_${index}_duration_seconds", admin)
+        self.assertIn("overview_enabled", admin)
+        self.assertIn("feedId==='weather'", admin)
+
     def test_simulator_hides_all_day_time_and_renders_due_countdown(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("event.all_day || rawTimeText.toUpperCase() === 'ALL'", simulator)
