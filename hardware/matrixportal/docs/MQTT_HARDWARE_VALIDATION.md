@@ -1,14 +1,19 @@
 # Issue #74 hardware validation gate
 
-This is the test procedure for the MatrixPortal MQTT path. It is intentionally
-not an activation instruction: the checked-in safety flags remain false until
-Home Assistant issue #4 and the broker configuration are approved.
+This is the test procedure for the MatrixPortal MQTT path. The checked-in
+safety flags remain false by default; device-local settings opt the physical
+board into MQTT. The currently deployed Home Assistant contract supersedes the
+original due-only proposal in issue #74: Home Assistant publishes a retained
+QoS 1 snapshot of the nearest future reminder every minute, and the board uses
+its synchronized clock to flash once when that reminder becomes due.
 
 ## Preconditions
 
-- Home Assistant schedules the next Alexa reminder and publishes one
-  `event: "due"` payload to `led/flash/reminder` at its due time with QoS 1 and
-  `retain: false`.
+- Home Assistant's minute scheduler is loaded and publishes
+  `event: "scheduled"` snapshots to `led/flash/reminder` with QoS 1 and
+  `retain: true`; an empty schedule publishes an explicit `event: "clear"`.
+- The board polls MQTT every 60 seconds, caches the latest valid occurrence,
+  and checks `due_at` against its synchronized internal clock between polls.
 - A stable broker hostname and uncommitted board credentials are available.
 - `adafruit_minimqtt` has been installed into `CIRCUITPY/lib`.
 - The board is running the current B8 production refresh profile.
@@ -48,12 +53,14 @@ With the idle run stable, publish several test events and verify:
 - reconnect restores the subscription.
 
 For the Home Assistant end-to-end check, create a reminder a few minutes in
-the future. Confirm discovery only updates the persisted schedule, the MQTT
-message appears at the due time, and each recurring occurrence has a distinct
-ID so the board does not discard later occurrences as duplicates.
+the future. Confirm the retained MQTT snapshot is refreshed each minute before
+the due time, the board does not flash early, and the board flashes exactly
+once at the due time despite repeated snapshots. Confirm that edits replace
+the pending occurrence and recurring occurrences receive distinct IDs. Also
+verify a cleared schedule cancels the pending flash.
 
-Do not enable the production board path or close #74 until these observations
-are recorded against the actual MatrixPortal and the Home Assistant publisher.
+Do not close #74 until these observations are recorded against the actual
+MatrixPortal and the Home Assistant publisher.
 
 ## Captured baseline
 
@@ -387,5 +394,12 @@ Final physical synthetic test after both clock corrections:
   a matched two-second-versus-minute A/B performance test, and serial telemetry
   cannot prove the absence of visible jumps or scan-line tearing.
 
-The Home Assistant minute publisher is still a local repository change; this
-capture used a controlled publisher and does not close real-Alexa acceptance.
+The Home Assistant minute publisher is deployed and tracked in
+`antonio1000homens/homeassistant#6`. Its live Alexa sensor resolves to
+`2026-10-11T16:00:00Z` (17:00 BST); a timezone conversion defect had stored the
+helper as 16:00 BST. The conversion is fixed in the PR and live package, and
+the corrected retained snapshot now carries `due_at: 2026-10-11T17:00:00+01:00`
+with an ID encoding the same UTC instant. This validates discovery-to-snapshot
+time alignment, but real Alexa firing, Home Assistant restart/recovery, and a
+matched scrolling performance comparison remain open. Do not close #74 based
+on the synthetic board event alone.
