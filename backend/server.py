@@ -203,8 +203,12 @@ class FixtureWeatherProvider:
         weather_codes = (2, 3, 61, 1, 0, 80, 45)
         highs = (17, 16, 14, 15, 18, 13, 12)
         lows = (10, 9, 8, 7, 9, 8, 6)
+        sunrises = ("07:08", "07:10", "07:12", "07:14", "07:16", "07:18", "07:20")
+        sunsets = ("18:29", "18:27", "18:25", "18:23", "18:21", "18:19", "18:17")
         forecast = []
-        for offset, (code, high, low) in enumerate(zip(weather_codes, highs, lows)):
+        for offset, (code, high, low, sunrise, sunset) in enumerate(
+            zip(weather_codes, highs, lows, sunrises, sunsets)
+        ):
             day = today + timedelta(days=offset)
             forecast.append({
                 "date": day.isoformat(),
@@ -213,6 +217,8 @@ class FixtureWeatherProvider:
                 "temperature_min_c": low,
                 "weather_code": code,
                 "icon": weather_icon(code, True),
+                "sunrise_time": sunrise,
+                "sunset_time": sunset,
             })
         return {
             "source": "weather_fixture",
@@ -460,6 +466,17 @@ class ScreenFeed:
                 "stale": bool(weather.get("stale")),
                 "days": forecast,
             })
+            for day_index, day in enumerate(forecast):
+                screens.append({
+                    "id": "weather-day-{}".format(day_index),
+                    "kind": "weather_day",
+                    "duration_seconds": 8,
+                    "title": str(day.get("weekday") or "WEATHER"),
+                    "source": weather.get("source", "unavailable"),
+                    "stale": bool(weather.get("stale")),
+                    "day_index": day_index,
+                    "day": copy.deepcopy(day),
+                })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
 
