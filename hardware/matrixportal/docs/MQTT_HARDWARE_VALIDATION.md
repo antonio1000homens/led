@@ -362,3 +362,30 @@ the original issue #74 body still describes due-only, non-retained events.
 Real Alexa, Home Assistant minute publication, recurrence/restart, matched
 performance comparisons, and user-visible tearing remain separate acceptance
 gates. Do not close #74 on a synthetic test alone.
+
+Final physical synthetic test after both clock corrections:
+
+- Test occurrence `wifi-validation-53f36573634c` was due at
+  `2026-10-04T21:42:47.459441+00:00` (22:42:47 London).
+- Non-retained QoS-1 scheduled copies were published at elapsed 0, 60.55, and
+  135.46 seconds, each acknowledged by the broker. No event was published at
+  the due instant.
+- Exactly one `FLASH START` appeared at elapsed 100.71 seconds, 0.71 seconds
+  after the intended due time. There was no early flash.
+- `FLASH END` appeared at 130.75 seconds: the configured 30-second timer was
+  honored. Flash scene construction took 0.854 seconds. The interrupted
+  calendar resumed at phase 31.20, then normal rotation reached weekly weather.
+- The same ID republished after the flash ended did not fire again during the
+  195-second capture. There were zero MQTT disconnect/unavailable messages,
+  zero recorded matrix refresh failures, and successful HTTP fetches.
+- The latest matrix summary recorded 1,011/1,011 successful refreshes,
+  5.47 presented FPS over a 184.7-second mixed workload, maximum interval
+  14.8174 seconds, and heap 1,647,616 to 1,641,808 bytes.
+- Normal calendar scene construction still took 14.500 seconds; the initial
+  Departures construction took 9.094 seconds. These renderer costs remain
+  potential interruption sources with minute MQTT polling active. This is not
+  a matched two-second-versus-minute A/B performance test, and serial telemetry
+  cannot prove the absence of visible jumps or scan-line tearing.
+
+The Home Assistant minute publisher is still a local repository change; this
+capture used a controlled publisher and does not close real-Alexa acceptance.
