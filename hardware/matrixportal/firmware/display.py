@@ -69,8 +69,7 @@ WEATHER_ICON_WIDTH = 7
 WEATHER_FONT_WIDTH = 5
 WEATHER_GAP = 1
 HEADER_GAP = 4
-HEADER_HOLD_SECONDS = 4.0
-HEADER_SLIDE_SECONDS = 0.6
+HEADER_HOLD_SECONDS = 7.0
 HEADER_SLOT_WIDTH = DISPLAY_WIDTH - HEADER_SLOT_X
 CALLING_SCROLL_SPEED = 20.0
 CALLING_SCROLL_GAP = 28
@@ -290,41 +289,20 @@ def _weather_group_layout(weather, offset=0):
 
 
 def _header_item_state(phase, weather):
-    """Return (item, x-offset) for the clock/weather top-right carousel."""
+    """Return the stationary clock or weather item for the top-right slot."""
     if not isinstance(weather, dict):
         return "clock", 0
     try:
         phase = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         phase = 0.0
-    segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS
-    within = phase % (segment * 2)
-    if within < HEADER_HOLD_SECONDS:
-        return "clock", 0
-    if within < segment:
-        progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS
-        return "weather", int((1.0 - progress) * HEADER_SLOT_WIDTH)
-    within -= segment
-    if within < HEADER_HOLD_SECONDS:
-        return "weather", 0
-    progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS
-    return "clock", int((1.0 - progress) * HEADER_SLOT_WIDTH)
+    within = phase % (HEADER_HOLD_SECONDS * 2)
+    return ("clock", 0) if within < HEADER_HOLD_SECONDS else ("weather", 0)
 
 
 def _header_slide_active(phase, weather):
-    """Return whether the clock/weather carousel is in a slide interval."""
-    if not isinstance(weather, dict):
-        return False
-    try:
-        phase = max(0.0, float(phase or 0))
-    except (TypeError, ValueError):
-        phase = 0.0
-    segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS
-    within = phase % (segment * 2)
-    return (
-        HEADER_HOLD_SECONDS <= within < segment
-        or segment + HEADER_HOLD_SECONDS <= within < segment * 2
-    )
+    """The clock/weather slot switches at rest and has no moving interval."""
+    return False
 
 
 def _header_next_boundary_seconds(phase, weather):
@@ -334,10 +312,9 @@ def _header_next_boundary_seconds(phase, weather):
         phase = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         phase = 0.0
-    segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS
-    cycle = segment * 2
+    cycle = HEADER_HOLD_SECONDS * 2
     within = phase % cycle
-    for boundary in (HEADER_HOLD_SECONDS, segment + HEADER_HOLD_SECONDS, cycle):
+    for boundary in (HEADER_HOLD_SECONDS, cycle):
         if boundary > within + 1e-9:
             return max(0.05, boundary - within)
     return max(0.05, cycle - within)

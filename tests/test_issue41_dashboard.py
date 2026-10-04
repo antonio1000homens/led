@@ -33,7 +33,8 @@ class Issue41DashboardTests(unittest.TestCase):
 
     def test_weather_icon_and_temperature_replace_clock_as_one_header_group(self):
         self.assertIn('def _header_item_state(phase, weather):', self.display_source)
-        self.assertIn('return "weather", int((1.0 - progress) * HEADER_SLOT_WIDTH)', self.display_source)
+        self.assertIn('HEADER_HOLD_SECONDS = 7.0', self.display_source)
+        self.assertIn('return ("clock", 0) if within < HEADER_HOLD_SECONDS else ("weather", 0)', self.display_source)
         self.assertIn('def _header_weather(self, group, weather, offset=0):', self.display_source)
         self.assertIn('text, icon_x, text_x = _weather_group_layout(weather, offset)', self.display_source)
         self.assertIn('x=icon_x, y=0', self.display_source)
@@ -41,7 +42,8 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertNotIn('WEATHER_Y =', self.display_source)
 
         self.assertIn('function headerItemState(phase, weather)', self.simulator_source)
-        self.assertIn("return { item: 'weather', offset: (1 - progress) * HEADER_SLOT_WIDTH };", self.simulator_source)
+        self.assertIn('const HEADER_HOLD_SECONDS = 7.0;', self.simulator_source)
+        self.assertIn("return { item: within < HEADER_HOLD_SECONDS ? 'clock' : 'weather', offset: 0 };", self.simulator_source)
         self.assertIn('function drawWeatherGroup(weather, offset = 0)', self.simulator_source)
         self.assertIn("if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);", self.simulator_source)
         self.assertNotIn('drawWeatherIcon(screen.weather);', self.simulator_source)

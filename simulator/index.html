@@ -209,9 +209,7 @@
     const RAIL_MARQUEE_GAP = 112;
     const CALLING_LABEL = 'CALLING AT: ';
     const CALLING_MARQUEE_PAUSE_SECONDS = 3.0;
-    const HEADER_HOLD_SECONDS = 4.0;
-    const HEADER_SLIDE_SECONDS = 0.6;
-    const HEADER_SLOT_WIDTH = 128;
+    const HEADER_HOLD_SECONDS = 7.0;
     const RAIL_ORDINAL_X = 0;
     const RAIL_TIME_X = 96;
     const RAIL_DESTINATION_X = 240;
@@ -617,17 +615,8 @@
     function headerItemState(phase, weather) {
       if (!weather || typeof weather !== 'object') return { item: 'clock', offset: 0 };
       const safePhase = Math.max(0, Number(phase) || 0);
-      const segment = HEADER_HOLD_SECONDS + HEADER_SLIDE_SECONDS;
-      let within = safePhase % (segment * 2);
-      if (within < HEADER_HOLD_SECONDS) return { item: 'clock', offset: 0 };
-      if (within < segment) {
-        const progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS;
-        return { item: 'weather', offset: (1 - progress) * HEADER_SLOT_WIDTH };
-      }
-      within -= segment;
-      if (within < HEADER_HOLD_SECONDS) return { item: 'weather', offset: 0 };
-      const progress = (within - HEADER_HOLD_SECONDS) / HEADER_SLIDE_SECONDS;
-      return { item: 'clock', offset: (1 - progress) * HEADER_SLOT_WIDTH };
+      const within = safePhase % (HEADER_HOLD_SECONDS * 2);
+      return { item: within < HEADER_HOLD_SECONDS ? 'clock' : 'weather', offset: 0 };
     }
     function drawClock(layout, offset = 0) {
       const current = layout || clockLayout();

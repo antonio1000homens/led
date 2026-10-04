@@ -10,7 +10,6 @@ sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 import display as led_display
 from matrix_config import (
     DEPARTURES_CALLING_FPS,
-    HEADER_SLIDE_FPS,
     MATRIX_PRESENTATION_MODE,
     MATRIX_ANIMATION_PROFILES,
     MATRIX_REFRESH_FPS,
@@ -366,20 +365,25 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 TODOIST_MARQUEE_FPS,
             )
 
-    def test_header_cadence_and_position_use_the_same_phase(self):
+    def test_header_switches_stationary_items_every_seven_seconds(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = todoist_screen(3)
             screen["weather"] = {"temperature_c": 17, "icon": "clear_day"}
-            phase = 4.2
+            phase = 7.5
             display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=phase)
 
             expected_item, expected_offset = led_display._header_item_state(phase, screen["weather"])
-            self.assertEqual(display.animation_cadence(screen, phase), HEADER_SLIDE_FPS)
+            self.assertEqual(expected_item, "weather")
+            self.assertEqual(expected_offset, 0)
+            self.assertEqual(display.animation_cadence(screen, phase), TODOIST_MARQUEE_FPS)
+            self.assertNotEqual(display._animation_class(screen, phase), "header_slide")
             self.assertEqual(
                 display._todoist_clock_group.x if expected_item == "clock" else display._todoist_weather_group.x,
                 expected_offset,
             )
+            self.assertEqual(led_display._header_item_state(13.99, screen["weather"]), ("weather", 0))
+            self.assertEqual(led_display._header_item_state(14.0, screen["weather"]), ("clock", 0))
 
     def test_baseline_gate_keeps_fixed_b8_schedule(self):
         with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
@@ -399,7 +403,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display.animation_cadence(screen, 100), 0)
             self.assertGreater(display.animation_sleep_seconds(screen, 100), 0)
 
-    def test_departures_calling_and_header_slides_select_temporary_cadence(self):
+    def test_departures_calling_animates_but_header_switch_does_not(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
@@ -407,7 +411,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.show(screen, clock_time="19:40", phase=0)
 
             self.assertEqual(display.animation_cadence(screen, 8.1), DEPARTURES_CALLING_FPS)
-            self.assertEqual(display.animation_cadence(screen, 4.2), HEADER_SLIDE_FPS)
+            self.assertEqual(display.animation_cadence(screen, 4.2), 0)
             self.assertEqual(display.animation_cadence(screen, 0.5), 0)
             self.assertGreater(display.animation_sleep_seconds(screen, 0.5), 0)
 
@@ -590,6 +594,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
+            screen["summary_seconds"] = 8
             display.show(screen, clock_time="19:40", phase=0)
             scenes = display._rail_scenes
             calling_group = scenes["calling"]["group"]
@@ -677,18 +682,19 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
+            screen["summary_seconds"] = 8
             display.show(screen, clock_time="19:40", phase=0)
 
             sleep_seconds = display.animation_sleep_seconds(screen, 0.5)
-            self.assertLessEqual(sleep_seconds, 3.5)
-            self.assertEqual(display.animation_cadence(screen, 4.0), HEADER_SLIDE_FPS)
+            self.assertEqual(sleep_seconds, 6.5)
+            self.assertEqual(display.animation_cadence(screen, 4.0), 0)
 
             todoist = todoist_screen(6)
             todoist["weather"] = {"temperature_c": 17, "icon": "clear_day"}
             display.show(todoist, clock_time="19:40", clock_date="2026-09-20", phase=0)
             sleep_seconds = display.animation_sleep_seconds(todoist, 0.5)
-            self.assertLessEqual(sleep_seconds, 3.5)
-            self.assertEqual(display.animation_cadence(todoist, 4.0), HEADER_SLIDE_FPS)
+            self.assertLessEqual(sleep_seconds, 6.5)
+            self.assertEqual(display.animation_cadence(todoist, 4.0), TODOIST_MARQUEE_FPS)
 
     def test_unchanged_partial_scene_does_not_present_duplicate_frame(self):
         with patch.dict(sys.modules, fake_modules()):
