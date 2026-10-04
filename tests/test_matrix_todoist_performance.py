@@ -234,7 +234,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(adaptive_sleep, transition_20_sleep)
             self.assertGreater(adaptive_sleep, 0)
             self.assertLessEqual(adaptive_sleep, transition_at - 0.5)
-            self.assertIsNone(baseline_sleep)
+            self.assertEqual(baseline_sleep, adaptive_sleep)
 
             # Once the boundary is reached, each candidate selects its own
             # transition cadence rather than remaining asleep at the control
@@ -424,6 +424,47 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertFalse(display.animation_active(long_screen, 3.0))
             self.assertTrue(display.animation_active(long_screen, 10.0))
 
+    def test_calling_marquee_motion_detection_tracks_repeating_cycle(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen(long_calling=True)
+            screen["summary_seconds"] = 8
+            text = led_display.calling_text(screen["services"][0])
+            prefix_width = len(led_display.CALLING_LABEL) * led_display.WEATHER_FONT_WIDTH
+            station_text = text[len(led_display.CALLING_LABEL):]
+            speed, _ = led_display._station_scroll_settings(screen)
+            travel = (led_display.DISPLAY_WIDTH - prefix_width
+                      + len(station_text) * led_display.WEATHER_FONT_WIDTH) / speed
+
+            def phase_for_calling_elapsed(elapsed):
+                cycle_index = int(elapsed // 12.0)
+                within_call = elapsed % 12.0
+                return cycle_index * 20.0 + 8.0 + within_call
+
+            self.assertFalse(display._departures_calling_moving(
+                screen, phase_for_calling_elapsed(travel + 0.5), 12, 8
+            ))
+            self.assertTrue(display._departures_calling_moving(
+                screen, phase_for_calling_elapsed(
+                    travel + led_display.CALLING_MARQUEE_PAUSE_SECONDS + 0.1
+                ), 12, 8
+            ))
+
+    def test_rail_cache_ignores_nonvisual_weather_metadata(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["weather"] = {
+                "temperature_c": 17,
+                "icon": "clear_day",
+                "stale": False,
+                "fetched_at": "2026-10-04T10:00:00Z",
+            }
+            display.show(screen, clock_time="19:40", phase=0)
+            screen["weather"]["fetched_at"] = "2026-10-04T10:00:10Z"
+
+            self.assertTrue(display._rail_cache_matches(screen))
+
     def test_departures_scene_attaches_clock_and_weather_overlay(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
@@ -532,9 +573,18 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             screen["summary_seconds"] = 0
             screen["calling_seconds"] = 30
 
-            self.assertFalse(display._departures_calling_moving(screen, 14.0, 30, 0))
+            short_text = led_display.calling_text(screen["services"][0])
+            short_station_text = short_text[len(led_display.CALLING_LABEL):]
+            short_speed, _ = led_display._station_scroll_settings(screen)
+            short_travel = (
+                led_display.DISPLAY_WIDTH
+                - len(led_display.CALLING_LABEL) * led_display.WEATHER_FONT_WIDTH
+                + len(short_station_text) * led_display.WEATHER_FONT_WIDTH
+            ) / short_speed
+            quiet_phase = short_travel + 0.5
+            self.assertFalse(display.animation_active(screen, quiet_phase))
             screen["services"][0]["stops"] = long_stops
-            self.assertTrue(display._departures_calling_moving(screen, 14.0, 30, 0))
+            self.assertTrue(display.animation_active(screen, quiet_phase))
 
     def test_departures_cache_reuses_scenes_for_equal_new_api_payload(self):
         with patch.dict(sys.modules, fake_modules()):

@@ -37,6 +37,9 @@ from formatting import (
     calling_color_segments,
     calling_text,
     departure_scroll_state,
+    DEPARTURE_SLIDE_SECONDS,
+    DEPARTURE_RESET_GAP_SECONDS,
+    DEPARTURE_RESET_SLIDE_SECONDS,
     RAIL_ROW_Y,
     RAIL_CALLING_SECONDS,
     RAIL_SUMMARY_SECONDS,
@@ -147,6 +150,28 @@ def _weather_icon(weather):
 def _weather_rgb(icon_name, stale=False):
     color = WEATHER_COLORS.get(icon_name, WEATHER_COLORS["unknown"])
     return 0x777777 if stale else color
+
+
+def _rail_weather_key(weather):
+    """Return only weather fields that affect visible rail pixels."""
+    if not isinstance(weather, dict):
+        return None
+    icon_name, _ = _weather_icon(weather)
+    return (_weather_text(weather), icon_name, bool(weather.get("stale")))
+
+
+def _next_periodic_boundary(elapsed, boundaries, cycle):
+    """Seconds to the next state edge in a repeating animation cycle."""
+    cycle = max(0.001, float(cycle))
+    within = max(0.0, float(elapsed or 0)) % cycle
+    candidates = []
+    for boundary in boundaries:
+        edge = float(boundary) % cycle
+        delta = edge - within
+        if delta <= 1e-6:
+            delta += cycle
+        candidates.append(delta)
+    return min(candidates) if candidates else cycle
 
 
 def _header_content_right(screen):
@@ -739,11 +764,6 @@ class MatrixDisplay:
 
     def animation_sleep_seconds(self, screen, phase):
         """Return a conservative sleep until the next known animation boundary."""
-        # Every adaptive experiment profile must wake at the next animation
-        # boundary. Restricting this to the literal "adaptive" profile lets
-        # the 15/20 Hz candidates sleep through page/header transitions.
-        if MATRIX_ANIMATION_PROFILE == "baseline":
-            return None
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
@@ -784,6 +804,31 @@ class MatrixDisplay:
                 boundaries.append(summary_seconds - within)
             else:
                 boundaries.append(cycle - within)
+                calling_elapsed = rail_marquee_elapsed(phase, summary_seconds, calling_seconds)
+                services = screen.get("services") or ()
+                upcoming_count = max(0, len(services) - 1)
+                pause = max(0.0, float(screen.get("upcoming_train_pause_seconds", 2) or 0))
+                max_start = max(0, upcoming_count - 2)
+                if max_start:
+                    step = pause + DEPARTURE_SLIDE_SECONDS
+                    normal = (max_start + 1) * step
+                    row_cycle = normal + DEPARTURE_RESET_GAP_SECONDS + DEPARTURE_RESET_SLIDE_SECONDS
+                    row_edges = [0.0, normal, normal + DEPARTURE_RESET_GAP_SECONDS,
+                                 row_cycle]
+                    for index in range(max_start + 1):
+                        start = index * step + pause
+                        row_edges.extend((start, start + DEPARTURE_SLIDE_SECONDS))
+                    boundaries.append(_next_periodic_boundary(calling_elapsed, row_edges, row_cycle))
+                if services:
+                    text = calling_text(services[0])
+                    prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
+                    station_text = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+                    speed, _ = _station_scroll_settings(screen)
+                    travel = (DISPLAY_WIDTH - prefix_width + len(station_text) * WEATHER_FONT_WIDTH) / speed
+                    marquee_cycle = travel + CALLING_MARQUEE_PAUSE_SECONDS
+                    boundaries.append(_next_periodic_boundary(
+                        calling_elapsed, (0.0, travel, marquee_cycle), marquee_cycle
+                    ))
             return max(0.05, min(boundaries))
         return _header_next_boundary_seconds(phase, screen.get("weather"))
 
@@ -801,7 +846,9 @@ class MatrixDisplay:
             prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
             station_text = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
             travel_seconds = (DISPLAY_WIDTH - prefix_width + len(station_text) * WEATHER_FONT_WIDTH) / scroll_speed
-            if rail_marquee_elapsed(phase, summary_seconds, calling_seconds) < travel_seconds:
+            cycle_seconds = travel_seconds + CALLING_MARQUEE_PAUSE_SECONDS
+            within_cycle = rail_marquee_elapsed(phase, summary_seconds, calling_seconds) % cycle_seconds
+            if within_cycle < travel_seconds:
                 return True
         return False
 
@@ -987,7 +1034,7 @@ class MatrixDisplay:
             and self._rail_services == screen.get("services")
             and self._rail_title == screen.get("title")
             and self._rail_stale == bool(screen.get("stale"))
-            and self._rail_weather == screen.get("weather")
+            and _rail_weather_key(self._rail_weather) == _rail_weather_key(screen.get("weather"))
         )
 
     def _build_rail_scene(self, screen, clock_time, phase):

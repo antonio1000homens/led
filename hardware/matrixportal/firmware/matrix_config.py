@@ -66,6 +66,13 @@ MATRIX_ANIMATION_PROFILES = {
         "departures_calling": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
     },
+    "departures_12": {
+        "todoist_marquee": MATRIX_REFRESH_FPS,
+        "todoist_page_slide": MATRIX_REFRESH_FPS,
+        "header_slide": MATRIX_REFRESH_FPS,
+        "departures_calling": DEPARTURES_CALLING_FPS,
+        "queue_rows": MATRIX_REFRESH_FPS,
+    },
     "transition_15": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
         "todoist_page_slide": 15,
@@ -82,8 +89,8 @@ MATRIX_ANIMATION_PROFILES = {
     },
 }
 
-# Keep the conservative B8 cadence as the default. The 15/20 Hz transition
-# profiles remain available for explicit board-local experiments.
+# Keep the conservative B8 cadence as the production default. The focused
+# Departures 12 Hz profile remains available for future controlled comparison.
 MATRIX_ANIMATION_PROFILE = "baseline"
 try:
     import settings_local as _animation_settings_local

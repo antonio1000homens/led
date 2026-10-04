@@ -362,6 +362,12 @@ while True:
         )
     if should_fetch:
         fetch_started = time.monotonic()
+        # Screen API calls are synchronous and can take multiple animation
+        # frames. Freeze the selected screen phase for that interval so the
+        # first post-fetch frame resumes where the last one left off.
+        fetch_resume = None
+        if rotation.screens and not flash.active(fetch_started):
+            fetch_resume = rotation.pause(fetch_started)
         try:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
@@ -373,6 +379,8 @@ while True:
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
             rotation.update(screens, fetch_completed)
+            if fetch_resume is not None:
+                rotation.resume(fetch_completed, fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
             fetched_at = payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
@@ -388,6 +396,8 @@ while True:
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
             transport_stale = bool(rotation.screens)
+            if fetch_resume is not None:
+                rotation.resume(fetch_completed, fetch_resume[0], fetch_resume[1])
         now = fetch_completed
         next_fetch = now + settings.POLL_SECONDS
         if fetch_during_animation and hasattr(display, "note_fetch_overlap"):
