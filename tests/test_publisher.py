@@ -174,6 +174,7 @@ class PublisherTests(unittest.TestCase):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_ttl=60)
         runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
         runtime["feeds"]["weather"]["screen_duration_seconds"]=13
+        runtime["feeds"]["weather"]["poll_seconds"]=60
         weather=FakeProvider([
             {"temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day","is_day":True,"forecast":weather_forecast()},
             RuntimeError("weather upstream down"),
