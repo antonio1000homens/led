@@ -31,6 +31,8 @@ def weather_forecast():
             "temperature_min_c": 10 - index,
             "weather_code": codes[index],
             "icon": icons[index],
+            "sunrise_time": "07:{:02d}".format(8 + index * 2),
+            "sunset_time": "18:{:02d}".format(29 - index * 2),
         }
         for index in range(7)
     ]
@@ -92,14 +94,19 @@ class PublisherTests(unittest.TestCase):
         first=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run()
         self.assertEqual(rail.calls,2); self.assertEqual(queues.calls,1); self.assertEqual(chessington.calls,1); self.assertEqual(weather.calls,1)
-        self.assertEqual([s["id"] for s in first["screens"]],["departures","queue-times","weather-weekly"])
+        self.assertEqual(
+            [s["id"] for s in first["screens"]],
+            ["departures","queue-times","weather-weekly"] + ["weather-day-{}".format(index) for index in range(7)],
+        )
         queue_screen=second["screens"][1]
         self.assertEqual(queue_screen["kind"],"theme_park_queues")
         self.assertEqual([park["feed_id"] for park in queue_screen["parks"]],["thorpe_park","chessington"])
         self.assertEqual([r["name"] for r in queue_screen["parks"][0]["rides"]],["Hyperia","Stealth","The Swarm","Colossus"])
         self.assertEqual(queue_screen["entries_per_page"],3); self.assertEqual(queue_screen["parks"][1]["rides"][0]["name"],"Mandrill Mayhem")
-        weekly=second["screens"][-1]
-        self.assertEqual(weekly["kind"],"weather_weekly"); self.assertEqual(len(weekly["days"]),7)
+        weekly=next(screen for screen in second["screens"] if screen["kind"]=="weather_weekly")
+        details=[screen for screen in second["screens"] if screen["kind"]=="weather_day"]
+        self.assertEqual(len(weekly["days"]),7)
+        self.assertEqual([screen["day_index"] for screen in details],list(range(7)))
         self.assertEqual([day["date"] for day in weekly["days"]],[day["date"] for day in weather_forecast()])
         for screen in second["screens"]:
             self.assertEqual(screen["weather"]["temperature_c"],17.4)
@@ -195,8 +202,7 @@ class PublisherTests(unittest.TestCase):
         ).run()
 
         self.assertEqual(weather.calls,1)
-        weekly=payload["screens"][-1]
-        self.assertEqual(weekly["kind"],"weather_weekly")
+        weekly=next(screen for screen in payload["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(weekly["days"],weather_forecast())
         self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],18.0)
 
@@ -221,7 +227,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(weather.calls,1)
         self.assertTrue(payload["screens"][0]["weather"]["stale"])
         self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],17.4)
-        weekly=payload["screens"][-1]
+        weekly=next(screen for screen in payload["screens"] if screen["kind"]=="weather_weekly")
         self.assertTrue(weekly["stale"])
         self.assertEqual(weekly["days"],[])
 
@@ -239,11 +245,98 @@ class PublisherTests(unittest.TestCase):
         Publisher(config,self.store,rail_provider=rail,weather_provider=weather,utcnow=self.utcnow,runtime_config_store=store).run()
         self.now+=timedelta(seconds=61)
         payload=Publisher(config,self.store,rail_provider=rail,weather_provider=weather,utcnow=self.utcnow,runtime_config_store=store).run()
-        weekly=payload["screens"][-1]
+        weekly=next(screen for screen in payload["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(weather.calls,2)
         self.assertEqual(weekly["duration_seconds"],13)
         self.assertTrue(weekly["stale"])
         self.assertEqual(weekly["days"],weather_forecast())
+
+    def test_weather_overview_and_individual_days_are_configurable(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        weather_config=runtime["feeds"]["weather"]
+        weather_config["overview_enabled"]=False
+        weather_config["day_0_enabled"]=False
+        weather_config["day_1_enabled"]=True
+        weather_config["day_1_duration_seconds"]=17
+        weather_config["day_2_enabled"]=False
+        weather_config["day_3_enabled"]=True
+        weather_config["day_3_duration_seconds"]=23
+        for index in (4,5,6):
+            weather_config["day_{}_enabled".format(index)]=False
+
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01"}]]),
+            weather_provider=FakeProvider([{
+                "temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day",
+                "is_day":True,"forecast":weather_forecast(),
+            }]),
+            utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+
+        weather_screens=[screen for screen in payload["screens"] if screen["kind"].startswith("weather_")]
+        self.assertEqual([screen["id"] for screen in weather_screens],["weather-day-1","weather-day-3"])
+        self.assertEqual([screen["duration_seconds"] for screen in weather_screens],[17,23])
+        self.assertEqual([screen["day"]["weekday"] for screen in weather_screens],["MON","WED"])
+        self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],17.4)
+
+    def test_weather_can_poll_with_all_weather_screens_disabled(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        weather_config=runtime["feeds"]["weather"]
+        weather_config["overview_enabled"]=False
+        for index in range(7):
+            weather_config["day_{}_enabled".format(index)]=False
+        weather=FakeProvider([{
+            "temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day",
+            "is_day":True,"forecast":weather_forecast(),
+        }])
+
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01"}]]),
+            weather_provider=weather,utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+
+        self.assertEqual(weather.calls,1)
+        self.assertFalse(any(screen["kind"].startswith("weather_") for screen in payload["screens"]))
+        self.assertEqual(payload["screens"][0]["weather"]["icon"],"partly_cloudy_day")
+
+    def test_cached_forecast_without_solar_times_is_refreshed_immediately(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        legacy_forecast=weather_forecast()
+        for day in legacy_forecast:
+            day.pop("sunrise_time")
+            day.pop("sunset_time")
+        self.store.state["feeds"]["weather"]={
+            "last_attempt_at":"2026-09-13T07:00:00Z",
+            "last_success_at":"2026-09-13T07:00:00Z",
+            "stale":False,
+            "data":{
+                "source":"open_meteo","temperature_c":17.4,"weather_code":2,
+                "icon":"partly_cloudy_day","is_day":True,"forecast":legacy_forecast,
+            },
+        }
+        weather=FakeProvider([{
+            "temperature_c":18.0,"weather_code":1,"icon":"clear_day",
+            "is_day":True,"forecast":weather_forecast(),
+        }])
+
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01"}]]),
+            weather_provider=weather,utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+
+        self.assertEqual(weather.calls,1)
+        detail=next(screen for screen in payload["screens"] if screen["kind"]=="weather_day")
+        self.assertEqual(detail["day"]["sunrise_time"],"07:08")
+        self.assertEqual(detail["day"]["sunset_time"],"18:29")
 
     def test_cold_weather_failure_keeps_other_screens_and_emits_unavailable_weekly_screen(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
