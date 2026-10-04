@@ -318,9 +318,9 @@ EventBridge Scheduler invokes `led-publisher` once per minute. The Lambda loads 
 - National Rail: 60 seconds;
 - queue feeds: 300 seconds;
 - Todoist calendar: 300 seconds when enabled;
-- Open-Meteo current weather + seven-day forecast: 600 seconds, fetched and cached together in one request.
+- Open-Meteo current weather + seven-day forecast + local sunrise/sunset: 600 seconds, fetched and cached together in one request.
 
-If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Weather current conditions and the seven-day forecast share that same last-good cache entry. A cold Todoist/OAuth failure affects only the calendar screen; a cold weather failure publishes the other feeds plus an unavailable weekly-weather screen.
+If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Weather current conditions, seven-day forecast, sunrise and sunset share that same last-good cache entry. Weather normally publishes the configurable weekly overview followed by whichever daily detail screens are enabled. A cold Todoist/OAuth failure affects only the calendar screen; a cold weather failure publishes the other feeds plus the unavailable weekly-weather screen when that overview is enabled, and never creates empty per-day detail screens.
 
 The Lambda replaces `api/screens` with one complete S3 `PutObject`; S3 object replacement is atomic, so readers never observe partially written JSON. CloudFront caching is disabled for `api/screens`.
 
