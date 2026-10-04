@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 import threading
 import unittest
@@ -173,6 +174,17 @@ class ScreenFeedTests(unittest.TestCase):
         self.assertEqual(calendar["page_seconds"], 5)
         self.assertGreater(calendar["duration_seconds"], 8)
         self.assertEqual(calendar["weather"]["source"], "weather_fixture")
+        weekly = payload["screens"][-1]
+        self.assertEqual(weekly["kind"], "weather_weekly")
+        self.assertEqual(weekly["duration_seconds"], 8)
+        self.assertEqual(len(weekly["days"]), 7)
+        self.assertEqual(weekly["days"][0]["date"], datetime.now().astimezone().date().isoformat())
+        self.assertIn("temperature_max_c", weekly["days"][0])
+        self.assertIn("temperature_min_c", weekly["days"][0])
+        self.assertIn("icon", weekly["days"][0])
+        for screen in payload["screens"]:
+            self.assertEqual(screen["weather"]["source"], "weather_fixture")
+            self.assertNotIn("forecast", screen["weather"])
 
 
 class HttpTests(unittest.TestCase):
