@@ -35,6 +35,15 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertNotIn("drawWeatherIcon(screen.weather);", simulator)
         self.assertNotIn("iconX: 992", simulator)
 
+    def test_simulator_has_static_full_width_weekly_weather_screen(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("function drawWeeklyWeather(screen)", simulator)
+        self.assertIn("screen.kind === 'weather_weekly'", simulator)
+        self.assertIn("Math.floor(index * 1024 / 7)", simulator)
+        self.assertIn("Math.floor((index + 1) * 1024 / 7)", simulator)
+        self.assertIn("status.dataset.detail = '7-day weather forecast';", simulator)
+        self.assertIn("suppressHeader = true;", simulator)
+
     def test_simulator_hides_all_day_time_and_renders_due_countdown(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("event.all_day || rawTimeText.toUpperCase() === 'ALL'", simulator)
@@ -128,6 +137,13 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("suppressHeader = true;", simulator)
         self.assertIn('empty_state = screen.get("empty_state")', display)
         self.assertIn("No services duration", admin)
+
+    def test_admin_weather_duration_label_is_feed_specific(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("seconds this screen remains visible", admin)
+        self.assertIn("seconds for the complete Queue-Times block", admin)
+        self.assertIn("seconds the 7-day forecast remains visible", admin)
+        self.assertIn("feedId==='weather'", admin)
 
     def test_admin_bootstraps_access_before_fetching_api(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")

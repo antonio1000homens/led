@@ -19,6 +19,23 @@ class FakeProvider:
         return copy.deepcopy(result)
 
 
+def weather_forecast():
+    start = datetime(2026, 9, 13, tzinfo=timezone.utc)
+    icons = ("clear_day", "partly_cloudy_day", "cloudy", "rain", "fog", "snow", "storm")
+    codes = (0, 2, 3, 61, 45, 71, 95)
+    return [
+        {
+            "date": (start + timedelta(days=index)).date().isoformat(),
+            "weekday": (start + timedelta(days=index)).strftime("%a").upper(),
+            "temperature_max_c": 18 - index,
+            "temperature_min_c": 10 - index,
+            "weather_code": codes[index],
+            "icon": icons[index],
+        }
+        for index in range(7)
+    ]
+
+
 class PublisherTests(unittest.TestCase):
     def setUp(self):
         self.now=datetime(2026,9,13,7,0,tzinfo=timezone.utc); self.utcnow=lambda:self.now; self.store=MemoryStore()
@@ -71,17 +88,22 @@ class PublisherTests(unittest.TestCase):
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])
         rides=[{"name":name,"open":True,"wait_minutes":wait,"last_updated":"","land":""} for name,wait in (("Hyperia",25),("Stealth",10),("The Swarm",15),("Colossus",20))]
         queues=FakeProvider([rides]); chessington=FakeProvider([[{"name":"Mandrill Mayhem","open":True,"wait_minutes":30,"last_updated":"","land":""}]])
-        weather=FakeProvider([{"temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day","is_day":True,"attribution":"Weather data by Open-Meteo.com","attribution_url":"https://open-meteo.com/"}])
+        weather=FakeProvider([{"temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day","is_day":True,"forecast":weather_forecast(),"attribution":"Weather data by Open-Meteo.com","attribution_url":"https://open-meteo.com/"}])
         first=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run()
         self.assertEqual(rail.calls,2); self.assertEqual(queues.calls,1); self.assertEqual(chessington.calls,1); self.assertEqual(weather.calls,1)
-        self.assertEqual([s["id"] for s in first["screens"]],["departures","queue-times"])
+        self.assertEqual([s["id"] for s in first["screens"]],["departures","queue-times","weather-weekly"])
         queue_screen=second["screens"][1]
         self.assertEqual(queue_screen["kind"],"theme_park_queues")
         self.assertEqual([park["feed_id"] for park in queue_screen["parks"]],["thorpe_park","chessington"])
         self.assertEqual([r["name"] for r in queue_screen["parks"][0]["rides"]],["Hyperia","Stealth","The Swarm","Colossus"])
         self.assertEqual(queue_screen["entries_per_page"],3); self.assertEqual(queue_screen["parks"][1]["rides"][0]["name"],"Mandrill Mayhem")
-        for screen in second["screens"]: self.assertEqual(screen["weather"]["temperature_c"],17.4)
+        weekly=second["screens"][-1]
+        self.assertEqual(weekly["kind"],"weather_weekly"); self.assertEqual(len(weekly["days"]),7)
+        self.assertEqual([day["date"] for day in weekly["days"]],[day["date"] for day in weather_forecast()])
+        for screen in second["screens"]:
+            self.assertEqual(screen["weather"]["temperature_c"],17.4)
+            self.assertNotIn("forecast",screen["weather"])
     def test_all_closed_queue_pages_are_omitted_per_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
@@ -147,6 +169,108 @@ class PublisherTests(unittest.TestCase):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist")
         screen=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),utcnow=self.utcnow,calendar_provider=FakeProvider([[]])).run()["screens"][1]
         self.assertEqual(screen["events"],[]); self.assertFalse(screen["stale"]); self.assertEqual(screen["title"],"UPCOMING")
+
+    def test_legacy_weather_cache_is_refreshed_immediately_before_weekly_publish(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        legacy_data={"source":"open_meteo","temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day","is_day":True}
+        self.store.state["feeds"]["weather"]={
+            "last_attempt_at":"2026-09-13T07:00:00Z",
+            "last_success_at":"2026-09-13T07:00:00Z",
+            "stale":False,
+            "data":legacy_data,
+        }
+        weather=FakeProvider([{
+            "temperature_c":18.0,
+            "weather_code":1,
+            "icon":"clear_day",
+            "is_day":True,
+            "forecast":weather_forecast(),
+        }])
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01"}]]),
+            weather_provider=weather,utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+
+        self.assertEqual(weather.calls,1)
+        weekly=payload["screens"][-1]
+        self.assertEqual(weekly["kind"],"weather_weekly")
+        self.assertEqual(weekly["days"],weather_forecast())
+        self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],18.0)
+
+    def test_legacy_weather_cache_is_retained_stale_if_forced_upgrade_fails(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        legacy_data={"source":"open_meteo","temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day","is_day":True}
+        self.store.state["feeds"]["weather"]={
+            "last_attempt_at":"2026-09-13T07:00:00Z",
+            "last_success_at":"2026-09-13T07:00:00Z",
+            "stale":False,
+            "data":legacy_data,
+        }
+        weather=FakeProvider([RuntimeError("weather upstream down")])
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01"}]]),
+            weather_provider=weather,utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+
+        self.assertEqual(weather.calls,1)
+        self.assertTrue(payload["screens"][0]["weather"]["stale"])
+        self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],17.4)
+        weekly=payload["screens"][-1]
+        self.assertTrue(weekly["stale"])
+        self.assertEqual(weekly["days"],[])
+
+    def test_weather_runtime_duration_and_stale_forecast_are_preserved(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_ttl=60)
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        runtime["feeds"]["weather"]["screen_duration_seconds"]=13
+        runtime["feeds"]["weather"]["poll_seconds"]=60
+        weather=FakeProvider([
+            {"temperature_c":17.4,"weather_code":2,"icon":"partly_cloudy_day","is_day":True,"forecast":weather_forecast()},
+            RuntimeError("weather upstream down"),
+        ])
+        rail=FakeProvider([[{"time":"08:01"}],[{"time":"08:02"}]])
+        store=StaticRuntimeConfigStore(runtime)
+        Publisher(config,self.store,rail_provider=rail,weather_provider=weather,utcnow=self.utcnow,runtime_config_store=store).run()
+        self.now+=timedelta(seconds=61)
+        payload=Publisher(config,self.store,rail_provider=rail,weather_provider=weather,utcnow=self.utcnow,runtime_config_store=store).run()
+        weekly=payload["screens"][-1]
+        self.assertEqual(weather.calls,2)
+        self.assertEqual(weekly["duration_seconds"],13)
+        self.assertTrue(weekly["stale"])
+        self.assertEqual(weekly["days"],weather_forecast())
+
+    def test_cold_weather_failure_keeps_other_screens_and_emits_unavailable_weekly_screen(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        weather=FakeProvider([RuntimeError("weather unavailable")])
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]]),
+            weather_provider=weather,utcnow=self.utcnow,
+        ).run()
+        self.assertEqual([screen["kind"] for screen in payload["screens"]],["rail_combined","weather_weekly"])
+        weekly=payload["screens"][-1]
+        self.assertEqual(weekly["source"],"unavailable")
+        self.assertTrue(weekly["stale"])
+        self.assertEqual(weekly["days"],[])
+
+    def test_disabled_weather_is_not_polled_and_does_not_emit_weekly_screen(self):
+        config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        weather=FakeProvider([])
+        payload=Publisher(
+            config,self.store,
+            rail_provider=FakeProvider([[{"time":"08:01"}]]),
+            weather_provider=weather,utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        self.assertEqual(weather.calls,0)
+        self.assertNotIn("weather_weekly",[screen["kind"] for screen in payload["screens"]])
 
     def test_disabled_feed_is_not_polled_and_is_omitted(self):
         runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})

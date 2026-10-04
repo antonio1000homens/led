@@ -215,9 +215,9 @@ For credential-free visual testing, the local fixture contains six normalized ev
 bash scripts/run-server.sh --calendar-source fixture
 ```
 
-### Current weather overlay
+### Current weather overlay and 7-day forecast
 
-The backend uses Open-Meteo for current temperature plus the WMO weather code. The free non-commercial endpoint needs no API key. Weather is cached independently for 600 seconds, so multiple MatrixPortal/browser polls do not multiply upstream weather requests.
+The backend uses one Open-Meteo request for the current temperature/WMO weather code and the seven-day daily forecast. The free non-commercial endpoint needs no API key. Current weather and forecast are cached atomically for 600 seconds, so MatrixPortal/browser polls do not multiply upstream weather requests or create a second forecast polling path.
 
 The default coordinates are New Malden railway station, matching the default `NEM` departure board:
 
@@ -228,15 +228,15 @@ LED_WEATHER_LATITUDE=51.4039
 LED_WEATHER_LONGITUDE=-0.256
 ```
 
-Set `LED_WEATHER_SOURCE=off` to remove the overlay, or change latitude/longitude for another location.
+Set `LED_WEATHER_SOURCE=off` to remove both weather features, or change latitude/longitude for another location. The dedicated `weather_weekly` screen defaults to 8 seconds and its duration is adjustable through the runtime control plane.
 
-The backend maps Open-Meteo WMO weather codes into a small renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). Both the browser and MatrixPortal draw compact 7×7 pixel icons, with the rounded Celsius temperature beside the icon on the bottom-right row. The physical display uses `17C`-style ASCII text because the built-in CircuitPython terminal font does not provide a reliable degree glyph.
+The backend maps Open-Meteo WMO weather codes into a small renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). The normal screens keep the existing compact current-weather header carousel. The dedicated weekly screen uses all 256×32 pixels for seven simultaneous day columns (weekday, 7×7 icon, MAX and MIN), so the normal clock/current-weather header is intentionally suppressed on that screen.
 
-If a weather refresh fails after at least one successful response, the previous value remains visible and is dimmed as stale. A cold weather failure shows an unavailable weather marker without affecting departures, queues or calendar screens. Browser attribution links to Open-Meteo are included as required by the provider's licence.
+If a weather refresh fails after at least one successful response, the complete last-good current + forecast payload remains available with `stale: true`; renderers mute the stale weather presentation. A cold weather failure emits an empty `weather_weekly` screen with an unavailable message without affecting departures, queues or calendar screens. Browser attribution links to Open-Meteo are included as required by the provider's licence.
 
 ### Screen contract
 
-`GET /api/screens` is the renderer-neutral contract. A response contains `fetched_at` plus one or more screens. Weather is attached to every screen so it remains available as a fixed overlay while the board rotates:
+`GET /api/screens` is the renderer-neutral contract. A response contains `fetched_at` plus one or more screens. The current-weather object is attached to every screen for the shared header carousel, and Weather also contributes one dedicated `weather_weekly` screen with a `days` array:
 
 ```json
 {

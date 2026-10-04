@@ -8,6 +8,20 @@ sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 import display as led_display
 
 
+class FakePixels:
+    def __init__(self):
+        self.shown = 0
+
+    def fill(self, color):
+        del color
+
+    def show(self):
+        self.shown += 1
+
+    def __setitem__(self, key, value):
+        del key, value
+
+
 class CapturingFixture(led_display.FixtureDisplay):
     def __init__(self):
         self.pixels = None
@@ -15,6 +29,22 @@ class CapturingFixture(led_display.FixtureDisplay):
 
     def _text(self, value, x, y, color):
         self.drawn.append((str(value), int(x), int(y), color))
+
+
+def weekly_days():
+    icons = ("clear_day", "partly_cloudy_day", "cloudy", "rain", "fog", "snow", "storm")
+    weekdays = ("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")
+    return [
+        {
+            "date": "2026-10-{:02d}".format(4 + index),
+            "weekday": weekdays[index],
+            "temperature_max_c": 16 - index,
+            "temperature_min_c": 9 - index,
+            "weather_code": index,
+            "icon": icons[index],
+        }
+        for index in range(7)
+    ]
 
 
 class DisplayLayoutTests(unittest.TestCase):
@@ -66,6 +96,61 @@ class DisplayLayoutTests(unittest.TestCase):
         _text, x, _y, color = overdue[0]
         self.assertEqual(x + len("OVERDUE") * led_display.WEATHER_FONT_WIDTH, led_display.DISPLAY_WIDTH)
         self.assertEqual(color, (255, 51, 0))
+
+    def test_weekly_weather_columns_use_full_width_and_keep_content_inside_each_column(self):
+        layout = led_display._weekly_weather_layout(weekly_days())
+        self.assertEqual(len(layout), 7)
+        self.assertEqual(layout[0]["left"], 0)
+        self.assertEqual(layout[-1]["right"], led_display.DISPLAY_WIDTH)
+        self.assertEqual([item["icon_name"] for item in layout], [day["icon"] for day in weekly_days()])
+
+        previous_right = 0
+        for item in layout:
+            self.assertEqual(item["left"], previous_right)
+            self.assertLess(item["left"], item["right"])
+            for text_key, x_key in (("weekday", "weekday_x"), ("max_text", "max_x"), ("min_text", "min_x")):
+                text = item[text_key]
+                x = item[x_key]
+                self.assertGreaterEqual(x, item["left"])
+                self.assertLessEqual(x + len(text) * led_display.WEATHER_FONT_WIDTH, item["right"])
+            self.assertGreaterEqual(item["icon_x"], item["left"])
+            self.assertLessEqual(item["icon_x"] + led_display.WEATHER_ICON_WIDTH, item["right"])
+            previous_right = item["right"]
+
+    def test_weekly_weather_fixture_draws_all_rows_and_empty_fallback(self):
+        display = CapturingFixture()
+        display._draw_screen({"kind": "weather_weekly", "days": weekly_days()}, phase=0)
+
+        text = [item[0] for item in display.drawn]
+        self.assertEqual([value for value in text if value in ("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")],
+                         ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"])
+        self.assertEqual(len([value for value in text if value.startswith("MAX")]), 7)
+        self.assertEqual(len([value for value in text if value.startswith("MIN")]), 7)
+
+        empty = CapturingFixture()
+        empty._draw_screen({"kind": "weather_weekly", "days": []}, phase=0)
+        self.assertIn("Weather unavailable", [item[0] for item in empty.drawn])
+
+    def test_weekly_weather_show_suppresses_clock_current_weather_and_stale_header(self):
+        display = CapturingFixture()
+        display.pixels = FakePixels()
+        display.show(
+            {
+                "kind": "weather_weekly",
+                "title": "7 DAY WEATHER",
+                "stale": True,
+                "days": weekly_days(),
+                "weather": {"temperature_c": 17, "icon": "clear_day", "stale": True},
+            },
+            clock_time="12:34",
+            phase=2,
+        )
+
+        text = [item[0] for item in display.drawn]
+        self.assertNotIn("12:34", text)
+        self.assertNotIn("17C", text)
+        self.assertNotIn("STALE", text)
+        self.assertEqual(display.pixels.shown, 1)
 
     def test_departure_statuses_share_one_vertical_column(self):
         display = CapturingFixture()

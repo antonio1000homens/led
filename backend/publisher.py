@@ -240,9 +240,9 @@ class Publisher:
         last = _parse_iso(previous.get("last_attempt_at"))
         return last is None or (now - last).total_seconds() >= ttl
 
-    def _refresh(self, name, previous, ttl, fetcher, now):
+    def _refresh(self, name, previous, ttl, fetcher, now, force=False):
         previous = copy.deepcopy(previous or {})
-        if not self._due(previous, ttl, now):
+        if not force and not self._due(previous, ttl, now):
             return previous
         attempted = _iso(now)
         try:
@@ -396,10 +396,31 @@ class Publisher:
         if config_feeds["weather"]["enabled"]:
             weather = feeds.get("weather") or {}
             data = weather.get("data")
-            overlay = copy.deepcopy(data) if data is not None else {
-                "source": "unavailable", "temperature_c": None, "weather_code": None, "icon": "unknown"
-            }
-            overlay["stale"] = bool(weather.get("stale")) if data is not None else True
+            if data is not None:
+                overlay = copy.deepcopy(data)
+                forecast = copy.deepcopy(overlay.pop("forecast", [])[:7])
+                source = data.get("source", "open_meteo")
+                stale = bool(weather.get("stale"))
+            else:
+                overlay = {
+                    "source": "unavailable",
+                    "temperature_c": None,
+                    "weather_code": None,
+                    "icon": "unknown",
+                }
+                forecast = []
+                source = "unavailable"
+                stale = True
+            overlay["stale"] = stale
+            screens.append({
+                "id": "weather-weekly",
+                "kind": "weather_weekly",
+                "duration_seconds": config_feeds["weather"]["screen_duration_seconds"],
+                "title": "7 DAY WEATHER",
+                "source": source,
+                "stale": stale,
+                "days": forecast,
+            })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
         return {
@@ -468,9 +489,19 @@ class Publisher:
                 lambda: self._fetch_calendar(now), now,
             )
         if settings["weather"]["enabled"]:
+            weather_previous = feeds.get("weather")
+            weather_data = (weather_previous or {}).get("data")
+            # Pre-#187 cache entries contain only current weather. Refresh that
+            # schema immediately instead of waiting up to the normal Weather TTL
+            # before the dedicated weekly screen can be populated.
+            needs_forecast_upgrade = (
+                isinstance(weather_data, dict)
+                and "forecast" not in weather_data
+            )
             feeds["weather"] = self._refresh(
-                "weather", feeds.get("weather"), settings["weather"]["poll_seconds"],
+                "weather", weather_previous, settings["weather"]["poll_seconds"],
                 lambda: self._fetch_weather(now), now,
+                force=needs_forecast_upgrade,
             )
 
         next_state = {
