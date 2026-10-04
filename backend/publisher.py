@@ -515,9 +515,18 @@ class Publisher:
             # Pre-#187 cache entries contain only current weather. Refresh that
             # schema immediately instead of waiting up to the normal Weather TTL
             # before the dedicated weekly screen can be populated.
+            cached_forecast = weather_data.get("forecast") if isinstance(weather_data, dict) else None
             needs_forecast_upgrade = (
                 isinstance(weather_data, dict)
-                and "forecast" not in weather_data
+                and (
+                    not isinstance(cached_forecast, list)
+                    or any(
+                        not isinstance(day, dict)
+                        or "sunrise_time" not in day
+                        or "sunset_time" not in day
+                        for day in cached_forecast[:7]
+                    )
+                )
             )
             feeds["weather"] = self._refresh(
                 "weather", weather_previous, settings["weather"]["poll_seconds"],
