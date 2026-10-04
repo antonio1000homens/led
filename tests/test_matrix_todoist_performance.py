@@ -488,13 +488,32 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
             display.show(screen, clock_time="19:40", phase=10.0)
             labels = display._rail_calling_labels[0]
-            label_text = tuple(label.text for label in labels)
-            first_x = tuple(label.x for label in labels)
+            label_text = (
+                labels["prefix"].text,
+                labels["first"].text,
+                labels["second"].text,
+            )
+            first_x = tuple(labels[key].x for key in ("first", "second"))
 
-            display.show(screen, clock_time="19:40", phase=10.1)
+            display.show(screen, clock_time="19:40", phase=10.125)
+            self.assertNotEqual(tuple(labels[key].x for key in ("first", "second")), first_x)
+            self.assertEqual(
+                (labels["prefix"].text, labels["first"].text, labels["second"].text),
+                label_text,
+            )
 
-            self.assertNotEqual(tuple(label.x for label in labels), first_x)
-            self.assertEqual(tuple(label.text for label in labels), label_text)
+            for frame in range(2, 17):
+                display.show(
+                    screen,
+                    clock_time="19:40",
+                    phase=10.0 + frame / MATRIX_REFRESH_FPS,
+                )
+
+            final_text = (labels["prefix"].text, labels["first"].text, labels["second"].text)
+            self.assertNotEqual(final_text, label_text)
+            self.assertTrue(
+                all(len(labels[key].text) <= 39 for key in ("first", "second"))
+            )
 
     def test_boundary_sleep_uses_earliest_header_event(self):
         with patch.dict(sys.modules, fake_modules()):

@@ -68,7 +68,7 @@ HEADER_GAP = 4
 HEADER_HOLD_SECONDS = 4.0
 HEADER_SLIDE_SECONDS = 0.6
 HEADER_SLOT_WIDTH = DISPLAY_WIDTH - HEADER_SLOT_X
-CALLING_SCROLL_SPEED = 20.0
+CALLING_SCROLL_SPEED = 10.0
 CALLING_SCROLL_GAP = 28
 MIN_CALLING_SCROLL_SPEED = 10.0
 MAX_CALLING_SCROLL_SPEED = 80.0
@@ -796,13 +796,20 @@ class MatrixDisplay:
                 self._rail_service(group, service, color, 0, y, rail_right_edge, ordinal)
             elif row_kind == "calling":
                 calling_group = displayio.Group()
-                labels = [
-                    self._label(calling_group, "", 0xFFAA00, 0, y),
-                    self._label(calling_group, "", 0xFFAA00, 0, y),
-                    self._label(calling_group, "", 0xFFAA00, 0, y),
-                ]
+                calling = calling_text(service)
+                first = self._label(calling_group, "", 0xFFAA00, 0, y)
+                second = self._label(calling_group, "", 0xFFAA00, 0, y)
+                # Keep station text to the visible labels and clip it behind
+                # the fixed prefix, avoiding long Label bitmaps on this board.
+                self._mask(calling_group, 0, y - 3, len(CALLING_LABEL) * WEATHER_FONT_WIDTH, 8)
+                prefix = self._label(calling_group, CALLING_LABEL, 0xFFAA00, 0, y)
                 group.append(calling_group)
-                self._rail_calling_labels.append(labels)
+                self._rail_calling_labels.append({
+                    "prefix": prefix,
+                    "first": first,
+                    "second": second,
+                    "text": calling,
+                })
         self._rail_phase = state
 
     def _rail_cache_matches(self, screen):
@@ -863,29 +870,26 @@ class MatrixDisplay:
         """Update only the calling-at marquee and rotating header item."""
         changed = False
         scroll_speed, scroll_gap = _station_scroll_settings(screen)
-        services = screen.get("services") or []
-        for calling_index, labels in enumerate(self._rail_calling_labels):
-            service = services[calling_index] if calling_index < len(services) else {}
-            calling = calling_text(service)
+        for labels in self._rail_calling_labels:
             calling_x = calling_marquee_x(
-                calling,
+                labels["text"],
                 rail_marquee_elapsed(phase),
                 display_width=DISPLAY_WIDTH,
                 font_width=WEATHER_FONT_WIDTH,
                 speed=scroll_speed,
                 gap=scroll_gap,
             )
-            segments = _calling_segments(calling, calling_x, scroll_gap) if calling_x is not None else ()
-            values = [(0, CALLING_LABEL)]
-            values.extend(segments)
-            while len(values) < 3:
+            segments = _calling_segments(labels["text"], calling_x, scroll_gap)
+            values = list(segments[:2])
+            while len(values) < 2:
                 values.append((0, ""))
-            for label_item, (x, text) in zip(labels, values[:3]):
-                if label_item.x != int(x):
-                    label_item.x = int(x)
+            for key, (x, text) in zip(("first", "second"), values):
+                label = labels[key]
+                if label.x != int(x):
+                    label.x = int(x)
                     changed = True
-                if label_item.text != str(text):
-                    label_item.text = str(text)
+                if label.text != str(text):
+                    label.text = str(text)
                     changed = True
 
         if self._rail_clock_label.text != clock_time:

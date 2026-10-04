@@ -451,7 +451,7 @@
       return { screen: screens[0], phase: 0, index: 0 };
     }
     function stationMarqueeSpeed(screen) {
-      return boundedNumber(screen.station_scroll_speed, 20, 10, 80) * 4;
+      return boundedNumber(screen.station_scroll_speed, 10, 10, 80) * 4;
     }
     function stationMarqueeGap() {
       return RAIL_MARQUEE_GAP;
