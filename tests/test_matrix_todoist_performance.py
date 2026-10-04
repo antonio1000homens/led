@@ -526,10 +526,15 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             ]
             screen["services"][1]["stops"] = long_stops
             screen["services"][2]["stops"] = long_stops
+            # Use the production-style no-summary layout with enough calling
+            # time for the short first-train text to settle. Long stop lists on
+            # later trains must not keep the first-train marquee active.
+            screen["summary_seconds"] = 0
+            screen["calling_seconds"] = 30
 
-            self.assertFalse(display._departures_calling_moving(screen, 17.9))
+            self.assertFalse(display._departures_calling_moving(screen, 14.0, 30, 0))
             screen["services"][0]["stops"] = long_stops
-            self.assertTrue(display._departures_calling_moving(screen, 17.9))
+            self.assertTrue(display._departures_calling_moving(screen, 14.0, 30, 0))
 
     def test_departures_cache_reuses_scenes_for_equal_new_api_payload(self):
         with patch.dict(sys.modules, fake_modules()):
