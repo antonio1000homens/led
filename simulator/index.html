@@ -609,6 +609,52 @@
       context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
       drawLedText(layout.text, layout.textX, HEADER_TEXT_Y);
     }
+    function weeklyTemperature(prefix, value) {
+      const number = Number(value);
+      return prefix + (Number.isFinite(number) ? Math.round(number) : '--');
+    }
+    function drawWeeklyWeather(screen) {
+      const days = Array.isArray(screen.days) ? screen.days.slice(0, 7) : [];
+      if (!days.length) {
+        const message = 'Weather unavailable';
+        context.fillStyle = '#aaaaaa';
+        drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 52);
+        return;
+      }
+      const stale = Boolean(screen.stale || forceStale);
+      days.forEach((day, index) => {
+        const left = Math.floor(index * 1024 / 7);
+        const right = Math.floor((index + 1) * 1024 / 7);
+        const width = right - left;
+        const weekday = String(day.weekday || '').toUpperCase().slice(0, 3);
+        const maxText = weeklyTemperature('MAX', day.temperature_max_c);
+        const minText = weeklyTemperature('MIN', day.temperature_min_c);
+        const iconName = weatherIcons[day.icon] ? day.icon : 'unknown';
+        const pattern = weatherIcons[iconName];
+        const centeredX = text => left + Math.max(0, (width - measureLedText(text).width) / 2);
+        const iconX = left + Math.max(0, (width - 28) / 2);
+
+        context.save();
+        context.beginPath();
+        context.rect(left, 0, width, 128);
+        context.clip();
+        context.fillStyle = stale ? '#777777' : '#ffaa00';
+        drawLedText(weekday, centeredX(weekday), 0);
+        context.fillStyle = stale ? '#777777' : weatherColors[iconName];
+        pattern.forEach((line, y) => [...line].forEach((pixel, x) => {
+          if (pixel === '#') context.fillRect(iconX + x * 4, 28 + y * 4, 4, 4);
+        }));
+        context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
+        drawLedText(maxText, centeredX(maxText), 64);
+        drawLedText(minText, centeredX(minText), 96);
+        context.restore();
+
+        if (index > 0) {
+          context.fillStyle = '#202832';
+          context.fillRect(left, 0, 1, 128);
+        }
+      });
+    }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
@@ -690,6 +736,10 @@
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
+      } else if (screen.kind === 'weather_weekly') {
+        drawWeeklyWeather(screen);
+        suppressHeader = true;
+        status.dataset.detail = '7-day weather forecast';
       } else if (screen.kind === 'rail_combined') {
         const railServices = listPage(screen).services;
         const headerRight = (screen.stale || forceStale) ? STALE_HEADER_CONTENT_RIGHT : HEADER_CONTENT_RIGHT;
