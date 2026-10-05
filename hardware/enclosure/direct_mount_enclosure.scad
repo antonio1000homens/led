@@ -1933,6 +1933,57 @@ module base_side_triangle_clip(x0,x_len) {
     }
 }
 
+module side_removed_bottom_extension_volume(side="right") {
+    x0 = side == "left"
+        ? -side_t-side_panel_clearance-0.5
+        : module_w+side_panel_clearance-0.5;
+    x_len = side_t+1.0;
+    forward_z = base_floor_front_z-2;
+
+    // Volume intentionally left empty in front of the triangular gusset edge.
+    hull() {
+        translate([
+            x0,
+            side_base_triangle_y0-0.1,
+            forward_z
+        ])
+            cube([
+                x_len,
+                0.2,
+                side_base_triangle_tip_z-forward_z
+            ]);
+
+        translate([
+            x0,
+            side_base_triangle_y1-0.1,
+            forward_z
+        ])
+            cube([
+                x_len,
+                0.2,
+                side_base_triangle_rear_z-forward_z
+            ]);
+    }
+}
+
+module side_removed_top_leg_volume(side="right") {
+    x0 = side == "left"
+        ? -side_t-side_panel_clearance-0.5
+        : right_side_inner_x-side_upper_intrusion_depth-0.5;
+
+    // The universal enclosure/backplane closes this final LED-board gap.
+    translate([
+        x0,
+        side_upper_end_y+0.1,
+        enclosure_front_z-1
+    ])
+        cube([
+            side_t+side_upper_intrusion_depth+1,
+            enclosure_top_y-side_upper_end_y+1,
+            universal_deep_rear_z-enclosure_front_z+2
+        ]);
+}
+
 module base_side_profile_plate(side="right") {
     // Sample the ACTUAL base edge and stretch only that thin X slice to the
     // 3 mm detachable-side thickness, then clip its front boundary to the
