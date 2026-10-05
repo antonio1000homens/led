@@ -473,6 +473,10 @@ c14_body_y1 = c14_center_y + c14_cutout_nominal_y/2;
 c14_body_z0 = c14_center_z - c14_cutout_nominal_z/2;
 c14_body_z1 = c14_center_z + c14_cutout_nominal_z/2;
 
+// Current placement leaves ~35.5 mm vertical clearance above the 14 mm rod
+// sleeve and ~5.4 mm between the snap-relief edge and upper connector pad.
+// The validator recomputes these relationships from the live geometry.
+
 // Inner faces and axial lengths for the integrated rod retainers/sleeves.
 // The capped portion stops the rod at X=10/246. From that point inward, the
 // support becomes a hollow sleeve and continues exactly to the nearest barrel.
