@@ -443,6 +443,12 @@ side_upper_end_y = universal_deep_ramp_end_y;
 side_upper_connector_keepout_margin_y = 1.0;
 side_upper_connector_keepout_margin_z = 1.0;
 
+// Diagnostic clearance used only by the "removed bottom extension" keep-out.
+// The retained side ends exactly on the live triangular gusset edge; keeping
+// the test volume 0.2 mm forward of that edge prevents CGAL from turning an
+// intended diagonal boundary contact into a thin false-positive volume.
+side_removed_bottom_check_gap = 0.2;
+
 // Left outer end: fused/switched IEC C14 snap-in inlet.
 //
 // Keep this interface derived from the CURRENT detachable-side envelope rather
@@ -1956,7 +1962,8 @@ module side_removed_bottom_extension_volume(side="right") {
             cube([
                 x_len,
                 0.2,
-                side_base_triangle_tip_z-forward_z
+                side_base_triangle_tip_z
+                    -side_removed_bottom_check_gap-forward_z
             ]);
 
         translate([
@@ -1967,7 +1974,8 @@ module side_removed_bottom_extension_volume(side="right") {
             cube([
                 x_len,
                 0.2,
-                side_base_triangle_rear_z-forward_z
+                side_base_triangle_rear_z
+                    -side_removed_bottom_check_gap-forward_z
             ]);
     }
 }
@@ -2101,6 +2109,22 @@ module side_upper_backplane_release_keepout(side="right") {
     }
 }
 
+module side_upper_hinge_rod_keepout() {
+    // The 10 mm inward return reaches 0.5 mm into the physical 6 mm hinge-rod
+    // span at each end. Reuse the established 7.2 mm sleeve running bore as
+    // the clearance envelope so the return can never refill the sleeve bore.
+    translate([
+        hinge_rail_start_x-0.2,
+        hinge_axis_y,
+        hinge_axis_z
+    ])
+        rotate([0,90,0])
+            cylinder(
+                d=side_rod_sleeve_bore_d,
+                h=hinge_rail_length+0.4
+            );
+}
+
 module side_upper_intrusion(side="right") {
     x0 = side == "left"
         ? left_side_inner_x
@@ -2111,6 +2135,7 @@ module side_upper_intrusion(side="right") {
         side_upper_core_keepout();
         side_upper_connector_keepout(side);
         side_upper_backplane_release_keepout(side);
+        side_upper_hinge_rod_keepout();
     }
 }
 
