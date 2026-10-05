@@ -174,10 +174,18 @@ class ScreenFeedTests(unittest.TestCase):
         self.assertEqual(calendar["page_seconds"], 5)
         self.assertGreater(calendar["duration_seconds"], 8)
         self.assertEqual(calendar["weather"]["source"], "weather_fixture")
-        weekly = payload["screens"][-1]
-        self.assertEqual(weekly["kind"], "weather_weekly")
+        weather_screens = payload["screens"][-3:]
+        self.assertEqual(
+            [screen["kind"] for screen in weather_screens],
+            ["weather_weekly", "weather_today", "weather_sun"],
+        )
+        weekly, today, sun = weather_screens
         self.assertEqual(weekly["duration_seconds"], 8)
         self.assertEqual(len(weekly["days"]), 7)
+        self.assertEqual([block["label"] for block in today["blocks"]],
+                         ["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"])
+        self.assertEqual(sun["sunrise_time"], weekly["days"][0]["sunrise_time"])
+        self.assertEqual(sun["sunset_time"], weekly["days"][0]["sunset_time"])
         self.assertEqual(weekly["days"][0]["date"], datetime.now().astimezone().date().isoformat())
         self.assertIn("temperature_max_c", weekly["days"][0])
         self.assertIn("temperature_min_c", weekly["days"][0])
@@ -185,6 +193,8 @@ class ScreenFeedTests(unittest.TestCase):
         for screen in payload["screens"]:
             self.assertEqual(screen["weather"]["source"], "weather_fixture")
             self.assertNotIn("forecast", screen["weather"])
+            self.assertNotIn("today_blocks", screen["weather"])
+            self.assertNotIn("sunrise_time", screen["weather"])
 
 
 class HttpTests(unittest.TestCase):
