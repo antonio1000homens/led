@@ -562,6 +562,7 @@ class MatrixDisplay:
         bitmap = displayio.Bitmap(len(text) * (WEEKLY_WEATHER_GLYPH_WIDTH + 1) * scale, 5 * scale, 2)
         palette = displayio.Palette(2)
         palette[0] = 0x000000
+        palette.make_transparent(0)
         palette[1] = color
         for index, char in enumerate(str(text)):
             rows = WEEKLY_WEATHER_GLYPHS.get(char, (0, 0, 0, 0, 0))
@@ -1599,10 +1600,11 @@ class MatrixDisplay:
         text_color = 0xAAAAAA if stale else 0xFFFFFF
         weekday_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
-            self._label(group, item["weekday"], weekday_color, item["weekday_x"], 3)
+            self._label(group, item["weekday"], weekday_color, item["weekday_x"], 0)
             bitmap = displayio.Bitmap(item["icon_width"], 14, 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
+            palette.make_transparent(0)
             palette[1] = _weather_rgb(item["icon_name"], stale)
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
@@ -1614,9 +1616,9 @@ class MatrixDisplay:
                 bitmap,
                 pixel_shader=palette,
                 x=item["icon_x"],
-                y=6,
+                y=8,
             ))
-            self._temperature_label(group, item["max_text"], text_color, item["max_x"], 22)
+            self._temperature_label(group, item["max_text"], text_color, item["max_x"], 23)
 
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
@@ -1786,8 +1788,8 @@ class FixtureDisplay:
                         for dx in range(WEEKLY_WEATHER_ICON_SCALE):
                             for dy in range(WEEKLY_WEATHER_ICON_SCALE):
                                 self._pixel(item["icon_x"] + x * WEEKLY_WEATHER_ICON_SCALE + dx,
-                                            6 + y * WEEKLY_WEATHER_ICON_SCALE + dy, icon_color)
-            self._text_scaled(item["max_text"], item["max_x"], 22, text_color)
+                                            8 + y * WEEKLY_WEATHER_ICON_SCALE + dy, icon_color)
+            self._text_scaled(item["max_text"], item["max_x"], 23, text_color)
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
