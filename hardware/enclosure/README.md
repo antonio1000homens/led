@@ -283,22 +283,27 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 The detachable left/right sides are now full-height **end caps** rather than
 enclosure-only plates:
 
-- the **lower/base section** is generated from a thin live slice of the current
-  base edge, so its visible Y/Z outline automatically follows the base floor,
-  guide gusset, rear buttress/guardrail and later base-profile changes;
+- the **lower/base section** follows the current base only from the triangular
+  guide reinforcement rearward; the old forward floor extension is deliberately
+  omitted, so the visible front edge follows the triangle diagonal;
 - the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
   reused unchanged by the end cap, so each side locks to the same A/B junctions
   used when two bases mate;
-- the **upper/enclosure section** keeps the current enclosure profile and adds an
-  inward return that reaches **10 mm beyond the actual enclosure edge**;
+- the **upper/enclosure section** follows the deep region and return ramp, then
+  stops at the ramp end; there is **no shallow top leg** up to the LED-board edge
+  because the enclosure/backplane itself closes that final gap;
+- the retained upper section still adds an inward return that reaches
+  **10 mm beyond the actual enclosure edge**;
 - the existing 0.4 mm side clearance plus 0.5 mm backplane inset means that
   return is 10.9 mm from the side's inner face to its inner end;
 - the return is carved around the live base/backplane geometry and has a
   dedicated keep-out around the upper module-to-module connector and its
   vertical release path, so it cannot consume the connector region.
 
-The external 3 mm end face remains continuous; only the internal return is
-locally removed where the current enclosure/module connector needs space.
+The external 3 mm end face is continuous only across the retained base/upper
+profile: it does not extend forward beyond the base triangle and does not extend
+above the enclosure return ramp. The internal 10 mm return is still locally
+removed where the current enclosure/module connector needs space.
 These features provide end coverage and alignment/retention, not the primary
 structural load between modules.
 
