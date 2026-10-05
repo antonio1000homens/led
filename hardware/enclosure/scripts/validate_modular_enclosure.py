@@ -239,10 +239,35 @@ def assert_empty_intersection(
     )
     diagnostic = f"{completed.stdout}\n{completed.stderr}"
     if completed.returncode == 0 and output.is_file():
+        # A completely empty intersection is success. OpenSCAD may still emit
+        # an empty STL file rather than the "top level object is empty"
+        # diagnostic, so do not route this case through load_mesh(), which is
+        # intentionally strict for printable-part validation.
+        loaded = trimesh.load_mesh(output, process=True)
+        if isinstance(loaded, trimesh.Scene):
+            if not loaded.geometry:
+                print(f"OK: {name} has no volumetric interference")
+                return
+            contact = trimesh.util.concatenate(tuple(loaded.geometry.values()))
+        elif isinstance(loaded, trimesh.Trimesh):
+            contact = loaded
+        else:
+            print(f"OK: {name} has no volumetric interference")
+            return
+
+        if contact.is_empty:
+            print(f"OK: {name} has no volumetric interference")
+            return
+
+        contact.update_faces(contact.nondegenerate_faces())
+        contact.remove_unreferenced_vertices()
+        if contact.is_empty:
+            print(f"OK: {name} has no volumetric interference")
+            return
+
         # OpenSCAD can export degenerate STL shells at exact coplanar/circular
         # contact. Require both measurable 3D extent and positive enclosed
         # volume; a zero-volume shell around a cutter edge is not interference.
-        contact = load_mesh(name, output)
         components = contact.split(only_watertight=False)
         volumetric = [
             component
@@ -765,6 +790,10 @@ assert(side_base_triangle_tip_z > base_floor_front_z+20,
        "trimmed side unexpectedly copied the old forward base-floor extension");
 assert(abs(side_base_upper_join_overlap_y-0.8) < 0.01,
        "base/upper side-shell join must retain a real volumetric overlap");
+assert(side_removed_bottom_check_gap >= 0.2,
+       "removed-bottom diagnostic volume must stay clear of the live diagonal edge");
+assert(side_rod_sleeve_bore_d > hinge_rail_d,
+       "upper-return hinge keepout must retain running clearance around the rod");
 assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
        "base-side connector radial clearance drifted");
 assert(abs(side_connector_pin_len-
