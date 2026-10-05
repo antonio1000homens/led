@@ -294,6 +294,9 @@ enclosure-only plates:
   because the enclosure/backplane itself closes that final gap;
 - the retained upper section still adds an inward return that reaches
   **10 mm beyond the actual enclosure edge**;
+- that return includes the complete vertical service corridor swept by the
+  removable backplane during its first 15 mm of upward release, so it cannot
+  trap the backplane during removal;
 - the existing 0.4 mm side clearance plus 0.5 mm backplane inset means that
   return is 10.9 mm from the side's inner face to its inner end;
 - the return is carved around the live base/backplane geometry and has a
