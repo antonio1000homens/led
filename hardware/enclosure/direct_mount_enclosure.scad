@@ -432,6 +432,23 @@ side_upper_core_clearance_x = 0.2;
 // than maintaining a second hand-authored approximation.
 base_side_profile_slice_w = 0.2;
 
+// The side only follows the front triangular guide reinforcement; it must not
+// copy the base floor farther forward than the triangle. These coordinates are
+// derived from the exact gusset used by side_guide_channel().
+side_base_triangle_y0 = side_guide_y0;
+side_base_triangle_y1 = side_guide_y0 + side_guide_floor_gusset_h;
+side_base_triangle_rear_z =
+    side_guide_front_z + side_guide_floor_gusset_overlap;
+side_base_triangle_tip_z =
+    side_base_triangle_rear_z
+        - side_guide_floor_gusset_footprint
+        - side_guide_floor_gusset_overlap;
+
+// The enclosure/backplane itself closes the final gap to the LED board.
+// Detachable end caps therefore stop at the end of the return ramp and do not
+// carry the shallow top leg up to enclosure_top_y.
+side_upper_end_y = universal_deep_ramp_end_y;
+
 // Keep the upper module-to-module connector/release region free of the 10 mm
 // return. The side's existing locating pin/socket geometry still occupies this
 // zone and mates with the current backplane connector.
@@ -1830,8 +1847,9 @@ module left_c14_body_envelope() {
 }
 
 module side_upper_profile_solid(x0,x_len) {
-    // Exact upper enclosure Y/Z profile, parameterised by X depth so the same
-    // source drives both the 3 mm exterior end plate and the 10 mm inward return.
+    // Exact enclosure Y/Z profile only through the return ramp. The universal
+    // enclosure/backplane itself continues to the LED board, so the detachable
+    // side deliberately has no shallow top leg above side_upper_end_y.
     union() {
         translate([
             x0,
@@ -1858,7 +1876,7 @@ module side_upper_profile_solid(x0,x_len) {
 
             translate([
                 x0,
-                universal_deep_ramp_end_y-backplane_top_band,
+                side_upper_end_y-backplane_top_band,
                 enclosure_front_z
             ])
                 cube([
@@ -1867,24 +1885,58 @@ module side_upper_profile_solid(x0,x_len) {
                     equipment_backplane_top_rear_z-enclosure_front_z
                 ]);
         }
+    }
+}
 
+module base_side_triangle_clip(x0,x_len) {
+    rear_z = rear_reinforcement_flush_z + 2;
+
+    union() {
+        // Keep everything BEHIND the exact sloping front edge of the existing
+        // triangular floor gusset.
+        hull() {
+            translate([
+                x0,
+                side_base_triangle_y0,
+                side_base_triangle_tip_z
+            ])
+                cube([
+                    x_len,
+                    0.5,
+                    rear_z-side_base_triangle_tip_z
+                ]);
+
+            translate([
+                x0,
+                side_base_triangle_y1-0.5,
+                side_base_triangle_rear_z
+            ])
+                cube([
+                    x_len,
+                    0.5,
+                    rear_z-side_base_triangle_rear_z
+                ]);
+        }
+
+        // Above the triangle, retain only the guide-side profile up to the
+        // upper/base transition; no forward floor extension is needed.
         translate([
             x0,
-            universal_deep_ramp_end_y-backplane_top_band,
-            enclosure_front_z
+            side_base_triangle_y1-0.5,
+            side_base_triangle_rear_z
         ])
             cube([
                 x_len,
-                enclosure_top_y-universal_deep_ramp_end_y+backplane_top_band,
-                equipment_backplane_top_rear_z-enclosure_front_z
+                side_guide_y1-side_base_triangle_y1+0.5,
+                rear_z-side_base_triangle_rear_z
             ]);
     }
 }
 
 module base_side_profile_plate(side="right") {
     // Sample the ACTUAL base edge and stretch only that thin X slice to the
-    // 3 mm detachable-side thickness. This makes the end cap follow future base
-    // floor/gusset/guardrail changes automatically.
+    // 3 mm detachable-side thickness, then clip its front boundary to the
+    // existing triangular floor gusset instead of copying the full base floor.
     source_x = side == "left"
         ? service_x
         : service_x + service_w - base_side_profile_slice_w;
@@ -1892,22 +1944,26 @@ module base_side_profile_plate(side="right") {
         ? -side_t - side_panel_clearance
         : module_w + side_panel_clearance;
 
-    translate([target_x,0,0])
-        scale([side_t/base_side_profile_slice_w,1,1])
-            translate([-source_x,0,0])
-                intersection() {
-                    base_structural_body();
-                    translate([
-                        source_x,
-                        service_base_y-1,
-                        base_floor_front_z-20
-                    ])
-                        cube([
-                            base_side_profile_slice_w,
-                            enclosure_top_y-service_base_y+2,
-                            rear_reinforcement_flush_z-base_floor_front_z+40
-                        ]);
-                }
+    intersection() {
+        translate([target_x,0,0])
+            scale([side_t/base_side_profile_slice_w,1,1])
+                translate([-source_x,0,0])
+                    intersection() {
+                        base_structural_body();
+                        translate([
+                            source_x,
+                            service_base_y-1,
+                            base_floor_front_z-20
+                        ])
+                            cube([
+                                base_side_profile_slice_w,
+                                side_guide_y1-service_base_y+2,
+                                rear_reinforcement_flush_z-base_floor_front_z+40
+                            ]);
+                    }
+
+        base_side_triangle_clip(target_x,side_t);
+    }
 }
 
 module side_upper_connector_keepout(side="right") {
