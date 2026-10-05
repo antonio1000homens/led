@@ -291,6 +291,35 @@ mating sockets are blind from the inside, leaving the outside side faces solid.
 
 These features provide alignment/retention, not the primary structural load.
 
+## Left-side C14 mains inlet
+
+The detachable **left** equipment side includes a landscape snap-in opening for
+the fused/switched IEC C14 inlet. This implementation is rebased onto the
+current enclosure format and deliberately does not restore the older base,
+guide, backplane, ramp or side geometry that PR #165 originally inherited.
+
+- nominal opening: **47 × 28 mm**, **R2** corners;
+- FDM allowance: **0.10 mm per edge** → 47.2 × 28.2 mm printed opening;
+- nominal flange keep-out: **50 × 30.5 mm**;
+- current side wall: **3.0 mm**;
+- hidden relief leaves a **1.4 mm** snap land while the rest of the side stays
+  at the current 3 mm thickness;
+- hidden relief margin: **2 mm** around the opening.
+
+The 47 mm dimension runs front-to-rear (installed Z). Placement is derived from
+the current `universal_deep_y1`, `enclosure_front_z` and
+`universal_deep_rear_z` values, so later base/enclosure format changes will
+trip the design-contract checks rather than silently moving the inlet outside
+the valid full-depth side region.
+
+If the real inlet has a 2 mm or thicker latch shoulder, tune
+`c14_snap_panel_t` after the physical fit test rather than enlarging the stable
+47 × 28 mm exterior opening.
+
+Physical acceptance: the flange sits flat, the spring lugs clear and catch
+behind the inner edge, the inlet cannot pull back out without compressing the
+lugs, and the 3 mm side remains intact outside the local hidden relief.
+
 ## Assembly previews
 
 Single-module service views:
