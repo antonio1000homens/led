@@ -7,6 +7,8 @@ from runtime_config import (
     DEFAULT_STATION_LIST_SPACING,
     DEFAULT_STATION_SCROLL_SPEED,
     DEFAULT_WEATHER_SCREEN_DURATION_SECONDS,
+    DEFAULT_WEATHER_TODAY_DURATION_SECONDS,
+    DEFAULT_WEATHER_SUN_DURATION_SECONDS,
     DEFAULT_UPCOMING_TRAIN_COUNT,
     DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS,
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
@@ -88,30 +90,70 @@ class RuntimeConfigTests(unittest.TestCase):
         validated = validate_runtime_config(legacy)
         self.assertFalse(validated["feeds"]["flash"]["enabled"])
 
-    def test_weather_duration_is_configurable_schema_backed_and_legacy_safe(self):
-        self.assertEqual(
-            validate_feed_patch("weather", {"screen_duration_seconds": 12}),
-            {"screen_duration_seconds": 12},
+    def test_weather_screen_controls_are_schema_backed_bounded_and_legacy_safe(self):
+        patch = validate_feed_patch(
+            "weather",
+            {
+                "overview_enabled": False,
+                "screen_duration_seconds": 12,
+                "today_enabled": True,
+                "today_duration_seconds": 11,
+                "sun_enabled": False,
+                "sun_duration_seconds": 7,
+            },
         )
-        for value in (1, 301):
-            with self.assertRaises(RuntimeConfigValidationError):
-                validate_feed_patch("weather", {"screen_duration_seconds": value})
+        self.assertEqual(
+            patch,
+            {
+                "overview_enabled": False,
+                "screen_duration_seconds": 12,
+                "today_enabled": True,
+                "today_duration_seconds": 11,
+                "sun_enabled": False,
+                "sun_duration_seconds": 7,
+            },
+        )
+        for field in ("screen_duration_seconds", "today_duration_seconds", "sun_duration_seconds"):
+            for value in (1, 301):
+                with self.subTest(field=field, value=value):
+                    with self.assertRaises(RuntimeConfigValidationError):
+                        validate_feed_patch("weather", {field: value})
+        for field in ("overview_enabled", "today_enabled", "sun_enabled"):
+            with self.subTest(field=field):
+                with self.assertRaises(RuntimeConfigValidationError):
+                    validate_feed_patch("weather", {field: 1})
 
         schema = schema_metadata()["feeds"]["weather"]
-        self.assertIn("screen_duration_seconds", schema["mutable_fields"])
-        self.assertIn("screen_duration_seconds", schema["fields"])
-        self.assertEqual(
-            default_runtime_config({})["feeds"]["weather"]["screen_duration_seconds"],
-            DEFAULT_WEATHER_SCREEN_DURATION_SECONDS,
+        expected_fields = (
+            "overview_enabled",
+            "screen_duration_seconds",
+            "today_enabled",
+            "today_duration_seconds",
+            "sun_enabled",
+            "sun_duration_seconds",
         )
+        for field in expected_fields:
+            self.assertIn(field, schema["mutable_fields"])
+            self.assertIn(field, schema["fields"])
+
+        weather = default_runtime_config({})["feeds"]["weather"]
+        self.assertTrue(weather["overview_enabled"])
+        self.assertEqual(weather["screen_duration_seconds"], DEFAULT_WEATHER_SCREEN_DURATION_SECONDS)
+        self.assertTrue(weather["today_enabled"])
+        self.assertEqual(weather["today_duration_seconds"], DEFAULT_WEATHER_TODAY_DURATION_SECONDS)
+        self.assertTrue(weather["sun_enabled"])
+        self.assertEqual(weather["sun_duration_seconds"], DEFAULT_WEATHER_SUN_DURATION_SECONDS)
 
         legacy = default_runtime_config({})
-        del legacy["feeds"]["weather"]["screen_duration_seconds"]
-        validated = validate_runtime_config(legacy)
-        self.assertEqual(
-            validated["feeds"]["weather"]["screen_duration_seconds"],
-            DEFAULT_WEATHER_SCREEN_DURATION_SECONDS,
-        )
+        for field in expected_fields:
+            legacy["feeds"]["weather"].pop(field, None)
+        validated = validate_runtime_config(legacy)["feeds"]["weather"]
+        self.assertTrue(validated["overview_enabled"])
+        self.assertEqual(validated["screen_duration_seconds"], DEFAULT_WEATHER_SCREEN_DURATION_SECONDS)
+        self.assertTrue(validated["today_enabled"])
+        self.assertEqual(validated["today_duration_seconds"], DEFAULT_WEATHER_TODAY_DURATION_SECONDS)
+        self.assertTrue(validated["sun_enabled"])
+        self.assertEqual(validated["sun_duration_seconds"], DEFAULT_WEATHER_SUN_DURATION_SECONDS)
 
     def test_calendar_visible_task_count_is_configurable_and_backfilled(self):
         self.assertEqual(
