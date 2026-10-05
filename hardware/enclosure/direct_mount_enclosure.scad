@@ -1576,10 +1576,10 @@ module outer_guardrail_entry_cutter(
     side="left",
     y1=rear_guardrail_y1
 ) {
-    // The PR170 outer guardrails approach the outer ribs from the enclosure
-    // sides. Open only the lower guardrail-height band from the relevant rib
-    // edge into the existing central channel; leave the rest of the 24 mm rib
-    // continuous to the floor.
+    // Open the lower guardrail-height band from the selected rib edge into the
+    // existing central channel. Each rib needs matching left/right entry relief
+    // so the stationary base tab cannot catch on a closed half of the rib foot
+    // during top-down insertion; the rest of the 24 mm rib stays continuous.
     x0 = side == "left"
         ? xc-transition_rib_half_w-0.2
         : xc+transition_rib_channel_flat_w/2-0.2;
@@ -1606,8 +1606,13 @@ module transition_rib_guardrail_channel_cutters() {
     for (xc=transition_rib_centres)
         tapered_rib_guardrail_channel_cutter(xc);
 
-    outer_guardrail_entry_cutter(transition_rib_centres[0],"left");
-    outer_guardrail_entry_cutter(transition_rib_centres[2],"right");
+    // The stationary tabs are centred in the common rib channels. Keep both
+    // low side entries open on the two outer ribs as well as the centre rib so
+    // all three feet present the same unobstructed base-fitting slot.
+    for (xc=[transition_rib_centres[0],transition_rib_centres[2]]) {
+        outer_guardrail_entry_cutter(xc,"left");
+        outer_guardrail_entry_cutter(xc,"right");
+    }
 
     // Local low entries for the centre-tab root spurs.
     outer_guardrail_entry_cutter(
