@@ -735,14 +735,16 @@ assert(top_connector_tab_len-top_side_seam_gap >=
 
 // Left-side C14 inlet: preserve the stable snap-in opening while deriving
 // placement from the current full-depth side envelope.
-assert(abs(c14_cutout_nominal_z-47) < 0.01 &&
-       abs(c14_cutout_nominal_y-28) < 0.01 &&
+assert(abs(c14_cutout_nominal_z-27) < 0.01 &&
+       abs(c14_cutout_nominal_y-44) < 0.01 &&
        abs(c14_cutout_corner_r-2) < 0.01,
-       "C14 inlet nominal cutout must remain 47 x 28 mm with R2 corners");
+       "C14 inlet measured body must remain portrait 44 x 27 mm with R2 corners");
 assert(abs(c14_cutout_clearance_per_edge-0.10) < 0.01 &&
-       abs(c14_cutout_z-47.2) < 0.01 &&
-       abs(c14_cutout_y-28.2) < 0.01,
+       abs(c14_cutout_z-27.2) < 0.01 &&
+       abs(c14_cutout_y-44.2) < 0.01,
        "C14 printed aperture allowance drifted");
+assert(abs(c14_body_depth-30) < 0.01,
+       "C14 body intrusion must remain the measured 30 mm");
 assert(abs(c14_snap_panel_t-1.4) < 0.01 &&
        c14_snap_panel_t > 0 &&
        c14_snap_panel_t < side_t,
@@ -760,6 +762,13 @@ assert(c14_center_y-c14_relief_y/2 >= universal_deep_y0 &&
        "C14 hidden latch relief breaks out of the full-depth side wall");
 assert(c14_center_y-c14_relief_y/2 > top_connector_pad_y1,
        "C14 latch relief collides with the current upper side connector pad");
+assert(c14_body_y0 >= universal_deep_y0 &&
+       c14_body_y1 <= universal_deep_y1+0.01 &&
+       c14_body_z0 >= enclosure_front_z &&
+       c14_body_z1 <= universal_deep_rear_z+0.01,
+       "C14 44 x 27 x 30 mm body envelope leaves the current full-depth cavity");
+assert(c14_body_y0-(hinge_axis_y+side_rod_sleeve_outer_d/2) >= 10,
+       "C14 body needs at least 10 mm vertical clearance above the rod sleeve");
 
 assert(abs(backplane_guide_clearance-0.6) < 0.01,
        "rear groove clearance is outside the physical-print fit target");
@@ -1235,6 +1244,26 @@ def main() -> None:
                     "left_c14_snap_relief_clear",
                     """    equipment_side("left");
     left_c14_snap_relief();""",
+                ),
+            ),
+            (
+                "left_c14_body_rod_sleeve_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_body_rod_sleeve_clearance",
+                    """    left_c14_body_envelope();
+    side_rod_retainer_sleeve("left");""",
+                ),
+            ),
+            (
+                "left_c14_body_stationary_core_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_body_stationary_core_clearance",
+                    """    left_c14_body_envelope();
+    stationary_equipment_module_core();""",
                 ),
             ),
         ]
