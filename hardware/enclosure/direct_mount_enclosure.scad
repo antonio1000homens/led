@@ -1952,31 +1952,24 @@ module side_removed_bottom_extension_volume(side="right") {
     x_len = side_t+1.0;
     forward_z = base_floor_front_z-2;
 
-    // Volume intentionally left empty in front of the triangular gusset edge.
-    hull() {
+    // Diagnostic volume is the exact complement of the SAME triangle clip
+    // used by base_side_profile_plate(), shifted 0.2 mm forward. Building the
+    // check from the production clip avoids a thin false-positive wedge from
+    // slightly different hull slice spans along the diagonal.
+    difference() {
         translate([
             x0,
-            side_base_triangle_y0-0.1,
+            side_base_triangle_y0,
             forward_z
         ])
             cube([
                 x_len,
-                0.2,
-                side_base_triangle_tip_z
-                    -side_removed_bottom_check_gap-forward_z
+                side_base_triangle_y1-side_base_triangle_y0,
+                side_base_triangle_rear_z-forward_z+1
             ]);
 
-        translate([
-            x0,
-            side_base_triangle_y1-0.1,
-            forward_z
-        ])
-            cube([
-                x_len,
-                0.2,
-                side_base_triangle_rear_z
-                    -side_removed_bottom_check_gap-forward_z
-            ]);
+        translate([0,0,-side_removed_bottom_check_gap])
+            base_side_triangle_clip(x0,x_len);
     }
 }
 
