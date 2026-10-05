@@ -2123,6 +2123,7 @@ module side_wall_body(side="right") {
         // Upper return reaches 10 mm past the actual enclosure edge while
         // avoiding the live module shell and connector/release geometry. The
         // canonical left/right side STLs are regenerated from this same source.
+        // No detachable-side top leg or forward floor extension is retained.
         side_upper_intrusion(side);
     }
 }
