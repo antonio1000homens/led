@@ -419,6 +419,25 @@ side_socket_depth = 2.2;
 side_t = 3;
 side_panel_clearance = 0.4;
 
+// The detachable end caps now cover both the base and upper enclosure.
+// In the upper enclosure, overlap the actual module edge by 10 mm. The side's
+// inner face sits 0.9 mm outside that edge (0.4 mm panel clearance + 0.5 mm
+// backplane inset), so the total local X reach from the side inner face is 10.9 mm.
+side_upper_overlap = 10;
+side_upper_intrusion_depth =
+    side_upper_overlap + side_panel_clearance + backplane_edge_inset;
+side_upper_core_clearance_x = 0.2;
+
+// Copy the exact side silhouette of the live base from a thin edge slice rather
+// than maintaining a second hand-authored approximation.
+base_side_profile_slice_w = 0.2;
+
+// Keep the upper module-to-module connector/release region free of the 10 mm
+// return. The side's existing locating pin/socket geometry still occupies this
+// zone and mates with the current backplane connector.
+side_upper_connector_keepout_margin_y = 1.0;
+side_upper_connector_keepout_margin_z = 1.0;
+
 // Left outer end: fused/switched IEC C14 snap-in inlet.
 //
 // Keep this interface derived from the CURRENT detachable-side envelope rather
@@ -447,6 +466,7 @@ c14_body_depth = 30;
 c14_snap_panel_t = 1.4;
 c14_snap_relief_margin = 2.0;
 c14_mount_upper_margin_y = 3.0;
+c14_side_material_depth = side_t + side_upper_intrusion_depth;
 
 // Anchor the inlet to the present full-depth side region. This automatically
 // follows the current base/enclosure format without reviving stale dimensions.
@@ -1775,7 +1795,7 @@ module rounded_rect_x_cutter(
 module left_c14_panel_cutout() {
     rounded_rect_x_cutter(
         c14_left_outer_x-0.2,
-        side_t+0.4,
+        c14_side_material_depth+0.4,
         c14_center_y,
         c14_center_z,
         c14_cutout_y,
@@ -1787,7 +1807,7 @@ module left_c14_panel_cutout() {
 module left_c14_snap_relief() {
     rounded_rect_x_cutter(
         c14_left_outer_x+c14_snap_panel_t-0.01,
-        side_t-c14_snap_panel_t+0.21,
+        c14_side_material_depth-c14_snap_panel_t+0.21,
         c14_center_y,
         c14_center_z,
         c14_relief_y,
@@ -1809,36 +1829,21 @@ module left_c14_body_envelope() {
         ]);
 }
 
-module side_wall_body(side="right") {
-    // Outer end pieces use the same Y/Z profile as the universal backplane:
-    // shallow through the guide/insertion section, full 54 mm depth above the
-    // guides, then the common return ramp and final shallow closure wall.
-    x0 = side == "right"
-        ? module_w + side_panel_clearance
-        : -side_t - side_panel_clearance;
-
+module side_upper_profile_solid(x0,x_len) {
+    // Exact upper enclosure Y/Z profile, parameterised by X depth so the same
+    // source drives both the 3 mm exterior end plate and the 10 mm inward return.
     union() {
-        // Lower guide-compatible section.
-        translate([x0,service_base_y,enclosure_front_z])
-            cube([
-                side_t,
-                universal_deep_y0-service_base_y,
-                equipment_backplane_lower_rear_z-enclosure_front_z
-            ]);
-
-        // Full-depth equipment region.
         translate([
             x0,
             universal_deep_y0,
             enclosure_front_z
         ])
             cube([
-                side_t,
+                x_len,
                 universal_deep_y1-universal_deep_y0,
                 universal_deep_rear_z-enclosure_front_z
             ]);
 
-        // Common full-depth -> shallow return ramp.
         hull() {
             translate([
                 x0,
@@ -1846,7 +1851,7 @@ module side_wall_body(side="right") {
                 enclosure_front_z
             ])
                 cube([
-                    side_t,
+                    x_len,
                     1,
                     universal_deep_rear_z-enclosure_front_z
                 ]);
@@ -1857,23 +1862,116 @@ module side_wall_body(side="right") {
                 enclosure_front_z
             ])
                 cube([
-                    side_t,
+                    x_len,
                     backplane_top_band,
                     equipment_backplane_top_rear_z-enclosure_front_z
                 ]);
         }
 
-        // Final top region remains flat and flush with the panel.
         translate([
             x0,
             universal_deep_ramp_end_y-backplane_top_band,
             enclosure_front_z
         ])
             cube([
-                side_t,
+                x_len,
                 enclosure_top_y-universal_deep_ramp_end_y+backplane_top_band,
                 equipment_backplane_top_rear_z-enclosure_front_z
             ]);
+    }
+}
+
+module base_side_profile_plate(side="right") {
+    // Sample the ACTUAL base edge and stretch only that thin X slice to the
+    // 3 mm detachable-side thickness. This makes the end cap follow future base
+    // floor/gusset/guardrail changes automatically.
+    source_x = side == "left"
+        ? service_x
+        : service_x + service_w - base_side_profile_slice_w;
+    target_x = side == "left"
+        ? -side_t - side_panel_clearance
+        : module_w + side_panel_clearance;
+
+    translate([target_x,0,0])
+        scale([side_t/base_side_profile_slice_w,1,1])
+            translate([-source_x,0,0])
+                intersection() {
+                    base_structural_body();
+                    translate([
+                        source_x,
+                        service_base_y-1,
+                        base_floor_front_z-20
+                    ])
+                        cube([
+                            base_side_profile_slice_w,
+                            enclosure_top_y-service_base_y+2,
+                            rear_reinforcement_flush_z-base_floor_front_z+40
+                        ]);
+                }
+}
+
+module side_upper_connector_keepout(side="right") {
+    // Preserve the existing top module-to-module connector and its vertical
+    // release travel. The outer 3 mm end plate remains; only the 10 mm return
+    // is removed from this rear connector zone.
+    x0 = side == "left"
+        ? left_side_inner_x-side_upper_core_clearance_x
+        : right_side_inner_x-side_upper_intrusion_depth
+            -side_upper_core_clearance_x;
+
+    translate([
+        x0,
+        top_connector_slot_bottom_y-side_upper_connector_keepout_margin_y,
+        universal_deep_rear_z-top_connector_pad_depth
+            -side_upper_connector_keepout_margin_z
+    ])
+        cube([
+            side_upper_intrusion_depth+2*side_upper_core_clearance_x,
+            top_connector_slot_top_y-top_connector_slot_bottom_y
+                +2*side_upper_connector_keepout_margin_y,
+            top_connector_pad_depth+2*side_upper_connector_keepout_margin_z
+        ]);
+}
+
+module side_upper_core_keepout() {
+    // Expand the live base/backplane slightly in X so the upper return occupies
+    // only otherwise-open enclosure space and never fuses with a module shell.
+    for (dx=[
+        -side_upper_core_clearance_x,
+        0,
+        side_upper_core_clearance_x
+    ])
+        translate([dx,0,0])
+            stationary_equipment_module_core();
+}
+
+module side_upper_intrusion(side="right") {
+    x0 = side == "left"
+        ? left_side_inner_x
+        : right_side_inner_x-side_upper_intrusion_depth;
+
+    difference() {
+        side_upper_profile_solid(x0,side_upper_intrusion_depth);
+        side_upper_core_keepout();
+        side_upper_connector_keepout(side);
+    }
+}
+
+module side_wall_body(side="right") {
+    x0 = side == "right"
+        ? module_w + side_panel_clearance
+        : -side_t - side_panel_clearance;
+
+    union() {
+        // Lower portion follows the current base edge profile exactly.
+        base_side_profile_plate(side);
+
+        // Upper exterior cover follows the enclosure profile.
+        side_upper_profile_solid(x0,side_t);
+
+        // Upper return reaches 10 mm past the actual enclosure edge while
+        // avoiding the live module shell and connector/release geometry.
+        side_upper_intrusion(side);
     }
 }
 
