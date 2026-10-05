@@ -733,6 +733,34 @@ assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 
+// Left-side C14 inlet: preserve the stable snap-in opening while deriving
+// placement from the current full-depth side envelope.
+assert(abs(c14_cutout_nominal_z-47) < 0.01 &&
+       abs(c14_cutout_nominal_y-28) < 0.01 &&
+       abs(c14_cutout_corner_r-2) < 0.01,
+       "C14 inlet nominal cutout must remain 47 x 28 mm with R2 corners");
+assert(abs(c14_cutout_clearance_per_edge-0.10) < 0.01 &&
+       abs(c14_cutout_z-47.2) < 0.01 &&
+       abs(c14_cutout_y-28.2) < 0.01,
+       "C14 printed aperture allowance drifted");
+assert(abs(c14_snap_panel_t-1.4) < 0.01 &&
+       c14_snap_panel_t > 0 &&
+       c14_snap_panel_t < side_t,
+       "C14 snap land must remain the documented 1.4 mm fit-test value");
+assert(c14_center_y-c14_flange_y/2 >= universal_deep_y0 &&
+       c14_center_y+c14_flange_y/2 <= universal_deep_y1+0.01,
+       "C14 flange no longer fits inside the current full-depth side region");
+assert(c14_center_z-c14_flange_z/2 >= enclosure_front_z &&
+       c14_center_z+c14_flange_z/2 <= universal_deep_rear_z+0.01,
+       "C14 flange no longer fits across the current side-panel depth");
+assert(c14_center_y-c14_relief_y/2 >= universal_deep_y0 &&
+       c14_center_y+c14_relief_y/2 <= universal_deep_y1+0.01 &&
+       c14_center_z-c14_relief_z/2 >= enclosure_front_z &&
+       c14_center_z+c14_relief_z/2 <= universal_deep_rear_z+0.01,
+       "C14 hidden latch relief breaks out of the full-depth side wall");
+assert(c14_center_y-c14_relief_y/2 > top_connector_pad_y1,
+       "C14 latch relief collides with the current upper side connector pad");
+
 assert(abs(backplane_guide_clearance-0.6) < 0.01,
        "rear groove clearance is outside the physical-print fit target");
 assert(abs(side_guide_h-40) < 0.01,
@@ -1188,7 +1216,28 @@ def main() -> None:
             )
         run_parallel_checks(connector_checks, args.workers)
 
-        side_checks: list[Check] = []
+        side_checks: list[Check] = [
+            (
+                "left_c14_panel_aperture_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_panel_aperture_clear",
+                    """    equipment_side("left");
+    left_c14_panel_cutout();""",
+                ),
+            ),
+            (
+                "left_c14_snap_relief_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_snap_relief_clear",
+                    """    equipment_side("left");
+    left_c14_snap_relief();""",
+                ),
+            ),
+        ]
         for side in ("left", "right"):
             side_checks.extend(
                 [
