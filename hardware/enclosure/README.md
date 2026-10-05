@@ -278,25 +278,36 @@ dimension when centred, and 17 mm of depth clearance. The rear shell profile is
 continuous across X above the lower guide/insertion section. Where a 4 mm boss overlaps
 the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
-## Side alignment
+## Full-height detachable end caps and side alignment
 
-The base guide towers expose complementary pin/socket features on their left
-and right edges so identical neighbouring modules self-align. These junctions
-sit on the **inside/cavity-facing portion of the 40 mm guide towers**. End-panel
-mating sockets are blind from the inside, leaving the outside side faces solid.
+The detachable left/right sides are now full-height **end caps** rather than
+enclosure-only plates:
 
-- pin diameter: **4.0 mm**
-- socket diameter: **4.7 mm**
-- nominal printed pin length: **3 mm**; joined-module engagement is approximately **2 mm** after the 1 mm module-edge gap
+- the **lower/base section** is generated from a thin live slice of the current
+  base edge, so its visible Y/Z outline automatically follows the base floor,
+  guide gusset, rear buttress/guardrail and later base-profile changes;
+- the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
+  reused unchanged by the end cap, so each side locks to the same A/B junctions
+  used when two bases mate;
+- the **upper/enclosure section** keeps the current enclosure profile and adds an
+  inward return that reaches **10 mm beyond the actual enclosure edge**;
+- the existing 0.4 mm side clearance plus 0.5 mm backplane inset means that
+  return is 10.9 mm from the side's inner face to its inner end;
+- the return is carved around the live base/backplane geometry and has a
+  dedicated keep-out around the upper module-to-module connector and its
+  vertical release path, so it cannot consume the connector region.
 
-These features provide alignment/retention, not the primary structural load.
+The external 3 mm end face remains continuous; only the internal return is
+locally removed where the current enclosure/module connector needs space.
+These features provide end coverage and alignment/retention, not the primary
+structural load between modules.
 
 ## Left-side C14 mains inlet
 
-The detachable **left** equipment side includes a landscape snap-in opening for
-the fused/switched IEC C14 inlet. This implementation is rebased onto the
-current enclosure format and deliberately does not restore the older base,
-guide, backplane, ramp or side geometry that PR #165 originally inherited.
+The detachable **left** equipment side includes a portrait snap-in opening for
+the fused/switched IEC C14 inlet. It is integrated into the new full-height end
+cap and its hidden relief cuts through the 10 mm upper return locally, leaving
+the intended thin snap land at the exterior face.
 
 - measured body/cutout: **44 mm high × 27 mm wide** in portrait orientation;
 - FDM allowance: **0.10 mm per edge** → 44.2 × 27.2 mm printed opening;
@@ -315,8 +326,8 @@ sleeve and against the stationary enclosure core. Later base/enclosure changes
 therefore fail CI if they consume that clearance.
 
 If the real inlet has a 2 mm or thicker latch shoulder, tune
-`c14_snap_panel_t` after the physical fit test rather than enlarging the stable
-47 × 28 mm exterior opening.
+`c14_snap_panel_t` after the physical fit test rather than enlarging the measured
+44 × 27 mm exterior opening.
 
 Physical acceptance: the flange sits flat, the spring lugs clear and catch
 behind the inner edge, the inlet cannot pull back out without compressing the
