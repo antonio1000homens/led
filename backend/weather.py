@@ -179,6 +179,9 @@ class OpenMeteoProvider:
             }
             try:
                 day["sunrise_time"] = _local_hhmm(sunrise_values[index])
+            except (IndexError, TypeError, ValueError):
+                pass
+            try:
                 day["sunset_time"] = _local_hhmm(sunset_values[index])
             except (IndexError, TypeError, ValueError):
                 pass
