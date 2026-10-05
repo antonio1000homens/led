@@ -231,7 +231,7 @@ LED_WEATHER_LONGITUDE=-0.256
 Set `LED_WEATHER_SOURCE=off` to stop Weather polling and remove all Weather output, or change latitude/longitude for another location. When Weather is enabled, the dedicated screens appear in this order when their individual controls are enabled:
 
 1. `weather_weekly` — the existing seven-day overview, default 8 seconds. It preserves the max-only layout introduced with #195: weekday, enlarged weather icon and maximum temperature.
-2. `weather_today` — six four-hour blocks covering `00-04`, `04-08`, `08-12`, `12-16`, `16-20` and `20-24`, default 8 seconds. Each block uses the forecast nearest its midpoint hour and makes the weather icon and temperature prominent.
+2. `weather_today` — six four-hour blocks labelled `12am`, `4am`, `8am`, `12pm`, `4pm` and `8pm`, default 8 seconds. Each block uses the forecast nearest its midpoint hour and makes the weather icon and temperature prominent.
 3. `weather_sun` — today's local sunrise and sunset times, default 6 seconds.
 
 The protected admin/control plane provides independent enable and duration controls for the overview, Today and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.

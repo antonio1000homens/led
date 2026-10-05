@@ -57,7 +57,7 @@ def today_blocks():
             "weather_code": index,
             "icon": icons[index],
         }
-        for index, label in enumerate(("00-04", "04-08", "08-12", "12-16", "16-20", "20-24"))
+        for index, label in enumerate(("12am", "4am", "8am", "12pm", "4pm", "8pm"))
     ]
 
 
@@ -157,7 +157,7 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertEqual(layout[0]["left"], 0)
         self.assertEqual(layout[-1]["right"], led_display.DISPLAY_WIDTH)
         self.assertEqual([item["label"] for item in layout],
-                         ["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"])
+                         ["12am", "4am", "8am", "12pm", "4pm", "8pm"])
         self.assertEqual([item["temp_text"] for item in layout],
                          ["10C", "11C", "12C", "13C", "14C", "15C"])
         for item in layout:

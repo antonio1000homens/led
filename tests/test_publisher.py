@@ -37,7 +37,7 @@ def weather_forecast():
 
 
 def weather_blocks():
-    labels = ("00-04", "04-08", "08-12", "12-16", "16-20", "20-24")
+    labels = ("12am", "4am", "8am", "12pm", "4pm", "8pm")
     icons = ("clear_night", "cloudy", "partly_cloudy_day", "clear_day", "rain", "cloudy")
     return [
         {

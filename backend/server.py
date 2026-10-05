@@ -217,12 +217,12 @@ class FixtureWeatherProvider:
                 "sunset_time": "18:{:02d}".format(25 - offset),
             })
         today_blocks = [
-            {"label": "00-04", "temperature_c": 11, "weather_code": 2, "icon": "partly_cloudy_night"},
-            {"label": "04-08", "temperature_c": 10, "weather_code": 3, "icon": "cloudy"},
-            {"label": "08-12", "temperature_c": 13, "weather_code": 2, "icon": "partly_cloudy_day"},
-            {"label": "12-16", "temperature_c": 17, "weather_code": 1, "icon": "partly_cloudy_day"},
-            {"label": "16-20", "temperature_c": 15, "weather_code": 61, "icon": "rain"},
-            {"label": "20-24", "temperature_c": 12, "weather_code": 3, "icon": "cloudy"},
+            {"label": "12am", "temperature_c": 11, "weather_code": 2, "icon": "partly_cloudy_night"},
+            {"label": "4am", "temperature_c": 10, "weather_code": 3, "icon": "cloudy"},
+            {"label": "8am", "temperature_c": 13, "weather_code": 2, "icon": "partly_cloudy_day"},
+            {"label": "12pm", "temperature_c": 17, "weather_code": 1, "icon": "partly_cloudy_day"},
+            {"label": "4pm", "temperature_c": 15, "weather_code": 61, "icon": "rain"},
+            {"label": "8pm", "temperature_c": 12, "weather_code": 3, "icon": "cloudy"},
         ]
         return {
             "source": "weather_fixture",

@@ -34,12 +34,12 @@ def sample_forecast():
 
 def sample_blocks():
     return [
-        {"label": "00-04", "temperature_c": 10.0, "weather_code": 0, "icon": "clear_night"},
-        {"label": "04-08", "temperature_c": 11.0, "weather_code": 1, "icon": "partly_cloudy_night"},
-        {"label": "08-12", "temperature_c": 12.0, "weather_code": 2, "icon": "partly_cloudy_day"},
-        {"label": "12-16", "temperature_c": 13.0, "weather_code": 3, "icon": "cloudy"},
-        {"label": "16-20", "temperature_c": 14.0, "weather_code": 61, "icon": "rain"},
-        {"label": "20-24", "temperature_c": 15.0, "weather_code": 45, "icon": "fog"},
+        {"label": "12am", "temperature_c": 10.0, "weather_code": 0, "icon": "clear_night"},
+        {"label": "4am", "temperature_c": 11.0, "weather_code": 1, "icon": "partly_cloudy_night"},
+        {"label": "8am", "temperature_c": 12.0, "weather_code": 2, "icon": "partly_cloudy_day"},
+        {"label": "12pm", "temperature_c": 13.0, "weather_code": 3, "icon": "cloudy"},
+        {"label": "4pm", "temperature_c": 14.0, "weather_code": 61, "icon": "rain"},
+        {"label": "8pm", "temperature_c": 15.0, "weather_code": 45, "icon": "fog"},
     ]
 
 
@@ -122,7 +122,7 @@ class OpenMeteoProviderTests(unittest.TestCase):
         self.assertEqual(result["sunrise_time"], "07:08")
         self.assertEqual(result["sunset_time"], "18:29")
         self.assertEqual([block["label"] for block in result["today_blocks"]],
-                         ["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"])
+                         ["12am", "4am", "8am", "12pm", "4pm", "8pm"])
         self.assertEqual([block["temperature_c"] for block in result["today_blocks"]],
                          [9.0, 11.0, 13.0, 15.0, 17.0, 19.0])
 
@@ -137,7 +137,7 @@ class OpenMeteoProviderTests(unittest.TestCase):
             return io.BytesIO(json.dumps(payload).encode("utf-8"))
 
         blocks = OpenMeteoProvider(51.4, -0.25, opener=opener).fetch()["today_blocks"]
-        self.assertEqual(blocks[2]["label"], "08-12")
+        self.assertEqual(blocks[2]["label"], "8am")
         self.assertEqual(blocks[2]["temperature_c"], 12.5)
 
     def test_malformed_solar_values_do_not_break_current_weekly_or_today(self):

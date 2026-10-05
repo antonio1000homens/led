@@ -183,7 +183,7 @@ class ScreenFeedTests(unittest.TestCase):
         self.assertEqual(weekly["duration_seconds"], 8)
         self.assertEqual(len(weekly["days"]), 7)
         self.assertEqual([block["label"] for block in today["blocks"]],
-                         ["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"])
+                         ["12am", "4am", "8am", "12pm", "4pm", "8pm"])
         self.assertEqual(sun["sunrise_time"], weekly["days"][0]["sunrise_time"])
         self.assertEqual(sun["sunset_time"], weekly["days"][0]["sunset_time"])
         self.assertEqual(weekly["days"][0]["date"], datetime.now().astimezone().date().isoformat())

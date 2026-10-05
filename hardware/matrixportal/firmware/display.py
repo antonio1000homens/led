@@ -69,6 +69,15 @@ WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 2
+# MatrixDisplay labels use font baselines, while the fixture renderer uses
+# top-left pixel coordinates. Keep fullscreen weather headers clear of the
+# panel edge and align the forecast rows below them.
+WEATHER_HEADING_BASELINE_Y = 9
+WEATHER_HEADING_PIXEL_Y = 2
+WEEKLY_WEATHER_ICON_Y = 10
+WEEKLY_WEATHER_TEMPERATURE_Y = 25
+TODAY_WEATHER_ICON_Y = 10
+TODAY_WEATHER_TEMPERATURE_Y = 26
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
 WEEKLY_WEATHER_TEXT_SCALE = 1
 WEEKLY_WEATHER_GLYPH_WIDTH = 3
@@ -1633,7 +1642,7 @@ class MatrixDisplay:
         text_color = 0xAAAAAA if stale else 0xFFFFFF
         weekday_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
-            self._label(group, item["weekday"], weekday_color, item["weekday_x"], 0)
+            self._label(group, item["weekday"], weekday_color, item["weekday_x"], WEATHER_HEADING_BASELINE_Y)
             bitmap = displayio.Bitmap(item["icon_width"], 14, 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
@@ -1649,9 +1658,11 @@ class MatrixDisplay:
                 bitmap,
                 pixel_shader=palette,
                 x=item["icon_x"],
-                y=8,
+                y=WEEKLY_WEATHER_ICON_Y,
             ))
-            self._temperature_label(group, item["max_text"], text_color, item["max_x"], 23)
+            self._temperature_label(
+                group, item["max_text"], text_color, item["max_x"], WEEKLY_WEATHER_TEMPERATURE_Y
+            )
 
     def _today_weather(self, group, screen):
         import displayio
@@ -1666,7 +1677,7 @@ class MatrixDisplay:
         text_color = 0xAAAAAA if stale else 0xFFFFFF
         label_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
-            self._label(group, item["label"], label_color, item["label_x"], 0)
+            self._label(group, item["label"], label_color, item["label_x"], WEATHER_HEADING_BASELINE_Y)
             bitmap = displayio.Bitmap(item["icon_width"], item["icon_width"], 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
@@ -1679,8 +1690,12 @@ class MatrixDisplay:
                             for dy in range(TODAY_WEATHER_ICON_SCALE):
                                 bitmap[x * TODAY_WEATHER_ICON_SCALE + dx,
                                        y * TODAY_WEATHER_ICON_SCALE + dy] = 1
-            group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=item["icon_x"], y=8))
-            self._temperature_label(group, item["temp_text"], text_color, item["temp_x"], 24)
+            group.append(displayio.TileGrid(
+                bitmap, pixel_shader=palette, x=item["icon_x"], y=TODAY_WEATHER_ICON_Y
+            ))
+            self._temperature_label(
+                group, item["temp_text"], text_color, item["temp_x"], TODAY_WEATHER_TEMPERATURE_Y
+            )
 
     def _sun_weather(self, group, screen):
         import displayio
@@ -1695,7 +1710,8 @@ class MatrixDisplay:
         for label, value, icon_name, left, right in values:
             width = right - left
             self._label(group, label, label_color,
-                        left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2), 0)
+                        left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2),
+                        WEATHER_HEADING_BASELINE_Y)
             rows = WEATHER_ICONS[icon_name]
             icon_width = WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE
             bitmap = displayio.Bitmap(icon_width, icon_width, 2)
@@ -1877,7 +1893,7 @@ class FixtureDisplay:
         text_color = (170, 170, 170) if stale else (255, 255, 255)
         weekday_color = (119, 119, 119) if stale else (255, 170, 0)
         for item in layout:
-            self._text(item["weekday"], item["weekday_x"], 0, weekday_color)
+            self._text(item["weekday"], item["weekday_x"], WEATHER_HEADING_PIXEL_Y, weekday_color)
             icon_color = _rgb_tuple(_weather_rgb(item["icon_name"], stale))
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
@@ -1885,8 +1901,11 @@ class FixtureDisplay:
                         for dx in range(WEEKLY_WEATHER_ICON_SCALE):
                             for dy in range(WEEKLY_WEATHER_ICON_SCALE):
                                 self._pixel(item["icon_x"] + x * WEEKLY_WEATHER_ICON_SCALE + dx,
-                                            8 + y * WEEKLY_WEATHER_ICON_SCALE + dy, icon_color)
-            self._text_scaled(item["max_text"], item["max_x"], 23, text_color)
+                                            WEEKLY_WEATHER_ICON_Y + y * WEEKLY_WEATHER_ICON_SCALE + dy,
+                                            icon_color)
+            self._text_scaled(
+                item["max_text"], item["max_x"], WEEKLY_WEATHER_TEMPERATURE_Y, text_color
+            )
 
     def _today_weather(self, screen):
         layout = _today_weather_layout(screen.get("blocks") or [])
@@ -1899,7 +1918,7 @@ class FixtureDisplay:
         text_color = (170, 170, 170) if stale else (255, 255, 255)
         label_color = (119, 119, 119) if stale else (255, 170, 0)
         for item in layout:
-            self._text(item["label"], item["label_x"], 0, label_color)
+            self._text(item["label"], item["label_x"], WEATHER_HEADING_PIXEL_Y, label_color)
             icon_color = _rgb_tuple(_weather_rgb(item["icon_name"], stale))
             for y, row in enumerate(item["icon_rows"]):
                 for x, pixel in enumerate(row):
@@ -1907,8 +1926,11 @@ class FixtureDisplay:
                         for dx in range(TODAY_WEATHER_ICON_SCALE):
                             for dy in range(TODAY_WEATHER_ICON_SCALE):
                                 self._pixel(item["icon_x"] + x * TODAY_WEATHER_ICON_SCALE + dx,
-                                            8 + y * TODAY_WEATHER_ICON_SCALE + dy, icon_color)
-            self._text_scaled(item["temp_text"], item["temp_x"], 24, text_color)
+                                            TODAY_WEATHER_ICON_Y + y * TODAY_WEATHER_ICON_SCALE + dy,
+                                            icon_color)
+            self._text_scaled(
+                item["temp_text"], item["temp_x"], TODAY_WEATHER_TEMPERATURE_Y, text_color
+            )
 
     def _sun_weather(self, screen):
         stale = bool(screen.get("stale"))
@@ -1920,7 +1942,12 @@ class FixtureDisplay:
         )
         for label, value, icon_name, left, right in values:
             width = right - left
-            self._text(label, left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2), 0, label_color)
+            self._text(
+                label,
+                left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2),
+                WEATHER_HEADING_PIXEL_Y,
+                label_color,
+            )
             icon_color = _rgb_tuple(_weather_rgb(icon_name, stale))
             for y, row in enumerate(WEATHER_ICONS[icon_name]):
                 for x, pixel in enumerate(row):
