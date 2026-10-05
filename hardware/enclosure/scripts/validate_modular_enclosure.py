@@ -1364,6 +1364,26 @@ def main() -> None:
                 ),
             ),
             (
+                "left_upper_return_hinge_rod_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_upper_return_hinge_rod_clearance",
+                    """    side_upper_intrusion("left");
+    hinge_rail_preview();""",
+                ),
+            ),
+            (
+                "right_upper_return_hinge_rod_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_upper_return_hinge_rod_clearance",
+                    """    side_upper_intrusion("right");
+    hinge_rail_preview();""",
+                ),
+            ),
+            (
                 "left_c14_panel_aperture_clear",
                 partial(
                     assert_empty_intersection,
