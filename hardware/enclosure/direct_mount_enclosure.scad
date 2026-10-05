@@ -432,23 +432,6 @@ side_upper_core_clearance_x = 0.2;
 // than maintaining a second hand-authored approximation.
 base_side_profile_slice_w = 0.2;
 
-// The side only follows the front triangular guide reinforcement; it must not
-// copy the base floor farther forward than the triangle. These coordinates are
-// derived from the exact gusset used by side_guide_channel().
-side_base_triangle_y0 = side_guide_y0;
-side_base_triangle_y1 = side_guide_y0 + side_guide_floor_gusset_h;
-side_base_triangle_rear_z =
-    side_guide_front_z + side_guide_floor_gusset_overlap;
-side_base_triangle_tip_z =
-    side_base_triangle_rear_z
-        - side_guide_floor_gusset_footprint
-        - side_guide_floor_gusset_overlap;
-
-// Give the lower base-following plate and upper enclosure plate a real
-// volumetric overlap. A coplanar Y=side_guide_y1 contact can export as two
-// printable shells even though it looks connected in preview.
-side_base_upper_join_overlap_y = 0.8;
-
 // The enclosure/backplane itself closes the final gap to the LED board.
 // Detachable end caps therefore stop at the end of the return ramp and do not
 // carry the shallow top leg up to enclosure_top_y.
@@ -668,6 +651,24 @@ side_guide_rear_buttress_overlap = 0.4;
 side_guide_floor_gusset_footprint = 26;
 side_guide_floor_gusset_h = side_guide_h * 0.75;
 side_guide_floor_gusset_overlap = 0.4;
+
+
+// Detachable-side lower profile derives directly from the live triangle above.
+// Keep these AFTER the gusset dimensions so OpenSCAD evaluates real values
+// rather than undef when the side is rendered through other entry points.
+side_base_triangle_y0 = side_guide_y0;
+side_base_triangle_y1 = side_guide_y0 + side_guide_floor_gusset_h;
+side_base_triangle_rear_z =
+    side_guide_front_z + side_guide_floor_gusset_overlap;
+side_base_triangle_tip_z =
+    side_base_triangle_rear_z
+        - side_guide_floor_gusset_footprint
+        - side_guide_floor_gusset_overlap;
+
+// Give the lower base-following plate and upper enclosure plate a real
+// volumetric overlap. A coplanar Y=side_guide_y1 contact can export as separate
+// printable shells even though it looks connected in preview.
+side_base_upper_join_overlap_y = 0.8;
 
 // Use one rear reinforcement plane across the side-guide buttresses, the low
 // stationary rear rail and the three removable backplane ribs. This gives the
