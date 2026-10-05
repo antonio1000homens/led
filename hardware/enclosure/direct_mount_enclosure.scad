@@ -1934,15 +1934,16 @@ module side_upper_connector_keepout(side="right") {
 }
 
 module side_upper_core_keepout() {
-    // Expand the live base/backplane slightly in X so the upper return occupies
-    // only otherwise-open enclosure space and never fuses with a module shell.
+    // Only the universal upper shell can intersect this return. Use that live
+    // shell directly instead of subtracting the complete base/backplane
+    // assembly; connector geometry has its own larger keep-out below.
     for (dx=[
         -side_upper_core_clearance_x,
         0,
         side_upper_core_clearance_x
     ])
         translate([dx,0,0])
-            stationary_equipment_module_core();
+            universal_deep_rear_shell();
 }
 
 module side_upper_intrusion(side="right") {
