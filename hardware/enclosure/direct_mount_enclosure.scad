@@ -2053,6 +2053,48 @@ module side_upper_core_keepout() {
             universal_deep_rear_shell();
 }
 
+module side_upper_backplane_release_keepout(side="right") {
+    edge_x0 = side == "left"
+        ? universal_deep_x0-side_upper_core_clearance_x
+        : universal_deep_x1-side_upper_overlap-side_upper_core_clearance_x;
+    edge_w = side_upper_overlap+2*side_upper_core_clearance_x;
+
+    // Sweep the live backplane edge upward through the complete service-release
+    // travel. The detachable 10 mm return must never become a vertical stop.
+    hull() {
+        intersection() {
+            universal_backplane_shell_solid();
+            translate([
+                edge_x0,
+                universal_deep_y0-1,
+                enclosure_front_z-2
+            ])
+                cube([
+                    edge_w,
+                    side_upper_end_y-universal_deep_y0
+                        +top_connector_release_travel+2,
+                    universal_deep_rear_z-enclosure_front_z+4
+                ]);
+        }
+
+        translate([0,top_connector_release_travel,0])
+            intersection() {
+                universal_backplane_shell_solid();
+                translate([
+                    edge_x0,
+                    universal_deep_y0-1,
+                    enclosure_front_z-2
+                ])
+                    cube([
+                        edge_w,
+                        side_upper_end_y-universal_deep_y0
+                            +top_connector_release_travel+2,
+                        universal_deep_rear_z-enclosure_front_z+4
+                    ]);
+            }
+    }
+}
+
 module side_upper_intrusion(side="right") {
     x0 = side == "left"
         ? left_side_inner_x
@@ -2062,6 +2104,7 @@ module side_upper_intrusion(side="right") {
         side_upper_profile_solid(x0,side_upper_intrusion_depth);
         side_upper_core_keepout();
         side_upper_connector_keepout(side);
+        side_upper_backplane_release_keepout(side);
     }
 }
 
