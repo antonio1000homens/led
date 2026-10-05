@@ -646,9 +646,41 @@
       context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
       drawLedText(layout.text, layout.textX, HEADER_TEXT_Y);
     }
-    function weeklyTemperature(prefix, value) {
+    const compactWeatherGlyphs = {
+      '0':[7,5,5,5,7], '1':[2,6,2,2,7], '2':[7,1,7,4,7], '3':[7,1,7,1,7],
+      '4':[5,5,7,1,1], '5':[7,4,7,1,7], '6':[7,4,7,5,7], '7':[7,1,2,2,2],
+      '8':[7,5,7,5,7], '9':[7,5,7,1,7], 'C':[3,4,4,4,3], '-':[0,0,7,0,0]
+    };
+    function weeklyTemperature(value) {
       const number = Number(value);
-      return prefix + (Number.isFinite(number) ? Math.round(number) : '--');
+      return (Number.isFinite(number) ? Math.round(number) : '--') + 'C';
+    }
+    function compactTemperatureWidth(text) {
+      return String(text).length * 4 * FONT_PIXEL_SCALE;
+    }
+    function drawCompactTemperature(text, x, y) {
+      [...String(text)].forEach((char, index) => {
+        const rows = compactWeatherGlyphs[char] || [0,0,0,0,0];
+        rows.forEach((bits, row) => {
+          for (let column = 0; column < 3; column += 1) {
+            if (bits & (1 << (2 - column))) {
+              context.fillRect(
+                x + (index * 4 + column) * FONT_PIXEL_SCALE,
+                y + row * FONT_PIXEL_SCALE,
+                FONT_PIXEL_SCALE,
+                FONT_PIXEL_SCALE
+              );
+            }
+          }
+        });
+      });
+    }
+    function drawWeatherPattern(iconName, x, y, scale, stale) {
+      const name = weatherIcons[iconName] ? iconName : 'unknown';
+      context.fillStyle = stale ? '#777777' : weatherColors[name];
+      weatherIcons[name].forEach((line, row) => [...line].forEach((pixel, column) => {
+        if (pixel === '#') context.fillRect(x + column * scale, y + row * scale, scale, scale);
+      }));
     }
     function drawWeeklyWeather(screen) {
       const days = Array.isArray(screen.days) ? screen.days.slice(0, 7) : [];
@@ -664,32 +696,58 @@
         const right = Math.floor((index + 1) * 1024 / 7);
         const width = right - left;
         const weekday = String(day.weekday || '').toUpperCase().slice(0, 3);
-        const maxText = weeklyTemperature('MAX', day.temperature_max_c);
-        const minText = weeklyTemperature('MIN', day.temperature_min_c);
+        const maxText = weeklyTemperature(day.temperature_max_c);
         const iconName = weatherIcons[day.icon] ? day.icon : 'unknown';
-        const pattern = weatherIcons[iconName];
-        const centeredX = text => left + Math.max(0, (width - measureLedText(text).width) / 2);
-        const iconX = left + Math.max(0, (width - 28) / 2);
+        const iconWidth = 7 * 8;
+        const iconX = left + Math.max(0, (width - iconWidth) / 2);
 
         context.save();
         context.beginPath();
         context.rect(left, 0, width, 128);
         context.clip();
         context.fillStyle = stale ? '#777777' : '#ffaa00';
-        drawLedText(weekday, centeredX(weekday), 0);
-        context.fillStyle = stale ? '#777777' : weatherColors[iconName];
-        pattern.forEach((line, y) => [...line].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect(iconX + x * 4, 28 + y * 4, 4, 4);
-        }));
+        drawLedText(weekday, left + Math.max(0, (width - measureLedText(weekday).width) / 2), 0);
+        drawWeatherPattern(iconName, iconX, 32, 8, stale);
         context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
-        drawLedText(maxText, centeredX(maxText), 64);
-        drawLedText(minText, centeredX(minText), 96);
+        drawCompactTemperature(maxText, left + Math.max(0, (width - compactTemperatureWidth(maxText)) / 2), 92);
         context.restore();
-
-        if (index > 0) {
-          context.fillStyle = '#202832';
-          context.fillRect(left, 0, 1, 128);
-        }
+      });
+    }
+    function drawTodayWeather(screen) {
+      const blocks = Array.isArray(screen.blocks) ? screen.blocks.slice(0, 6) : [];
+      if (!blocks.length) {
+        const message = 'Weather unavailable';
+        context.fillStyle = '#aaaaaa';
+        drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 52);
+        return;
+      }
+      const stale = Boolean(screen.stale || forceStale);
+      blocks.forEach((block, index) => {
+        const left = Math.floor(index * 1024 / 6);
+        const right = Math.floor((index + 1) * 1024 / 6);
+        const width = right - left;
+        const label = String(block.label || '').slice(0, 5);
+        const temp = weeklyTemperature(block.temperature_c);
+        context.fillStyle = stale ? '#777777' : '#ffaa00';
+        drawLedText(label, left + Math.max(0, (width - measureLedText(label).width) / 2), 0);
+        drawWeatherPattern(block.icon, left + Math.max(0, (width - 56) / 2), 32, 8, stale);
+        context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
+        drawCompactTemperature(temp, left + Math.max(0, (width - compactTemperatureWidth(temp)) / 2), 96);
+      });
+    }
+    function drawSunWeather(screen) {
+      const stale = Boolean(screen.stale || forceStale);
+      const halves = [
+        {label:'SUNRISE', value:screen.sunrise_time || '--:--', icon:'clear_day', left:0, right:512},
+        {label:'SUNSET', value:screen.sunset_time || '--:--', icon:'clear_night', left:512, right:1024}
+      ];
+      halves.forEach(item => {
+        const width = item.right - item.left;
+        context.fillStyle = stale ? '#777777' : '#ffaa00';
+        drawLedText(item.label, item.left + Math.max(0, (width - measureLedText(item.label).width) / 2), 0);
+        drawWeatherPattern(item.icon, item.left + 80, 40, 8, stale);
+        context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
+        drawLedText(item.value, item.left + 208, 60);
       });
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
@@ -777,6 +835,14 @@
         drawWeeklyWeather(screen);
         suppressHeader = true;
         status.dataset.detail = '7-day weather forecast';
+      } else if (screen.kind === 'weather_today') {
+        drawTodayWeather(screen);
+        suppressHeader = true;
+        status.dataset.detail = 'Today in six four-hour blocks';
+      } else if (screen.kind === 'weather_sun') {
+        drawSunWeather(screen);
+        suppressHeader = true;
+        status.dataset.detail = 'Today sunrise and sunset';
       } else if (screen.kind === 'rail_combined') {
         const { callingSeconds, summarySeconds } = railScreenTiming(screen);
         const railServices = listPage(screen).services;
