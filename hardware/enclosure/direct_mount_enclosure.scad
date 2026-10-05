@@ -444,6 +444,11 @@ side_base_triangle_tip_z =
         - side_guide_floor_gusset_footprint
         - side_guide_floor_gusset_overlap;
 
+// Give the lower base-following plate and upper enclosure plate a real
+// volumetric overlap. A coplanar Y=side_guide_y1 contact can export as two
+// printable shells even though it looks connected in preview.
+side_base_upper_join_overlap_y = 0.8;
+
 // The enclosure/backplane itself closes the final gap to the LED board.
 // Detachable end caps therefore stop at the end of the return ramp and do not
 // carry the shallow top leg up to enclosure_top_y.
@@ -2108,6 +2113,25 @@ module side_upper_intrusion(side="right") {
     }
 }
 
+module side_base_upper_join(side="right") {
+    x0 = side == "right"
+        ? module_w + side_panel_clearance
+        : -side_t - side_panel_clearance;
+
+    // Exterior-only bridge: overlaps both halves by 0.8 mm without extending
+    // the 10 mm internal return down into the base/guide region.
+    translate([
+        x0,
+        side_guide_y1-side_base_upper_join_overlap_y,
+        side_base_triangle_rear_z
+    ])
+        cube([
+            side_t,
+            2*side_base_upper_join_overlap_y,
+            rear_reinforcement_flush_z-side_base_triangle_rear_z
+        ]);
+}
+
 module side_wall_body(side="right") {
     x0 = side == "right"
         ? module_w + side_panel_clearance
@@ -2116,6 +2140,10 @@ module side_wall_body(side="right") {
     union() {
         // Lower portion follows the current base edge profile exactly.
         base_side_profile_plate(side);
+
+        // Explicit overlap makes the base-following and upper portions one
+        // printable structural shell.
+        side_base_upper_join(side);
 
         // Upper exterior cover follows the enclosure profile.
         side_upper_profile_solid(x0,side_t);
