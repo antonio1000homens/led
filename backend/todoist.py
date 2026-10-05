@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
 import json
+import re
 import time as time_module
 from urllib.error import HTTPError
 from urllib.parse import urlencode
@@ -155,6 +156,15 @@ class TodoistOAuthSession:
         return self._refresh(credentials)
 
 
+_MARKDOWN_LINK_RE = re.compile(r"\[([^\]\n]+)\]\(((?:https?://|mailto:)[^)]+)\)", re.IGNORECASE)
+
+
+def display_task_title(value):
+    """Return the Todoist title as plain display text for the LED board."""
+    title = str(value or "").strip() or "Untitled task"
+    return _MARKDOWN_LINK_RE.sub(r"\1", title).strip() or "Untitled task"
+
+
 def _zone(name):
     try:
         return ZoneInfo(str(name or DEFAULT_TIMEZONE))
@@ -191,7 +201,7 @@ def normalize_task(task, now=None, timezone_name=DEFAULT_TIMEZONE):
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     local_now = now.astimezone(display_zone)
-    title = str(task.get("content") or "").strip() or "Untitled task"
+    title = display_task_title(task.get("content"))
 
     if "T" not in raw_date:
         try:
