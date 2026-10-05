@@ -749,6 +749,20 @@ assert(abs((right_side_inner_x-side_upper_intrusion_depth)-
 assert(base_side_profile_slice_w > 0 &&
        base_side_profile_slice_w <= 0.25,
        "base side profile must remain a thin live-edge sampling slice");
+assert(abs(side_upper_end_y-universal_deep_ramp_end_y) < 0.01 &&
+       side_upper_end_y < enclosure_top_y-1,
+       "detachable side must stop at the ramp end with no top leg");
+assert(abs(side_base_triangle_y0-side_guide_y0) < 0.01 &&
+       abs(side_base_triangle_y1-
+           (side_guide_y0+side_guide_floor_gusset_h)) < 0.01,
+       "side base trim must track the existing triangular gusset height");
+assert(abs(side_base_triangle_rear_z-
+           (side_guide_front_z+side_guide_floor_gusset_overlap)) < 0.01 &&
+       abs(side_base_triangle_tip_z-
+           (side_guide_front_z-side_guide_floor_gusset_footprint)) < 0.01,
+       "side base trim must follow the exact triangular gusset front edge");
+assert(side_base_triangle_tip_z > base_floor_front_z+20,
+       "trimmed side unexpectedly copied the old forward base-floor extension");
 assert(side_upper_connector_keepout_margin_y >= 1.0 &&
        side_upper_connector_keepout_margin_z >= 1.0,
        "upper return connector keepout lost its safety margin");
@@ -1249,6 +1263,46 @@ def main() -> None:
         run_parallel_checks(connector_checks, args.workers)
 
         side_checks: list[Check] = [
+            (
+                "left_removed_top_leg_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_removed_top_leg_clear",
+                    """    equipment_side("left");
+    side_removed_top_leg_volume("left");""",
+                ),
+            ),
+            (
+                "right_removed_top_leg_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_removed_top_leg_clear",
+                    """    equipment_side("right");
+    side_removed_top_leg_volume("right");""",
+                ),
+            ),
+            (
+                "left_removed_bottom_extension_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_removed_bottom_extension_clear",
+                    """    equipment_side("left");
+    side_removed_bottom_extension_volume("left");""",
+                ),
+            ),
+            (
+                "right_removed_bottom_extension_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_removed_bottom_extension_clear",
+                    """    equipment_side("right");
+    side_removed_bottom_extension_volume("right");""",
+                ),
+            ),
             (
                 "left_upper_return_core_clearance",
                 partial(
