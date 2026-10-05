@@ -318,9 +318,9 @@ EventBridge Scheduler invokes `led-publisher` once per minute. The Lambda loads 
 - National Rail: 60 seconds;
 - queue feeds: 300 seconds;
 - Todoist calendar: 300 seconds when enabled;
-- Open-Meteo current weather + seven-day forecast: 600 seconds, fetched and cached together in one request.
+- Open-Meteo current weather + seven-day forecast + today's hourly blocks + sunrise/sunset: 600 seconds, fetched and cached together in one request.
 
-If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Weather current conditions and the seven-day forecast share that same last-good cache entry. A cold Todoist/OAuth failure affects only the calendar screen; a cold weather failure publishes the other feeds plus an unavailable weekly-weather screen.
+If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Weather current conditions, the seven-day overview, the six Today blocks and today's sunrise/sunset share that same last-good cache entry. The publisher emits enabled Weather screens in the fixed order `weather_weekly`, `weather_today`, `weather_sun`; each has an independent runtime enable switch and duration. A cold Todoist/OAuth failure affects only the calendar screen; a cold Weather failure leaves unrelated feeds available, may publish the enabled weekly unavailable fallback, and does not emit empty Today or solar screens.
 
 The Lambda replaces `api/screens` with one complete S3 `PutObject`; S3 object replacement is atomic, so readers never observe partially written JSON. CloudFront caching is disabled for `api/screens`.
 
@@ -335,6 +335,8 @@ POLL_SECONDS = 30
 ```
 
 The client requests `${SCREEN_API_URL}/api/screens`; no National Rail, Todoist, Queue-Times, Open-Meteo, AWS, Cloudflare, SSM or OAuth credentials are stored on the MatrixPortal.
+
+The three dedicated Weather screens are static full-canvas screens and suppress the shared clock/current-weather header. The browser simulator mirrors the same renderer-neutral screen entries; no additional provider calls are made by either client.
 
 ## Cost characteristics
 

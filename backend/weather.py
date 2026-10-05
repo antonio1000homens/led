@@ -1,4 +1,4 @@
-"""Current weather and seven-day forecast provider/cache for the LED backend."""
+"""Current, seven-day, Today and solar weather provider/cache for the LED backend."""
 
 from __future__ import annotations
 
@@ -12,6 +12,14 @@ from urllib.request import urlopen
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+TODAY_BLOCKS = (
+    ("00-04", 0, 4, 2),
+    ("04-08", 4, 8, 6),
+    ("08-12", 8, 12, 10),
+    ("12-16", 12, 16, 14),
+    ("16-20", 16, 20, 18),
+    ("20-24", 20, 24, 22),
+)
 
 
 class WeatherFeedUnavailable(RuntimeError):
@@ -42,8 +50,67 @@ def weather_icon(weather_code, is_day=True):
     return "unknown"
 
 
+def _local_hhmm(value):
+    text = str(value or "")
+    if "T" not in text:
+        raise ValueError("missing local timestamp")
+    return text.split("T", 1)[1][:5]
+
+
+def _today_blocks(hourly, today_date, sunrise_time=None, sunset_time=None):
+    if not isinstance(hourly, dict):
+        return []
+    times = hourly.get("time")
+    temperatures = hourly.get("temperature_2m")
+    codes = hourly.get("weather_code")
+    if not all(isinstance(values, list) for values in (times, temperatures, codes)):
+        return []
+
+    entries = []
+    count = min(len(times), len(temperatures), len(codes))
+    for index in range(count):
+        try:
+            stamp = datetime.strptime(str(times[index]), "%Y-%m-%dT%H:%M")
+            if stamp.strftime("%Y-%m-%d") != today_date:
+                continue
+            entries.append(
+                {
+                    "hour": stamp.hour,
+                    "temperature_c": round(float(temperatures[index]), 1),
+                    "weather_code": int(codes[index]),
+                }
+            )
+        except (TypeError, ValueError):
+            continue
+
+    try:
+        rise_parts = str(sunrise_time).split(":", 1)
+        set_parts = str(sunset_time).split(":", 1)
+        rise_minutes = int(rise_parts[0]) * 60 + int(rise_parts[1])
+        set_minutes = int(set_parts[0]) * 60 + int(set_parts[1])
+    except (IndexError, TypeError, ValueError):
+        rise_minutes, set_minutes = 6 * 60, 18 * 60
+
+    blocks = []
+    for label, start, end, midpoint in TODAY_BLOCKS:
+        candidates = [entry for entry in entries if start <= entry["hour"] < end]
+        if not candidates:
+            continue
+        selected = min(candidates, key=lambda entry: (abs(entry["hour"] - midpoint), entry["hour"]))
+        is_day = rise_minutes <= selected["hour"] * 60 < set_minutes
+        blocks.append(
+            {
+                "label": label,
+                "temperature_c": selected["temperature_c"],
+                "weather_code": selected["weather_code"],
+                "icon": weather_icon(selected["weather_code"], is_day),
+            }
+        )
+    return blocks
+
+
 class OpenMeteoProvider:
-    """Fetch current temperature and WMO weather code from Open-Meteo."""
+    """Fetch current, weekly, Today and solar weather from Open-Meteo."""
 
     source = "open_meteo"
 
@@ -59,7 +126,8 @@ class OpenMeteoProvider:
                 "latitude": self.latitude,
                 "longitude": self.longitude,
                 "current": "temperature_2m,weather_code,is_day",
-                "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+                "hourly": "temperature_2m,weather_code",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset",
                 "forecast_days": 7,
                 "timezone": "auto",
             }
@@ -88,6 +156,8 @@ class OpenMeteoProvider:
         if any(not isinstance(values, list) for values in arrays):
             raise WeatherFeedUnavailable("Open-Meteo daily forecast is invalid")
 
+        sunrise_values = daily.get("sunrise") if isinstance(daily.get("sunrise"), list) else []
+        sunset_values = daily.get("sunset") if isinstance(daily.get("sunset"), list) else []
         forecast = []
         count = min(7, *(len(values) for values in arrays))
         for index in range(count):
@@ -99,18 +169,33 @@ class OpenMeteoProvider:
                 temperature_min = float(arrays[3][index])
             except (TypeError, ValueError):
                 continue
-            forecast.append(
-                {
-                    "date": date_text,
-                    "weekday": date_value.strftime("%a").upper(),
-                    "temperature_max_c": round(temperature_max, 1),
-                    "temperature_min_c": round(temperature_min, 1),
-                    "weather_code": daily_code,
-                    "icon": weather_icon(daily_code, True),
-                }
-            )
+            day = {
+                "date": date_text,
+                "weekday": date_value.strftime("%a").upper(),
+                "temperature_max_c": round(temperature_max, 1),
+                "temperature_min_c": round(temperature_min, 1),
+                "weather_code": daily_code,
+                "icon": weather_icon(daily_code, True),
+            }
+            try:
+                day["sunrise_time"] = _local_hhmm(sunrise_values[index])
+            except (IndexError, TypeError, ValueError):
+                pass
+            try:
+                day["sunset_time"] = _local_hhmm(sunset_values[index])
+            except (IndexError, TypeError, ValueError):
+                pass
+            forecast.append(day)
         if not forecast:
             raise WeatherFeedUnavailable("Open-Meteo daily forecast has no usable entries")
+
+        today = forecast[0]
+        blocks = _today_blocks(
+            payload.get("hourly") if isinstance(payload, dict) else None,
+            today["date"],
+            today.get("sunrise_time"),
+            today.get("sunset_time"),
+        )
 
         return {
             "temperature_c": round(temperature, 1),
@@ -118,6 +203,9 @@ class OpenMeteoProvider:
             "icon": weather_icon(code, is_day),
             "is_day": is_day,
             "forecast": forecast,
+            "today_blocks": blocks,
+            "sunrise_time": today.get("sunrise_time"),
+            "sunset_time": today.get("sunset_time"),
             "attribution": "Weather data by Open-Meteo.com",
             "attribution_url": "https://open-meteo.com/",
         }

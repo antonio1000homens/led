@@ -393,12 +393,16 @@ class Publisher:
                 "page_seconds": self.config.calendar_page_seconds,
                 "events": copy.deepcopy(calendar_events[:task_count]),
             })
-        if config_feeds["weather"]["enabled"]:
+        weather_config = config_feeds["weather"]
+        if weather_config["enabled"]:
             weather = feeds.get("weather") or {}
             data = weather.get("data")
             if data is not None:
                 overlay = copy.deepcopy(data)
                 forecast = copy.deepcopy(overlay.pop("forecast", [])[:7])
+                today_blocks = copy.deepcopy(overlay.pop("today_blocks", []))
+                sunrise_time = overlay.pop("sunrise_time", None)
+                sunset_time = overlay.pop("sunset_time", None)
                 source = data.get("source", "open_meteo")
                 stale = bool(weather.get("stale"))
             else:
@@ -409,18 +413,44 @@ class Publisher:
                     "icon": "unknown",
                 }
                 forecast = []
+                today_blocks = []
+                sunrise_time = None
+                sunset_time = None
                 source = "unavailable"
                 stale = True
             overlay["stale"] = stale
-            screens.append({
-                "id": "weather-weekly",
-                "kind": "weather_weekly",
-                "duration_seconds": config_feeds["weather"]["screen_duration_seconds"],
-                "title": "7 DAY WEATHER",
-                "source": source,
-                "stale": stale,
-                "days": forecast,
-            })
+
+            if weather_config["overview_enabled"]:
+                screens.append({
+                    "id": "weather-weekly",
+                    "kind": "weather_weekly",
+                    "duration_seconds": weather_config["screen_duration_seconds"],
+                    "title": "7 DAY WEATHER",
+                    "source": source,
+                    "stale": stale,
+                    "days": forecast,
+                })
+            if weather_config["today_enabled"] and today_blocks:
+                screens.append({
+                    "id": "weather-today",
+                    "kind": "weather_today",
+                    "duration_seconds": weather_config["today_duration_seconds"],
+                    "title": "TODAY",
+                    "source": source,
+                    "stale": stale,
+                    "blocks": today_blocks,
+                })
+            if weather_config["sun_enabled"] and sunrise_time and sunset_time:
+                screens.append({
+                    "id": "weather-sun",
+                    "kind": "weather_sun",
+                    "duration_seconds": weather_config["sun_duration_seconds"],
+                    "title": "SUNRISE / SUNSET",
+                    "source": source,
+                    "stale": stale,
+                    "sunrise_time": sunrise_time,
+                    "sunset_time": sunset_time,
+                })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
         return {
@@ -491,17 +521,21 @@ class Publisher:
         if settings["weather"]["enabled"]:
             weather_previous = feeds.get("weather")
             weather_data = (weather_previous or {}).get("data")
-            # Pre-#187 cache entries contain only current weather. Refresh that
-            # schema immediately instead of waiting up to the normal Weather TTL
-            # before the dedicated weekly screen can be populated.
-            needs_forecast_upgrade = (
+            # Refresh older cache schemas immediately so all three dedicated
+            # Weather screens can be populated without waiting for the normal TTL.
+            needs_weather_contract_upgrade = (
                 isinstance(weather_data, dict)
-                and "forecast" not in weather_data
+                and (
+                    "forecast" not in weather_data
+                    or "today_blocks" not in weather_data
+                    or "sunrise_time" not in weather_data
+                    or "sunset_time" not in weather_data
+                )
             )
             feeds["weather"] = self._refresh(
                 "weather", weather_previous, settings["weather"]["poll_seconds"],
                 lambda: self._fetch_weather(now), now,
-                force=needs_forecast_upgrade,
+                force=needs_weather_contract_upgrade,
             )
 
         next_state = {

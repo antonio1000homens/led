@@ -213,7 +213,17 @@ class FixtureWeatherProvider:
                 "temperature_min_c": low,
                 "weather_code": code,
                 "icon": weather_icon(code, True),
+                "sunrise_time": "07:{:02d}".format(10 + offset),
+                "sunset_time": "18:{:02d}".format(25 - offset),
             })
+        today_blocks = [
+            {"label": "00-04", "temperature_c": 11, "weather_code": 2, "icon": "partly_cloudy_night"},
+            {"label": "04-08", "temperature_c": 10, "weather_code": 3, "icon": "cloudy"},
+            {"label": "08-12", "temperature_c": 13, "weather_code": 2, "icon": "partly_cloudy_day"},
+            {"label": "12-16", "temperature_c": 17, "weather_code": 1, "icon": "partly_cloudy_day"},
+            {"label": "16-20", "temperature_c": 15, "weather_code": 61, "icon": "rain"},
+            {"label": "20-24", "temperature_c": 12, "weather_code": 3, "icon": "cloudy"},
+        ]
         return {
             "source": "weather_fixture",
             "stale": False,
@@ -222,6 +232,9 @@ class FixtureWeatherProvider:
             "icon": "partly_cloudy_day",
             "is_day": True,
             "forecast": forecast,
+            "today_blocks": today_blocks,
+            "sunrise_time": forecast[0]["sunrise_time"],
+            "sunset_time": forecast[0]["sunset_time"],
         }
 
 
@@ -451,6 +464,9 @@ class ScreenFeed:
 
             overlay = copy.deepcopy(weather)
             forecast = copy.deepcopy(overlay.pop("forecast", [])[:7])
+            today_blocks = copy.deepcopy(overlay.pop("today_blocks", []))
+            sunrise_time = overlay.pop("sunrise_time", None)
+            sunset_time = overlay.pop("sunset_time", None)
             screens.append({
                 "id": "weather-weekly",
                 "kind": "weather_weekly",
@@ -460,6 +476,27 @@ class ScreenFeed:
                 "stale": bool(weather.get("stale")),
                 "days": forecast,
             })
+            if today_blocks:
+                screens.append({
+                    "id": "weather-today",
+                    "kind": "weather_today",
+                    "duration_seconds": 8,
+                    "title": "TODAY",
+                    "source": weather.get("source", "unavailable"),
+                    "stale": bool(weather.get("stale")),
+                    "blocks": today_blocks,
+                })
+            if sunrise_time and sunset_time:
+                screens.append({
+                    "id": "weather-sun",
+                    "kind": "weather_sun",
+                    "duration_seconds": 6,
+                    "title": "SUNRISE / SUNSET",
+                    "source": weather.get("source", "unavailable"),
+                    "stale": bool(weather.get("stale")),
+                    "sunrise_time": sunrise_time,
+                    "sunset_time": sunset_time,
+                })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
 

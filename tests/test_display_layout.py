@@ -47,6 +47,20 @@ def weekly_days():
     ]
 
 
+
+def today_blocks():
+    icons = ("clear_night", "cloudy", "partly_cloudy_day", "clear_day", "rain", "cloudy")
+    return [
+        {
+            "label": label,
+            "temperature_c": 10 + index,
+            "weather_code": index,
+            "icon": icons[index],
+        }
+        for index, label in enumerate(("00-04", "04-08", "08-12", "12-16", "16-20", "20-24"))
+    ]
+
+
 class DisplayLayoutTests(unittest.TestCase):
     def test_todoist_due_labels_are_right_aligned_for_every_row(self):
         display = CapturingFixture()
@@ -108,49 +122,93 @@ class DisplayLayoutTests(unittest.TestCase):
         for item in layout:
             self.assertEqual(item["left"], previous_right)
             self.assertLess(item["left"], item["right"])
-            for text_key, x_key in (("weekday", "weekday_x"), ("max_text", "max_x"), ("min_text", "min_x")):
-                text = item[text_key]
-                x = item[x_key]
-                self.assertGreaterEqual(x, item["left"])
-                self.assertLessEqual(x + len(text) * led_display.WEATHER_FONT_WIDTH, item["right"])
+            self.assertNotIn("min_text", item)
+            self.assertGreaterEqual(item["weekday_x"], item["left"])
+            self.assertLessEqual(
+                item["weekday_x"] + len(item["weekday"]) * led_display.WEATHER_FONT_WIDTH,
+                item["right"],
+            )
+            compact_width = len(item["max_text"]) * (led_display.WEEKLY_WEATHER_GLYPH_WIDTH + 1)
+            self.assertGreaterEqual(item["max_x"], item["left"])
+            self.assertLessEqual(item["max_x"] + compact_width, item["right"])
             self.assertGreaterEqual(item["icon_x"], item["left"])
-            self.assertLessEqual(item["icon_x"] + led_display.WEATHER_ICON_WIDTH, item["right"])
+            self.assertLessEqual(item["icon_x"] + item["icon_width"], item["right"])
             previous_right = item["right"]
 
-    def test_weekly_weather_fixture_draws_all_rows_and_empty_fallback(self):
+    def test_weekly_weather_fixture_keeps_max_only_contract_and_empty_fallback(self):
+        layout = led_display._weekly_weather_layout(weekly_days())
+        self.assertEqual([item["max_text"] for item in layout],
+                         ["16C", "15C", "14C", "13C", "12C", "11C", "10C"])
+
         display = CapturingFixture()
         display._draw_screen({"kind": "weather_weekly", "days": weekly_days()}, phase=0)
-
         text = [item[0] for item in display.drawn]
         self.assertEqual([value for value in text if value in ("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")],
                          ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"])
-        self.assertEqual(len([value for value in text if value.startswith("MAX")]), 7)
-        self.assertEqual(len([value for value in text if value.startswith("MIN")]), 7)
+        self.assertFalse(any(value.startswith("MAX") or value.startswith("MIN") for value in text))
 
         empty = CapturingFixture()
         empty._draw_screen({"kind": "weather_weekly", "days": []}, phase=0)
         self.assertIn("Weather unavailable", [item[0] for item in empty.drawn])
 
-    def test_weekly_weather_show_suppresses_clock_current_weather_and_stale_header(self):
-        display = CapturingFixture()
-        display.pixels = FakePixels()
-        display.show(
+    def test_today_weather_layout_has_six_ordered_full_width_blocks(self):
+        layout = led_display._today_weather_layout(today_blocks())
+        self.assertEqual(len(layout), 6)
+        self.assertEqual(layout[0]["left"], 0)
+        self.assertEqual(layout[-1]["right"], led_display.DISPLAY_WIDTH)
+        self.assertEqual([item["label"] for item in layout],
+                         ["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"])
+        self.assertEqual([item["temp_text"] for item in layout],
+                         ["10C", "11C", "12C", "13C", "14C", "15C"])
+        for item in layout:
+            self.assertGreaterEqual(item["icon_x"], item["left"])
+            self.assertLessEqual(item["icon_x"] + item["icon_width"], item["right"])
+
+    def test_fullscreen_weather_screens_suppress_shared_header_chrome(self):
+        for screen in (
             {
                 "kind": "weather_weekly",
                 "title": "7 DAY WEATHER",
-                "stale": True,
                 "days": weekly_days(),
-                "weather": {"temperature_c": 17, "icon": "clear_day", "stale": True},
             },
-            clock_time="12:34",
-            phase=2,
-        )
+            {
+                "kind": "weather_today",
+                "title": "TODAY",
+                "blocks": today_blocks(),
+            },
+            {
+                "kind": "weather_sun",
+                "title": "SUNRISE / SUNSET",
+                "sunrise_time": "07:08",
+                "sunset_time": "18:29",
+            },
+        ):
+            with self.subTest(kind=screen["kind"]):
+                display = CapturingFixture()
+                display.pixels = FakePixels()
+                screen.update({
+                    "stale": True,
+                    "weather": {"temperature_c": 17, "icon": "clear_day", "stale": True},
+                })
+                display.show(screen, clock_time="12:34", phase=2)
+                text = [item[0] for item in display.drawn]
+                self.assertNotIn("12:34", text)
+                self.assertNotIn("17C", text)
+                self.assertNotIn("STALE", text)
+                self.assertEqual(display.pixels.shown, 1)
 
+    def test_sun_weather_draws_today_sunrise_and_sunset_times(self):
+        display = CapturingFixture()
+        display._draw_screen({
+            "kind": "weather_sun",
+            "sunrise_time": "07:08",
+            "sunset_time": "18:29",
+        }, phase=0)
         text = [item[0] for item in display.drawn]
-        self.assertNotIn("12:34", text)
-        self.assertNotIn("17C", text)
-        self.assertNotIn("STALE", text)
-        self.assertEqual(display.pixels.shown, 1)
+        self.assertIn("SUNRISE", text)
+        self.assertIn("07:08", text)
+        self.assertIn("SUNSET", text)
+        self.assertIn("18:29", text)
 
     def test_departure_statuses_share_one_vertical_column(self):
         display = CapturingFixture()
