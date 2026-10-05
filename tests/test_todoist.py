@@ -9,6 +9,7 @@ from todoist import (
     TodoistFeedUnavailable,
     TodoistOAuthSession,
     TodoistProvider,
+    display_task_title,
     normalize_task,
 )
 
@@ -172,6 +173,37 @@ class TodoistProviderTests(unittest.TestCase):
         self.assertEqual(event["date_text"], "13/09")
         self.assertEqual(event["time_text"], "13:30")
         self.assertEqual(event["start"], "2026-09-13T13:30:00+01:00")
+
+    def test_markdown_links_are_reduced_to_labels_for_led_display(self):
+        self.assertEqual(
+            display_task_title("Read [release notes](https://example.com/releases/1)"),
+            "Read release notes",
+        )
+        self.assertEqual(
+            display_task_title(
+                "Review [BBC News](https://www.bbc.co.uk/news) with [Contact](mailto:person@example.test)"
+            ),
+            "Review BBC News with Contact",
+        )
+
+        event = normalize_task(
+            {
+                "content": "Read [release notes](https://example.com/releases/1)",
+                "due": {"date": "2026-09-13T18:00:00+01:00"},
+            },
+            now=self.now,
+        )
+        self.assertEqual(event["title"], "Read release notes")
+
+    def test_bare_and_malformed_links_are_left_unchanged(self):
+        self.assertEqual(
+            display_task_title("Visit https://example.com directly"),
+            "Visit https://example.com directly",
+        )
+        self.assertEqual(
+            display_task_title("Read [release notes] later"),
+            "Read [release notes] later",
+        )
 
     def test_floating_time_uses_due_timezone_when_present(self):
         event = normalize_task(
