@@ -84,10 +84,12 @@ def _today_blocks(hourly, today_date, sunrise_time=None, sunset_time=None):
             continue
 
     try:
-        rise_hour = int(str(sunrise_time).split(":", 1)[0])
-        set_hour = int(str(sunset_time).split(":", 1)[0])
-    except (TypeError, ValueError):
-        rise_hour, set_hour = 6, 18
+        rise_parts = str(sunrise_time).split(":", 1)
+        set_parts = str(sunset_time).split(":", 1)
+        rise_minutes = int(rise_parts[0]) * 60 + int(rise_parts[1])
+        set_minutes = int(set_parts[0]) * 60 + int(set_parts[1])
+    except (IndexError, TypeError, ValueError):
+        rise_minutes, set_minutes = 6 * 60, 18 * 60
 
     blocks = []
     for label, start, end, midpoint in TODAY_BLOCKS:
@@ -95,7 +97,7 @@ def _today_blocks(hourly, today_date, sunrise_time=None, sunset_time=None):
         if not candidates:
             continue
         selected = min(candidates, key=lambda entry: (abs(entry["hour"] - midpoint), entry["hour"]))
-        is_day = rise_hour <= selected["hour"] < set_hour
+        is_day = rise_minutes <= selected["hour"] * 60 < set_minutes
         blocks.append(
             {
                 "label": label,
