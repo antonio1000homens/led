@@ -733,6 +733,26 @@ assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 
+// Detachable end-cap contract: cover the live base profile and overlap the
+// actual upper enclosure edge by exactly 10 mm without consuming connector space.
+assert(abs(side_upper_overlap-10) < 0.01,
+       "upper side return must overlap the enclosure by exactly 10 mm");
+assert(abs(side_upper_intrusion_depth-
+           (side_upper_overlap+side_panel_clearance+backplane_edge_inset)) < 0.01,
+       "upper side return must account for the side-to-module seam gap");
+assert(abs((left_side_inner_x+side_upper_intrusion_depth)-
+           (service_x+side_upper_overlap)) < 0.01,
+       "left upper return no longer reaches 10 mm into the enclosure");
+assert(abs((right_side_inner_x-side_upper_intrusion_depth)-
+           (service_x+service_w-side_upper_overlap)) < 0.01,
+       "right upper return no longer reaches 10 mm into the enclosure");
+assert(base_side_profile_slice_w > 0 &&
+       base_side_profile_slice_w <= 0.25,
+       "base side profile must remain a thin live-edge sampling slice");
+assert(side_upper_connector_keepout_margin_y >= 1.0 &&
+       side_upper_connector_keepout_margin_z >= 1.0,
+       "upper return connector keepout lost its safety margin");
+
 // Left-side C14 inlet: preserve the stable snap-in opening while deriving
 // placement from the current full-depth side envelope.
 assert(abs(c14_cutout_nominal_z-27) < 0.01 &&
@@ -745,6 +765,9 @@ assert(abs(c14_cutout_clearance_per_edge-0.10) < 0.01 &&
        "C14 printed aperture allowance drifted");
 assert(abs(c14_body_depth-30) < 0.01,
        "C14 body intrusion must remain the measured 30 mm");
+assert(abs(c14_side_material_depth-
+           (side_t+side_upper_intrusion_depth)) < 0.01,
+       "C14 recess must clear the full exterior wall plus upper return");
 assert(abs(c14_snap_panel_t-1.4) < 0.01 &&
        c14_snap_panel_t > 0 &&
        c14_snap_panel_t < side_t,
@@ -1227,6 +1250,26 @@ def main() -> None:
 
         side_checks: list[Check] = [
             (
+                "left_upper_return_core_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_upper_return_core_clearance",
+                    """    side_upper_intrusion("left");
+    stationary_equipment_module_core();""",
+                ),
+            ),
+            (
+                "right_upper_return_core_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_upper_return_core_clearance",
+                    """    side_upper_intrusion("right");
+    stationary_equipment_module_core();""",
+                ),
+            ),
+            (
                 "left_c14_panel_aperture_clear",
                 partial(
                     assert_empty_intersection,
@@ -1244,6 +1287,16 @@ def main() -> None:
                     "left_c14_snap_relief_clear",
                     """    equipment_side("left");
     left_c14_snap_relief();""",
+                ),
+            ),
+            (
+                "left_c14_body_side_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_body_side_clearance",
+                    """    equipment_side("left");
+    left_c14_body_envelope();""",
                 ),
             ),
             (
