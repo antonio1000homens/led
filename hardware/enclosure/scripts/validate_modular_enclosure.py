@@ -1057,6 +1057,37 @@ def main() -> None:
             )
         run_parallel_checks(backplane_checks, args.workers)
 
+        # Regression guard: every transition rib must expose the low
+        # base-fitting slot from BOTH sides. The centre rib already needed two
+        # entries for its root spurs; the outer ribs must be symmetric too so a
+        # stationary tab cannot catch on a closed half of either rib foot.
+        assert_empty_intersection(
+            work_dir,
+            "all_rib_base_entry_slots_open_both_sides",
+            """    universal_equipment_backplane();
+    union() {
+        for (xc=transition_rib_centres)
+            for (side=["left","right"]) {
+                probe_x0 = side == "left"
+                    ? xc-transition_rib_half_w+0.25
+                    : xc+transition_rib_channel_flat_w/2+0.25;
+                probe_x1 = side == "left"
+                    ? xc-transition_rib_channel_flat_w/2-0.25
+                    : xc+transition_rib_half_w-0.25;
+                translate([
+                    probe_x0,
+                    transition_rib_y0+0.1,
+                    rear_guardrail_lip_front_z+0.1
+                ])
+                    cube([
+                        probe_x1-probe_x0,
+                        rear_guardrail_center_root_y1-transition_rib_y0-0.2,
+                        rear_guardrail_lip_rear_z-rear_guardrail_lip_front_z-0.2
+                    ]);
+            }
+    }""",
+        )
+
         # Prove the side guides are real U-channels rather than solid towers:
         # the slot volume under each 5 mm lip must remain empty through the
         # middle of the 50 mm guide height.
