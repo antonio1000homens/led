@@ -172,7 +172,9 @@ sets:
    the centre span remains open, and each 1.2 mm rib tab rises to the Y=5.1 mm
    tongue-side rib lower edge. Verify the 12 mm-wide rear rib foot continues
    below the rail to Y=2.5 mm while retaining 0.6 mm clearance behind the tab
-   and leaving the original backplane slot/running clearance unchanged;
+   and leaving the original backplane slot/running clearance unchanged. Inspect
+   each rib foot from both sides and confirm the low base-entry relief is open
+   bilaterally at X = 64 / 128 / 192 mm;
 7. confirm the 54 mm deep universal region spans the usable backplane width and
    provides **84 mm clear height above the reinforced shoulder**; verify the rounded
    24 × 1 mm vents are confined to three rows on the lower transition and four
