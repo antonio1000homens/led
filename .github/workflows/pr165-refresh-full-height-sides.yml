@@ -1,5 +1,7 @@
 name: PR 165 / Refresh full-height side STLs
 
+# Rerun after upper-return keepout simplification.
+
 on:
   push:
     branches:
