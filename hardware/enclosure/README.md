@@ -278,18 +278,68 @@ dimension when centred, and 17 mm of depth clearance. The rear shell profile is
 continuous across X above the lower guide/insertion section. Where a 4 mm boss overlaps
 the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 
-## Side alignment
+## Full-height detachable end caps and side alignment
 
-The base guide towers expose complementary pin/socket features on their left
-and right edges so identical neighbouring modules self-align. These junctions
-sit on the **inside/cavity-facing portion of the 40 mm guide towers**. End-panel
-mating sockets are blind from the inside, leaving the outside side faces solid.
+The detachable left/right sides are now full-height **end caps** rather than
+enclosure-only plates:
 
-- pin diameter: **4.0 mm**
-- socket diameter: **4.7 mm**
-- nominal printed pin length: **3 mm**; joined-module engagement is approximately **2 mm** after the 1 mm module-edge gap
+- the **lower/base section** follows the current base only from the triangular
+  guide reinforcement rearward; the old forward floor extension is deliberately
+  omitted, so the visible front edge follows the triangle diagonal;
+- the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
+  reused unchanged by the end cap, so each side locks to the same A/B junctions
+  used when two bases mate;
+- the **upper/enclosure section** follows the deep region and return ramp, then
+  stops at the ramp end; there is **no shallow top leg** up to the LED-board edge
+  because the enclosure/backplane itself closes that final gap;
+- the retained upper section still adds an inward return that reaches
+  **10 mm beyond the actual enclosure edge**;
+- that return includes the complete vertical service corridor swept by the
+  removable backplane during its first 15 mm of upward release, so it cannot
+  trap the backplane during removal;
+- the existing 0.4 mm side clearance plus 0.5 mm backplane inset means that
+  return is 10.9 mm from the side's inner face to its inner end;
+- the return is carved around the live base/backplane geometry and has a
+  dedicated keep-out around the upper module-to-module connector and its
+  vertical release path, so it cannot consume the connector region.
 
-These features provide alignment/retention, not the primary structural load.
+The external 3 mm end face is continuous only across the retained base/upper
+profile: it does not extend forward beyond the base triangle and does not extend
+above the enclosure return ramp. The internal 10 mm return is still locally
+removed where the current enclosure/module connector needs space.
+These features provide end coverage and alignment/retention, not the primary
+structural load between modules.
+
+## Left-side C14 mains inlet
+
+The detachable **left** equipment side includes a portrait snap-in opening for
+the fused/switched IEC C14 inlet. It is integrated into the new full-height end
+cap and its hidden relief cuts through the 10 mm upper return locally, leaving
+the intended thin snap land at the exterior face.
+
+- measured body/cutout: **44 mm high × 27 mm wide** in portrait orientation;
+- FDM allowance: **0.10 mm per edge** → 44.2 × 27.2 mm printed opening;
+- measured body intrusion: **30 mm** behind the inside face;
+- conservative rotated flange keep-out: **50 mm high × 30.5 mm wide**;
+- current side wall: **3.0 mm**;
+- hidden relief leaves a **1.4 mm** snap land while the rest of the side stays
+  at the current 3 mm thickness;
+- hidden relief margin: **2 mm** around the opening.
+
+Placement is derived from the current `universal_deep_y1`,
+`enclosure_front_z` and `universal_deep_rear_z` values. In the current model
+the 44 × 27 × 30 mm occupied body envelope sits well above the hinge rod
+retainer/sleeve; validation checks both the full body envelope against the rod
+sleeve and against the stationary enclosure core. Later base/enclosure changes
+therefore fail CI if they consume that clearance.
+
+If the real inlet has a 2 mm or thicker latch shoulder, tune
+`c14_snap_panel_t` after the physical fit test rather than enlarging the measured
+44 × 27 mm exterior opening.
+
+Physical acceptance: the flange sits flat, the spring lugs clear and catch
+behind the inner edge, the inlet cannot pull back out without compressing the
+lugs, and the 3 mm side remains intact outside the local hidden relief.
 
 ## Assembly previews
 

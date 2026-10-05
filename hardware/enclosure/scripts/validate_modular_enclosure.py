@@ -239,10 +239,35 @@ def assert_empty_intersection(
     )
     diagnostic = f"{completed.stdout}\n{completed.stderr}"
     if completed.returncode == 0 and output.is_file():
+        # A completely empty intersection is success. OpenSCAD may still emit
+        # an empty STL file rather than the "top level object is empty"
+        # diagnostic, so do not route this case through load_mesh(), which is
+        # intentionally strict for printable-part validation.
+        loaded = trimesh.load_mesh(output, process=True)
+        if isinstance(loaded, trimesh.Scene):
+            if not loaded.geometry:
+                print(f"OK: {name} has no volumetric interference")
+                return
+            contact = trimesh.util.concatenate(tuple(loaded.geometry.values()))
+        elif isinstance(loaded, trimesh.Trimesh):
+            contact = loaded
+        else:
+            print(f"OK: {name} has no volumetric interference")
+            return
+
+        if contact.is_empty:
+            print(f"OK: {name} has no volumetric interference")
+            return
+
+        contact.update_faces(contact.nondegenerate_faces())
+        contact.remove_unreferenced_vertices()
+        if contact.is_empty:
+            print(f"OK: {name} has no volumetric interference")
+            return
+
         # OpenSCAD can export degenerate STL shells at exact coplanar/circular
         # contact. Require both measurable 3D extent and positive enclosed
         # volume; a zero-volume shell around a cutter edge is not interference.
-        contact = load_mesh(name, output)
         components = contact.split(only_watertight=False)
         volumetric = [
             component
@@ -733,6 +758,95 @@ assert(top_connector_tab_len-top_side_seam_gap >=
            top_connector_min_engagement,
        "top connector has insufficient engagement into the end plates");
 
+// Detachable end-cap contract: cover the live base profile and overlap the
+// actual upper enclosure edge by exactly 10 mm without consuming connector space.
+assert(abs(side_upper_overlap-10) < 0.01,
+       "upper side return must overlap the enclosure by exactly 10 mm");
+assert(abs(side_upper_intrusion_depth-
+           (side_upper_overlap+side_panel_clearance+backplane_edge_inset)) < 0.01,
+       "upper side return must account for the side-to-module seam gap");
+assert(abs((left_side_inner_x+side_upper_intrusion_depth)-
+           (service_x+side_upper_overlap)) < 0.01,
+       "left upper return no longer reaches 10 mm into the enclosure");
+assert(abs((right_side_inner_x-side_upper_intrusion_depth)-
+           (service_x+service_w-side_upper_overlap)) < 0.01,
+       "right upper return no longer reaches 10 mm into the enclosure");
+assert(base_side_profile_slice_w > 0 &&
+       base_side_profile_slice_w <= 0.25,
+       "base side profile must remain a thin live-edge sampling slice");
+assert(abs(side_upper_end_y-universal_deep_ramp_end_y) < 0.01 &&
+       side_upper_end_y < enclosure_top_y-1,
+       "detachable side must stop at the ramp end with no top leg");
+assert(abs(side_base_triangle_y0-side_guide_y0) < 0.01 &&
+       abs(side_base_triangle_y1-
+           (side_guide_y0+side_guide_floor_gusset_h)) < 0.01,
+       "side base trim must track the existing triangular gusset height");
+assert(abs(side_base_triangle_rear_z-
+           (side_guide_front_z+side_guide_floor_gusset_overlap)) < 0.01 &&
+       abs(side_base_triangle_tip_z-
+           (side_guide_front_z-side_guide_floor_gusset_footprint)) < 0.01,
+       "side base trim must follow the exact triangular gusset front edge");
+assert(side_base_triangle_tip_z > base_floor_front_z+20,
+       "trimmed side unexpectedly copied the old forward base-floor extension");
+assert(abs(side_base_upper_join_overlap_y-0.8) < 0.01,
+       "base/upper side-shell join must retain a real volumetric overlap");
+assert(side_removed_bottom_check_gap >= 0.2,
+       "removed-bottom diagnostic volume must stay clear of the live diagonal edge");
+assert(side_rod_sleeve_bore_d > hinge_rail_d,
+       "upper-return hinge keepout must retain running clearance around the rod");
+assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
+       "base-side connector radial clearance drifted");
+assert(abs(side_connector_pin_len-
+           (connector_pin_len+side_connector_bridge+side_connector_overlap)) < 0.01 &&
+       abs(side_connector_pin_len-side_connector_bridge-side_connector_overlap-
+           connector_socket_depth) < 0.01,
+       "side pin no longer achieves full nominal base-socket engagement");
+assert(connector_pin_len-side_connector_bridge >= 2.0,
+       "base pin engagement into the detachable-side socket fell below 2 mm");
+assert(side_upper_connector_keepout_margin_y >= 1.0 &&
+       side_upper_connector_keepout_margin_z >= 1.0,
+       "upper return connector keepout lost its safety margin");
+
+// Left-side C14 inlet: preserve the stable snap-in opening while deriving
+// placement from the current full-depth side envelope.
+assert(abs(c14_cutout_nominal_z-27) < 0.01 &&
+       abs(c14_cutout_nominal_y-44) < 0.01 &&
+       abs(c14_cutout_corner_r-2) < 0.01,
+       "C14 inlet measured body must remain portrait 44 x 27 mm with R2 corners");
+assert(abs(c14_cutout_clearance_per_edge-0.10) < 0.01 &&
+       abs(c14_cutout_z-27.2) < 0.01 &&
+       abs(c14_cutout_y-44.2) < 0.01,
+       "C14 printed aperture allowance drifted");
+assert(abs(c14_body_depth-30) < 0.01,
+       "C14 body intrusion must remain the measured 30 mm");
+assert(abs(c14_side_material_depth-
+           (side_t+side_upper_intrusion_depth)) < 0.01,
+       "C14 recess must clear the full exterior wall plus upper return");
+assert(abs(c14_snap_panel_t-1.4) < 0.01 &&
+       c14_snap_panel_t > 0 &&
+       c14_snap_panel_t < side_t,
+       "C14 snap land must remain the documented 1.4 mm fit-test value");
+assert(c14_center_y-c14_flange_y/2 >= universal_deep_y0 &&
+       c14_center_y+c14_flange_y/2 <= universal_deep_y1+0.01,
+       "C14 flange no longer fits inside the current full-depth side region");
+assert(c14_center_z-c14_flange_z/2 >= enclosure_front_z &&
+       c14_center_z+c14_flange_z/2 <= universal_deep_rear_z+0.01,
+       "C14 flange no longer fits across the current side-panel depth");
+assert(c14_center_y-c14_relief_y/2 >= universal_deep_y0 &&
+       c14_center_y+c14_relief_y/2 <= universal_deep_y1+0.01 &&
+       c14_center_z-c14_relief_z/2 >= enclosure_front_z &&
+       c14_center_z+c14_relief_z/2 <= universal_deep_rear_z+0.01,
+       "C14 hidden latch relief breaks out of the full-depth side wall");
+assert(c14_center_y-c14_relief_y/2 > top_connector_pad_y1,
+       "C14 latch relief collides with the current upper side connector pad");
+assert(c14_body_y0 >= universal_deep_y0 &&
+       c14_body_y1 <= universal_deep_y1+0.01 &&
+       c14_body_z0 >= enclosure_front_z &&
+       c14_body_z1 <= universal_deep_rear_z+0.01,
+       "C14 44 x 27 x 30 mm body envelope leaves the current full-depth cavity");
+assert(c14_body_y0-(hinge_axis_y+side_rod_sleeve_outer_d/2) >= 10,
+       "C14 body needs at least 10 mm vertical clearance above the rod sleeve");
+
 assert(abs(backplane_guide_clearance-0.6) < 0.01,
        "rear groove clearance is outside the physical-print fit target");
 assert(abs(side_guide_h-40) < 0.01,
@@ -1188,7 +1302,118 @@ def main() -> None:
             )
         run_parallel_checks(connector_checks, args.workers)
 
-        side_checks: list[Check] = []
+        side_checks: list[Check] = [
+            (
+                "left_removed_top_leg_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_removed_top_leg_clear",
+                    """    equipment_side("left");
+    side_removed_top_leg_volume("left");""",
+                ),
+            ),
+            (
+                "right_removed_top_leg_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_removed_top_leg_clear",
+                    """    equipment_side("right");
+    side_removed_top_leg_volume("right");""",
+                ),
+            ),
+            (
+                "left_removed_bottom_extension_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_removed_bottom_extension_clear",
+                    """    equipment_side("left");
+    side_removed_bottom_extension_volume("left");""",
+                ),
+            ),
+            (
+                "right_removed_bottom_extension_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_removed_bottom_extension_clear",
+                    """    equipment_side("right");
+    side_removed_bottom_extension_volume("right");""",
+                ),
+            ),
+            (
+                "left_upper_return_core_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_upper_return_core_clearance",
+                    """    side_upper_intrusion("left");
+    stationary_equipment_module_core();""",
+                ),
+            ),
+            (
+                "right_upper_return_core_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_upper_return_core_clearance",
+                    """    side_upper_intrusion("right");
+    stationary_equipment_module_core();""",
+                ),
+            ),
+            (
+                "left_c14_panel_aperture_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_panel_aperture_clear",
+                    """    equipment_side("left");
+    left_c14_panel_cutout();""",
+                ),
+            ),
+            (
+                "left_c14_snap_relief_clear",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_snap_relief_clear",
+                    """    equipment_side("left");
+    left_c14_snap_relief();""",
+                ),
+            ),
+            (
+                "left_c14_body_side_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_body_side_clearance",
+                    """    equipment_side("left");
+    left_c14_body_envelope();""",
+                ),
+            ),
+            (
+                "left_c14_body_rod_sleeve_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_body_rod_sleeve_clearance",
+                    """    left_c14_body_envelope();
+    side_rod_retainer_sleeve("left");""",
+                ),
+            ),
+            (
+                "left_c14_body_stationary_core_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_c14_body_stationary_core_clearance",
+                    """    left_c14_body_envelope();
+    stationary_equipment_module_core();""",
+                ),
+            ),
+        ]
         for side in ("left", "right"):
             side_checks.extend(
                 [
