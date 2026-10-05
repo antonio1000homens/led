@@ -763,6 +763,17 @@ assert(abs(side_base_triangle_rear_z-
        "side base trim must follow the exact triangular gusset front edge");
 assert(side_base_triangle_tip_z > base_floor_front_z+20,
        "trimmed side unexpectedly copied the old forward base-floor extension");
+assert(abs(side_base_upper_join_overlap_y-0.8) < 0.01,
+       "base/upper side-shell join must retain a real volumetric overlap");
+assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
+       "base-side connector radial clearance drifted");
+assert(abs(side_connector_pin_len-
+           (connector_pin_len+side_connector_bridge+side_connector_overlap)) < 0.01 &&
+       abs(side_connector_pin_len-side_connector_bridge-side_connector_overlap-
+           connector_socket_depth) < 0.01,
+       "side pin no longer achieves full nominal base-socket engagement");
+assert(connector_pin_len-side_connector_bridge >= 2.0,
+       "base pin engagement into the detachable-side socket fell below 2 mm");
 assert(side_upper_connector_keepout_margin_y >= 1.0 &&
        side_upper_connector_keepout_margin_z >= 1.0,
        "upper return connector keepout lost its safety margin");
