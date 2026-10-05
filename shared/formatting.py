@@ -160,6 +160,7 @@ def calling_marquee_x(
     gap=RAIL_MARQUEE_GAP,
     pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS,
     stop_at_end=False,
+    station_width=None,
 ):
     """Return station-text x while keeping ``CALLING AT:`` fixed.
 
@@ -179,9 +180,12 @@ def calling_marquee_x(
         pause_seconds = CALLING_MARQUEE_PAUSE_SECONDS
     text = str(text or "")
     prefix_width = len(CALLING_LABEL) * int(font_width)
-    stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
     visible_width = max(1, int(display_width) - prefix_width)
-    text_width = len(stations) * int(font_width)
+    if station_width is None:
+        stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+        text_width = len(stations) * int(font_width)
+    else:
+        text_width = max(0, int(station_width))
     phase = max(0.0, phase)
     if stop_at_end:
         travel_seconds = (display_width - prefix_width + text_width) / speed
@@ -553,11 +557,16 @@ def calling_text(service):
     return "CALLING AT: " + _station_separator(service).join(parts)
 
 
-def rail_calling_duration(services, speed=20.0, pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS):
-    """Return enough calling-phase time for the first train's stops to pass once."""
+def rail_calling_timing(
+    services,
+    speed=20.0,
+    pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS,
+    font_width=CALLING_STATION_FONT_WIDTH,
+):
+    """Return the first train's calling-text travel and complete cycle duration."""
     services = list(services or [])
     if not services:
-        return RAIL_CALLING_SECONDS
+        return 0.0, RAIL_CALLING_SECONDS
     try:
         speed = max(1.0, float(speed or 20.0))
         pause_seconds = max(0.0, float(pause_seconds or 0.0))
@@ -567,10 +576,15 @@ def rail_calling_duration(services, speed=20.0, pause_seconds=CALLING_MARQUEE_PA
     text = calling_text(services[0])
     stations = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
     display_width = 256
-    prefix_width = len(CALLING_LABEL) * CALLING_STATION_FONT_WIDTH
-    text_width = len(stations) * CALLING_STATION_FONT_WIDTH
+    prefix_width = len(CALLING_LABEL) * int(font_width)
+    text_width = len(stations) * int(font_width)
     travel = (display_width - prefix_width + text_width) / speed
-    return max(RAIL_CALLING_SECONDS, travel + pause_seconds)
+    return travel, max(RAIL_CALLING_SECONDS, travel + pause_seconds)
+
+
+def rail_calling_duration(services, speed=20.0, pause_seconds=CALLING_MARQUEE_PAUSE_SECONDS):
+    """Return enough calling-phase time for the first train's stops to pass once."""
+    return rail_calling_timing(services, speed, pause_seconds)[1]
 
 
 def calling_color_segments(service):

@@ -4,7 +4,13 @@ The module keeps hardware imports lazy so its rotation and clock logic can be
 unit-tested on CPython.
 """
 
-from formatting import departure_scroll_duration, rail_calling_duration
+from formatting import (
+    CALLING_STATION_FONT_WIDTH,
+    departure_scroll_duration,
+    rail_calling_duration,
+    rail_calling_timing,
+)
+from matrix_config import CALLING_SCROLL_SPEED_OVERRIDE
 
 
 def _http_date_timestamp(value):
@@ -192,7 +198,47 @@ class ScreenRotation:
         self.started_at = None
 
     def update(self, screens, now):
-        next_screens = [screen for screen in (screens or []) if isinstance(screen, dict)]
+        next_screens = []
+        for source in (screens or []):
+            if not isinstance(source, dict):
+                continue
+            screen = source
+            services = source.get("services") or ()
+            if source.get("kind") == "rail_combined" and services:
+                # Rail text width and cycle timing depend on feed data and
+                # speed, so derive them once per payload instead of formatting
+                # every calling point on every animation frame.
+                screen = dict(source)
+                if CALLING_SCROLL_SPEED_OVERRIDE is not None:
+                    screen["station_scroll_speed"] = CALLING_SCROLL_SPEED_OVERRIDE
+                scroll_speed = screen.get("station_scroll_speed", 20)
+                calling_duration = rail_calling_duration(
+                    services,
+                    scroll_speed,
+                )
+                travel_seconds = rail_calling_timing(
+                    services,
+                    scroll_speed,
+                    font_width=CALLING_STATION_FONT_WIDTH,
+                )[0]
+                calling_seconds = int(calling_duration + 0.999)
+                upcoming_services = services[1:]
+                train_cycle_seconds = departure_scroll_duration(
+                    len(upcoming_services),
+                    source.get("upcoming_train_pause_seconds", 2),
+                )
+                train_cycle_seconds = int(train_cycle_seconds + 0.999)
+                duration = max(
+                    1,
+                    int(source.get("effective_duration_seconds") or source.get("duration_seconds") or 8),
+                    calling_seconds,
+                    train_cycle_seconds,
+                )
+                screen["duration_seconds"] = duration
+                screen["calling_seconds"] = duration
+                screen["summary_seconds"] = 0
+                screen["_calling_travel_seconds"] = travel_seconds
+            next_screens.append(screen)
         if not next_screens:
             return
         current_id = None
@@ -228,24 +274,8 @@ class ScreenRotation:
                 1,
                 int(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
             )
-            if screen.get("kind") == "rail_combined" and screen.get("services"):
-                calling_seconds = int(rail_calling_duration(
-                    screen.get("services"),
-                    screen.get("station_scroll_speed", 20),
-                ) + 0.999)
-                upcoming_services = screen.get("services")[1:]
-                train_cycle_seconds = departure_scroll_duration(
-                    len(upcoming_services),
-                    screen.get("upcoming_train_pause_seconds", 2),
-                )
-                train_cycle_seconds = int(train_cycle_seconds + 0.999)
-                # Keep train 1 and its calling marquee on screen while every
-                # configured upcoming-train window gets a complete cycle.
-                duration = max(1, duration, calling_seconds, train_cycle_seconds)
-                screen = dict(screen)
-                screen["duration_seconds"] = duration
-                screen["calling_seconds"] = duration
-                screen["summary_seconds"] = 0
+            if "_calling_travel_seconds" in screen:
+                duration = max(1, duration, int(screen.get("duration_seconds") or 8))
             elapsed = max(0, now - self.started_at)
             if elapsed < duration:
                 return screen, elapsed

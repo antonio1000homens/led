@@ -81,10 +81,15 @@ class FlashMqttClient:
             except Exception:
                 pass
 
-    def poll(self, now):
+    def poll(self, now, allow_connect=True):
         if not self.enabled:
             return
-        self._connect(now)
+        # A Wi-Fi/MQTT handshake can block far longer than socket_timeout.
+        # Avoid starting one in the middle of a visible animation.
+        if not self.client or not self.connected:
+            if not allow_connect:
+                return
+            self._connect(now)
         if not self.client or not self.connected:
             return
         if now < self.next_loop:

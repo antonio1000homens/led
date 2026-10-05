@@ -7,7 +7,8 @@
 #
 #   A7 / A8 / A10 = current target-FPS refresh control
 #   B7 / B8 / B10 / B12 = immediate refresh + application-owned pacing
-#   C7 / C8 / C10 = CircuitPython auto-refresh + application animation cadence
+#   C7 / C8 / C10 / C15 = CircuitPython auto-refresh + application cadence
+# C15 isolates auto-refresh at the live departures calling-at cadence.
 MATRIX_EXPERIMENT_PRESET = "B8"
 
 _MATRIX_EXPERIMENT_PRESETS = {
@@ -23,6 +24,7 @@ _MATRIX_EXPERIMENT_PRESETS = {
     "C7": ("auto_refresh", 7, 7.0),
     "C8": ("auto_refresh", 8, 8.0),
     "C10": ("auto_refresh", 10, 10.0),
+    "C15": ("auto_refresh", 15, 8.0),
 }
 
 try:
@@ -38,6 +40,8 @@ except KeyError:
 # panels while retaining the board's eight required colours.
 MATRIX_BIT_DEPTH = 1
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
+# Temporary physical-board comparison: match calling speed to the B8 baseline.
+CALLING_SCROLL_SPEED_OVERRIDE = 8.0
 
 # Issue #91/#94 adaptive partial-scene cadence. These are animation update
 # cadences, not framebuffer refresh modes; Mode B remains the presentation
@@ -73,6 +77,13 @@ MATRIX_ANIMATION_PROFILES = {
         "departures_calling": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
     },
+    "departures_15": {
+        "todoist_marquee": MATRIX_REFRESH_FPS,
+        "todoist_page_slide": MATRIX_REFRESH_FPS,
+        "header_slide": MATRIX_REFRESH_FPS,
+        "departures_calling": 15,
+        "queue_rows": MATRIX_REFRESH_FPS,
+    },
     "transition_15": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
         "todoist_page_slide": 15,
@@ -89,9 +100,11 @@ MATRIX_ANIMATION_PROFILES = {
     },
 }
 
-# Keep the conservative B8 cadence as the production default. The focused
-# Departures 12 Hz profile remains available for future controlled comparison.
+# Use the historically stable B8 cadence for the current 8 px/s calling trial.
 MATRIX_ANIMATION_PROFILE = "baseline"
+# Keep the lower train rows in the normal scrolling mode after the isolated
+# calling-marquee A/B capture.
+MATRIX_RAIL_ROWS_SCROLL = True
 try:
     import settings_local as _animation_settings_local
     MATRIX_ANIMATION_PROFILE = getattr(

@@ -10,6 +10,7 @@ from matrix_config import (
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
     MATRIX_PRESENTATION_MODE,
+    MATRIX_RAIL_ROWS_SCROLL,
     MATRIX_REFRESH_FPS,
     MATRIX_STATS_INTERVAL_SECONDS,
     TODOIST_MARQUEE_PAUSE_SECONDS,
@@ -36,6 +37,7 @@ from formatting import (
     calling_marquee_x,
     calling_color_segments,
     calling_text,
+    rail_calling_timing,
     departure_scroll_state,
     DEPARTURE_SLIDE_SECONDS,
     DEPARTURE_RESET_GAP_SECONDS,
@@ -501,9 +503,10 @@ class MatrixDisplay:
             )
         }
         print(
-            "MATRIX PRESENTATION preset={} animation_profile={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
+            "MATRIX PRESENTATION preset={} animation_profile={} rail_rows_scroll={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
                 MATRIX_EXPERIMENT_PRESET,
                 MATRIX_ANIMATION_PROFILE,
+                MATRIX_RAIL_ROWS_SCROLL,
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 TODOIST_MARQUEE_SPEED,
@@ -859,7 +862,7 @@ class MatrixDisplay:
                 upcoming_count = max(0, len(services) - 1)
                 pause = max(0.0, float(screen.get("upcoming_train_pause_seconds", 2) or 0))
                 max_start = max(0, upcoming_count - 2)
-                if max_start:
+                if max_start and MATRIX_RAIL_ROWS_SCROLL:
                     step = pause + DEPARTURE_SLIDE_SECONDS
                     normal = (max_start + 1) * step
                     row_cycle = normal + DEPARTURE_RESET_GAP_SECONDS + DEPARTURE_RESET_SLIDE_SECONDS
@@ -870,11 +873,12 @@ class MatrixDisplay:
                         row_edges.extend((start, start + DEPARTURE_SLIDE_SECONDS))
                     boundaries.append(_next_periodic_boundary(calling_elapsed, row_edges, row_cycle))
                 if services:
-                    text = calling_text(services[0])
-                    prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
-                    station_text = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
                     speed, _ = _station_scroll_settings(screen)
-                    travel = (DISPLAY_WIDTH - prefix_width + len(station_text) * WEATHER_FONT_WIDTH) / speed
+                    travel = screen.get("_calling_travel_seconds")
+                    if travel is None:
+                        travel = rail_calling_timing(
+                            services, speed, font_width=WEATHER_FONT_WIDTH
+                        )[0]
                     marquee_cycle = travel + CALLING_MARQUEE_PAUSE_SECONDS
                     boundaries.append(_next_periodic_boundary(
                         calling_elapsed, (0.0, travel, marquee_cycle), marquee_cycle
@@ -891,11 +895,13 @@ class MatrixDisplay:
         for service_index in (0,):
             if service_index >= len(services):
                 continue
-            service = services[service_index]
-            text = calling_text(service)
-            prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
-            station_text = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
-            travel_seconds = (DISPLAY_WIDTH - prefix_width + len(station_text) * WEATHER_FONT_WIDTH) / scroll_speed
+            travel_seconds = screen.get("_calling_travel_seconds")
+            if travel_seconds is None:
+                travel_seconds = rail_calling_timing(
+                    (services[service_index],),
+                    scroll_speed,
+                    font_width=WEATHER_FONT_WIDTH,
+                )[0]
             cycle_seconds = travel_seconds + CALLING_MARQUEE_PAUSE_SECONDS
             within_cycle = rail_marquee_elapsed(phase, summary_seconds, calling_seconds) % cycle_seconds
             if within_cycle < travel_seconds:
@@ -904,6 +910,8 @@ class MatrixDisplay:
 
     def _departures_rows_moving(self, screen, phase, calling_seconds=RAIL_CALLING_SECONDS,
                                 summary_seconds=RAIL_SUMMARY_SECONDS):
+        if not MATRIX_RAIL_ROWS_SCROLL:
+            return False
         if rail_phase(phase, summary_seconds, calling_seconds) != "calling":
             return False
         services = screen.get("services") or ()
@@ -1037,18 +1045,12 @@ class MatrixDisplay:
                 calling = calling_text(service)
                 stations = calling[len(CALLING_LABEL):] if calling.startswith(CALLING_LABEL) else calling
                 first = self._calling_label_group(service, y)
-                second = self._calling_label_group(service, y)
-                # This is a one-pass marquee. A second copy starts entering
-                # before the full list exits and gets cut when the slide ends.
-                second.hidden = True
                 calling_group.append(first)
-                calling_group.append(second)
                 self._mask(calling_group, 0, y - 3, len(CALLING_LABEL) * WEATHER_FONT_WIDTH, 8)
                 prefix = self._label(calling_group, CALLING_LABEL, 0xFFAA00, 0, y)
                 calling_label_state = {
                     "prefix": prefix,
                     "first": first,
-                    "second": second,
                     "text": calling,
                     "station_width": len(stations) * WEATHER_FONT_WIDTH,
                 }
@@ -1154,44 +1156,52 @@ class MatrixDisplay:
                 speed=scroll_speed,
                 gap=scroll_gap,
                 stop_at_end=True,
+                station_width=labels["station_width"],
             )
             first_x = int(calling_x)
-            second_x = first_x + labels["station_width"] + scroll_gap
             if labels["first"].x != first_x:
                 labels["first"].x = first_x
                 changed = True
-            if labels["second"].x != second_x:
-                labels["second"].x = second_x
-                changed = True
 
         services = screen.get("services") or ()
-        start, progress, reset_progress = departure_scroll_state(
-            rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
-            max(0, len(services) - 1),
-            screen.get("upcoming_train_pause_seconds", 2),
-            visible_rows=2,
-        )
         hidden_y = RAIL_ROW_Y[-1] + 8
         row_step = RAIL_ROW_Y[3] - RAIL_ROW_Y[2]
-        for index, row_group in enumerate(self._rail_departure_rows):
-            if reset_progress is None:
-                row_y = hidden_y + index * row_step
-            elif reset_progress > 0:
-                if index < 2:
-                    row_y = RAIL_ROW_Y[2] + 2 * row_step - int(
-                        reset_progress * 2 * row_step
-                    ) + index * row_step
+        if MATRIX_RAIL_ROWS_SCROLL:
+            start, progress, reset_progress = departure_scroll_state(
+                rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
+                max(0, len(services) - 1),
+                screen.get("upcoming_train_pause_seconds", 2),
+                visible_rows=2,
+            )
+            for index, row_group in enumerate(self._rail_departure_rows):
+                if reset_progress is None:
+                    row_y = hidden_y + index * row_step
+                elif reset_progress > 0:
+                    if index < 2:
+                        row_y = RAIL_ROW_Y[2] + 2 * row_step - int(
+                            reset_progress * 2 * row_step
+                        ) + index * row_step
+                    else:
+                        row_y = hidden_y + index * row_step
+                elif start <= index <= start + 2:
+                    row_y = RAIL_ROW_Y[2] + (index - start) * row_step - int(
+                        progress * row_step
+                    )
                 else:
                     row_y = hidden_y + index * row_step
-            elif start <= index <= start + 2:
-                row_y = RAIL_ROW_Y[2] + (index - start) * row_step - int(
-                    progress * row_step
+                if row_group.y != row_y:
+                    row_group.y = row_y
+                    changed = True
+        else:
+            for index, row_group in enumerate(self._rail_departure_rows):
+                row_y = (
+                    RAIL_ROW_Y[2] + index * row_step
+                    if index < 2
+                    else hidden_y + index * row_step
                 )
-            else:
-                row_y = hidden_y + index * row_step
-            if row_group.y != row_y:
-                row_group.y = row_y
-                changed = True
+                if row_group.y != row_y:
+                    row_group.y = row_y
+                    changed = True
 
         if self._rail_clock_label.text != clock_time:
             self._rail_clock_label.text = clock_time

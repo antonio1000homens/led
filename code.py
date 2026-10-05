@@ -192,6 +192,39 @@ pace_ticks = 0
 pace_late_frames = 0
 pace_late_streak = 0
 pace_max_late_streak = 0
+pace_last_tick_started = None
+pace_interval_total = 0.0
+pace_interval_count = 0
+pace_interval_max = 0.0
+pace_worst_gap_show = 0.0
+pace_worst_gap_sleep = 0.0
+pace_worst_gap_other = 0.0
+pace_worst_gap_preframe = 0.0
+pace_interval_over_200ms = 0
+pace_interval_over_500ms = 0
+pace_other_total = 0.0
+pace_other_count = 0
+pace_other_max = 0.0
+pace_other_over_200ms = 0
+pace_preframe_total = 0.0
+pace_preframe_count = 0
+pace_preframe_max = 0.0
+pace_preframe_stage_max = {
+    "reminder": 0.0, "mqtt": 0.0, "buttons": 0.0,
+    "fetch_decision": 0.0, "fetch": 0.0, "screen_select": 0.0,
+}
+pace_last_show_seconds = 0.0
+pace_last_sleep_seconds = 0.0
+pace_sleep_requested_total = 0.0
+pace_sleep_requested_count = 0
+pace_sleep_requested_max = 0.0
+pace_sleep_actual_total = 0.0
+pace_sleep_actual_count = 0
+pace_sleep_actual_max = 0.0
+pace_sleep_overshoots = 0
+pace_show_total = 0.0
+pace_show_count = 0
+pace_show_max = 0.0
 next_animation_deadline = None
 
 # Low-volume work-attribution telemetry for soak runs. These counters are
@@ -266,9 +299,30 @@ def _report_pace(now):
         telemetry_scene_render_total / telemetry_scene_renders
         if telemetry_scene_renders else 0.0
     )
+    interval_average = (
+        pace_interval_total / pace_interval_count if pace_interval_count else 0.0
+    )
+    other_average = pace_other_total / pace_other_count if pace_other_count else 0.0
+    sleep_requested_average = (
+        pace_sleep_requested_total / pace_sleep_requested_count
+        if pace_sleep_requested_count else 0.0
+    )
+    sleep_actual_average = (
+        pace_sleep_actual_total / pace_sleep_actual_count
+        if pace_sleep_actual_count else 0.0
+    )
+    show_average = pace_show_total / pace_show_count if pace_show_count else 0.0
     print(
         "FRAME PACE mode={} target_fps={} elapsed={:.1f} animation_ticks={} "
         "tick_fps={:.2f} late_frames={} max_late_streak={} "
+        "tick_gap_avg={:.3f} tick_gap_max={:.3f} gap_over_200ms={} "
+        "gap_over_500ms={} other_avg={:.4f} other_max={:.4f} "
+        "worst_gap_parts_show={:.3f} sleep={:.3f} other={:.3f} "
+        "preframe_avg={:.4f} preframe_max={:.4f} worst_preframe={:.3f} "
+        "stage_maxes={} "
+        "other_over_200ms={} show_avg={:.4f} show_max={:.4f} "
+        "sleep_req_avg={:.4f} sleep_req_max={:.4f} "
+        "sleep_avg={:.4f} sleep_max={:.4f} sleep_overshoots={} "
         "fetches={} fetch_failures={} fetch_avg={:.3f} fetch_max={:.3f} "
         "scene_renders={} render_avg={:.3f} render_max={:.3f} "
         "render_over_budget={} telemetry_elapsed={:.1f}".format(
@@ -279,6 +333,27 @@ def _report_pace(now):
             pace_ticks / elapsed,
             pace_late_frames,
             pace_max_late_streak,
+            interval_average,
+            pace_interval_max,
+            pace_interval_over_200ms,
+            pace_interval_over_500ms,
+            other_average,
+            pace_other_max,
+            pace_worst_gap_show,
+            pace_worst_gap_sleep,
+            pace_worst_gap_other,
+            pace_preframe_total / pace_preframe_count if pace_preframe_count else 0.0,
+            pace_preframe_max,
+            pace_worst_gap_preframe,
+            pace_preframe_stage_max,
+            pace_other_over_200ms,
+            show_average,
+            pace_show_max,
+            sleep_requested_average,
+            pace_sleep_requested_max,
+            sleep_actual_average,
+            pace_sleep_actual_max,
+            pace_sleep_overshoots,
             telemetry_fetches,
             telemetry_fetch_failures,
             fetch_average,
@@ -314,13 +389,24 @@ def _apply_flash_config(payload):
 
 while True:
     now = time.monotonic()
+    loop_started = now
+    stage_started = time.monotonic()
     _service_reminder_clock(now)
+    stage_durations = {"reminder": time.monotonic() - stage_started}
+    stage_started = time.monotonic()
     if mqtt is not None and flash.enabled:
-        mqtt.poll(now)
+        mqtt_allow_connect = True
+        if rotation.screens and not flash.active(now):
+            mqtt_screen, mqtt_phase = rotation.current(now)
+            mqtt_allow_connect = not display.animation_active(mqtt_screen, mqtt_phase)
+        mqtt.poll(now, allow_connect=mqtt_allow_connect)
+    stage_durations["mqtt"] = time.monotonic() - stage_started
+    stage_started = time.monotonic()
     button_events = list(_pending_button_events)
     _pending_button_events[:] = []
     if buttons is not None:
         button_events.extend(buttons.poll(now))
+    stage_durations["buttons"] = time.monotonic() - stage_started
     for event in button_events:
         if runtime_mode.mode == "normal" and event in ("up", "down"):
             display.adjust_brightness(1 if event == "up" else -1)
@@ -337,6 +423,7 @@ while True:
         _sleep_interruptible(settings.FRAME_SECONDS)
         continue
 
+    stage_started = time.monotonic()
     should_fetch = settings.SCREEN_SOURCE == "fixture"
     fetch_during_animation = False
     if settings.SCREEN_SOURCE != "fixture":
@@ -360,6 +447,8 @@ while True:
             _ANIMATION_FETCH_RETRY_SECONDS,
             _ANIMATION_FETCH_GUARD_SECONDS,
         )
+    stage_durations["fetch_decision"] = time.monotonic() - stage_started
+    stage_started = time.monotonic()
     if should_fetch:
         fetch_started = time.monotonic()
         # Screen API calls are synchronous and can take multiple animation
@@ -402,7 +491,9 @@ while True:
         next_fetch = now + settings.POLL_SECONDS
         if fetch_during_animation and hasattr(display, "note_fetch_overlap"):
             display.note_fetch_overlap()
+    stage_durations["fetch"] = time.monotonic() - stage_started
 
+    stage_started = time.monotonic()
     if flash.active(now):
         screen, phase = flash.screen(), now - flash.started_at
     else:
@@ -414,6 +505,7 @@ while True:
             last_render_key = None
             print("FLASH END")
         screen, phase = rotation.current(now)
+    stage_durations["screen_select"] = time.monotonic() - stage_started
     screen = hardware_safe_screen(screen)
     if transport_stale:
         screen = dict(screen)
@@ -424,6 +516,7 @@ while True:
             weather["stale"] = True
             screen["weather"] = weather
     frame_started = time.monotonic()
+    preframe_duration = frame_started - loop_started
     render_key = (screen.get("id"), screen.get("kind")) if isinstance(screen, dict) else (None, None)
     instrument_render = render_key != last_render_key
     if instrument_render:
@@ -437,12 +530,14 @@ while True:
                 render_key[0], render_key[1], rotation.index, phase, runtime_mode.mode, memory_before
             )
         )
+    show_started = time.monotonic()
     display.show(
         screen,
         clock.text(now),
         clock_date=clock.date_text(now),
         phase=_display_phase(screen, phase),
     )
+    show_duration = time.monotonic() - show_started
     if instrument_render:
         memory_after = _memory_free()
         root_after = _matrix_root_token()
@@ -464,6 +559,7 @@ while True:
         desired_cadence = display.animation_cadence(screen, phase)
         if desired_cadence <= 0:
             pace_active = False
+            pace_last_tick_started = None
             animation_cadence = None
             next_animation_deadline = None
             boundary_sleep = display.animation_sleep_seconds(screen, phase)
@@ -483,18 +579,88 @@ while True:
             if was_active and hasattr(display, "note_cadence_switch"):
                 display.note_cadence_switch()
         frame_seconds = 1.0 / desired_cadence
+        after_render = time.monotonic()
         if not pace_active:
             pace_active = True
-            pace_started = frame_started
-            pace_last_report = frame_started
+            pace_started = after_render
+            pace_last_report = after_render
             pace_ticks = 0
             pace_late_frames = 0
             pace_late_streak = 0
             pace_max_late_streak = 0
-            next_animation_deadline = frame_started
+            pace_last_tick_started = after_render
+            pace_interval_total = 0.0
+            pace_interval_count = 0
+            pace_interval_max = 0.0
+            pace_worst_gap_show = 0.0
+            pace_worst_gap_sleep = 0.0
+            pace_worst_gap_other = 0.0
+            pace_worst_gap_preframe = 0.0
+            pace_interval_over_200ms = 0
+            pace_interval_over_500ms = 0
+            pace_other_total = 0.0
+            pace_other_count = 0
+            pace_other_max = 0.0
+            pace_other_over_200ms = 0
+            pace_preframe_total = 0.0
+            pace_preframe_count = 0
+            pace_preframe_max = 0.0
+            for stage_name in pace_preframe_stage_max:
+                pace_preframe_stage_max[stage_name] = 0.0
+            pace_last_show_seconds = 0.0
+            pace_last_sleep_seconds = 0.0
+            pace_sleep_requested_total = 0.0
+            pace_sleep_requested_count = 0
+            pace_sleep_requested_max = 0.0
+            pace_sleep_actual_total = 0.0
+            pace_sleep_actual_count = 0
+            pace_sleep_actual_max = 0.0
+            pace_sleep_overshoots = 0
+            pace_show_total = 0.0
+            pace_show_count = 0
+            pace_show_max = 0.0
+            if not instrument_render:
+                pace_show_total += show_duration
+                pace_show_count += 1
+                pace_show_max = max(pace_show_max, show_duration)
+            next_animation_deadline = after_render
+        else:
+            if pace_last_tick_started is not None:
+                tick_interval = frame_started - pace_last_tick_started
+                pace_interval_total += tick_interval
+                pace_interval_count += 1
+                pace_interval_max = max(pace_interval_max, tick_interval)
+                if tick_interval > 0.2:
+                    pace_interval_over_200ms += 1
+                if tick_interval > 0.5:
+                    pace_interval_over_500ms += 1
+                other_time = max(
+                    0.0,
+                    tick_interval - pace_last_show_seconds - pace_last_sleep_seconds,
+                )
+                if tick_interval >= pace_interval_max:
+                    pace_worst_gap_show = pace_last_show_seconds
+                    pace_worst_gap_sleep = pace_last_sleep_seconds
+                    pace_worst_gap_other = other_time
+                    pace_worst_gap_preframe = preframe_duration
+                pace_other_total += other_time
+                pace_other_count += 1
+                pace_other_max = max(pace_other_max, other_time)
+                if other_time > 0.2:
+                    pace_other_over_200ms += 1
+                pace_preframe_total += preframe_duration
+                pace_preframe_count += 1
+                pace_preframe_max = max(pace_preframe_max, preframe_duration)
+                for stage_name, stage_duration in stage_durations.items():
+                    pace_preframe_stage_max[stage_name] = max(
+                        pace_preframe_stage_max[stage_name], stage_duration
+                    )
+            pace_last_tick_started = frame_started
+            pace_show_total += show_duration
+            pace_show_count += 1
+            pace_show_max = max(pace_show_max, show_duration)
 
         pace_ticks += 1
-        after_render = time.monotonic()
         next_animation_deadline, remaining, late, rebased = next_deadline(
             next_animation_deadline,
             after_render,
@@ -502,12 +668,17 @@ while True:
             cadence_changed=cadence_changed,
         )
 
+        frame_sleep_duration = 0.0
+        frame_sleep_requested = 0.0
         if MATRIX_PRESENTATION_MODE in ("immediate", "auto_refresh"):
             # Modes B/C own the animation cadence in the application. Use an
             # absolute deadline to avoid accumulating render-time drift.
             if remaining > 0:
                 pace_late_streak = 0
+                frame_sleep_requested = remaining
+                sleep_started = time.monotonic()
                 _sleep_interruptible(remaining)
+                frame_sleep_duration = time.monotonic() - sleep_started
             else:
                 pace_late_frames += 1
                 pace_late_streak += 1
@@ -518,17 +689,38 @@ while True:
             remaining = frame_seconds - (after_render - frame_started)
             if remaining > 0:
                 pace_late_streak = 0
+                frame_sleep_requested = remaining
+                sleep_started = time.monotonic()
                 _sleep_interruptible(remaining)
+                frame_sleep_duration = time.monotonic() - sleep_started
             else:
                 pace_late_frames += 1
                 pace_late_streak += 1
                 pace_max_late_streak = max(pace_max_late_streak, pace_late_streak)
 
+        # The first scene build ends before the animation timer starts; do not
+        # attribute its full render duration to the first paced-frame gap.
+        pace_last_show_seconds = (
+            0.0 if pace_ticks == 1 and instrument_render else show_duration
+        )
+        pace_last_sleep_seconds = frame_sleep_duration
+        if frame_sleep_requested > 0:
+            pace_sleep_requested_total += frame_sleep_requested
+            pace_sleep_requested_count += 1
+            pace_sleep_requested_max = max(
+                pace_sleep_requested_max, frame_sleep_requested
+            )
+            pace_sleep_actual_total += frame_sleep_duration
+            pace_sleep_actual_count += 1
+            pace_sleep_actual_max = max(pace_sleep_actual_max, frame_sleep_duration)
+            if frame_sleep_duration - frame_sleep_requested > 0.05:
+                pace_sleep_overshoots += 1
         report_now = time.monotonic()
         if _report_pace(report_now):
             pace_last_report = report_now
     elif settings.ANIMATE:
         pace_active = False
+        pace_last_tick_started = None
         animation_cadence = None
         next_animation_deadline = None
         frame_seconds = settings.FRAME_SECONDS
@@ -537,6 +729,7 @@ while True:
             _sleep_interruptible(remaining)
     else:
         pace_active = False
+        pace_last_tick_started = None
         animation_cadence = None
         next_animation_deadline = None
         # Static pages must still rotate independently of the network poll.
