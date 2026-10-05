@@ -298,19 +298,21 @@ the fused/switched IEC C14 inlet. This implementation is rebased onto the
 current enclosure format and deliberately does not restore the older base,
 guide, backplane, ramp or side geometry that PR #165 originally inherited.
 
-- nominal opening: **47 × 28 mm**, **R2** corners;
-- FDM allowance: **0.10 mm per edge** → 47.2 × 28.2 mm printed opening;
-- nominal flange keep-out: **50 × 30.5 mm**;
+- measured body/cutout: **44 mm high × 27 mm wide** in portrait orientation;
+- FDM allowance: **0.10 mm per edge** → 44.2 × 27.2 mm printed opening;
+- measured body intrusion: **30 mm** behind the inside face;
+- conservative rotated flange keep-out: **50 mm high × 30.5 mm wide**;
 - current side wall: **3.0 mm**;
 - hidden relief leaves a **1.4 mm** snap land while the rest of the side stays
   at the current 3 mm thickness;
 - hidden relief margin: **2 mm** around the opening.
 
-The 47 mm dimension runs front-to-rear (installed Z). Placement is derived from
-the current `universal_deep_y1`, `enclosure_front_z` and
-`universal_deep_rear_z` values, so later base/enclosure format changes will
-trip the design-contract checks rather than silently moving the inlet outside
-the valid full-depth side region.
+Placement is derived from the current `universal_deep_y1`,
+`enclosure_front_z` and `universal_deep_rear_z` values. In the current model
+the 44 × 27 × 30 mm occupied body envelope sits well above the hinge rod
+retainer/sleeve; validation checks both the full body envelope against the rod
+sleeve and against the stationary enclosure core. Later base/enclosure changes
+therefore fail CI if they consume that clearance.
 
 If the real inlet has a 2 mm or thicker latch shoulder, tune
 `c14_snap_panel_t` after the physical fit test rather than enlarging the stable
