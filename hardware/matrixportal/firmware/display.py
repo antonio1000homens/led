@@ -643,12 +643,32 @@ class MatrixDisplay:
             )
         return group
 
-    def _calling_label_group(self, service, y):
+    def _calling_label_group(self, service, y, prepared_segments=None):
         import displayio
 
         group = displayio.Group()
-        segments = calling_color_segments(service)
+        if prepared_segments:
+            segments = [
+                (
+                    segment.get("text", ""),
+                    0xFFFFFF if segment.get("role") == "station" else 0xFFAA00,
+                )
+                for segment in prepared_segments
+                if isinstance(segment, dict)
+            ]
+        else:
+            segments = calling_color_segments(service)
         if not segments:
+            return group
+
+        # Lightweight host fixtures use a label-only fake font. The real
+        # MatrixPortal bitmap font exposes glyph metrics and takes the compact
+        # single-bitmap path below.
+        if not hasattr(self.font, "get_glyph"):
+            cursor = 0
+            for text, color in segments:
+                self._label(group, text, color, cursor, y)
+                cursor += len(text) * WEATHER_FONT_WIDTH
             return group
 
         characters = set()
@@ -935,7 +955,8 @@ class MatrixDisplay:
                     boundaries.append(_next_periodic_boundary(calling_elapsed, row_edges, row_cycle))
                 if services:
                     speed, _ = _station_scroll_settings(screen)
-                    travel = screen.get("_calling_travel_seconds")
+                    prepared = screen.get("rail_presentation") or {}
+                    travel = prepared.get("calling_travel_seconds", screen.get("_calling_travel_seconds"))
                     if travel is None:
                         travel = rail_calling_timing(
                             services, speed, font_width=WEATHER_FONT_WIDTH
@@ -956,7 +977,8 @@ class MatrixDisplay:
         for service_index in (0,):
             if service_index >= len(services):
                 continue
-            travel_seconds = screen.get("_calling_travel_seconds")
+            prepared = screen.get("rail_presentation") or {}
+            travel_seconds = prepared.get("calling_travel_seconds", screen.get("_calling_travel_seconds"))
             if travel_seconds is None:
                 travel_seconds = rail_calling_timing(
                     (services[service_index],),
@@ -1113,9 +1135,12 @@ class MatrixDisplay:
                 self._rail_service(fixed_group, service, color, 0, y, rail_right_edge, ordinal)
             elif row_kind == "calling":
                 calling_group = displayio.Group()
-                calling = calling_text(service)
+                presentation = screen.get("rail_presentation") or {}
+                calling = presentation.get("calling_text") or calling_text(service)
                 stations = calling[len(CALLING_LABEL):] if calling.startswith(CALLING_LABEL) else calling
-                first = self._calling_label_group(service, y)
+                first = self._calling_label_group(
+                    service, y, presentation.get("calling_segments")
+                )
                 calling_group.append(first)
                 self._mask(calling_group, 0, y - 3, len(CALLING_LABEL) * WEATHER_FONT_WIDTH, 8)
                 prefix = self._label(calling_group, CALLING_LABEL, 0xFFAA00, 0, y)
@@ -1123,7 +1148,9 @@ class MatrixDisplay:
                     "prefix": prefix,
                     "first": first,
                     "text": calling,
-                    "station_width": len(stations) * WEATHER_FONT_WIDTH,
+                    "station_width": presentation.get(
+                        "calling_station_width_px", len(stations) * WEATHER_FONT_WIDTH
+                    ),
                 }
         if state == "calling":
             # The top service and its calling row remain fixed. Cycle all

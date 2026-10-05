@@ -21,7 +21,7 @@ from runtime_config import (
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from weather import OpenMeteoProvider
-from formatting import todoist_effective_duration
+from formatting import prepare_rail_presentation, todoist_effective_duration
 
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
@@ -312,15 +312,22 @@ class Publisher:
             services = copy.deepcopy((rail_data.get("services") or [])[:1 + departures_config["upcoming_train_count"]]) if rail_data else []
             for service in services:
                 service["station_spacing_px"] = departures_config["station_list_spacing"]
+            duration_seconds = (
+                departures_config["no_services_duration_seconds"]
+                if rail_data is not None and not services
+                else departures_config["screen_duration_seconds"]
+            )
+            presentation = prepare_rail_presentation(
+                services,
+                departures_config["station_scroll_speed"],
+                departures_config["upcoming_train_pause_seconds"],
+                duration_seconds,
+            )
             no_services = rail_data is not None and not services
-            screens.append({
+            screen = {
                 "id": "departures",
                 "kind": "rail_combined",
-                "duration_seconds": (
-                    departures_config["no_services_duration_seconds"]
-                    if no_services
-                    else departures_config["screen_duration_seconds"]
-                ),
+                "duration_seconds": duration_seconds,
                 "station_scroll_speed": departures_config["station_scroll_speed"],
                 "upcoming_train_count": departures_config["upcoming_train_count"],
                 "upcoming_train_pause_seconds": departures_config["upcoming_train_pause_seconds"],
@@ -329,7 +336,13 @@ class Publisher:
                 "stale": bool(rail.get("stale")) if rail_data else True,
                 "empty_state": "No Services" if no_services else None,
                 "services": services,
-            })
+            }
+            if presentation is not None:
+                screen["rail_presentation"] = presentation
+                screen["effective_duration_seconds"] = presentation["effective_duration_seconds"]
+                screen["calling_seconds"] = presentation["calling_seconds"]
+                screen["summary_seconds"] = presentation["summary_seconds"]
+            screens.append(screen)
 
         queue_config = config_feeds["queue_times"]
         parks = []

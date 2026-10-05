@@ -22,7 +22,7 @@ import time
 from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
-from formatting import todoist_effective_duration
+from formatting import prepare_rail_presentation, todoist_effective_duration
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
 from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable, weather_icon
 
@@ -354,6 +354,10 @@ class ScreenFeed:
         queue_ride_names=None,
         weather_feed=None,
         utcnow=None,
+        station_scroll_speed=20,
+        station_list_spacing=10,
+        upcoming_train_pause_seconds=2,
+        departure_screen_duration_seconds=8,
     ):
         self.departure_feed = departure_feed
         self.calendar_provider = calendar_provider
@@ -361,20 +365,40 @@ class ScreenFeed:
         self.queue_ride_names = tuple(queue_ride_names or DEFAULT_THORPE_PARK_RIDES)
         self.weather_feed = weather_feed
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
+        self.station_scroll_speed = station_scroll_speed
+        self.station_list_spacing = station_list_spacing
+        self.upcoming_train_pause_seconds = upcoming_train_pause_seconds
+        self.departure_screen_duration_seconds = departure_screen_duration_seconds
 
     def get(self):
         screens = []
         try:
             departures = self.departure_feed.get()
-            screens.append({
+            services = copy.deepcopy((departures.get("services") or [])[:3])
+            for service in services:
+                service["station_spacing_px"] = self.station_list_spacing
+            presentation = prepare_rail_presentation(
+                services,
+                self.station_scroll_speed,
+                self.upcoming_train_pause_seconds,
+                self.departure_screen_duration_seconds,
+            )
+            screen = {
                 "id": "departures",
                 "kind": "rail_combined",
-                "duration_seconds": 8,
+                "duration_seconds": self.departure_screen_duration_seconds,
+                "station_scroll_speed": self.station_scroll_speed,
                 "title": "{} departures".format(departures["station"]),
                 "source": departures["source"],
                 "stale": departures["stale"],
-                "services": departures["services"][:3],
-            })
+                "services": services,
+            }
+            if presentation is not None:
+                screen["rail_presentation"] = presentation
+                screen["effective_duration_seconds"] = presentation["effective_duration_seconds"]
+                screen["calling_seconds"] = presentation["calling_seconds"]
+                screen["summary_seconds"] = presentation["summary_seconds"]
+            screens.append(screen)
         except FeedUnavailable:
             screens.append({
                 "id": "departures",

@@ -12,6 +12,7 @@ from formatting import (
     calendar_row_text,
     calling_marquee_x,
     calling_text,
+    prepare_rail_presentation,
     todoist_effective_duration,
     todoist_page_timing,
     RAIL_ROW_Y,
@@ -271,6 +272,24 @@ class FormattingTests(unittest.TestCase):
             calling_text(service),
             "CALLING AT: Wimbledon 12:19      Clapham Junction 12:27",
         )
+
+    def test_rail_presentation_prepares_semantic_segments_and_effective_timing(self):
+        services = [{
+            "destination": "Waterloo",
+            "station_spacing_px": 10,
+            "stops": [
+                {"station": "Wimbledon", "time": "12:19"},
+                {"station": "Clapham Junction", "time": "12:27"},
+            ],
+        }]
+        prepared = prepare_rail_presentation(services, 20, 2, 8)
+        self.assertEqual(prepared["calling_text"], calling_text(services[0]))
+        self.assertEqual(prepared["calling_segments"][0], {"text": "Wimbledon", "role": "station"})
+        self.assertTrue(any(segment["role"] == "detail" for segment in prepared["calling_segments"]))
+        self.assertEqual(prepared["calling_station_width_px"], len(prepared["calling_text"][12:]) * 5)
+        self.assertEqual(prepared["effective_duration_seconds"], prepared["calling_seconds"])
+        self.assertEqual(prepared["train_cycle_seconds"], 0)
+        self.assertIsNone(prepare_rail_presentation([], 20, 2, 8))
 
 
 if __name__ == "__main__":

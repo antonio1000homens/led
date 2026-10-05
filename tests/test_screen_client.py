@@ -1,5 +1,8 @@
 import unittest
+from unittest import mock
 
+import screen_client
+from formatting import prepare_rail_presentation
 from screen_client import ClockState, ScreenClient, ScreenRotation, london_seconds_from_utc
 
 
@@ -54,6 +57,49 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_valid_backend_presentation_is_consumed_without_local_timing(self):
+        services = [{"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19"}]}]
+        presentation = prepare_rail_presentation(services, 20, 2, 8)
+        payload = [{
+            "id": "rail", "kind": "rail_combined", "duration_seconds": 8,
+            "effective_duration_seconds": presentation["effective_duration_seconds"],
+            "services": services, "rail_presentation": presentation,
+        }]
+        rotation = ScreenRotation()
+        with mock.patch.object(screen_client, "CALLING_SCROLL_SPEED_OVERRIDE", None), \
+             mock.patch.object(screen_client, "rail_calling_timing", side_effect=AssertionError), \
+             mock.patch.object(screen_client, "departure_scroll_duration", side_effect=AssertionError):
+            rotation.update(payload, 0)
+        screen, _ = rotation.current(0)
+        self.assertIsNot(screen, payload[0])
+        self.assertEqual(screen["rail_presentation"], presentation)
+        self.assertEqual(screen["calling_seconds"], presentation["calling_seconds"])
+
+    def test_malformed_backend_presentation_uses_legacy_fallback(self):
+        rotation = ScreenRotation()
+        rotation.update([{
+            "id": "rail", "kind": "rail_combined", "duration_seconds": 8,
+            "services": [{"destination": "Waterloo", "stops": []}],
+            "rail_presentation": {"calling_text": "incomplete"},
+        }], 0)
+        screen, _ = rotation.current(0)
+        self.assertIn("_calling_travel_seconds", screen)
+        self.assertNotIn("rail_presentation", screen)
+
+    def test_local_scroll_override_recomputes_backend_speed_dependent_timing(self):
+        services = [{"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19"}]}]
+        presentation = prepare_rail_presentation(services, 20, 2, 8)
+        rotation = ScreenRotation()
+        with mock.patch.object(screen_client, "CALLING_SCROLL_SPEED_OVERRIDE", 8), \
+             mock.patch.object(screen_client, "rail_calling_timing", wraps=screen_client.rail_calling_timing) as timing:
+            rotation.update([{
+                "id": "rail", "kind": "rail_combined", "duration_seconds": 8,
+                "services": services, "rail_presentation": presentation,
+            }], 0)
+        self.assertEqual(timing.call_args.args[:2], (services, 8))
+        self.assertEqual(timing.call_count, 1)
+        self.assertEqual(rotation.current(0)[0]["rail_presentation"]["calling_text"], presentation["calling_text"])
+
     def test_rotates_using_each_screen_duration(self):
         rotation = ScreenRotation()
         rotation.update(

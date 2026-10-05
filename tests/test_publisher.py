@@ -112,6 +112,12 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(screen["upcoming_train_count"], 4)
         self.assertEqual(screen["upcoming_train_pause_seconds"], 2)
         self.assertIsNone(screen["empty_state"])
+        self.assertIn("rail_presentation", screen)
+        self.assertEqual(screen["rail_presentation"]["calling_text"], "CALLING AT: Waterloo only")
+        self.assertEqual(
+            screen["effective_duration_seconds"],
+            screen["rail_presentation"]["effective_duration_seconds"],
+        )
     def test_queue_and_weather_ttls_are_independent_and_contract_is_preserved(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",rail_ttl=60,thorpe_park_ttl=300,weather_ttl=600,thorpe_park_rides=("Hyperia","Stealth","The Swarm","Colossus"))
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])

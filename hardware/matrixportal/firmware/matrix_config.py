@@ -9,7 +9,7 @@
 #   B7 / B8 / B10 / B12 = immediate refresh + application-owned pacing
 #   C7 / C8 / C10 / C15 = CircuitPython auto-refresh + application cadence
 # C15 isolates auto-refresh at the live departures calling-at cadence.
-MATRIX_EXPERIMENT_PRESET = "B12"
+MATRIX_EXPERIMENT_PRESET = "B8"
 
 _MATRIX_EXPERIMENT_PRESETS = {
     "A7": ("target_fps", 7, 7.0),
@@ -40,8 +40,9 @@ except KeyError:
 # panels while retaining the board's eight required colours.
 MATRIX_BIT_DEPTH = 1
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
-# Temporary physical-board comparison: match calling speed to the B8 baseline.
-CALLING_SCROLL_SPEED_OVERRIDE = 12.0
+# Temporary physical-board speed experiment retained while backend
+# preprocessing is introduced; keep the confirmed B8 baseline.
+CALLING_SCROLL_SPEED_OVERRIDE = 8.0
 
 # Issue #91/#94 adaptive partial-scene cadence. These are animation update
 # cadences, not framebuffer refresh modes; Mode B remains the presentation

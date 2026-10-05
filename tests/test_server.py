@@ -151,6 +151,14 @@ class ScreenFeedTests(unittest.TestCase):
         self.assertEqual(payload["screens"][0]["duration_seconds"], 8)
         self.assertEqual(len(payload["screens"][0]["services"]), 3)
         self.assertEqual(payload["screens"][0]["services"][0]["stops"][0]["station"], "Clapham Junction")
+        self.assertIn("rail_presentation", payload["screens"][0])
+        self.assertEqual(
+            payload["screens"][0]["rail_presentation"]["calling_text"],
+            "CALLING AT: " + "  ".join(
+                "{} {}".format(stop["station"], stop["time"])
+                for stop in payload["screens"][0]["services"][0]["stops"]
+            ),
+        )
 
     def test_calendar_is_optional_and_independent(self):
         feed = DepartureFeed(FakeProvider([RuntimeError("rail down")]), "NEM", 60)

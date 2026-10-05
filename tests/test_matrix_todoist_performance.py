@@ -631,21 +631,12 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
             display.show(screen, clock_time="19:40", phase=10.0)
             labels = display._rail_calling_labels[0]
-            label_text = tuple(
-                tuple(label.text for label in labels[key])
-                for key in ("first", "second")
-            )
-            first_x = tuple(labels[key].x for key in ("first", "second"))
+            label_text = tuple(label.text for label in labels["first"])
+            first_x = labels["first"].x
 
             display.show(screen, clock_time="19:40", phase=10.125)
-            self.assertNotEqual(tuple(labels[key].x for key in ("first", "second")), first_x)
-            self.assertEqual(
-                tuple(
-                    tuple(label.text for label in labels[key])
-                    for key in ("first", "second")
-                ),
-                label_text,
-            )
+            self.assertNotEqual(labels["first"].x, first_x)
+            self.assertEqual(tuple(label.text for label in labels["first"]), label_text)
 
             for frame in range(2, 17):
                 display.show(
@@ -654,12 +645,9 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                     phase=10.0 + frame / MATRIX_REFRESH_FPS,
                 )
 
-            final_text = tuple(
-                tuple(label.text for label in labels[key])
-                for key in ("first", "second")
-            )
+            final_text = tuple(label.text for label in labels["first"])
             self.assertEqual(final_text, label_text)
-            self.assertTrue(all(len(label.text) <= 24 for key in ("first", "second") for label in labels[key]))
+            self.assertTrue(all(len(label.text) <= 24 for label in labels["first"]))
 
     def test_todoist_long_titles_use_fixed_chunks_while_the_group_moves(self):
         with patch.dict(sys.modules, fake_modules()):

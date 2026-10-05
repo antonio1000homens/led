@@ -7,10 +7,38 @@ unit-tested on CPython.
 from formatting import (
     CALLING_STATION_FONT_WIDTH,
     departure_scroll_duration,
-    rail_calling_duration,
     rail_calling_timing,
 )
 from matrix_config import CALLING_SCROLL_SPEED_OVERRIDE
+
+
+def _valid_rail_presentation(value):
+    if not isinstance(value, dict):
+        return False
+    if not isinstance(value.get("calling_text"), str):
+        return False
+    segments = value.get("calling_segments")
+    if not isinstance(segments, (list, tuple)) or not segments:
+        return False
+    for segment in segments:
+        if (
+            not isinstance(segment, dict)
+            or not isinstance(segment.get("text"), str)
+            or segment.get("role") not in ("station", "detail")
+        ):
+            return False
+    numeric_fields = (
+        "calling_station_width_px",
+        "calling_travel_seconds",
+        "calling_cycle_seconds",
+        "train_cycle_seconds",
+        "effective_duration_seconds",
+    )
+    for field in numeric_fields:
+        number = value.get(field)
+        if not isinstance(number, (int, float)) or number != number:
+            return False
+    return value["calling_station_width_px"] >= 0 and value["effective_duration_seconds"] > 0
 
 
 def _http_date_timestamp(value):
@@ -224,39 +252,49 @@ class ScreenRotation:
             screen = source
             services = source.get("services") or ()
             if source.get("kind") == "rail_combined" and services:
-                # Rail text width and cycle timing depend on feed data and
-                # speed, so derive them once per payload instead of formatting
-                # every calling point on every animation frame.
+                presentation = source.get("rail_presentation")
+                prepared = _valid_rail_presentation(presentation)
+                # A board-local speed experiment invalidates backend speed-
+                # dependent timings, but not the additive text/segment data.
+                recalculate = CALLING_SCROLL_SPEED_OVERRIDE is not None or not prepared
                 screen = dict(source)
-                if CALLING_SCROLL_SPEED_OVERRIDE is not None:
-                    screen["station_scroll_speed"] = CALLING_SCROLL_SPEED_OVERRIDE
-                scroll_speed = screen.get("station_scroll_speed", 20)
-                calling_duration = rail_calling_duration(
-                    services,
-                    scroll_speed,
-                )
-                travel_seconds = rail_calling_timing(
-                    services,
-                    scroll_speed,
-                    font_width=CALLING_STATION_FONT_WIDTH,
-                )[0]
-                calling_seconds = int(calling_duration + 0.999)
-                upcoming_services = services[1:]
-                train_cycle_seconds = departure_scroll_duration(
-                    len(upcoming_services),
-                    source.get("upcoming_train_pause_seconds", 2),
-                )
-                train_cycle_seconds = int(train_cycle_seconds + 0.999)
-                duration = max(
-                    1,
-                    int(source.get("effective_duration_seconds") or source.get("duration_seconds") or 8),
-                    calling_seconds,
-                    train_cycle_seconds,
-                )
-                screen["duration_seconds"] = duration
-                screen["calling_seconds"] = duration
-                screen["summary_seconds"] = 0
-                screen["_calling_travel_seconds"] = travel_seconds
+                if recalculate:
+                    scroll_speed = (
+                        CALLING_SCROLL_SPEED_OVERRIDE
+                        if CALLING_SCROLL_SPEED_OVERRIDE is not None
+                        else screen.get("station_scroll_speed", 20)
+                    )
+                    travel_seconds, calling_duration = rail_calling_timing(
+                        services, scroll_speed,
+                        font_width=CALLING_STATION_FONT_WIDTH,
+                    )
+                    calling_seconds = int(calling_duration + 0.999)
+                    train_cycle_seconds = int(departure_scroll_duration(
+                        len(services[1:]),
+                        source.get("upcoming_train_pause_seconds", 2),
+                    ) + 0.999)
+                    duration = max(
+                        1,
+                        int(source.get("duration_seconds") or 8),
+                        calling_seconds,
+                        train_cycle_seconds,
+                    )
+                    screen["calling_seconds"] = duration
+                    screen["summary_seconds"] = 0
+                    screen["effective_duration_seconds"] = duration
+                    if prepared:
+                        presentation = dict(presentation)
+                        presentation["calling_travel_seconds"] = travel_seconds
+                        presentation["calling_cycle_seconds"] = calling_duration
+                        presentation["effective_duration_seconds"] = duration
+                        screen["rail_presentation"] = presentation
+                    else:
+                        screen.pop("rail_presentation", None)
+                        screen["_calling_travel_seconds"] = travel_seconds
+                else:
+                    screen["calling_seconds"] = presentation.get("calling_seconds", presentation["effective_duration_seconds"])
+                    screen["summary_seconds"] = presentation.get("summary_seconds", 0)
+                    screen["effective_duration_seconds"] = presentation["effective_duration_seconds"]
             next_screens.append(screen)
         if not next_screens:
             return

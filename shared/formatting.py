@@ -617,6 +617,58 @@ def calling_color_segments(service):
     return segments or [(value, 0xFFAA00)]
 
 
+def prepare_rail_presentation(
+    services,
+    station_scroll_speed=20.0,
+    upcoming_train_pause_seconds=2,
+    screen_duration_seconds=8,
+):
+    """Precompute deterministic rail text, widths, and cycle timing.
+
+    The returned object is renderer-neutral. The MatrixPortal maps semantic
+    segment roles to its palette; API consumers can ignore this additive data.
+    """
+    services = list(services or [])
+    if not services:
+        return None
+    first = services[0]
+    text = calling_text(first)
+    value = text[len(CALLING_LABEL):] if text.startswith(CALLING_LABEL) else text
+    segments = []
+    for segment_text, color in calling_color_segments(first):
+        segments.append({
+            "text": segment_text,
+            "role": "station" if color == 0xFFFFFF else "detail",
+        })
+    station_width = len(value) * CALLING_STATION_FONT_WIDTH
+    travel, cycle = rail_calling_timing(
+        services,
+        station_scroll_speed,
+        font_width=CALLING_STATION_FONT_WIDTH,
+    )
+    calling_seconds = int(cycle + 0.999)
+    train_cycle = int(departure_scroll_duration(
+        len(services[1:]), upcoming_train_pause_seconds
+    ) + 0.999)
+    effective_duration = max(
+        1,
+        int(screen_duration_seconds or 8),
+        calling_seconds,
+        train_cycle,
+    )
+    return {
+        "calling_text": text,
+        "calling_segments": segments,
+        "calling_station_width_px": station_width,
+        "calling_travel_seconds": travel,
+        "calling_cycle_seconds": cycle,
+        "train_cycle_seconds": train_cycle,
+        "calling_seconds": effective_duration,
+        "summary_seconds": 0,
+        "effective_duration_seconds": effective_duration,
+    }
+
+
 def rail_phase(phase, summary_seconds=RAIL_SUMMARY_SECONDS, calling_seconds=RAIL_CALLING_SECONDS):
     """Return the departures presentation state for the supplied phase."""
     try:
