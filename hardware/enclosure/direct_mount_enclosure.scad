@@ -1971,7 +1971,8 @@ module side_wall_body(side="right") {
         side_upper_profile_solid(x0,side_t);
 
         // Upper return reaches 10 mm past the actual enclosure edge while
-        // avoiding the live module shell and connector/release geometry.
+        // avoiding the live module shell and connector/release geometry. The
+        // canonical left/right side STLs are regenerated from this same source.
         side_upper_intrusion(side);
     }
 }
