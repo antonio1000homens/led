@@ -445,6 +445,7 @@ c14_mount_upper_margin_y = 3.0;
 
 // Anchor the inlet to the present full-depth side region. This automatically
 // follows the current base/enclosure format without reviving stale dimensions.
+// The canonical left-side STL is regenerated from the standard part wrapper.
 c14_center_y =
     universal_deep_y1 - c14_flange_y/2 - c14_mount_upper_margin_y;
 c14_center_z =
