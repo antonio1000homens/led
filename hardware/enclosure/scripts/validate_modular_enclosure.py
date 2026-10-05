@@ -1363,6 +1363,28 @@ def main() -> None:
     stationary_equipment_module_core();""",
                 ),
             ),
+            # PR #165: the 10 mm side return reaches the hinge-rod end region;
+            # keep this as a dedicated regression check as well as the full-side check.
+            (
+                "left_upper_return_hinge_rod_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_upper_return_hinge_rod_clearance",
+                    """    side_upper_intrusion("left");
+    hinge_rail_preview();""",
+                ),
+            ),
+            (
+                "right_upper_return_hinge_rod_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_upper_return_hinge_rod_clearance",
+                    """    side_upper_intrusion("right");
+    hinge_rail_preview();""",
+                ),
+            ),
             (
                 "left_c14_panel_aperture_clear",
                 partial(
