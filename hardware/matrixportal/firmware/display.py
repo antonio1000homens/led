@@ -9,6 +9,7 @@ from matrix_config import (
     MATRIX_ANIMATION_PROFILES,
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
+    CALLING_SCROLL_SPEED_OVERRIDE,
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_ROWS_SCROLL,
     MATRIX_REFRESH_FPS,
@@ -484,6 +485,8 @@ class MatrixDisplay:
         self._stats_update_max = 0.0
         self._stats_refresh_total = 0.0
         self._stats_refresh_max = 0.0
+        self._stats_rail_update_heap_gain_max = 0
+        self._stats_rail_refresh_heap_gain_max = 0
         self._stats_fetch_overlap = 0
         self._stats_cadence_switches = 0
         self._stats_animation_classes = {
@@ -503,13 +506,14 @@ class MatrixDisplay:
             )
         }
         print(
-            "MATRIX PRESENTATION preset={} animation_profile={} rail_rows_scroll={} mode={} target_fps={} marquee_px_s={} auto_refresh={}".format(
+            "MATRIX PRESENTATION preset={} animation_profile={} rail_rows_scroll={} mode={} target_fps={} marquee_px_s={} calling_px_s={} auto_refresh={}".format(
                 MATRIX_EXPERIMENT_PRESET,
                 MATRIX_ANIMATION_PROFILE,
                 MATRIX_RAIL_ROWS_SCROLL,
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 TODOIST_MARQUEE_SPEED,
+                CALLING_SCROLL_SPEED_OVERRIDE,
                 self.display.auto_refresh,
             )
         )
@@ -643,13 +647,67 @@ class MatrixDisplay:
         import displayio
 
         group = displayio.Group()
-        offset = 0
-        for text, color in calling_color_segments(service):
-            for start in range(0, len(text), 24):
-                chunk = text[start:start + 24]
-                self._label(group, chunk, color,
-                            (offset + start) * WEATHER_FONT_WIDTH, y)
-            offset += len(text)
+        segments = calling_color_segments(service)
+        if not segments:
+            return group
+
+        characters = set()
+        for text, _ in segments:
+            for character in text:
+                characters.add(ord(character))
+        if hasattr(self.font, "load_glyphs"):
+            self.font.load_glyphs(characters)
+
+        ascent = getattr(self.font, "ascent", None)
+        if ascent is None:
+            ascent = self.font.get_bounding_box()[1]
+        y_offset = ascent // 2
+        glyphs = []
+        cursor_x = 0
+        min_x = 0
+        max_x = 0
+        min_y = 0
+        max_y = 0
+        for text, color in segments:
+            color_index = 1 if color == 0xFFFFFF else 2
+            for character in text:
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                glyph_x = cursor_x + glyph.dx
+                glyph_y = -glyph.height - glyph.dy + y_offset
+                glyphs.append((glyph, glyph_x, glyph_y, color_index))
+                min_x = min(min_x, glyph_x)
+                max_x = max(max_x, glyph_x + glyph.width)
+                min_y = min(min_y, glyph_y)
+                max_y = max(max_y, glyph_y + glyph.height)
+                cursor_x += glyph.shift_x
+
+        width = max(1, max(max_x, cursor_x) - min_x)
+        height = max(1, max_y - min_y)
+        bitmap = displayio.Bitmap(width, height, 3)
+        palette = displayio.Palette(3)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = 0xFFFFFF
+        palette[2] = 0xFFAA00
+        for glyph, glyph_x, glyph_y, color_index in glyphs:
+            for glyph_y_offset in range(glyph.height):
+                for glyph_x_offset in range(glyph.width):
+                    if glyph.bitmap[glyph_x_offset, glyph_y_offset]:
+                        bitmap[
+                            glyph_x + glyph_x_offset - min_x,
+                            glyph_y + glyph_y_offset - min_y,
+                        ] = color_index
+
+        group.append(
+            displayio.TileGrid(
+                bitmap,
+                pixel_shader=palette,
+                x=min_x,
+                y=y + min_y,
+            )
+        )
         return group
 
     def _mask(self, group, x, y, width, height=8):
@@ -713,7 +771,8 @@ class MatrixDisplay:
                 "header_slide_ticks={} header_slide_changed={} "
                 "header_slide_update_max={} header_slide_refresh_max={} "
                 "departures_calling_ticks={} departures_calling_changed={} "
-                "departures_calling_update_max={} departures_calling_refresh_max={}".format(
+                "departures_calling_update_max={} departures_calling_refresh_max={} "
+                "departures_update_heap_gain={} departures_refresh_heap_gain={}".format(
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 elapsed,
@@ -760,6 +819,8 @@ class MatrixDisplay:
                 self._stats_animation_classes["departures_calling"]["changed"],
                 "{:.4f}".format(self._stats_animation_classes["departures_calling"]["update_max"]),
                 "{:.4f}".format(self._stats_animation_classes["departures_calling"]["refresh_max"]),
+                self._stats_rail_update_heap_gain_max,
+                self._stats_rail_refresh_heap_gain_max,
             )
         )
         self._stats_last_report = now
@@ -955,9 +1016,19 @@ class MatrixDisplay:
 
         self._stats_refresh_attempts += 1
         target = None if self.presentation_mode == "immediate" else MATRIX_REFRESH_FPS
+        heap_before = (
+            self._heap_free() if animation_class == "departures_calling" else None
+        )
         refresh_started = time.monotonic()
         refreshed = self.display.refresh(target_frames_per_second=target)
         now = time.monotonic()
+        if heap_before is not None:
+            heap_after = self._heap_free()
+            if heap_after is not None:
+                self._stats_rail_refresh_heap_gain_max = max(
+                    self._stats_rail_refresh_heap_gain_max,
+                    heap_after - heap_before,
+                )
         if animation_class in self._stats_animation_classes:
             counters = self._stats_animation_classes[animation_class]
             refresh_duration = now - refresh_started
@@ -1226,8 +1297,17 @@ class MatrixDisplay:
             self._build_rail_scene(screen, clock_time, phase)
         elif self._rail_phase != state:
             self._select_rail_scene(phase, calling_seconds, summary_seconds)
+        update_heap_before = self._heap_free()
         update_started = time.monotonic()
         changed = self._update_rail_scene(screen, clock_time, phase)
+        update_duration = time.monotonic() - update_started
+        if update_duration > 0.1 and update_heap_before is not None:
+            update_heap_after = self._heap_free()
+            if update_heap_after is not None:
+                self._stats_rail_update_heap_gain_max = max(
+                    self._stats_rail_update_heap_gain_max,
+                    update_heap_after - update_heap_before,
+                )
         self._attach_brightness_overlay(self._rail_group)
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
@@ -1236,7 +1316,7 @@ class MatrixDisplay:
         self._record_animation_update(
             "rail",
             changed,
-            time.monotonic() - update_started,
+            update_duration,
             animation_class,
         )
         if changed:

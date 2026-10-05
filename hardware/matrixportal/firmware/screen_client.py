@@ -148,6 +148,10 @@ class ClockState:
         self._seconds = None
         self._epoch = None
         self._synced_at = None
+        self._text_minute = None
+        self._text_value = None
+        self._date_day = None
+        self._date_value = None
 
     def sync(self, fetched_at, now):
         year, month, day, hour, minute, second = _parse_utc_timestamp(fetched_at)
@@ -156,6 +160,10 @@ class ClockState:
         self._seconds = seconds
         self._epoch = _utc_epoch_from_parts(year, month, day, hour, minute, second)
         self._synced_at = now
+        self._text_minute = None
+        self._text_value = None
+        self._date_day = None
+        self._date_value = None
 
     def epoch(self, now):
         """Return UTC epoch time derived from the last API timestamp."""
@@ -174,19 +182,30 @@ class ClockState:
         return year, month, day, seconds
 
     def text(self, now):
-        parts = self._parts(now)
-        if parts is None:
+        if self._date is None or self._seconds is None or self._synced_at is None:
             return "--:--"
-        seconds = parts[3]
-        hour = seconds // 3600
-        minute = (seconds % 3600) // 60
-        return "{:02d}:{:02d}".format(hour, minute)
+        total = self._seconds + max(0, int(now - self._synced_at))
+        minute_index = total // 60
+        if minute_index != self._text_minute:
+            seconds = total % 86400
+            hour = seconds // 3600
+            minute = (seconds % 3600) // 60
+            self._text_value = "{:02d}:{:02d}".format(hour, minute)
+            self._text_minute = minute_index
+        return self._text_value
 
     def date_text(self, now):
-        parts = self._parts(now)
-        if parts is None:
+        if self._date is None or self._seconds is None or self._synced_at is None:
             return ""
-        return "{:04d}-{:02d}-{:02d}".format(parts[0], parts[1], parts[2])
+        total = self._seconds + max(0, int(now - self._synced_at))
+        day_delta = total // 86400
+        if day_delta != self._date_day:
+            year, month, day = _shift_date(
+                self._date[0], self._date[1], self._date[2], day_delta
+            )
+            self._date_value = "{:04d}-{:02d}-{:02d}".format(year, month, day)
+            self._date_day = day_delta
+        return self._date_value
 
 
 class ScreenRotation:
