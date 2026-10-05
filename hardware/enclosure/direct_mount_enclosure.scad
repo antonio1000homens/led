@@ -423,10 +423,10 @@ side_panel_clearance = 0.4;
 //
 // Keep this interface derived from the CURRENT detachable-side envelope rather
 // than from the older base/backplane dimensions that originally accompanied
-// PR #165. The 47 mm dimension runs front-to-rear (installed Z); the 28 mm
-// dimension runs vertically (installed Y).
-c14_cutout_nominal_z = 47;
-c14_cutout_nominal_y = 28;
+// PR #165. The measured connector is portrait: 44 mm high (installed Y) by
+// 27 mm wide (installed Z).
+c14_cutout_nominal_z = 27;
+c14_cutout_nominal_y = 44;
 c14_cutout_clearance_per_edge = 0.10;
 c14_cutout_z =
     c14_cutout_nominal_z + 2*c14_cutout_clearance_per_edge;
@@ -434,8 +434,13 @@ c14_cutout_y =
     c14_cutout_nominal_y + 2*c14_cutout_clearance_per_edge;
 c14_cutout_corner_r = 2.0;
 
-c14_flange_z = 50.0;
-c14_flange_y = 30.5;
+// Keep the conservative visible-flange envelope from the original part family,
+// rotated into portrait orientation. The measured 44 x 27 mm body sits inside it.
+c14_flange_z = 30.5;
+c14_flange_y = 50.0;
+
+// Measured enclosure intrusion from the inside face of the side panel.
+c14_body_depth = 30;
 
 // Preserve the normal 3 mm side wall and recess only the hidden latch area.
 // 1.4 mm remains the physical-fit tuning value for the spring-clip land.
@@ -457,6 +462,16 @@ c14_relief_y = c14_cutout_y + 2*c14_snap_relief_margin;
 c14_relief_z = c14_cutout_z + 2*c14_snap_relief_margin;
 c14_relief_corner_r =
     c14_cutout_corner_r + c14_snap_relief_margin;
+
+// Occupied connector body envelope inside the enclosure. This is deliberately
+// separate from the cutout/relief so collision tests include the full 30 mm
+// projection behind the side wall.
+c14_body_x0 = c14_left_inner_x;
+c14_body_x1 = c14_body_x0 + c14_body_depth;
+c14_body_y0 = c14_center_y - c14_cutout_nominal_y/2;
+c14_body_y1 = c14_center_y + c14_cutout_nominal_y/2;
+c14_body_z0 = c14_center_z - c14_cutout_nominal_z/2;
+c14_body_z1 = c14_center_z + c14_cutout_nominal_z/2;
 
 // Inner faces and axial lengths for the integrated rod retainers/sleeves.
 // The capped portion stops the rod at X=10/246. From that point inward, the
@@ -1775,6 +1790,19 @@ module left_c14_snap_relief() {
         c14_relief_z,
         c14_relief_corner_r
     );
+}
+
+module left_c14_body_envelope() {
+    translate([
+        c14_body_x0,
+        c14_body_y0,
+        c14_body_z0
+    ])
+        cube([
+            c14_body_depth,
+            c14_cutout_nominal_y,
+            c14_cutout_nominal_z
+        ]);
 }
 
 module side_wall_body(side="right") {
