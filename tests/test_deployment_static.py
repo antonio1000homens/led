@@ -35,13 +35,19 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertNotIn("drawWeatherIcon(screen.weather);", simulator)
         self.assertNotIn("iconX: 992", simulator)
 
-    def test_simulator_has_static_full_width_weekly_weather_screen(self):
+    def test_simulator_has_three_fullscreen_weather_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawWeeklyWeather(screen)", simulator)
+        self.assertIn("function drawTodayWeather(screen)", simulator)
+        self.assertIn("function drawSunWeather(screen)", simulator)
         self.assertIn("screen.kind === 'weather_weekly'", simulator)
+        self.assertIn("screen.kind === 'weather_today'", simulator)
+        self.assertIn("screen.kind === 'weather_sun'", simulator)
         self.assertIn("Math.floor(index * 1024 / 7)", simulator)
-        self.assertIn("Math.floor((index + 1) * 1024 / 7)", simulator)
+        self.assertIn("Math.floor(index * 1024 / 6)", simulator)
         self.assertIn("status.dataset.detail = '7-day weather forecast';", simulator)
+        self.assertIn("status.dataset.detail = 'Today in six four-hour blocks';", simulator)
+        self.assertIn("status.dataset.detail = 'Today sunrise and sunset';", simulator)
         self.assertIn("suppressHeader = true;", simulator)
 
     def test_simulator_hides_all_day_time_and_renders_due_countdown(self):
@@ -138,12 +144,15 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('empty_state = screen.get("empty_state")', display)
         self.assertIn("No services duration", admin)
 
-    def test_admin_weather_duration_label_is_feed_specific(self):
+    def test_admin_weather_card_exposes_named_screen_controls(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
-        self.assertIn("seconds this screen remains visible", admin)
-        self.assertIn("seconds for the complete Queue-Times block", admin)
-        self.assertIn("seconds the 7-day forecast remains visible", admin)
-        self.assertIn("feedId==='weather'", admin)
+        self.assertIn("function weatherCardHtml", admin)
+        self.assertIn("7-day overview", admin)
+        self.assertIn("Today · six blocks", admin)
+        self.assertIn("Sunrise / sunset", admin)
+        self.assertIn("today_duration_seconds", admin)
+        self.assertIn("sun_duration_seconds", admin)
+        self.assertNotIn("day_0_enabled", admin)
 
     def test_admin_bootstraps_access_before_fetching_api(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
