@@ -792,18 +792,12 @@ assert(abs(side_base_upper_join_overlap_y-0.8) < 0.01,
        "base/upper side-shell join must retain a real volumetric overlap");
 assert(side_removed_bottom_check_gap >= 0.2,
        "removed-bottom diagnostic volume must stay clear of the live diagonal edge");
-assert(abs(side_hinge_cover_panel_clearance_x-0.2) < 0.01 &&
-       abs(side_hinge_cover_guard_clearance_z-0.2) < 0.01,
-       "hinge-gap side cover clearances drifted");
-assert(side_hinge_cover_y0 > base_seat_y &&
-       side_hinge_cover_y1 < hinge_guard_top_y &&
-       side_hinge_capture_y1 < hinge_axis_y-hinge_axis_z,
-       "hinge-gap side cover no longer stays outside the moving-panel sweep");
-assert(abs(side_hinge_cover_capture_inset_x-0.5) < 0.01 &&
-       abs(service_x -
-           (-side_hinge_cover_panel_clearance_x+
-            side_hinge_cover_capture_inset_x)-0.2) < 0.01,
-       "hinge-gap capture tongue clearance drifted");
+assert(abs(side_base_gap_overlap_z-0.4) < 0.01,
+       "side base-gap bridge overlap drifted");
+assert(rear_guardrail_shelf_front_z > hinge_guard_front_z+hinge_guard_t &&
+       side_base_gap_front_z < hinge_guard_front_z+hinge_guard_t &&
+       side_base_gap_rear_z > rear_guardrail_shelf_front_z,
+       "side base-gap bridge must span only the open region between hinge guard and rear guardrail");
 assert(side_rod_sleeve_bore_d > hinge_rail_d,
        "upper-return hinge keepout must retain running clearance around the rod");
 assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
@@ -1356,23 +1350,23 @@ def main() -> None:
                 ),
             ),
             (
-                "left_hinge_gap_cover_stationary_clearance",
+                "left_base_gap_bridge_profile",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "left_hinge_gap_cover_stationary_clearance",
-                    """    side_hinge_gap_cover("left");
-    base_structural_body();""",
+                    "left_base_gap_bridge_profile",
+                    """    side_base_gap_bridge("left");
+    side_removed_bottom_extension_volume("left");""",
                 ),
             ),
             (
-                "right_hinge_gap_cover_stationary_clearance",
+                "right_base_gap_bridge_profile",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "right_hinge_gap_cover_stationary_clearance",
-                    """    side_hinge_gap_cover("right");
-    base_structural_body();""",
+                    "right_base_gap_bridge_profile",
+                    """    side_base_gap_bridge("right");
+    side_removed_bottom_extension_volume("right");""",
                 ),
             ),
             (
