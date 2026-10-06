@@ -30,6 +30,9 @@ class CapturingFixture(led_display.FixtureDisplay):
     def _text(self, value, x, y, color):
         self.drawn.append((str(value), int(x), int(y), color))
 
+    def _text_scaled(self, value, x, y, color, scale=1):
+        self._text(value, x, y, color)
+
 
 def weekly_days():
     icons = ("clear_day", "partly_cloudy_day", "cloudy", "rain", "fog", "snow", "storm")
