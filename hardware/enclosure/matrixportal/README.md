@@ -49,7 +49,7 @@ its official 2.5 mm plated holes.
 ## Service access
 
 The MatrixPortal service edge sits at X = **254.5 mm**, immediately inside the
-right end cap. The MatrixPortal-specific side removes a rounded **40 × 14 mm**
+right end cap. The MatrixPortal-specific side removes a rounded **50 × 20 mm**
 Y/Z service window around USB-C and the three right-angle buttons. The cut stays
 forward of the enclosure's compact rear connector reinforcement.
 
