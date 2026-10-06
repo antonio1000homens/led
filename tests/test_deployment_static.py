@@ -46,7 +46,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("Math.floor(index * 1024 / 7)", simulator)
         self.assertIn("Math.floor(index * 1024 / 6)", simulator)
         self.assertIn("status.dataset.detail = '7-day weather forecast';", simulator)
-        self.assertIn("status.dataset.detail = 'Today in six four-hour blocks';", simulator)
+        self.assertIn("status.dataset.detail = 'Next 24 hours in rolling four-hour snapshots';", simulator)
         self.assertIn("status.dataset.detail = 'Today sunrise and sunset';", simulator)
         self.assertIn("suppressHeader = true;", simulator)
 
@@ -148,7 +148,7 @@ class DeploymentStaticTests(unittest.TestCase):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn("function weatherCardHtml", admin)
         self.assertIn("7-day overview", admin)
-        self.assertIn("Today · six blocks", admin)
+        self.assertIn("Next 24 hours · six blocks", admin)
         self.assertIn("Sunrise / sunset", admin)
         self.assertIn("today_duration_seconds", admin)
         self.assertIn("sun_duration_seconds", admin)

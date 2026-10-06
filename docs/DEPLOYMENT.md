@@ -318,9 +318,9 @@ EventBridge Scheduler invokes `led-publisher` once per minute. The Lambda loads 
 - National Rail: 60 seconds;
 - queue feeds: 300 seconds;
 - Todoist calendar: 300 seconds when enabled;
-- Open-Meteo current weather + seven-day forecast + today's hourly blocks + sunrise/sunset: 600 seconds, fetched and cached together in one request.
+- Open-Meteo current weather + seven-day forecast + rolling next-24-hour blocks + sunrise/sunset: 600 seconds, fetched and cached together in one request.
 
-If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Weather current conditions, the seven-day overview, the six Today blocks and today's sunrise/sunset share that same last-good cache entry. The publisher emits enabled Weather screens in the fixed order `weather_weekly`, `weather_today`, `weather_sun`; each has an independent runtime enable switch and duration. A cold Todoist/OAuth failure affects only the calendar screen; a cold Weather failure leaves unrelated feeds available, may publish the enabled weekly unavailable fallback, and does not emit empty Today or solar screens.
+If a feed refresh fails after a prior successful result, the last successful data remains in the published screen payload with `stale: true`. Weather current conditions, the seven-day overview, the six rolling next-24-hour blocks and today's sunrise/sunset share that same last-good cache entry. The publisher emits enabled Weather screens in the fixed order `weather_weekly`, `weather_today`, `weather_sun`; each has an independent runtime enable switch and duration. A cold Todoist/OAuth failure affects only the calendar screen; a cold Weather failure leaves unrelated feeds available, may publish the enabled weekly unavailable fallback, and does not emit empty next-24-hour or solar screens.
 
 The Lambda replaces `api/screens` with one complete S3 `PutObject`; S3 object replacement is atomic, so readers never observe partially written JSON. CloudFront caching is disabled for `api/screens`.
 

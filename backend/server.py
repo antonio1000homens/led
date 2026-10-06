@@ -217,12 +217,12 @@ class FixtureWeatherProvider:
                 "sunset_time": "18:{:02d}".format(25 - offset),
             })
         today_blocks = [
-            {"label": "12am", "temperature_c": 11, "weather_code": 2, "icon": "partly_cloudy_night"},
-            {"label": "4am", "temperature_c": 10, "weather_code": 3, "icon": "cloudy"},
-            {"label": "8am", "temperature_c": 13, "weather_code": 2, "icon": "partly_cloudy_day"},
-            {"label": "12pm", "temperature_c": 17, "weather_code": 1, "icon": "partly_cloudy_day"},
-            {"label": "4pm", "temperature_c": 15, "weather_code": 61, "icon": "rain"},
-            {"label": "8pm", "temperature_c": 12, "weather_code": 3, "icon": "cloudy"},
+            {"label": "Now", "temperature_c": 17, "weather_code": 1, "icon": "partly_cloudy_day"},
+            {"label": "2pm", "temperature_c": 16, "weather_code": 2, "icon": "partly_cloudy_day"},
+            {"label": "6pm", "temperature_c": 14, "weather_code": 3, "icon": "cloudy"},
+            {"label": "10pm", "temperature_c": 12, "weather_code": 2, "icon": "partly_cloudy_night"},
+            {"label": "2am", "temperature_c": 10, "weather_code": 61, "icon": "rain"},
+            {"label": "6am", "temperature_c": 11, "weather_code": 3, "icon": "cloudy"},
         ]
         return {
             "source": "weather_fixture",
@@ -505,7 +505,7 @@ class ScreenFeed:
                     "id": "weather-today",
                     "kind": "weather_today",
                     "duration_seconds": 8,
-                    "title": "TODAY",
+                    "title": "NEXT 24H",
                     "source": weather.get("source", "unavailable"),
                     "stale": bool(weather.get("stale")),
                     "blocks": today_blocks,
