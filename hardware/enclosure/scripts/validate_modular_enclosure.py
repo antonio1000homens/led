@@ -820,7 +820,7 @@ assert(side_upper_connector_keepout_margin_y >= 1.0 &&
        side_upper_connector_keepout_margin_z >= 1.0,
        "upper return connector keepout lost its safety margin");
 
-// Left-side C14 inlet: preserve the stable snap-in opening while deriving
+// Right-side C14 inlet: preserve the stable snap-in opening while deriving
 // placement from the current full-depth side envelope.
 assert(abs(c14_cutout_nominal_z-27) < 0.01 &&
        abs(c14_cutout_nominal_y-44) < 0.01 &&
@@ -1419,52 +1419,52 @@ def main() -> None:
                 ),
             ),
             (
-                "left_c14_panel_aperture_clear",
+                "right_c14_panel_aperture_clear",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "left_c14_panel_aperture_clear",
-                    """    equipment_side("left");
-    left_c14_panel_cutout();""",
+                    "right_c14_panel_aperture_clear",
+                    """    equipment_side("right");
+    right_c14_panel_cutout();""",
                 ),
             ),
             (
-                "left_c14_snap_relief_clear",
+                "right_c14_snap_relief_clear",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "left_c14_snap_relief_clear",
-                    """    equipment_side("left");
-    left_c14_snap_relief();""",
+                    "right_c14_snap_relief_clear",
+                    """    equipment_side("right");
+    right_c14_snap_relief();""",
                 ),
             ),
             (
-                "left_c14_body_side_clearance",
+                "right_c14_body_side_clearance",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "left_c14_body_side_clearance",
-                    """    equipment_side("left");
-    left_c14_body_envelope();""",
+                    "right_c14_body_side_clearance",
+                    """    equipment_side("right");
+    right_c14_body_envelope();""",
                 ),
             ),
             (
-                "left_c14_body_rod_sleeve_clearance",
+                "right_c14_body_rod_sleeve_clearance",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "left_c14_body_rod_sleeve_clearance",
-                    """    left_c14_body_envelope();
-    side_rod_retainer_sleeve("left");""",
+                    "right_c14_body_rod_sleeve_clearance",
+                    """    right_c14_body_envelope();
+    side_rod_retainer_sleeve("right");""",
                 ),
             ),
             (
-                "left_c14_body_stationary_core_clearance",
+                "right_c14_body_stationary_core_clearance",
                 partial(
                     assert_empty_intersection,
                     work_dir,
-                    "left_c14_body_stationary_core_clearance",
-                    """    left_c14_body_envelope();
+                    "right_c14_body_stationary_core_clearance",
+                    """    right_c14_body_envelope();
     stationary_equipment_module_core();""",
                 ),
             ),
