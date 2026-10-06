@@ -457,7 +457,7 @@ side_upper_connector_keepout_margin_z = 1.0;
 // intended diagonal boundary contact into a thin false-positive volume.
 side_removed_bottom_check_gap = 0.2;
 
-// Left outer end: fused/switched IEC C14 snap-in inlet.
+// Right outer end: fused/switched IEC C14 snap-in inlet.
 //
 // Keep this interface derived from the CURRENT detachable-side envelope rather
 // than from the older base/backplane dimensions that originally accompanied
@@ -489,14 +489,14 @@ c14_side_material_depth = side_t + side_upper_intrusion_depth;
 
 // Anchor the inlet to the present full-depth side region. This automatically
 // follows the current base/enclosure format without reviving stale dimensions.
-// The canonical left-side STL is regenerated from the standard part wrapper.
+// The canonical right-side STL is regenerated from the standard part wrapper.
 c14_center_y =
     universal_deep_y1 - c14_flange_y/2 - c14_mount_upper_margin_y;
 c14_center_z =
     (enclosure_front_z + universal_deep_rear_z)/2;
 
-c14_left_inner_x = -side_panel_clearance;
-c14_left_outer_x = c14_left_inner_x - side_t;
+c14_right_inner_x = module_w + side_panel_clearance;
+c14_right_outer_x = c14_right_inner_x + side_t;
 c14_relief_y = c14_cutout_y + 2*c14_snap_relief_margin;
 c14_relief_z = c14_cutout_z + 2*c14_snap_relief_margin;
 c14_relief_corner_r =
@@ -505,8 +505,8 @@ c14_relief_corner_r =
 // Occupied connector body envelope inside the enclosure. This is deliberately
 // separate from the cutout/relief so collision tests include the full 30 mm
 // projection behind the side wall.
-c14_body_x0 = c14_left_inner_x;
-c14_body_x1 = c14_body_x0 + c14_body_depth;
+c14_body_x0 = c14_right_inner_x - c14_body_depth;
+c14_body_x1 = c14_right_inner_x;
 c14_body_y0 = c14_center_y - c14_cutout_nominal_y/2;
 c14_body_y1 = c14_center_y + c14_cutout_nominal_y/2;
 c14_body_z0 = c14_center_z - c14_cutout_nominal_z/2;
@@ -1851,9 +1851,9 @@ module rounded_rect_x_cutter(
                         cylinder(r=corner_r,h=x_len);
 }
 
-module left_c14_panel_cutout() {
+module right_c14_panel_cutout() {
     rounded_rect_x_cutter(
-        c14_left_outer_x-0.2,
+        c14_right_inner_x-side_upper_intrusion_depth-0.2,
         c14_side_material_depth+0.4,
         c14_center_y,
         c14_center_z,
@@ -1863,9 +1863,9 @@ module left_c14_panel_cutout() {
     );
 }
 
-module left_c14_snap_relief() {
+module right_c14_snap_relief() {
     rounded_rect_x_cutter(
-        c14_left_outer_x+c14_snap_panel_t-0.01,
+        c14_right_inner_x-side_upper_intrusion_depth-0.2,
         c14_side_material_depth-c14_snap_panel_t+0.21,
         c14_center_y,
         c14_center_z,
@@ -1875,7 +1875,7 @@ module left_c14_snap_relief() {
     );
 }
 
-module left_c14_body_envelope() {
+module right_c14_body_envelope() {
     translate([
         c14_body_x0,
         c14_body_y0,
@@ -2355,13 +2355,12 @@ module equipment_side(side="right") {
                 left_side_pins();
         }
 
-        if (side == "right")
+        if (side == "right") {
             right_side_sockets();
-        else {
+            right_c14_panel_cutout();
+            right_c14_snap_relief();
+        } else
             left_side_sockets();
-            left_c14_panel_cutout();
-            left_c14_snap_relief();
-        }
     }
 }
 
