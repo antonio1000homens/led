@@ -1,9 +1,9 @@
-"""Current, seven-day, Today and solar weather provider/cache for the LED backend."""
+"""Current, seven-day, rolling 24-hour and solar weather provider/cache for the LED backend."""
 
 from __future__ import annotations
 
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import threading
 import time
@@ -12,16 +12,6 @@ from urllib.request import urlopen
 
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
-TODAY_BLOCKS = (
-    ("12am", 0, 4, 2),
-    ("4am", 4, 8, 6),
-    ("8am", 8, 12, 10),
-    ("12pm", 12, 16, 14),
-    ("4pm", 16, 20, 18),
-    ("8pm", 20, 24, 22),
-)
-
-
 class WeatherFeedUnavailable(RuntimeError):
     """No current weather data is available."""
 
@@ -57,60 +47,86 @@ def _local_hhmm(value):
     return text.split("T", 1)[1][:5]
 
 
-def _today_blocks(hourly, today_date, sunrise_time=None, sunset_time=None):
-    if not isinstance(hourly, dict):
+def _hour_label(stamp):
+    hour = stamp.hour
+    return "{}{}".format(hour % 12 or 12, "am" if hour < 12 else "pm")
+
+
+def _next_24h_blocks(hourly, current):
+    """Build six rolling four-hour snapshots beginning with current conditions."""
+    if not isinstance(hourly, dict) or not isinstance(current, dict):
         return []
     times = hourly.get("time")
     temperatures = hourly.get("temperature_2m")
     codes = hourly.get("weather_code")
+    is_day_values = hourly.get("is_day")
     if not all(isinstance(values, list) for values in (times, temperatures, codes)):
+        return []
+
+    try:
+        current_stamp = datetime.fromisoformat(str(current["time"])).replace(tzinfo=None)
+        current_temperature = round(float(current["temperature_2m"]), 1)
+        current_code = int(current["weather_code"])
+        current_is_day = bool(int(current.get("is_day", 1)))
+    except (KeyError, TypeError, ValueError):
         return []
 
     entries = []
     count = min(len(times), len(temperatures), len(codes))
     for index in range(count):
         try:
-            stamp = datetime.strptime(str(times[index]), "%Y-%m-%dT%H:%M")
-            if stamp.strftime("%Y-%m-%d") != today_date:
-                continue
+            stamp = datetime.fromisoformat(str(times[index])).replace(tzinfo=None)
+            code = int(codes[index])
+            is_day = (
+                bool(int(is_day_values[index]))
+                if isinstance(is_day_values, list) and index < len(is_day_values)
+                else True
+            )
             entries.append(
                 {
-                    "hour": stamp.hour,
+                    "stamp": stamp,
                     "temperature_c": round(float(temperatures[index]), 1),
-                    "weather_code": int(codes[index]),
+                    "weather_code": code,
+                    "is_day": is_day,
                 }
             )
         except (TypeError, ValueError):
             continue
 
-    try:
-        rise_parts = str(sunrise_time).split(":", 1)
-        set_parts = str(sunset_time).split(":", 1)
-        rise_minutes = int(rise_parts[0]) * 60 + int(rise_parts[1])
-        set_minutes = int(set_parts[0]) * 60 + int(set_parts[1])
-    except (IndexError, TypeError, ValueError):
-        rise_minutes, set_minutes = 6 * 60, 18 * 60
-
-    blocks = []
-    for label, start, end, midpoint in TODAY_BLOCKS:
-        candidates = [entry for entry in entries if start <= entry["hour"] < end]
-        if not candidates:
+    blocks = [
+        {
+            "label": "Now",
+            "temperature_c": current_temperature,
+            "weather_code": current_code,
+            "icon": weather_icon(current_code, current_is_day),
+        }
+    ]
+    for offset_hours in range(4, 24, 4):
+        target = current_stamp + timedelta(hours=offset_hours)
+        if not entries:
+            break
+        selected = min(
+            entries,
+            key=lambda entry: (
+                abs((entry["stamp"] - target).total_seconds()),
+                entry["stamp"],
+            ),
+        )
+        if abs((selected["stamp"] - target).total_seconds()) > 2 * 60 * 60:
             continue
-        selected = min(candidates, key=lambda entry: (abs(entry["hour"] - midpoint), entry["hour"]))
-        is_day = rise_minutes <= selected["hour"] * 60 < set_minutes
         blocks.append(
             {
-                "label": label,
+                "label": _hour_label(selected["stamp"]),
                 "temperature_c": selected["temperature_c"],
                 "weather_code": selected["weather_code"],
-                "icon": weather_icon(selected["weather_code"], is_day),
+                "icon": weather_icon(selected["weather_code"], selected["is_day"]),
             }
         )
     return blocks
 
 
 class OpenMeteoProvider:
-    """Fetch current, weekly, Today and solar weather from Open-Meteo."""
+    """Fetch current, weekly, rolling 24-hour and solar weather from Open-Meteo."""
 
     source = "open_meteo"
 
@@ -126,7 +142,7 @@ class OpenMeteoProvider:
                 "latitude": self.latitude,
                 "longitude": self.longitude,
                 "current": "temperature_2m,weather_code,is_day",
-                "hourly": "temperature_2m,weather_code",
+                "hourly": "temperature_2m,weather_code,is_day",
                 "daily": "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset",
                 "forecast_days": 7,
                 "timezone": "auto",
@@ -190,11 +206,9 @@ class OpenMeteoProvider:
             raise WeatherFeedUnavailable("Open-Meteo daily forecast has no usable entries")
 
         today = forecast[0]
-        blocks = _today_blocks(
+        blocks = _next_24h_blocks(
             payload.get("hourly") if isinstance(payload, dict) else None,
-            today["date"],
-            today.get("sunrise_time"),
-            today.get("sunset_time"),
+            current,
         )
 
         return {

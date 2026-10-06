@@ -49,7 +49,7 @@ def weekly_days():
 
 
 def today_blocks():
-    icons = ("clear_night", "cloudy", "partly_cloudy_day", "clear_day", "rain", "cloudy")
+    icons = ("clear_day", "cloudy", "partly_cloudy_day", "clear_night", "rain", "cloudy")
     return [
         {
             "label": label,
@@ -57,7 +57,7 @@ def today_blocks():
             "weather_code": index,
             "icon": icons[index],
         }
-        for index, label in enumerate(("12am", "4am", "8am", "12pm", "4pm", "8pm"))
+        for index, label in enumerate(("Now", "2pm", "6pm", "10pm", "2am", "6am"))
     ]
 
 
@@ -157,12 +157,15 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertEqual(layout[0]["left"], 0)
         self.assertEqual(layout[-1]["right"], led_display.DISPLAY_WIDTH)
         self.assertEqual([item["label"] for item in layout],
-                         ["12am", "4am", "8am", "12pm", "4pm", "8pm"])
+                         ["Now", "2pm", "6pm", "10pm", "2am", "6am"])
         self.assertEqual([item["temp_text"] for item in layout],
                          ["10C", "11C", "12C", "13C", "14C", "15C"])
         for item in layout:
             self.assertGreaterEqual(item["icon_x"], item["left"])
             self.assertLessEqual(item["icon_x"] + item["icon_width"], item["right"])
+
+        self.assertEqual(led_display.TODAY_WEATHER_ICON_Y, 11)
+        self.assertEqual(led_display.TODAY_WEATHER_TEMPERATURE_Y, 27)
 
     def test_fullscreen_weather_screens_suppress_shared_header_chrome(self):
         for screen in (
@@ -209,6 +212,38 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertIn("07:08", text)
         self.assertIn("SUNSET", text)
         self.assertIn("18:29", text)
+
+    def test_sun_weather_icons_slide_in_opposite_vertical_directions(self):
+        self.assertEqual(
+            led_display._sun_weather_icon_y("clear_day", 0),
+            led_display.SUN_WEATHER_RISE_START_Y,
+        )
+        self.assertEqual(
+            led_display._sun_weather_icon_y("clear_night", 0),
+            led_display.SUN_WEATHER_SET_START_Y,
+        )
+
+        midpoint = led_display.SUN_WEATHER_ANIMATION_SECONDS / 2
+        sun_mid = led_display._sun_weather_icon_y("clear_day", midpoint)
+        moon_mid = led_display._sun_weather_icon_y("clear_night", midpoint)
+        self.assertLess(sun_mid, led_display.SUN_WEATHER_RISE_START_Y)
+        self.assertGreater(sun_mid, led_display.SUN_WEATHER_ICON_Y)
+        self.assertGreater(moon_mid, led_display.SUN_WEATHER_SET_START_Y)
+        self.assertLess(moon_mid, led_display.SUN_WEATHER_ICON_Y)
+
+        for phase in (
+            led_display.SUN_WEATHER_ANIMATION_SECONDS,
+            led_display.SUN_WEATHER_ANIMATION_SECONDS + 5,
+        ):
+            self.assertEqual(
+                led_display._sun_weather_icon_y("clear_day", phase),
+                led_display.SUN_WEATHER_ICON_Y,
+            )
+            self.assertEqual(
+                led_display._sun_weather_icon_y("clear_night", phase),
+                led_display.SUN_WEATHER_ICON_Y,
+            )
+            self.assertFalse(led_display._sun_weather_animation_active(phase))
 
     def test_departure_statuses_share_one_vertical_column(self):
         display = CapturingFixture()

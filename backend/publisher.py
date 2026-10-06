@@ -473,7 +473,7 @@ class Publisher:
                     "id": "weather-today",
                     "kind": "weather_today",
                     "duration_seconds": weather_config["today_duration_seconds"],
-                    "title": "TODAY",
+                    "title": "NEXT 24H",
                     "source": source,
                     "stale": stale,
                     "blocks": today_blocks,

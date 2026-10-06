@@ -108,6 +108,10 @@ class RuntimeConfigTests(unittest.TestCase):
                     validate_feed_patch("steam_train", {"animation_speed": speed})
         with self.assertRaises(RuntimeConfigValidationError):
             validate_feed_patch("steam_train", {"words": 123})
+        for words in ("choo\nchoo", "🚂"):
+            with self.subTest(words=words):
+                with self.assertRaises(RuntimeConfigValidationError):
+                    validate_feed_patch("steam_train", {"words": words})
         with self.assertRaises(RuntimeConfigValidationError):
             validate_feed_patch("steam_train", {"words": "x" * 81})
 

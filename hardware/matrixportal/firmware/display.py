@@ -75,6 +75,10 @@ WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 2
+SUN_WEATHER_ICON_Y = 10
+SUN_WEATHER_ANIMATION_SECONDS = 1.25
+SUN_WEATHER_RISE_START_Y = 32
+SUN_WEATHER_SET_START_Y = -(WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE)
 # MatrixDisplay labels use font baselines, while the fixture renderer uses
 # top-left pixel coordinates. Keep fullscreen weather headers clear of the
 # panel edge and align the forecast rows below them.
@@ -82,8 +86,8 @@ WEATHER_HEADING_BASELINE_Y = 9
 WEATHER_HEADING_PIXEL_Y = 2
 WEEKLY_WEATHER_ICON_Y = 10
 WEEKLY_WEATHER_TEMPERATURE_Y = 25
-TODAY_WEATHER_ICON_Y = 10
-TODAY_WEATHER_TEMPERATURE_Y = 26
+TODAY_WEATHER_ICON_Y = 11
+TODAY_WEATHER_TEMPERATURE_Y = 27
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
 WEEKLY_WEATHER_TEXT_SCALE = 1
 WEEKLY_WEATHER_GLYPH_WIDTH = 3
@@ -267,8 +271,33 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
     return layout
 
 
+def _sun_weather_progress(phase):
+    """Return the bounded entry-animation progress for the solar icons."""
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    return min(1.0, elapsed / SUN_WEATHER_ANIMATION_SECONDS)
+
+
+def _sun_weather_animation_active(phase):
+    return _sun_weather_progress(phase) < 1.0
+
+
+def _sun_weather_icon_y(icon_name, phase):
+    """Slide sunrise upward and sunset downward to their shared resting row."""
+    progress = _sun_weather_progress(phase)
+    if icon_name == "clear_day":
+        start_y = SUN_WEATHER_RISE_START_Y
+    elif icon_name == "clear_night":
+        start_y = SUN_WEATHER_SET_START_Y
+    else:
+        return SUN_WEATHER_ICON_Y
+    return int(round(start_y + (SUN_WEATHER_ICON_Y - start_y) * progress))
+
+
 def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
-    """Build six fixed four-hour Weather columns for today."""
+    """Build six rolling four-hour Weather columns beginning with Now."""
     if not isinstance(blocks, (list, tuple)):
         return []
     layout = []
@@ -506,6 +535,7 @@ class MatrixDisplay:
                 "todoist_page_slide",
                 "header_slide",
                 "departures_calling",
+                "weather_sun_slide",
             )
         }
         print(
@@ -566,6 +596,13 @@ class MatrixDisplay:
         self._steam_train_motion_group = None
         self._steam_train_words = None
         self._steam_train_speed = None
+
+        # The solar-times screen only animates its two icon TileGrids. Keep
+        # the scene alive during the short entry transition so the physical
+        # board does not rebuild the complete display tree every frame.
+        self._sun_group = None
+        self._sun_key = None
+        self._sun_icon_grids = ()
 
     @property
     def brightness_percent(self):
@@ -894,6 +931,8 @@ class MatrixDisplay:
             for park in parks:
                 if len(park.get("rides") or ()) > QUEUE_VISIBLE_ROWS:
                     return "queue_rows"
+        if kind == "weather_sun" and _sun_weather_animation_active(phase):
+            return "weather_sun_slide"
         return None
 
     def animation_cadence(self, screen, phase):
@@ -1774,13 +1813,14 @@ class MatrixDisplay:
 
         root = displayio.Group()
         motion = displayio.Group()
-        bitmap = displayio.Bitmap(STEAM_TRAIN_WIDTH, STEAM_TRAIN_HEIGHT, 4)
-        palette = displayio.Palette(4)
+        bitmap = displayio.Bitmap(STEAM_TRAIN_WIDTH, STEAM_TRAIN_HEIGHT, 5)
+        palette = displayio.Palette(5)
         palette[0] = 0x000000
         palette.make_transparent(0)
         palette[1] = 0xFFFFFF
         palette[2] = 0xFFAA00
         palette[3] = 0xAAAAAA
+        palette[4] = 0xFF3300
 
         def fill_rect(x, y, width, height, color):
             for py in range(max(0, y), min(STEAM_TRAIN_HEIGHT, y + height)):
@@ -1809,7 +1849,7 @@ class MatrixDisplay:
                 px = center_x + dx
                 py = 20 + dy
                 if 0 <= px < STEAM_TRAIN_WIDTH and 0 <= py < STEAM_TRAIN_HEIGHT:
-                    bitmap[px, py] = 2
+                    bitmap[px, py] = 4
 
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
         words = str(screen.get("words") or "")
@@ -1933,7 +1973,7 @@ class MatrixDisplay:
                 group, item["temp_text"], text_color, item["temp_x"], TODAY_WEATHER_TEMPERATURE_Y
             )
 
-    def _sun_weather(self, group, screen):
+    def _sun_weather(self, group, screen, phase):
         import displayio
 
         stale = bool(screen.get("stale"))
@@ -1943,6 +1983,7 @@ class MatrixDisplay:
             ("SUNRISE", screen.get("sunrise_time") or "--:--", "clear_day", 0, DISPLAY_WIDTH // 2),
             ("SUNSET", screen.get("sunset_time") or "--:--", "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
         )
+        icon_grids = []
         for label, value, icon_name, left, right in values:
             width = right - left
             self._label(group, label, label_color,
@@ -1961,8 +2002,45 @@ class MatrixDisplay:
                         for dx in range(SUN_WEATHER_ICON_SCALE):
                             for dy in range(SUN_WEATHER_ICON_SCALE):
                                 bitmap[x * SUN_WEATHER_ICON_SCALE + dx, y * SUN_WEATHER_ICON_SCALE + dy] = 1
-            group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=left + 20, y=10))
+            icon_grid = displayio.TileGrid(
+                bitmap,
+                pixel_shader=palette,
+                x=left + 20,
+                y=_sun_weather_icon_y(icon_name, phase),
+            )
+            group.append(icon_grid)
+            icon_grids.append((icon_name, icon_grid))
             self._label(group, value, text_color, left + 52, 15)
+        return tuple(icon_grids)
+
+    def _show_sun_weather(self, screen, phase):
+        import displayio
+
+        key = (
+            screen.get("sunrise_time") or "--:--",
+            screen.get("sunset_time") or "--:--",
+            bool(screen.get("stale")),
+        )
+        if (
+            self._sun_group is None
+            or self._sun_key != key
+            or self.display.root_group is not self._sun_group
+        ):
+            group = displayio.Group()
+            self._sun_icon_grids = self._sun_weather(group, screen, phase)
+            self._sun_group = group
+            self._sun_key = key
+            self._present(group)
+            return
+
+        changed = False
+        for icon_name, icon_grid in self._sun_icon_grids:
+            next_y = _sun_weather_icon_y(icon_name, phase)
+            if icon_grid.y != next_y:
+                icon_grid.y = next_y
+                changed = True
+        if changed:
+            self._refresh(animation_class="weather_sun_slide")
 
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
@@ -2005,13 +2083,14 @@ class MatrixDisplay:
             return
 
         if not empty_state and kind in WEATHER_FULLSCREEN_KINDS:
+            if kind == "weather_sun":
+                self._show_sun_weather(screen, phase)
+                return
             group = displayio.Group()
             if kind == "weather_weekly":
                 self._weekly_weather(group, screen)
-            elif kind == "weather_today":
-                self._today_weather(group, screen)
             else:
-                self._sun_weather(group, screen)
+                self._today_weather(group, screen)
             self._present(group)
             return
 
@@ -2209,7 +2288,7 @@ class FixtureDisplay:
                 item["temp_text"], item["temp_x"], TODAY_WEATHER_TEMPERATURE_Y, text_color
             )
 
-    def _sun_weather(self, screen):
+    def _sun_weather(self, screen, phase):
         stale = bool(screen.get("stale"))
         text_color = (170, 170, 170) if stale else (255, 255, 255)
         label_color = (119, 119, 119) if stale else (255, 170, 0)
@@ -2231,8 +2310,11 @@ class FixtureDisplay:
                     if pixel == "#":
                         for dx in range(SUN_WEATHER_ICON_SCALE):
                             for dy in range(SUN_WEATHER_ICON_SCALE):
-                                self._pixel(left + 20 + x * SUN_WEATHER_ICON_SCALE + dx,
-                                            10 + y * SUN_WEATHER_ICON_SCALE + dy, icon_color)
+                                self._pixel(
+                                    left + 20 + x * SUN_WEATHER_ICON_SCALE + dx,
+                                    _sun_weather_icon_y(icon_name, phase) + y * SUN_WEATHER_ICON_SCALE + dy,
+                                    icon_color,
+                                )
             self._text(value, left + 52, 15, text_color)
 
     def _draw_screen(self, screen, phase, clock_date=""):
@@ -2244,7 +2326,7 @@ class FixtureDisplay:
         elif kind == "weather_today":
             self._today_weather(screen)
         elif kind == "weather_sun":
-            self._sun_weather(screen)
+            self._sun_weather(screen, phase)
         elif kind == "rail_combined":
             services = screen.get("services") or []
             rail_right_edge = _header_content_right(screen)

@@ -217,7 +217,7 @@ bash scripts/run-server.sh --calendar-source fixture
 
 ### Current weather overlay and dedicated Weather screens
 
-The backend uses one Open-Meteo request and one atomic Weather cache for all Weather output: the compact current-weather overlay, the seven-day daily forecast, today's hourly forecast, and today's sunrise/sunset. The request includes current temperature/WMO weather code, hourly temperature/weather code, and daily max/min/weather code/sunrise/sunset with `timezone=auto`. The free non-commercial endpoint needs no API key. Weather is cached for 600 seconds by default, so MatrixPortal/browser polls never create separate upstream polling paths for the three dedicated screens.
+The backend uses one Open-Meteo request and one atomic Weather cache for all Weather output: the compact current-weather overlay, the seven-day daily forecast, the rolling next-24-hour forecast, and today's sunrise/sunset. The request includes current temperature/WMO weather code, hourly temperature/weather code, and daily max/min/weather code/sunrise/sunset with `timezone=auto`. The free non-commercial endpoint needs no API key. Weather is cached for 600 seconds by default, so MatrixPortal/browser polls never create separate upstream polling paths for the three dedicated screens.
 
 The default coordinates are New Malden railway station, matching the default `NEM` departure board:
 
@@ -231,14 +231,14 @@ LED_WEATHER_LONGITUDE=-0.256
 Set `LED_WEATHER_SOURCE=off` to stop Weather polling and remove all Weather output, or change latitude/longitude for another location. When Weather is enabled, the dedicated screens appear in this order when their individual controls are enabled:
 
 1. `weather_weekly` — the existing seven-day overview, default 8 seconds. It preserves the max-only layout introduced with #195: weekday, enlarged weather icon and maximum temperature.
-2. `weather_today` — six four-hour blocks labelled `12am`, `4am`, `8am`, `12pm`, `4pm` and `8pm`, default 8 seconds. Each block uses the forecast nearest its midpoint hour and makes the weather icon and temperature prominent.
+2. `weather_today` — six rolling four-hour snapshots covering the next 24 hours, default 8 seconds. The first column is labelled `Now` and uses current conditions; the remaining columns are labelled at four-hour intervals and may cross midnight. The weather icon and temperature remain prominent.
 3. `weather_sun` — today's local sunrise and sunset times, default 6 seconds.
 
-The protected admin/control plane provides independent enable and duration controls for the overview, Today and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.
+The protected admin/control plane provides independent enable and duration controls for the overview, next-24-hour and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.
 
 The backend maps Open-Meteo WMO weather codes into a renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). All three dedicated Weather screens use the full 256×32 canvas and suppress the normal clock/current-weather/STALE header chrome; the browser simulator mirrors the same screen sequence and supports forced-stale preview.
 
-If a Weather refresh fails after at least one successful response, the complete last-good current + weekly + Today + solar payload remains available with `stale: true` and the dedicated renderers use their muted treatment. On a cold Weather failure, unrelated feeds remain available; the seven-day overview may show its existing unavailable state when enabled, while empty Today and sunrise/sunset screens are not emitted. Browser attribution links to Open-Meteo are included as required by the provider's licence.
+If a Weather refresh fails after at least one successful response, the complete last-good current + weekly + rolling next-24-hour + solar payload remains available with `stale: true` and the dedicated renderers use their muted treatment. On a cold Weather failure, unrelated feeds remain available; the seven-day overview may show its existing unavailable state when enabled, while empty next-24-hour and sunrise/sunset screens are not emitted. Browser attribution links to Open-Meteo are included as required by the provider's licence.
 
 ### Screen contract
 

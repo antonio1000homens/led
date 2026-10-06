@@ -511,6 +511,10 @@ def validate_feed_patch(
         if not isinstance(words, str):
             raise RuntimeConfigValidationError(f"{feed_id}.words must be a string")
         words = words.strip()
+        if any(ord(char) < 32 or ord(char) > 126 for char in words):
+            raise RuntimeConfigValidationError(
+                f"{feed_id}.words must contain printable ASCII characters only"
+            )
         if len(words) > MAX_STEAM_TRAIN_WORDS_LENGTH:
             raise RuntimeConfigValidationError(
                 f"{feed_id}.words must be at most {MAX_STEAM_TRAIN_WORDS_LENGTH} characters"
