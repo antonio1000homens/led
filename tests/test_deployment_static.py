@@ -148,7 +148,7 @@ class DeploymentStaticTests(unittest.TestCase):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn("function weatherCardHtml", admin)
         self.assertIn("7-day overview", admin)
-        self.assertIn("Today · six blocks", admin)
+        self.assertIn("Next 24 hours · six blocks", admin)
         self.assertIn("Sunrise / sunset", admin)
         self.assertIn("today_duration_seconds", admin)
         self.assertIn("sun_duration_seconds", admin)
