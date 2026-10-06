@@ -46,7 +46,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("Math.floor(index * 1024 / 7)", simulator)
         self.assertIn("Math.floor(index * 1024 / 6)", simulator)
         self.assertIn("status.dataset.detail = '7-day weather forecast';", simulator)
-        self.assertIn("status.dataset.detail = 'Today in six four-hour blocks';", simulator)
+        self.assertIn("status.dataset.detail = 'Next 24 hours in rolling four-hour snapshots';", simulator)
         self.assertIn("status.dataset.detail = 'Today sunrise and sunset';", simulator)
         self.assertIn("suppressHeader = true;", simulator)
 
