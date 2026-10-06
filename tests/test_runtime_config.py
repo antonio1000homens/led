@@ -4,6 +4,8 @@ import unittest
 from runtime_config import (
     DEFAULT_CHESSINGTON_RIDES,
     DEFAULT_NO_SERVICES_DURATION_SECONDS,
+    DEFAULT_STEAM_TRAIN_SPEED,
+    DEFAULT_STEAM_TRAIN_WORDS,
     DEFAULT_STATION_LIST_SPACING,
     DEFAULT_STATION_SCROLL_SPEED,
     DEFAULT_WEATHER_SCREEN_DURATION_SECONDS,
@@ -14,7 +16,9 @@ from runtime_config import (
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
     MAX_STATION_LIST_SPACING,
     MAX_STATION_SCROLL_SPEED,
+    MAX_STEAM_TRAIN_SPEED,
     MIN_STATION_LIST_SPACING,
+    MIN_STEAM_TRAIN_SPEED,
     MIN_STATION_SCROLL_SPEED,
     RuntimeConfigConflict,
     RuntimeConfigStore,
@@ -77,6 +81,42 @@ class RuntimeConfigTests(unittest.TestCase):
             schema_metadata()["feeds"]["flash"]["mutable_fields"],
             ["enabled", "screen_duration_seconds"],
         )
+
+    def test_steam_train_defaults_schema_validation_and_legacy_backfill(self):
+        config = default_runtime_config({})
+        steam = config["feeds"]["steam_train"]
+        self.assertTrue(steam["enabled"])
+        self.assertEqual(steam["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
+        self.assertEqual(steam["words"], DEFAULT_STEAM_TRAIN_WORDS)
+
+        schema = schema_metadata()["feeds"]["steam_train"]
+        self.assertTrue(schema["virtual"])
+        self.assertEqual(schema["fields"]["animation_speed"]["minimum"], MIN_STEAM_TRAIN_SPEED)
+        self.assertEqual(schema["fields"]["animation_speed"]["maximum"], MAX_STEAM_TRAIN_SPEED)
+        self.assertEqual(schema["fields"]["words"]["type"], "string")
+
+        self.assertEqual(
+            validate_feed_patch(
+                "steam_train",
+                {"enabled": False, "animation_speed": 36, "words": "all aboard"},
+            ),
+            {"enabled": False, "animation_speed": 36, "words": "all aboard"},
+        )
+        for speed in (MIN_STEAM_TRAIN_SPEED - 1, MAX_STEAM_TRAIN_SPEED + 1):
+            with self.subTest(speed=speed):
+                with self.assertRaises(RuntimeConfigValidationError):
+                    validate_feed_patch("steam_train", {"animation_speed": speed})
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("steam_train", {"words": 123})
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("steam_train", {"words": "x" * 81})
+
+        legacy = default_runtime_config({})
+        del legacy["feeds"]["steam_train"]
+        validated = validate_runtime_config(legacy)
+        self.assertTrue(validated["feeds"]["steam_train"]["enabled"])
+        self.assertEqual(validated["feeds"]["steam_train"]["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
+        self.assertEqual(validated["feeds"]["steam_train"]["words"], DEFAULT_STEAM_TRAIN_WORDS)
 
     def test_flash_duration_is_bounded_and_legacy_configs_are_backfilled(self):
         self.assertEqual(
