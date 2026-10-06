@@ -237,6 +237,26 @@ of truth. Longer screws pass through the stationary backplane into the existing
 panel mounting locations and act as removable closure fasteners. The three
 closure screws must be removed or loosened before opening the hinged panel.
 
+
+### Panel-pair seam joiners
+
+Three removable joiners tie the four enclosure modules together at the three
+internal panel seams. Each joiner reuses the two existing top-row closure screws
+nearest a seam: the right-most hole of the module on the left and the left-most
+hole of the module on the right.
+
+- screw-centre spacing across a seam: **15.8 mm** (7.9 mm either side);
+- clearance holes: **4.5 mm**, matching the existing panel/enclosure holes;
+- body: **28.8 mm × 13 mm × 3 mm** PETG-friendly dog-bone plate;
+- install location: rear face of the shallow top wall at the existing closure
+  screw height;
+- quantity for the complete four-panel display: **3**.
+
+Render `parts/10_panel_pair_joiner_PRINT_3.scad` to produce all three joiners
+in one print job. Because the joiner adds 3 mm under each screw head, use
+closure screws long enough to retain the same thread engagement in the LED
+panel. The joiners are removable and do not change the hinge/service procedure.
+
 The upper module/end-plate alignment remains entirely below the 75 mm ramp
 start, but now uses only **compact local seam bosses** around the seated tab/slot
 instead of the previous long diagonal edge arms. Each boss is 10 mm high and
