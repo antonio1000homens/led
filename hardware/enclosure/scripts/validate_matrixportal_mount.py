@@ -40,7 +40,7 @@ def main() -> None:
     service = load_one(root / RIGHT_MATRIXPORTAL)
 
     dims = adapter.extents
-    expected = (86.0, 55.0, 9.0)
+    expected = (86.0, 50.0, 9.0)
     for actual, target in zip(dims, expected):
         if abs(float(actual)-target) > 0.25:
             raise SystemExit(
