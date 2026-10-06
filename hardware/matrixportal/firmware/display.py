@@ -79,8 +79,8 @@ WEATHER_HEADING_BASELINE_Y = 9
 WEATHER_HEADING_PIXEL_Y = 2
 WEEKLY_WEATHER_ICON_Y = 10
 WEEKLY_WEATHER_TEMPERATURE_Y = 25
-TODAY_WEATHER_ICON_Y = 10
-TODAY_WEATHER_TEMPERATURE_Y = 26
+TODAY_WEATHER_ICON_Y = 11
+TODAY_WEATHER_TEMPERATURE_Y = 27
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
 WEEKLY_WEATHER_TEXT_SCALE = 1
 WEEKLY_WEATHER_GLYPH_WIDTH = 3
@@ -265,7 +265,7 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
 
 
 def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
-    """Build six fixed four-hour Weather columns for today."""
+    """Build six rolling four-hour Weather columns beginning with Now."""
     if not isinstance(blocks, (list, tuple)):
         return []
     layout = []
