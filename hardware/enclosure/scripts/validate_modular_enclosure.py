@@ -799,8 +799,11 @@ assert(side_hinge_cover_y0 > base_seat_y &&
        side_hinge_cover_y1 < hinge_guard_top_y &&
        side_hinge_capture_y1 < hinge_axis_y-hinge_axis_z,
        "hinge-gap side cover no longer stays outside the moving-panel sweep");
-assert(abs(side_hinge_cover_capture_overlap_x-0.5) < 0.01,
-       "hinge-gap capture tongue overlap drifted");
+assert(abs(side_hinge_cover_capture_inset_x-0.5) < 0.01 &&
+       abs(service_x -
+           (-side_hinge_cover_panel_clearance_x+
+            side_hinge_cover_capture_inset_x)-0.2) < 0.01,
+       "hinge-gap capture tongue clearance drifted");
 assert(side_rod_sleeve_bore_d > hinge_rail_d,
        "upper-return hinge keepout must retain running clearance around the rod");
 assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
