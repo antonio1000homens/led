@@ -89,6 +89,23 @@ class RotationTests(unittest.TestCase):
         self.assertIn("_calling_travel_seconds", screen)
         self.assertNotIn("rail_presentation", screen)
 
+    def test_invalid_backend_timing_metadata_uses_legacy_fallback(self):
+        services = [{"destination": "Waterloo", "stops": []}]
+        presentation = prepare_rail_presentation(services, 20, 2, 8)
+        presentation["calling_travel_seconds"] = -1
+        rotation = ScreenRotation()
+        with mock.patch.object(screen_client, "CALLING_SCROLL_SPEED_OVERRIDE", None):
+            rotation.update([{
+                "id": "rail",
+                "kind": "rail_combined",
+                "duration_seconds": 8,
+                "services": services,
+                "rail_presentation": presentation,
+            }], 0)
+        screen, _ = rotation.current(0)
+        self.assertIn("_calling_travel_seconds", screen)
+        self.assertNotIn("rail_presentation", screen)
+
     def test_local_scroll_override_recomputes_backend_speed_dependent_timing(self):
         services = [{"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19"}]}]
         presentation = prepare_rail_presentation(services, 20, 2, 8)
