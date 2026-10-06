@@ -126,14 +126,14 @@ class OpenMeteoProviderTests(unittest.TestCase):
         self.assertEqual(result["sunrise_time"], "07:08")
         self.assertEqual(result["sunset_time"], "18:29")
         self.assertEqual([block["label"] for block in result["today_blocks"]],
-                         ["Now", "2pm", "6pm", "10pm", "2am", "6am"])
+                         ["Now", "3pm", "7pm", "11pm", "3am", "7am"])
         self.assertEqual([block["temperature_c"] for block in result["today_blocks"]],
-                         [17.4, 15.0, 17.0, 19.0, 21.0, 23.0])
+                         [17.4, 15.5, 17.5, 19.5, 21.5, 23.5])
         self.assertEqual(result["today_blocks"][4]["icon"], "clear_night")
 
     def test_rolling_weather_uses_nearest_hour_when_a_target_is_missing(self):
         payload = self._payload()
-        target = payload["hourly"]["time"].index("2026-10-04T14:00")
+        target = payload["hourly"]["time"].index("2026-10-04T15:00")
         for key in ("time", "temperature_2m", "weather_code", "is_day"):
             payload["hourly"][key].pop(target)
 
@@ -143,7 +143,7 @@ class OpenMeteoProviderTests(unittest.TestCase):
 
         blocks = OpenMeteoProvider(51.4, -0.25, opener=opener).fetch()["today_blocks"]
         self.assertEqual(blocks[1]["label"], "2pm")
-        self.assertEqual(blocks[1]["temperature_c"], 14.5)
+        self.assertEqual(blocks[1]["temperature_c"], 15.0)
 
     def test_malformed_solar_values_do_not_break_current_weekly_or_next_24h(self):
         payload = self._payload()
