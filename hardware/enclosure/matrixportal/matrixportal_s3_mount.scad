@@ -45,9 +45,9 @@ mp_backplane_mount_x = [176,224];
 mp_backplane_mount_y = [62.5,102.5];
 
 mp_adapter_x0 = 169.0;
-mp_adapter_y0 = 55.0;
+mp_adapter_y0 = 57.5;
 mp_adapter_w = 86.0;
-mp_adapter_h = 55.0;
+mp_adapter_h = 50.0;
 mp_adapter_t = 3.0;
 mp_adapter_corner_r = 3.0;
 
@@ -63,13 +63,12 @@ mp_board_nut_pocket_d = 6.0;
 mp_board_nut_pocket_h = 2.3;
 
 // ----- Right-side service opening -----
-// The four service controls span roughly Y=66.6..96.5 mm after rotation.
-// Keep a modest common opening so USB-C plugs and fingers can reach all three
-// buttons without weakening the rear connector zone.
-mp_service_center_y = 81.55;
-mp_service_size_y = 40.0;
+// Clear the complete 44.45 mm PCB service edge plus the adapter edge.
+// The Z ceiling stays below the compact rear connector/tab reinforcement.
+mp_service_center_y = 82.50;
+mp_service_size_y = 50.0;
 mp_service_center_z = 44.0;
-mp_service_size_z = 14.0;
+mp_service_size_z = 20.0;
 mp_service_corner_r = 2.0;
 
 assert(mp_board_service_edge_x < 256,
