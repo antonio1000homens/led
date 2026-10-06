@@ -15,25 +15,25 @@ The dimensions come from Adafruit's official Eagle board file in
 - USB-C and Reset/Up/Down are on the same short edge;
 - HUB75 connectors are on the opposite short edge.
 
-The board is rotated 180° in the enclosure so the USB/button edge faces the
-**outer right side** and HUB75 faces inward.
+The board uses its native XY orientation so the USB/button edge faces the
+**outer left side** and HUB75 faces inward.
 
 ## Printable parts
 
 - `../parts/08_matrixportal_s3_adapter_PRINT_1.scad` — flat detachable adapter
   plate with four M3 backplane holes and four MatrixPortal standoffs;
-- `../parts/09_right_equipment_side_matrixportal_PRINT_1.scad` — replacement
-  for the generic right end cap, adding the USB/button service opening.
+- `../parts/09_left_equipment_side_matrixportal_PRINT_1.scad` — replacement
+  for the generic left end cap, adding the USB/button service opening.
 
-Do **not** fit both the generic `05_right_equipment_side_PRINT_1` and the
-MatrixPortal-specific `09_...` right side. The MatrixPortal side is a drop-in
+Do **not** fit both the generic `04_left_equipment_side_PRINT_1` and the
+MatrixPortal-specific `09_...` left side. The MatrixPortal side is a drop-in
 replacement on the controller end of the complete four-module enclosure.
 
 ## Backplane attachment
 
 The adapter uses four existing universal blind M3 bosses:
 
-- X = **176 / 224 mm**;
+- X = **32 / 80 mm**;
 - Y = **62.5 / 102.5 mm**.
 
 Use four M3 screws sized for the existing blind boss depth. The adapter recesses
@@ -48,14 +48,14 @@ its official 2.5 mm plated holes.
 
 ## Service access
 
-The MatrixPortal service edge sits at X = **254.5 mm**, immediately inside the
-right end cap. The MatrixPortal-specific side removes a rounded **50 × 20 mm**
+The MatrixPortal service edge sits at X = **1.5 mm**, immediately inside the
+left end cap. The MatrixPortal-specific side removes a rounded **50 × 20 mm**
 Y/Z service window around USB-C and the three right-angle buttons. The cut stays
 forward of the enclosure's compact rear connector reinforcement.
 
 ## Preview
 
 Open `../schematics/01_matrixportal_mount_ASSEMBLY.scad` to inspect the
-backplane, adapter, PCB reference and MatrixPortal-specific right side together.
+backplane, adapter, PCB reference and MatrixPortal-specific left side together.
 The PCB model is mechanical reference geometry only; connector bodies are
 clearance approximations rather than manufacturing STEP geometry.
