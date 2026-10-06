@@ -30,7 +30,8 @@ DEFAULT_WEATHER_LONGITUDE = -0.256
 STEAM_TRAIN_DISPLAY_WIDTH = 256
 STEAM_TRAIN_WIDTH_PX = 52
 STEAM_TRAIN_TEXT_GAP_PX = 8
-STEAM_TRAIN_FONT_WIDTH_PX = 5
+# The train intro renders its trailing text at 2x the normal 5px cell width.
+STEAM_TRAIN_FONT_WIDTH_PX = 12
 
 
 def _iso(value):
@@ -321,7 +322,10 @@ class Publisher:
                 )
                 content_width = STEAM_TRAIN_WIDTH_PX + trailing_width
                 travel_distance = STEAM_TRAIN_DISPLAY_WIDTH + content_width
-                duration_seconds = max(2, (travel_distance + speed - 1) // speed)
+                # Keep the handoff tied to the moment the complete train and
+                # trailing text leave the panel. Rounding up to whole seconds
+                # left a visible blank tail before the next screen.
+                duration_seconds = max(2.0, travel_distance / speed)
                 screens.append({
                     "id": "steam-train",
                     "kind": "steam_train_intro",

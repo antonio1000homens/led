@@ -328,8 +328,8 @@ class ScreenRotation:
         while True:
             screen = self.screens[self.index]
             duration = max(
-                1,
-                int(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
+                1.0,
+                float(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
             )
             if "_calling_travel_seconds" in screen:
                 duration = max(1, duration, int(screen.get("duration_seconds") or 8))

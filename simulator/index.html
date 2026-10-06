@@ -155,7 +155,7 @@
           for (let column = 0; column < 5; column += 1) {
             if (rowBits & (1 << (4 - column))) {
               context.fillStyle = color;
-              context.fillRect(startX + index * FONT_CELL_WIDTH * 2 + column * pixelScale,
+              context.fillRect(startX + index * (FONT_CELL_WIDTH + FONT_PIXEL_SCALE) * 2 + column * pixelScale,
                 startY + row * pixelScale, pixelScale, pixelScale);
             }
           }
@@ -865,7 +865,7 @@
       const words = String(screen.words || '');
       if (words) {
         context.fillStyle = '#ffaa00';
-        drawLedText(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP, 12 * FONT_PIXEL_SCALE);
+        drawLedTextLarge(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP, 9 * FONT_PIXEL_SCALE);
       }
     }
     function draw(now) {

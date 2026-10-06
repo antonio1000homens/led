@@ -677,6 +677,52 @@ class MatrixDisplay:
                                        row_index * scale + dy] = 1
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=int(x), y=int(y)))
 
+    def _scaled_label(self, group, text, color, x, y, scale=2):
+        """Draw font glyphs into a scaled bitmap for the compact train intro."""
+        import displayio
+
+        if not hasattr(self.font, "get_glyph"):
+            return self._label(group, text, color, x, y + 9)
+        text = str(text)
+        if hasattr(self.font, "load_glyphs"):
+            self.font.load_glyphs(set(ord(character) for character in text))
+        ascent = getattr(self.font, "ascent", None)
+        if ascent is None:
+            ascent = self.font.get_bounding_box()[1]
+        y_offset = ascent // 2
+        glyphs = []
+        cursor_x = min_x = min_y = 0
+        max_x = max_y = 0
+        for character in text:
+            glyph = self.font.get_glyph(ord(character))
+            if glyph is None:
+                continue
+            glyph_x = cursor_x + glyph.dx
+            glyph_y = -glyph.height - glyph.dy + y_offset
+            glyphs.append((glyph, glyph_x, glyph_y))
+            min_x = min(min_x, glyph_x)
+            max_x = max(max_x, glyph_x + glyph.width)
+            min_y = min(min_y, glyph_y)
+            max_y = max(max_y, glyph_y + glyph.height)
+            cursor_x += glyph.shift_x
+        width = max(1, max(max_x, cursor_x) - min_x)
+        height = max(1, max_y - min_y)
+        bitmap = displayio.Bitmap(width * scale, height * scale, 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = color
+        for glyph, glyph_x, glyph_y in glyphs:
+            for gy in range(glyph.height):
+                for gx in range(glyph.width):
+                    if glyph.bitmap[gx, gy]:
+                        for dy in range(scale):
+                            for dx in range(scale):
+                                bitmap[(glyph_x - min_x + gx) * scale + dx,
+                                       (glyph_y - min_y + gy) * scale + dy] = 1
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette,
+                                        x=int(x), y=int(y)))
+
     def _chunked_label_group(self, text, color, y, chunk_chars=24):
         """Build fixed text chunks so scrolling moves groups without reflowing labels."""
         import displayio
@@ -1859,12 +1905,12 @@ class MatrixDisplay:
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
         words = str(screen.get("words") or "")
         if words:
-            self._label(
+            self._scaled_label(
                 motion,
                 words,
                 0xFFAA00,
                 STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP,
-                18,
+                9,
             )
         root.append(motion)
 
