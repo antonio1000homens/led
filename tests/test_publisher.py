@@ -65,6 +65,10 @@ def weather_payload(temperature=17.4, weather_code=2, icon="partly_cloudy_day"):
     }
 
 
+def screen_by_id(payload, screen_id):
+    return next(screen for screen in payload["screens"] if screen["id"] == screen_id)
+
+
 class PublisherTests(unittest.TestCase):
     def setUp(self):
         self.now=datetime(2026,9,13,7,0,tzinfo=timezone.utc); self.utcnow=lambda:self.now; self.store=MemoryStore()
@@ -73,15 +77,15 @@ class PublisherTests(unittest.TestCase):
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run(); self.now+=timedelta(seconds=30)
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()
-        self.assertEqual(rail.calls,1); self.assertEqual(self.store.payload["screens"][0]["services"][0]["time"],"08:01")
+        self.assertEqual(rail.calls,1); self.assertEqual(screen_by_id(self.store.payload, "departures")["services"][0]["time"],"08:01")
         self.assertEqual(self.store.state["feeds"]["departures"]["last_success_at"],"2026-09-13T07:00:00Z")
     def test_refreshes_after_ttl_and_keeps_last_good_data_stale_on_failure(self):
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],RuntimeError("upstream failure must not leak")])
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run(); self.now+=timedelta(seconds=61)
         payload=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()
-        self.assertEqual(rail.calls,2); self.assertTrue(payload["screens"][0]["stale"]); self.assertEqual(payload["screens"][0]["services"][0]["destination"],"Waterloo")
+        self.assertEqual(rail.calls,2); self.assertTrue(screen_by_id(payload, "departures")["stale"]); self.assertEqual(screen_by_id(payload, "departures")["services"][0]["destination"],"Waterloo")
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
-        payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=payload["screens"][0]
+        payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=screen_by_id(payload, "departures")
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])
         self.assertIsNone(screen["empty_state"])
     def test_empty_departures_publish_no_services_page_for_configured_duration(self):
@@ -94,7 +98,8 @@ class PublisherTests(unittest.TestCase):
             rail_provider=FakeProvider([[]]),
             utcnow=self.utcnow,
             runtime_config_store=StaticRuntimeConfigStore(runtime),
-        ).run()["screens"][0]
+        ).run()
+        screen = screen_by_id(screen, "departures")
         self.assertEqual(screen["services"],[])
         self.assertEqual(screen["empty_state"],"No Services")
         self.assertEqual(screen["duration_seconds"],5)
@@ -107,7 +112,8 @@ class PublisherTests(unittest.TestCase):
             {"time":"08:21","destination":"Waterloo"},
             {"time":"08:31","destination":"Waterloo"},
         ]])
-        screen=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()["screens"][0]
+        payload=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()
+        screen=screen_by_id(payload, "departures")
         self.assertEqual([service["time"] for service in screen["services"]],["08:01","08:11","08:21","08:31"])
         self.assertEqual(screen["upcoming_train_count"], 4)
         self.assertEqual(screen["upcoming_train_pause_seconds"], 2)
@@ -127,8 +133,8 @@ class PublisherTests(unittest.TestCase):
         first=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run()
         self.assertEqual(rail.calls,2); self.assertEqual(queues.calls,1); self.assertEqual(chessington.calls,1); self.assertEqual(weather.calls,1)
-        self.assertEqual([s["id"] for s in first["screens"]],["departures","queue-times","weather-weekly","weather-today","weather-sun"])
-        queue_screen=second["screens"][1]
+        self.assertEqual([s["id"] for s in first["screens"]],["steam-train","departures","queue-times","weather-weekly","weather-today","weather-sun"])
+        queue_screen=screen_by_id(second, "queue-times")
         self.assertEqual(queue_screen["kind"],"theme_park_queues")
         self.assertEqual([park["feed_id"] for park in queue_screen["parks"]],["thorpe_park","chessington"])
         self.assertEqual([r["name"] for r in queue_screen["parks"][0]["rides"]],["Hyperia","Stealth","The Swarm","Colossus"])
@@ -147,22 +153,22 @@ class PublisherTests(unittest.TestCase):
         queues=FakeProvider([[{"name":"Hyperia","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
         chessington=FakeProvider([[{"name":"Mandrill Mayhem","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
         payload=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,utcnow=self.utcnow,chessington_provider=chessington).run()
-        self.assertEqual([screen["id"] for screen in payload["screens"]],["departures"])
+        self.assertEqual([screen["id"] for screen in payload["screens"]],["steam-train","departures"])
     def test_closed_park_is_skipped_without_hiding_open_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
         queues=FakeProvider([[{"name":"Hyperia","open":False,"wait_minutes":0,"last_updated":"","land":""}]])
         chessington=FakeProvider([[{"name":"Mandrill Mayhem","open":True,"wait_minutes":15,"last_updated":"","land":""}]])
         payload=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,utcnow=self.utcnow,chessington_provider=chessington).run()
-        self.assertEqual([screen["id"] for screen in payload["screens"]],["departures","queue-times"])
-        self.assertEqual([park["feed_id"] for park in payload["screens"][1]["parks"]],["chessington"])
+        self.assertEqual([screen["id"] for screen in payload["screens"]],["steam-train","departures","queue-times"])
+        self.assertEqual([park["feed_id"] for park in screen_by_id(payload, "queue-times")["parks"]],["chessington"])
     def test_calendar_has_independent_ttl_and_six_event_contract(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300,calendar_max_events=6,calendar_duration=10,calendar_page_seconds=5)
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])
         events=[{"start":f"2026-09-{13+i:02d}T18:00:00+01:00","date_text":f"{13+i:02d}/09","time_text":"18:00","title":f"Event {i+1}"} for i in range(6)]; calendar=FakeProvider([events])
         first=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); self.now+=timedelta(seconds=61)
-        second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); screen=first["screens"][1]
-        self.assertEqual(calendar.calls,1); self.assertEqual(screen["id"],"calendar"); self.assertGreaterEqual(screen["duration_seconds"],10); self.assertEqual(len(screen["events"]),6); self.assertFalse(second["screens"][1]["stale"])
+        second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); screen=screen_by_id(first, "calendar")
+        self.assertEqual(calendar.calls,1); self.assertEqual(screen["id"],"calendar"); self.assertGreaterEqual(screen["duration_seconds"],10); self.assertEqual(len(screen["events"]),6); self.assertFalse(screen_by_id(second, "calendar")["stale"])
     def test_cached_calendar_retains_active_event_once_it_becomes_overdue_before_ttl(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=300)
         rail=FakeProvider([[{"time":"08:01"}]])
@@ -171,12 +177,12 @@ class PublisherTests(unittest.TestCase):
             {"start":"2026-09-13T09:00:00+01:00","all_day":False,"date_text":"13/09","time_text":"09:00","title":"Still upcoming"},
         ]])
         first=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()
-        self.assertEqual([event["title"] for event in first["screens"][1]["events"]],["Soon overdue","Still upcoming"])
+        self.assertEqual([event["title"] for event in screen_by_id(first, "calendar")["events"]],["Soon overdue","Still upcoming"])
         self.now+=timedelta(minutes=2)
         second=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()
         self.assertEqual(calendar.calls,1)
-        self.assertEqual([event["title"] for event in second["screens"][1]["events"]],["Soon overdue","Still upcoming"])
-        self.assertFalse(second["screens"][1]["stale"])
+        self.assertEqual([event["title"] for event in screen_by_id(second, "calendar")["events"]],["Soon overdue","Still upcoming"])
+        self.assertFalse(screen_by_id(second, "calendar")["stale"])
 
     def test_calendar_keeps_cached_data_stale_after_failure_and_retains_overdue_event(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist",calendar_ttl=60)
@@ -186,7 +192,7 @@ class PublisherTests(unittest.TestCase):
             {"start":"2026-09-13T09:00:00+01:00","all_day":False,"date_text":"13/09","time_text":"09:00","title":"Keep me"},
         ],RuntimeError("private upstream error")])
         Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(); self.now+=timedelta(seconds=61)
-        screen=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()["screens"][1]
+        screen=screen_by_id(Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(), "calendar")
         self.assertTrue(screen["stale"])
         self.assertEqual([event["title"] for event in screen["events"]],["Expires","Keep me"])
 
@@ -196,15 +202,15 @@ class PublisherTests(unittest.TestCase):
         calendar=FakeProvider([[
             {"start":"2026-09-13","all_day":True,"date_text":"13/09","time_text":"ALL","title":"All day today"},
         ]])
-        screen=Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run()["screens"][1]
+        screen=screen_by_id(Publisher(config,self.store,rail_provider=rail,utcnow=self.utcnow,calendar_provider=calendar).run(), "calendar")
         self.assertEqual([event["title"] for event in screen["events"]],["All day today"])
     def test_cold_calendar_failure_does_not_break_departures(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist")
         payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]]),utcnow=self.utcnow,calendar_provider=FakeProvider([RuntimeError("private upstream error")])).run()
-        self.assertEqual(payload["screens"][0]["source"],"national_rail"); self.assertEqual(payload["screens"][1]["source"],"unavailable")
+        self.assertEqual(screen_by_id(payload, "departures")["source"],"national_rail"); self.assertEqual(screen_by_id(payload, "calendar")["source"],"unavailable")
     def test_empty_calendar_is_successful_not_stale(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off",weather_source="off",calendar_source="todoist",todoist_oauth_secret_arn="arn:test:todoist")
-        screen=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),utcnow=self.utcnow,calendar_provider=FakeProvider([[]])).run()["screens"][1]
+        screen=screen_by_id(Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),utcnow=self.utcnow,calendar_provider=FakeProvider([[]])).run(), "calendar")
         self.assertEqual(screen["events"],[]); self.assertFalse(screen["stale"]); self.assertEqual(screen["title"],"UPCOMING")
 
     def test_legacy_weather_cache_is_refreshed_immediately_before_weekly_publish(self):
@@ -228,7 +234,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(weather.calls,1)
         weekly=next(screen for screen in payload["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(weekly["days"],weather_forecast())
-        self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],18.0)
+        self.assertEqual(screen_by_id(payload, "departures")["weather"]["temperature_c"],18.0)
 
     def test_legacy_weather_cache_is_retained_stale_if_forced_upgrade_fails(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
@@ -249,8 +255,8 @@ class PublisherTests(unittest.TestCase):
         ).run()
 
         self.assertEqual(weather.calls,1)
-        self.assertTrue(payload["screens"][0]["weather"]["stale"])
-        self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],17.4)
+        self.assertTrue(screen_by_id(payload, "departures")["weather"]["stale"])
+        self.assertEqual(screen_by_id(payload, "departures")["weather"]["temperature_c"],17.4)
         weekly=payload["screens"][-1]
         self.assertTrue(weekly["stale"])
         self.assertEqual(weekly["days"],[])
@@ -302,7 +308,7 @@ class PublisherTests(unittest.TestCase):
             runtime_config_store=StaticRuntimeConfigStore(runtime),
         ).run()
         self.assertFalse(any(screen["kind"].startswith("weather_") for screen in payload["screens"]))
-        self.assertIn("weather", payload["screens"][0])
+        self.assertIn("weather", screen_by_id(payload, "departures"))
 
     def test_cold_weather_failure_keeps_other_screens_and_emits_unavailable_weekly_screen(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
@@ -312,7 +318,7 @@ class PublisherTests(unittest.TestCase):
             rail_provider=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]]),
             weather_provider=weather,utcnow=self.utcnow,
         ).run()
-        self.assertEqual([screen["kind"] for screen in payload["screens"]],["rail_combined","weather_weekly"])
+        self.assertEqual([screen["kind"] for screen in payload["screens"]],["steam_train_intro","rail_combined","weather_weekly"])
         weekly=payload["screens"][-1]
         self.assertEqual(weekly["source"],"unavailable")
         self.assertTrue(weekly["stale"])
@@ -354,8 +360,8 @@ class PublisherTests(unittest.TestCase):
         chess=[{"name":"Vampire","open":True,"wait_minutes":30}]
         payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),queue_provider=FakeProvider([rides]),chessington_provider=FakeProvider([chess]),utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
         self.assertEqual(payload["config_version"],9)
-        self.assertEqual(payload["screens"][0]["duration_seconds"],12)
-        queue_screen=payload["screens"][1]
+        self.assertEqual(screen_by_id(payload, "departures")["duration_seconds"],12)
+        queue_screen=screen_by_id(payload, "queue-times")
         self.assertEqual(queue_screen["id"],"queue-times")
         self.assertEqual(queue_screen["duration_seconds"],19)
         self.assertEqual(queue_screen["queue_scroll_speed"],42)
@@ -386,7 +392,7 @@ class PublisherTests(unittest.TestCase):
         runtime["feeds"]["chessington"]["enabled"]=False
         rides=[{"name":"Hyperia","open":True,"wait_minutes":20}]
         payload=Publisher(config,self.store,rail_provider=FakeProvider([[{"time":"08:01"}]]),queue_provider=FakeProvider([rides]),utcnow=self.utcnow,runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
-        queue_screen=payload["screens"][1]
+        queue_screen=screen_by_id(payload, "queue-times")
         park=queue_screen["parks"][0]
         self.assertEqual([ride["name"] for ride in park["rides"]],["Hyperia"])
         self.assertEqual(park["missing_configured_rides"],["Renamed Ride"])
