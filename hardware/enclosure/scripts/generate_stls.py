@@ -40,6 +40,14 @@ OUTPUTS = (
         DIRECT / "powersupply/03_service_tray_snap_tray_PRINT_1.scad",
         "07_psu_service_tray_snap_tray_PRINT_1.stl",
     ),
+    (
+        DIRECT / "parts/08_matrixportal_s3_adapter_PRINT_1.scad",
+        "08_matrixportal_s3_adapter_PRINT_1.stl",
+    ),
+    (
+        DIRECT / "parts/09_left_equipment_side_matrixportal_PRINT_1.scad",
+        "09_left_equipment_side_matrixportal_PRINT_1.stl",
+    ),
 )
 
 
