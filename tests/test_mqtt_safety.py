@@ -4,9 +4,9 @@ import settings
 
 
 class MqttSafetyTests(unittest.TestCase):
-    def test_checked_in_firmware_enables_mqtt_listener(self):
-        self.assertTrue(settings.MQTT_ENABLED)
-        self.assertTrue(settings.MQTT_ENABLE_EXPERIMENTAL)
+    def test_checked_in_firmware_keeps_mqtt_dormant(self):
+        self.assertFalse(settings.MQTT_ENABLED)
+        self.assertFalse(settings.MQTT_ENABLE_EXPERIMENTAL)
         self.assertEqual(settings.MQTT_BROKER, "")
 
     def test_flash_duration_is_not_a_local_setting(self):

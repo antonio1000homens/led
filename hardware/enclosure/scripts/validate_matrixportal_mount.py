@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate generated MatrixPortal S3 enclosure accessory meshes."""
+"""Validate generated MatrixPortal S3 dock/carrier enclosure meshes."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ from pathlib import Path
 
 import trimesh
 
-ADAPTER = "08_matrixportal_s3_adapter_PRINT_1.stl"
+DOCK = "08_matrixportal_s3_dock_PRINT_1.stl"
 LEFT_GENERIC = "04_left_equipment_side_PRINT_1.stl"
 LEFT_MATRIXPORTAL = "09_left_equipment_side_matrixportal_PRINT_1.stl"
+CARRIER = "10_matrixportal_s3_carrier_PRINT_1.stl"
 
 
 def load_one(path: Path) -> trimesh.Trimesh:
@@ -30,26 +31,31 @@ def load_one(path: Path) -> trimesh.Trimesh:
     return loaded
 
 
+def check_extents(name: str, mesh: trimesh.Trimesh, expected: tuple[float, ...]) -> None:
+    dims = mesh.extents
+    for actual, target in zip(dims, expected):
+        if abs(float(actual)-target) > 0.25:
+            raise SystemExit(
+                f"{name}: unexpected extent {dims.tolist()} mm; "
+                f"expected approximately {list(expected)}"
+            )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--generated-dir", type=Path, required=True)
     root = parser.parse_args().generated_dir.resolve()
 
-    adapter = load_one(root / ADAPTER)
+    dock = load_one(root / DOCK)
+    carrier = load_one(root / CARRIER)
     generic = load_one(root / LEFT_GENERIC)
     service = load_one(root / LEFT_MATRIXPORTAL)
 
-    dims = adapter.extents
-    expected = (86.0, 50.0, 9.0)
-    for actual, target in zip(dims, expected):
-        if abs(float(actual)-target) > 0.25:
-            raise SystemExit(
-                f"{ADAPTER}: unexpected extent {dims.tolist()} mm; "
-                f"expected approximately {list(expected)}"
-            )
+    check_extents(DOCK, dock, (86.0, 50.0, 6.8))
+    check_extents(CARRIER, carrier, (85.0, 50.0, 14.3))
 
     # The MatrixPortal side must remain the same outer part envelope while
-    # removing real material for the service opening.
+    # removing real material for the enlarged carrier/service opening.
     if max(abs(service.extents-generic.extents)) > 0.25:
         raise SystemExit(
             f"{LEFT_MATRIXPORTAL}: outer envelope changed unexpectedly; "
@@ -60,9 +66,17 @@ def main() -> None:
             f"{LEFT_MATRIXPORTAL}: service opening did not remove meaningful volume"
         )
 
+    # The removable carrier should remain materially smaller than the dock in X
+    # so its leading edge can seat against the independent fixed stop.
+    if not carrier.extents[0] <= dock.extents[0] - 0.5:
+        raise SystemExit(
+            "MatrixPortal carrier is too long to retain an independent dock stop"
+        )
+
     print(
-        "MatrixPortal accessory validation passed: "
-        f"adapter={dims.tolist()} mm, "
+        "MatrixPortal click-dock validation passed: "
+        f"dock={dock.extents.tolist()} mm, "
+        f"carrier={carrier.extents.tolist()} mm, "
         f"left-side removed volume={generic.volume-service.volume:.1f} mm^3"
     )
 
