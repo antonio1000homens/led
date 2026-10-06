@@ -52,6 +52,10 @@ OUTPUTS = (
         DIRECT / "parts/10_matrixportal_s3_carrier_PRINT_1.scad",
         "10_matrixportal_s3_carrier_PRINT_1.stl",
     ),
+    (
+        DIRECT / "parts/11_matrixportal_s3_keeper_PRINT_1.scad",
+        "11_matrixportal_s3_keeper_PRINT_1.stl",
+    ),
 )
 
 
