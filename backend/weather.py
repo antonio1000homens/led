@@ -101,9 +101,8 @@ def _next_24h_blocks(hourly, current):
             "icon": weather_icon(current_code, current_is_day),
         }
     ]
-    anchor = current_stamp.replace(minute=0, second=0, microsecond=0)
     for offset_hours in range(4, 24, 4):
-        target = anchor + timedelta(hours=offset_hours)
+        target = current_stamp + timedelta(hours=offset_hours)
         if not entries:
             break
         selected = min(
@@ -117,7 +116,7 @@ def _next_24h_blocks(hourly, current):
             continue
         blocks.append(
             {
-                "label": _hour_label(target),
+                "label": _hour_label(selected["stamp"]),
                 "temperature_c": selected["temperature_c"],
                 "weather_code": selected["weather_code"],
                 "icon": weather_icon(selected["weather_code"], selected["is_day"]),
