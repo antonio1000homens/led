@@ -27,6 +27,10 @@ STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
 DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
+STEAM_TRAIN_DISPLAY_WIDTH = 256
+STEAM_TRAIN_WIDTH_PX = 52
+STEAM_TRAIN_TEXT_GAP_PX = 8
+STEAM_TRAIN_FONT_WIDTH_PX = 5
 
 
 def _iso(value):
@@ -307,6 +311,27 @@ class Publisher:
         config_feeds = runtime["feeds"]
         departures_config = config_feeds["departures"]
         if departures_config["enabled"]:
+            steam_config = config_feeds["steam_train"]
+            if steam_config["enabled"]:
+                words = steam_config.get("words") or ""
+                speed = max(1, int(steam_config["animation_speed"]))
+                trailing_width = (
+                    STEAM_TRAIN_TEXT_GAP_PX + len(words) * STEAM_TRAIN_FONT_WIDTH_PX
+                    if words else 0
+                )
+                content_width = STEAM_TRAIN_WIDTH_PX + trailing_width
+                travel_distance = STEAM_TRAIN_DISPLAY_WIDTH + content_width
+                duration_seconds = max(2, (travel_distance + speed - 1) // speed)
+                screens.append({
+                    "id": "steam-train",
+                    "kind": "steam_train_intro",
+                    "duration_seconds": duration_seconds,
+                    "title": "Steam train",
+                    "source": "local_animation",
+                    "stale": False,
+                    "animation_speed": speed,
+                    "words": words,
+                })
             rail = feeds.get("departures") or {}
             rail_data = rail.get("data")
             services = copy.deepcopy((rail_data.get("services") or [])[:1 + departures_config["upcoming_train_count"]]) if rail_data else []
