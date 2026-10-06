@@ -74,7 +74,8 @@ AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
-SUN_WEATHER_ICON_SCALE = 2
+SUN_WEATHER_ICON_SCALE = 3
+SUN_WEATHER_TIME_SCALE = 2
 SUN_WEATHER_ICON_Y = 10
 SUN_WEATHER_ANIMATION_SECONDS = 4.0
 SUN_WEATHER_RISE_START_Y = 32
@@ -2009,13 +2010,34 @@ class MatrixDisplay:
             icon_grid = displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
-                x=left + 20,
+                x=left + 16,
                 y=_sun_weather_icon_y(icon_name, phase),
             )
             group.append(icon_grid)
             icon_grids.append((icon_name, icon_grid))
-            self._label(group, value, text_color, left + 52, 15)
+            self._sun_time_label(group, value, text_color, left + 52, 19)
         return tuple(icon_grids)
+
+    def _sun_time_label(self, group, text, color, x, y):
+        import displayio
+
+        scale = SUN_WEATHER_TIME_SCALE
+        text = str(text)
+        bitmap = displayio.Bitmap(len(text) * 4 * scale, 5 * scale, 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = color
+        for index, char in enumerate(text):
+            rows = WEEKLY_WEATHER_GLYPHS.get(char, (0, 0, 0, 0, 0))
+            for row_index, row_bits in enumerate(rows):
+                for column in range(WEEKLY_WEATHER_GLYPH_WIDTH):
+                    if row_bits & (1 << (WEEKLY_WEATHER_GLYPH_WIDTH - column - 1)):
+                        for dx in range(scale):
+                            for dy in range(scale):
+                                bitmap[index * 4 * scale + column * scale + dx,
+                                       row_index * scale + dy] = 1
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=y))
 
     def _show_sun_weather(self, screen, phase):
         import displayio
@@ -2167,8 +2189,7 @@ class FixtureDisplay:
                         self._pixel(x + column, y + row, color)
             x += WEATHER_FONT_WIDTH
 
-    def _text_scaled(self, value, x, y, color):
-        scale = WEEKLY_WEATHER_TEXT_SCALE
+    def _text_scaled(self, value, x, y, color, scale=WEEKLY_WEATHER_TEXT_SCALE):
         for index, char in enumerate(str(value)):
             rows = WEEKLY_WEATHER_GLYPHS.get(char, (0, 0, 0, 0, 0))
             for row_index, row_bits in enumerate(rows):
@@ -2315,11 +2336,11 @@ class FixtureDisplay:
                         for dx in range(SUN_WEATHER_ICON_SCALE):
                             for dy in range(SUN_WEATHER_ICON_SCALE):
                                 self._pixel(
-                                    left + 20 + x * SUN_WEATHER_ICON_SCALE + dx,
+                                    left + 16 + x * SUN_WEATHER_ICON_SCALE + dx,
                                     _sun_weather_icon_y(icon_name, phase) + y * SUN_WEATHER_ICON_SCALE + dy,
                                     icon_color,
                                 )
-            self._text(value, left + 52, 15, text_color)
+            self._text_scaled(value, left + 52, 19, text_color, SUN_WEATHER_TIME_SCALE)
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")

@@ -142,6 +142,26 @@
         });
       }
     }
+    function drawLedTextLarge(value, x, y) {
+      const text = String(value ?? '');
+      const color = context.fillStyle;
+      const pixelScale = FONT_PIXEL_SCALE * 2;
+      const startX = Math.round(Number(x || 0) / pixelScale) * pixelScale;
+      const startY = Math.round(Number(y || 0) / pixelScale) * pixelScale;
+      for (let index = 0; index < text.length; index += 1) {
+        const code = text.charCodeAt(index);
+        const rows = FONT_5X7[code - FONT_FIRST_CODEPOINT] || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
+        rows.forEach((rowBits, row) => {
+          for (let column = 0; column < 5; column += 1) {
+            if (rowBits & (1 << (4 - column))) {
+              context.fillStyle = color;
+              context.fillRect(startX + index * FONT_CELL_WIDTH * 2 + column * pixelScale,
+                startY + row * pixelScale, pixelScale, pixelScale);
+            }
+          }
+        });
+      }
+    }
 
     function quantizeRgb(red, green, blue) {
       return [
@@ -750,10 +770,12 @@
         const easedProgress = progress * progress * (3 - 2 * progress);
         const iconY = item.startY + (40 - item.startY) * easedProgress;
         context.fillStyle = stale ? '#777777' : '#ffaa00';
-        drawLedText(item.label, item.left + Math.max(0, (width - measureLedText(item.label).width) / 2), 8);
-        drawWeatherPattern(item.icon, item.left + 80, iconY, 8, stale);
+        const labelWidth = item.label.length * FONT_CELL_WIDTH * 2;
+        context.fillStyle = stale ? '#777777' : '#ffaa00';
+        drawLedTextLarge(item.label, item.left + Math.max(0, (width - labelWidth) / 2), 0);
+        drawWeatherPattern(item.icon, item.left + 64, iconY, 12, stale);
         context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
-        drawLedText(item.value, item.left + 208, 60);
+        drawLedTextLarge(item.value, item.left + 208, 76);
       });
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
