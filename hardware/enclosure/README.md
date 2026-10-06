@@ -283,9 +283,16 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 The detachable left/right sides are now full-height **end caps** rather than
 enclosure-only plates:
 
-- the **lower/base section** follows the current base only from the triangular
-  guide reinforcement rearward; the old forward floor extension is deliberately
-  omitted, so the visible front edge follows the triangle diagonal;
+- the **lower/base section** still follows the current base only from the triangular
+  guide reinforcement rearward; the old forward floor extension remains
+  deliberately omitted;
+- a separate **hinge-gap cheek** now closes the exposed side strip between the
+  moving LED/template and the stationary lower hinge guard. Its main face stays
+  0.2 mm outside the moving panel edge, stops 0.2 mm in front of the guard, and
+  ends 0.2 mm below the hinge centreline. A shorter lower capture tongue reaches
+  0.5 mm across the guard's X footprint while remaining below the lowest swept
+  position of the moving panel, providing extra retention without blocking the
+  0–90 degree service motion;
 - the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
   reused unchanged by the end cap, so each side locks to the same A/B junctions
   used when two bases mate;
@@ -303,10 +310,12 @@ enclosure-only plates:
   dedicated keep-out around the upper module-to-module connector and its
   vertical release path, so it cannot consume the connector region.
 
-The external 3 mm end face is continuous only across the retained base/upper
-profile: it does not extend forward beyond the base triangle and does not extend
-above the enclosure return ramp. The internal 10 mm return is still locally
-removed where the current enclosure/module connector needs space.
+The external 3 mm end face follows the retained base/upper profile and now also
+includes the dedicated hinge-gap cheek described above. The base-following
+portion still does not recreate the removed forward floor extension, and the
+upper section still does not extend above the enclosure return ramp. The
+internal 10 mm return is still locally removed where the current
+enclosure/module connector needs space.
 These features provide end coverage and alignment/retention, not the primary
 structural load between modules.
 
@@ -318,7 +327,7 @@ cap and its hidden relief cuts through the 10 mm upper return locally, leaving
 the intended thin snap land at the exterior face.
 
 - measured body/cutout: **44 mm high × 27 mm wide** in portrait orientation;
-- FDM allowance: **0.10 mm per edge** → 44.2 × 27.2 mm printed opening;
+- requested fit allowance: **1.10 mm per edge** → **46.2 × 29.2 mm printed opening** (1 mm larger on every edge than the previous 44.2 × 27.2 mm aperture);
 - measured body intrusion: **30 mm** behind the inside face;
 - conservative rotated flange keep-out: **50 mm high × 30.5 mm wide**;
 - current side wall: **3.0 mm**;
@@ -334,8 +343,9 @@ sleeve and against the stationary enclosure core. Later base/enclosure changes
 therefore fail CI if they consume that clearance.
 
 If the real inlet has a 2 mm or thicker latch shoulder, tune
-`c14_snap_panel_t` after the physical fit test rather than enlarging the measured
-44 × 27 mm exterior opening.
+`c14_snap_panel_t` after the physical fit test rather than changing the measured
+44 × 27 mm body envelope; the exterior opening intentionally carries the larger
+46.2 × 29.2 mm fit allowance above.
 
 Physical acceptance: the flange sits flat, the spring lugs clear and catch
 behind the inner edge, the inlet cannot pull back out without compressing the
