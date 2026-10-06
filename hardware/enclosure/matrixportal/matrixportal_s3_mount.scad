@@ -1,4 +1,4 @@
-// Adafruit MatrixPortal S3 detachable enclosure mount.
+// Adafruit MatrixPortal S3 removable click-dock enclosure mount.
 //
 // Mechanical source of truth:
 //   Adafruit-MatrixPortal-S3-PCB / Adafruit MatrixPortal S3.brd
@@ -6,9 +6,16 @@
 //   plated mounting holes: 2.50 mm
 //   native hole centres: X=7.62/48.26, Y=15.875/35.56 mm
 //
-// The printable adapter uses the existing universal backplane M3 boss grid.
-// A dedicated left-side variant opens a service window for USB-C and the
-// Reset/Up/Down buttons while leaving the generic left side unchanged.
+// Architecture:
+//   1. a fixed dock bolts to four existing universal backplane M3 bosses;
+//   2. a removable carrier slides in from the LEFT service opening on two
+//      captive dovetail rails;
+//   3. a shallow PETG detent on one rail clicks into a matching carrier pocket;
+//   4. the carrier stops against a positive end wall at the seated position.
+//
+// The MatrixPortal stays attached to the carrier with M2.5 hardware. Normal
+// service therefore needs no backplane screws: pull the carrier from the left
+// opening to undock the complete controller assembly.
 
 // ----- Official PCB geometry -----
 mp_pcb_w = 63.50;
@@ -27,58 +34,141 @@ mp_down_y_native = 18.542;
 mp_hub75_x_native = 57.150;
 mp_hub75_y_native = 22.225;
 
+// The Eagle board contains a mirrored HUB75 connector on the underside. The
+// PCB file does not carry a trustworthy mechanical height, so keep a conservative
+// 9 mm reference envelope and provide 2.5 mm additional printed clearance.
+// This is deliberately parameterised for a physical-fit correction if required.
+mp_underside_connector_h = 9.0;
+mp_underside_clearance_margin = 2.5;
+
 // ----- Installed position in the left-most enclosure module -----
-// The PCB's native USB/button short edge already faces -X, so keep the board
-// unrotated in XY. HUB75 is then on the inward-facing +X edge.
+// Native USB/button short edge faces -X (the detachable left service side).
 mp_board_x0 = 1.50;
 mp_board_yc = 82.50;
 mp_board_y0 = mp_board_yc - mp_pcb_h/2;
 mp_board_service_edge_x = mp_board_x0;
 
-// Installed mounting-hole centres in board-local coordinates.
-mp_pcb_hole_x_installed = mp_pcb_hole_x_native;
-mp_pcb_hole_y_installed = mp_pcb_hole_y_native;
-
-// ----- Detachable adapter plate -----
-// Backplane boss columns/rows used by this adapter.
+// ----- Fixed dock -----
+// Backplane boss columns/rows used by the fixed dock.
 mp_backplane_mount_x = [32,80];
 mp_backplane_mount_y = [62.5,102.5];
 
-mp_adapter_x0 = 1.0;
-mp_adapter_y0 = 57.5;
-mp_adapter_w = 86.0;
-mp_adapter_h = 50.0;
-mp_adapter_t = 3.0;
-mp_adapter_corner_r = 3.0;
+mp_dock_x0 = 1.0;
+mp_dock_y0 = 57.5;
+mp_dock_w = 86.0;
+mp_dock_h = 50.0;
+mp_dock_t = 4.2;
+mp_dock_corner_r = 3.0;
 
-mp_adapter_m3_hole_d = 3.4;
-mp_adapter_m3_head_d = 6.5;
-mp_adapter_m3_head_recess = 1.8;
+mp_dock_m3_hole_d = 3.6;
+mp_dock_m3_head_d = 7.0;
+mp_dock_m3_head_recess = 1.8;
+mp_dock_boss_pocket_d = 7.5;
+mp_dock_boss_pocket_depth = 1.2;
 
+// ----- Removable MatrixPortal carrier -----
+mp_carrier_x0 = mp_dock_x0;
+mp_carrier_y0 = mp_dock_y0;
+mp_carrier_w = 82.0;
+mp_carrier_h = 50.0;
+mp_carrier_t = 2.8;
+mp_carrier_corner_r = 2.5;
+
+// Low-profile pull tab reaches into the left service opening without projecting
+// beyond the existing side-wall outer face.
+mp_pull_tab_len = 3.0;
+mp_pull_tab_y0 = 21.0;
+mp_pull_tab_h = 8.0;
+
+// The carrier rides 0.25 mm above the dock top while captive on the dovetails.
+mp_slide_z_clearance = 0.25;
+mp_carrier_assembled_z = mp_dock_t + mp_slide_z_clearance;
+
+// Raise the PCB far enough for the mirrored underside HUB75 connector.
 mp_board_standoff_d = 7.0;
-mp_board_standoff_h = 6.0;
+mp_board_standoff_h =
+    mp_underside_connector_h + mp_underside_clearance_margin;
 mp_board_screw_clearance_d = 2.8;
-// Captive M2.5 nut pocket: approximately 5 mm across flats.
 mp_board_nut_pocket_d = 6.0;
 mp_board_nut_pocket_h = 2.3;
 
+assert(abs(mp_board_standoff_h-11.5)<0.01,
+       "MatrixPortal underside clearance contract drifted");
+assert(mp_board_standoff_h >=
+       mp_underside_connector_h+mp_underside_clearance_margin,
+       "MatrixPortal carrier does not clear the underside connector");
+
+// Board coordinates relative to the removable carrier.
+mp_board_carrier_x0 = mp_board_x0-mp_carrier_x0;
+mp_board_carrier_y0 = mp_board_y0-mp_carrier_y0;
+
+// ----- Slide / click interface -----
+// Two captive dovetails guide insertion from left (-X) to right (+X).
+// They intentionally avoid both backplane screw rows and PCB standoff centres.
+mp_dovetail_y = [12.0,31.0];
+mp_dovetail_base_w = 2.4;
+mp_dovetail_top_w = 4.0;
+mp_dovetail_h = 1.8;
+mp_dovetail_skin = 0.4;
+mp_dovetail_clearance = 0.30;
+mp_dovetail_groove_depth = 1.90;
+
+mp_dovetail_rail_x0 = 2.0;
+mp_dovetail_rail_x1 = 74.0;
+mp_dovetail_rail_len = mp_dovetail_rail_x1-mp_dovetail_rail_x0;
+
+mp_dovetail_groove_x0 = -0.2;
+mp_dovetail_groove_x1 = mp_carrier_w+0.5;
+mp_dovetail_groove_len =
+    mp_dovetail_groove_x1-mp_dovetail_groove_x0;
+mp_dovetail_groove_bottom_w =
+    mp_dovetail_base_w+2*mp_dovetail_clearance;
+mp_dovetail_groove_top_w =
+    mp_dovetail_top_w+2*mp_dovetail_clearance;
+
+// Positive seated stop. A 0.2 mm nominal gap avoids a CAD hard-intersection;
+// the click detent establishes the repeatable seated position.
+mp_stop_x0 = mp_carrier_w+0.2;
+mp_stop_w = 2.0;
+mp_stop_h = mp_dovetail_h+0.8;
+
+// PETG click detent: a shallow bump on the lower dovetail flexes through the
+// carrier groove and settles into a deeper roof pocket at the seated position.
+// It is intentionally modest so the pull tab can release the carrier without
+// a separate lever.
+mp_detent_x = 69.0;
+mp_detent_len = 3.6;
+mp_detent_extra_h = 0.60;
+mp_detent_pocket_extra_depth = 0.55;
+mp_detent_interference =
+    mp_detent_extra_h -
+    (mp_dovetail_groove_depth-mp_dovetail_h);
+
+assert(mp_detent_interference > 0.15 &&
+       mp_detent_interference < 0.35,
+       "MatrixPortal dock detent should retain 0.15-0.35 mm click interference");
+assert(mp_dovetail_groove_depth+mp_detent_pocket_extra_depth <
+       mp_carrier_t-0.25,
+       "Detent pocket leaves too little carrier roof");
+
 // ----- Left-side service opening -----
-// Clear the complete 44.45 mm PCB service edge plus the adapter edge.
-// The Z ceiling stays below the compact rear connector/tab reinforcement.
+// The complete carrier + raised PCB now passes through this opening. The
+// nominal current enclosure places the PCB rear face at about Z=34.35 mm.
 mp_service_center_y = 82.50;
-mp_service_size_y = 50.0;
-mp_service_center_z = 44.0;
-mp_service_size_z = 20.0;
+mp_service_size_y = 52.0;
+mp_service_center_z = 34.0;
+mp_service_size_z = 31.0;
 mp_service_corner_r = 2.0;
 
+// Board is still inside the 256 mm module and the carrier covers its footprint.
 assert(mp_board_service_edge_x > 0,
        "MatrixPortal service edge must remain inside the 256 mm module");
-assert(mp_adapter_x0 <= mp_board_x0 &&
-       mp_adapter_x0+mp_adapter_w >= mp_board_x0+mp_pcb_w,
-       "adapter plate must cover the MatrixPortal footprint in X");
-assert(mp_adapter_y0 <= mp_board_y0 &&
-       mp_adapter_y0+mp_adapter_h >= mp_board_y0+mp_pcb_h,
-       "adapter plate must cover the MatrixPortal footprint in Y");
+assert(mp_carrier_x0 <= mp_board_x0 &&
+       mp_carrier_x0+mp_carrier_w >= mp_board_x0+mp_pcb_w,
+       "carrier must cover the MatrixPortal footprint in X");
+assert(mp_carrier_y0 <= mp_board_y0 &&
+       mp_carrier_y0+mp_carrier_h >= mp_board_y0+mp_pcb_h,
+       "carrier must cover the MatrixPortal footprint in Y");
 
 module mp_rounded_rect_2d(w,h,r) {
     assert(w > 2*r && h > 2*r);
@@ -131,31 +221,220 @@ module matrixportal_s3_reference(show_components=true) {
                 translate([-1.4,yy-2.1,mp_pcb_t+0.4])
                     cube([3.2,4.2,2.8]);
 
-        // Approximate opposing HUB75 connector envelope.
+        // Approximate top-side HUB75 connector envelope.
         color("gray")
-            translate([mp_hub75_x_native-4.0,mp_hub75_y_native-13.0,mp_pcb_t])
+            translate([mp_hub75_x_native-4.0,
+                       mp_hub75_y_native-13.0,
+                       mp_pcb_t])
                 cube([7.5,26.0,8.0]);
+
+        // Conservative underside connector envelope. Native negative Z becomes
+        // the backplane-facing direction in the installed mirrored preview.
+        color("deepskyblue",0.75)
+            translate([mp_hub75_x_native-4.0,
+                       mp_hub75_y_native-13.0,
+                       -mp_underside_connector_h])
+                cube([7.5,26.0,mp_underside_connector_h]);
     }
 }
 
-module matrixportal_s3_adapter_print() {
-    difference() {
-        union() {
-            linear_extrude(height=mp_adapter_t)
-                mp_rounded_rect_2d(
-                    mp_adapter_w,
-                    mp_adapter_h,
-                    mp_adapter_corner_r
+module mp_dock_mount_cutters(extra=0.6) {
+    for (xx=mp_backplane_mount_x)
+        for (yy=mp_backplane_mount_y) {
+            lx = xx-mp_dock_x0;
+            ly = yy-mp_dock_y0;
+
+            // M3 clearance through the fixed dock.
+            translate([lx,ly,-extra/2])
+                cylinder(
+                    d=mp_dock_m3_hole_d,
+                    h=mp_dock_t+extra,
+                    $fn=32
                 );
 
-            // Four PCB standoffs align with the official Eagle hole pattern,
-            // with the native service edge facing the enclosure's left side.
-            for (bx=mp_pcb_hole_x_installed)
-                for (by=mp_pcb_hole_y_installed)
+            // Equipment-side screw head recess sits below the sliding carrier.
+            translate([
+                lx,
+                ly,
+                mp_dock_t-mp_dock_m3_head_recess
+            ])
+                cylinder(
+                    d=mp_dock_m3_head_d,
+                    h=mp_dock_m3_head_recess+extra/2,
+                    $fn=32
+                );
+
+            // Back-face socket registers positively on each 7 mm boss body.
+            translate([lx,ly,-0.1])
+                cylinder(
+                    d=mp_dock_boss_pocket_d,
+                    h=mp_dock_boss_pocket_depth+0.1,
+                    $fn=32
+                );
+        }
+}
+
+module mp_dovetail_rail(yc,with_detent=false) {
+    union() {
+        hull() {
+            translate([
+                mp_dovetail_rail_x0,
+                yc-mp_dovetail_base_w/2,
+                mp_dock_t-0.2
+            ])
+                cube([
+                    mp_dovetail_rail_len,
+                    mp_dovetail_base_w,
+                    mp_dovetail_skin
+                ]);
+            translate([
+                mp_dovetail_rail_x0,
+                yc-mp_dovetail_top_w/2,
+                mp_dock_t+mp_dovetail_h-mp_dovetail_skin
+            ])
+                cube([
+                    mp_dovetail_rail_len,
+                    mp_dovetail_top_w,
+                    mp_dovetail_skin+0.2
+                ]);
+        }
+
+        if (with_detent)
+            hull() {
+                // Smooth lead-in/out shoulders rather than a sharp blocking lip.
+                translate([
+                    mp_detent_x-mp_detent_len/2,
+                    yc-mp_dovetail_top_w/2,
+                    mp_dock_t+mp_dovetail_h-0.15
+                ])
+                    cube([0.5,mp_dovetail_top_w,0.15]);
+                translate([
+                    mp_detent_x-0.45,
+                    yc-mp_dovetail_top_w/2,
+                    mp_dock_t+mp_dovetail_h+
+                        mp_detent_extra_h-0.15
+                ])
+                    cube([0.9,mp_dovetail_top_w,0.15]);
+                translate([
+                    mp_detent_x+mp_detent_len/2-0.5,
+                    yc-mp_dovetail_top_w/2,
+                    mp_dock_t+mp_dovetail_h-0.15
+                ])
+                    cube([0.5,mp_dovetail_top_w,0.15]);
+            }
+    }
+}
+
+module matrixportal_s3_dock_print() {
+    union() {
+        difference() {
+            linear_extrude(height=mp_dock_t)
+                mp_rounded_rect_2d(
+                    mp_dock_w,
+                    mp_dock_h,
+                    mp_dock_corner_r
+                );
+            mp_dock_mount_cutters();
+        }
+
+        // Lower rail carries the click detent; upper rail is plain guidance.
+        mp_dovetail_rail(mp_dovetail_y[0],true);
+        mp_dovetail_rail(mp_dovetail_y[1],false);
+
+        // Positive insertion stop lives beyond the carrier leading edge.
+        translate([
+            mp_stop_x0,
+            0,
+            mp_dock_t-0.2
+        ])
+            cube([
+                mp_stop_w,
+                mp_dock_h,
+                mp_stop_h+0.2
+            ]);
+    }
+}
+
+module mp_dovetail_groove_cutter(yc,pocket=false) {
+    union() {
+        hull() {
+            translate([
+                mp_dovetail_groove_x0,
+                yc-mp_dovetail_groove_bottom_w/2,
+                -0.2
+            ])
+                cube([
+                    mp_dovetail_groove_len,
+                    mp_dovetail_groove_bottom_w,
+                    mp_dovetail_skin
+                ]);
+            translate([
+                mp_dovetail_groove_x0,
+                yc-mp_dovetail_groove_top_w/2,
+                mp_dovetail_groove_depth-mp_dovetail_skin
+            ])
+                cube([
+                    mp_dovetail_groove_len,
+                    mp_dovetail_groove_top_w,
+                    mp_dovetail_skin+0.2
+                ]);
+        }
+
+        if (pocket)
+            translate([
+                mp_detent_x-mp_detent_len/2-0.4,
+                yc-mp_dovetail_groove_top_w/2-0.2,
+                mp_dovetail_groove_depth-0.1
+            ])
+                cube([
+                    mp_detent_len+0.8,
+                    mp_dovetail_groove_top_w+0.4,
+                    mp_detent_pocket_extra_depth+0.2
+                ]);
+    }
+}
+
+module mp_carrier_plate() {
+    union() {
+        linear_extrude(height=mp_carrier_t)
+            mp_rounded_rect_2d(
+                mp_carrier_w,
+                mp_carrier_h,
+                mp_carrier_corner_r
+            );
+
+        // Low-profile pull tab is centred in the service opening.
+        translate([
+            -mp_pull_tab_len,
+            mp_pull_tab_y0,
+            0
+        ])
+            cube([
+                mp_pull_tab_len+0.5,
+                mp_pull_tab_h,
+                mp_carrier_t
+            ]);
+    }
+}
+
+module matrixportal_s3_carrier_print() {
+    difference() {
+        union() {
+            difference() {
+                mp_carrier_plate();
+
+                // Open-ended grooves allow insertion from the left service side.
+                mp_dovetail_groove_cutter(mp_dovetail_y[0],true);
+                mp_dovetail_groove_cutter(mp_dovetail_y[1],false);
+            }
+
+            // Raised PCB standoffs preserve the underside connector envelope.
+            for (bx=mp_pcb_hole_x_native)
+                for (by=mp_pcb_hole_y_native)
                     translate([
-                        mp_board_x0+bx-mp_adapter_x0,
-                        mp_board_y0+by-mp_adapter_y0,
-                        mp_adapter_t-0.2
+                        mp_board_carrier_x0+bx,
+                        mp_board_carrier_y0+by,
+                        mp_carrier_t-0.2
                     ])
                         cylinder(
                             d=mp_board_standoff_d,
@@ -164,40 +443,13 @@ module matrixportal_s3_adapter_print() {
                         );
         }
 
-        // M3 clearance holes into four existing universal backplane bosses.
-        for (xx=mp_backplane_mount_x)
-            for (yy=mp_backplane_mount_y) {
-                translate([
-                    xx-mp_adapter_x0,
-                    yy-mp_adapter_y0,
-                    -0.2
-                ])
-                    cylinder(
-                        d=mp_adapter_m3_hole_d,
-                        h=mp_adapter_t+0.4,
-                        $fn=32
-                    );
+        // M2.5 board screw passages and captive top-loading nut pockets.
+        for (bx=mp_pcb_hole_x_native)
+            for (by=mp_pcb_hole_y_native) {
+                local_x = mp_board_carrier_x0+bx;
+                local_y = mp_board_carrier_y0+by;
 
-                // Recess the screw heads so they stay below the PCB envelope.
-                translate([
-                    xx-mp_adapter_x0,
-                    yy-mp_adapter_y0,
-                    mp_adapter_t-mp_adapter_m3_head_recess
-                ])
-                    cylinder(
-                        d=mp_adapter_m3_head_d,
-                        h=mp_adapter_m3_head_recess+0.2,
-                        $fn=32
-                    );
-            }
-
-        // M2.5 board screw passages plus top-loading captive nut pockets.
-        for (bx=mp_pcb_hole_x_installed)
-            for (by=mp_pcb_hole_y_installed) {
-                local_x = mp_board_x0+bx-mp_adapter_x0;
-                local_y = mp_board_y0+by-mp_adapter_y0;
-
-                translate([local_x,local_y,mp_adapter_t-0.2])
+                translate([local_x,local_y,mp_carrier_t-0.2])
                     cylinder(
                         d=mp_board_screw_clearance_d,
                         h=mp_board_standoff_h+0.4,
@@ -207,7 +459,9 @@ module matrixportal_s3_adapter_print() {
                 translate([
                     local_x,
                     local_y,
-                    mp_adapter_t+mp_board_standoff_h-mp_board_nut_pocket_h
+                    mp_carrier_t+
+                        mp_board_standoff_h-
+                        mp_board_nut_pocket_h
                 ])
                     cylinder(
                         d=mp_board_nut_pocket_d,
@@ -218,22 +472,37 @@ module matrixportal_s3_adapter_print() {
     }
 }
 
-module matrixportal_s3_adapter_installed(boss_tip_z) {
-    // Print geometry grows in +Z; installed geometry grows toward the panel
-    // (negative enclosure Z) from the front tips of the universal bosses.
-    translate([mp_adapter_x0,mp_adapter_y0,boss_tip_z])
+module matrixportal_s3_dock_installed(boss_tip_z) {
+    // Print +Z maps toward the panel (negative installed enclosure Z).
+    translate([mp_dock_x0,mp_dock_y0,boss_tip_z])
         mirror([0,0,1])
-            matrixportal_s3_adapter_print();
+            matrixportal_s3_dock_print();
 }
 
-module matrixportal_s3_reference_installed(boss_tip_z,show_components=true) {
-    board_back_z =
-        boss_tip_z-mp_adapter_t-mp_board_standoff_h;
-
-    // Native service edge is already at local X=0, so it lands next to the
-    // left-side service opening without an XY rotation.
+module matrixportal_s3_carrier_installed(boss_tip_z,slide_x=0) {
     translate([
-        mp_board_x0,
+        mp_carrier_x0+slide_x,
+        mp_carrier_y0,
+        boss_tip_z
+    ])
+        mirror([0,0,1])
+            translate([0,0,mp_carrier_assembled_z])
+                matrixportal_s3_carrier_print();
+}
+
+module matrixportal_s3_reference_installed(
+    boss_tip_z,
+    show_components=true,
+    slide_x=0
+) {
+    board_back_z =
+        boss_tip_z -
+        mp_carrier_assembled_z -
+        mp_carrier_t -
+        mp_board_standoff_h;
+
+    translate([
+        mp_board_x0+slide_x,
         mp_board_y0,
         board_back_z
     ])
