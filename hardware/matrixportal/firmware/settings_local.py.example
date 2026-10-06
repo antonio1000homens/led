@@ -14,3 +14,5 @@ FRAME_SECONDS = 0.2
 
 WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
+WIFI_STARTUP_DELAY_SECONDS = 10
+WIFI_TX_POWER_DBM = 8

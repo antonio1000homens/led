@@ -86,6 +86,12 @@ to the import path for repository/Wokwi execution. `scripts/stage-firmware.sh`
 flattens those modules into `.build/circuitpy/`, and
 `scripts/install-firmware.sh` copies the staged application onto a mounted
 `CIRCUITPY` drive without removing `settings_local.py` or `lib/`.
+The installer writes `code.py` last and stages the managed `boot.py`, which
+keeps Wi-Fi off until the application applies a 10-second delay and 8 dBm limit.
+Reserved `CIRCUITPY_WIFI_SSID/PASSWORD` keys must first be renamed to the custom
+`WIFI_SSID/PASSWORD` keys; the installer rejects early automatic connection
+configuration. Power-cycle after installation. Browser maintenance remains
+disabled with these custom credentials.
 
 Lambda packaging follows the same principle: source lives under `backend/`
 and `shared/`, while `scripts/package-lambda.sh` flattens the selected

@@ -27,6 +27,10 @@ if local:
         if not name.startswith("_"):
             setattr(settings, name, getattr(local, name))
 
+from wifi_startup import start_wifi
+
+start_wifi(settings)
+
 from queue_display import create
 from fixtures import animated_services
 from flash_events import FlashState

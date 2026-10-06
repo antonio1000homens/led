@@ -292,7 +292,23 @@ FRAME_SECONDS = 0.2
 
 WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
+WIFI_STARTUP_DELAY_SECONDS = 10
+WIFI_TX_POWER_DBM = 8
 ```
+
+The physical API application keeps Wi-Fi off for 10 seconds, then enables it
+with an 8 dBm transmit-power limit before connecting. The bare-board test
+restarted on the wall USB supply at its original transmit power, but remained
+reachable at 8 dBm; the full application also answered pings on that supply.
+Stability with powered panels still requires a physical check. Lower transmit
+power reduces range and does not establish that the supply is electrically sound.
+
+Use custom `WIFI_SSID` and `WIFI_PASSWORD` keys in board-local `settings.toml`,
+or the Python settings above. Remove the reserved `CIRCUITPY_WIFI_SSID` and
+`CIRCUITPY_WIFI_PASSWORD` keys: those cause an automatic connection before the
+application can apply its transmit limit. Automatic browser maintenance is
+disabled with this configuration; install over USB and power-cycle afterward
+so the staged `boot.py` runs. Existing credentials remain board-local.
 
 For local development instead, copy `hardware/matrixportal/firmware/settings_local.py.example` to the ignored root `settings_local.py` and point `SCREEN_API_URL` at the LAN machine running `scripts/run-server.sh`, for example `http://192.168.1.123:8000`.
 
