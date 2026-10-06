@@ -1,6 +1,7 @@
 import io
 import json
 import unittest
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from server import DepartureFeed, FixtureProvider, ScreenFeed
@@ -34,12 +35,12 @@ def sample_forecast():
 
 def sample_blocks():
     return [
-        {"label": "12am", "temperature_c": 10.0, "weather_code": 0, "icon": "clear_night"},
-        {"label": "4am", "temperature_c": 11.0, "weather_code": 1, "icon": "partly_cloudy_night"},
-        {"label": "8am", "temperature_c": 12.0, "weather_code": 2, "icon": "partly_cloudy_day"},
-        {"label": "12pm", "temperature_c": 13.0, "weather_code": 3, "icon": "cloudy"},
-        {"label": "4pm", "temperature_c": 14.0, "weather_code": 61, "icon": "rain"},
-        {"label": "8pm", "temperature_c": 15.0, "weather_code": 45, "icon": "fog"},
+        {"label": "Now", "temperature_c": 10.0, "weather_code": 0, "icon": "clear_day"},
+        {"label": "2pm", "temperature_c": 11.0, "weather_code": 1, "icon": "partly_cloudy_day"},
+        {"label": "6pm", "temperature_c": 12.0, "weather_code": 2, "icon": "partly_cloudy_day"},
+        {"label": "10pm", "temperature_c": 13.0, "weather_code": 3, "icon": "cloudy"},
+        {"label": "2am", "temperature_c": 14.0, "weather_code": 61, "icon": "rain"},
+        {"label": "6am", "temperature_c": 15.0, "weather_code": 45, "icon": "fog"},
     ]
 
 
@@ -74,18 +75,21 @@ class IconTests(unittest.TestCase):
 class OpenMeteoProviderTests(unittest.TestCase):
     def _payload(self, days=2):
         dates = ["2026-10-{:02d}".format(4 + index) for index in range(days)]
-        hours = ["2026-10-04T{:02d}:00".format(hour) for hour in range(24)]
-        codes = [0] * 4 + [1] * 4 + [2] * 4 + [3] * 4 + [61] * 4 + [45] * 4
+        start = datetime(2026, 10, 4)
+        stamps = [start + timedelta(hours=hour) for hour in range(48)]
+        hours = [stamp.strftime("%Y-%m-%dT%H:%M") for stamp in stamps]
         return {
             "current": {
+                "time": "2026-10-04T10:45",
                 "temperature_2m": 17.36,
                 "weather_code": 2,
                 "is_day": 1,
             },
             "hourly": {
                 "time": hours,
-                "temperature_2m": [8 + hour / 2 for hour in range(24)],
-                "weather_code": codes,
+                "temperature_2m": [8 + hour / 2 for hour in range(48)],
+                "weather_code": [0 for _ in range(48)],
+                "is_day": [1 if 7 <= stamp.hour < 19 else 0 for stamp in stamps],
             },
             "daily": {
                 "time": dates,
@@ -109,7 +113,7 @@ class OpenMeteoProviderTests(unittest.TestCase):
         query = parse_qs(urlparse(captured["url"]).query)
 
         self.assertEqual(query["current"], ["temperature_2m,weather_code,is_day"])
-        self.assertEqual(query["hourly"], ["temperature_2m,weather_code"])
+        self.assertEqual(query["hourly"], ["temperature_2m,weather_code,is_day"])
         self.assertEqual(
             query["daily"],
             ["weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset"],
@@ -122,25 +126,26 @@ class OpenMeteoProviderTests(unittest.TestCase):
         self.assertEqual(result["sunrise_time"], "07:08")
         self.assertEqual(result["sunset_time"], "18:29")
         self.assertEqual([block["label"] for block in result["today_blocks"]],
-                         ["12am", "4am", "8am", "12pm", "4pm", "8pm"])
+                         ["Now", "2pm", "6pm", "10pm", "2am", "6am"])
         self.assertEqual([block["temperature_c"] for block in result["today_blocks"]],
-                         [9.0, 11.0, 13.0, 15.0, 17.0, 19.0])
+                         [17.4, 15.0, 17.0, 19.0, 21.0, 23.0])
+        self.assertEqual(result["today_blocks"][4]["icon"], "clear_night")
 
-    def test_today_uses_nearest_hour_inside_each_block_when_midpoint_is_missing(self):
+    def test_rolling_weather_uses_nearest_hour_when_a_target_is_missing(self):
         payload = self._payload()
-        midpoint = payload["hourly"]["time"].index("2026-10-04T10:00")
-        for key in ("time", "temperature_2m", "weather_code"):
-            payload["hourly"][key].pop(midpoint)
+        target = payload["hourly"]["time"].index("2026-10-04T14:00")
+        for key in ("time", "temperature_2m", "weather_code", "is_day"):
+            payload["hourly"][key].pop(target)
 
         def opener(url, timeout):
             del url, timeout
             return io.BytesIO(json.dumps(payload).encode("utf-8"))
 
         blocks = OpenMeteoProvider(51.4, -0.25, opener=opener).fetch()["today_blocks"]
-        self.assertEqual(blocks[2]["label"], "8am")
-        self.assertEqual(blocks[2]["temperature_c"], 12.5)
+        self.assertEqual(blocks[1]["label"], "2pm")
+        self.assertEqual(blocks[1]["temperature_c"], 14.5)
 
-    def test_malformed_solar_values_do_not_break_current_weekly_or_today(self):
+    def test_malformed_solar_values_do_not_break_current_weekly_or_next_24h(self):
         payload = self._payload()
         payload["daily"]["sunrise"][0] = "bad"
 
