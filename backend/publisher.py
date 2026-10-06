@@ -30,7 +30,7 @@ DEFAULT_WEATHER_LONGITUDE = -0.256
 STEAM_TRAIN_DISPLAY_WIDTH = 256
 STEAM_TRAIN_WIDTH_PX = 52
 STEAM_TRAIN_TEXT_GAP_PX = 8
-# The train intro renders its trailing text at 2x the normal 5px cell width.
+# The train intro uses the font's 6px character advance at 2x size.
 STEAM_TRAIN_FONT_WIDTH_PX = 12
 
 

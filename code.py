@@ -602,7 +602,7 @@ while True:
             animation_cadence = None
             next_animation_deadline = None
             boundary_sleep = display.animation_sleep_seconds(screen, phase)
-            duration = max(1, int(screen.get("duration_seconds") or 8))
+            duration = max(1.0, float(screen.get("duration_seconds") or 8))
             until_rotation = max(0.05, duration - max(0, phase))
             until_fetch = max(0.05, next_fetch - time.monotonic())
             _sleep_interruptible(
@@ -775,7 +775,7 @@ while True:
         # Waking only at the next page/fetch boundary avoids repeatedly
         # rebuilding the complete HUB75 framebuffer, which can show as
         # horizontal flashes on long panel chains.
-        duration = max(1, int(screen.get("duration_seconds") or 8))
+        duration = max(1.0, float(screen.get("duration_seconds") or 8))
         until_rotation = max(0.05, duration - max(0, phase))
         until_fetch = max(0.05, next_fetch - time.monotonic())
         _sleep_interruptible(min(until_rotation, until_fetch), service_mqtt=True)
