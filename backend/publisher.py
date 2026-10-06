@@ -28,10 +28,7 @@ SCREENS_KEY = "api/screens"
 DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
 STEAM_TRAIN_DISPLAY_WIDTH = 256
-STEAM_TRAIN_WIDTH_PX = 52
-STEAM_TRAIN_TEXT_GAP_PX = 8
-# The train intro uses the font's 6px character advance at 2x size.
-STEAM_TRAIN_FONT_WIDTH_PX = 12
+STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
 
 
 def _iso(value):
@@ -316,16 +313,12 @@ class Publisher:
             if steam_config["enabled"]:
                 words = steam_config.get("words") or ""
                 speed = max(1, int(steam_config["animation_speed"]))
-                trailing_width = (
-                    STEAM_TRAIN_TEXT_GAP_PX + len(words) * STEAM_TRAIN_FONT_WIDTH_PX
-                    if words else 0
+                # The train enters from the right and stops with its front at
+                # the left edge. Hold there briefly before departures replaces it.
+                duration_seconds = max(
+                    2.0,
+                    STEAM_TRAIN_DISPLAY_WIDTH / speed + STEAM_TRAIN_EDGE_HOLD_SECONDS,
                 )
-                content_width = STEAM_TRAIN_WIDTH_PX + trailing_width
-                travel_distance = STEAM_TRAIN_DISPLAY_WIDTH + content_width
-                # Keep the handoff tied to the moment the complete train and
-                # trailing text leave the panel. Rounding up to whole seconds
-                # left a visible blank tail before the next screen.
-                duration_seconds = max(2.0, travel_distance / speed)
                 screens.append({
                     "id": "steam-train",
                     "kind": "steam_train_intro",

@@ -76,7 +76,9 @@ WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 3
 SUN_WEATHER_TIME_SCALE = 2
-SUN_WEATHER_ICON_Y = 10
+SUN_WEATHER_SUN_COLOR = 0xFFFF00
+SUN_WEATHER_MOON_COLOR = 0x0000FF
+SUN_WEATHER_ICON_Y = 5
 SUN_WEATHER_ANIMATION_SECONDS = 4.0
 SUN_WEATHER_RISE_START_Y = 32
 SUN_WEATHER_SET_START_Y = -(WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE)
@@ -98,6 +100,10 @@ WEEKLY_WEATHER_GLYPHS = {
     "4": (5, 5, 7, 1, 1), "5": (7, 4, 7, 1, 7),
     "6": (7, 4, 7, 5, 7), "7": (7, 1, 2, 2, 2),
     "8": (7, 5, 7, 5, 7), "9": (7, 5, 7, 1, 7),
+    "S": (7, 4, 7, 1, 7), "U": (5, 5, 5, 5, 7),
+    "N": (5, 7, 7, 7, 5), "R": (6, 5, 6, 5, 5),
+    "I": (7, 2, 2, 2, 7), "E": (7, 4, 6, 4, 7),
+    "T": (7, 2, 2, 2, 2), ":": (0, 4, 0, 4, 0),
     "C": (3, 4, 4, 4, 3), "-": (0, 0, 7, 0, 0),
 }
 WEATHER_FONT_WIDTH = 5
@@ -285,6 +291,14 @@ def _sun_weather_animation_active(phase):
     return _sun_weather_progress(phase) < 1.0
 
 
+def _format_sun_time(value):
+    """Keep the time separator visible and normalize compact HHMM values."""
+    text = str(value or "--:--")
+    if len(text) == 4 and text.isdigit():
+        return text[:2] + ":" + text[2:]
+    return text
+
+
 def _sun_weather_icon_y(icon_name, phase):
     """Slide sunrise upward and sunset downward to their shared resting row."""
     progress = _sun_weather_progress(phase)
@@ -299,6 +313,13 @@ def _sun_weather_icon_y(icon_name, phase):
     else:
         return SUN_WEATHER_ICON_Y
     return int(round(start_y + (SUN_WEATHER_ICON_Y - start_y) * progress))
+
+
+def _sun_weather_rgb(icon_name, stale=False):
+    """Use primary LED colors so yellow and blue survive one-bit output."""
+    if stale:
+        return 0x777777
+    return SUN_WEATHER_SUN_COLOR if icon_name == "clear_day" else SUN_WEATHER_MOON_COLOR
 
 
 def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
@@ -677,7 +698,7 @@ class MatrixDisplay:
                                        row_index * scale + dy] = 1
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=int(x), y=int(y)))
 
-    def _scaled_label(self, group, text, color, x, y, scale=2):
+    def _scaled_label(self, group, text, color, x, y, scale=3):
         """Draw font glyphs into a scaled bitmap for the compact train intro."""
         import displayio
 
@@ -1910,7 +1931,7 @@ class MatrixDisplay:
                 words,
                 0xFFAA00,
                 STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP,
-                9,
+                5,
             )
         root.append(motion)
 
@@ -1930,7 +1951,7 @@ class MatrixDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        next_x = DISPLAY_WIDTH - int(elapsed * self._steam_train_speed)
+        next_x = max(0, DISPLAY_WIDTH - int(elapsed * self._steam_train_speed))
         if self._steam_train_motion_group.x == next_x:
             return False
         self._steam_train_motion_group.x = next_x
@@ -2031,22 +2052,20 @@ class MatrixDisplay:
         text_color = 0xAAAAAA if stale else 0xFFFFFF
         label_color = 0x777777 if stale else 0xFFAA00
         values = (
-            ("SUNRISE", screen.get("sunrise_time") or "--:--", "clear_day", 0, DISPLAY_WIDTH // 2),
-            ("SUNSET", screen.get("sunset_time") or "--:--", "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
+            ("SUNRISE", _format_sun_time(screen.get("sunrise_time")), "clear_day", 0, DISPLAY_WIDTH // 2),
+            ("SUNSET", _format_sun_time(screen.get("sunset_time")), "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
         )
         icon_grids = []
         for label, value, icon_name, left, right in values:
             width = right - left
-            self._label(group, label, label_color,
-                        left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2),
-                        WEATHER_HEADING_BASELINE_Y)
+            self._sun_text_label(group, label, label_color, left + 27, 11, SUN_WEATHER_TIME_SCALE)
             rows = WEATHER_ICONS[icon_name]
             icon_width = WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE
             bitmap = displayio.Bitmap(icon_width, icon_width, 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
             palette.make_transparent(0)
-            palette[1] = _weather_rgb(icon_name, stale)
+            palette[1] = _sun_weather_rgb(icon_name, stale)
             for y, row in enumerate(rows):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
@@ -2056,18 +2075,17 @@ class MatrixDisplay:
             icon_grid = displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
-                x=left + 16,
+                x=left + 1,
                 y=_sun_weather_icon_y(icon_name, phase),
             )
             group.append(icon_grid)
             icon_grids.append((icon_name, icon_grid))
-            self._sun_time_label(group, value, text_color, left + 52, 19)
+            self._sun_text_label(group, value, text_color, left + 88, 11, SUN_WEATHER_TIME_SCALE)
         return tuple(icon_grids)
 
-    def _sun_time_label(self, group, text, color, x, y):
+    def _sun_text_label(self, group, text, color, x, y, scale):
         import displayio
 
-        scale = SUN_WEATHER_TIME_SCALE
         text = str(text)
         bitmap = displayio.Bitmap(len(text) * 4 * scale, 5 * scale, 2)
         palette = displayio.Palette(2)
@@ -2270,7 +2288,7 @@ class FixtureDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        x = DISPLAY_WIDTH - int(elapsed * speed)
+        x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
         self._fill_rect(x + 4, 12, 29, 9, (255, 255, 255))
         self._fill_rect(x + 30, 7, 16, 14, (255, 255, 255))
         self._fill_rect(x + 8, 5, 7, 7, (170, 170, 170))
@@ -2364,29 +2382,24 @@ class FixtureDisplay:
         text_color = (170, 170, 170) if stale else (255, 255, 255)
         label_color = (119, 119, 119) if stale else (255, 170, 0)
         values = (
-            ("SUNRISE", screen.get("sunrise_time") or "--:--", "clear_day", 0, DISPLAY_WIDTH // 2),
-            ("SUNSET", screen.get("sunset_time") or "--:--", "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
+            ("SUNRISE", _format_sun_time(screen.get("sunrise_time")), "clear_day", 0, DISPLAY_WIDTH // 2),
+            ("SUNSET", _format_sun_time(screen.get("sunset_time")), "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
         )
         for label, value, icon_name, left, right in values:
             width = right - left
-            self._text(
-                label,
-                left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2),
-                WEATHER_HEADING_PIXEL_Y,
-                label_color,
-            )
-            icon_color = _rgb_tuple(_weather_rgb(icon_name, stale))
+            self._text_scaled(label, left + 27, 11, label_color, SUN_WEATHER_TIME_SCALE)
+            icon_color = _rgb_tuple(_sun_weather_rgb(icon_name, stale))
             for y, row in enumerate(WEATHER_ICONS[icon_name]):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
                         for dx in range(SUN_WEATHER_ICON_SCALE):
                             for dy in range(SUN_WEATHER_ICON_SCALE):
                                 self._pixel(
-                                    left + 16 + x * SUN_WEATHER_ICON_SCALE + dx,
+                                    left + 1 + x * SUN_WEATHER_ICON_SCALE + dx,
                                     _sun_weather_icon_y(icon_name, phase) + y * SUN_WEATHER_ICON_SCALE + dy,
                                     icon_color,
                                 )
-            self._text_scaled(value, left + 52, 19, text_color, SUN_WEATHER_TIME_SCALE)
+            self._text_scaled(value, left + 88, 11, text_color, SUN_WEATHER_TIME_SCALE)
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")

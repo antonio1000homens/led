@@ -121,7 +121,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(steam["kind"], "steam_train_intro")
         self.assertEqual(steam["animation_speed"], 30)
         self.assertEqual(steam["words"], "choo choo")
-        self.assertEqual(steam["duration_seconds"], 13)
+        self.assertAlmostEqual(steam["duration_seconds"], 256 / 30 + 1)
 
         runtime["feeds"]["steam_train"]["enabled"]=False
         payload=Publisher(

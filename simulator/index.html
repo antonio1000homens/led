@@ -145,7 +145,7 @@
     function drawLedTextLarge(value, x, y) {
       const text = String(value ?? '');
       const color = context.fillStyle;
-      const pixelScale = FONT_PIXEL_SCALE * 2;
+      const pixelScale = FONT_PIXEL_SCALE * 3;
       const startX = Math.round(Number(x || 0) / pixelScale) * pixelScale;
       const startY = Math.round(Number(y || 0) / pixelScale) * pixelScale;
       for (let index = 0; index < text.length; index += 1) {
@@ -155,12 +155,36 @@
           for (let column = 0; column < 5; column += 1) {
             if (rowBits & (1 << (4 - column))) {
               context.fillStyle = color;
-              context.fillRect(startX + index * (FONT_CELL_WIDTH + FONT_PIXEL_SCALE) * 2 + column * pixelScale,
+              context.fillRect(startX + index * (FONT_CELL_WIDTH + FONT_PIXEL_SCALE) * 3 + column * pixelScale,
                 startY + row * pixelScale, pixelScale, pixelScale);
             }
           }
         });
       }
+    }
+    const SUN_FONT_3X5 = {
+      '0':[7,5,5,5,7], '1':[2,6,2,2,7], '2':[7,1,7,4,7], '3':[7,1,7,1,7],
+      '4':[5,5,7,1,1], '5':[7,4,7,1,7], '6':[7,4,7,5,7], '7':[7,1,2,2,2],
+      '8':[7,5,7,5,7], '9':[7,5,7,1,7], 'S':[7,4,7,1,7], 'U':[5,5,5,5,7],
+      'N':[5,7,7,7,5], 'R':[6,5,6,5,5], 'I':[7,2,2,2,7], 'E':[7,4,6,4,7],
+      'T':[7,2,2,2,2], ':':[0,4,0,4,0], '-':[0,0,7,0,0]
+    };
+    function drawSunText(value, x, y, scale, color) {
+      const pixelSize = FONT_PIXEL_SCALE * scale;
+      const startX = Math.round(x / pixelSize) * pixelSize;
+      const startY = Math.round(y / pixelSize) * pixelSize;
+      context.fillStyle = color;
+      [...String(value ?? '')].forEach((char, index) => {
+        const rows = SUN_FONT_3X5[char] || [0,0,0,0,0];
+        rows.forEach((rowBits, row) => {
+          for (let column = 0; column < 3; column += 1) {
+            if (rowBits & (1 << (2 - column))) {
+              context.fillRect(startX + (index * 4 + column) * pixelSize,
+                startY + row * pixelSize, pixelSize, pixelSize);
+            }
+          }
+        });
+      });
     }
 
     function quantizeRgb(red, green, blue) {
@@ -698,9 +722,9 @@
         });
       });
     }
-    function drawWeatherPattern(iconName, x, y, scale, stale) {
+    function drawWeatherPattern(iconName, x, y, scale, stale, colorOverride = null) {
       const name = weatherIcons[iconName] ? iconName : 'unknown';
-      context.fillStyle = stale ? '#777777' : weatherColors[name];
+      context.fillStyle = stale ? '#777777' : (colorOverride || weatherColors[name]);
       weatherIcons[name].forEach((line, row) => [...line].forEach((pixel, column) => {
         if (pixel === '#') context.fillRect(x + column * scale, y + row * scale, scale, scale);
       }));
@@ -761,21 +785,20 @@
     function drawSunWeather(screen, phase) {
       const stale = Boolean(screen.stale || forceStale);
       const progress = Math.min(1, Math.max(0, Number(phase) || 0) / SUN_WEATHER_ANIMATION_SECONDS);
+      const formatSunTime = value => /^\d{4}$/.test(String(value || ''))
+        ? `${String(value).slice(0, 2)}:${String(value).slice(2)}` : (value || '--:--');
       const halves = [
-        {label:'SUNRISE', value:screen.sunrise_time || '--:--', icon:'clear_day', left:0, right:512, startY:128},
-        {label:'SUNSET', value:screen.sunset_time || '--:--', icon:'clear_night', left:512, right:1024, startY:-56}
+        {label:'SUNRISE', value:formatSunTime(screen.sunrise_time), icon:'clear_day', left:0, right:512, startY:128},
+        {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-84}
       ];
       halves.forEach(item => {
         const width = item.right - item.left;
         const easedProgress = progress * progress * (3 - 2 * progress);
-        const iconY = item.startY + (40 - item.startY) * easedProgress;
-        context.fillStyle = stale ? '#777777' : '#ffaa00';
-        const labelWidth = item.label.length * FONT_CELL_WIDTH * 2;
-        context.fillStyle = stale ? '#777777' : '#ffaa00';
-        drawLedTextLarge(item.label, item.left + Math.max(0, (width - labelWidth) / 2), 0);
-        drawWeatherPattern(item.icon, item.left + 64, iconY, 12, stale);
-        context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
-        drawLedTextLarge(item.value, item.left + 208, 76);
+        const iconY = item.startY + (20 - item.startY) * easedProgress;
+        drawWeatherPattern(item.icon, item.left + 4, iconY, 12, stale,
+          item.icon === 'clear_day' ? '#ffff00' : '#0000ff');
+        drawSunText(item.label, item.left + 108, 44, 2, stale ? '#777777' : '#ffaa00');
+        drawSunText(item.value, item.left + 352, 44, 2, stale ? '#aaaaaa' : '#ffffff');
       });
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
@@ -849,7 +872,7 @@
     }
     function drawSteamTrain(screen, phase) {
       const speed = boundedNumber(screen.animation_speed, 24, 8, 80) * FONT_PIXEL_SCALE;
-      const x = Math.round((1024 - Math.max(0, Number(phase) || 0) * speed) / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE;
+      const x = Math.max(0, Math.round((1024 - Math.max(0, Number(phase) || 0) * speed) / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE);
       trainRect(x + 4 * FONT_PIXEL_SCALE, 12, 29, 9, '#ffffff');
       trainRect(x + 30 * FONT_PIXEL_SCALE, 7, 16, 14, '#ffffff');
       trainRect(x + 8 * FONT_PIXEL_SCALE, 5, 7, 7, '#aaaaaa');
@@ -865,7 +888,7 @@
       const words = String(screen.words || '');
       if (words) {
         context.fillStyle = '#ffaa00';
-        drawLedTextLarge(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP, 9 * FONT_PIXEL_SCALE);
+        drawLedTextLarge(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP, 5 * FONT_PIXEL_SCALE);
       }
     }
     function draw(now) {
