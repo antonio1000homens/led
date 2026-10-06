@@ -51,6 +51,7 @@ TODOIST_MARQUEE_FPS = 8
 TODOIST_PAGE_SLIDE_FPS = 12
 HEADER_SLIDE_FPS = 12
 DEPARTURES_CALLING_FPS = 12
+WEATHER_SUN_SLIDE_FPS = MATRIX_REFRESH_FPS
 
 # Keep the experiment profiles in one table so cadence comparisons cannot
 # accidentally change animation speed or the lower-level presentation mode.
@@ -63,6 +64,7 @@ MATRIX_ANIMATION_PROFILES = {
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": MATRIX_REFRESH_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
+        "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
     "adaptive": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
@@ -70,6 +72,7 @@ MATRIX_ANIMATION_PROFILES = {
         "header_slide": HEADER_SLIDE_FPS,
         "departures_calling": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
+        "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
     "departures_12": {
         "todoist_marquee": MATRIX_REFRESH_FPS,
@@ -77,6 +80,7 @@ MATRIX_ANIMATION_PROFILES = {
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
+        "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
     "departures_15": {
         "todoist_marquee": MATRIX_REFRESH_FPS,
@@ -84,6 +88,7 @@ MATRIX_ANIMATION_PROFILES = {
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": 15,
         "queue_rows": MATRIX_REFRESH_FPS,
+        "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
     "transition_15": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
@@ -91,6 +96,7 @@ MATRIX_ANIMATION_PROFILES = {
         "header_slide": 15,
         "departures_calling": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
+        "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
     "transition_20": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
@@ -98,6 +104,7 @@ MATRIX_ANIMATION_PROFILES = {
         "header_slide": 20,
         "departures_calling": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
+        "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
 }
 
