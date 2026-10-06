@@ -86,20 +86,6 @@ jobs:
             openscad -o "$output" "$source"
           done
 
-      - name: Export affected STL payloads for canonical refresh
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in \
-            build/enclosure-stls/04_left_equipment_side_PRINT_1.stl \
-            build/enclosure-stls/05_right_equipment_side_PRINT_1.stl \
-            build/enclosure-stls/08_matrixportal_s3_adapter_PRINT_1.stl \
-            build/enclosure-stls/09_left_equipment_side_matrixportal_PRINT_1.stl; do
-            name="$(basename "$file")"
-            echo "STL_PAYLOAD_BEGIN:${name}"
-            base64 "$file"
-            echo "STL_PAYLOAD_END:${name}"
-          done
       - name: Generate selected PSU service-tray STL outputs
         shell: bash
         run: |
