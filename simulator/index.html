@@ -87,7 +87,7 @@
     let lastHardwareFrame = -Infinity;
 
     const MATRIX_REFRESH_FPS = 7;
-    const SUN_WEATHER_ANIMATION_SECONDS = 1.25;
+    const SUN_WEATHER_ANIMATION_SECONDS = 4.0;
     const MATRIX_FRAME_MS = 1000 / MATRIX_REFRESH_FPS;
     const FONT_FIRST_CODEPOINT = 32;
     const FONT_PIXEL_SCALE = 4;
@@ -747,7 +747,8 @@
       ];
       halves.forEach(item => {
         const width = item.right - item.left;
-        const iconY = item.startY + (40 - item.startY) * progress;
+        const easedProgress = progress * progress * (3 - 2 * progress);
+        const iconY = item.startY + (40 - item.startY) * easedProgress;
         context.fillStyle = stale ? '#777777' : '#ffaa00';
         drawLedText(item.label, item.left + Math.max(0, (width - measureLedText(item.label).width) / 2), 8);
         drawWeatherPattern(item.icon, item.left + 80, iconY, 8, stale);

@@ -76,7 +76,7 @@ WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 2
 SUN_WEATHER_ICON_Y = 10
-SUN_WEATHER_ANIMATION_SECONDS = 1.25
+SUN_WEATHER_ANIMATION_SECONDS = 4.0
 SUN_WEATHER_RISE_START_Y = 32
 SUN_WEATHER_SET_START_Y = -(WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE)
 # MatrixDisplay labels use font baselines, while the fixture renderer uses
@@ -287,6 +287,10 @@ def _sun_weather_animation_active(phase):
 def _sun_weather_icon_y(icon_name, phase):
     """Slide sunrise upward and sunset downward to their shared resting row."""
     progress = _sun_weather_progress(phase)
+    # Smoothstep eases the icons into their final row instead of moving at a
+    # constant speed and stopping abruptly. The clamped endpoint remains on
+    # the panel for the rest of this screen's duration.
+    progress = progress * progress * (3.0 - 2.0 * progress)
     if icon_name == "clear_day":
         start_y = SUN_WEATHER_RISE_START_Y
     elif icon_name == "clear_night":
