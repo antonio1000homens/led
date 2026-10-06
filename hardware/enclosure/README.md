@@ -300,8 +300,11 @@ The MatrixPortal S3 has a removable left-end service dock under
 - `parts/08_matrixportal_s3_dock_PRINT_1.scad` stays fixed to the existing
   X=32/80, Y=62.5/102.5 M3 boss rectangle;
 - `parts/10_matrixportal_s3_carrier_PRINT_1.scad` carries the controller on
-  four **11.5 mm** standoffs, clearing the conservative 9 mm underside connector
-  envelope by 2.5 mm;
+  four **11.5 mm** standoffs, each with a fixed **2.20 mm locating pin**, clearing
+  the conservative 9 mm underside connector envelope by 2.5 mm;
+- print **two** `parts/11_matrixportal_s3_keeper_PRINT_1.scad` bars; each drops
+  over one column of locating pins and slides 2 mm into a small PETG click-lock,
+  so the PCB needs no M2.5 screws or nuts;
 - the carrier slides in from the left on captive dovetails and clicks into a
   shallow PETG detent at a positive seated stop;
 - `parts/09_left_equipment_side_matrixportal_PRINT_1.scad` replaces the
@@ -426,7 +429,7 @@ Run the mechanical validator with:
 python hardware/enclosure/scripts/validate_enclosure.py
 ```
 
-CI regenerates all ten canonical parts, verifies they match the checked-in
+CI regenerates all eleven canonical parts, verifies they match the checked-in
 STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
