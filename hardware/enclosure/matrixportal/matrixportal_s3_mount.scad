@@ -142,7 +142,9 @@ mp_detent_extra_h = 0.60;
 mp_detent_pocket_extra_depth = 0.55;
 mp_detent_interference =
     mp_detent_extra_h -
-    (mp_dovetail_groove_depth-mp_dovetail_h);
+    (mp_slide_z_clearance +
+     mp_dovetail_groove_depth -
+     mp_dovetail_h);
 
 assert(mp_detent_interference > 0.15 &&
        mp_detent_interference < 0.35,
