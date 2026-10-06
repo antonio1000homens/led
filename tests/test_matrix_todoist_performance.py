@@ -8,6 +8,7 @@ from unittest.mock import patch
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
 import display as led_display
+from formatting import prepare_rail_presentation
 from matrix_config import (
     DEPARTURES_CALLING_FPS,
     MATRIX_PRESENTATION_MODE,
@@ -623,6 +624,39 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
             self.assertIs(display._todoist_group, scene)
             self.assertEqual([row[0] for row in display._todoist_rows], rows)
+
+    def test_board_local_calling_override_bypasses_admin_speed_minimum(self):
+        with patch.object(led_display, "CALLING_SCROLL_SPEED_OVERRIDE", 8):
+            speed, _ = led_display._station_scroll_settings({"station_scroll_speed": 40})
+        self.assertEqual(speed, 8.0)
+
+    def test_prepared_departures_segments_match_legacy_text_and_colours(self):
+        with patch.dict(sys.modules, fake_modules()):
+            legacy_screen = departures_screen(long_calling=True)
+            prepared_screen = copy.deepcopy(legacy_screen)
+            prepared_screen["rail_presentation"] = prepare_rail_presentation(
+                prepared_screen["services"], 20, 2, 8
+            )
+
+            legacy_display = led_display.MatrixDisplay()
+            legacy_display.show(legacy_screen, clock_time="19:40", phase=1.0)
+            legacy_labels = legacy_display._rail_calling_labels[0]
+            legacy_segments = tuple(
+                (label.text, label.color) for label in legacy_labels["first"]
+            )
+
+            prepared_display = led_display.MatrixDisplay()
+            prepared_display.show(prepared_screen, clock_time="19:40", phase=1.0)
+            prepared_labels = prepared_display._rail_calling_labels[0]
+            prepared_segments = tuple(
+                (label.text, label.color) for label in prepared_labels["first"]
+            )
+
+            self.assertEqual(prepared_segments, legacy_segments)
+            self.assertEqual(
+                prepared_labels["station_width"],
+                prepared_screen["rail_presentation"]["calling_station_width_px"],
+            )
 
     def test_departures_marquee_moves_visible_segments_with_stable_text(self):
         with patch.dict(sys.modules, fake_modules()):
