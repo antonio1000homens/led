@@ -105,6 +105,34 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(screen["duration_seconds"],5)
         self.assertFalse(screen["stale"])
 
+    def test_steam_train_intro_precedes_departures_and_uses_runtime_settings(self):
+        runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
+        runtime["feeds"]["steam_train"]["animation_speed"]=30
+        runtime["feeds"]["steam_train"]["words"]="choo choo"
+        payload=Publisher(
+            self.config,
+            self.store,
+            rail_provider=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]]),
+            utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        self.assertEqual([screen["id"] for screen in payload["screens"]], ["steam-train", "departures"])
+        steam=payload["screens"][0]
+        self.assertEqual(steam["kind"], "steam_train_intro")
+        self.assertEqual(steam["animation_speed"], 30)
+        self.assertEqual(steam["words"], "choo choo")
+        self.assertEqual(steam["duration_seconds"], 13)
+
+        runtime["feeds"]["steam_train"]["enabled"]=False
+        payload=Publisher(
+            self.config,
+            MemoryStore(),
+            rail_provider=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]]),
+            utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        self.assertEqual([screen["id"] for screen in payload["screens"]], ["departures"])
+
     def test_departures_contract_publishes_current_and_configured_next_services(self):
         rail=FakeProvider([[
             {"time":"08:01","destination":"Waterloo"},
