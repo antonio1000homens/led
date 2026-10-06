@@ -60,6 +60,14 @@ fixed_template_t = moving_plate_t; // compatibility alias used by modular equipm
 hinge_plate_clearance = 7;
 hinge_axis_z = moving_plate_t + hinge_radius + hinge_plate_clearance; // 16 mm
 
+// Core stationary guard envelope is needed by both the base hinge structure and
+// the detachable side cheeks. Keep these values next to the hinge axis so side
+// geometry never depends on a later forward reference.
+hinge_guard_t = 2;
+hinge_guard_clearance = 0.8;
+hinge_guard_front_z = hinge_axis_z + hinge_radius + hinge_guard_clearance;
+hinge_guard_top_y = hinge_axis_y;
+
 // Full 0-90 degree service arc is part of the proven hinge contract.
 service_open_angle = 90;
 mechanical_clearance_angle = 90;
@@ -635,11 +643,7 @@ module vertical_slot_pos_x(
 
 // ---------- Stationary equipment-base hinge geometry ----------
 
-hinge_guard_t = 2;
-hinge_guard_clearance = 0.8;
-hinge_guard_front_z = hinge_axis_z + hinge_radius + hinge_guard_clearance;
 hinge_guard_start_y = base_seat_y - 0.5; // overlaps the stationary floor by 0.5 mm
-hinge_guard_top_y = hinge_axis_y;
 hinge_guard_bridge_overlap = 0.5;
 hinge_guard_bridge_h = 2.0;
 hinge_support_root_t = 3.0;
