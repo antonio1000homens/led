@@ -283,7 +283,7 @@ The MatrixPortal S3 now has an optional left-end accessory set under
 - `parts/09_left_equipment_side_matrixportal_PRINT_1.scad` replaces the
   generic left end cap only on the controller end and provides a rounded
   service opening for USB-C and Reset/Up/Down;
-- the controller is rotated so the USB/button edge faces outward to the left
+- the controller keeps its native XY orientation so the USB/button edge faces outward to the left
   and the HUB75 connector edge faces inward toward the other modules;
 - `schematics/01_matrixportal_mount_ASSEMBLY.scad` previews the installed
   adapter, official-dimension PCB reference and service-side cap together.
@@ -402,7 +402,7 @@ Run the mechanical validator with:
 python hardware/enclosure/scripts/validate_enclosure.py
 ```
 
-CI regenerates all seven canonical parts, verifies they match the checked-in
+CI regenerates all nine canonical parts, verifies they match the checked-in
 STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
