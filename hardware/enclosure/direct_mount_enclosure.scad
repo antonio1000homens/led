@@ -460,12 +460,13 @@ side_removed_bottom_check_gap = 0.2;
 // Close the exposed side strip between the moving LED/template and the
 // stationary lower hinge guard without entering the moving panel's 0-90 degree
 // sweep. The main cheek remains 0.2 mm outside the panel edge. A shorter lower
-// tongue reaches 0.5 mm over the guard's X footprint, but stays 0.2 mm in front
-// of the guard and below the lowest swept position of the moving panel.
+// tongue reaches 0.5 mm farther inward into the lateral gap while still leaving
+// 0.2 mm clearance to the stationary base/guard edge; it also stays 0.2 mm in
+// front of the guard and below the lowest swept position of the moving panel.
 side_hinge_cover_panel_clearance_x = 0.2;
 side_hinge_cover_guard_clearance_z = 0.2;
 side_hinge_cover_top_clearance_y = 0.2;
-side_hinge_cover_capture_overlap_x = 0.5;
+side_hinge_cover_capture_inset_x = 0.5;
 side_hinge_cover_capture_sweep_clearance_y = 0.5;
 side_hinge_cover_y0 = base_seat_y + 0.2;
 side_hinge_cover_y1 = hinge_guard_top_y - side_hinge_cover_top_clearance_y;
@@ -1890,9 +1891,11 @@ module side_hinge_gap_cover(side="right") {
 
     capture_x0 = side == "left"
         ? -side_t-side_panel_clearance
-        : service_x + service_w - side_hinge_cover_capture_overlap_x;
+        : module_w + side_hinge_cover_panel_clearance_x
+            - side_hinge_cover_capture_inset_x;
     capture_x1 = side == "left"
-        ? service_x + side_hinge_cover_capture_overlap_x
+        ? -side_hinge_cover_panel_clearance_x
+            + side_hinge_cover_capture_inset_x
         : module_w + side_panel_clearance + side_t;
 
     union() {
@@ -1910,8 +1913,9 @@ module side_hinge_gap_cover(side="right") {
             ]);
 
         // Lower capture tongue: below the lowest point swept by the moving
-        // panel, reach slightly across the guard's X footprint while remaining
-        // 0.2 mm in front of the stationary guard face.
+        // panel, reach 0.5 mm farther into the lateral gap than the main cheek
+        // while retaining 0.2 mm clearance from the stationary base/guard edge
+        // and 0.2 mm clearance in front of the guard face.
         translate([
             capture_x0,
             side_hinge_cover_y0,
