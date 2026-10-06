@@ -155,11 +155,11 @@ module matrixportal_s3_adapter_print() {
                     translate([
                         mp_board_x0+bx-mp_adapter_x0,
                         mp_board_y0+by-mp_adapter_y0,
-                        mp_adapter_t
+                        mp_adapter_t-0.2
                     ])
                         cylinder(
                             d=mp_board_standoff_d,
-                            h=mp_board_standoff_h,
+                            h=mp_board_standoff_h+0.2,
                             $fn=36
                         );
         }
@@ -235,10 +235,11 @@ module matrixportal_s3_reference_installed(boss_tip_z,show_components=true) {
     translate([
         mp_board_x0+mp_pcb_w,
         mp_board_y0+mp_pcb_h,
-        board_back_z-mp_pcb_t
+        board_back_z
     ])
-        rotate([0,0,180])
-            matrixportal_s3_reference(show_components);
+        mirror([0,0,1])
+            rotate([0,0,180])
+                matrixportal_s3_reference(show_components);
 }
 
 module mp_rounded_rect_x_cutter(
