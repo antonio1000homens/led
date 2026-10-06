@@ -106,6 +106,9 @@ jobs:
       - name: Validate PSU dock interface and flexure geometry
         run: python hardware/enclosure/scripts/validate_psu_adapter.py --generated-dir build/enclosure-stls
 
+      - name: Validate MatrixPortal mount and service-side variant
+        run: python hardware/enclosure/scripts/validate_matrixportal_mount.py --generated-dir build/enclosure-stls
+
       - name: Verify checked-in canonical STLs are current
         run: python hardware/enclosure/scripts/verify_canonical_stls.py
 
