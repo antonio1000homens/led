@@ -1,0 +1,56 @@
+name: One-off / Refresh MatrixPortal STLs
+
+# TEMPORARY branch-only helper. Remove after it writes the exact OpenSCAD
+# MatrixPortal meshes into the PR branch. Normal enclosure CI remains read-only.
+on:
+  push:
+    branches:
+      - feature/matrixportal-click-dock
+    paths:
+      - '.github/workflows/one-off-refresh-matrixportal-stls.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: feature/matrixportal-click-dock
+
+      - name: Install OpenSCAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Refresh MatrixPortal canonical meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f hardware/enclosure/stl/08_matrixportal_s3_adapter_PRINT_1.stl
+
+          openscad             -o hardware/enclosure/stl/08_matrixportal_s3_dock_PRINT_1.stl             hardware/enclosure/parts/08_matrixportal_s3_dock_PRINT_1.scad
+
+          openscad             -o hardware/enclosure/stl/09_left_equipment_side_matrixportal_PRINT_1.stl             hardware/enclosure/parts/09_left_equipment_side_matrixportal_PRINT_1.scad
+
+          openscad             -o hardware/enclosure/stl/10_matrixportal_s3_carrier_PRINT_1.stl             hardware/enclosure/parts/10_matrixportal_s3_carrier_PRINT_1.scad
+
+      - name: Commit generated meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A hardware/enclosure/stl
+          if git diff --cached --quiet; then
+            echo "No canonical STL changes to commit."
+            exit 0
+          fi
+          git commit -m "Refresh canonical MatrixPortal click-dock STLs"
+          git push origin HEAD:feature/matrixportal-click-dock
