@@ -60,6 +60,14 @@ fixed_template_t = moving_plate_t; // compatibility alias used by modular equipm
 hinge_plate_clearance = 7;
 hinge_axis_z = moving_plate_t + hinge_radius + hinge_plate_clearance; // 16 mm
 
+// Core stationary guard envelope is needed by both the base hinge structure and
+// the detachable side cheeks. Keep these values next to the hinge axis so side
+// geometry never depends on a later forward reference.
+hinge_guard_t = 2;
+hinge_guard_clearance = 0.8;
+hinge_guard_front_z = hinge_axis_z + hinge_radius + hinge_guard_clearance;
+hinge_guard_top_y = hinge_axis_y;
+
 // Full 0-90 degree service arc is part of the proven hinge contract.
 service_open_angle = 90;
 mechanical_clearance_angle = 90;
@@ -457,7 +465,7 @@ side_removed_bottom_check_gap = 0.2;
 // 27 mm wide (installed Z).
 c14_cutout_nominal_z = 27;
 c14_cutout_nominal_y = 44;
-c14_cutout_clearance_per_edge = 0.10;
+c14_cutout_clearance_per_edge = 1.10;
 c14_cutout_z =
     c14_cutout_nominal_z + 2*c14_cutout_clearance_per_edge;
 c14_cutout_y =
@@ -617,11 +625,7 @@ module vertical_slot_pos_x(
 
 // ---------- Stationary equipment-base hinge geometry ----------
 
-hinge_guard_t = 2;
-hinge_guard_clearance = 0.8;
-hinge_guard_front_z = hinge_axis_z + hinge_radius + hinge_guard_clearance;
 hinge_guard_start_y = base_seat_y - 0.5; // overlaps the stationary floor by 0.5 mm
-hinge_guard_top_y = hinge_axis_y;
 hinge_guard_bridge_overlap = 0.5;
 hinge_guard_bridge_h = 2.0;
 hinge_support_root_t = 3.0;
@@ -688,6 +692,32 @@ rear_guardrail_shelf_rear_z = rear_reinforcement_flush_z;
 rear_guardrail_y0 = service_base_y;
 rear_guardrail_y1 = base_seat_y + side_guide_clearance;
 rear_guardrail_shelf_top_y = equipment_backplane_y0 - 0.2;
+
+// Detachable-side lower silhouette:
+//   1. run horizontally from the rear guide/guard-rail region to the hinge panel,
+//   2. drop vertically down the hinge-panel plane,
+//   3. then continue along the existing triangular base edge.
+//
+// The vertical segment starts where the hinge-panel front plane intersects the
+// live triangular gusset diagonal. Keeping that intersection derived from the
+// existing triangle makes the side follow future base-profile changes.
+side_base_front_panel_z = hinge_guard_front_z;
+side_base_triangle_intersection_y =
+    side_base_triangle_y0 +
+    (side_base_front_panel_z-side_base_triangle_tip_z) *
+    (side_base_triangle_y1-side_base_triangle_y0) /
+    (side_base_triangle_rear_z-side_base_triangle_tip_z);
+
+// Fill the open side span from the hinge panel to the rear guard rail above that
+// intersection. Small overlaps keep the exported side a single printable shell.
+side_base_gap_overlap_z = 0.4;
+side_base_gap_overlap_y = 0.4;
+side_base_gap_front_z = side_base_front_panel_z;
+side_base_gap_rear_z =
+    rear_guardrail_shelf_front_z + side_base_gap_overlap_z;
+side_base_gap_y0 =
+    side_base_triangle_intersection_y - side_base_gap_overlap_y;
+side_base_gap_y1 = side_guide_y1;
 
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
@@ -1858,6 +1888,27 @@ module left_c14_body_envelope() {
         ]);
 }
 
+module side_base_gap_bridge(side="right") {
+    x0 = side == "left"
+        ? -side_t-side_panel_clearance
+        : module_w + side_panel_clearance;
+
+    // Fill the otherwise open span between the hinge/front panel and the rear
+    // guard rail. This is intentionally NOT clipped by the old diagonal:
+    // above the triangle intersection the requested side edge is vertical at
+    // the hinge panel, with a horizontal top running back to the rear rails.
+    translate([
+        x0,
+        side_base_gap_y0,
+        side_base_gap_front_z
+    ])
+        cube([
+            side_t,
+            side_base_gap_y1-side_base_gap_y0,
+            side_base_gap_rear_z-side_base_gap_front_z
+        ]);
+}
+
 module side_upper_profile_solid(x0,x_len) {
     // Exact enclosure Y/Z profile only through the return ramp. The universal
     // enclosure/backplane itself continues to the LED board, so the detachable
@@ -1904,8 +1955,8 @@ module base_side_triangle_clip(x0,x_len) {
     rear_z = rear_reinforcement_flush_z + 2;
 
     union() {
-        // Keep everything BEHIND the exact sloping front edge of the existing
-        // triangular floor gusset.
+        // Lower edge: follow the existing base triangle from its forward tip
+        // until it reaches the hinge/front-panel plane.
         hull() {
             translate([
                 x0,
@@ -1920,27 +1971,28 @@ module base_side_triangle_clip(x0,x_len) {
 
             translate([
                 x0,
-                side_base_triangle_y1-0.5,
-                side_base_triangle_rear_z
+                side_base_triangle_intersection_y-0.5,
+                side_base_front_panel_z
             ])
                 cube([
                     x_len,
                     0.5,
-                    rear_z-side_base_triangle_rear_z
+                    rear_z-side_base_front_panel_z
                 ]);
         }
 
-        // Above the triangle, retain only the guide-side profile up to the
-        // upper/base transition; no forward floor extension is needed.
+        // Above that intersection, keep a vertical front edge on the hinge
+        // panel all the way to the top of the lower side. The top edge therefore
+        // runs horizontally from the rear rails to the front panel.
         translate([
             x0,
-            side_base_triangle_y1-0.5,
-            side_base_triangle_rear_z
+            side_base_triangle_intersection_y-0.5,
+            side_base_front_panel_z
         ])
             cube([
                 x_len,
-                side_guide_y1-side_base_triangle_y1+0.5,
-                rear_z-side_base_triangle_rear_z
+                side_guide_y1-side_base_triangle_intersection_y+0.5,
+                rear_z-side_base_front_panel_z
             ]);
     }
 }
@@ -2159,6 +2211,11 @@ module side_wall_body(side="right") {
     union() {
         // Lower portion follows the current base edge profile exactly.
         base_side_profile_plate(side);
+
+        // Complete the requested stepped lower silhouette: horizontal from the
+        // rear rails to the hinge/front panel, vertical down to the triangle,
+        // then the existing diagonal triangular base profile.
+        side_base_gap_bridge(side);
 
         // Explicit overlap makes the base-following and upper portions one
         // printable structural shell.

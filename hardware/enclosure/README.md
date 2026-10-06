@@ -283,9 +283,15 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 The detachable left/right sides are now full-height **end caps** rather than
 enclosure-only plates:
 
-- the **lower/base section** follows the current base only from the triangular
-  guide reinforcement rearward; the old forward floor extension is deliberately
-  omitted, so the visible front edge follows the triangle diagonal;
+- the **lower/base section** now uses a deliberate stepped side silhouette:
+  from the rear guide/guard-rail region its upper edge runs **horizontally
+  forward to the hinge/front panel**, then the front edge runs **vertically
+  downward** until it intersects the existing triangular base reinforcement,
+  and from that intersection the side continues along the existing **diagonal
+  triangle profile** to the lower tip;
+- the side therefore closes the exposed region between the rear rails and hinge
+  panel without extending the diagonal upward across that gap. The old forward
+  floor extension remains deliberately omitted;
 - the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
   reused unchanged by the end cap, so each side locks to the same A/B junctions
   used when two bases mate;
@@ -303,10 +309,15 @@ enclosure-only plates:
   dedicated keep-out around the upper module-to-module connector and its
   vertical release path, so it cannot consume the connector region.
 
-The external 3 mm end face is continuous only across the retained base/upper
-profile: it does not extend forward beyond the base triangle and does not extend
-above the enclosure return ramp. The internal 10 mm return is still locally
-removed where the current enclosure/module connector needs space.
+The external 3 mm end face follows the retained base/upper profile. In the lower
+section the visible front boundary is now explicitly **horizontal → vertical →
+diagonal** when viewed from the side: rear rails to hinge/front panel, down that
+panel to the live triangle, then along the triangle. Small overlaps into the
+adjacent base geometry keep the STL one printable shell. It does not recreate
+the removed forward floor extension and does not add an inward capture tongue.
+The upper section still does not extend above the enclosure return ramp, and the
+internal 10 mm return remains locally removed where the current
+enclosure/module connector needs space.
 These features provide end coverage and alignment/retention, not the primary
 structural load between modules.
 
@@ -318,7 +329,7 @@ cap and its hidden relief cuts through the 10 mm upper return locally, leaving
 the intended thin snap land at the exterior face.
 
 - measured body/cutout: **44 mm high × 27 mm wide** in portrait orientation;
-- FDM allowance: **0.10 mm per edge** → 44.2 × 27.2 mm printed opening;
+- requested fit allowance: **1.10 mm per edge** → **46.2 × 29.2 mm printed opening** (1 mm larger on every edge than the previous 44.2 × 27.2 mm aperture);
 - measured body intrusion: **30 mm** behind the inside face;
 - conservative rotated flange keep-out: **50 mm high × 30.5 mm wide**;
 - current side wall: **3.0 mm**;
@@ -334,8 +345,9 @@ sleeve and against the stationary enclosure core. Later base/enclosure changes
 therefore fail CI if they consume that clearance.
 
 If the real inlet has a 2 mm or thicker latch shoulder, tune
-`c14_snap_panel_t` after the physical fit test rather than enlarging the measured
-44 × 27 mm exterior opening.
+`c14_snap_panel_t` after the physical fit test rather than changing the measured
+44 × 27 mm body envelope; the exterior opening intentionally carries the larger
+46.2 × 29.2 mm fit allowance above.
 
 Physical acceptance: the flange sits flat, the spring lugs clear and catch
 behind the inner edge, the inlet cannot pull back out without compressing the
