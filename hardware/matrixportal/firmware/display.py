@@ -532,6 +532,7 @@ class MatrixDisplay:
                 "todoist_page_slide",
                 "header_slide",
                 "departures_calling",
+                "weather_sun_slide",
             )
         }
         print(
@@ -584,6 +585,13 @@ class MatrixDisplay:
         self._rail_clock_group = None
         self._rail_clock_label = None
         self._rail_weather_group = None
+
+        # The solar-times screen only animates its two icon TileGrids. Keep
+        # the scene alive during the short entry transition so the physical
+        # board does not rebuild the complete display tree every frame.
+        self._sun_group = None
+        self._sun_key = None
+        self._sun_icon_grids = ()
 
     @property
     def brightness_percent(self):
@@ -1855,6 +1863,7 @@ class MatrixDisplay:
             ("SUNRISE", screen.get("sunrise_time") or "--:--", "clear_day", 0, DISPLAY_WIDTH // 2),
             ("SUNSET", screen.get("sunset_time") or "--:--", "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
         )
+        icon_grids = []
         for label, value, icon_name, left, right in values:
             width = right - left
             self._label(group, label, label_color,
@@ -1873,13 +1882,45 @@ class MatrixDisplay:
                         for dx in range(SUN_WEATHER_ICON_SCALE):
                             for dy in range(SUN_WEATHER_ICON_SCALE):
                                 bitmap[x * SUN_WEATHER_ICON_SCALE + dx, y * SUN_WEATHER_ICON_SCALE + dy] = 1
-            group.append(displayio.TileGrid(
+            icon_grid = displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
                 x=left + 20,
                 y=_sun_weather_icon_y(icon_name, phase),
-            ))
+            )
+            group.append(icon_grid)
+            icon_grids.append((icon_name, icon_grid))
             self._label(group, value, text_color, left + 52, 15)
+        return tuple(icon_grids)
+
+    def _show_sun_weather(self, screen, phase):
+        import displayio
+
+        key = (
+            screen.get("sunrise_time") or "--:--",
+            screen.get("sunset_time") or "--:--",
+            bool(screen.get("stale")),
+        )
+        if (
+            self._sun_group is None
+            or self._sun_key != key
+            or self.display.root_group is not self._sun_group
+        ):
+            group = displayio.Group()
+            self._sun_icon_grids = self._sun_weather(group, screen, phase)
+            self._sun_group = group
+            self._sun_key = key
+            self._present(group)
+            return
+
+        changed = False
+        for icon_name, icon_grid in self._sun_icon_grids:
+            next_y = _sun_weather_icon_y(icon_name, phase)
+            if icon_grid.y != next_y:
+                icon_grid.y = next_y
+                changed = True
+        if changed:
+            self._refresh(animation_class="weather_sun_slide")
 
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
@@ -1918,13 +1959,14 @@ class MatrixDisplay:
             return
 
         if not empty_state and kind in WEATHER_FULLSCREEN_KINDS:
+            if kind == "weather_sun":
+                self._show_sun_weather(screen, phase)
+                return
             group = displayio.Group()
             if kind == "weather_weekly":
                 self._weekly_weather(group, screen)
-            elif kind == "weather_today":
-                self._today_weather(group, screen)
             else:
-                self._sun_weather(group, screen, phase)
+                self._today_weather(group, screen)
             self._present(group)
             return
 
