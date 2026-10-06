@@ -292,25 +292,29 @@ hole is visible from outside:
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
-### MatrixPortal S3 adapter
+### MatrixPortal S3 click dock
 
-The MatrixPortal S3 now has an optional left-end accessory set under
+The MatrixPortal S3 has a removable left-end service dock under
 `matrixportal/`. It keeps the universal backplane unchanged:
 
-- `parts/08_matrixportal_s3_adapter_PRINT_1.scad` bolts to the existing
-  X=32/80, Y=62.5/102.5 M3 boss rectangle and carries the controller on four
-  6 mm standoffs using Adafruit's official 2.5 mm mounting-hole pattern;
+- `parts/08_matrixportal_s3_dock_PRINT_1.scad` stays fixed to the existing
+  X=32/80, Y=62.5/102.5 M3 boss rectangle;
+- `parts/10_matrixportal_s3_carrier_PRINT_1.scad` carries the controller on
+  four **11.5 mm** standoffs, clearing the conservative 9 mm underside connector
+  envelope by 2.5 mm;
+- the carrier slides in from the left on captive dovetails and clicks into a
+  shallow PETG detent at a positive seated stop;
 - `parts/09_left_equipment_side_matrixportal_PRINT_1.scad` replaces the
-  generic left end cap only on the controller end and provides a rounded
-  service opening for USB-C and Reset/Up/Down;
-- the controller keeps its native XY orientation so the USB/button edge faces outward to the left
-  and the HUB75 connector edge faces inward toward the other modules;
-- `schematics/01_matrixportal_mount_ASSEMBLY.scad` previews the installed
-  adapter, official-dimension PCB reference and service-side cap together.
+  generic left end cap and provides a **52 × 31 mm** carrier/service opening;
+- the controller keeps its native XY orientation so the USB/button edge faces
+  outward left and HUB75 faces inward;
+- `schematics/01_matrixportal_mount_ASSEMBLY.scad` previews the fixed dock,
+  removable carrier, official-dimension PCB reference and underside connector
+  keep-out together.
 
-The generic `04_left_equipment_side_PRINT_1.scad` remains available for builds
-that do not need controller-side service access. See `matrixportal/README.md`
-for hardware and printing details.
+The generic `04_left_equipment_side_PRINT_1.scad` remains available when
+controller-side service access is not required. See `matrixportal/README.md`
+for hardware, fit-tuning and printing details.
 
 For the measured ~110 × 80 × 37 mm PSU, the full-width ~255 × 84 × 54 mm
 equipment region leaves ample horizontal room, 2 mm above/below the 80 mm
