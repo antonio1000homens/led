@@ -272,6 +272,26 @@ hole is visible from outside:
 
 PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
+### MatrixPortal S3 adapter
+
+The MatrixPortal S3 now has an optional right-end accessory set under
+`matrixportal/`. It keeps the universal backplane unchanged:
+
+- `parts/08_matrixportal_s3_adapter_PRINT_1.scad` bolts to the existing
+  X=176/224, Y=62.5/102.5 M3 boss rectangle and carries the controller on four
+  6 mm standoffs using Adafruit's official 2.5 mm mounting-hole pattern;
+- `parts/09_right_equipment_side_matrixportal_PRINT_1.scad` replaces the
+  generic right end cap only on the controller end and provides a rounded
+  service opening for USB-C and Reset/Up/Down;
+- the controller is rotated so the USB/button edge faces outward to the right
+  and the HUB75 connector edge faces inward toward the other modules;
+- `schematics/01_matrixportal_mount_ASSEMBLY.scad` previews the installed
+  adapter, official-dimension PCB reference and service-side cap together.
+
+The generic `05_right_equipment_side_PRINT_1.scad` remains unchanged for builds
+that do not need controller-side service access. See `matrixportal/README.md`
+for hardware and printing details.
+
 For the measured ~110 × 80 × 37 mm PSU, the full-width ~255 × 84 × 54 mm
 equipment region leaves ample horizontal room, 2 mm above/below the 80 mm
 dimension when centred, and 17 mm of depth clearance. The rear shell profile is
