@@ -449,6 +449,24 @@ side_upper_connector_keepout_margin_z = 1.0;
 // intended diagonal boundary contact into a thin false-positive volume.
 side_removed_bottom_check_gap = 0.2;
 
+// Close the exposed side strip between the moving LED/template and the
+// stationary lower hinge guard without entering the moving panel's 0-90 degree
+// sweep. The main cheek remains 0.2 mm outside the panel edge. A shorter lower
+// tongue reaches 0.5 mm over the guard's X footprint, but stays 0.2 mm in front
+// of the guard and below the lowest swept position of the moving panel.
+side_hinge_cover_panel_clearance_x = 0.2;
+side_hinge_cover_guard_clearance_z = 0.2;
+side_hinge_cover_top_clearance_y = 0.2;
+side_hinge_cover_capture_overlap_x = 0.5;
+side_hinge_cover_capture_sweep_clearance_y = 0.5;
+side_hinge_cover_y0 = base_seat_y + 0.2;
+side_hinge_cover_y1 = hinge_guard_top_y - side_hinge_cover_top_clearance_y;
+side_hinge_cover_front_z = service_front_z;
+side_hinge_cover_rear_z =
+    hinge_guard_front_z - side_hinge_cover_guard_clearance_z;
+side_hinge_capture_y1 =
+    hinge_axis_y - hinge_axis_z - side_hinge_cover_capture_sweep_clearance_y;
+
 // Left outer end: fused/switched IEC C14 snap-in inlet.
 //
 // Keep this interface derived from the CURRENT detachable-side envelope rather
@@ -457,7 +475,7 @@ side_removed_bottom_check_gap = 0.2;
 // 27 mm wide (installed Z).
 c14_cutout_nominal_z = 27;
 c14_cutout_nominal_y = 44;
-c14_cutout_clearance_per_edge = 0.10;
+c14_cutout_clearance_per_edge = 1.10;
 c14_cutout_z =
     c14_cutout_nominal_z + 2*c14_cutout_clearance_per_edge;
 c14_cutout_y =
@@ -1858,6 +1876,51 @@ module left_c14_body_envelope() {
         ]);
 }
 
+module side_hinge_gap_cover(side="right") {
+    side_outer_x0 = side == "left"
+        ? -side_t-side_panel_clearance
+        : module_w + side_hinge_cover_panel_clearance_x;
+    side_outer_x1 = side == "left"
+        ? -side_hinge_cover_panel_clearance_x
+        : module_w + side_panel_clearance + side_t;
+
+    capture_x0 = side == "left"
+        ? -side_t-side_panel_clearance
+        : service_x + service_w - side_hinge_cover_capture_overlap_x;
+    capture_x1 = side == "left"
+        ? service_x + side_hinge_cover_capture_overlap_x
+        : module_w + side_panel_clearance + side_t;
+
+    union() {
+        // Exterior cheek: closes the visible Y/Z strip but stays outside the
+        // moving panel/template X envelope by 0.2 mm.
+        translate([
+            side_outer_x0,
+            side_hinge_cover_y0,
+            side_hinge_cover_front_z
+        ])
+            cube([
+                side_outer_x1-side_outer_x0,
+                side_hinge_cover_y1-side_hinge_cover_y0,
+                side_hinge_cover_rear_z-side_hinge_cover_front_z
+            ]);
+
+        // Lower capture tongue: below the lowest point swept by the moving
+        // panel, reach slightly across the guard's X footprint while remaining
+        // 0.2 mm in front of the stationary guard face.
+        translate([
+            capture_x0,
+            side_hinge_cover_y0,
+            side_hinge_cover_front_z
+        ])
+            cube([
+                capture_x1-capture_x0,
+                side_hinge_capture_y1-side_hinge_cover_y0,
+                side_hinge_cover_rear_z-side_hinge_cover_front_z
+            ]);
+    }
+}
+
 module side_upper_profile_solid(x0,x_len) {
     // Exact enclosure Y/Z profile only through the return ramp. The universal
     // enclosure/backplane itself continues to the LED board, so the detachable
@@ -2159,6 +2222,11 @@ module side_wall_body(side="right") {
     union() {
         // Lower portion follows the current base edge profile exactly.
         base_side_profile_plate(side);
+
+        // Close the exposed strip between the moving panel/template and the
+        // stationary lower guard. The lower tongue lightly captures the guard
+        // region without entering the moving-panel sweep.
+        side_hinge_gap_cover(side);
 
         // Explicit overlap makes the base-following and upper portions one
         // printable structural shell.
