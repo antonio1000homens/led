@@ -457,25 +457,6 @@ side_upper_connector_keepout_margin_z = 1.0;
 // intended diagonal boundary contact into a thin false-positive volume.
 side_removed_bottom_check_gap = 0.2;
 
-// Close the exposed side strip between the moving LED/template and the
-// stationary lower hinge guard without entering the moving panel's 0-90 degree
-// sweep. The main cheek remains 0.2 mm outside the panel edge. A shorter lower
-// tongue reaches 0.5 mm farther inward into the lateral gap while still leaving
-// 0.2 mm clearance to the stationary base/guard edge; it also stays 0.2 mm in
-// front of the guard and below the lowest swept position of the moving panel.
-side_hinge_cover_panel_clearance_x = 0.2;
-side_hinge_cover_guard_clearance_z = 0.2;
-side_hinge_cover_top_clearance_y = 0.2;
-side_hinge_cover_capture_inset_x = 0.5;
-side_hinge_cover_capture_sweep_clearance_y = 0.5;
-side_hinge_cover_y0 = base_seat_y + 0.2;
-side_hinge_cover_y1 = hinge_guard_top_y - side_hinge_cover_top_clearance_y;
-side_hinge_cover_front_z = service_front_z;
-side_hinge_cover_rear_z =
-    hinge_guard_front_z - side_hinge_cover_guard_clearance_z;
-side_hinge_capture_y1 =
-    hinge_axis_y - hinge_axis_z - side_hinge_cover_capture_sweep_clearance_y;
-
 // Left outer end: fused/switched IEC C14 snap-in inlet.
 //
 // Keep this interface derived from the CURRENT detachable-side envelope rather
@@ -711,6 +692,17 @@ rear_guardrail_shelf_rear_z = rear_reinforcement_flush_z;
 rear_guardrail_y0 = service_base_y;
 rear_guardrail_y1 = base_seat_y + side_guide_clearance;
 rear_guardrail_shelf_top_y = equipment_backplane_y0 - 0.2;
+
+// The detachable side follows the live base profile, but the stationary base
+// deliberately has an open Z span between the rear face of the hinge guard and
+// the front face of the rear guardrail. Bridge only that span on the detachable
+// side. A small overlap into the copied hinge/guardrail profile keeps the
+// exported side a single printable shell without changing its outer silhouette.
+side_base_gap_overlap_z = 0.4;
+side_base_gap_front_z =
+    hinge_guard_front_z + hinge_guard_t - side_base_gap_overlap_z;
+side_base_gap_rear_z =
+    rear_guardrail_shelf_front_z + side_base_gap_overlap_z;
 
 module stationary_hinge_barrels() {
     for (segment=stationary_knuckles)
@@ -1881,51 +1873,28 @@ module left_c14_body_envelope() {
         ]);
 }
 
-module side_hinge_gap_cover(side="right") {
-    side_outer_x0 = side == "left"
+module side_base_gap_bridge(side="right") {
+    x0 = side == "left"
         ? -side_t-side_panel_clearance
-        : module_w + side_hinge_cover_panel_clearance_x;
-    side_outer_x1 = side == "left"
-        ? -side_hinge_cover_panel_clearance_x
-        : module_w + side_panel_clearance + side_t;
+        : module_w + side_panel_clearance;
 
-    capture_x0 = side == "left"
-        ? -side_t-side_panel_clearance
-        : module_w + side_hinge_cover_panel_clearance_x
-            - side_hinge_cover_capture_inset_x;
-    capture_x1 = side == "left"
-        ? -side_hinge_cover_panel_clearance_x
-            + side_hinge_cover_capture_inset_x
-        : module_w + side_panel_clearance + side_t;
-
-    union() {
-        // Exterior cheek: closes the visible Y/Z strip but stays outside the
-        // moving panel/template X envelope by 0.2 mm.
+    // Fill only the Z gap between the stationary hinge panel and rear guardrail.
+    // Intersecting with the same production triangle clip used by
+    // base_side_profile_plate() makes this continuation follow the exact lower
+    // side/base profile instead of introducing an independent cheek or tongue.
+    intersection() {
         translate([
-            side_outer_x0,
-            side_hinge_cover_y0,
-            side_hinge_cover_front_z
+            x0,
+            side_guide_y0,
+            side_base_gap_front_z
         ])
             cube([
-                side_outer_x1-side_outer_x0,
-                side_hinge_cover_y1-side_hinge_cover_y0,
-                side_hinge_cover_rear_z-side_hinge_cover_front_z
+                side_t,
+                side_guide_y1-side_guide_y0,
+                side_base_gap_rear_z-side_base_gap_front_z
             ]);
 
-        // Lower capture tongue: below the lowest point swept by the moving
-        // panel, reach 0.5 mm farther into the lateral gap than the main cheek
-        // while retaining 0.2 mm clearance from the stationary base/guard edge
-        // and 0.2 mm clearance in front of the guard face.
-        translate([
-            capture_x0,
-            side_hinge_cover_y0,
-            side_hinge_cover_front_z
-        ])
-            cube([
-                capture_x1-capture_x0,
-                side_hinge_capture_y1-side_hinge_cover_y0,
-                side_hinge_cover_rear_z-side_hinge_cover_front_z
-            ]);
+        base_side_triangle_clip(x0,side_t);
     }
 }
 
@@ -2231,10 +2200,10 @@ module side_wall_body(side="right") {
         // Lower portion follows the current base edge profile exactly.
         base_side_profile_plate(side);
 
-        // Close the exposed strip between the moving panel/template and the
-        // stationary lower guard. The lower tongue lightly captures the guard
-        // region without entering the moving-panel sweep.
-        side_hinge_gap_cover(side);
+        // The live base intentionally leaves an open span between the hinge
+        // panel and rear guardrail. Continue the SAME base silhouette across
+        // that span on the detachable side only.
+        side_base_gap_bridge(side);
 
         // Explicit overlap makes the base-following and upper portions one
         // printable structural shell.
