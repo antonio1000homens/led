@@ -30,6 +30,11 @@ MIN_UPCOMING_TRAIN_PAUSE_SECONDS = 1
 MAX_UPCOMING_TRAIN_PAUSE_SECONDS = 30
 DEFAULT_UPCOMING_TRAIN_PAUSE_SECONDS = 2
 DEFAULT_NO_SERVICES_DURATION_SECONDS = 5
+MIN_STEAM_TRAIN_SPEED = 8
+MAX_STEAM_TRAIN_SPEED = 80
+DEFAULT_STEAM_TRAIN_SPEED = 24
+MAX_STEAM_TRAIN_WORDS_LENGTH = 80
+DEFAULT_STEAM_TRAIN_WORDS = "choo choo"
 MIN_QUEUE_SCROLL_SPEED = 8
 MAX_QUEUE_SCROLL_SPEED = 80
 DEFAULT_QUEUE_SCROLL_SPEED = 27
@@ -120,6 +125,12 @@ DEFAULT_CHESSINGTON_RIDES = LEGACY_DEFAULT_CHESSINGTON_RIDES + (
 )
 
 FEED_REGISTRY = {
+    "steam_train": {
+        "label": "Steam train intro",
+        "provider": "local_animation",
+        "virtual": True,
+        "mutable_fields": ("enabled", "animation_speed", "words"),
+    },
     "departures": {
         "label": "Departures",
         "provider": "national_rail",
@@ -249,6 +260,11 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
     return {
         "config_version": 0,
         "feeds": {
+            "steam_train": {
+                "enabled": True,
+                "animation_speed": DEFAULT_STEAM_TRAIN_SPEED,
+                "words": DEFAULT_STEAM_TRAIN_WORDS,
+            },
             "departures": {
                 "enabled": True,
                 "poll_seconds": _int_env(env, "LED_CACHE_SECONDS", 60),
@@ -366,6 +382,16 @@ def schema_metadata() -> dict[str, Any]:
                 "minimum": MIN_FLASH_SCREEN_DURATION_SECONDS if definition.get("flash") else MIN_SCREEN_DURATION_SECONDS,
                 "maximum": MAX_FLASH_SCREEN_DURATION_SECONDS if definition.get("flash") else MAX_SCREEN_DURATION_SECONDS,
             }
+        if feed_id == "steam_train":
+            fields["animation_speed"] = {
+                "type": "integer",
+                "minimum": MIN_STEAM_TRAIN_SPEED,
+                "maximum": MAX_STEAM_TRAIN_SPEED,
+            }
+            fields["words"] = {
+                "type": "string",
+                "maximumLength": MAX_STEAM_TRAIN_WORDS_LENGTH,
+            }
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
                 fields[field] = {
@@ -472,6 +498,28 @@ def validate_feed_patch(
             MIN_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MIN_SCREEN_DURATION_SECONDS,
             MAX_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MAX_SCREEN_DURATION_SECONDS,
         )
+    if "animation_speed" in patch:
+        result["animation_speed"] = _validate_integer(
+            feed_id,
+            "animation_speed",
+            patch["animation_speed"],
+            MIN_STEAM_TRAIN_SPEED,
+            MAX_STEAM_TRAIN_SPEED,
+        )
+    if "words" in patch:
+        words = patch["words"]
+        if not isinstance(words, str):
+            raise RuntimeConfigValidationError(f"{feed_id}.words must be a string")
+        words = words.strip()
+        if any(ord(char) < 32 or ord(char) > 126 for char in words):
+            raise RuntimeConfigValidationError(
+                f"{feed_id}.words must contain printable ASCII characters only"
+            )
+        if len(words) > MAX_STEAM_TRAIN_WORDS_LENGTH:
+            raise RuntimeConfigValidationError(
+                f"{feed_id}.words must be at most {MAX_STEAM_TRAIN_WORDS_LENGTH} characters"
+            )
+        result["words"] = words
     for field in ("overview_enabled", "today_enabled", "sun_enabled"):
         if field in patch:
             if not isinstance(patch[field], bool):
@@ -544,16 +592,15 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     if not isinstance(raw_feeds, dict):
         raise RuntimeConfigValidationError("feeds must be an object")
     raw_feeds = copy.deepcopy(raw_feeds)
-    legacy_feed_ids = set(FEED_REGISTRY) - {"queue_times", "flash"}
-    if set(raw_feeds) == legacy_feed_ids:
-        raw_feeds["queue_times"] = copy.deepcopy(defaults["feeds"]["queue_times"])
-        raw_feeds["flash"] = copy.deepcopy(defaults["feeds"]["flash"])
-    elif set(raw_feeds) == legacy_feed_ids | {"flash"}:
-        raw_feeds["queue_times"] = copy.deepcopy(defaults["feeds"]["queue_times"])
-    elif set(raw_feeds) == legacy_feed_ids | {"queue_times"}:
-        raw_feeds["flash"] = copy.deepcopy(defaults["feeds"]["flash"])
-    if set(raw_feeds) != set(FEED_REGISTRY):
+    supported_feed_ids = set(FEED_REGISTRY)
+    supplied_feed_ids = set(raw_feeds)
+    missing_feed_ids = supported_feed_ids - supplied_feed_ids
+    unknown_feed_ids = supplied_feed_ids - supported_feed_ids
+    additive_feed_ids = {"queue_times", "flash", "steam_train"}
+    if unknown_feed_ids or not missing_feed_ids.issubset(additive_feed_ids):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
+    for feed_id in missing_feed_ids:
+        raw_feeds[feed_id] = copy.deepcopy(defaults["feeds"][feed_id])
 
     feeds: dict[str, Any] = {}
     for feed_id, default_feed in defaults["feeds"].items():

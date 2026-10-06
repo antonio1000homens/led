@@ -16,6 +16,7 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 
 | Feed | Provider | Mutable settings |
 | --- | --- | --- |
+| `steam_train` | Local animation | `enabled`, `animation_speed` (pixels/second), `words` (default `choo choo`) |
 | `departures` | National Rail | `enabled`, `poll_seconds`, `screen_duration_seconds` |
 | `thorpe_park` | Queue-Times park 2 | `enabled`, `poll_seconds`, `screen_duration_seconds`, ordered `rides` |
 | `chessington` | Queue-Times park 3 | `enabled`, `poll_seconds`, `screen_duration_seconds`, ordered `rides` |
@@ -24,6 +25,8 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 | `flash` | Pending MQTT event path | `enabled` (starts or stops board MQTT polling), `screen_duration_seconds` (default 5) |
 
 `poll_seconds` is between 60 and 86400 seconds. Screen duration is between 2 and 300 seconds. Queue-Times `park_id` is implementation metadata and cannot be patched.
+
+The Steam Train intro is a virtual screen tied to Departures: when both are enabled it is published immediately before the Departures screen, and its duration is calculated from the configured horizontal speed and trailing text width so the complete train/text composition clears the display before Departures begins. Disabling Departures also suppresses the intro.
 
 Weather's three dedicated screens preserve a fixed order: seven-day overview, Today (six four-hour blocks), then sunrise/sunset. Disabling a sub-screen removes only that screen. Leaving Weather enabled while all three sub-screens are disabled keeps the shared Open-Meteo polling/cache and current-weather overlay active.
 

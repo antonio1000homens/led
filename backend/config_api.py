@@ -281,10 +281,13 @@ def _status_payload(config: dict[str, Any], status_store: StatusStore) -> dict[s
     for feed_id, definition in FEED_REGISTRY.items():
         effective = config["feeds"][feed_id]
         state = feed_state.get(feed_id) or {}
+        health = (
+            "disabled" if not effective["enabled"] else "ok"
+        ) if definition.get("virtual") else _feed_health(effective["enabled"], state)
         feeds[feed_id] = {
             "enabled": effective["enabled"],
             "provider": definition["provider"],
-            "health": _feed_health(effective["enabled"], state),
+            "health": health,
             "last_successful_refresh": state.get("last_success_at"),
             "last_attempted_refresh": state.get("last_attempt_at"),
             "stale": bool(state.get("stale")) if effective["enabled"] else False,

@@ -186,6 +186,7 @@ class ConfigApiTests(unittest.TestCase):
         encoded = json.dumps(payload)
         self.assertNotIn("SECRET", encoded)
         self.assertEqual(payload["feeds"]["departures"]["health"], "unavailable")
+        self.assertEqual(payload["feeds"]["steam_train"]["health"], "ok")
 
 
 if __name__ == "__main__":

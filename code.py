@@ -64,6 +64,16 @@ def fixture_payload(now):
         "fetched_at": "2026-09-12T12:00:00Z",
         "screens": [
             {
+                "id": "steam-train",
+                "kind": "steam_train_intro",
+                "duration_seconds": 16,
+                "title": "Steam train",
+                "source": "fixture",
+                "stale": False,
+                "animation_speed": 24,
+                "words": "choo choo",
+            },
+            {
                 "id": "departures",
                 "kind": "rail_combined",
                 "duration_seconds": 8,
@@ -260,6 +270,8 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_departures(screen):
         return phase
+    if _smooth_steam_train(screen):
+        return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
     if _smooth_queue(screen):
@@ -295,6 +307,13 @@ def _smooth_sun_weather(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "weather_sun"
+    )
+
+
+def _smooth_steam_train(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "steam_train_intro"
     )
 
 
@@ -443,6 +462,7 @@ while True:
             fetch_during_animation = (
                 _smooth_todoist(candidate)
                 or _smooth_departures(candidate)
+                or _smooth_steam_train(candidate)
                 or _smooth_sun_weather(candidate)
             )
         animation_active = bool(
@@ -571,6 +591,7 @@ while True:
         _smooth_todoist(screen)
         or _smooth_departures(screen)
         or _smooth_queue(screen)
+        or _smooth_steam_train(screen)
         or _smooth_sun_weather(screen)
     )
     if smooth_animation:

@@ -58,6 +58,9 @@ from formatting import (
 
 
 DISPLAY_WIDTH = 256
+STEAM_TRAIN_WIDTH = 52
+STEAM_TRAIN_HEIGHT = 26
+STEAM_TRAIN_TEXT_GAP = 8
 CLOCK_X = 226
 HEADER_SLOT_X = 224
 STALE_X = 190
@@ -586,6 +589,14 @@ class MatrixDisplay:
         self._rail_clock_label = None
         self._rail_weather_group = None
 
+        # The departures intro is a full-screen persistent scene. The train,
+        # wheels and trailing text are constructed once; animation only moves
+        # the containing group horizontally.
+        self._steam_train_group = None
+        self._steam_train_motion_group = None
+        self._steam_train_words = None
+        self._steam_train_speed = None
+
         # The solar-times screen only animates its two icon TileGrids. Keep
         # the scene alive during the short entry transition so the physical
         # board does not rebuild the complete display tree every frame.
@@ -902,6 +913,8 @@ class MatrixDisplay:
             if self._todoist_rows and self._todoist_titles_moving(phase):
                 return "todoist_marquee"
             return None
+        if kind == "steam_train_intro":
+            return "queue_rows"
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
             summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
@@ -1784,6 +1797,113 @@ class MatrixDisplay:
         if changed:
             self._refresh(animation_class)
 
+    def _steam_train_cache_matches(self, screen):
+        try:
+            speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
+        except (TypeError, ValueError):
+            speed = 24.0
+        return (
+            self._steam_train_group is not None
+            and self._steam_train_words == str(screen.get("words") or "")
+            and self._steam_train_speed == speed
+        )
+
+    def _build_steam_train_scene(self, screen):
+        import displayio
+
+        root = displayio.Group()
+        motion = displayio.Group()
+        bitmap = displayio.Bitmap(STEAM_TRAIN_WIDTH, STEAM_TRAIN_HEIGHT, 5)
+        palette = displayio.Palette(5)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = 0xFFFFFF
+        palette[2] = 0xFFAA00
+        palette[3] = 0xAAAAAA
+        palette[4] = 0xFF3300
+
+        def fill_rect(x, y, width, height, color):
+            for py in range(max(0, y), min(STEAM_TRAIN_HEIGHT, y + height)):
+                for px in range(max(0, x), min(STEAM_TRAIN_WIDTH, x + width)):
+                    bitmap[px, py] = color
+
+        fill_rect(4, 9, 29, 9, 1)
+        fill_rect(30, 4, 16, 14, 1)
+        fill_rect(8, 2, 7, 7, 3)
+        fill_rect(6, 1, 11, 2, 3)
+        fill_rect(28, 2, 20, 3, 2)
+        fill_rect(0, 14, 6, 3, 2)
+        fill_rect(16, 6, 16, 3, 1)
+        # Cab window stays transparent/black.
+        fill_rect(34, 6, 7, 6, 0)
+
+        wheel_points = (
+            (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -3),
+            (-3, -2), (3, -2), (-3, -1), (3, -1),
+            (-3, 0), (0, 0), (3, 0),
+            (-3, 1), (3, 1), (-3, 2), (3, 2),
+            (-2, 3), (-1, 3), (0, 3), (1, 3), (2, 3),
+        )
+        for center_x in (11, 34, 43):
+            for dx, dy in wheel_points:
+                px = center_x + dx
+                py = 20 + dy
+                if 0 <= px < STEAM_TRAIN_WIDTH and 0 <= py < STEAM_TRAIN_HEIGHT:
+                    bitmap[px, py] = 4
+
+        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
+        words = str(screen.get("words") or "")
+        if words:
+            self._label(
+                motion,
+                words,
+                0xFFAA00,
+                STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP,
+                18,
+            )
+        root.append(motion)
+
+        try:
+            speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
+        except (TypeError, ValueError):
+            speed = 24.0
+        self._steam_train_group = root
+        self._steam_train_motion_group = motion
+        self._steam_train_words = words
+        self._steam_train_speed = speed
+
+    def _update_steam_train_scene(self, phase):
+        if self._steam_train_motion_group is None:
+            return False
+        try:
+            elapsed = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            elapsed = 0.0
+        next_x = DISPLAY_WIDTH - int(elapsed * self._steam_train_speed)
+        if self._steam_train_motion_group.x == next_x:
+            return False
+        self._steam_train_motion_group.x = next_x
+        return True
+
+    def _show_steam_train(self, screen, phase):
+        if not self._steam_train_cache_matches(screen):
+            self._build_steam_train_scene(screen)
+        update_started = time.monotonic()
+        changed = self._update_steam_train_scene(phase)
+        self._attach_brightness_overlay(self._steam_train_group)
+        if self.display.root_group is not self._steam_train_group:
+            self.display.root_group = self._steam_train_group
+            changed = True
+        animation_class = self._animation_class(screen, phase)
+        self._record_animation_update(
+            "steam_train",
+            changed,
+            time.monotonic() - update_started,
+            animation_class,
+        )
+        if changed:
+            self._refresh(animation_class)
+
     def _weekly_weather(self, group, screen):
         import displayio
 
@@ -1946,6 +2066,10 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
+        if not empty_state and kind == "steam_train_intro":
+            self._show_steam_train(screen, phase)
+            return
+
         if (
             not empty_state
             and kind == "calendar_agenda"
@@ -2061,6 +2185,43 @@ class FixtureDisplay:
     def _clear_rows(self, start_y, end_y):
         self._clear_rect(0, start_y, DISPLAY_WIDTH, end_y)
 
+    def _fill_rect(self, x, y, width, height, color):
+        for py in range(max(0, int(y)), min(32, int(y + height))):
+            for px in range(max(0, int(x)), min(DISPLAY_WIDTH, int(x + width))):
+                self._pixel(px, py, color)
+
+    def _steam_train(self, screen, phase):
+        try:
+            speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
+        except (TypeError, ValueError):
+            speed = 24.0
+        try:
+            elapsed = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            elapsed = 0.0
+        x = DISPLAY_WIDTH - int(elapsed * speed)
+        self._fill_rect(x + 4, 12, 29, 9, (255, 255, 255))
+        self._fill_rect(x + 30, 7, 16, 14, (255, 255, 255))
+        self._fill_rect(x + 8, 5, 7, 7, (170, 170, 170))
+        self._fill_rect(x + 6, 4, 11, 2, (170, 170, 170))
+        self._fill_rect(x + 28, 5, 20, 3, (255, 170, 0))
+        self._fill_rect(x, 17, 6, 3, (255, 170, 0))
+        self._fill_rect(x + 16, 9, 16, 3, (255, 255, 255))
+        self._fill_rect(x + 34, 9, 7, 6, (0, 0, 0))
+        wheel_points = (
+            (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -3),
+            (-3, -2), (3, -2), (-3, -1), (3, -1),
+            (-3, 0), (0, 0), (3, 0),
+            (-3, 1), (3, 1), (-3, 2), (3, 2),
+            (-2, 3), (-1, 3), (0, 3), (1, 3), (2, 3),
+        )
+        for center_x in (11, 34, 43):
+            for dx, dy in wheel_points:
+                self._pixel(x + center_x + dx, 23 + dy, (255, 51, 0))
+        words = str(screen.get("words") or "")
+        if words:
+            self._text(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP, 12, (255, 170, 0))
+
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
@@ -2158,7 +2319,9 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
-        if kind == "weather_weekly":
+        if kind == "steam_train_intro":
+            self._steam_train(screen, phase)
+        elif kind == "weather_weekly":
             self._weekly_weather(screen)
         elif kind == "weather_today":
             self._today_weather(screen)
@@ -2318,7 +2481,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date)
-            if kind not in WEATHER_FULLSCREEN_KINDS:
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind != "steam_train_intro":
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
@@ -2334,7 +2497,9 @@ class FixtureDisplay:
         print("\n[{}] {}".format(clock_time, screen.get("title") or screen.get("kind") or "screen"))
         if due_text:
             print(due_text)
-        if kind == "weather_weekly":
+        if kind == "steam_train_intro":
+            print("STEAM TRAIN {}".format(screen.get("words") or ""))
+        elif kind == "weather_weekly":
             days = screen.get("days") or []
             if not days:
                 print("Weather unavailable")
