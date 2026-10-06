@@ -7,8 +7,8 @@
 //   native hole centres: X=7.62/48.26, Y=15.875/35.56 mm
 //
 // The printable adapter uses the existing universal backplane M3 boss grid.
-// A dedicated right-side variant opens a service window for USB-C and the
-// Reset/Up/Down buttons while leaving the generic right side unchanged.
+// A dedicated left-side variant opens a service window for USB-C and the
+// Reset/Up/Down buttons while leaving the generic left side unchanged.
 
 // ----- Official PCB geometry -----
 mp_pcb_w = 63.50;
@@ -27,24 +27,24 @@ mp_down_y_native = 18.542;
 mp_hub75_x_native = 57.150;
 mp_hub75_y_native = 22.225;
 
-// ----- Installed position in the right-most enclosure module -----
-// Rotate the PCB 180 degrees in XY so its USB/button short edge faces +X
-// (the detachable right side) and the HUB75 edge faces inward.
-mp_board_x0 = 191.00;
+// ----- Installed position in the left-most enclosure module -----
+// The PCB's native USB/button short edge already faces -X, so keep the board
+// unrotated in XY. HUB75 is then on the inward-facing +X edge.
+mp_board_x0 = 1.50;
 mp_board_yc = 82.50;
 mp_board_y0 = mp_board_yc - mp_pcb_h/2;
-mp_board_service_edge_x = mp_board_x0 + mp_pcb_w;
+mp_board_service_edge_x = mp_board_x0;
 
-// Rotated mounting-hole centres in board-local coordinates.
-mp_pcb_hole_x_rot = [for (x=mp_pcb_hole_x_native) mp_pcb_w-x];
-mp_pcb_hole_y_rot = [for (y=mp_pcb_hole_y_native) mp_pcb_h-y];
+// Installed mounting-hole centres in board-local coordinates.
+mp_pcb_hole_x_installed = mp_pcb_hole_x_native;
+mp_pcb_hole_y_installed = mp_pcb_hole_y_native;
 
 // ----- Detachable adapter plate -----
 // Backplane boss columns/rows used by this adapter.
-mp_backplane_mount_x = [176,224];
+mp_backplane_mount_x = [32,80];
 mp_backplane_mount_y = [62.5,102.5];
 
-mp_adapter_x0 = 169.0;
+mp_adapter_x0 = 1.0;
 mp_adapter_y0 = 57.5;
 mp_adapter_w = 86.0;
 mp_adapter_h = 50.0;
@@ -62,7 +62,7 @@ mp_board_screw_clearance_d = 2.8;
 mp_board_nut_pocket_d = 6.0;
 mp_board_nut_pocket_h = 2.3;
 
-// ----- Right-side service opening -----
+// ----- Left-side service opening -----
 // Clear the complete 44.45 mm PCB service edge plus the adapter edge.
 // The Z ceiling stays below the compact rear connector/tab reinforcement.
 mp_service_center_y = 82.50;
@@ -71,10 +71,10 @@ mp_service_center_z = 44.0;
 mp_service_size_z = 20.0;
 mp_service_corner_r = 2.0;
 
-assert(mp_board_service_edge_x < 256,
+assert(mp_board_service_edge_x > 0,
        "MatrixPortal service edge must remain inside the 256 mm module");
 assert(mp_adapter_x0 <= mp_board_x0 &&
-       mp_adapter_x0+mp_adapter_w >= mp_board_service_edge_x,
+       mp_adapter_x0+mp_adapter_w >= mp_board_x0+mp_pcb_w,
        "adapter plate must cover the MatrixPortal footprint in X");
 assert(mp_adapter_y0 <= mp_board_y0 &&
        mp_adapter_y0+mp_adapter_h >= mp_board_y0+mp_pcb_h,
@@ -149,9 +149,9 @@ module matrixportal_s3_adapter_print() {
                 );
 
             // Four PCB standoffs align with the official Eagle hole pattern,
-            // rotated so the service edge faces the enclosure's right side.
-            for (bx=mp_pcb_hole_x_rot)
-                for (by=mp_pcb_hole_y_rot)
+            // with the native service edge facing the enclosure's left side.
+            for (bx=mp_pcb_hole_x_installed)
+                for (by=mp_pcb_hole_y_installed)
                     translate([
                         mp_board_x0+bx-mp_adapter_x0,
                         mp_board_y0+by-mp_adapter_y0,
@@ -192,8 +192,8 @@ module matrixportal_s3_adapter_print() {
             }
 
         // M2.5 board screw passages plus top-loading captive nut pockets.
-        for (bx=mp_pcb_hole_x_rot)
-            for (by=mp_pcb_hole_y_rot) {
+        for (bx=mp_pcb_hole_x_installed)
+            for (by=mp_pcb_hole_y_installed) {
                 local_x = mp_board_x0+bx-mp_adapter_x0;
                 local_y = mp_board_y0+by-mp_adapter_y0;
 
@@ -230,16 +230,15 @@ module matrixportal_s3_reference_installed(boss_tip_z,show_components=true) {
     board_back_z =
         boss_tip_z-mp_adapter_t-mp_board_standoff_h;
 
-    // Native service edge is at local X=0. Rotate 180 degrees so it lands at
-    // installed +X, next to the right-side service opening.
+    // Native service edge is already at local X=0, so it lands next to the
+    // left-side service opening without an XY rotation.
     translate([
-        mp_board_x0+mp_pcb_w,
-        mp_board_y0+mp_pcb_h,
+        mp_board_x0,
+        mp_board_y0,
         board_back_z
     ])
         mirror([0,0,1])
-            rotate([0,0,180])
-                matrixportal_s3_reference(show_components);
+            matrixportal_s3_reference(show_components);
 }
 
 module mp_rounded_rect_x_cutter(
@@ -266,10 +265,10 @@ module mp_rounded_rect_x_cutter(
                         cylinder(r=corner_r,h=x_len,$fn=32);
 }
 
-module matrixportal_right_side_service_cutter() {
+module matrixportal_left_side_service_cutter() {
     // These enclosure variables are provided by direct_mount_enclosure.scad.
-    x0 = module_w-side_upper_overlap-1.0;
-    x1 = module_w+side_panel_clearance+side_t+1.0;
+    x0 = -side_panel_clearance-side_t-1.0;
+    x1 = side_upper_overlap+1.0;
 
     mp_rounded_rect_x_cutter(
         x0,
@@ -282,9 +281,9 @@ module matrixportal_right_side_service_cutter() {
     );
 }
 
-module matrixportal_right_equipment_side() {
+module matrixportal_left_equipment_side() {
     difference() {
-        equipment_side("right");
-        matrixportal_right_side_service_cutter();
+        equipment_side("left");
+        matrixportal_left_side_service_cutter();
     }
 }
