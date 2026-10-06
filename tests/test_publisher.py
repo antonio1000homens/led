@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import unittest
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
 from runtime_config import default_runtime_config
+from server import DepartureFeed, ScreenFeed
 
 
 class MemoryStore:
@@ -104,6 +105,8 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(screen["empty_state"],"No Services")
         self.assertEqual(screen["duration_seconds"],5)
         self.assertFalse(screen["stale"])
+        self.assertNotIn("rail_presentation", screen)
+        self.assertNotIn("effective_duration_seconds", screen)
 
     def test_steam_train_intro_precedes_departures_and_uses_runtime_settings(self):
         runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})
@@ -152,6 +155,51 @@ class PublisherTests(unittest.TestCase):
             screen["effective_duration_seconds"],
             screen["rail_presentation"]["effective_duration_seconds"],
         )
+    def test_production_and_local_screen_feed_prepare_equivalent_rail_metadata(self):
+        services = [
+            {
+                "time": "08:01",
+                "destination": "Waterloo",
+                "stops": [
+                    {"station": "Wimbledon", "time": "08:11"},
+                    {"station": "Clapham Junction", "time": "08:19"},
+                ],
+            },
+            {"time": "08:11", "destination": "Waterloo", "stops": []},
+            {"time": "08:21", "destination": "Waterloo", "stops": []},
+        ]
+        production = Publisher(
+            self.config,
+            MemoryStore(),
+            rail_provider=FakeProvider([services]),
+            utcnow=self.utcnow,
+        ).run()
+        local = ScreenFeed(
+            DepartureFeed(
+                FakeProvider([services]),
+                "NEM",
+                60,
+                monotonic=lambda: 0,
+                utcnow=self.utcnow,
+            ),
+            utcnow=self.utcnow,
+        ).get()
+
+        production_screen = screen_by_id(production, "departures")
+        local_screen = screen_by_id(local, "departures")
+        self.assertEqual(
+            local_screen["rail_presentation"],
+            production_screen["rail_presentation"],
+        )
+        self.assertEqual(
+            local_screen["effective_duration_seconds"],
+            production_screen["effective_duration_seconds"],
+        )
+        self.assertEqual(
+            local_screen["calling_seconds"],
+            production_screen["calling_seconds"],
+        )
+
     def test_queue_and_weather_ttls_are_independent_and_contract_is_preserved(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",rail_ttl=60,thorpe_park_ttl=300,weather_ttl=600,thorpe_park_rides=("Hyperia","Stealth","The Swarm","Colossus"))
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],[{"time":"08:02"}]])
