@@ -40,10 +40,10 @@ models:
     generator: openscad
     output: 08_matrixportal_s3_adapter_PRINT_1.stl
 
-  matrixportal-right-equipment-side:
-    source: hardware/enclosure/parts/09_right_equipment_side_matrixportal_PRINT_1.scad
+  matrixportal-left-equipment-side:
+    source: hardware/enclosure/parts/09_left_equipment_side_matrixportal_PRINT_1.scad
     generator: openscad
-    output: 09_right_equipment_side_matrixportal_PRINT_1.stl
+    output: 09_left_equipment_side_matrixportal_PRINT_1.stl
 
 
   psu-service-tray-dock:
