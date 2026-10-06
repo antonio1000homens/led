@@ -274,21 +274,21 @@ PSU, MatrixPortal and future electronics should use detachable adapter plates.
 
 ### MatrixPortal S3 adapter
 
-The MatrixPortal S3 now has an optional right-end accessory set under
+The MatrixPortal S3 now has an optional left-end accessory set under
 `matrixportal/`. It keeps the universal backplane unchanged:
 
 - `parts/08_matrixportal_s3_adapter_PRINT_1.scad` bolts to the existing
-  X=176/224, Y=62.5/102.5 M3 boss rectangle and carries the controller on four
+  X=32/80, Y=62.5/102.5 M3 boss rectangle and carries the controller on four
   6 mm standoffs using Adafruit's official 2.5 mm mounting-hole pattern;
-- `parts/09_right_equipment_side_matrixportal_PRINT_1.scad` replaces the
-  generic right end cap only on the controller end and provides a rounded
+- `parts/09_left_equipment_side_matrixportal_PRINT_1.scad` replaces the
+  generic left end cap only on the controller end and provides a rounded
   service opening for USB-C and Reset/Up/Down;
-- the controller is rotated so the USB/button edge faces outward to the right
+- the controller is rotated so the USB/button edge faces outward to the left
   and the HUB75 connector edge faces inward toward the other modules;
 - `schematics/01_matrixportal_mount_ASSEMBLY.scad` previews the installed
   adapter, official-dimension PCB reference and service-side cap together.
 
-The generic `05_right_equipment_side_PRINT_1.scad` remains unchanged for builds
+The generic `04_left_equipment_side_PRINT_1.scad` remains available for builds
 that do not need controller-side service access. See `matrixportal/README.md`
 for hardware and printing details.
 
@@ -341,9 +341,9 @@ enclosure/module connector needs space.
 These features provide end coverage and alignment/retention, not the primary
 structural load between modules.
 
-## Left-side C14 mains inlet
+## Right-side C14 mains inlet
 
-The detachable **left** equipment side includes a portrait snap-in opening for
+The detachable **right** equipment side includes a portrait snap-in opening for
 the fused/switched IEC C14 inlet. It is integrated into the new full-height end
 cap and its hidden relief cuts through the 10 mm upper return locally, leaving
 the intended thin snap land at the exterior face.
