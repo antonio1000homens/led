@@ -290,9 +290,10 @@ enclosure-only plates:
   moving LED/template and the stationary lower hinge guard. Its main face stays
   0.2 mm outside the moving panel edge, stops 0.2 mm in front of the guard, and
   ends 0.2 mm below the hinge centreline. A shorter lower capture tongue reaches
-  0.5 mm across the guard's X footprint while remaining below the lowest swept
-  position of the moving panel, providing extra retention without blocking the
-  0–90 degree service motion;
+  0.5 mm farther inward than the main cheek, filling most of the lateral gap but
+  retaining 0.2 mm clearance to the stationary base/guard edge. It remains below
+  the lowest swept position of the moving panel, providing extra retention
+  without blocking the 0–90 degree service motion;
 - the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
   reused unchanged by the end cap, so each side locks to the same A/B junctions
   used when two bases mate;
