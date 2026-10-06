@@ -264,6 +264,8 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_queue(screen):
         return phase
+    if _smooth_sun_weather(screen):
+        return phase
     return 2
 
 
@@ -286,6 +288,13 @@ def _smooth_queue(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "theme_park_queues"
+    )
+
+
+def _smooth_sun_weather(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "weather_sun"
     )
 
 
@@ -431,7 +440,11 @@ while True:
         candidate_phase = 0
         if rotation.screens and not flash.active(now):
             candidate, candidate_phase = rotation.current(now)
-            fetch_during_animation = _smooth_todoist(candidate) or _smooth_departures(candidate)
+            fetch_during_animation = (
+                _smooth_todoist(candidate)
+                or _smooth_departures(candidate)
+                or _smooth_sun_weather(candidate)
+            )
         animation_active = bool(
             fetch_during_animation
             and display.animation_active(candidate, candidate_phase)
@@ -554,7 +567,12 @@ while True:
             )
         )
         last_render_key = render_key
-    smooth_animation = _smooth_todoist(screen) or _smooth_departures(screen) or _smooth_queue(screen)
+    smooth_animation = (
+        _smooth_todoist(screen)
+        or _smooth_departures(screen)
+        or _smooth_queue(screen)
+        or _smooth_sun_weather(screen)
+    )
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)
         if desired_cadence <= 0:
