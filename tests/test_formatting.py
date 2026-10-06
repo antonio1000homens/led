@@ -291,6 +291,38 @@ class FormattingTests(unittest.TestCase):
         self.assertEqual(prepared["train_cycle_seconds"], 0)
         self.assertIsNone(prepare_rail_presentation([], 20, 2, 8))
 
+    def test_rail_presentation_tracks_spacing_speed_and_configured_duration(self):
+        services = [{
+            "destination": "Waterloo",
+            "station_spacing_px": 10,
+            "stops": [
+                {"station": "Wimbledon", "time": "12:19"},
+                {"station": "Clapham Junction", "time": "12:27"},
+                {"station": "Vauxhall", "time": "12:35"},
+            ],
+        }]
+        normal = prepare_rail_presentation(services, 20, 2, 8)
+
+        services[0]["station_spacing_px"] = 30
+        wider = prepare_rail_presentation(services, 20, 2, 8)
+        self.assertGreater(wider["calling_station_width_px"], normal["calling_station_width_px"])
+        self.assertGreater(wider["calling_travel_seconds"], normal["calling_travel_seconds"])
+
+        faster = prepare_rail_presentation(services, 40, 2, 8)
+        self.assertLess(faster["calling_travel_seconds"], wider["calling_travel_seconds"])
+        self.assertLess(faster["calling_cycle_seconds"], wider["calling_cycle_seconds"])
+
+        configured = prepare_rail_presentation(services, 40, 2, 45)
+        self.assertEqual(configured["effective_duration_seconds"], 45)
+        self.assertGreaterEqual(
+            configured["effective_duration_seconds"],
+            configured["calling_cycle_seconds"],
+        )
+        self.assertGreaterEqual(
+            configured["effective_duration_seconds"],
+            configured["train_cycle_seconds"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

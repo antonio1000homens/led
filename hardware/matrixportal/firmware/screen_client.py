@@ -38,7 +38,17 @@ def _valid_rail_presentation(value):
         number = value.get(field)
         if not isinstance(number, (int, float)) or number != number:
             return False
-    return value["calling_station_width_px"] >= 0 and value["effective_duration_seconds"] > 0
+    if (
+        value["calling_station_width_px"] < 0
+        or value["calling_travel_seconds"] < 0
+        or value["calling_cycle_seconds"] <= 0
+        or value["train_cycle_seconds"] < 0
+        or value["effective_duration_seconds"] <= 0
+    ):
+        return False
+    if value["calling_cycle_seconds"] < value["calling_travel_seconds"]:
+        return False
+    return True
 
 
 def _http_date_timestamp(value):
@@ -264,6 +274,10 @@ class ScreenRotation:
                         if CALLING_SCROLL_SPEED_OVERRIDE is not None
                         else screen.get("station_scroll_speed", 20)
                     )
+                    if CALLING_SCROLL_SPEED_OVERRIDE is not None:
+                        # Keep the renderer and locally recalculated timing on
+                        # the same physical-board experiment speed.
+                        screen["station_scroll_speed"] = scroll_speed
                     travel_seconds, calling_duration = rail_calling_timing(
                         services, scroll_speed,
                         font_width=CALLING_STATION_FONT_WIDTH,
@@ -286,6 +300,8 @@ class ScreenRotation:
                         presentation = dict(presentation)
                         presentation["calling_travel_seconds"] = travel_seconds
                         presentation["calling_cycle_seconds"] = calling_duration
+                        presentation["calling_seconds"] = duration
+                        presentation["summary_seconds"] = 0
                         presentation["effective_duration_seconds"] = duration
                         screen["rail_presentation"] = presentation
                     else:

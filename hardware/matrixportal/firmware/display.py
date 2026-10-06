@@ -380,12 +380,20 @@ def _bounded_number(value, default, minimum, maximum):
 
 
 def _station_scroll_settings(screen):
-    speed = _bounded_number(
-        screen.get("station_scroll_speed"),
-        CALLING_SCROLL_SPEED,
-        MIN_CALLING_SCROLL_SPEED,
-        MAX_CALLING_SCROLL_SPEED,
-    )
+    if CALLING_SCROLL_SPEED_OVERRIDE is not None:
+        try:
+            # The board-local experiment intentionally sits outside the
+            # admin-configured minimum, so do not clamp it back to 10 px/s.
+            speed = max(1.0, float(CALLING_SCROLL_SPEED_OVERRIDE))
+        except (TypeError, ValueError):
+            speed = CALLING_SCROLL_SPEED
+    else:
+        speed = _bounded_number(
+            screen.get("station_scroll_speed"),
+            CALLING_SCROLL_SPEED,
+            MIN_CALLING_SCROLL_SPEED,
+            MAX_CALLING_SCROLL_SPEED,
+        )
     gap = int(round(_bounded_number(
         screen.get("station_list_spacing"),
         CALLING_SCROLL_GAP,

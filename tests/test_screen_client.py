@@ -74,6 +74,9 @@ class RotationTests(unittest.TestCase):
         self.assertIsNot(screen, payload[0])
         self.assertEqual(screen["rail_presentation"], presentation)
         self.assertEqual(screen["calling_seconds"], presentation["calling_seconds"])
+        later, _ = rotation.current(1)
+        self.assertIs(later, screen)
+        self.assertEqual(later["rail_presentation"], presentation)
 
     def test_malformed_backend_presentation_uses_legacy_fallback(self):
         rotation = ScreenRotation()
@@ -82,6 +85,23 @@ class RotationTests(unittest.TestCase):
             "services": [{"destination": "Waterloo", "stops": []}],
             "rail_presentation": {"calling_text": "incomplete"},
         }], 0)
+        screen, _ = rotation.current(0)
+        self.assertIn("_calling_travel_seconds", screen)
+        self.assertNotIn("rail_presentation", screen)
+
+    def test_invalid_backend_timing_metadata_uses_legacy_fallback(self):
+        services = [{"destination": "Waterloo", "stops": []}]
+        presentation = prepare_rail_presentation(services, 20, 2, 8)
+        presentation["calling_travel_seconds"] = -1
+        rotation = ScreenRotation()
+        with mock.patch.object(screen_client, "CALLING_SCROLL_SPEED_OVERRIDE", None):
+            rotation.update([{
+                "id": "rail",
+                "kind": "rail_combined",
+                "duration_seconds": 8,
+                "services": services,
+                "rail_presentation": presentation,
+            }], 0)
         screen, _ = rotation.current(0)
         self.assertIn("_calling_travel_seconds", screen)
         self.assertNotIn("rail_presentation", screen)
@@ -98,7 +118,17 @@ class RotationTests(unittest.TestCase):
             }], 0)
         self.assertEqual(timing.call_args.args[:2], (services, 8))
         self.assertEqual(timing.call_count, 1)
-        self.assertEqual(rotation.current(0)[0]["rail_presentation"]["calling_text"], presentation["calling_text"])
+        screen, _ = rotation.current(0)
+        self.assertEqual(screen["station_scroll_speed"], 8)
+        self.assertEqual(screen["rail_presentation"]["calling_text"], presentation["calling_text"])
+        self.assertEqual(
+            screen["rail_presentation"]["calling_seconds"],
+            screen["calling_seconds"],
+        )
+        self.assertEqual(
+            screen["rail_presentation"]["effective_duration_seconds"],
+            screen["effective_duration_seconds"],
+        )
 
     def test_rotates_using_each_screen_duration(self):
         rotation = ScreenRotation()
