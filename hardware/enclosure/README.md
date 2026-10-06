@@ -426,7 +426,7 @@ Run the mechanical validator with:
 python hardware/enclosure/scripts/validate_enclosure.py
 ```
 
-CI regenerates all nine canonical parts, verifies they match the checked-in
+CI regenerates all ten canonical parts, verifies they match the checked-in
 STLs, checks mesh health and floating-layer proxies, verifies base/backplane
 fit and top-down insertion, then holds the **equipment enclosure stationary**
 and checks the **moving panel/template** and 6 mm rod for volumetric interference
