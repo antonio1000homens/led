@@ -10,8 +10,9 @@ Current assembly views:
   all panel leaves open to 90°;
 - `00_complete_enclosure_CLOSED_ASSEMBLY.scad` — complete four-module display,
   all panel leaves closed;
+- `01_matrixportal_mount_ASSEMBLY.scad` — right-end MatrixPortal adapter, PCB reference and service-side end-cap preview;
 - `matrixportal_s3_REFERENCE.scad` — non-printing MatrixPortal S3 mechanical
-  reference retained for future detachable adapter work.
+  reference derived from Adafruit's official Eagle board geometry.
 
 The old non-hinged complete assembly was removed when issue #133 committed the
 repository to the hinged architecture. The two complete assembly views above
