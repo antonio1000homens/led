@@ -42,7 +42,10 @@ official mounting-hole pattern.
 - `../parts/09_left_equipment_side_matrixportal_PRINT_1.scad` — replacement
   left end cap with the enlarged carrier/service opening;
 - `../parts/10_matrixportal_s3_carrier_PRINT_1.scad` — removable raised
-  controller carrier with four 11.5 mm PCB standoffs and a low-profile pull tab.
+  controller carrier with four 11.5 mm standoffs, integrated locating/locking
+  pins and a low-profile pull tab;
+- `../parts/11_matrixportal_s3_keeper_PRINT_1.scad` — tool-free slide-lock
+  keeper bar. **Print two copies**, one for each mounting-hole column.
 
 Do **not** fit both the generic `04_left_equipment_side_PRINT_1` and the
 MatrixPortal-specific `09_...` left side.
@@ -75,18 +78,32 @@ latch. It should click positively while still releasing with a deliberate pull.
 Physical fit testing should tune `mp_detent_extra_h` or
 `mp_dovetail_clearance` in small increments if needed.
 
-## Board attachment and underside clearance
+## Tool-free board attachment and underside clearance
 
-The four carrier standoffs use the official MatrixPortal mounting-hole pattern.
-They provide 2.8 mm screw passages and top-loading captive hex pockets sized for
-typical M2.5 nuts.
+The carrier now needs **no MatrixPortal screws or nuts**.
 
-Fit the nuts before placing the MatrixPortal, then secure the PCB with M2.5
-screws. Once attached, the PCB remains on the carrier during normal docking and
-undocking.
+Each 11.5 mm standoff has a fixed **2.20 mm printed locating pin**. The official
+PCB holes are 2.50 mm, leaving 0.30 mm diametral installation clearance. Place
+the MatrixPortal straight down over the four pins until the PCB rests on the
+standoff shoulders.
 
-The **11.5 mm** standoff height is specifically intended to clear the underside
-connector and is substantially higher than the previous 6 mm adapter standoffs.
+Each pin then continues above the PCB to a reduced **1.60 mm locking neck** and
+a full-diameter tip. Lock the board with **two printed keeper bars**:
+
+1. place one keeper over each X column of two pins using the round entry holes;
+2. slide the keeper approximately **2 mm** toward the board's lower-Y edge;
+3. both pin necks pass a slightly undersized PETG throat and click into the
+   terminal pockets;
+4. the full-diameter pin tips prevent the locked keeper lifting off.
+
+The keeper has local feet only around the mounting-hole keepouts. Its bridge
+sits **4.5 mm above the PCB top surface**, avoiding the known USB/button
+components and staying left of the modelled HUB75 connector envelope. To remove
+the board, slide both keepers back through their click throats, lift them off,
+then lift the PCB straight off the four locating pins.
+
+The **11.5 mm** standoff height continues to clear the conservative 9 mm
+underside connector envelope by 2.5 mm.
 
 ## Service opening
 
@@ -97,7 +114,7 @@ buttons accessible.
 
 ## Printing
 
-Both the dock and carrier have been validated with:
+The dock, carrier and keeper have been validated with:
 
 - Bambu Lab H2D 0.4 nozzle;
 - 0.20 mm Standard;
@@ -105,11 +122,11 @@ Both the dock and carrier have been validated with:
 - Textured PEI Plate;
 - supports **off**.
 
-Both slice without a floating-region warning. The MatrixPortal-specific side
+All three slice without a floating-region warning. The MatrixPortal-specific side
 retains the enclosure side part's existing support/floating-region behaviour.
 
 ## Preview
 
 Open `../schematics/01_matrixportal_mount_ASSEMBLY.scad` to inspect the fixed
-dock, raised carrier, PCB reference, conservative underside connector envelope
-and MatrixPortal-specific left side together.
+dock, raised carrier, locked keeper bars, PCB reference, conservative underside
+connector envelope and MatrixPortal-specific left side together.
