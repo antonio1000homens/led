@@ -812,7 +812,7 @@
     }
     function trainRect(x, y, width, height, color) {
       context.fillStyle = color;
-      context.fillRect(x, y, width * FONT_PIXEL_SCALE, height * FONT_PIXEL_SCALE);
+      context.fillRect(x, y * FONT_PIXEL_SCALE, width * FONT_PIXEL_SCALE, height * FONT_PIXEL_SCALE);
     }
     function drawTrainWheel(baseX, centerX, centerY) {
       const points = [[-2,-3],[-1,-3],[0,-3],[1,-3],[2,-3],[-3,-2],[3,-2],[-3,-1],[3,-1],[-3,0],[0,0],[3,0],[-3,1],[3,1],[-3,2],[3,2],[-2,3],[-1,3],[0,3],[1,3],[2,3]];
