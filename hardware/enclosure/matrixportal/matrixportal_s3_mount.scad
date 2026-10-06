@@ -15,7 +15,8 @@
 //
 // The MatrixPortal stays attached to the carrier with M2.5 hardware. Normal
 // service therefore needs no backplane screws: pull the carrier from the left
-// opening to undock the complete controller assembly.
+// opening to undock the complete controller assembly. Canonical dock/carrier
+// meshes are generated directly from the printable wrappers below.
 
 // ----- Official PCB geometry -----
 mp_pcb_w = 63.50;
