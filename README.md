@@ -234,11 +234,11 @@ Set `LED_WEATHER_SOURCE=off` to stop Weather polling and remove all Weather outp
 2. `weather_today` — six rolling four-hour snapshots covering the next 24 hours, default 8 seconds. The first column is labelled `Now` and uses current conditions; the remaining columns are labelled at four-hour intervals and may cross midnight. The weather icon and temperature remain prominent.
 3. `weather_sun` — today's local sunrise and sunset times, default 6 seconds.
 
-The protected admin/control plane provides independent enable and duration controls for the overview, Today and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.
+The protected admin/control plane provides independent enable and duration controls for the overview, next-24-hour and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.
 
 The backend maps Open-Meteo WMO weather codes into a renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). All three dedicated Weather screens use the full 256×32 canvas and suppress the normal clock/current-weather/STALE header chrome; the browser simulator mirrors the same screen sequence and supports forced-stale preview.
 
-If a Weather refresh fails after at least one successful response, the complete last-good current + weekly + Today + solar payload remains available with `stale: true` and the dedicated renderers use their muted treatment. On a cold Weather failure, unrelated feeds remain available; the seven-day overview may show its existing unavailable state when enabled, while empty Today and sunrise/sunset screens are not emitted. Browser attribution links to Open-Meteo are included as required by the provider's licence.
+If a Weather refresh fails after at least one successful response, the complete last-good current + weekly + rolling next-24-hour + solar payload remains available with `stale: true` and the dedicated renderers use their muted treatment. On a cold Weather failure, unrelated feeds remain available; the seven-day overview may show its existing unavailable state when enabled, while empty next-24-hour and sunrise/sunset screens are not emitted. Browser attribution links to Open-Meteo are included as required by the provider's licence.
 
 ### Screen contract
 
