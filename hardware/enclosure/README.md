@@ -283,14 +283,15 @@ the PSU footprint, 50 mm of usable depth remains, still 13 mm beyond the PSU.
 The detachable left/right sides are now full-height **end caps** rather than
 enclosure-only plates:
 
-- the **lower/base section** follows the current base profile from the triangular
-  guide reinforcement rearward; the old forward floor extension remains
-  deliberately omitted;
-- the only added lower-side material is a **base-profile gap bridge** across the
-  otherwise exposed span between the rear face of the stationary hinge panel and
-  the front face of the rear guard rail. The bridge is clipped by the same
-  triangular profile used by the base-following side, so it continues that
-  silhouette rather than creating a separate cheek or inward capture tongue;
+- the **lower/base section** now uses a deliberate stepped side silhouette:
+  from the rear guide/guard-rail region its upper edge runs **horizontally
+  forward to the hinge/front panel**, then the front edge runs **vertically
+  downward** until it intersects the existing triangular base reinforcement,
+  and from that intersection the side continues along the existing **diagonal
+  triangle profile** to the lower tip;
+- the side therefore closes the exposed region between the rear rails and hinge
+  panel without extending the diagonal upward across that gap. The old forward
+  floor extension remains deliberately omitted;
 - the base's existing complementary **4.0 mm pin / 4.7 mm socket** interface is
   reused unchanged by the end cap, so each side locks to the same A/B junctions
   used when two bases mate;
@@ -309,13 +310,14 @@ enclosure-only plates:
   vertical release path, so it cannot consume the connector region.
 
 The external 3 mm end face follows the retained base/upper profile. In the lower
-section it bridges only the open region between the hinge panel and rear guard
-rail, with a small overlap into each adjacent copied profile region so the STL
-remains one printable shell. It does not extend toward the LED in front of the
-hinge panel, does not recreate the removed forward floor extension, and does not
-add an inward capture tongue. The upper section still does not extend above the
-enclosure return ramp, and the internal 10 mm return remains locally removed
-where the current enclosure/module connector needs space.
+section the visible front boundary is now explicitly **horizontal → vertical →
+diagonal** when viewed from the side: rear rails to hinge/front panel, down that
+panel to the live triangle, then along the triangle. Small overlaps into the
+adjacent base geometry keep the STL one printable shell. It does not recreate
+the removed forward floor extension and does not add an inward capture tongue.
+The upper section still does not extend above the enclosure return ramp, and the
+internal 10 mm return remains locally removed where the current
+enclosure/module connector needs space.
 These features provide end coverage and alignment/retention, not the primary
 structural load between modules.
 
