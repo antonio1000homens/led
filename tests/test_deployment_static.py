@@ -135,6 +135,22 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('self._mask(group, 0, y - 3, AGENDA_TITLE_X, AGENDA_ROW_HEIGHT)', display)
         self.assertIn('self._label(group, when, 0xFFFFFF, 0, y)', display)
 
+    def test_steam_train_intro_is_fullscreen_configurable_and_persistent(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        code = (ROOT / "code.py").read_text(encoding="utf-8")
+        self.assertIn("screen.kind === 'steam_train_intro'", simulator)
+        self.assertIn("function drawSteamTrain(screen, phase)", simulator)
+        self.assertIn("STEAM_TRAIN_TEXT_GAP", simulator)
+        self.assertIn('kind == "steam_train_intro"', display)
+        self.assertIn("def _show_steam_train", display)
+        self.assertIn("self._steam_train_motion_group.x = next_x", display)
+        self.assertIn("Animation speed", admin)
+        self.assertIn("Trailing words", admin)
+        self.assertIn("type=\"text\"", admin)
+        self.assertIn("def _smooth_steam_train", code)
+
     def test_no_services_page_suppresses_normal_departure_chrome(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
