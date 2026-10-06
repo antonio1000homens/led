@@ -30,6 +30,8 @@ Canonical pairs:
   → `09_left_equipment_side_matrixportal_PRINT_1.stl`
 - `../parts/10_matrixportal_s3_carrier_PRINT_1.scad`
   → `10_matrixportal_s3_carrier_PRINT_1.stl`
+- `../parts/11_matrixportal_s3_keeper_PRINT_1.scad`
+  → `11_matrixportal_s3_keeper_PRINT_1.stl`
 
 ## Additional committed manufacturing output
 
@@ -69,7 +71,7 @@ outputs.
 
 ## Pull-request validation
 
-GitHub Actions regenerates all **ten** canonical STLs with OpenSCAD and runs
+GitHub Actions regenerates all **eleven** canonical STLs with OpenSCAD and runs
 the normal mechanical/geometry checks. The regenerated meshes are also uploaded
 as a downloadable workflow artifact.
 
