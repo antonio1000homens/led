@@ -792,6 +792,15 @@ assert(abs(side_base_upper_join_overlap_y-0.8) < 0.01,
        "base/upper side-shell join must retain a real volumetric overlap");
 assert(side_removed_bottom_check_gap >= 0.2,
        "removed-bottom diagnostic volume must stay clear of the live diagonal edge");
+assert(abs(side_hinge_cover_panel_clearance_x-0.2) < 0.01 &&
+       abs(side_hinge_cover_guard_clearance_z-0.2) < 0.01,
+       "hinge-gap side cover clearances drifted");
+assert(side_hinge_cover_y0 > base_seat_y &&
+       side_hinge_cover_y1 < hinge_guard_top_y &&
+       side_hinge_capture_y1 < hinge_axis_y-hinge_axis_z,
+       "hinge-gap side cover no longer stays outside the moving-panel sweep");
+assert(abs(side_hinge_cover_capture_overlap_x-0.5) < 0.01,
+       "hinge-gap capture tongue overlap drifted");
 assert(side_rod_sleeve_bore_d > hinge_rail_d,
        "upper-return hinge keepout must retain running clearance around the rod");
 assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
@@ -813,9 +822,9 @@ assert(abs(c14_cutout_nominal_z-27) < 0.01 &&
        abs(c14_cutout_nominal_y-44) < 0.01 &&
        abs(c14_cutout_corner_r-2) < 0.01,
        "C14 inlet measured body must remain portrait 44 x 27 mm with R2 corners");
-assert(abs(c14_cutout_clearance_per_edge-0.10) < 0.01 &&
-       abs(c14_cutout_z-27.2) < 0.01 &&
-       abs(c14_cutout_y-44.2) < 0.01,
+assert(abs(c14_cutout_clearance_per_edge-1.10) < 0.01 &&
+       abs(c14_cutout_z-29.2) < 0.01 &&
+       abs(c14_cutout_y-46.2) < 0.01,
        "C14 printed aperture allowance drifted");
 assert(abs(c14_body_depth-30) < 0.01,
        "C14 body intrusion must remain the measured 30 mm");
@@ -1329,7 +1338,7 @@ def main() -> None:
                     assert_empty_intersection,
                     work_dir,
                     "left_removed_bottom_extension_clear",
-                    """    equipment_side("left");
+                    """    base_side_profile_plate("left");
     side_removed_bottom_extension_volume("left");""",
                 ),
             ),
@@ -1339,8 +1348,28 @@ def main() -> None:
                     assert_empty_intersection,
                     work_dir,
                     "right_removed_bottom_extension_clear",
-                    """    equipment_side("right");
+                    """    base_side_profile_plate("right");
     side_removed_bottom_extension_volume("right");""",
+                ),
+            ),
+            (
+                "left_hinge_gap_cover_stationary_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "left_hinge_gap_cover_stationary_clearance",
+                    """    side_hinge_gap_cover("left");
+    base_structural_body();""",
+                ),
+            ),
+            (
+                "right_hinge_gap_cover_stationary_clearance",
+                partial(
+                    assert_empty_intersection,
+                    work_dir,
+                    "right_hinge_gap_cover_stationary_clearance",
+                    """    side_hinge_gap_cover("right");
+    base_structural_body();""",
                 ),
             ),
             (
