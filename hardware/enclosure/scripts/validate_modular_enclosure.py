@@ -792,12 +792,19 @@ assert(abs(side_base_upper_join_overlap_y-0.8) < 0.01,
        "base/upper side-shell join must retain a real volumetric overlap");
 assert(side_removed_bottom_check_gap >= 0.2,
        "removed-bottom diagnostic volume must stay clear of the live diagonal edge");
-assert(abs(side_base_gap_overlap_z-0.4) < 0.01,
-       "side base-gap bridge overlap drifted");
-assert(rear_guardrail_shelf_front_z > hinge_guard_front_z+hinge_guard_t &&
-       side_base_gap_front_z < hinge_guard_front_z+hinge_guard_t &&
-       side_base_gap_rear_z > rear_guardrail_shelf_front_z,
-       "side base-gap bridge must span only the open region between hinge guard and rear guardrail");
+assert(abs(side_base_front_panel_z-hinge_guard_front_z) < 0.01,
+       "lower side vertical edge must stay aligned to the hinge/front panel");
+assert(side_base_triangle_intersection_y > side_base_triangle_y0 &&
+       side_base_triangle_intersection_y < side_base_triangle_y1,
+       "hinge/front-panel vertical must meet the live triangular base edge");
+assert(abs(side_base_gap_overlap_z-0.4) < 0.01 &&
+       abs(side_base_gap_overlap_y-0.4) < 0.01,
+       "side stepped-profile overlap drifted");
+assert(side_base_gap_front_z == side_base_front_panel_z &&
+       side_base_gap_rear_z > rear_guardrail_shelf_front_z &&
+       side_base_gap_y0 < side_base_triangle_intersection_y &&
+       abs(side_base_gap_y1-side_guide_y1) < 0.01,
+       "side bridge must form the horizontal/vertical step from rear rails to front panel");
 assert(side_rod_sleeve_bore_d > hinge_rail_d,
        "upper-return hinge keepout must retain running clearance around the rod");
 assert(abs((connector_socket_d-connector_pin_d)/2-0.35) < 0.01,
