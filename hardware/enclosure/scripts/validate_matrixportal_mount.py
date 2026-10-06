@@ -12,6 +12,7 @@ DOCK = "08_matrixportal_s3_dock_PRINT_1.stl"
 LEFT_GENERIC = "04_left_equipment_side_PRINT_1.stl"
 LEFT_MATRIXPORTAL = "09_left_equipment_side_matrixportal_PRINT_1.stl"
 CARRIER = "10_matrixportal_s3_carrier_PRINT_1.stl"
+KEEPER = "11_matrixportal_s3_keeper_PRINT_1.stl"
 
 
 def load_one(path: Path) -> trimesh.Trimesh:
@@ -48,11 +49,13 @@ def main() -> None:
 
     dock = load_one(root / DOCK)
     carrier = load_one(root / CARRIER)
+    keeper = load_one(root / KEEPER)
     generic = load_one(root / LEFT_GENERIC)
     service = load_one(root / LEFT_MATRIXPORTAL)
 
     check_extents(DOCK, dock, (86.0, 50.0, 6.8))
-    check_extents(CARRIER, carrier, (85.0, 50.0, 14.3))
+    check_extents(CARRIER, carrier, (85.0, 50.0, 22.2))
+    check_extents(KEEPER, keeper, (6.5, 26.685, 6.15))
 
     # The MatrixPortal side must remain the same outer part envelope while
     # removing real material for the enlarged carrier/service opening.
@@ -77,6 +80,7 @@ def main() -> None:
         "MatrixPortal click-dock validation passed: "
         f"dock={dock.extents.tolist()} mm, "
         f"carrier={carrier.extents.tolist()} mm, "
+        f"keeper={keeper.extents.tolist()} mm, "
         f"left-side removed volume={generic.volume-service.volume:.1f} mm^3"
     )
 
