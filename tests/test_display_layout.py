@@ -210,6 +210,38 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertIn("SUNSET", text)
         self.assertIn("18:29", text)
 
+    def test_sun_weather_icons_slide_in_opposite_vertical_directions(self):
+        self.assertEqual(
+            led_display._sun_weather_icon_y("clear_day", 0),
+            led_display.SUN_WEATHER_RISE_START_Y,
+        )
+        self.assertEqual(
+            led_display._sun_weather_icon_y("clear_night", 0),
+            led_display.SUN_WEATHER_SET_START_Y,
+        )
+
+        midpoint = led_display.SUN_WEATHER_ANIMATION_SECONDS / 2
+        sun_mid = led_display._sun_weather_icon_y("clear_day", midpoint)
+        moon_mid = led_display._sun_weather_icon_y("clear_night", midpoint)
+        self.assertLess(sun_mid, led_display.SUN_WEATHER_RISE_START_Y)
+        self.assertGreater(sun_mid, led_display.SUN_WEATHER_ICON_Y)
+        self.assertGreater(moon_mid, led_display.SUN_WEATHER_SET_START_Y)
+        self.assertLess(moon_mid, led_display.SUN_WEATHER_ICON_Y)
+
+        for phase in (
+            led_display.SUN_WEATHER_ANIMATION_SECONDS,
+            led_display.SUN_WEATHER_ANIMATION_SECONDS + 5,
+        ):
+            self.assertEqual(
+                led_display._sun_weather_icon_y("clear_day", phase),
+                led_display.SUN_WEATHER_ICON_Y,
+            )
+            self.assertEqual(
+                led_display._sun_weather_icon_y("clear_night", phase),
+                led_display.SUN_WEATHER_ICON_Y,
+            )
+            self.assertFalse(led_display._sun_weather_animation_active(phase))
+
     def test_departure_statuses_share_one_vertical_column(self):
         display = CapturingFixture()
         screen = {
