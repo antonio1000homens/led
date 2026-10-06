@@ -38,7 +38,17 @@ def _valid_rail_presentation(value):
         number = value.get(field)
         if not isinstance(number, (int, float)) or number != number:
             return False
-    return value["calling_station_width_px"] >= 0 and value["effective_duration_seconds"] > 0
+    if (
+        value["calling_station_width_px"] < 0
+        or value["calling_travel_seconds"] < 0
+        or value["calling_cycle_seconds"] <= 0
+        or value["train_cycle_seconds"] < 0
+        or value["effective_duration_seconds"] <= 0
+    ):
+        return False
+    if value["calling_cycle_seconds"] < value["calling_travel_seconds"]:
+        return False
+    return True
 
 
 def _http_date_timestamp(value):
