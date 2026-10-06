@@ -29,6 +29,20 @@ Canonical pairs:
 - `../parts/09_left_equipment_side_matrixportal_PRINT_1.scad`
   → `09_left_equipment_side_matrixportal_PRINT_1.stl`
 
+## Additional committed manufacturing output
+
+- `../parts/10_panel_pair_joiner_PRINT_3.scad`
+  → `10_panel_pair_joiner_PRINT_3.stl`
+
+The panel-pair joiner STL is checked in alongside its SCAD source so it can be
+loaded directly into Bambu Studio like the other enclosure manufacturing
+outputs. It contains all three identical seam joiners required for the
+four-panel display.
+
+This supplemental joiner is intentionally **not** added to the enclosure
+CI/validation matrix; it reuses the existing closure-hole geometry and does not
+modify any enclosure component.
+
 ## Development workflow
 
 During creation/iteration:
