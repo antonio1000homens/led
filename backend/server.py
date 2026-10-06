@@ -505,7 +505,7 @@ class ScreenFeed:
                     "id": "weather-today",
                     "kind": "weather_today",
                     "duration_seconds": 8,
-                    "title": "TODAY",
+                    "title": "NEXT 24H",
                     "source": weather.get("source", "unavailable"),
                     "stale": bool(weather.get("stale")),
                     "blocks": today_blocks,
