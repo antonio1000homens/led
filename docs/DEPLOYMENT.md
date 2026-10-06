@@ -1,15 +1,18 @@
 # AWS deployment
 
-Issue #74 adds a dormant MQTT flash-event path for generic reminder screens.
-It is intentionally not enabled: `MQTT_ENABLED` and
-`MQTT_ENABLE_EXPERIMENTAL` are both false, and no broker settings or
-credentials are committed. Do not enable either gate until Home Assistant
-issue #4, the normalized event contract, broker reachability and outage
-behaviour have been reviewed together.
+Issue #74 provides MQTT reminder flash events. The MatrixPortal firmware
+enables the listener by default; the admin `flash.enabled` setting controls
+whether it connects. Broker settings and credentials stay in ignored,
+board-local `settings_local.py` and must point at the broker used by Home
+Assistant.
+When upgrading an existing board, remove any board-local false overrides for
+`MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL`; `settings_local.py` overrides
+the firmware defaults.
 
-When that gate is eventually approved, the board will additionally need the
-CircuitPython `adafruit_minimqtt` library copied to `CIRCUITPY/lib`. Until then
-the library is intentionally not imported by the normal boot path.
+The board needs the CircuitPython `adafruit_minimqtt` library in
+`CIRCUITPY/lib`; install it with `circup install -r requirements.txt` when
+preparing or refreshing the board libraries. Verify real reminder delivery
+separately from enabling the listener.
 
 The production LED backend is serverless and publishes a static renderer-neutral snapshot instead of running `backend/server.py` continuously.
 

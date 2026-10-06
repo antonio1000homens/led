@@ -240,20 +240,20 @@ pip install circup
 circup install -r requirements.txt
 ```
 
-The MQTT dependency is included for the issue #74 listener, but the listener
-is deliberately dormant. `firmware/settings.py` keeps both `MQTT_ENABLED` and
-`MQTT_ENABLE_EXPERIMENTAL` false, with an empty broker setting. Do not copy
-broker credentials or enable either gate until Home Assistant issue #4 and the
-broker path have passed review.
+The MQTT listener is enabled by default. Set the broker host and any
+authentication only in ignored `settings_local.py`; never commit credentials.
+The listener connects only when the runtime Flash setting is enabled.
+Remove old `MQTT_ENABLED = False` and `MQTT_ENABLE_EXPERIMENTAL = False`
+overrides from an existing `settings_local.py`, or change both to `True`.
 
 Flash enablement and display duration are runtime values from `/api/screens`;
 they are not configured in `settings_local.py`. The board uses the safe
 five-second default until its first successful runtime-config refresh.
 
-When that gate is eventually approved, `circup install -r requirements.txt`
-installs `adafruit_minimqtt` into `CIRCUITPY/lib`; the board still uses only
-uncommitted `settings_local.py` for broker hostname, port, topic and any
-credentials. The board connects outbound and does not require a reserved IP.
+`circup install -r requirements.txt` installs `adafruit_minimqtt` into
+`CIRCUITPY/lib`; the board uses only uncommitted `settings_local.py` for broker
+hostname, port, topic and credentials. It connects outbound and does not
+require a reserved IP.
 
 `gtsr4.pem` is a public Google Trust Services root certificate required by the
 current `led.alf-broadcast.co.uk` certificate chain on this CircuitPython

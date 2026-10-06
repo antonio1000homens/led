@@ -32,7 +32,7 @@ Weather's three dedicated screens preserve a fixed order: seven-day overview, To
 
 Deployment settings still own provider credentials, station CRS, weather coordinates, Todoist OAuth storage, AWS resource names, and Cloudflare Access validation metadata. The control API has no endpoint for arbitrary environment variables and its IAM role does not receive National Rail or Todoist credentials.
 
-For Flash events, the runtime `enabled` setting is applied on the MatrixPortal as well as by the publisher: disabled means the board disconnects from MQTT and does not poll the transport. The local `MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL` settings remain hard safety gates; runtime enablement cannot override either local gate.
+For Flash events, the runtime `enabled` setting is applied on the MatrixPortal as well as by the publisher: disabled means the board disconnects from MQTT and does not poll the transport. The board firmware enables both `MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL`; the runtime setting can still disable the connection.
 
 If the DynamoDB item does not exist, callers see safe defaults derived from the deployment configuration. The first authenticated configuration read seeds those defaults as version 1. After that, the DynamoDB values are authoritative for supported runtime fields. Existing persisted configs are upgraded in memory without a DynamoDB reset. Weather backfill defaults the seven-day overview to enabled/8 seconds, Today to enabled/8 seconds, and sunrise/sunset to enabled/6 seconds. These are screen-level controls only; there are no `day_0_*` through `day_6_*` settings.
 
@@ -154,12 +154,10 @@ The admin UI obtains choices from the API rather than hard-coding attractions, s
 
 ## Flash events
 
-The `flash` setting owns only operational controls for transient events. It is
-disabled by default and does not make the backend ingest Alexa reminders. The
-future Home Assistant publisher owns the event payload and will publish it to
-the board's configured MQTT topic after issue #4 is complete. The board-side
-MQTT connection currently requires both `MQTT_ENABLED` and the explicit
-`MQTT_ENABLE_EXPERIMENTAL` safety gate; both are false in `hardware/matrixportal/firmware/settings.py`.
+The `flash` setting owns only operational controls for transient events. The
+Home Assistant publisher owns the event payload. The board enables MQTT by
+default when both local MQTT flags and the runtime Flash setting are enabled.
+Broker details remain board-local.
 The public `/api/screens` response carries the effective non-secret `flash`
 settings so the board can apply admin changes on its normal HTTP refresh path;
 it never carries broker credentials or reminder payloads.

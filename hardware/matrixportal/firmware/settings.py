@@ -26,11 +26,10 @@ FRAME_SECONDS = 0.2
 # MatrixPortal boot brightness. Runtime button changes are session-local.
 MATRIX_BRIGHTNESS_PERCENT = 100
 
-# Issue #74 remains dormant until Home Assistant issue #4 and the broker path
-# are approved. Both flags are required so a local settings file cannot
-# accidentally enable a broker connection by supplying credentials alone.
-MQTT_ENABLED = False
-MQTT_ENABLE_EXPERIMENTAL = False
+# Enable the reminder listener; the experimental gate remains available as a
+# board-local override for disabling the feature.
+MQTT_ENABLED = True
+MQTT_ENABLE_EXPERIMENTAL = True
 MQTT_TOPIC = "led/flash/reminder"
 MQTT_BROKER = ""
 MQTT_PORT = 1883
