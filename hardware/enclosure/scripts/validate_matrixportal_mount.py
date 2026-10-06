@@ -9,8 +9,8 @@ from pathlib import Path
 import trimesh
 
 ADAPTER = "08_matrixportal_s3_adapter_PRINT_1.stl"
-RIGHT_GENERIC = "05_right_equipment_side_PRINT_1.stl"
-RIGHT_MATRIXPORTAL = "09_right_equipment_side_matrixportal_PRINT_1.stl"
+LEFT_GENERIC = "04_left_equipment_side_PRINT_1.stl"
+LEFT_MATRIXPORTAL = "09_left_equipment_side_matrixportal_PRINT_1.stl"
 
 
 def load_one(path: Path) -> trimesh.Trimesh:
@@ -36,8 +36,8 @@ def main() -> None:
     root = parser.parse_args().generated_dir.resolve()
 
     adapter = load_one(root / ADAPTER)
-    generic = load_one(root / RIGHT_GENERIC)
-    service = load_one(root / RIGHT_MATRIXPORTAL)
+    generic = load_one(root / LEFT_GENERIC)
+    service = load_one(root / LEFT_MATRIXPORTAL)
 
     dims = adapter.extents
     expected = (86.0, 50.0, 9.0)
@@ -52,18 +52,18 @@ def main() -> None:
     # removing real material for the service opening.
     if max(abs(service.extents-generic.extents)) > 0.25:
         raise SystemExit(
-            f"{RIGHT_MATRIXPORTAL}: outer envelope changed unexpectedly; "
+            f"{LEFT_MATRIXPORTAL}: outer envelope changed unexpectedly; "
             f"generic={generic.extents.tolist()} service={service.extents.tolist()}"
         )
     if not service.volume < generic.volume - 10.0:
         raise SystemExit(
-            f"{RIGHT_MATRIXPORTAL}: service opening did not remove meaningful volume"
+            f"{LEFT_MATRIXPORTAL}: service opening did not remove meaningful volume"
         )
 
     print(
         "MatrixPortal accessory validation passed: "
         f"adapter={dims.tolist()} mm, "
-        f"right-side removed volume={generic.volume-service.volume:.1f} mm^3"
+        f"left-side removed volume={generic.volume-service.volume:.1f} mm^3"
     )
 
 
