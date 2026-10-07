@@ -1,0 +1,44 @@
+name: Refresh PR 214 canonical STLs
+
+on:
+  push:
+    branches:
+      - feature/matrixportal-tool-free-retainer
+    paths:
+      - .github/workflows/refresh-pr214-canonical-stls.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: feature/matrixportal-tool-free-retainer
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Regenerate changed MatrixPortal manufacturing STLs
+        run: |
+          mkdir -p hardware/enclosure/stl
+          openscad             -o hardware/enclosure/stl/10_matrixportal_s3_carrier_PRINT_1.stl             hardware/enclosure/parts/10_matrixportal_s3_carrier_PRINT_1.scad
+          openscad             -o hardware/enclosure/stl/11_matrixportal_s3_keeper_PRINT_1.stl             hardware/enclosure/parts/11_matrixportal_s3_keeper_PRINT_1.scad
+
+      - name: Commit canonical meshes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add             hardware/enclosure/stl/10_matrixportal_s3_carrier_PRINT_1.stl             hardware/enclosure/stl/11_matrixportal_s3_keeper_PRINT_1.stl
+          if git diff --cached --quiet; then
+            echo "Canonical MatrixPortal STLs are already current."
+            exit 0
+          fi
+          git commit -m "Refresh MatrixPortal tool-free canonical STLs"
+          git push origin HEAD:feature/matrixportal-tool-free-retainer
