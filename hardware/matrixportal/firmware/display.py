@@ -383,6 +383,43 @@ def _bin_collection_types(screen):
     return ("green",)
 
 
+def _date_ordinal(value):
+    """Convert a strict YYYY-MM-DD date to a Gregorian day number."""
+    if not isinstance(value, str) or len(value) != 10 or value[4] != "-" or value[7] != "-":
+        return None
+    if not (value[:4].isdigit() and value[5:7].isdigit() and value[8:10].isdigit()):
+        return None
+    try:
+        year, month, day = int(value[:4]), int(value[5:7]), int(value[8:10])
+    except ValueError:
+        return None
+    if year < 1 or not 1 <= month <= 12:
+        return None
+    leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    month_lengths = (31, 29 if leap else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    if not 1 <= day <= month_lengths[month - 1]:
+        return None
+    previous_year = year - 1
+    days = previous_year * 365 + previous_year // 4 - previous_year // 100 + previous_year // 400
+    days += sum(month_lengths[:month - 1]) + day - 1
+    return days
+
+
+def _bin_collection_due_label(collection_date, today):
+    due_day = _date_ordinal(collection_date)
+    today_day = _date_ordinal(today)
+    if due_day is None or today_day is None:
+        return "DUE DATE UNKNOWN"
+    days_until = due_day - today_day
+    if days_until < 0:
+        return "OVERDUE"
+    if days_until == 0:
+        return "DUE TODAY"
+    if days_until == 1:
+        return "DUE IN 1 DAY"
+    return "DUE IN {} DAYS".format(days_until)
+
+
 def _bin_lorry_x(phase):
     """Slide a compact refuse lorry across the board from right to left."""
     try:
@@ -2398,12 +2435,12 @@ class MatrixDisplay:
         if changed:
             self._refresh(animation_class="weather_sun_slide")
 
-    def _bin_collection_cache_matches(self, screen, header_kind):
+    def _bin_collection_cache_matches(self, screen, clock_date, header_kind):
         items = screen.get("collections") or []
         key = (
             str(screen.get("title") or "NEXT COLLECTION"),
             " / ".join(str(item.get("label") or "") for item in items),
-            str(screen.get("collection_date") or ""),
+            _bin_collection_due_label(screen.get("collection_date"), clock_date),
             bool(screen.get("stale")),
             _bin_collection_types(screen),
         )
@@ -2478,7 +2515,7 @@ class MatrixDisplay:
             bitmap[px, py] = 4
         return displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=6)
 
-    def _build_bin_collection(self, screen, clock_time, phase, header_kind):
+    def _build_bin_collection(self, screen, clock_time, clock_date, phase, header_kind):
         import displayio
 
         group = displayio.Group()
@@ -2497,9 +2534,13 @@ class MatrixDisplay:
         self._bin_motion_group = displayio.Group()
         self._bin_label = self._label(self._bin_motion_group, labels, 0xFFFFFF, 0, 14)
         content.append(self._bin_motion_group)
-        # Keep the full 5x7 glyph row inside the 32px panel.  y=31 put the
-        # date's lower rows below the physical display and clipped them.
-        self._bin_date = self._label(content, str(screen.get("collection_date") or ""), 0xAAAAAA, 0, 24)
+        self._bin_date = self._label(
+            content,
+            _bin_collection_due_label(screen.get("collection_date"), clock_date),
+            0xAAAAAA,
+            0,
+            24,
+        )
         group.append(content)
         self._bin_content_group = content
         self._bin_lorry_group = displayio.Group()
@@ -2522,13 +2563,19 @@ class MatrixDisplay:
         self._bin_group = group
         self._bin_header_kind = header_kind
         self._bin_weather = dict(screen["weather"]) if isinstance(screen.get("weather"), dict) else None
-        self._bin_key = (title, labels, str(screen.get("collection_date") or ""), bool(screen.get("stale")), self._bin_types)
+        self._bin_key = (
+            title,
+            labels,
+            _bin_collection_due_label(screen.get("collection_date"), clock_date),
+            bool(screen.get("stale")),
+            self._bin_types,
+        )
 
-    def _show_bin_collection(self, screen, clock_time, phase):
+    def _show_bin_collection(self, screen, clock_time, clock_date, phase):
         update_started = time.monotonic()
         header_kind, header_offset = _header_item_state(phase, screen.get("weather"))
-        if not self._bin_collection_cache_matches(screen, header_kind):
-            self._build_bin_collection(screen, clock_time, phase, header_kind)
+        if not self._bin_collection_cache_matches(screen, clock_date, header_kind):
+            self._build_bin_collection(screen, clock_time, clock_date, phase, header_kind)
             changed = True
         else:
             changed = False
@@ -2618,7 +2665,7 @@ class MatrixDisplay:
             return
 
         if not empty_state and kind == "bin_collection":
-            self._show_bin_collection(screen, clock_time, phase)
+            self._show_bin_collection(screen, clock_time, clock_date, phase)
             return
 
         if (
@@ -2780,7 +2827,7 @@ class FixtureDisplay:
             self._text(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP,
                        12 + offset, (255, 170, 0))
 
-    def _bin_collection(self, screen, phase):
+    def _bin_collection(self, screen, phase, clock_date=""):
         items = screen.get("collections") or []
         labels = " / ".join(str(item.get("label") or "") for item in items)
         try:
@@ -2821,7 +2868,12 @@ class FixtureDisplay:
             self._fill_rect(icon_x + 2, 21, 2, 2, (17, 17, 17))
             self._fill_rect(icon_x + 5, 21, 2, 2, (17, 17, 17))
         self._text(labels, x, 14, (255, 255, 255))
-        self._text(str(screen.get("collection_date") or ""), 0, 25, (170, 170, 170))
+        self._text(
+            _bin_collection_due_label(screen.get("collection_date"), clock_date),
+            0,
+            25,
+            (170, 170, 170),
+        )
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
@@ -2944,7 +2996,7 @@ class FixtureDisplay:
         elif kind == "weather_sun":
             self._sun_weather(screen, phase)
         elif kind == "bin_collection":
-            self._bin_collection(screen, phase)
+            self._bin_collection(screen, phase, clock_date)
         elif kind == "rail_combined":
             services = screen.get("services") or []
             rail_right_edge = _header_content_right(screen)
@@ -3119,7 +3171,7 @@ class FixtureDisplay:
         elif kind == "bin_collection":
             for item in screen.get("collections") or []:
                 print(str(item.get("label") or ""))
-            print(str(screen.get("collection_date") or ""))
+            print(_bin_collection_due_label(screen.get("collection_date"), clock_date))
         elif kind == "weather_weekly":
             days = screen.get("days") or []
             if not days:

@@ -356,6 +356,20 @@
     function calendarDayNumber(parts) {
       return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000);
     }
+    function binCollectionDueLabel(collectionDate, now = new Date()) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(collectionDate || ''));
+      if (!match) return 'DUE DATE UNKNOWN';
+      const target = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+      const checked = new Date(Date.UTC(target.year, target.month - 1, target.day));
+      if (checked.getUTCFullYear() !== target.year || checked.getUTCMonth() + 1 !== target.month || checked.getUTCDate() !== target.day) {
+        return 'DUE DATE UNKNOWN';
+      }
+      const daysUntil = calendarDayNumber(target) - calendarDayNumber(londonDateParts(now));
+      if (daysUntil < 0) return 'OVERDUE';
+      if (daysUntil === 0) return 'DUE TODAY';
+      if (daysUntil === 1) return 'DUE IN 1 DAY';
+      return `DUE IN ${daysUntil} DAYS`;
+    }
     function calendarDueText(event, now = new Date()) {
       if (!event || typeof event !== 'object') return '';
       const start = String(event.start || '');
@@ -914,7 +928,7 @@
       drawLedText(labels, x, 14 * FONT_PIXEL_SCALE);
       context.restore();
       context.fillStyle = '#aaaaaa';
-      drawLedText(String(screen.collection_date || ''), 0, 25 * FONT_PIXEL_SCALE);
+      drawLedText(binCollectionDueLabel(screen.collection_date), 0, 25 * FONT_PIXEL_SCALE);
       if (screen.stale || forceStale) {
         context.fillStyle = '#ff3300';
         drawLedText('STALE', STALE_X, HEADER_TEXT_Y);
