@@ -52,9 +52,16 @@ def _clip(value, width):
     return _pad_right(value, width)
 
 
+def service_is_cancelled(service):
+    """Recognize cancellations from either the explicit flag or status text."""
+    status = str(service.get("status") or "")
+    return bool(service.get("cancelled")) or "CANCELLED" in status.upper()
+
+
 def service_status_text(service):
     """Return the normalized status text shown at the right of a rail row."""
-    return "CANCELLED" if service.get("cancelled") else str(service.get("status", ""))
+    status = str(service.get("status") or "")
+    return "CANCELLED" if service_is_cancelled(service) else status
 
 
 def rail_row_parts(service):

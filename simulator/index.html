@@ -296,7 +296,10 @@
     };
 
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
-    function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
+    function serviceCancelled(service) {
+      return Boolean(service.cancelled) || String(service.status || '').toUpperCase().includes('CANCELLED');
+    }
+    function serviceStatus(service) { return serviceCancelled(service) ? 'CANCELLED' : String(service.status || ''); }
     function ordinalLabel(number) {
       const value = Number(number) || 1;
       const suffix = value % 100 > 10 && value % 100 < 14 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
@@ -1085,7 +1088,7 @@
           const ordinal = railPhase(phase, summarySeconds, callingSeconds) === 'calling'
             ? (rowIndex === 0 ? 1 : rowIndex)
             : rowIndex - firstServiceRow + 1;
-            drawRailService(row.service, y, 0, headerRight, row.service.cancelled ? '#ff3300' : '#ffffff', ordinal);
+            drawRailService(row.service, y, 0, headerRight, serviceCancelled(row.service) ? '#ff3300' : '#ffffff', ordinal);
           } else if (row.kind === 'calling' && row.service) {
             const calling = callingMarqueeState(callingText(row.service), railMarqueeElapsed(phase, summarySeconds, callingSeconds), stationMarqueeSpeed(screen), stationMarqueeGap());
             context.fillStyle = '#ffaa00';
@@ -1146,7 +1149,7 @@
               row.y,
               0,
               headerRight,
-              service.cancelled ? '#ff3300' : '#ffffff',
+              serviceCancelled(service) ? '#ff3300' : '#ffffff',
               row.index + 2,
             );
           }

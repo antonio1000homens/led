@@ -51,6 +51,7 @@ from formatting import (
     rail_rows,
     ordinal_label,
     format_row,
+    service_is_cancelled,
     queue_scroll_state,
     row_slide_phase,
     service_status_text,
@@ -1496,7 +1497,7 @@ class MatrixDisplay:
                 else:
                     first_service_row = 0 if rows and rows[0][0] == "service" else 1
                     ordinal = row_index - first_service_row + 1
-                color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
+                color = 0xFF3300 if service_is_cancelled(service) else 0xFFFFFF
                 self._rail_service(fixed_group, service, color, 0, y, rail_right_edge, ordinal)
             elif row_kind == "calling":
                 calling_group = displayio.Group()
@@ -1522,7 +1523,7 @@ class MatrixDisplay:
             # later services through the two lower physical rows.
             for index, service in enumerate(services[1:]):
                 row_group = displayio.Group()
-                color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
+                color = 0xFF3300 if service_is_cancelled(service) else 0xFFFFFF
                 self._rail_service(row_group, service, color, 0, 0, rail_right_edge, index + 2)
                 row_group.y = RAIL_ROW_Y[-1] + 8
                 group.append(row_group)
@@ -3015,7 +3016,7 @@ class FixtureDisplay:
                     else:
                         first_service_row = 0 if services and len(services) >= 4 else 1
                         ordinal = row_index - first_service_row + 1
-                    color = (255, 20, 0) if service.get("cancelled") else (255, 255, 255)
+                    color = (255, 20, 0) if service_is_cancelled(service) else (255, 255, 255)
                     self._rail_service(service, color, 0, y, rail_right_edge, ordinal)
                 elif row_kind == "calling" and service is not None:
                     calling_service = service
@@ -3039,7 +3040,7 @@ class FixtureDisplay:
                                for i in range(start, min(len(upcoming), start + 3)))
                 for service_index, y in visible:
                     service = upcoming[service_index]
-                    color = (255, 20, 0) if service.get("cancelled") else (255, 255, 255)
+                    color = (255, 20, 0) if service_is_cancelled(service) else (255, 255, 255)
                     self._rail_service(service, color, 0, y, rail_right_edge, service_index + 2)
                 if calling_service is not None:
                     y = RAIL_ROW_Y[1]
