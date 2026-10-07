@@ -2363,6 +2363,7 @@ class MatrixDisplay:
             return
 
         changed = False
+        stale = bool(screen.get("stale"))
         for icon_name, icon_grid in self._sun_icon_grids:
             next_y = _sun_weather_icon_y(icon_name, phase)
             next_color = _sun_weather_rgb(icon_name, stale, phase)
@@ -2370,7 +2371,6 @@ class MatrixDisplay:
                 icon_grid.y = next_y
                 icon_grid.pixel_shader[1] = next_color
                 changed = True
-        stale = bool(screen.get("stale"))
         label_y = _sun_weather_rise_label_y(phase)
         for label_kind, index, label_grid, palette in self._sun_label_grids:
             if label_kind == "rise":
