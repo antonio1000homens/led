@@ -315,19 +315,22 @@ retains the dock:
 - `parts/09_left_equipment_side_matrixportal_PRINT_1.scad` adds two inward
   keyed receiver channels immediately below/above the **52 × 31 mm**
   carrier/service opening;
-- `parts/08_matrixportal_s3_dock_PRINT_1.scad` has matching PETG snap tabs and
-  no longer contains M3 dock fixing holes;
-- its four 7.5 mm rear sockets still settle over the existing
-  X=32/80, Y=62.5/102.5 universal boss rectangle as passive location/anti-flex
-  pads only, so the universal backplane remains unchanged;
+- `parts/08_matrixportal_s3_dock_PRINT_1.scad` has matching PETG snap tabs,
+  no M3 dock fixing holes and **no backplane boss sockets**;
+- the dock's solid rear face runs **0.40 mm clear of the universal boss-tip
+  plane**, so the complete side/dock/controller assembly can be pulled outward
+  without the backplane capturing it;
 - `parts/10_matrixportal_s3_carrier_PRINT_1.scad` carries the controller on
   four **11.5 mm** standoffs, each with a fixed **2.20 mm locating pin**, clearing
   the conservative 9 mm underside connector envelope by 2.5 mm;
 - print **two** `parts/11_matrixportal_s3_keeper_PRINT_1.scad` bars; each drops
   over one column of locating pins and slides 2 mm into a small PETG click-lock,
   so the PCB needs no M2.5 screws or nuts;
-- the carrier still slides in from the left on captive dovetails and clicks into
-  a shallow PETG detent at a positive seated stop;
+- the carrier still slides in from the CAD-left/front-right side on captive
+  dovetails and clicks into a shallow PETG detent at a positive seated stop;
+- normal controller access is now by removing the **front-right side with the
+  MatrixPortal still attached**, exposing its connectors without opening the
+  hinged enclosure;
 - the controller keeps its native XY orientation so the USB/button edge faces
   outward left and HUB75 faces inward;
 - `schematics/01_matrixportal_mount_ASSEMBLY.scad` previews the complete
