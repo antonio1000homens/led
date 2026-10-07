@@ -792,13 +792,29 @@
         {label:'SUNRISE', value:formatSunTime(screen.sunrise_time), icon:'clear_day', left:0, right:512, startY:128},
         {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-84}
       ];
+      const easedProgress = progress * progress * (3 - 2 * progress);
+      const mixColor = (from, to, amount) => {
+        const a = from.match(/[A-Fa-f0-9]{2}/g).map(value => parseInt(value, 16));
+        const b = to.match(/[A-Fa-f0-9]{2}/g).map(value => parseInt(value, 16));
+        return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount)
+          .toString(16).padStart(2, '0')).join('')}`;
+      };
       halves.forEach(item => {
         const width = item.right - item.left;
-        const easedProgress = progress * progress * (3 - 2 * progress);
         const iconY = item.startY + (20 - item.startY) * easedProgress;
         drawWeatherPattern(item.icon, item.left + 4, iconY, 12, stale,
           item.icon === 'clear_day' ? '#ffff00' : '#0000ff');
-        drawSunText(item.label, item.left + 108, 44, 2, stale ? '#777777' : '#ffaa00');
+        if (item.icon === 'clear_day') {
+          const labelY = 128 + (44 - 128) * easedProgress;
+          const labelColor = mixColor('#000000', stale ? '#777777' : '#ffaa00', easedProgress);
+          drawSunText(item.label, item.left + 108, labelY, 2, labelColor);
+        } else {
+          const blueLetters = Math.min(6, Math.floor(easedProgress * 7));
+          [...item.label].forEach((character, index) => {
+            const color = stale ? '#777777' : (index < blueLetters ? '#0000ff' : '#ffaa00');
+            drawSunText(character, item.left + 108 + index * 32, 44, 2, color);
+          });
+        }
         drawSunText(item.value, item.left + 352, 44, 2, stale ? '#aaaaaa' : '#ffffff');
       });
     }
@@ -929,7 +945,7 @@
       const active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1091,6 +1107,21 @@
         if (label.length > 42) drawLedText(label.slice(42, 84), 0, CONTENT_FIRST_Y + CONTENT_ROW_HEIGHT);
         const due = String(screen.due_at || '');
         if (due.length >= 16) { context.fillStyle = '#aaaaaa'; drawLedText(due.slice(11, 16), CLOCK_X, HEADER_TEXT_Y); }
+        const clockProgress = Math.min(1, Math.max(0, phase / 1.4));
+        const clockX = 1024 - 56 + (472 - (1024 - 56)) * clockProgress;
+        const pulse = phase < 1.4 || Math.floor((phase - 1.4) * 3) % 2 === 0;
+        context.strokeStyle = pulse ? '#ffffff' : '#ffaa00';
+        context.fillStyle = context.strokeStyle;
+        context.lineWidth = 4;
+        context.beginPath();
+        context.arc(clockX + 26, 64, 22, 0, Math.PI * 2);
+        context.stroke();
+        context.lineWidth = 5;
+        context.beginPath();
+        context.moveTo(clockX + 26, 46);
+        context.lineTo(clockX + 26, 64);
+        context.lineTo(clockX + 39, 64);
+        context.stroke();
         status.dataset.detail = 'Reminder flash';
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];

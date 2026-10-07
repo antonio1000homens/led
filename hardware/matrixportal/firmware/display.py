@@ -333,6 +333,29 @@ def _sun_weather_icon_y(icon_name, phase):
     return int(round(start_y + (SUN_WEATHER_ICON_Y - start_y) * progress))
 
 
+def _sun_weather_eased_progress(phase):
+    progress = _sun_weather_progress(phase)
+    return progress * progress * (3.0 - 2.0 * progress)
+
+
+def _sun_weather_rise_label_state(phase, stale=False):
+    progress = _sun_weather_eased_progress(phase)
+    end_color = 0x777777 if stale else 0xFFAA00
+    red = int(((end_color >> 16) & 255) * progress)
+    green = int(((end_color >> 8) & 255) * progress)
+    blue = int((end_color & 255) * progress)
+    return int(round(32 + (11 - 32) * progress)), (red << 16) | (green << 8) | blue
+
+
+def _sun_weather_set_label_color(index, phase, stale=False):
+    progress = _sun_weather_eased_progress(phase)
+    # Reveal one additional sunset letter at a time from yellow to blue.
+    blue_letters = min(6, int(progress * 7))
+    if index < blue_letters:
+        return 0x777777 if stale else 0x0000FF
+    return 0x777777 if stale else 0xFFAA00
+
+
 def _sun_weather_rgb(icon_name, stale=False):
     """Use primary LED colors so yellow and blue survive one-bit output."""
     if stale:
@@ -655,6 +678,7 @@ class MatrixDisplay:
         self._sun_group = None
         self._sun_key = None
         self._sun_icon_grids = ()
+        self._sun_label_grids = ()
 
         # MQTT collection labels can scroll for the full screen duration.
         # Keep their labels and header scene persistent across frames.
@@ -1017,6 +1041,8 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "flash":
+            return "queue_rows"
         if kind == "calendar_agenda" and screen.get("source") == "todoist":
             if self._todoist_rows and self._todoist_page_slide_active(phase):
                 return "todoist_page_slide"
@@ -1599,10 +1625,9 @@ class MatrixDisplay:
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
-    def _flash(self, group, screen):
+    def _flash(self, group, screen, phase=0):
         """Render a generic transient event without provider-specific logic."""
         import displayio
-        del displayio
         self._label(group, _clip(screen.get("title") or "FLASH", 30), 0xFFAA00, 0, 3)
         label = str(screen.get("label") or "")
         first, second = label[:42], label[42:84]
@@ -1612,6 +1637,24 @@ class MatrixDisplay:
         due = str(screen.get("due_at") or "")
         if len(due) >= 16:
             self._label(group, due[11:16], 0xAAAAAA, 226, 3)
+        # A transparent pixel clock slides in over the reminder text, then
+        # pulses between amber and white while the reminder remains active.
+        progress = min(1.0, max(0.0, float(phase or 0) / 1.4))
+        x = int(round(256 - 14 + (118 - (256 - 14)) * progress))
+        bitmap = displayio.Bitmap(13, 13, 2)
+        palette = displayio.Palette(2)
+        palette.make_transparent(0)
+        pulse = int(max(0, float(phase or 0) - 1.4) * 3) % 2 == 0
+        palette[1] = 0xFFFFFF if pulse else 0xFFAA00
+        # 12 by 12 circular outline with bold hands, readable at matrix scale.
+        for px in range(13):
+            for py in range(13):
+                dx, dy = px - 6, py - 6
+                if 25 <= dx * dx + dy * dy <= 45:
+                    bitmap[px, py] = 1
+        for px, py in ((6, 2), (6, 3), (6, 4), (6, 5), (7, 6), (8, 6), (9, 6)):
+            bitmap[px, py] = 1
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=10))
 
     def _todoist_cache_matches(self, screen, clock_date):
         weather = screen.get("weather")
@@ -2114,9 +2157,22 @@ class MatrixDisplay:
             ("SUNSET", _format_sun_time(screen.get("sunset_time")), "clear_night", DISPLAY_WIDTH // 2, DISPLAY_WIDTH),
         )
         icon_grids = []
+        label_grids = []
         for label, value, icon_name, left, right in values:
             width = right - left
-            self._sun_text_label(group, label, label_color, left + 27, 11, SUN_WEATHER_TIME_SCALE)
+            if icon_name == "clear_day":
+                label_y, rise_color = _sun_weather_rise_label_state(phase, stale)
+                label_grid, label_palette = self._sun_text_label(
+                    group, label, rise_color, left + 27, label_y, SUN_WEATHER_TIME_SCALE
+                )
+                label_grids.append(("rise", 0, label_grid, label_palette))
+            else:
+                for index, character in enumerate(label):
+                    label_grid, label_palette = self._sun_text_label(
+                        group, character, _sun_weather_set_label_color(index, phase, stale),
+                        left + 27 + index * 8, 11, SUN_WEATHER_TIME_SCALE,
+                    )
+                    label_grids.append(("set", index, label_grid, label_palette))
             rows = WEATHER_ICONS[icon_name]
             icon_width = WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE
             bitmap = displayio.Bitmap(icon_width, icon_width, 2)
@@ -2139,7 +2195,7 @@ class MatrixDisplay:
             group.append(icon_grid)
             icon_grids.append((icon_name, icon_grid))
             self._sun_text_label(group, value, text_color, left + 88, 11, SUN_WEATHER_TIME_SCALE)
-        return tuple(icon_grids)
+        return tuple(icon_grids), tuple(label_grids)
 
     def _sun_text_label(self, group, text, color, x, y, scale):
         import displayio
@@ -2159,7 +2215,9 @@ class MatrixDisplay:
                             for dy in range(scale):
                                 bitmap[index * 4 * scale + column * scale + dx,
                                        row_index * scale + dy] = 1
-        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=y))
+        grid = displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=y)
+        group.append(grid)
+        return grid, palette
 
     def _show_sun_weather(self, screen, phase):
         import displayio
@@ -2175,7 +2233,7 @@ class MatrixDisplay:
             or self.display.root_group is not self._sun_group
         ):
             group = displayio.Group()
-            self._sun_icon_grids = self._sun_weather(group, screen, phase)
+            self._sun_icon_grids, self._sun_label_grids = self._sun_weather(group, screen, phase)
             self._sun_group = group
             self._sun_key = key
             self._present(group)
@@ -2187,6 +2245,19 @@ class MatrixDisplay:
             if icon_grid.y != next_y:
                 icon_grid.y = next_y
                 changed = True
+        stale = bool(screen.get("stale"))
+        label_y, rise_color = _sun_weather_rise_label_state(phase, stale)
+        for label_kind, index, label_grid, palette in self._sun_label_grids:
+            if label_kind == "rise":
+                if label_grid.y != label_y or palette[1] != rise_color:
+                    label_grid.y = label_y
+                    palette[1] = rise_color
+                    changed = True
+            else:
+                next_color = _sun_weather_set_label_color(index, phase, stale)
+                if palette[1] != next_color:
+                    palette[1] = next_color
+                    changed = True
         if changed:
             self._refresh(animation_class="weather_sun_slide")
 
@@ -2350,7 +2421,7 @@ class MatrixDisplay:
         elif kind == "calendar_agenda":
             self._calendar(group, screen, phase, clock_date)
         elif kind == "flash":
-            self._flash(group, screen)
+            self._flash(group, screen, phase)
         else:
             self._label(group, _clip(screen.get("title") or "Display unavailable", 30), 0xFFFFFF, 0, 3)
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
@@ -2700,6 +2771,17 @@ class FixtureDisplay:
             due = str(screen.get("due_at") or "")
             if len(due) >= 16:
                 self._text(due[11:16], 226, 0, (170, 170, 170))
+            progress = min(1.0, max(0.0, float(phase or 0) / 1.4))
+            x = int(round(256 - 14 + (118 - (256 - 14)) * progress))
+            pulse = float(phase or 0) < 1.4 or int((float(phase or 0) - 1.4) * 3) % 2 == 0
+            color = (255, 255, 255) if pulse else (255, 170, 0)
+            for px in range(13):
+                for py in range(13):
+                    dx, dy = px - 6, py - 6
+                    if 25 <= dx * dx + dy * dy <= 45:
+                        self._pixel(x + px, 10 + py, color)
+            for px, py in ((6, 2), (6, 3), (6, 4), (6, 5), (7, 6), (8, 6), (9, 6)):
+                self._pixel(x + px, 10 + py, color)
         else:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
