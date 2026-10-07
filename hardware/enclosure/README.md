@@ -61,6 +61,20 @@ Every equipment base and every backplane remains interchangeable between all
 four panel positions. Position- or component-specific behaviour belongs on
 detachable side pieces or accessory adapters.
 
+### Side naming and front-view orientation
+
+The enclosure's `left` / `right` identifiers are **CAD coordinate/end names**,
+not the viewer's left/right when standing in front of the finished LED display.
+Because the assembly is being viewed from the opposite face, they appear
+reversed in a front view:
+
+- CAD **right** / X=module width = **front-view LEFT** = **C14 power inlet**;
+- CAD **left** / X=0 = **front-view RIGHT** = **MatrixPortal S3 service/dock**.
+
+The intended physical layout is therefore **C14 on the left and MatrixPortal on
+the right when looking at the LED board from the front**. Do not swap these
+parts solely to make the internal CAD side names match front-view terminology.
+
 ## Canonical printable parts
 
 | Wrapper | Purpose |
