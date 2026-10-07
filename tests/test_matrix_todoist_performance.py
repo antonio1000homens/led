@@ -13,6 +13,7 @@ from matrix_config import (
     DEPARTURES_CALLING_FPS,
     MATRIX_PRESENTATION_MODE,
     MATRIX_ANIMATION_PROFILES,
+    MATRIX_ANIMATION_PROFILE as DEFAULT_MATRIX_ANIMATION_PROFILE,
     MATRIX_REFRESH_FPS,
     TODOIST_MARQUEE_FPS,
     TODOIST_PAGE_SLIDE_FPS,
@@ -188,6 +189,13 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
 
     def test_marquee_speed_does_not_exceed_update_cadence(self):
         self.assertLessEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
+
+    def test_default_profile_raises_only_departures_cadence(self):
+        self.assertEqual(DEFAULT_MATRIX_ANIMATION_PROFILE, "departures_12")
+        self.assertEqual(
+            MATRIX_ANIMATION_PROFILES[DEFAULT_MATRIX_ANIMATION_PROFILE]["departures_calling"],
+            12,
+        )
 
     def test_transition_profiles_only_raise_short_transition_cadence(self):
         self.assertEqual(MATRIX_ANIMATION_PROFILES["baseline"]["todoist_page_slide"], MATRIX_REFRESH_FPS)

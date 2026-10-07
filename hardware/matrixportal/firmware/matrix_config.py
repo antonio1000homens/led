@@ -108,8 +108,9 @@ MATRIX_ANIMATION_PROFILES = {
     },
 }
 
-# Use the historically stable B8 cadence for the current 8 px/s calling trial.
-MATRIX_ANIMATION_PROFILE = "baseline"
+# Use the 12 Hz Departures cadence by default; other screens retain the
+# baseline 8 Hz workload unless an explicit profile is selected locally.
+MATRIX_ANIMATION_PROFILE = "departures_12"
 # Keep the lower train rows in the normal scrolling mode after the isolated
 # calling-marquee A/B capture.
 MATRIX_RAIL_ROWS_SCROLL = True
