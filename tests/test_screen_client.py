@@ -57,6 +57,65 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_http_and_mqtt_sources_merge_in_independent_stable_order(self):
+        rotation = ScreenRotation()
+        rotation.update_sources(
+            [{"id": "http-b", "kind": "message", "duration_seconds": 8},
+             {"id": "http-a", "kind": "message", "duration_seconds": 8}],
+            [{"id": "mqtt-z", "kind": "bin_collection", "duration_seconds": 8},
+             {"id": "mqtt-a", "kind": "bin_collection", "duration_seconds": 8}],
+            0,
+        )
+        self.assertEqual([screen["id"] for screen in rotation.screens],
+                         ["http-b", "http-a", "mqtt-a", "mqtt-z"])
+
+    def test_independent_source_removal_keeps_unaffected_screen_phase(self):
+        rotation = ScreenRotation()
+        http = [{"id": "http", "kind": "message", "duration_seconds": 8}]
+        mqtt = [{"id": "mqtt", "kind": "bin_collection", "duration_seconds": 8}]
+        rotation.update_sources(http, mqtt, 0)
+        rotation.current(3)
+        rotation.update_sources(http, [], 4)
+        screen, phase = rotation.current(4)
+        self.assertEqual((screen["id"], phase), ("http", 4))
+        rotation.update_sources([], [mqtt[0]], 5)
+        self.assertEqual(rotation.current(5), (mqtt[0], 0))
+        rotation.update_sources([], [], 6)
+        self.assertEqual(rotation.screens, [])
+
+    def test_removing_current_mqtt_screen_advances_to_survivor_with_fresh_phase(self):
+        rotation = ScreenRotation()
+        http = [{"id": "http", "kind": "message", "duration_seconds": 8}]
+        mqtt = [{"id": "a", "kind": "bin_collection", "duration_seconds": 8},
+                {"id": "b", "kind": "bin_collection", "duration_seconds": 8}]
+        rotation.update_sources(http, mqtt, 0)
+        rotation.index = 1
+        rotation.started_at = 0
+        rotation.current(3)
+        rotation.update_sources(http, [mqtt[1]], 4)
+        screen, phase = rotation.current(4)
+        self.assertEqual(screen["id"], "b")
+        self.assertEqual(phase, 0)
+
+    def test_flash_freezes_and_resumes_mqtt_phase_unless_expired_or_removed(self):
+        rotation = ScreenRotation()
+        http = [{"id": "http", "kind": "message", "duration_seconds": 8}]
+        mqtt = [{"id": "bin", "kind": "bin_collection", "duration_seconds": 8}]
+        rotation.update_sources(http, mqtt, 0)
+        rotation.index = 1
+        rotation.started_at = 0
+        interrupted = rotation.freeze(3)
+        rotation.current(20)
+        rotation.update_sources(http, mqtt, 20)
+        self.assertEqual(rotation.current(20), interrupted)
+        rotation.resume(20, interrupted[0], interrupted[1])
+        self.assertEqual(rotation.current(20), interrupted)
+        interrupted = rotation.freeze(22)
+        rotation.update_sources(http, [], 24)
+        rotation.resume(24, interrupted[0], interrupted[1])
+        screen, phase = rotation.current(24)
+        self.assertEqual((screen["id"], phase), ("http", 0))
+
     def test_valid_backend_presentation_is_consumed_without_local_timing(self):
         services = [{"destination": "Waterloo", "stops": [{"station": "Wimbledon", "time": "12:19"}]}]
         presentation = prepare_rail_presentation(services, 20, 2, 8)

@@ -1,0 +1,18 @@
+diff --git a/ports/espressif/boards/adafruit_matrixportal_s3/mpconfigboard.h b/ports/espressif/boards/adafruit_matrixportal_s3/mpconfigboard.h
+index 059cfe5..5dbbc28 100644
+--- a/ports/espressif/boards/adafruit_matrixportal_s3/mpconfigboard.h
++++ b/ports/espressif/boards/adafruit_matrixportal_s3/mpconfigboard.h
+@@ -13,0 +14,3 @@
++#define CIRCUITPY_WIFI_DEFAULT_TX_POWER (8)
++#define CIRCUITPY_WIFI_STARTUP_DELAY_MS (10000)
++
+diff --git a/supervisor/shared/web_workflow/web_workflow.c b/supervisor/shared/web_workflow/web_workflow.c
+index e0c9ba4..c86e29c 100644
+--- a/supervisor/shared/web_workflow/web_workflow.c
++++ b/supervisor/shared/web_workflow/web_workflow.c
+@@ -18,0 +19 @@
++#include "py/mphal.h"
+@@ -318,0 +320,3 @@ bool supervisor_start_web_workflow(void) {
++        #if defined(CIRCUITPY_WIFI_STARTUP_DELAY_MS) && CIRCUITPY_WIFI_STARTUP_DELAY_MS > 0
++        mp_hal_delay_ms(CIRCUITPY_WIFI_STARTUP_DELAY_MS);
++        #endif

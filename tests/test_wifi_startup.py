@@ -16,6 +16,9 @@ class WifiStartupTests(unittest.TestCase):
         events = []
 
         class Radio:
+            enabled = False
+            connected = False
+
             def __setattr__(self, name, value):
                 events.append((name, value))
                 object.__setattr__(self, name, value)

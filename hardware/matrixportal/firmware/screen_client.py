@@ -251,10 +251,24 @@ class ScreenRotation:
 
     def __init__(self):
         self.screens = []
+        self.http_screens = []
+        self.mqtt_screens = []
         self.index = 0
         self.started_at = None
+        self._paused = None
 
     def update(self, screens, now):
+        """Replace the HTTP collection, retaining the legacy single-source API."""
+        self.http_screens = self._prepare_screens(screens)
+        self._rebuild(now)
+
+    def update_sources(self, http_screens, mqtt_screens, now):
+        """Replace both independent sources and derive their effective order."""
+        self.http_screens = self._prepare_screens(http_screens)
+        self.mqtt_screens = self._prepare_screens(mqtt_screens)
+        self._rebuild(now)
+
+    def _prepare_screens(self, screens):
         next_screens = []
         for source in (screens or []):
             if not isinstance(source, dict):
@@ -312,22 +326,51 @@ class ScreenRotation:
                     screen["summary_seconds"] = presentation.get("summary_seconds", 0)
                     screen["effective_duration_seconds"] = presentation["effective_duration_seconds"]
             next_screens.append(screen)
-        if not next_screens:
-            return
-        current_id = None
+        return next_screens
+
+    def _rebuild(self, now):
         if self.screens:
-            current_id = self.screens[self.index % len(self.screens)].get("id")
+            self.current(now)
+        old_screens = self.screens
+        old_index = self.index % len(old_screens) if old_screens else 0
+        old_current = old_screens[old_index] if old_screens else None
+        old_id = old_current.get("id") if old_current else None
+        old_phase = (
+            self._paused[1] if self._paused is not None
+            else max(0, now - self.started_at) if self.started_at is not None
+            else 0
+        )
+        mqtt = sorted(self.mqtt_screens, key=lambda screen: str(screen.get("id") or ""))
+        next_screens = list(self.http_screens) + mqtt
         self.screens = next_screens
-        if self.started_at is None:
+        if not next_screens:
+            self.index = 0
+            self.started_at = None
+            return
+        if old_current is None:
             self.index = 0
             self.started_at = now
             return
-        if current_id:
-            for index, screen in enumerate(self.screens):
-                if screen.get("id") == current_id:
+        for index, screen in enumerate(next_screens):
+            if screen.get("id") == old_id:
+                self.index = index
+                self.started_at = now - old_phase
+                return
+        # The visible slot was removed. Select the next surviving old screen
+        # in the former cycle and start it with a clean phase.
+        for offset in range(1, len(old_screens) + 1):
+            candidate_id = old_screens[(old_index + offset) % len(old_screens)].get("id")
+            for index, screen in enumerate(next_screens):
+                if screen.get("id") == candidate_id:
                     self.index = index
+                    self.started_at = now
+                    if self._paused is not None:
+                        self._paused = (candidate_id, 0)
                     return
-        self.index = min(self.index, len(self.screens) - 1)
+        self.index = min(old_index, len(next_screens) - 1)
+        self.started_at = now
+        if self._paused is not None:
+            self._paused = (self.screens[self.index].get("id"), 0)
 
     def current(self, now):
         if not self.screens:
@@ -339,6 +382,15 @@ class ScreenRotation:
                 "source": "unavailable",
                 "stale": True,
             }, 0
+        if self._paused is not None:
+            paused_id, paused_phase = self._paused
+            for index, screen in enumerate(self.screens):
+                if screen.get("id") == paused_id:
+                    self.index = index
+                    return screen, paused_phase
+            # The interrupted screen disappeared while an overlay was shown.
+            self._paused = (self.screens[self.index % len(self.screens)].get("id"), 0)
+            return self.screens[self.index % len(self.screens)], 0
         if self.started_at is None:
             self.started_at = now
         while True:
@@ -368,15 +420,28 @@ class ScreenRotation:
         screen, phase = self.current(now)
         return screen, phase
 
+    def freeze(self, now):
+        """Pause normal rotation for an interrupting overlay."""
+        screen, phase = self.current(now)
+        self._paused = (screen.get("id"), phase)
+        return screen, phase
+
     def resume(self, now, screen, phase):
         """Resume the captured screen without restarting the full rotation."""
         if not self.screens:
+            self._paused = None
             return
+        paused_state = self._paused
+        paused_id = paused_state[0] if paused_state is not None else None
+        self._paused = None
         screen_id = screen.get("id") if isinstance(screen, dict) else None
+        if not any(candidate.get("id") == screen_id for candidate in self.screens):
+            screen_id = paused_id
         for index, candidate in enumerate(self.screens):
             if candidate.get("id") == screen_id:
                 self.index = index
-                self.started_at = float(now) - max(0, float(phase or 0))
+                resumed_phase = paused_state[1] if screen_id == paused_id else phase
+                self.started_at = float(now) - max(0, float(resumed_phase or 0))
                 return
 
 

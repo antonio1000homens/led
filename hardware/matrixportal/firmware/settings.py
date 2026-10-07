@@ -26,11 +26,12 @@ FRAME_SECONDS = 0.2
 # MatrixPortal boot brightness. Runtime button changes are session-local.
 MATRIX_BRIGHTNESS_PERCENT = 100
 
-# MQTT reminders are enabled by default; board-local broker settings are still
-# required, and the runtime Flash control remains an independent gate.
+# MQTT cycle screens and reminders are enabled by default; board-local broker
+# settings are required, and runtime Flash controls gate reminders only.
 MQTT_ENABLED = True
 MQTT_ENABLE_EXPERIMENTAL = True
 MQTT_TOPIC = "led/flash/reminder"
+MQTT_SCREENS_TOPIC = "led/screens/+"
 MQTT_BROKER = ""
 MQTT_PORT = 1883
 MQTT_USERNAME = ""

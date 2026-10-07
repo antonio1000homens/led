@@ -1,4 +1,4 @@
-"""Optional CircuitPython MQTT transport for issue #74.
+"""Optional CircuitPython MQTT transport for reminder and cycle screens.
 
 This module is intentionally not imported unless both local opt-in flags are
 enabled. It contains no credentials or broker defaults.
@@ -74,12 +74,14 @@ class FlashMqttClient:
                 )
             else:
                 self.client = self.mqtt_factory(self.settings)
-            self.client.on_message = lambda client, topic, message: self.on_message(message)
+            self.client.on_message = lambda client, topic, message: self.on_message(topic, message)
             self.client.connect()
             self.client.subscribe(self.settings.MQTT_TOPIC, qos=1)
+            screen_topic = getattr(self.settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
+            self.client.subscribe(screen_topic, qos=1)
             self.connected = True
             self.next_loop = now
-            print("MQTT subscribed topic={}".format(self.settings.MQTT_TOPIC))
+            print("MQTT subscribed reminder={} screens={}".format(self.settings.MQTT_TOPIC, screen_topic))
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 30
@@ -113,7 +115,7 @@ class FlashMqttClient:
             return
         try:
             # Keep MiniMQTT's blocking read below one 8 FPS display frame.
-            # Receive schedule updates once a minute; due-time checks use no I/O.
+            # Receive retained screen/reminder snapshots once a minute; due-time checks use no I/O.
             # Keepalive spans three polls so the broker tolerates this cadence.
             self.client.loop(timeout=MQTT_SOCKET_TIMEOUT_SECONDS)
             self.next_loop = now + MQTT_LOOP_INTERVAL_SECONDS

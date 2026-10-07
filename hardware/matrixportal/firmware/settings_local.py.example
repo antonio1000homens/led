@@ -16,3 +16,5 @@ WIFI_SSID = "your-wifi-name"
 WIFI_PASSWORD = "your-wifi-password"
 WIFI_STARTUP_DELAY_SECONDS = 10
 WIFI_TX_POWER_DBM = 8
+# MQTT screen topic is board-local and may be overridden per installation.
+MQTT_SCREENS_TOPIC = "led/screens/+"
