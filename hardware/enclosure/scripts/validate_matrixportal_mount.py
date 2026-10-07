@@ -53,7 +53,9 @@ def main() -> None:
     generic = load_one(root / LEFT_GENERIC)
     service = load_one(root / LEFT_MATRIXPORTAL)
 
-    # Side-mount ears extend 5 mm beyond each Y edge of the original 50 mm dock.\n    check_extents(DOCK, dock, (86.0, 60.0, 6.8))
+    # Side-mount ears plus their 0.35 mm snap bulges extend the original
+    # 50 mm dock to a 60.7 mm total Y envelope.
+    check_extents(DOCK, dock, (86.0, 60.7, 6.8))
     check_extents(CARRIER, carrier, (85.0, 50.0, 22.2))
     check_extents(KEEPER, keeper, (6.5, 26.685, 6.15))
 
