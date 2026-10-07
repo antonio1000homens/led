@@ -112,10 +112,10 @@ class DisplayLayoutTests(unittest.TestCase):
             "collection_date": "2026-10-13",
             "collections": [{"id": "mixed", "label": "Mixed recycling"}],
             "slide_speed": 20,
-        }, 4)
+        }, 4, clock_date="2026-10-07")
         self.assertIn(("NEXT COLLECTION", 0, 3, (255, 170, 0)), display.drawn)
         self.assertIn(("Mixed recycling", 85, 14, (255, 255, 255)), display.drawn)
-        self.assertIn(("2026-10-13", 0, 25, (170, 170, 170)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 0, 25, (170, 170, 170)), display.drawn)
 
         display.drawn = []
         display._draw_screen({
@@ -124,7 +124,7 @@ class DisplayLayoutTests(unittest.TestCase):
             "collections": [{"id": "mixed", "label": "Mixed recycling"},
                             {"id": "paper", "label": "Paper"}],
             "slide_speed": 20,
-        }, 4)
+        }, 4, clock_date="2026-10-07")
         self.assertIn(("Mixed recycling / Paper", 61, 14, (255, 255, 255)), display.drawn)
 
     def test_bin_collection_long_label_moves_at_supplied_speed(self):
@@ -181,15 +181,15 @@ class DisplayLayoutTests(unittest.TestCase):
                       "collection_date": "2026-10-13", "slide_speed": 20,
                       "collections": [{"id": "mixed", "label": "Mixed recycling"}],
                       "weather": None}
-            display._show_bin_collection(screen, "21:00", 4)
+            display._show_bin_collection(screen, "21:00", "2026-10-07", 4)
             self.assertEqual((display._bin_title.text, display._bin_label.text, display._bin_date.text),
-                             ("NEXT COLLECTION", "Mixed recycling", "2026-10-13"))
+                             ("NEXT COLLECTION", "Mixed recycling", "DUE IN 6 DAYS"))
             self.assertEqual(display._bin_clock_label.text, "21:00")
             long_screen = dict(screen)
             long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]
-            display._show_bin_collection(long_screen, "21:00", 4)
+            display._show_bin_collection(long_screen, "21:00", "2026-10-07", 4)
             start_x = display._bin_motion_group.x
-            display._show_bin_collection(long_screen, "21:00", 5)
+            display._show_bin_collection(long_screen, "21:00", "2026-10-07", 5)
             self.assertEqual(start_x - display._bin_motion_group.x, 20)
         finally:
             if previous is None:
@@ -375,7 +375,7 @@ class DisplayLayoutTests(unittest.TestCase):
 
         self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 0), 0x0000FF)
         self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 4), 0xFFFF00)
-        self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 4), 0xFFFF00)
+        self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 4), 0x0000FF)
         self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 8), 0x0000FF)
 
         for phase in (
