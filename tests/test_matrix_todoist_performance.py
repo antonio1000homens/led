@@ -190,11 +190,11 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
     def test_marquee_speed_does_not_exceed_update_cadence(self):
         self.assertLessEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
 
-    def test_default_profile_raises_only_departures_cadence(self):
-        self.assertEqual(DEFAULT_MATRIX_ANIMATION_PROFILE, "departures_12")
+    def test_default_profile_is_the_8_hz_control(self):
+        self.assertEqual(DEFAULT_MATRIX_ANIMATION_PROFILE, "baseline")
         self.assertEqual(
             MATRIX_ANIMATION_PROFILES[DEFAULT_MATRIX_ANIMATION_PROFILE]["departures_calling"],
-            12,
+            MATRIX_REFRESH_FPS,
         )
 
     def test_transition_profiles_only_raise_short_transition_cadence(self):
