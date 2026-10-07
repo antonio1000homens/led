@@ -7,11 +7,14 @@
 //   native hole centres: X=7.62/48.26, Y=15.875/35.56 mm
 //
 // Architecture:
-//   1. a fixed dock bolts to four existing universal backplane M3 bosses;
-//   2. a removable carrier slides in from the LEFT service opening on two
+//   1. a fixed dock snaps into two keyed receiver channels on the dedicated
+//      LEFT MatrixPortal equipment side;
+//   2. four rear sockets settle over existing universal backplane bosses only
+//      as passive registration/anti-flex pads; no dock screws enter the backplane;
+//   3. a removable carrier slides in from the LEFT service opening on two
 //      captive dovetail rails;
-//   3. a shallow PETG detent on one rail clicks into a matching carrier pocket;
-//   4. the carrier stops against a positive end wall at the seated position.
+//   4. a shallow PETG detent on one rail clicks into a matching carrier pocket;
+//   5. the carrier stops against a positive end wall at the seated position.
 //
 // The MatrixPortal drops onto four fixed printed locating pins. Two removable
 // slide-lock keeper bars capture grooves near the pin tips, so the PCB needs no
