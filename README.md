@@ -32,13 +32,13 @@ expected by a physical board, or `scripts/install-firmware.sh` to copy it to
 a mounted `CIRCUITPY` volume.
 
 
-Transient flash events are designed as a separate path: Home Assistant will
-schedule normalized reminder events from Alexa's next-reminder state and
-publish each occurrence to MQTT at its due time. The MatrixPortal will briefly
-show each event before resuming the paused normal rotation. The MQTT path is
-implemented but deliberately disabled in the checked-in firmware while Home
-Assistant issue #4 and the broker safety review are incomplete. No broker
-credentials are committed and no DHCP reservation is required.
+MQTT carries two independent display paths. Retained snapshots on
+`led/screens/+` add expiring screens to the normal rotation; reminder events on
+`led/flash/reminder` remain interrupting overlays that pause and resume that
+rotation. The first cycle-screen producer is the [Home Assistant next-recycling
+screen](https://github.com/antonio1000homens/homeassistant/issues/7). The board
+uses one MQTT connection, and broker credentials remain in board-local
+settings.
 
 The MatrixPortal does not hold National Rail, Todoist, Queue-Times or weather-provider credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.
 
@@ -275,6 +275,53 @@ If a Weather refresh fails after at least one successful response, the complete 
 ```
 
 The MatrixPortal rotates these screens locally and does not reset the active screen every time fresh data is polled. If the backend becomes temporarily unreachable it keeps the last screens, marks the active screen stale, and dims the retained weather value.
+
+The board can also receive MQTT cycle screens independently from HTTP. Publish
+retained JSON snapshots to `led/screens/<screen.id>` at QoS 1. Each snapshot
+uses `schema_version: 1`, `event: "upsert"`, ISO-8601 `published_at` and
+`expires_at`, a `source`, and a renderer payload under `screen`. A later
+`published_at` replaces that slot; an older one is ignored. Send
+`event: "clear"` with a fresh `published_at` to remove a slot. Expiry is checked
+against the synchronized board clock locally, so an expired retained value
+does not reappear after reconnect. HTTP screens remain in backend order, then
+active MQTT screens are appended in stable ID order.
+
+The topic suffix must exactly equal `screen.id`. The board accepts only
+schema version 1 and `upsert` or `clear` events, and ignores malformed,
+unknown-kind, mismatched, older and already-expired snapshots. A clear retains
+its publication timestamp for ordering. Reconnect delivers the broker's
+retained active snapshot again.
+
+```json
+{
+  "schema_version": 1,
+  "event": "upsert",
+  "published_at": "2026-10-07T19:00:05+01:00",
+  "expires_at": "2026-10-14T00:00:00+01:00",
+  "source": "homeassistant",
+  "screen": {
+    "id": "homeassistant-next-bin",
+    "kind": "bin_collection",
+    "title": "NEXT COLLECTION",
+    "duration_seconds": 8,
+    "slide_speed": 20,
+    "collection_date": "2026-10-13",
+    "collections": [{"id": "mixed", "label": "Mixed recycling"}],
+    "source": "homeassistant",
+    "stale": false
+  }
+}
+```
+
+Clear a slot by publishing a retained `event: "clear"` snapshot with a newer
+`published_at` to that same topic. It has no `screen` or `expires_at` field.
+
+The first MQTT renderer is `bin_collection`: provide `title`, ISO
+`collection_date`, one or two `{id, label}` collection entries,
+`duration_seconds`, and `slide_speed`. The supplied labels are shown together
+on one screen, with long labels scrolling at the supplied pixel rate. Preview
+it in the browser simulator with **Preview recycling screen**. The initial
+producer work is tracked in [Home Assistant issue #7](https://github.com/antonio1000homens/homeassistant/issues/7).
 
 The board clock is derived from the backend's UTC `fetched_at` timestamp and advanced locally between polls. The CircuitPython client converts UTC to Europe/London time itself, including the GMT/BST transitions, so no separate NTP or clock API is needed.
 

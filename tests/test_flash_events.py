@@ -283,7 +283,7 @@ class MqttTransportTests(unittest.TestCase):
         transport.set_enabled(True)
         transport.poll(2)
         self.assertTrue(transport.connected)
-        self.assertEqual(second.subscriptions, [("led/flash/reminder", 1)])
+        self.assertEqual(second.subscriptions, [("led/flash/reminder", 1), ("led/screens/+", 1)])
 
     def test_runtime_disable_before_first_poll_prevents_connection(self):
         attempts = []
@@ -303,10 +303,10 @@ class MqttTransportTests(unittest.TestCase):
     def test_connects_qos_one_and_delivers_string_payload(self):
         received = []
         client = FakeMqtt(json_payload := '{"id":"x","type":"reminder","label":"Hi","expires_at":"2099-01-01T00:00:00Z"}')
-        transport = FlashMqttClient(FakeSettings, received.append, mqtt_factory=lambda settings: client)
+        transport = FlashMqttClient(FakeSettings, lambda topic, payload: received.append((topic, payload)), mqtt_factory=lambda settings: client)
         transport.poll(0)
-        self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
-        self.assertEqual(received, [json_payload])
+        self.assertEqual(client.subscriptions, [("led/flash/reminder", 1), ("led/screens/+", 1)])
+        self.assertEqual(received, [("led/flash/reminder", json_payload)])
         self.assertEqual(client.loop_timeouts, [MQTT_SOCKET_TIMEOUT_SECONDS])
 
     def test_idle_loop_is_bounded_but_not_run_on_every_frame(self):
@@ -320,7 +320,7 @@ class MqttTransportTests(unittest.TestCase):
         self.assertEqual(MQTT_LOOP_INTERVAL_SECONDS, 60.0)
         transport.poll(MQTT_LOOP_INTERVAL_SECONDS)
         self.assertEqual(client.loop_calls, 2)
-        self.assertEqual(client.subscriptions, [("led/flash/reminder", 1)])
+        self.assertEqual(client.subscriptions, [("led/flash/reminder", 1), ("led/screens/+", 1)])
 
     def test_initial_failure_is_contained_and_later_connect_retries(self):
         attempts = []
@@ -338,7 +338,8 @@ class MqttTransportTests(unittest.TestCase):
 
     def test_disconnect_is_contained_and_reconnect_resubscribes(self):
         first = FakeMqtt(fail_loop=True)
-        clients = [first, FakeMqtt()]
+        second = FakeMqtt()
+        clients = [first, second]
         transport = FlashMqttClient(FakeSettings, lambda payload: None, mqtt_factory=lambda settings: clients.pop(0))
         transport.poll(0)
         self.assertFalse(transport.connected)
@@ -346,6 +347,7 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(5)
         self.assertTrue(transport.connected)
         self.assertEqual(clients, [])
+        self.assertEqual(second.subscriptions, [("led/flash/reminder", 1), ("led/screens/+", 1)])
 
     def test_mqtt_outage_does_not_block_http_screen_fetch(self):
         from screen_client import ScreenClient

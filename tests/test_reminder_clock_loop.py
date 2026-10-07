@@ -25,8 +25,10 @@ class ReminderClockLoopTests(unittest.TestCase):
             "time": SimpleNamespace(monotonic=lambda: self.now, sleep=self.sleep),
             "clock": SimpleNamespace(epoch=lambda now: self.due - 1 + now),
             "flash": self.flash, "flash_resume": None, "last_render_key": "old",
-            "rotation": SimpleNamespace(pause=self.pause),
+            "rotation": SimpleNamespace(pause=self.pause, freeze=self.pause),
             "mqtt": SimpleNamespace(poll=self.polls.append), "buttons": None,
+            "mqtt_screens": SimpleNamespace(expire=lambda epoch: []),
+            "mqtt_screens_changed": False,
             "_BUTTON_POLL_SECONDS": 0.05, "_MQTT_SLEEP_POLL_SECONDS": 0.25,
         }
         root = Path(__file__).resolve().parents[1]

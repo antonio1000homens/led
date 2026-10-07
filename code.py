@@ -37,6 +37,7 @@ from flash_events import FlashState
 from animation_scheduler import earliest_wake_seconds, next_deadline, screen_fetch_decision
 from matrix_runtime import RuntimeMode
 from screen_client import ClockState, ScreenClient, ScreenRotation
+from mqtt_screens import MqttScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
@@ -111,10 +112,12 @@ _BUTTON_POLL_SECONDS = 0.05
 _MQTT_SLEEP_POLL_SECONDS = 0.25
 _ANIMATION_FETCH_RETRY_SECONDS = 0.5
 _ANIMATION_FETCH_GUARD_SECONDS = 3.0
+mqtt_screens_changed = False
 
 
 def _sleep_interruptible(seconds, service_mqtt=False):
     """Sleep without changing render cadence, servicing requested I/O while idle."""
+    global mqtt_screens_changed
     seconds = max(0.0, float(seconds or 0))
     if buttons is None and not service_mqtt:
         time.sleep(seconds)
@@ -127,11 +130,18 @@ def _sleep_interruptible(seconds, service_mqtt=False):
             return
         time.sleep(min(_BUTTON_POLL_SECONDS, remaining))
         now = time.monotonic()
+        epoch_now = _reminder_epoch(now)
+        if epoch_now is not None and mqtt_screens.expire(epoch_now):
+            rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), now)
+            mqtt_screens_changed = True
+            return
         if service_mqtt and _service_reminder_clock(now):
             return
-        if service_mqtt and mqtt is not None and flash.enabled and now >= next_mqtt_poll:
+        if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
             mqtt.poll(now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
+            if mqtt_screens_changed:
+                return
             if flash.active(now):
                 return
         if buttons is not None:
@@ -146,12 +156,15 @@ transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
 flash = FlashState(
-    # Runtime transport stays stopped until the screen payload confirms that
-    # Flash events are enabled in the admin control plane.
+    # Reminder events stay gated until the screen payload enables Flash in
+    # the admin control plane. Cycle screens use the independent MQTT source.
     enabled=False,
 )
 flash_resume = None
 mqtt = None
+mqtt_screens = MqttScreenState(
+    getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
+)
 
 
 def _reminder_epoch(now):
@@ -165,7 +178,7 @@ def _reminder_epoch(now):
 def _flash_started(now):
     global flash_resume, last_render_key
     if flash_resume is None:
-        flash_resume = rotation.pause(now)
+        flash_resume = rotation.freeze(now)
     last_render_key = None
     print("FLASH START id={}".format(flash.event["id"]))
 
@@ -182,22 +195,32 @@ def _service_reminder_clock(now):
 if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL:
     from mqtt_client import FlashMqttClient
 
-    def receive_flash(payload):
+    def receive_mqtt(topic, payload):
+        global mqtt_screens_changed
         now = time.monotonic()
+        if topic == settings.MQTT_TOPIC:
+            epoch_now = _reminder_epoch(now)
+            if epoch_now is None:
+                print("FLASH ignored: clock not synchronized")
+                return
+            if flash.accept(payload, now, epoch_now=epoch_now):
+                _flash_started(now)
+            return
         epoch_now = _reminder_epoch(now)
         if epoch_now is None:
-            print("FLASH ignored: clock not synchronized")
+            print("MQTT screen ignored: clock not synchronized")
             return
-        if flash.accept(payload, now, epoch_now=epoch_now):
-            _flash_started(now)
+        if mqtt_screens.accept(topic, payload, epoch_now):
+            rotation.update_sources(
+                rotation.http_screens, mqtt_screens.screens(epoch_now), now
+            )
+            mqtt_screens_changed = True
 
     mqtt = FlashMqttClient(
         settings,
-        receive_flash,
+        receive_mqtt,
         startup_delay_seconds=settings.MQTT_STARTUP_DELAY_SECONDS,
     )
-    # Wait for the first screen payload to apply the admin Flash events gate.
-    mqtt.set_enabled(False)
 rendered_diagnostic_index = None
 last_render_key = None
 
@@ -286,6 +309,8 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_sun_weather(screen):
         return phase
+    if _smooth_bin_collection(screen):
+        return phase
     return 2
 
 
@@ -322,6 +347,13 @@ def _smooth_steam_train(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "steam_train_intro"
+    )
+
+
+def _smooth_bin_collection(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "bin_collection"
     )
 
 
@@ -409,7 +441,7 @@ def _apply_flash_config(payload):
     if not isinstance(config, dict):
         return
     # The public screen payload carries only non-secret operational settings.
-    # Transport activation remains controlled exclusively by local board flags.
+    # Both board-local flags and this runtime setting gate reminders.
     runtime_enabled = (
         settings.MQTT_ENABLED
         and settings.MQTT_ENABLE_EXPERIMENTAL
@@ -419,8 +451,6 @@ def _apply_flash_config(payload):
         enabled=runtime_enabled,
         duration_seconds=config.get("screen_duration_seconds"),
     )
-    if mqtt is not None:
-        mqtt.set_enabled(runtime_enabled)
 
 
 while True:
@@ -430,7 +460,7 @@ while True:
     _service_reminder_clock(now)
     stage_durations = {"reminder": time.monotonic() - stage_started}
     stage_started = time.monotonic()
-    if mqtt is not None and flash.enabled:
+    if mqtt is not None:
         mqtt_allow_connect = True
         if rotation.screens and not flash.active(now):
             mqtt_screen, mqtt_phase = rotation.current(now)
@@ -508,7 +538,12 @@ while True:
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
-            rotation.update(screens, fetch_completed)
+            epoch_now = _reminder_epoch(fetch_completed)
+            rotation.update_sources(
+                screens,
+                mqtt_screens.screens(epoch_now) if epoch_now is not None else [],
+                fetch_completed,
+            )
             if fetch_resume is not None:
                 rotation.resume(fetch_completed, fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
@@ -534,6 +569,11 @@ while True:
             display.note_fetch_overlap()
     stage_durations["fetch"] = time.monotonic() - stage_started
 
+    epoch_now = _reminder_epoch(now)
+    if epoch_now is not None and mqtt_screens.expire(epoch_now):
+        rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), now)
+        mqtt_screens_changed = True
+
     stage_started = time.monotonic()
     if flash.active(now):
         screen, phase = flash.screen(), now - flash.started_at
@@ -548,7 +588,7 @@ while True:
         screen, phase = rotation.current(now)
     stage_durations["screen_select"] = time.monotonic() - stage_started
     screen = hardware_safe_screen(screen)
-    if transport_stale:
+    if transport_stale and any(candidate is screen for candidate in rotation.http_screens):
         screen = dict(screen)
         screen["stale"] = True
         weather = screen.get("weather")
@@ -595,12 +635,14 @@ while True:
             )
         )
         last_render_key = render_key
+    mqtt_screens_changed = False
     smooth_animation = (
         _smooth_todoist(screen)
         or _smooth_departures(screen)
         or _smooth_queue(screen)
         or _smooth_steam_train(screen)
         or _smooth_sun_weather(screen)
+        or _smooth_bin_collection(screen)
     )
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)

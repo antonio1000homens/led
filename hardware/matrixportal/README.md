@@ -240,11 +240,14 @@ pip install circup
 circup install -r requirements.txt
 ```
 
-The issue #74 MQTT listener is enabled by default, but it needs a broker
-configured only in board-local `settings_local.py`. The checked-in broker
-setting stays empty and contains no credentials. MQTT waits 30 seconds after
-display and client initialization before its first connection attempt, and
-still requires the runtime Flash control from `/api/screens` to be enabled.
+The MQTT listener is enabled by default, but it needs a broker configured only
+in board-local `settings_local.py`. The checked-in broker setting stays empty
+and contains no credentials. MQTT waits 30 seconds after display and client
+initialization before its first connection attempt. It subscribes at QoS 1 to
+the exact reminder topic and to the configured cycle-screen wildcard
+(`MQTT_SCREENS_TOPIC`, default `led/screens/+`). Cycle screens do not depend on
+the runtime Flash control from `/api/screens`; that control gates reminder
+overlays only.
 
 Flash enablement and display duration are runtime values from `/api/screens`;
 they are not configured in `settings_local.py`. The board uses the safe

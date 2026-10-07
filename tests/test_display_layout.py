@@ -1,6 +1,7 @@
 import sys
 import types
 import unittest
+from unittest import mock
 
 
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
@@ -34,6 +35,19 @@ class CapturingFixture(led_display.FixtureDisplay):
         self._text(value, x, y, color)
 
 
+class CapturingGroup(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x = 0
+        self.y = 0
+
+
+class CapturingLabel:
+    def __init__(self, font, **kwargs):
+        del font
+        self.__dict__.update(kwargs)
+
+
 def weekly_days():
     icons = ("clear_day", "partly_cloudy_day", "cloudy", "rain", "fog", "snow", "storm")
     weekdays = ("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")
@@ -65,6 +79,89 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_bin_collection_one_and_two_collection_layout(self):
+        display = CapturingFixture()
+        display._draw_screen({
+            "kind": "bin_collection", "title": "NEXT COLLECTION",
+            "collection_date": "2026-10-13",
+            "collections": [{"id": "mixed", "label": "Mixed recycling"}],
+            "slide_speed": 20,
+        }, 0)
+        self.assertIn(("NEXT COLLECTION", 0, 9, (255, 170, 0)), display.drawn)
+        self.assertIn(("Mixed recycling", 83, 17, (255, 255, 255)), display.drawn)
+        self.assertIn(("2026-10-13", 0, 25, (170, 170, 170)), display.drawn)
+
+        display.drawn = []
+        display._draw_screen({
+            "kind": "bin_collection", "title": "NEXT COLLECTION",
+            "collection_date": "2026-10-13",
+            "collections": [{"id": "mixed", "label": "Mixed recycling"},
+                            {"id": "paper", "label": "Paper"}],
+            "slide_speed": 20,
+        }, 0)
+        self.assertIn(("Mixed recycling / Paper", 59, 17, (255, 255, 255)), display.drawn)
+
+    def test_bin_collection_long_label_moves_at_supplied_speed(self):
+        display = CapturingFixture()
+        screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
+                  "collection_date": "2026-10-13", "slide_speed": 20,
+                  "collections": [{"id": "x", "label": "A very long collection label for the MatrixPortal"}]}
+        display._draw_screen(screen, 0)
+        first = next(item for item in display.drawn if item[0].startswith("A very long"))
+        display.drawn = []
+        display._draw_screen(screen, 1)
+        second = next(item for item in display.drawn if item[0].startswith("A very long"))
+        self.assertEqual(first[1] - second[1], 20)
+
+    def test_bin_collection_blank_scroll_gap_allows_transport_reconnect(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        screen = {"kind": "bin_collection", "slide_speed": 20,
+                  "collections": [{"id": "x", "label": "X" * 50}]}
+        with mock.patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
+            self.assertTrue(display.animation_active(screen, 0))
+            self.assertFalse(display.animation_active(screen, 15))
+            self.assertEqual(display.animation_cadence(screen, 15), 0)
+            self.assertAlmostEqual(display.animation_sleep_seconds(screen, 15), 1.2)
+
+    def test_bin_collection_hardware_layout_keeps_normal_clock_header(self):
+        import sys
+        import types
+
+        previous = sys.modules.get("displayio")
+        sys.modules["displayio"] = types.SimpleNamespace(Group=CapturingGroup)
+        try:
+            display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+            display.label_type = CapturingLabel
+            display.font = object()
+            display.display = types.SimpleNamespace(root_group=None)
+            display._mask = lambda *args: None
+            display._present = lambda group: setattr(display, "shown", group)
+            display._refresh = lambda animation_class=None: None
+            display._attach_brightness_overlay = lambda group: None
+            display._record_animation_update = lambda *args: None
+            display._bin_group = None
+            display._bin_key = None
+            display._bin_weather = None
+            display._bin_header_kind = None
+            screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
+                      "collection_date": "2026-10-13", "slide_speed": 20,
+                      "collections": [{"id": "mixed", "label": "Mixed recycling"}],
+                      "weather": None}
+            display._show_bin_collection(screen, "21:00", 0)
+            self.assertEqual((display._bin_title.text, display._bin_label.text, display._bin_date.text),
+                             ("NEXT COLLECTION", "Mixed recycling", "2026-10-13"))
+            self.assertEqual(display._bin_clock_label.text, "21:00")
+            long_screen = dict(screen)
+            long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]
+            display._show_bin_collection(long_screen, "21:00", 0)
+            start_x = display._bin_motion_group.x
+            display._show_bin_collection(long_screen, "21:00", 1)
+            self.assertEqual(start_x - display._bin_motion_group.x, 20)
+        finally:
+            if previous is None:
+                del sys.modules["displayio"]
+            else:
+                sys.modules["displayio"] = previous
     def test_todoist_due_labels_are_right_aligned_for_every_row(self):
         display = CapturingFixture()
         screen = {

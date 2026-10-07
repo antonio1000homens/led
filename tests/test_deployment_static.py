@@ -6,6 +6,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
+    def test_simulator_renders_and_previews_bin_collection_screens(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("function drawBinCollection(screen, phase)", simulator)
+        self.assertIn("screen.kind === 'bin_collection'", simulator)
+        self.assertIn("screen.slide_speed", simulator)
+        self.assertIn("screen.collection_date", simulator)
+        self.assertIn("if (screen.stale || forceStale)", simulator)
+        self.assertIn("Preview recycling screen", simulator)
+        self.assertIn("id: 'homeassistant-next-bin'", simulator)
+
     def test_simulator_preview_uses_full_available_width(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("main { width: 100%; padding: 28px; }", simulator)

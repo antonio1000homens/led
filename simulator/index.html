@@ -34,6 +34,7 @@
       <button id="pause" type="button" aria-pressed="false">Pause</button>
       <button id="previous" type="button">Previous screen</button>
       <button id="next" type="button">Next screen</button>
+      <button id="bin-preview" type="button">Preview recycling screen</button>
       <button id="flash-preview" type="button">Preview reminder flash</button>
       <button id="stale" type="button" aria-pressed="false">Force stale</button>
       <button id="hardware-preview" type="button" aria-pressed="true">LED hardware</button>
@@ -801,6 +802,33 @@
         drawSunText(item.value, item.left + 352, 44, 2, stale ? '#aaaaaa' : '#ffffff');
       });
     }
+
+    function drawBinCollection(screen, phase) {
+      const labels = (Array.isArray(screen.collections) ? screen.collections : [])
+        .map(item => String(item.label || '')).join(' / ');
+      const width = measureLedText(labels).width;
+      const overflow = Math.max(0, width - 1024);
+      const speed = Math.max(0.1, Number(screen.slide_speed) || 20) * FONT_PIXEL_SCALE;
+      const x = overflow
+        ? -Math.floor((Math.max(0, phase) * speed) % (width + 24 * FONT_PIXEL_SCALE))
+        : Math.max(0, Math.floor((1024 - width) / 2));
+      context.fillStyle = '#ffaa00';
+      drawLedText(String(screen.title || 'NEXT COLLECTION'), 0, 9 * FONT_PIXEL_SCALE);
+      context.save();
+      context.beginPath();
+      context.rect(0, 16 * FONT_PIXEL_SCALE, 1024, 8 * FONT_PIXEL_SCALE);
+      context.clip();
+      context.fillStyle = '#ffffff';
+      drawLedText(labels, x, 17 * FONT_PIXEL_SCALE);
+      context.restore();
+      context.fillStyle = '#aaaaaa';
+      drawLedText(String(screen.collection_date || ''), 0, 25 * FONT_PIXEL_SCALE);
+      if (screen.stale || forceStale) {
+        context.fillStyle = '#ff3300';
+        drawLedText('STALE', STALE_X, HEADER_TEXT_Y);
+      }
+      status.dataset.detail = 'Next recycling collection';
+    }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
@@ -901,7 +929,7 @@
       const active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -926,6 +954,8 @@
         drawSunWeather(screen, phase);
         suppressHeader = true;
         status.dataset.detail = 'Today sunrise and sunset';
+      } else if (screen.kind === 'bin_collection') {
+        drawBinCollection(screen, phase);
       } else if (screen.kind === 'steam_train_intro') {
         drawSteamTrain(screen, phase);
         suppressHeader = true;
@@ -1166,6 +1196,19 @@
       paused = false;
       pauseStarted = performance.now();
       status.dataset.detail = 'Reminder flash preview';
+    });
+    document.getElementById('bin-preview').addEventListener('click', () => {
+      screens = [{
+        id: 'homeassistant-next-bin', kind: 'bin_collection',
+        title: 'NEXT COLLECTION', duration_seconds: 8, slide_speed: 20,
+        collection_date: '2026-10-13',
+        collections: [{ id: 'mixed', label: 'Mixed recycling' }],
+        source: 'homeassistant', stale: false
+      }];
+      screenOffset = 0;
+      paused = false;
+      pauseStarted = performance.now();
+      status.dataset.detail = 'Recycling collection preview';
     });
     document.getElementById('previous').addEventListener('click', () => changeScreen(-1));
     document.getElementById('next').addEventListener('click', () => changeScreen(1));

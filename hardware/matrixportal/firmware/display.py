@@ -291,6 +291,24 @@ def _sun_weather_animation_active(phase):
     return _sun_weather_progress(phase) < 1.0
 
 
+def _bin_collection_motion_state(screen, phase):
+    """Return whether the label moves and the blank-gap time remaining."""
+    labels = " / ".join(str(item.get("label") or "") for item in screen.get("collections") or [])
+    label_width = len(labels) * 6
+    if label_width <= DISPLAY_WIDTH:
+        return False, None
+    try:
+        speed = max(0.1, float(screen.get("slide_speed") or 20))
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        speed, elapsed = 20.0, 0.0
+    cycle_distance = label_width + 24
+    distance = (elapsed * speed) % cycle_distance
+    if distance < label_width:
+        return True, None
+    return False, max(0.05, (cycle_distance - distance) / speed)
+
+
 def _format_sun_time(value):
     """Keep the time separator visible and normalize compact HHMM values."""
     text = str(value or "--:--")
@@ -637,6 +655,20 @@ class MatrixDisplay:
         self._sun_group = None
         self._sun_key = None
         self._sun_icon_grids = ()
+
+        # MQTT collection labels can scroll for the full screen duration.
+        # Keep their labels and header scene persistent across frames.
+        self._bin_group = None
+        self._bin_key = None
+        self._bin_weather = None
+        self._bin_header_kind = None
+        self._bin_motion_group = None
+        self._bin_label = None
+        self._bin_title = None
+        self._bin_date = None
+        self._bin_stale = None
+        self._bin_clock_label = None
+        self._bin_header_group = None
 
     @property
     def brightness_percent(self):
@@ -1013,10 +1045,22 @@ class MatrixDisplay:
                     return "queue_rows"
         if kind == "weather_sun" and _sun_weather_animation_active(phase):
             return "weather_sun_slide"
+        if kind == "bin_collection":
+            moving, _ = _bin_collection_motion_state(screen, phase)
+            if moving:
+                return "todoist_marquee"
+            if _header_slide_active(phase, screen.get("weather")):
+                return "header_slide"
         return None
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
+        if (
+            isinstance(screen, dict)
+            and screen.get("kind") == "bin_collection"
+            and self._animation_class(screen, phase) is None
+        ):
+            return 0
         if MATRIX_ANIMATION_PROFILE == "baseline":
             return MATRIX_REFRESH_FPS
         animation_class = self._animation_class(screen, phase)
@@ -1033,6 +1077,12 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "bin_collection":
+            moving, gap_remaining = _bin_collection_motion_state(screen, phase)
+            if not moving and gap_remaining is not None:
+                return gap_remaining
+            if gap_remaining is None:
+                return max(0.05, _header_next_boundary_seconds(phase, screen.get("weather")))
         if kind == "calendar_agenda" and screen.get("source") == "todoist":
             if self._todoist_rows:
                 try:
@@ -2140,6 +2190,96 @@ class MatrixDisplay:
         if changed:
             self._refresh(animation_class="weather_sun_slide")
 
+    def _bin_collection_cache_matches(self, screen, header_kind):
+        items = screen.get("collections") or []
+        key = (
+            str(screen.get("title") or "NEXT COLLECTION"),
+            " / ".join(str(item.get("label") or "") for item in items),
+            str(screen.get("collection_date") or ""),
+            bool(screen.get("stale")),
+        )
+        weather = screen.get("weather")
+        return (
+            self._bin_group is not None
+            and self._bin_key == key
+            and self._bin_header_kind == header_kind
+            and self._bin_weather == weather
+        )
+
+    def _build_bin_collection(self, screen, clock_time, phase, header_kind):
+        import displayio
+
+        group = displayio.Group()
+        title = str(screen.get("title") or "NEXT COLLECTION")
+        items = screen.get("collections") or []
+        labels = " / ".join(str(item.get("label") or "") for item in items)
+        self._bin_title = self._label(group, _clip(title, 40), 0xFFAA00, 0, 13)
+        self._bin_motion_group = displayio.Group()
+        self._bin_label = self._label(self._bin_motion_group, labels, 0xFFFFFF, 0, 22)
+        group.append(self._bin_motion_group)
+        self._bin_date = self._label(group, str(screen.get("collection_date") or ""), 0xAAAAAA, 0, 31)
+        if screen.get("stale"):
+            self._bin_stale = self._label(group, "STALE", 0xFF3300, STALE_X, 3)
+        else:
+            self._bin_stale = None
+        self._mask(group, HEADER_SLOT_X, 0, HEADER_SLOT_WIDTH, 8)
+        if header_kind == "weather":
+            self._bin_header_group = displayio.Group()
+            self._header_weather(self._bin_header_group, screen.get("weather"), 0)
+            group.append(self._bin_header_group)
+            self._bin_clock_label = None
+        else:
+            self._bin_header_group = None
+            self._bin_clock_label = self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
+        self._bin_group = group
+        self._bin_header_kind = header_kind
+        self._bin_weather = dict(screen["weather"]) if isinstance(screen.get("weather"), dict) else None
+        self._bin_key = (title, labels, str(screen.get("collection_date") or ""), bool(screen.get("stale")))
+
+    def _show_bin_collection(self, screen, clock_time, phase):
+        update_started = time.monotonic()
+        header_kind, header_offset = _header_item_state(phase, screen.get("weather"))
+        if not self._bin_collection_cache_matches(screen, header_kind):
+            self._build_bin_collection(screen, clock_time, phase, header_kind)
+            changed = True
+        else:
+            changed = False
+        try:
+            speed = max(0.1, float(screen.get("slide_speed") or 20))
+        except (TypeError, ValueError):
+            speed = 20.0
+        label_width = len(self._bin_key[1]) * 6
+        if label_width > DISPLAY_WIDTH:
+            next_x = -int((max(0.0, float(phase or 0)) * speed) % (label_width + 24))
+        else:
+            next_x = max(0, (DISPLAY_WIDTH - label_width) // 2)
+        if self._bin_motion_group.x != next_x:
+            self._bin_motion_group.x = next_x
+            changed = True
+        if self._bin_clock_label is not None:
+            if self._bin_clock_label.text != clock_time:
+                self._bin_clock_label.text = clock_time
+                changed = True
+            next_x = CLOCK_X + header_offset
+            if self._bin_clock_label.x != next_x:
+                self._bin_clock_label.x = next_x
+                changed = True
+        elif self._bin_header_group is not None and self._bin_header_group.x != header_offset:
+            self._bin_header_group.x = header_offset
+            changed = True
+        self._attach_brightness_overlay(self._bin_group)
+        if self.display.root_group is not self._bin_group:
+            self.display.root_group = self._bin_group
+            changed = True
+        if changed:
+            animation_class = self._animation_class(screen, phase)
+            self._refresh(animation_class=animation_class)
+        else:
+            animation_class = self._animation_class(screen, phase)
+        self._record_animation_update(
+            "bin_collection", changed, time.monotonic() - update_started, animation_class
+        )
+
     def _header_weather(self, group, weather, offset=0):
         if not isinstance(weather, dict):
             return
@@ -2166,6 +2306,10 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if not empty_state and kind == "steam_train_intro":
             self._show_steam_train(screen, phase)
+            return
+
+        if not empty_state and kind == "bin_collection":
+            self._show_bin_collection(screen, clock_time, phase)
             return
 
         if (
@@ -2319,6 +2463,19 @@ class FixtureDisplay:
         if words:
             self._text(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP, 12, (255, 170, 0))
 
+    def _bin_collection(self, screen, phase):
+        items = screen.get("collections") or []
+        labels = " / ".join(str(item.get("label") or "") for item in items)
+        label_width = len(labels) * 6
+        speed = max(0.1, float(screen.get("slide_speed") or 20))
+        if label_width > DISPLAY_WIDTH:
+            x = -int((max(0.0, float(phase or 0)) * speed) % (label_width + 24))
+        else:
+            x = max(0, (DISPLAY_WIDTH - label_width) // 2)
+        self._text(_clip(str(screen.get("title") or "NEXT COLLECTION"), 42), 0, 9, (255, 170, 0))
+        self._text(labels, x, 17, (255, 255, 255))
+        self._text(str(screen.get("collection_date") or ""), 0, 25, (170, 170, 170))
+
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
@@ -2419,6 +2576,8 @@ class FixtureDisplay:
             self._today_weather(screen)
         elif kind == "weather_sun":
             self._sun_weather(screen, phase)
+        elif kind == "bin_collection":
+            self._bin_collection(screen, phase)
         elif kind == "rail_combined":
             services = screen.get("services") or []
             rail_right_edge = _header_content_right(screen)
@@ -2591,6 +2750,10 @@ class FixtureDisplay:
             print(due_text)
         if kind == "steam_train_intro":
             print("STEAM TRAIN {}".format(screen.get("words") or ""))
+        elif kind == "bin_collection":
+            for item in screen.get("collections") or []:
+                print(str(item.get("label") or ""))
+            print(str(screen.get("collection_date") or ""))
         elif kind == "weather_weekly":
             days = screen.get("days") or []
             if not days:

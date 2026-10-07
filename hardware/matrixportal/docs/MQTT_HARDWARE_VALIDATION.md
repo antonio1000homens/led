@@ -403,3 +403,27 @@ with an ID encoding the same UTC instant. This validates discovery-to-snapshot
 time alignment, but real Alexa firing, Home Assistant restart/recovery, and a
 matched scrolling performance comparison remain open. Do not close #74 based
 on the synthetic board event alone.
+
+## Issue #219 cycle-screen frame-pacing comparison
+
+The #219 firmware adds `led/screens/+` to the existing MQTT connection. On the
+MatrixPortal, compare the same normal screen workload in these states:
+
+1. MQTT disabled as the local B8 control.
+2. MQTT enabled and idle, subscribed to both topics.
+3. MQTT enabled with one retained `bin_collection` snapshot and a long label
+   scrolling at the producer's `slide_speed`.
+
+Capture at least 60 seconds per state with `FRAME PACE`, `MATRIX STATS`, HTTP
+fetch results, heap values, and MQTT reconnect/subscription messages. Record
+label movement and any visible blank interval at the scroll wrap. The long
+label intentionally has a short off-panel interval so reconnect handshakes
+have a frame-pacing-safe window; verify the MQTT connection can recover there.
+Also publish a newer retained upsert, a valid clear, and an expired retained
+snapshot; confirm phase continuity, immediate removal, and rejection after
+reconnect. Use the same screen workload and record board UID, firmware version,
+broker path and capture duration for each run.
+
+This matched #219 hardware comparison has not yet been recorded. The last
+known board identity is MatrixPortal S3 UID `86EEF87F7005` at
+`192.168.8.88`; verify `/cp/version.json` again before any upload or capture.
