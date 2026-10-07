@@ -338,13 +338,17 @@ def _sun_weather_eased_progress(phase):
     return progress * progress * (3.0 - 2.0 * progress)
 
 
-def _sun_weather_rise_label_state(phase, stale=False):
+def _sun_weather_rise_label_y(phase):
     progress = _sun_weather_eased_progress(phase)
-    end_color = 0x777777 if stale else 0xFFAA00
-    red = int(((end_color >> 16) & 255) * progress)
-    green = int(((end_color >> 8) & 255) * progress)
-    blue = int((end_color & 255) * progress)
-    return int(round(32 + (11 - 32) * progress)), (red << 16) | (green << 8) | blue
+    return int(round(32 + (11 - 32) * progress))
+
+
+def _sun_weather_rise_label_color(index, phase, stale=False):
+    if stale:
+        return 0x777777
+    progress = _sun_weather_eased_progress(phase)
+    yellow_letters = min(7, int(progress * 8))
+    return 0xFFFF00 if index < yellow_letters else 0x0000FF
 
 
 def _sun_weather_set_label_color(index, phase, stale=False):
@@ -2161,11 +2165,13 @@ class MatrixDisplay:
         for label, value, icon_name, left, right in values:
             width = right - left
             if icon_name == "clear_day":
-                label_y, rise_color = _sun_weather_rise_label_state(phase, stale)
-                label_grid, label_palette = self._sun_text_label(
-                    group, label, rise_color, left + 27, label_y, SUN_WEATHER_TIME_SCALE
-                )
-                label_grids.append(("rise", 0, label_grid, label_palette))
+                label_y = _sun_weather_rise_label_y(phase)
+                for index, character in enumerate(label):
+                    label_grid, label_palette = self._sun_text_label(
+                        group, character, _sun_weather_rise_label_color(index, phase, stale),
+                        left + 27 + index * 8, label_y, SUN_WEATHER_TIME_SCALE,
+                    )
+                    label_grids.append(("rise", index, label_grid, label_palette))
             else:
                 for index, character in enumerate(label):
                     label_grid, label_palette = self._sun_text_label(
@@ -2246,9 +2252,10 @@ class MatrixDisplay:
                 icon_grid.y = next_y
                 changed = True
         stale = bool(screen.get("stale"))
-        label_y, rise_color = _sun_weather_rise_label_state(phase, stale)
+        label_y = _sun_weather_rise_label_y(phase)
         for label_kind, index, label_grid, palette in self._sun_label_grids:
             if label_kind == "rise":
+                rise_color = _sun_weather_rise_label_color(index, phase, stale)
                 if label_grid.y != label_y or palette[1] != rise_color:
                     label_grid.y = label_y
                     palette[1] = rise_color

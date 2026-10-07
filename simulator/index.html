@@ -793,12 +793,6 @@
         {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-84}
       ];
       const easedProgress = progress * progress * (3 - 2 * progress);
-      const mixColor = (from, to, amount) => {
-        const a = from.match(/[A-Fa-f0-9]{2}/g).map(value => parseInt(value, 16));
-        const b = to.match(/[A-Fa-f0-9]{2}/g).map(value => parseInt(value, 16));
-        return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount)
-          .toString(16).padStart(2, '0')).join('')}`;
-      };
       halves.forEach(item => {
         const width = item.right - item.left;
         const iconY = item.startY + (20 - item.startY) * easedProgress;
@@ -806,8 +800,11 @@
           item.icon === 'clear_day' ? '#ffff00' : '#0000ff');
         if (item.icon === 'clear_day') {
           const labelY = 128 + (44 - 128) * easedProgress;
-          const labelColor = mixColor('#000000', stale ? '#777777' : '#ffaa00', easedProgress);
-          drawSunText(item.label, item.left + 108, labelY, 2, labelColor);
+          const yellowLetters = Math.min(7, Math.floor(easedProgress * 8));
+          [...item.label].forEach((character, index) => {
+            const color = stale ? '#777777' : (index < yellowLetters ? '#ffff00' : '#0000ff');
+            drawSunText(character, item.left + 108 + index * 32, labelY, 2, color);
+          });
         } else {
           const blueLetters = Math.min(6, Math.floor(easedProgress * 7));
           [...item.label].forEach((character, index) => {
