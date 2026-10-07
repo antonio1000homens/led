@@ -30,10 +30,10 @@ AGENDA_TITLE_X = (AGENDA_WHEN_WIDTH + AGENDA_TITLE_GAP) * AGENDA_FONT_WIDTH
 AGENDA_TITLE_VISIBLE_CHARS = AGENDA_ROW_WIDTH - AGENDA_WHEN_WIDTH - AGENDA_TITLE_GAP
 AGENDA_MARQUEE_SPEED = 30.0
 AGENDA_MARQUEE_PAUSE_SECONDS = 1.25
-# At the production 8 Hz cadence this gives roughly five integer-position
+# At the production 8 Hz cadence this gives roughly six integer-position
 # updates for an 8-pixel row step, avoiding the two-to-three-pixel hops from
-# the previous 0.4-second transition without making the cycle feel sluggish.
-DEPARTURE_SLIDE_SECONDS = 0.6
+# the original 0.4-second transition.
+DEPARTURE_SLIDE_SECONDS = 0.8
 DEPARTURE_RESET_GAP_SECONDS = 0.4
 DEPARTURE_RESET_SLIDE_SECONDS = 0.8
 
