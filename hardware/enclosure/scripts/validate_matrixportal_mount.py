@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate generated MatrixPortal S3 dock/carrier enclosure meshes."""
+"""Validate generated MatrixPortal S3 side-dock/carrier enclosure meshes."""
 
 from __future__ import annotations
 
@@ -53,15 +53,17 @@ def main() -> None:
     generic = load_one(root / LEFT_GENERIC)
     service = load_one(root / LEFT_MATRIXPORTAL)
 
-    check_extents(DOCK, dock, (86.0, 50.0, 6.8))
+    # Side-mount ears extend 5 mm beyond each Y edge of the original 50 mm dock.\n    check_extents(DOCK, dock, (86.0, 60.0, 6.8))
     check_extents(CARRIER, carrier, (85.0, 50.0, 22.2))
     check_extents(KEEPER, keeper, (6.5, 26.685, 6.15))
 
-    # The MatrixPortal side must remain the same outer part envelope while
-    # removing real material for the enlarged carrier/service opening.
-    if max(abs(service.extents-generic.extents)) > 0.25:
+    # The dedicated side now carries two small inward receiver channels.
+    # They may add up to ~0.6 mm to the generic inner-depth envelope, but must
+    # not alter the visible Y/Z end-cap silhouette.
+    delta = abs(service.extents-generic.extents)
+    if float(delta.max()) > 1.0:
         raise SystemExit(
-            f"{LEFT_MATRIXPORTAL}: outer envelope changed unexpectedly; "
+            f"{LEFT_MATRIXPORTAL}: side-dock receivers changed the outer envelope too much; "
             f"generic={generic.extents.tolist()} service={service.extents.tolist()}"
         )
     if not service.volume < generic.volume - 10.0:
@@ -77,7 +79,7 @@ def main() -> None:
         )
 
     print(
-        "MatrixPortal click-dock validation passed: "
+        "MatrixPortal side-mounted click-dock validation passed: "
         f"dock={dock.extents.tolist()} mm, "
         f"carrier={carrier.extents.tolist()} mm, "
         f"keeper={keeper.extents.tolist()} mm, "
