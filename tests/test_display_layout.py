@@ -388,7 +388,12 @@ class DisplayLayoutTests(unittest.TestCase):
             )
             self.assertEqual(
                 led_display._sun_weather_icon_y("clear_night", phase),
-                led_display.SUN_WEATHER_ICON_Y,
+                led_display.SUN_WEATHER_ICON_Y
+                + (
+                    led_display.WEATHER_ICON_WIDTH
+                    * (led_display.SUN_WEATHER_ICON_SCALE - led_display.SUN_WEATHER_MOON_ICON_SCALE)
+                )
+                // 2,
             )
             self.assertFalse(led_display._sun_weather_animation_active(phase))
         self.assertTrue(led_display._sun_weather_animation_active(led_display.SUN_WEATHER_ANIMATION_SECONDS))
