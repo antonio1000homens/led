@@ -75,18 +75,26 @@ GitHub Actions regenerates all **eleven** canonical STLs with OpenSCAD and runs
 the normal mechanical/geometry checks. The regenerated meshes are also uploaded
 as a downloadable workflow artifact.
 
-CI additionally verifies that each regenerated mesh is geometrically equivalent
-to the corresponding checked-in STL, preventing SCAD and STL from drifting.
+CI compares each regenerated mesh with the corresponding checked-in STL. A
+missing or stale checked-in STL is reported as a **warning**, not as a mechanical
+validation failure: the fresh OpenSCAD output generated in that run is the mesh
+used by validation and is available in the `enclosure-stls` artifact.
+
+Generation failures, missing generated meshes, and mechanical/geometry
+validation failures remain hard CI failures. The verification script remains
+strict by default for local/manual use; CI opts into warning mode with
+`--warn-only`.
 
 
 ## Loop safety
 
 The GitHub Actions enclosure workflow **never commits generated STL files**.
 
-- SCAD changes on an open PR trigger regeneration and comparison.
+- SCAD changes on an open PR trigger regeneration, validation and comparison.
 - SCAD/STL changes merged to `master` trigger the same read-only validation.
-- STL-only changes can trigger one validation run so stale/manual replacements
-  are caught.
+- STL-only changes can trigger one validation run so manual replacements are
+  checked.
+- STL drift is surfaced as a warning and does not cause a red mechanical check.
 - The workflow has `contents: read` permission and cannot push generated files
   back into the repository.
 
@@ -95,6 +103,7 @@ This deliberately prevents the pattern:
 `SCAD change → bot STL commit → workflow trigger → bot STL commit → ...`
 
 Canonical STL updates are created with
-`python hardware/enclosure/scripts/generate_stls.py` and committed together
-with the corresponding SCAD change. CI independently regenerates the meshes and
-fails if the committed STL differs from the source-generated geometry.
+`python hardware/enclosure/scripts/generate_stls.py` and can be committed with
+the corresponding SCAD change when a refreshed versioned manufacturing output
+is wanted. CI independently regenerates the meshes and warns if the committed
+STL differs from the source-generated geometry.
