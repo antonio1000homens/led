@@ -61,11 +61,53 @@ mp_dock_h = 50.0;
 mp_dock_t = 4.2;
 mp_dock_corner_r = 3.0;
 
-mp_dock_m3_hole_d = 3.6;
-mp_dock_m3_head_d = 7.0;
-mp_dock_m3_head_recess = 1.8;
+// The dock is no longer screwed to the backplane.  The four existing universal
+// bosses remain useful as passive registration/anti-flex pads: shallow sockets
+// on the rear of the dock settle over them, but there are no M3 through holes.
 mp_dock_boss_pocket_d = 7.5;
 mp_dock_boss_pocket_depth = 1.2;
+
+// ----- Side-mounted dock interface -----
+// Two keyed tabs sit just outside the 52 mm-high carrier/service opening.  They
+// slide into inward-facing receiver channels printed as part of the dedicated
+// left MatrixPortal side.  A short widened PETG detent on each tab clicks past
+// a narrowed receiver throat near the end of travel.
+//
+// The receiver is the PRIMARY structural attachment.  The backplane boss
+// sockets above are deliberately passive so USB/button service loads are
+// reacted at the side while the far end of the 86 mm dock cannot flap.
+mp_side_mount_engagement = 9.0;
+mp_side_mount_tab_y = 2.4;
+mp_side_mount_tab_z0 = 0.20;
+mp_side_mount_tab_z = 2.40;
+mp_side_mount_lower_yc = -3.80;
+mp_side_mount_upper_yc = mp_dock_h + 3.80;
+mp_side_mount_fit = 0.40;
+mp_side_mount_receiver_wall_y = 1.00;
+mp_side_mount_receiver_wall_z = 1.00;
+mp_side_mount_receiver_root_wall = 1.05;
+mp_side_mount_receiver_entry_extra = 1.00;
+mp_side_mount_detent_x0 = 7.70;
+mp_side_mount_detent_len = 1.10;
+mp_side_mount_detent_extra_y = 0.35;
+mp_side_mount_throat_x0 = 8.90;
+mp_side_mount_throat_len = 0.55;
+mp_side_mount_throat_relief = 0.15;
+
+assert(
+    mp_dock_y0 + mp_side_mount_lower_yc +
+        mp_side_mount_tab_y/2 + mp_side_mount_fit/2 +
+        mp_side_mount_receiver_wall_y
+    < mp_service_center_y-mp_service_size_y/2,
+    "lower side-dock receiver must stay below the service opening"
+);
+assert(
+    mp_dock_y0 + mp_side_mount_upper_yc -
+        mp_side_mount_tab_y/2 - mp_side_mount_fit/2 -
+        mp_side_mount_receiver_wall_y
+    > mp_service_center_y+mp_service_size_y/2,
+    "upper side-dock receiver must stay above the service opening"
+);
 
 // ----- Removable MatrixPortal carrier -----
 mp_carrier_x0 = mp_dock_x0;
@@ -285,32 +327,13 @@ module matrixportal_s3_reference(show_components=true) {
 }
 
 module mp_dock_mount_cutters(extra=0.6) {
+    // Passive anti-flex/location sockets only.  The dock is retained by the
+    // dedicated left-side receiver channels, not by backplane screws.
     for (xx=mp_backplane_mount_x)
         for (yy=mp_backplane_mount_y) {
             lx = xx-mp_dock_x0;
             ly = yy-mp_dock_y0;
 
-            // M3 clearance through the fixed dock.
-            translate([lx,ly,-extra/2])
-                cylinder(
-                    d=mp_dock_m3_hole_d,
-                    h=mp_dock_t+extra,
-                    $fn=32
-                );
-
-            // Equipment-side screw head recess sits below the sliding carrier.
-            translate([
-                lx,
-                ly,
-                mp_dock_t-mp_dock_m3_head_recess
-            ])
-                cylinder(
-                    d=mp_dock_m3_head_d,
-                    h=mp_dock_m3_head_recess+extra/2,
-                    $fn=32
-                );
-
-            // Back-face socket registers positively on each 7 mm boss body.
             translate([lx,ly,-0.1])
                 cylinder(
                     d=mp_dock_boss_pocket_d,
@@ -320,7 +343,48 @@ module mp_dock_mount_cutters(extra=0.6) {
         }
 }
 
-module mp_dovetail_rail(yc,with_detent=false) {
+module mp_side_mount_tab(yc,edge_y) {
+    // Keep the structural bridge above the service aperture in installed Z.
+    // The local Z range maps to about 50.5-52.9 mm in the current enclosure.
+    hull() {
+        translate([
+            0,
+            yc-mp_side_mount_tab_y/2,
+            mp_side_mount_tab_z0
+        ])
+            cube([
+                mp_side_mount_engagement,
+                mp_side_mount_tab_y,
+                mp_side_mount_tab_z
+            ]);
+
+        translate([
+            0,
+            min(yc,edge_y)-0.20,
+            mp_side_mount_tab_z0
+        ])
+            cube([
+                mp_side_mount_engagement,
+                abs(edge_y-yc)+0.40,
+                mp_side_mount_tab_z
+            ]);
+    }
+
+    // Widened terminal feature gives the side receiver a positive click.  The
+    // receiver throat flexes around this short feature during final seating.
+    translate([
+        mp_side_mount_detent_x0,
+        yc-mp_side_mount_tab_y/2-mp_side_mount_detent_extra_y,
+        mp_side_mount_tab_z0
+    ])
+        cube([
+            mp_side_mount_detent_len,
+            mp_side_mount_tab_y+2*mp_side_mount_detent_extra_y,
+            mp_side_mount_tab_z
+        ]);
+}
+
+module mp_dovetail_railmodule mp_dovetail_rail(yc,with_detent=false) {
     union() {
         hull() {
             translate([
@@ -383,7 +447,11 @@ module matrixportal_s3_dock_print() {
             mp_dock_mount_cutters();
         }
 
-        // Lower rail carries the click detent; upper rail is plain guidance.
+        // Side attachment lives outside the carrier/service aperture.
+        mp_side_mount_tab(mp_side_mount_lower_yc,0);
+        mp_side_mount_tab(mp_side_mount_upper_yc,mp_dock_h);
+
+        // Lower rail carries the carrier click detent; upper rail is plain guidance.
         mp_dovetail_rail(mp_dovetail_y[0],true);
         mp_dovetail_rail(mp_dovetail_y[1],false);
 
@@ -783,9 +851,122 @@ module matrixportal_left_side_service_cutter() {
     );
 }
 
-module matrixportal_left_equipment_side() {
+module mp_side_receiver_pocket(yc,dock_back_z) {
+    tab_installed_z0 =
+        dock_back_z-mp_side_mount_tab_z0-mp_side_mount_tab_z;
+    pocket_y =
+        mp_side_mount_tab_y+mp_side_mount_fit;
+    pocket_z =
+        mp_side_mount_tab_z+mp_side_mount_fit;
+    pocket_y0 =
+        mp_dock_y0+yc-pocket_y/2;
+    pocket_z0 =
+        tab_installed_z0-mp_side_mount_fit/2;
+    pocket_x0 =
+        left_side_inner_x+mp_side_mount_receiver_root_wall;
+    pocket_x1 =
+        mp_dock_x0+mp_side_mount_engagement+
+        mp_side_mount_receiver_entry_extra;
+
+    union() {
+        // Main running pocket and open inboard entry.
+        translate([pocket_x0,pocket_y0,pocket_z0])
+            cube([
+                pocket_x1-pocket_x0+0.2,
+                pocket_y,
+                pocket_z
+            ]);
+
+        // Terminal pocket around the tab's widened click feature.
+        detent_center_x =
+            mp_dock_x0+
+            mp_side_mount_detent_x0+
+            mp_side_mount_detent_len/2;
+        detent_y =
+            mp_side_mount_tab_y+
+            2*mp_side_mount_detent_extra_y+
+            mp_side_mount_fit;
+        translate([
+            detent_center_x-mp_side_mount_detent_len/2-0.20,
+            mp_dock_y0+yc-detent_y/2,
+            pocket_z0
+        ])
+            cube([
+                mp_side_mount_detent_len+0.40,
+                detent_y,
+                pocket_z
+            ]);
+
+        // Narrow throat immediately outboard of the terminal pocket.  Because
+        // installed X becomes print Z for the side wrapper, this is a gradual
+        // layer-to-layer constriction rather than a horizontal bridge.
+        throat_y =
+            mp_side_mount_tab_y+
+            2*mp_side_mount_detent_extra_y-
+            2*mp_side_mount_throat_relief;
+        translate([
+            mp_dock_x0+mp_side_mount_throat_x0,
+            mp_dock_y0+yc-throat_y/2,
+            pocket_z0
+        ])
+            cube([
+                mp_side_mount_throat_len,
+                throat_y,
+                pocket_z
+            ]);
+    }
+}
+
+module mp_side_receiver(yc,dock_back_z) {
+    tab_installed_z0 =
+        dock_back_z-mp_side_mount_tab_z0-mp_side_mount_tab_z;
+    pocket_y =
+        mp_side_mount_tab_y+mp_side_mount_fit;
+    pocket_z =
+        mp_side_mount_tab_z+mp_side_mount_fit;
+    outer_y =
+        pocket_y+2*mp_side_mount_receiver_wall_y;
+    outer_z =
+        pocket_z+2*mp_side_mount_receiver_wall_z;
+    outer_x0 = left_side_inner_x;
+    outer_x1 =
+        mp_dock_x0+mp_side_mount_engagement+
+        mp_side_mount_receiver_entry_extra;
+
     difference() {
-        equipment_side("left");
-        matrixportal_left_side_service_cutter();
+        translate([
+            outer_x0,
+            mp_dock_y0+yc-outer_y/2,
+            tab_installed_z0-mp_side_mount_fit/2-
+                mp_side_mount_receiver_wall_z
+        ])
+            cube([
+                outer_x1-outer_x0,
+                outer_y,
+                outer_z
+            ]);
+
+        mp_side_receiver_pocket(yc,dock_back_z);
+    }
+}
+
+module matrixportal_left_side_dock_receivers() {
+    dock_back_z =
+        universal_deep_front_z-adapter_boss_h+adapter_boss_overlap;
+
+    mp_side_receiver(mp_side_mount_lower_yc,dock_back_z);
+    mp_side_receiver(mp_side_mount_upper_yc,dock_back_z);
+}
+
+module matrixportal_left_equipment_side() {
+    union() {
+        difference() {
+            equipment_side("left");
+            matrixportal_left_side_service_cutter();
+        }
+
+        // Dedicated side-only structure.  The generic left side remains
+        // unchanged; this receiver pair is the MatrixPortal dock attachment.
+        matrixportal_left_side_dock_receivers();
     }
 }
