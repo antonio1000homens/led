@@ -58,6 +58,15 @@ class FakeRuntimeStore:
         self.config = updated
         return copy.deepcopy(updated), list(body)
 
+    def patch_display(self, body, **kwargs):
+        self.calls.append(("display", copy.deepcopy(body), kwargs))
+        updated = copy.deepcopy(self.config)
+        updated["display"].update(body)
+        updated["config_version"] = kwargs["expected_version"] + 1
+        updated["updated_by"] = kwargs["updated_by"]
+        self.config = updated
+        return copy.deepcopy(updated), list(body)
+
 
 class FakeInvoker:
     calls = 0
@@ -152,6 +161,34 @@ class ConfigApiTests(unittest.TestCase):
         self.assertEqual(payload["config_version"], 5)
         self.assertEqual(payload["feeds"]["thorpe_park"]["rides"], ["Stealth", "Hyperia"])
         self.assertEqual(runtime.calls[0][2]["expected_version"], 4)
+        self.assertEqual(FakeInvoker.calls, 1)
+
+    def test_display_patch_updates_brightness_and_triggers_async_rebuild(self):
+        runtime = FakeRuntimeStore()
+        status = FakeStatusStore()
+        FakeInvoker.calls = 0
+        event = {
+            "rawPath": "/api/control/v1/display",
+            "requestContext": {"http": {"method": "PATCH"}, "requestId": "req-display"},
+            "headers": {"If-Match": '"4"'},
+            "body": json.dumps({"brightness_percent": 75}),
+        }
+        env = {
+            "RUNTIME_CONFIG_TABLE": "table",
+            "STATE_BUCKET": "bucket",
+            "PUBLISHER_FUNCTION_NAME": "publisher",
+        }
+        with patch.dict(config_api.os.environ, env, clear=True), \
+             patch.object(config_api, "authenticate_access", return_value=("human:admin@example.com", {})), \
+             patch.object(config_api, "RuntimeConfigStore", return_value=runtime), \
+             patch.object(config_api, "StatusStore", return_value=status), \
+             patch.object(config_api, "PublisherInvoker", FakeInvoker):
+            response = config_api.lambda_handler(event, None)
+        self.assertEqual(response["statusCode"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["config_version"], 5)
+        self.assertEqual(payload["display"]["brightness_percent"], 75)
+        self.assertEqual(runtime.calls[0][0], "display")
         self.assertEqual(FakeInvoker.calls, 1)
 
     def test_patch_without_if_match_is_rejected(self):

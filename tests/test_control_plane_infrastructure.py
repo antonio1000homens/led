@@ -40,6 +40,7 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
             "GET /api/control/v1/status",
             "GET /api/control/v1/feeds/{feed_id}/options",
             "PATCH /api/control/v1/feeds/{feed_id}",
+            "PATCH /api/control/v1/display",
         ):
             self.assertIn(route, self.template)
         self.assertIn("PathPattern: api/control/v1/*", self.template)

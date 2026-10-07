@@ -209,6 +209,9 @@ Resources:
   ControlPatchRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties: {ApiId: !Ref ControlApi, RouteKey: 'PATCH /api/control/v1/feeds/{feed_id}', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlDisplayPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'PATCH /api/control/v1/display', Target: !Sub 'integrations/${ControlApiIntegration}'}
   ControlApiStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties: {ApiId: !Ref ControlApi, StageName: '$default', AutoDeploy: true}
