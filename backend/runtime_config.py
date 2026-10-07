@@ -51,6 +51,8 @@ MAX_FLASH_SCREEN_DURATION_SECONDS = 60
 MIN_CALENDAR_TASKS = 1
 MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
+DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
+DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -259,6 +261,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
     thorpe_poll = _int_env(env, "LED_THORPE_PARK_CACHE_SECONDS", 300)
     return {
         "config_version": 0,
+        "display": {"brightness_percent": DEFAULT_DISPLAY_BRIGHTNESS_PERCENT},
         "feeds": {
             "steam_train": {
                 "enabled": True,
@@ -439,7 +442,30 @@ def schema_metadata() -> dict[str, Any]:
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
             **({"virtual": True} if definition.get("virtual") else {}),
         }
-    return {"feeds": feeds}
+    return {
+        "feeds": feeds,
+        "display": {
+            "label": "Display",
+            "provider": "MatrixPortal",
+            "mutable_fields": ["brightness_percent"],
+            "fields": {
+                "brightness_percent": {
+                    "type": "select",
+                    "values": list(DISPLAY_BRIGHTNESS_LEVELS),
+                },
+            },
+        },
+    }
+
+
+def validate_display_patch(patch: Any) -> dict[str, int]:
+    if not isinstance(patch, dict) or set(patch) != {"brightness_percent"}:
+        raise RuntimeConfigValidationError("display patch must contain brightness_percent only")
+    percent = patch["brightness_percent"]
+    if isinstance(percent, bool) or not isinstance(percent, int) or percent not in DISPLAY_BRIGHTNESS_LEVELS:
+        allowed = ", ".join(str(value) for value in DISPLAY_BRIGHTNESS_LEVELS)
+        raise RuntimeConfigValidationError(f"display.brightness_percent must be one of {allowed}")
+    return {"brightness_percent": percent}
 
 
 def _normalize_number(value: Any) -> Any:
@@ -588,6 +614,8 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise RuntimeConfigValidationError("runtime configuration must be an object")
     defaults = default_runtime_config({})
+    raw_display = value.get("display", copy.deepcopy(defaults["display"]))
+    display = validate_display_patch(raw_display)
     raw_feeds = value.get("feeds")
     if not isinstance(raw_feeds, dict):
         raise RuntimeConfigValidationError("feeds must be an object")
@@ -647,6 +675,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         raise RuntimeConfigValidationError("updated_by must be a non-empty string")
     return {
         "config_version": version,
+        "display": display,
         "feeds": feeds,
         "updated_at": updated_at,
         "updated_by": updated_by,
@@ -734,6 +763,40 @@ class RuntimeConfigStore:
         normalized_patch = validate_feed_patch(feed_id, patch, available_rides)
         next_config = copy.deepcopy(current)
         next_config["feeds"][feed_id].update(normalized_patch)
+        next_config["config_version"] = expected_version + 1
+        next_config["updated_at"] = _iso_now(self.utcnow)
+        next_config["updated_by"] = updated_by
+        item = {"config_id": CONFIG_ID, **next_config}
+        try:
+            if expected_version == 0:
+                self.table.put_item(Item=item, ConditionExpression="attribute_not_exists(config_id)")
+            else:
+                self.table.put_item(
+                    Item=item,
+                    ConditionExpression="config_version = :expected",
+                    ExpressionAttributeValues={":expected": expected_version},
+                )
+        except Exception as error:
+            if _is_conditional_failure(error):
+                raise RuntimeConfigConflict("configuration changed concurrently") from error
+            raise
+        return next_config, list(normalized_patch)
+
+    def patch_display(
+        self,
+        patch: Any,
+        *,
+        expected_version: int,
+        updated_by: str,
+    ) -> tuple[dict[str, Any], list[str]]:
+        current = self.load()
+        if current["config_version"] != expected_version:
+            raise RuntimeConfigConflict(
+                f"configuration version is {current['config_version']}, not {expected_version}"
+            )
+        normalized_patch = validate_display_patch(patch)
+        next_config = copy.deepcopy(current)
+        next_config["display"].update(normalized_patch)
         next_config["config_version"] = expected_version + 1
         next_config["updated_at"] = _iso_now(self.utcnow)
         next_config["updated_by"] = updated_by

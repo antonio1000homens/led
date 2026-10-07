@@ -50,3 +50,10 @@ class BrightnessState:
         changed = new_index != self._index
         self._index = new_index
         return self.percent, changed
+
+    def set(self, percent):
+        """Set a supported brightness level and return (percent, changed)."""
+        new_index = BRIGHTNESS_LEVELS.index(normalize_brightness(percent))
+        changed = new_index != self._index
+        self._index = new_index
+        return self.percent, changed

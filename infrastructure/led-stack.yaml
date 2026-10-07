@@ -28,7 +28,7 @@ Parameters:
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
-  TodoistFilterQuery: {Type: String, Default: 'date after: yesterday'}
+  TodoistFilterQuery: {Type: String, Default: 'due before: tomorrow | due after: yesterday'}
   TodoistTimezone: {Type: String, Default: Europe/London}
   CalendarDurationSeconds: {Type: Number, Default: 10, MinValue: 2, MaxValue: 300}
   CalendarPageSeconds: {Type: Number, Default: 5, MinValue: 1}

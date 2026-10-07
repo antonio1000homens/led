@@ -40,6 +40,32 @@ class CapturingGroup(list):
         super().__init__(*args, **kwargs)
         self.x = 0
         self.y = 0
+        self.hidden = False
+
+
+class CapturingBitmap:
+    def __init__(self, width, height, colors):
+        self.width, self.height, self.colors = width, height, colors
+
+    def __setitem__(self, key, value):
+        del key, value
+
+
+class CapturingPalette:
+    def __init__(self, count):
+        self.values = [None] * count
+
+    def __setitem__(self, key, value):
+        self.values[key] = value
+
+    def make_transparent(self, index):
+        del index
+
+
+class CapturingTileGrid:
+    def __init__(self, bitmap, pixel_shader, x=0, y=0):
+        del bitmap, pixel_shader
+        self.x, self.y = x, y
 
 
 class CapturingLabel:
@@ -86,9 +112,9 @@ class DisplayLayoutTests(unittest.TestCase):
             "collection_date": "2026-10-13",
             "collections": [{"id": "mixed", "label": "Mixed recycling"}],
             "slide_speed": 20,
-        }, 0)
-        self.assertIn(("NEXT COLLECTION", 0, 9, (255, 170, 0)), display.drawn)
-        self.assertIn(("Mixed recycling", 83, 17, (255, 255, 255)), display.drawn)
+        }, 4)
+        self.assertIn(("NEXT COLLECTION", 0, 3, (255, 170, 0)), display.drawn)
+        self.assertIn(("Mixed recycling", 85, 14, (255, 255, 255)), display.drawn)
         self.assertIn(("2026-10-13", 0, 25, (170, 170, 170)), display.drawn)
 
         display.drawn = []
@@ -98,18 +124,18 @@ class DisplayLayoutTests(unittest.TestCase):
             "collections": [{"id": "mixed", "label": "Mixed recycling"},
                             {"id": "paper", "label": "Paper"}],
             "slide_speed": 20,
-        }, 0)
-        self.assertIn(("Mixed recycling / Paper", 59, 17, (255, 255, 255)), display.drawn)
+        }, 4)
+        self.assertIn(("Mixed recycling / Paper", 61, 14, (255, 255, 255)), display.drawn)
 
     def test_bin_collection_long_label_moves_at_supplied_speed(self):
         display = CapturingFixture()
         screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
                   "collection_date": "2026-10-13", "slide_speed": 20,
                   "collections": [{"id": "x", "label": "A very long collection label for the MatrixPortal"}]}
-        display._draw_screen(screen, 0)
+        display._draw_screen(screen, 4)
         first = next(item for item in display.drawn if item[0].startswith("A very long"))
         display.drawn = []
-        display._draw_screen(screen, 1)
+        display._draw_screen(screen, 5)
         second = next(item for item in display.drawn if item[0].startswith("A very long"))
         self.assertEqual(first[1] - second[1], 20)
 
@@ -119,16 +145,19 @@ class DisplayLayoutTests(unittest.TestCase):
                   "collections": [{"id": "x", "label": "X" * 50}]}
         with mock.patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
             self.assertTrue(display.animation_active(screen, 0))
-            self.assertFalse(display.animation_active(screen, 15))
-            self.assertEqual(display.animation_cadence(screen, 15), 0)
-            self.assertAlmostEqual(display.animation_sleep_seconds(screen, 15), 1.2)
+            self.assertFalse(display.animation_active(screen, 20))
+            self.assertEqual(display.animation_cadence(screen, 20), 0)
+            self.assertAlmostEqual(display.animation_sleep_seconds(screen, 20), 0.2)
 
     def test_bin_collection_hardware_layout_keeps_normal_clock_header(self):
         import sys
         import types
 
         previous = sys.modules.get("displayio")
-        sys.modules["displayio"] = types.SimpleNamespace(Group=CapturingGroup)
+        sys.modules["displayio"] = types.SimpleNamespace(
+            Group=CapturingGroup, Bitmap=CapturingBitmap,
+            Palette=CapturingPalette, TileGrid=CapturingTileGrid,
+        )
         try:
             display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
             display.label_type = CapturingLabel
@@ -143,19 +172,24 @@ class DisplayLayoutTests(unittest.TestCase):
             display._bin_key = None
             display._bin_weather = None
             display._bin_header_kind = None
+            display._bin_content_group = None
+            display._bin_bins_group = None
+            display._bin_lorry_group = None
+            display._bin_lorry_grid = None
+            display._bin_types = ()
             screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
                       "collection_date": "2026-10-13", "slide_speed": 20,
                       "collections": [{"id": "mixed", "label": "Mixed recycling"}],
                       "weather": None}
-            display._show_bin_collection(screen, "21:00", 0)
+            display._show_bin_collection(screen, "21:00", 4)
             self.assertEqual((display._bin_title.text, display._bin_label.text, display._bin_date.text),
                              ("NEXT COLLECTION", "Mixed recycling", "2026-10-13"))
             self.assertEqual(display._bin_clock_label.text, "21:00")
             long_screen = dict(screen)
             long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]
-            display._show_bin_collection(long_screen, "21:00", 0)
+            display._show_bin_collection(long_screen, "21:00", 4)
             start_x = display._bin_motion_group.x
-            display._show_bin_collection(long_screen, "21:00", 1)
+            display._show_bin_collection(long_screen, "21:00", 5)
             self.assertEqual(start_x - display._bin_motion_group.x, 20)
         finally:
             if previous is None:
@@ -308,12 +342,12 @@ class DisplayLayoutTests(unittest.TestCase):
             "sunset_time": "18:29",
         }, phase=0)
         text = [item[0] for item in display.drawn]
-        self.assertIn("SUNRISE", text)
+        self.assertIn("SUNRISE", "".join(text))
         self.assertIn("07:08", text)
-        self.assertIn("SUNSET", text)
+        self.assertIn("SUNSET", "".join(text))
         self.assertIn("18:29", text)
 
-    def test_sun_weather_icons_slide_in_opposite_vertical_directions(self):
+    def test_sun_weather_animation_runs_sunrise_then_sunset(self):
         self.assertEqual(
             led_display._sun_weather_icon_y("clear_day", 0),
             led_display.SUN_WEATHER_RISE_START_Y,
@@ -328,12 +362,25 @@ class DisplayLayoutTests(unittest.TestCase):
         moon_mid = led_display._sun_weather_icon_y("clear_night", midpoint)
         self.assertLess(sun_mid, led_display.SUN_WEATHER_RISE_START_Y)
         self.assertGreater(sun_mid, led_display.SUN_WEATHER_ICON_Y)
+        self.assertEqual(moon_mid, led_display.SUN_WEATHER_SET_START_Y)
+
+        sunset_mid = led_display.SUN_WEATHER_ANIMATION_SECONDS + midpoint
+        self.assertEqual(
+            led_display._sun_weather_icon_y("clear_day", sunset_mid),
+            led_display.SUN_WEATHER_ICON_Y,
+        )
+        moon_mid = led_display._sun_weather_icon_y("clear_night", sunset_mid)
         self.assertGreater(moon_mid, led_display.SUN_WEATHER_SET_START_Y)
         self.assertLess(moon_mid, led_display.SUN_WEATHER_ICON_Y)
 
+        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 0), 0x0000FF)
+        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 4), 0xFFFF00)
+        self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 4), 0xFFFF00)
+        self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 8), 0x0000FF)
+
         for phase in (
-            led_display.SUN_WEATHER_ANIMATION_SECONDS,
-            led_display.SUN_WEATHER_ANIMATION_SECONDS + 5,
+            led_display.SUN_WEATHER_TOTAL_ANIMATION_SECONDS,
+            led_display.SUN_WEATHER_TOTAL_ANIMATION_SECONDS + 5,
         ):
             self.assertEqual(
                 led_display._sun_weather_icon_y("clear_day", phase),
@@ -344,6 +391,7 @@ class DisplayLayoutTests(unittest.TestCase):
                 led_display.SUN_WEATHER_ICON_Y,
             )
             self.assertFalse(led_display._sun_weather_animation_active(phase))
+        self.assertTrue(led_display._sun_weather_animation_active(led_display.SUN_WEATHER_ANIMATION_SECONDS))
 
     def test_departure_statuses_share_one_vertical_column(self):
         display = CapturingFixture()
