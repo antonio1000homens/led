@@ -4,20 +4,21 @@ This accessory mounts an Adafruit MatrixPortal S3 from the **detachable left
 equipment side**, keeping controller-specific attachment off the universal
 backplane.
 
-The controller uses a **side-mounted two-part service dock**:
+The controller uses a **side-carried two-part service dock**:
 
 1. the fixed dock snaps into two keyed PETG receiver channels built into the
-   MatrixPortal-specific left side;
-2. four shallow sockets on the dock settle over the existing backplane bosses
-   only as passive registration/anti-flex pads — there are **no dock screws into
-   the backplane**;
-3. the MatrixPortal stays attached to a raised removable carrier;
-4. the carrier slides in from the **left service opening** on two captive
-   dovetails and clicks into a shallow PETG detent at the seated stop.
+   MatrixPortal-specific CAD-left / **front-view-right** side;
+2. the dock has **no backplane screws, boss sockets, locating pockets or other
+   capturing features**;
+3. its solid rear face runs **0.40 mm clear of the universal backplane boss
+   tips**, so the side can withdraw laterally without catching them;
+4. the MatrixPortal stays attached to a raised removable carrier;
+5. the carrier still slides on captive dovetails for separate bench servicing.
 
-The side wall therefore carries the dock structurally, while the backplane only
-prevents the far end of the 86 mm dock from flexing under USB/button service
-loads.
+The complete **side + dock + carrier + MatrixPortal** is therefore one removable
+service assembly. Pulling the front-right side outward brings the controller
+with it and exposes the USB-C, buttons and HUB75 connectors without opening the
+main enclosure.
 
 ## Mechanical source
 
@@ -43,9 +44,9 @@ official mounting-hole pattern.
 
 ## Printable parts
 
-- `../parts/08_matrixportal_s3_dock_PRINT_1.scad` — fixed side-mounted dock
-  with two keyed snap tabs, passive backplane-boss registration sockets, two
-  captive dovetail rails, click detent and seated stop;
+- `../parts/08_matrixportal_s3_dock_PRINT_1.scad` — fixed side-carried dock
+  with two keyed snap tabs, a solid backplane-facing surface, two captive
+  dovetail rails, click detent and seated stop;
 - `../parts/09_left_equipment_side_matrixportal_PRINT_1.scad` — replacement
   left end cap with the enlarged carrier/service opening plus the two matching
   inward-facing dock receiver channels;
@@ -58,27 +59,31 @@ official mounting-hole pattern.
 Do **not** fit both the generic `04_left_equipment_side_PRINT_1` and the
 MatrixPortal-specific `09_...` left side.
 
-## Side-mounted dock attachment
+## Side-carried dock attachment
 
-The MatrixPortal-specific left side is now the **primary dock attachment**.
-Two receiver channels sit just outside the 52 mm-high service aperture: one
-below and one above. Matching tabs on the dock slide into these channels from
-the enclosure interior.
+The MatrixPortal-specific CAD-left / **front-view-right** side is the dock's
+**only structural attachment**. Two receiver channels sit just outside the
+52 mm-high service aperture: one below and one above. Matching tabs on the dock
+slide into these channels from the enclosure interior and click into place.
 
-Each tab has a short widened PETG detent. During the final insertion travel it
-passes a narrowed receiver throat and relaxes into a terminal cavity, giving the
-dock a positive click against the side. The receiver bodies overlap the existing
-3 mm side wall so they are one connected printed shell.
+The dock deliberately has **no geometry that wraps around, screws into or keys
+against the backplane**. Its rear face is solid and the installed dock plane is
+offset **0.40 mm toward the LED panel** from the universal boss-tip plane. This
+provides running clearance when the side is pulled outward.
 
-The universal backplane is not used to retain the dock. The existing boss
-rectangle at X = **32 / 80 mm**, Y = **62.5 / 102.5 mm** remains present because
-the dock's four **7.5 mm** rear sockets settle over the **7 mm** boss bodies.
-These sockets provide repeatable Z location and react against cantilever flex;
-they contain **no M3 clearance holes or screw-head recesses**.
+The boss grid therefore remains completely independent of MatrixPortal service.
+If the long dock flexes unusually far, the boss tips can act only as
+non-capturing bump stops after the 0.40 mm gap is consumed; they are not part of
+normal retention.
 
-To remove the fixed dock itself, first remove the carrier, then release/pull the
-dock inward from the two side receiver channels. Normal MatrixPortal servicing
-still requires only removal of the carrier.
+### Side-removal service sequence
+
+1. disconnect any external cable that would prevent the side moving outward;
+2. release the detachable front-right side from the enclosure;
+3. pull the side outward — the fixed dock, carrier and MatrixPortal move with it;
+4. the USB-C, Reset/Up/Down and HUB75 connections are then accessible without
+   opening the hinged enclosure;
+5. if required on the bench, pull the carrier from its dovetails separately.
 
 ## Carrier / click interface
 
