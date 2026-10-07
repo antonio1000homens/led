@@ -139,6 +139,14 @@ class DisplayLayoutTests(unittest.TestCase):
         second = next(item for item in display.drawn if item[0].startswith("A very long"))
         self.assertEqual(first[1] - second[1], 20)
 
+    def test_bin_collection_date_follows_lorry_in_from_right(self):
+        display = CapturingFixture()
+        screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
+                  "collection_date": "2026-10-13", "slide_speed": 20,
+                  "collections": [{"id": "x", "label": "Mixed recycling"}]}
+        display._draw_screen(screen, 3, clock_date="2026-10-07")
+        self.assertIn(("DUE IN 6 DAYS", 120, 25, (170, 170, 170)), display.drawn)
+
     def test_bin_collection_blank_scroll_gap_allows_transport_reconnect(self):
         display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
         screen = {"kind": "bin_collection", "slide_speed": 20,
@@ -184,6 +192,7 @@ class DisplayLayoutTests(unittest.TestCase):
             display._show_bin_collection(screen, "21:00", "2026-10-07", 4)
             self.assertEqual((display._bin_title.text, display._bin_label.text, display._bin_date.text),
                              ("NEXT COLLECTION", "Mixed recycling", "DUE IN 6 DAYS"))
+            self.assertTrue(display._bin_lorry_grid.flip_x)
             self.assertEqual(display._bin_clock_label.text, "21:00")
             long_screen = dict(screen)
             long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]

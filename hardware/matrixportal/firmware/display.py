@@ -830,6 +830,7 @@ class MatrixDisplay:
         self._bin_motion_group = None
         self._bin_label = None
         self._bin_title = None
+        self._bin_date_group = None
         self._bin_date = None
         self._bin_stale = None
         self._bin_clock_label = None
@@ -2526,7 +2527,10 @@ class MatrixDisplay:
                        (35, 15), (36, 15), (39, 15), (40, 15),
                        (35, 18), (36, 18), (39, 18), (40, 18)):
             bitmap[px, py] = 4
-        return displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=6)
+        grid = displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=6)
+        # The lorry travels left, so put the cab on the leading (left) side.
+        grid.flip_x = True
+        return grid
 
     def _build_bin_collection(self, screen, clock_time, clock_date, phase, header_kind):
         import displayio
@@ -2547,13 +2551,15 @@ class MatrixDisplay:
         self._bin_motion_group = displayio.Group()
         self._bin_label = self._label(self._bin_motion_group, labels, 0xFFFFFF, 0, 14)
         content.append(self._bin_motion_group)
+        self._bin_date_group = displayio.Group()
         self._bin_date = self._label(
-            content,
+            self._bin_date_group,
             _bin_collection_due_label(screen.get("collection_date"), clock_date),
             0xAAAAAA,
             0,
             24,
         )
+        group.append(self._bin_date_group)
         group.append(content)
         self._bin_content_group = content
         self._bin_lorry_group = displayio.Group()
@@ -2602,6 +2608,13 @@ class MatrixDisplay:
         except (TypeError, ValueError):
             elapsed = 0.0
         settled = elapsed >= BIN_LORRY_SECONDS
+        date_x = 0
+        if not settled:
+            # Keep the date behind the lorry as it enters from the right.
+            date_x = _bin_lorry_x(elapsed) + BIN_LORRY_WIDTH + 4
+        if self._bin_date_group.x != date_x:
+            self._bin_date_group.x = date_x
+            changed = True
         available_width = BIN_TEXT_RIGHT - BIN_TEXT_X
         if label_width > available_width:
             travel = label_width + 24
@@ -2849,17 +2862,27 @@ class FixtureDisplay:
             elapsed = 0.0
         if elapsed < BIN_LORRY_SECONDS:
             x = _bin_lorry_x(elapsed)
-            self._fill_rect(x + 2, 11, 32, 8, (34, 170, 68))
-            self._fill_rect(x + 32, 13, 17, 6, (255, 170, 0))
-            self._fill_rect(x + 37, 11, 10, 3, (255, 170, 0))
-            self._fill_rect(x + 38, 13, 5, 2, (221, 238, 255))
-            self._fill_rect(x + 44, 13, 4, 2, (221, 238, 255))
-            for px, py in ((x + 17, 14), (x + 18, 14), (x + 19, 15),
-                           (x + 18, 16), (x + 20, 16), (x + 21, 15),
-                           (x + 22, 14), (x + 23, 14)):
+            def mirror(left, width):
+                return x + BIN_LORRY_WIDTH - left - width
+
+            self._fill_rect(mirror(2, 32), 11, 32, 8, (34, 170, 68))
+            self._fill_rect(mirror(32, 17), 13, 17, 6, (255, 170, 0))
+            self._fill_rect(mirror(36, 11), 11, 10, 3, (255, 170, 0))
+            self._fill_rect(mirror(37, 6), 13, 5, 2, (221, 238, 255))
+            self._fill_rect(mirror(44, 4), 13, 4, 2, (221, 238, 255))
+            for px, py in ((17, 14), (18, 14), (19, 15),
+                           (18, 16), (20, 16), (21, 15),
+                           (22, 14), (23, 14)):
+                px = x + BIN_LORRY_WIDTH - 1 - px
                 self._fill_rect(px, py, 1, 1, (221, 238, 255))
             for wheel_x in (8, 36):
-                self._fill_rect(x + wheel_x, 19, 7, 2, (34, 34, 34))
+                self._fill_rect(x + BIN_LORRY_WIDTH - wheel_x - 7, 19, 7, 2, (34, 34, 34))
+            self._text(
+                _bin_collection_due_label(screen.get("collection_date"), clock_date),
+                x + BIN_LORRY_WIDTH + 4,
+                25,
+                (170, 170, 170),
+            )
             return
         label_width = len(labels) * 6
         speed = max(0.1, float(screen.get("slide_speed") or 20))
@@ -2881,12 +2904,8 @@ class FixtureDisplay:
             self._fill_rect(icon_x + 2, 21, 2, 2, (17, 17, 17))
             self._fill_rect(icon_x + 5, 21, 2, 2, (17, 17, 17))
         self._text(labels, x, 14, (255, 255, 255))
-        self._text(
-            _bin_collection_due_label(screen.get("collection_date"), clock_date),
-            0,
-            25,
-            (170, 170, 170),
-        )
+        self._text(_bin_collection_due_label(screen.get("collection_date"), clock_date),
+                   0, 25, (170, 170, 170))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
