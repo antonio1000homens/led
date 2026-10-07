@@ -491,6 +491,7 @@ class Publisher:
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
+            "display": copy.deepcopy(runtime["display"]),
             "flash": copy.deepcopy(config_feeds["flash"]),
             "screens": screens,
         }

@@ -840,6 +840,17 @@ class MatrixDisplay:
         print("BRIGHTNESS {}%".format(percent))
         return percent
 
+    def set_brightness_percent(self, percent):
+        """Apply the persisted display brightness received from the screen API."""
+        next_percent, changed = self._brightness.set(percent)
+        if not changed:
+            return next_percent
+        self._render_brightness_overlay()
+        if self._brightness_overlay_parent is not None:
+            self._refresh()
+        print("BRIGHTNESS {}% (admin)".format(next_percent))
+        return next_percent
+
     def _label(self, group, text, color, x, y):
         item = self.label_type(self.font, text=str(text), color=color, x=int(x), y=int(y))
         group.append(item)

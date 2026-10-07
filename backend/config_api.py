@@ -364,7 +364,8 @@ def lambda_handler(event, context):
             )
 
         patch_match = re.fullmatch(r"/api/control/v1/feeds/([^/]+)", path)
-        if method == "PATCH" and patch_match:
+        is_display_patch = path == "/api/control/v1/display"
+        if method == "PATCH" and (patch_match or is_display_patch):
             body_text = event.get("body") or ""
             if len(body_text.encode("utf-8")) > MAX_BODY_BYTES:
                 return _response(413, {"error": "request too large"})
@@ -375,16 +376,24 @@ def lambda_handler(event, context):
             if not isinstance(body, dict):
                 return _response(400, {"error": "body must be a JSON object"})
             expected = _expected_version(event, body)
-            feed_id = patch_match.group(1)
             config = store.ensure()
-            choices = ride_options(feed_id, config, status_store) if "rides" in body else None
-            updated, fields = store.patch_feed(
-                feed_id,
-                body,
-                expected_version=expected,
-                updated_by=identity,
-                available_rides=choices,
-            )
+            if is_display_patch:
+                feed_id = "display"
+                updated, fields = store.patch_display(
+                    body,
+                    expected_version=expected,
+                    updated_by=identity,
+                )
+            else:
+                feed_id = patch_match.group(1)
+                choices = ride_options(feed_id, config, status_store) if "rides" in body else None
+                updated, fields = store.patch_feed(
+                    feed_id,
+                    body,
+                    expected_version=expected,
+                    updated_by=identity,
+                    available_rides=choices,
+                )
             request_id = _request_id(event)
             _audit(identity, feed_id, fields, expected, updated["config_version"], request_id)
 

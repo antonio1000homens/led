@@ -26,6 +26,8 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 
 `poll_seconds` is between 60 and 86400 seconds. Screen duration is between 2 and 300 seconds. Queue-Times `park_id` is implementation metadata and cannot be patched.
 
+The separate Display setting persists the MatrixPortal's apparent brightness at 25%, 50%, 75%, or 100%. The publisher includes it in `/api/screens`, and the board applies it on its next successful screen refresh. The board buttons remain available for temporary local adjustment.
+
 The Steam Train intro is a virtual screen tied to Departures: when both are enabled it is published immediately before the Departures screen, and its duration is calculated from the configured horizontal speed and trailing text width so the complete train/text composition clears the display before Departures begins. Disabling Departures also suppresses the intro.
 
 Weather's three dedicated screens preserve a fixed order: seven-day overview, Today (six four-hour blocks), then sunrise/sunset. Disabling a sub-screen removes only that screen. Leaving Weather enabled while all three sub-screens are disabled keeps the shared Open-Meteo polling/cache and current-weather overlay active.
@@ -79,6 +81,10 @@ curl -X PATCH "https://led.alf-broadcast.co.uk/api/control/v1/feeds/chessington"
 ```
 
 After the conditional write succeeds, the control Lambda logs the actor type, feed ID, changed fields, old/new version and request ID, then invokes the publisher asynchronously.
+
+### Set MatrixPortal brightness
+
+`PATCH /api/control/v1/display` accepts `brightness_percent` at 25, 50, 75, or 100. It uses the same ETag or `config_version` concurrency check and publisher rebuild as feed changes.
 
 ## Cloudflare Access setup
 

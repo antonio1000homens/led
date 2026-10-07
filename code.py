@@ -534,6 +534,13 @@ while True:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = payload.get("screens")
+            display_config = payload.get("display")
+            if (
+                isinstance(display_config, dict)
+                and "brightness_percent" in display_config
+                and hasattr(display, "set_brightness_percent")
+            ):
+                display.set_brightness_percent(display_config["brightness_percent"])
             fetch_completed = time.monotonic()
             fetch_duration = fetch_completed - fetch_started
             telemetry_fetches += 1
