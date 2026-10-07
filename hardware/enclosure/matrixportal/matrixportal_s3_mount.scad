@@ -8,13 +8,15 @@
 //
 // Architecture:
 //   1. a fixed dock snaps into two keyed receiver channels on the dedicated
-//      LEFT MatrixPortal equipment side;
-//   2. four rear sockets settle over existing universal backplane bosses only
-//      as passive registration/anti-flex pads; no dock screws enter the backplane;
-//   3. a removable carrier slides in from the LEFT service opening on two
-//      captive dovetail rails;
-//   4. a shallow PETG detent on one rail clicks into a matching carrier pocket;
-//   5. the carrier stops against a positive end wall at the seated position.
+//      LEFT MatrixPortal equipment side (FRONT-RIGHT when viewed from the LED);
+//   2. the dock has NO backplane holes, sockets or registration features and
+//      runs 0.40 mm clear of the universal boss tips;
+//   3. the complete side + dock + carrier + MatrixPortal therefore withdraws
+//      together when the detachable side is pulled outward;
+//   4. a removable carrier still slides in from the service opening on two
+//      captive dovetail rails for bench servicing;
+//   5. a shallow PETG detent on one rail clicks into a matching carrier pocket;
+//   6. the carrier stops against a positive end wall at the seated position.
 //
 // The MatrixPortal drops onto four fixed printed locating pins. Two removable
 // slide-lock keeper bars capture grooves near the pin tips, so the PCB needs no
@@ -56,10 +58,13 @@ mp_board_yc = 82.50;
 mp_board_y0 = mp_board_yc - mp_pcb_h/2;
 mp_board_service_edge_x = mp_board_x0;
 
-// ----- Fixed dock -----
-// Backplane boss columns/rows used by the fixed dock.
-mp_backplane_mount_x = [32,80];
-mp_backplane_mount_y = [62.5,102.5];
+// ----- Side-carried fixed dock -----
+// Keep the complete MatrixPortal service assembly independent of the backplane.
+// A 0.40 mm running gap from the universal boss tips lets the whole side/dock/
+// board assembly withdraw laterally without scraping or catching on the boss
+// grid.  Under unusual flex the boss tips can still act as non-capturing bump
+// stops without becoming part of the attachment.
+mp_backplane_running_clearance = 0.40;
 
 mp_dock_x0 = 1.0;
 mp_dock_y0 = 57.5;
@@ -68,11 +73,8 @@ mp_dock_h = 50.0;
 mp_dock_t = 4.2;
 mp_dock_corner_r = 3.0;
 
-// The dock is no longer screwed to the backplane.  The four existing universal
-// bosses remain useful as passive registration/anti-flex pads: shallow sockets
-// on the rear of the dock settle over them, but there are no M3 through holes.
-mp_dock_boss_pocket_d = 7.5;
-mp_dock_boss_pocket_depth = 1.2;
+assert(mp_backplane_running_clearance >= 0.30,
+       "MatrixPortal side assembly needs >=0.30 mm backplane running clearance");
 
 // ----- Side-mounted dock interface -----
 // Two keyed tabs sit just outside the 52 mm-high carrier/service opening.  They
@@ -80,9 +82,9 @@ mp_dock_boss_pocket_depth = 1.2;
 // left MatrixPortal side.  A short widened PETG detent on each tab clicks past
 // a narrowed receiver throat near the end of travel.
 //
-// The receiver is the PRIMARY structural attachment.  The backplane boss
-// sockets above are deliberately passive so USB/button service loads are
-// reacted at the side while the far end of the 86 mm dock cannot flap.
+// The receiver pair is the ONLY structural attachment for the dock.  Nothing
+// on the dock keys into the backplane, so removing the detachable side removes
+// the complete MatrixPortal assembly with it.
 mp_side_mount_engagement = 9.0;
 mp_side_mount_tab_y = 2.4;
 mp_side_mount_tab_z0 = 0.20;
@@ -333,23 +335,6 @@ module matrixportal_s3_reference(show_components=true) {
     }
 }
 
-module mp_dock_mount_cutters(extra=0.6) {
-    // Passive anti-flex/location sockets only.  The dock is retained by the
-    // dedicated left-side receiver channels, not by backplane screws.
-    for (xx=mp_backplane_mount_x)
-        for (yy=mp_backplane_mount_y) {
-            lx = xx-mp_dock_x0;
-            ly = yy-mp_dock_y0;
-
-            translate([lx,ly,-0.1])
-                cylinder(
-                    d=mp_dock_boss_pocket_d,
-                    h=mp_dock_boss_pocket_depth+0.1,
-                    $fn=32
-                );
-        }
-}
-
 module mp_side_mount_tab(yc,edge_y) {
     // Keep the structural bridge above the service aperture in installed Z.
     // The local Z range maps to about 50.5-52.9 mm in the current enclosure.
@@ -444,15 +429,14 @@ module mp_dovetail_rail(yc,with_detent=false) {
 
 module matrixportal_s3_dock_print() {
     union() {
-        difference() {
-            linear_extrude(height=mp_dock_t)
-                mp_rounded_rect_2d(
-                    mp_dock_w,
-                    mp_dock_h,
-                    mp_dock_corner_r
-                );
-            mp_dock_mount_cutters();
-        }
+        // Solid rear face: deliberately no backplane boss pockets or screw
+        // holes, so the dock can travel sideways with the detachable end cap.
+        linear_extrude(height=mp_dock_t)
+            mp_rounded_rect_2d(
+                mp_dock_w,
+                mp_dock_h,
+                mp_dock_corner_r
+            );
 
         // Side attachment lives outside the carrier/service aperture.
         mp_side_mount_tab(mp_side_mount_lower_yc,0);
@@ -765,9 +749,17 @@ module matrixportal_s3_keepers_carrier_local(locked=true) {
             matrixportal_s3_keeper_use();
 }
 
+function matrixportal_side_dock_z(boss_tip_z) =
+    boss_tip_z-mp_backplane_running_clearance;
+
 module matrixportal_s3_dock_installed(boss_tip_z) {
     // Print +Z maps toward the panel (negative installed enclosure Z).
-    translate([mp_dock_x0,mp_dock_y0,boss_tip_z])
+    // The 0.40 mm offset keeps the side-carried assembly clear of boss tips.
+    translate([
+        mp_dock_x0,
+        mp_dock_y0,
+        matrixportal_side_dock_z(boss_tip_z)
+    ])
         mirror([0,0,1])
             matrixportal_s3_dock_print();
 }
@@ -776,7 +768,7 @@ module matrixportal_s3_carrier_installed(boss_tip_z,slide_x=0) {
     translate([
         mp_carrier_x0+slide_x,
         mp_carrier_y0,
-        boss_tip_z
+        matrixportal_side_dock_z(boss_tip_z)
     ])
         mirror([0,0,1])
             translate([0,0,mp_carrier_assembled_z])
@@ -791,7 +783,7 @@ module matrixportal_s3_keepers_installed(
     translate([
         mp_carrier_x0+slide_x,
         mp_carrier_y0,
-        boss_tip_z
+        matrixportal_side_dock_z(boss_tip_z)
     ])
         mirror([0,0,1])
             translate([0,0,mp_carrier_assembled_z])
@@ -804,7 +796,7 @@ module matrixportal_s3_reference_installed(
     slide_x=0
 ) {
     board_back_z =
-        boss_tip_z -
+        matrixportal_side_dock_z(boss_tip_z) -
         mp_carrier_assembled_z -
         mp_carrier_t -
         mp_board_standoff_h;
@@ -975,8 +967,9 @@ module mp_side_receiver(yc,dock_back_z) {
 }
 
 module matrixportal_left_side_dock_receivers() {
-    dock_back_z =
+    boss_tip_z =
         universal_deep_front_z-adapter_boss_h+adapter_boss_overlap;
+    dock_back_z = matrixportal_side_dock_z(boss_tip_z);
 
     mp_side_receiver(mp_side_mount_lower_yc,dock_back_z);
     mp_side_receiver(mp_side_mount_upper_yc,dock_back_z);

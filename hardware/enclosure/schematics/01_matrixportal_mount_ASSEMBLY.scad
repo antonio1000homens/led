@@ -6,6 +6,9 @@ include <../matrixportal/matrixportal_s3_mount.scad>;
 //   viewer RIGHT = CAD "left" side  = MatrixPortal service/dock
 // The CAD side names are coordinate/end names and therefore look reversed in
 // this front-facing assembly view.
+// SERVICE INTENT: the front-right MatrixPortal side, fixed dock, carrier and PCB
+// withdraw together as one assembly. The dock has 0.40 mm running clearance
+// from the backplane boss tips and is not captured by the backplane.
 
 boss_tip_z = universal_deep_front_z-adapter_boss_h+adapter_boss_overlap;
 
