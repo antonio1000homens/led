@@ -45,8 +45,12 @@ mp_hub75_y_native = 22.225;
 mp_underside_connector_h = 9.0;
 mp_underside_clearance_margin = 2.5;
 
-// ----- Installed position in the left-most enclosure module -----
-// Native USB/button short edge faces -X (the detachable left service side).
+// ----- Installed position at CAD X=0 -----
+// CAD naming calls this the detachable "left" service side because it is at
+// -X/X=0.  When the assembled LED display is viewed FROM THE FRONT, this is the
+// viewer's RIGHT-hand end.  The MatrixPortal is intentionally FRONT-RIGHT;
+// the C14 on the CAD "right" side is FRONT-LEFT.
+// Native USB/button short edge faces -X through that front-right service side.
 mp_board_x0 = 1.50;
 mp_board_yc = 82.50;
 mp_board_y0 = mp_board_yc - mp_pcb_h/2;

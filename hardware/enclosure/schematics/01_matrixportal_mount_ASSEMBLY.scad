@@ -1,6 +1,12 @@
 include <../direct_mount_enclosure.scad>;
 include <../matrixportal/matrixportal_s3_mount.scad>;
 
+// FRONT-VIEW ORIENTATION (standing in front of the LED display):
+//   viewer LEFT  = CAD "right" side = C14 power inlet
+//   viewer RIGHT = CAD "left" side  = MatrixPortal service/dock
+// The CAD side names are coordinate/end names and therefore look reversed in
+// this front-facing assembly view.
+
 boss_tip_z = universal_deep_front_z-adapter_boss_h+adapter_boss_overlap;
 
 color([0.12,0.12,0.14]) hinged_equipment_base();

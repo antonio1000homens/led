@@ -1826,6 +1826,16 @@ module universal_equipment_backplane_print() {
 }
 
 // ---------- Detachable side/end pieces ----------
+// IMPORTANT ORIENTATION CONVENTION:
+// "left" / "right" below are CAD +X/-X enclosure-end names, not the viewer's
+// left/right when standing in front of the LED display.  In FRONT VIEW the
+// sides appear reversed:
+//   CAD "right" (X=module_w, C14)  = viewer FRONT-LEFT
+//   CAD "left"  (X=0, MatrixPortal)= viewer FRONT-RIGHT
+// Therefore the intended physical layout is FRONT-LEFT C14 / FRONT-RIGHT
+// MatrixPortal.  Do not swap the geometry merely to make the CAD names read
+// like front-view left/right.
+
 
 module rounded_rect_x_cutter(
     x0,
