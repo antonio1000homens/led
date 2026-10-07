@@ -943,7 +943,9 @@ module mp_side_receiver(yc,dock_back_z) {
         pocket_y+2*mp_side_mount_receiver_wall_y;
     outer_z =
         pocket_z+2*mp_side_mount_receiver_wall_z;
-    outer_x0 = left_side_inner_x;
+    // Overlap 0.4 mm into the existing side wall so each receiver is one
+    // unquestionably connected printable body rather than a coplanar touch.
+    outer_x0 = left_side_inner_x-0.40;
     outer_x1 =
         mp_dock_x0+mp_side_mount_engagement+
         mp_side_mount_receiver_entry_extra;
