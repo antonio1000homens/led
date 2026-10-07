@@ -94,21 +94,6 @@ mp_side_mount_throat_x0 = 8.90;
 mp_side_mount_throat_len = 0.55;
 mp_side_mount_throat_relief = 0.15;
 
-assert(
-    mp_dock_y0 + mp_side_mount_lower_yc +
-        mp_side_mount_tab_y/2 + mp_side_mount_fit/2 +
-        mp_side_mount_receiver_wall_y
-    < mp_service_center_y-mp_service_size_y/2,
-    "lower side-dock receiver must stay below the service opening"
-);
-assert(
-    mp_dock_y0 + mp_side_mount_upper_yc -
-        mp_side_mount_tab_y/2 - mp_side_mount_fit/2 -
-        mp_side_mount_receiver_wall_y
-    > mp_service_center_y+mp_service_size_y/2,
-    "upper side-dock receiver must stay above the service opening"
-);
-
 // ----- Removable MatrixPortal carrier -----
 mp_carrier_x0 = mp_dock_x0;
 mp_carrier_y0 = mp_dock_y0;
@@ -248,6 +233,21 @@ mp_service_center_z = 34.0;
 mp_service_size_z = 31.0;
 mp_service_corner_r = 2.0;
 
+assert(
+    mp_dock_y0 + mp_side_mount_lower_yc +
+        mp_side_mount_tab_y/2 + mp_side_mount_fit/2 +
+        mp_side_mount_receiver_wall_y
+    < mp_service_center_y-mp_service_size_y/2,
+    "lower side-dock receiver must stay below the service opening"
+);
+assert(
+    mp_dock_y0 + mp_side_mount_upper_yc -
+        mp_side_mount_tab_y/2 - mp_side_mount_fit/2 -
+        mp_side_mount_receiver_wall_y
+    > mp_service_center_y+mp_service_size_y/2,
+    "upper side-dock receiver must stay above the service opening"
+);
+
 // Board is still inside the 256 mm module and the carrier covers its footprint.
 assert(mp_board_service_edge_x > 0,
        "MatrixPortal service edge must remain inside the 256 mm module");
@@ -384,7 +384,7 @@ module mp_side_mount_tab(yc,edge_y) {
         ]);
 }
 
-module mp_dovetail_railmodule mp_dovetail_rail(yc,with_detent=false) {
+module mp_dovetail_rail(yc,with_detent=false) {
     union() {
         hull() {
             translate([
@@ -856,62 +856,77 @@ module mp_side_receiver_pocket(yc,dock_back_z) {
         dock_back_z-mp_side_mount_tab_z0-mp_side_mount_tab_z;
     pocket_y =
         mp_side_mount_tab_y+mp_side_mount_fit;
+    detent_y =
+        mp_side_mount_tab_y+
+        2*mp_side_mount_detent_extra_y+
+        mp_side_mount_fit;
     pocket_z =
         mp_side_mount_tab_z+mp_side_mount_fit;
-    pocket_y0 =
-        mp_dock_y0+yc-pocket_y/2;
     pocket_z0 =
         tab_installed_z0-mp_side_mount_fit/2;
     pocket_x0 =
         left_side_inner_x+mp_side_mount_receiver_root_wall;
+    throat_x0 =
+        mp_dock_x0+mp_side_mount_throat_x0;
+    throat_x1 =
+        throat_x0+mp_side_mount_throat_len;
     pocket_x1 =
         mp_dock_x0+mp_side_mount_engagement+
         mp_side_mount_receiver_entry_extra;
+    detent_x0 =
+        mp_dock_x0+mp_side_mount_detent_x0-0.20;
+    detent_x1 =
+        mp_dock_x0+mp_side_mount_detent_x0+
+        mp_side_mount_detent_len+0.10;
 
     union() {
-        // Main running pocket and open inboard entry.
-        translate([pocket_x0,pocket_y0,pocket_z0])
+        // Normal running pocket from the blind side stop up to the snap throat.
+        translate([
+            pocket_x0,
+            mp_dock_y0+yc-pocket_y/2,
+            pocket_z0
+        ])
             cube([
-                pocket_x1-pocket_x0+0.2,
+                throat_x0-pocket_x0,
                 pocket_y,
                 pocket_z
             ]);
 
-        // Terminal pocket around the tab's widened click feature.
-        detent_center_x =
-            mp_dock_x0+
-            mp_side_mount_detent_x0+
-            mp_side_mount_detent_len/2;
-        detent_y =
-            mp_side_mount_tab_y+
-            2*mp_side_mount_detent_extra_y+
-            mp_side_mount_fit;
+        // Local terminal cavity receives the widened tab feature after it has
+        // clicked through the throat.
         translate([
-            detent_center_x-mp_side_mount_detent_len/2-0.20,
+            detent_x0,
             mp_dock_y0+yc-detent_y/2,
             pocket_z0
         ])
             cube([
-                mp_side_mount_detent_len+0.40,
+                detent_x1-detent_x0,
                 detent_y,
                 pocket_z
             ]);
 
-        // Narrow throat immediately outboard of the terminal pocket.  Because
-        // installed X becomes print Z for the side wrapper, this is a gradual
-        // layer-to-layer constriction rather than a horizontal bridge.
-        throat_y =
-            mp_side_mount_tab_y+
-            2*mp_side_mount_detent_extra_y-
-            2*mp_side_mount_throat_relief;
+        // The throat clears the plain tab but is 0.30 mm narrower than the
+        // widened detent, giving about 0.15 mm PETG deflection per side.
         translate([
-            mp_dock_x0+mp_side_mount_throat_x0,
-            mp_dock_y0+yc-throat_y/2,
+            throat_x0,
+            mp_dock_y0+yc-pocket_y/2,
             pocket_z0
         ])
             cube([
-                mp_side_mount_throat_len,
-                throat_y,
+                throat_x1-throat_x0,
+                pocket_y,
+                pocket_z
+            ]);
+
+        // Open entry is wide enough for the detent before it reaches the throat.
+        translate([
+            throat_x1,
+            mp_dock_y0+yc-detent_y/2,
+            pocket_z0
+        ])
+            cube([
+                pocket_x1-throat_x1+0.2,
+                detent_y,
                 pocket_z
             ]);
     }
