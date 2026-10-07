@@ -463,19 +463,11 @@ while True:
     stage_durations = {"reminder": time.monotonic() - stage_started}
     stage_started = time.monotonic()
     if mqtt is not None:
-        # Do not service an already-connected MQTT socket in the middle of a
-        # visible animation. MiniMQTT's socket timeout bounds normal reads,
-        # but the surrounding Wi-Fi/socket work can still consume a material
-        # part of an 8 Hz frame. The retained snapshot is polled again at the
-        # next idle frame and due-time checks remain local and continuous.
         mqtt_allow_connect = True
-        mqtt_animation_active = False
         if rotation.screens and not flash.active(now):
             mqtt_screen, mqtt_phase = rotation.current(now)
-            mqtt_animation_active = display.animation_active(mqtt_screen, mqtt_phase)
-            mqtt_allow_connect = not mqtt_animation_active
-        if not mqtt_animation_active:
-            mqtt.poll(now, allow_connect=mqtt_allow_connect)
+            mqtt_allow_connect = not display.animation_active(mqtt_screen, mqtt_phase)
+        mqtt.poll(now, allow_connect=mqtt_allow_connect)
     stage_durations["mqtt"] = time.monotonic() - stage_started
     stage_started = time.monotonic()
     button_events = list(_pending_button_events)
