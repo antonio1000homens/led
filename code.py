@@ -297,6 +297,8 @@ def _memory_free():
 
 
 def _display_phase(screen, phase):
+    if screen.get("kind") == "flash":
+        return phase
     if settings.ANIMATE:
         return phase
     if _smooth_departures(screen):
@@ -637,7 +639,8 @@ while True:
         last_render_key = render_key
     mqtt_screens_changed = False
     smooth_animation = (
-        _smooth_todoist(screen)
+        (settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "flash")
+        or _smooth_todoist(screen)
         or _smooth_departures(screen)
         or _smooth_queue(screen)
         or _smooth_steam_train(screen)
