@@ -1,5 +1,6 @@
 include <../matrixportal/matrixportal_s3_mount.scad>;
 
-// Fixed backplane dock. The MatrixPortal carrier slides in from the left and
-// clicks into the dovetail detent without disturbing these M3 fixings.
+// Fixed side-mounted dock. The two keyed tabs snap into the MatrixPortal left
+// side; rear boss sockets are passive anti-flex pads only. The carrier still
+// slides in from the left and clicks into the dovetail detent.
 matrixportal_s3_dock_print();

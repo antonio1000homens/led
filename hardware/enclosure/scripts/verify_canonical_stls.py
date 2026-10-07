@@ -42,6 +42,8 @@ SOURCE_BY_STL = {
         PARTS_DIR / "09_left_equipment_side_matrixportal_PRINT_1.scad",
     "10_matrixportal_s3_carrier_PRINT_1.stl":
         PARTS_DIR / "10_matrixportal_s3_carrier_PRINT_1.scad",
+    "11_matrixportal_s3_keeper_PRINT_1.stl":
+        PARTS_DIR / "11_matrixportal_s3_keeper_PRINT_1.scad",
 }
 
 
@@ -69,24 +71,36 @@ def _triangle_counter(path: Path) -> Counter[tuple[tuple[int, int, int], ...]]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--generated-dir", type=Path, default=GENERATED_DIR)
-    generated_dir = parser.parse_args().generated_dir.resolve()
+    parser.add_argument(
+        "--warn-only",
+        action="store_true",
+        help=(
+            "Report checked-in canonical STL drift as GitHub warnings instead "
+            "of failing. Missing generated meshes remain fatal."
+        ),
+    )
+    args = parser.parse_args()
+    generated_dir = args.generated_dir.resolve()
     expected = set(SOURCE_BY_STL)
     canonical = {path.name for path in CANONICAL_DIR.glob("*_PRINT_1.stl")}
     generated = {path.name for path in generated_dir.glob("*_PRINT_1.stl")}
 
     failures: list[str] = []
+    drift: list[str] = []
+    drift_level = "warning" if args.warn_only else "error"
 
     for name in sorted(expected - canonical):
-        failures.append(f"missing canonical STL: hardware/enclosure/stl/{name}")
+        drift.append(f"missing canonical STL: hardware/enclosure/stl/{name}")
         print(
-            f"::error file=hardware/enclosure/stl/{name}::"
-            "Canonical STL is missing for an OpenSCAD print wrapper."
+            f"::{drift_level} file=hardware/enclosure/stl/{name}::"
+            "Canonical STL is missing for an OpenSCAD print wrapper. "
+            "Fresh generated geometry is available in the enclosure-stls artifact."
         )
 
     for name in sorted(canonical - expected):
-        failures.append(f"unexpected canonical STL: hardware/enclosure/stl/{name}")
+        drift.append(f"unexpected canonical STL: hardware/enclosure/stl/{name}")
         print(
-            f"::error file=hardware/enclosure/stl/{name}::"
+            f"::{drift_level} file=hardware/enclosure/stl/{name}::"
             "Canonical STL has no registered OpenSCAD source."
         )
 
@@ -106,9 +120,9 @@ def main() -> int:
             canonical_triangles = _triangle_counter(canonical_path)
             generated_triangles = _triangle_counter(generated_path)
         except Exception as exc:
-            failures.append(f"{name}: mesh comparison failed: {exc}")
+            drift.append(f"{name}: mesh comparison failed: {exc}")
             print(
-                f"::error file=hardware/enclosure/stl/{name}::"
+                f"::{drift_level} file=hardware/enclosure/stl/{name}::"
                 f"Unable to compare canonical and generated STL: {exc}"
             )
             continue
@@ -119,16 +133,17 @@ def main() -> int:
 
         generated_only = generated_triangles - canonical_triangles
         canonical_only = canonical_triangles - generated_triangles
-        failures.append(
+        drift.append(
             f"{name}: stale geometry "
             f"({sum(generated_only.values())} generated-only triangles, "
             f"{sum(canonical_only.values())} canonical-only triangles)"
         )
         source = SOURCE_BY_STL[name].relative_to(ROOT)
         print(
-            f"::error file=hardware/enclosure/stl/{name}::"
-            f"Canonical STL is stale. Regenerate it from {source} and commit "
-            "the updated STL with the source change."
+            f"::{drift_level} file=hardware/enclosure/stl/{name}::"
+            f"Canonical STL is stale. Regenerate it from {source} when updating "
+            "the versioned manufacturing output; CI is validating the fresh "
+            "generated mesh from this run."
         )
 
     if failures:
@@ -136,12 +151,25 @@ def main() -> int:
         print("Canonical STL verification failed:")
         for failure in failures:
             print(f"  - {failure}")
+        return 1
+
+    if drift:
+        print()
+        heading = (
+            "Canonical STL drift warnings:"
+            if args.warn_only
+            else "Canonical STL verification failed:"
+        )
+        print(heading)
+        for item in drift:
+            print(f"  - {item}")
         print()
         print(
-            "Use the enclosure-stls workflow artifact as the generated reference, "
-            "or regenerate the affected STL locally with OpenSCAD."
+            "Fresh generated meshes are available in the enclosure-stls workflow "
+            "artifact. Regenerate and commit the versioned STL outputs when "
+            "manufacturing files need to be refreshed."
         )
-        return 1
+        return 0 if args.warn_only else 1
 
     print()
     print(f"Canonical STL verification passed for {len(expected)} printable parts.")

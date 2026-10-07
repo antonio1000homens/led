@@ -10,3 +10,4 @@ color([0.30,0.30,0.34]) equipment_side("right");
 color([0.45,0.45,0.50]) matrixportal_s3_dock_installed(boss_tip_z);
 color([0.70,0.45,0.15]) matrixportal_s3_carrier_installed(boss_tip_z);
 matrixportal_s3_reference_installed(boss_tip_z,true);
+color([0.85,0.75,0.20]) matrixportal_s3_keepers_installed(boss_tip_z,0,true);

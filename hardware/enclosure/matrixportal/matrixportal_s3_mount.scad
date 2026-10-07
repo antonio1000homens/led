@@ -7,16 +7,19 @@
 //   native hole centres: X=7.62/48.26, Y=15.875/35.56 mm
 //
 // Architecture:
-//   1. a fixed dock bolts to four existing universal backplane M3 bosses;
-//   2. a removable carrier slides in from the LEFT service opening on two
+//   1. a fixed dock snaps into two keyed receiver channels on the dedicated
+//      LEFT MatrixPortal equipment side;
+//   2. four rear sockets settle over existing universal backplane bosses only
+//      as passive registration/anti-flex pads; no dock screws enter the backplane;
+//   3. a removable carrier slides in from the LEFT service opening on two
 //      captive dovetail rails;
-//   3. a shallow PETG detent on one rail clicks into a matching carrier pocket;
-//   4. the carrier stops against a positive end wall at the seated position.
+//   4. a shallow PETG detent on one rail clicks into a matching carrier pocket;
+//   5. the carrier stops against a positive end wall at the seated position.
 //
-// The MatrixPortal stays attached to the carrier with M2.5 hardware. Normal
-// service therefore needs no backplane screws: pull the carrier from the left
-// opening to undock the complete controller assembly. Canonical dock/carrier
-// meshes are generated directly from the printable wrappers below.
+// The MatrixPortal drops onto four fixed printed locating pins. Two removable
+// slide-lock keeper bars capture grooves near the pin tips, so the PCB needs no
+// M2.5 screws or nuts. Normal service still needs no backplane screws: pull the
+// carrier from the left opening to undock the complete controller assembly.
 
 // ----- Official PCB geometry -----
 mp_pcb_w = 63.50;
@@ -61,11 +64,38 @@ mp_dock_h = 50.0;
 mp_dock_t = 4.2;
 mp_dock_corner_r = 3.0;
 
-mp_dock_m3_hole_d = 3.6;
-mp_dock_m3_head_d = 7.0;
-mp_dock_m3_head_recess = 1.8;
+// The dock is no longer screwed to the backplane.  The four existing universal
+// bosses remain useful as passive registration/anti-flex pads: shallow sockets
+// on the rear of the dock settle over them, but there are no M3 through holes.
 mp_dock_boss_pocket_d = 7.5;
 mp_dock_boss_pocket_depth = 1.2;
+
+// ----- Side-mounted dock interface -----
+// Two keyed tabs sit just outside the 52 mm-high carrier/service opening.  They
+// slide into inward-facing receiver channels printed as part of the dedicated
+// left MatrixPortal side.  A short widened PETG detent on each tab clicks past
+// a narrowed receiver throat near the end of travel.
+//
+// The receiver is the PRIMARY structural attachment.  The backplane boss
+// sockets above are deliberately passive so USB/button service loads are
+// reacted at the side while the far end of the 86 mm dock cannot flap.
+mp_side_mount_engagement = 9.0;
+mp_side_mount_tab_y = 2.4;
+mp_side_mount_tab_z0 = 0.20;
+mp_side_mount_tab_z = 2.40;
+mp_side_mount_lower_yc = -3.80;
+mp_side_mount_upper_yc = mp_dock_h + 3.80;
+mp_side_mount_fit = 0.40;
+mp_side_mount_receiver_wall_y = 1.00;
+mp_side_mount_receiver_wall_z = 1.00;
+mp_side_mount_receiver_root_wall = 1.05;
+mp_side_mount_receiver_entry_extra = 1.00;
+mp_side_mount_detent_x0 = 7.70;
+mp_side_mount_detent_len = 1.10;
+mp_side_mount_detent_extra_y = 0.35;
+mp_side_mount_throat_x0 = 8.90;
+mp_side_mount_throat_len = 0.55;
+mp_side_mount_throat_relief = 0.15;
 
 // ----- Removable MatrixPortal carrier -----
 mp_carrier_x0 = mp_dock_x0;
@@ -89,15 +119,58 @@ mp_carrier_assembled_z = mp_dock_t + mp_slide_z_clearance;
 mp_board_standoff_d = 7.0;
 mp_board_standoff_h =
     mp_underside_connector_h + mp_underside_clearance_margin;
-mp_board_screw_clearance_d = 2.8;
-mp_board_nut_pocket_d = 6.0;
-mp_board_nut_pocket_h = 2.3;
+
+// Tool-free PCB location/retention. The 2.20 mm pins provide 0.30 mm diametral
+// clearance through the official 2.50 mm plated holes. A reduced neck near each
+// pin tip is captured by the removable keeper bars.
+mp_board_pin_d = 2.20;
+mp_board_pin_groove_d = 1.60;
+mp_board_pin_groove_h = 0.90;
+mp_board_pin_tip_h = 0.90;
+
+// Keeper bridge rides above known low-profile parts while the local feet descend
+// only around the four mounting-hole keepouts. The high HUB75 envelope starts
+// farther right than the right-hand keeper column.
+mp_keeper_bridge_clearance = 4.50;
+mp_keeper_t = 1.80;
+mp_keeper_foot_gap = 0.15;
+mp_keeper_foot_h =
+    mp_keeper_bridge_clearance-mp_keeper_foot_gap;
+mp_keeper_w = 6.50;
+mp_keeper_end_margin = 3.50;
+mp_keeper_hole_spacing =
+    mp_pcb_hole_y_native[1]-mp_pcb_hole_y_native[0];
+mp_keeper_len =
+    mp_keeper_hole_spacing+2*mp_keeper_end_margin;
+
+// Put the capture layer directly around the reduced pin neck. The terminal
+// throat is deliberately slightly narrower than the 1.60 mm neck so the bar
+// gives a small PETG click at the locked position.
+mp_keeper_entry_d = 2.70;
+mp_keeper_slot_w = 1.85;
+mp_keeper_throat_w = 1.45;
+mp_keeper_lock_travel = 2.00;
+mp_keeper_capture_h = mp_board_pin_groove_h;
+mp_keeper_upper_clearance_w = 2.75;
+
+mp_board_pin_stem_above_pcb = mp_keeper_bridge_clearance;
+mp_board_pin_above_pcb =
+    mp_board_pin_stem_above_pcb+
+    mp_board_pin_groove_h+
+    mp_board_pin_tip_h;
 
 assert(abs(mp_board_standoff_h-11.5)<0.01,
        "MatrixPortal underside clearance contract drifted");
 assert(mp_board_standoff_h >=
        mp_underside_connector_h+mp_underside_clearance_margin,
        "MatrixPortal carrier does not clear the underside connector");
+assert(mp_board_pin_d <= mp_pcb_hole_d-0.25,
+       "MatrixPortal locating pins need at least 0.25 mm diametral hole clearance");
+assert(mp_keeper_throat_w < mp_board_pin_groove_d &&
+       mp_keeper_slot_w > mp_board_pin_groove_d,
+       "Keeper bar throat/slot must click over and then clear the pin groove");
+assert(mp_keeper_foot_h < mp_keeper_bridge_clearance,
+       "Keeper feet must leave a small board-surface clearance");
 
 // Board coordinates relative to the removable carrier.
 mp_board_carrier_x0 = mp_board_x0-mp_carrier_x0;
@@ -162,6 +235,21 @@ mp_service_size_y = 52.0;
 mp_service_center_z = 34.0;
 mp_service_size_z = 31.0;
 mp_service_corner_r = 2.0;
+
+assert(
+    mp_dock_y0 + mp_side_mount_lower_yc +
+        mp_side_mount_tab_y/2 + mp_side_mount_fit/2 +
+        mp_side_mount_receiver_wall_y
+    < mp_service_center_y-mp_service_size_y/2,
+    "lower side-dock receiver must stay below the service opening"
+);
+assert(
+    mp_dock_y0 + mp_side_mount_upper_yc -
+        mp_side_mount_tab_y/2 - mp_side_mount_fit/2 -
+        mp_side_mount_receiver_wall_y
+    > mp_service_center_y+mp_service_size_y/2,
+    "upper side-dock receiver must stay above the service opening"
+);
 
 // Board is still inside the 256 mm module and the carrier covers its footprint.
 assert(mp_board_service_edge_x > 0,
@@ -242,32 +330,13 @@ module matrixportal_s3_reference(show_components=true) {
 }
 
 module mp_dock_mount_cutters(extra=0.6) {
+    // Passive anti-flex/location sockets only.  The dock is retained by the
+    // dedicated left-side receiver channels, not by backplane screws.
     for (xx=mp_backplane_mount_x)
         for (yy=mp_backplane_mount_y) {
             lx = xx-mp_dock_x0;
             ly = yy-mp_dock_y0;
 
-            // M3 clearance through the fixed dock.
-            translate([lx,ly,-extra/2])
-                cylinder(
-                    d=mp_dock_m3_hole_d,
-                    h=mp_dock_t+extra,
-                    $fn=32
-                );
-
-            // Equipment-side screw head recess sits below the sliding carrier.
-            translate([
-                lx,
-                ly,
-                mp_dock_t-mp_dock_m3_head_recess
-            ])
-                cylinder(
-                    d=mp_dock_m3_head_d,
-                    h=mp_dock_m3_head_recess+extra/2,
-                    $fn=32
-                );
-
-            // Back-face socket registers positively on each 7 mm boss body.
             translate([lx,ly,-0.1])
                 cylinder(
                     d=mp_dock_boss_pocket_d,
@@ -275,6 +344,47 @@ module mp_dock_mount_cutters(extra=0.6) {
                     $fn=32
                 );
         }
+}
+
+module mp_side_mount_tab(yc,edge_y) {
+    // Keep the structural bridge above the service aperture in installed Z.
+    // The local Z range maps to about 50.5-52.9 mm in the current enclosure.
+    hull() {
+        translate([
+            0,
+            yc-mp_side_mount_tab_y/2,
+            mp_side_mount_tab_z0
+        ])
+            cube([
+                mp_side_mount_engagement,
+                mp_side_mount_tab_y,
+                mp_side_mount_tab_z
+            ]);
+
+        translate([
+            0,
+            min(yc,edge_y)-0.20,
+            mp_side_mount_tab_z0
+        ])
+            cube([
+                mp_side_mount_engagement,
+                abs(edge_y-yc)+0.40,
+                mp_side_mount_tab_z
+            ]);
+    }
+
+    // Widened terminal feature gives the side receiver a positive click.  The
+    // receiver throat flexes around this short feature during final seating.
+    translate([
+        mp_side_mount_detent_x0,
+        yc-mp_side_mount_tab_y/2-mp_side_mount_detent_extra_y,
+        mp_side_mount_tab_z0
+    ])
+        cube([
+            mp_side_mount_detent_len,
+            mp_side_mount_tab_y+2*mp_side_mount_detent_extra_y,
+            mp_side_mount_tab_z
+        ]);
 }
 
 module mp_dovetail_rail(yc,with_detent=false) {
@@ -340,7 +450,11 @@ module matrixportal_s3_dock_print() {
             mp_dock_mount_cutters();
         }
 
-        // Lower rail carries the click detent; upper rail is plain guidance.
+        // Side attachment lives outside the carrier/service aperture.
+        mp_side_mount_tab(mp_side_mount_lower_yc,0);
+        mp_side_mount_tab(mp_side_mount_upper_yc,mp_dock_h);
+
+        // Lower rail carries the carrier click detent; upper rail is plain guidance.
         mp_dovetail_rail(mp_dovetail_y[0],true);
         mp_dovetail_rail(mp_dovetail_y[1],false);
 
@@ -420,59 +534,231 @@ module mp_carrier_plate() {
     }
 }
 
+module mp_board_locating_pin(local_x,local_y) {
+    board_bottom_z = mp_carrier_t+mp_board_standoff_h;
+    board_top_z = board_bottom_z+mp_pcb_t;
+    groove_z0 = board_top_z+mp_board_pin_stem_above_pcb;
+
+    // Solid standoff supports the PCB around its plated mounting hole.
+    translate([local_x,local_y,mp_carrier_t-0.2])
+        cylinder(
+            d=mp_board_standoff_d,
+            h=mp_board_standoff_h+0.2,
+            $fn=36
+        );
+
+    // 2.20 mm locating stem through the PCB and up to the keeper groove.
+    translate([local_x,local_y,board_bottom_z-0.25])
+        cylinder(
+            d=mp_board_pin_d,
+            h=mp_pcb_t+mp_board_pin_stem_above_pcb+0.25,
+            $fn=28
+        );
+
+    // Reduced keeper neck.
+    translate([local_x,local_y,groove_z0])
+        cylinder(
+            d=mp_board_pin_groove_d,
+            h=mp_board_pin_groove_h,
+            $fn=24
+        );
+
+    // Full-diameter tip prevents a locked keeper bar lifting off the post.
+    translate([
+        local_x,
+        local_y,
+        groove_z0+mp_board_pin_groove_h
+    ])
+        cylinder(
+            d=mp_board_pin_d,
+            h=mp_board_pin_tip_h,
+            $fn=28
+        );
+}
+
 module matrixportal_s3_carrier_print() {
-    difference() {
-        union() {
-            difference() {
-                mp_carrier_plate();
+    union() {
+        difference() {
+            mp_carrier_plate();
 
-                // Open-ended grooves allow insertion from the left service side.
-                mp_dovetail_groove_cutter(mp_dovetail_y[0],true);
-                mp_dovetail_groove_cutter(mp_dovetail_y[1],false);
-            }
-
-            // Raised PCB standoffs preserve the underside connector envelope.
-            for (bx=mp_pcb_hole_x_native)
-                for (by=mp_pcb_hole_y_native)
-                    translate([
-                        mp_board_carrier_x0+bx,
-                        mp_board_carrier_y0+by,
-                        mp_carrier_t-0.2
-                    ])
-                        cylinder(
-                            d=mp_board_standoff_d,
-                            h=mp_board_standoff_h+0.2,
-                            $fn=36
-                        );
+            // Open-ended grooves allow insertion from the left service side.
+            mp_dovetail_groove_cutter(mp_dovetail_y[0],true);
+            mp_dovetail_groove_cutter(mp_dovetail_y[1],false);
         }
 
-        // M2.5 board screw passages and captive top-loading nut pockets.
+        // Raised standoffs with fixed locating/keeper pins. No M2.5 hardware is
+        // required on the MatrixPortal itself.
         for (bx=mp_pcb_hole_x_native)
-            for (by=mp_pcb_hole_y_native) {
-                local_x = mp_board_carrier_x0+bx;
-                local_y = mp_board_carrier_y0+by;
-
-                translate([local_x,local_y,mp_carrier_t-0.2])
-                    cylinder(
-                        d=mp_board_screw_clearance_d,
-                        h=mp_board_standoff_h+0.4,
-                        $fn=28
-                    );
-
-                translate([
-                    local_x,
-                    local_y,
-                    mp_carrier_t+
-                        mp_board_standoff_h-
-                        mp_board_nut_pocket_h
-                ])
-                    cylinder(
-                        d=mp_board_nut_pocket_d,
-                        h=mp_board_nut_pocket_h+0.2,
-                        $fn=6
-                    );
-            }
+            for (by=mp_pcb_hole_y_native)
+                mp_board_locating_pin(
+                    mp_board_carrier_x0+bx,
+                    mp_board_carrier_y0+by
+                );
     }
+}
+
+module mp_keeper_lower_keyhole(yc) {
+    // Entry circle drops over the full 2.20 mm pin tip.
+    translate([0,yc,-0.1])
+        cylinder(
+            d=mp_keeper_entry_d,
+            h=mp_keeper_capture_h+0.2,
+            $fn=28
+        );
+
+    // Normal running slot from entry toward the terminal click.
+    translate([
+        -mp_keeper_slot_w/2,
+        yc,
+        -0.1
+    ])
+        cube([
+            mp_keeper_slot_w,
+            mp_keeper_lock_travel-0.70,
+            mp_keeper_capture_h+0.2
+        ]);
+
+    // Narrow 0.40 mm throat gives the keeper its tactile click.
+    translate([
+        -mp_keeper_throat_w/2,
+        yc+mp_keeper_lock_travel-0.80,
+        -0.1
+    ])
+        cube([
+            mp_keeper_throat_w,
+            0.45,
+            mp_keeper_capture_h+0.2
+        ]);
+
+    // Terminal pocket receives the 1.60 mm neck after the throat.
+    translate([
+        0,
+        yc+mp_keeper_lock_travel,
+        -0.1
+    ])
+        cylinder(
+            d=mp_keeper_slot_w,
+            h=mp_keeper_capture_h+0.2,
+            $fn=24
+        );
+}
+
+module mp_keeper_upper_tip_clearance(yc) {
+    // Above the capture layer, keep enough room for the full 2.20 mm pin tip
+    // throughout the slide from entry to locked position.
+    hull() {
+        translate([0,yc,mp_keeper_capture_h-0.05])
+            cylinder(
+                d=mp_keeper_upper_clearance_w,
+                h=mp_keeper_t-mp_keeper_capture_h+0.15,
+                $fn=28
+            );
+        translate([
+            0,
+            yc+mp_keeper_lock_travel,
+            mp_keeper_capture_h-0.05
+        ])
+            cylinder(
+                d=mp_keeper_upper_clearance_w,
+                h=mp_keeper_t-mp_keeper_capture_h+0.15,
+                $fn=28
+            );
+    }
+}
+
+module mp_keeper_foot_clearance(yc) {
+    // Feet slide across only the mounting-hole keepout. Give the full pin stem
+    // an elongated clearance path while the keeper moves into lock.
+    hull() {
+        translate([0,yc,-mp_keeper_foot_h-0.1])
+            cylinder(
+                d=mp_keeper_entry_d,
+                h=mp_keeper_foot_h+0.2,
+                $fn=28
+            );
+        translate([
+            0,
+            yc+mp_keeper_lock_travel,
+            -mp_keeper_foot_h-0.1
+        ])
+            cylinder(
+                d=mp_keeper_entry_d,
+                h=mp_keeper_foot_h+0.2,
+                $fn=28
+            );
+    }
+}
+
+module matrixportal_s3_keeper_use() {
+    y1 = mp_keeper_end_margin;
+    y2 = mp_keeper_end_margin+mp_keeper_hole_spacing;
+
+    difference() {
+        union() {
+            // Elevated bridge stays 4.5 mm above the PCB top surface.
+            translate([
+                -mp_keeper_w/2,
+                0,
+                0
+            ])
+                cube([
+                    mp_keeper_w,
+                    mp_keeper_len,
+                    mp_keeper_t
+                ]);
+
+            // Two local feet descend only at the mounting-hole keepouts.
+            for (yy=[y1,y2])
+                translate([
+                    -mp_keeper_w/2,
+                    yy-3.1,
+                    -mp_keeper_foot_h
+                ])
+                    cube([
+                        mp_keeper_w,
+                        6.2,
+                        mp_keeper_foot_h+0.15
+                    ]);
+        }
+
+        for (yy=[y1,y2]) {
+            mp_keeper_lower_keyhole(yy);
+            mp_keeper_upper_tip_clearance(yy);
+            mp_keeper_foot_clearance(yy);
+        }
+    }
+}
+
+module matrixportal_s3_keeper_print() {
+    // Print the bridge flat on the bed with its two feet rising upward. This
+    // avoids support beneath the elevated in-use bridge.
+    translate([
+        mp_keeper_w/2,
+        mp_keeper_len,
+        mp_keeper_t
+    ])
+        rotate([180,0,0])
+            matrixportal_s3_keeper_use();
+}
+
+module matrixportal_s3_keepers_carrier_local(locked=true) {
+    board_top_z =
+        mp_carrier_t+
+        mp_board_standoff_h+
+        mp_pcb_t;
+    keeper_y0 =
+        mp_board_carrier_y0+
+        mp_pcb_hole_y_native[0]-
+        mp_keeper_end_margin-
+        (locked ? mp_keeper_lock_travel : 0);
+
+    for (bx=mp_pcb_hole_x_native)
+        translate([
+            mp_board_carrier_x0+bx,
+            keeper_y0,
+            board_top_z+mp_keeper_bridge_clearance
+        ])
+            matrixportal_s3_keeper_use();
 }
 
 module matrixportal_s3_dock_installed(boss_tip_z) {
@@ -491,6 +777,21 @@ module matrixportal_s3_carrier_installed(boss_tip_z,slide_x=0) {
         mirror([0,0,1])
             translate([0,0,mp_carrier_assembled_z])
                 matrixportal_s3_carrier_print();
+}
+
+module matrixportal_s3_keepers_installed(
+    boss_tip_z,
+    slide_x=0,
+    locked=true
+) {
+    translate([
+        mp_carrier_x0+slide_x,
+        mp_carrier_y0,
+        boss_tip_z
+    ])
+        mirror([0,0,1])
+            translate([0,0,mp_carrier_assembled_z])
+                matrixportal_s3_keepers_carrier_local(locked);
 }
 
 module matrixportal_s3_reference_installed(
@@ -553,9 +854,139 @@ module matrixportal_left_side_service_cutter() {
     );
 }
 
-module matrixportal_left_equipment_side() {
+module mp_side_receiver_pocket(yc,dock_back_z) {
+    tab_installed_z0 =
+        dock_back_z-mp_side_mount_tab_z0-mp_side_mount_tab_z;
+    pocket_y =
+        mp_side_mount_tab_y+mp_side_mount_fit;
+    detent_y =
+        mp_side_mount_tab_y+
+        2*mp_side_mount_detent_extra_y+
+        mp_side_mount_fit;
+    pocket_z =
+        mp_side_mount_tab_z+mp_side_mount_fit;
+    pocket_z0 =
+        tab_installed_z0-mp_side_mount_fit/2;
+    pocket_x0 =
+        left_side_inner_x+mp_side_mount_receiver_root_wall;
+    throat_x0 =
+        mp_dock_x0+mp_side_mount_throat_x0;
+    throat_x1 =
+        throat_x0+mp_side_mount_throat_len;
+    pocket_x1 =
+        mp_dock_x0+mp_side_mount_engagement+
+        mp_side_mount_receiver_entry_extra;
+    detent_x0 =
+        mp_dock_x0+mp_side_mount_detent_x0-0.20;
+    detent_x1 =
+        mp_dock_x0+mp_side_mount_detent_x0+
+        mp_side_mount_detent_len+0.10;
+
+    union() {
+        // Normal running pocket from the blind side stop up to the snap throat.
+        translate([
+            pocket_x0,
+            mp_dock_y0+yc-pocket_y/2,
+            pocket_z0
+        ])
+            cube([
+                throat_x0-pocket_x0,
+                pocket_y,
+                pocket_z
+            ]);
+
+        // Local terminal cavity receives the widened tab feature after it has
+        // clicked through the throat.
+        translate([
+            detent_x0,
+            mp_dock_y0+yc-detent_y/2,
+            pocket_z0
+        ])
+            cube([
+                detent_x1-detent_x0,
+                detent_y,
+                pocket_z
+            ]);
+
+        // The throat clears the plain tab but is 0.30 mm narrower than the
+        // widened detent, giving about 0.15 mm PETG deflection per side.
+        translate([
+            throat_x0,
+            mp_dock_y0+yc-pocket_y/2,
+            pocket_z0
+        ])
+            cube([
+                throat_x1-throat_x0,
+                pocket_y,
+                pocket_z
+            ]);
+
+        // Open entry is wide enough for the detent before it reaches the throat.
+        translate([
+            throat_x1,
+            mp_dock_y0+yc-detent_y/2,
+            pocket_z0
+        ])
+            cube([
+                pocket_x1-throat_x1+0.2,
+                detent_y,
+                pocket_z
+            ]);
+    }
+}
+
+module mp_side_receiver(yc,dock_back_z) {
+    tab_installed_z0 =
+        dock_back_z-mp_side_mount_tab_z0-mp_side_mount_tab_z;
+    pocket_y =
+        mp_side_mount_tab_y+mp_side_mount_fit;
+    pocket_z =
+        mp_side_mount_tab_z+mp_side_mount_fit;
+    outer_y =
+        pocket_y+2*mp_side_mount_receiver_wall_y;
+    outer_z =
+        pocket_z+2*mp_side_mount_receiver_wall_z;
+    // Overlap 0.4 mm into the existing side wall so each receiver is one
+    // unquestionably connected printable body rather than a coplanar touch.
+    outer_x0 = left_side_inner_x-0.40;
+    outer_x1 =
+        mp_dock_x0+mp_side_mount_engagement+
+        mp_side_mount_receiver_entry_extra;
+
     difference() {
-        equipment_side("left");
-        matrixportal_left_side_service_cutter();
+        translate([
+            outer_x0,
+            mp_dock_y0+yc-outer_y/2,
+            tab_installed_z0-mp_side_mount_fit/2-
+                mp_side_mount_receiver_wall_z
+        ])
+            cube([
+                outer_x1-outer_x0,
+                outer_y,
+                outer_z
+            ]);
+
+        mp_side_receiver_pocket(yc,dock_back_z);
+    }
+}
+
+module matrixportal_left_side_dock_receivers() {
+    dock_back_z =
+        universal_deep_front_z-adapter_boss_h+adapter_boss_overlap;
+
+    mp_side_receiver(mp_side_mount_lower_yc,dock_back_z);
+    mp_side_receiver(mp_side_mount_upper_yc,dock_back_z);
+}
+
+module matrixportal_left_equipment_side() {
+    union() {
+        difference() {
+            equipment_side("left");
+            matrixportal_left_side_service_cutter();
+        }
+
+        // Dedicated side-only structure.  The generic left side remains
+        // unchanged; this receiver pair is the MatrixPortal dock attachment.
+        matrixportal_left_side_dock_receivers();
     }
 }

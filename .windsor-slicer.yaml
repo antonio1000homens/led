@@ -45,6 +45,11 @@ models:
     generator: openscad
     output: 10_matrixportal_s3_carrier_PRINT_1.stl
 
+  matrixportal-s3-keeper:
+    source: hardware/enclosure/parts/11_matrixportal_s3_keeper_PRINT_1.scad
+    generator: openscad
+    output: 11_matrixportal_s3_keeper_PRINT_1.stl
+
   matrixportal-left-equipment-side:
     source: hardware/enclosure/parts/09_left_equipment_side_matrixportal_PRINT_1.scad
     generator: openscad
