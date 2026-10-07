@@ -97,6 +97,7 @@ WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 3
+SUN_WEATHER_MOON_ICON_SCALE = 2
 SUN_WEATHER_TIME_SCALE = 2
 SUN_WEATHER_SUN_COLOR = 0xFFFF00
 SUN_WEATHER_MOON_COLOR = 0x0000FF
@@ -105,7 +106,7 @@ SUN_WEATHER_ANIMATION_SECONDS = 4.0
 SUN_WEATHER_COLOR_SECONDS = 4.0
 SUN_WEATHER_TOTAL_ANIMATION_SECONDS = SUN_WEATHER_ANIMATION_SECONDS * 2
 SUN_WEATHER_RISE_START_Y = 32
-SUN_WEATHER_SET_START_Y = -(WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE)
+SUN_WEATHER_SET_START_Y = -(WEATHER_ICON_WIDTH * SUN_WEATHER_MOON_ICON_SCALE)
 # MatrixDisplay labels use font baselines, while the fixture renderer uses
 # top-left pixel coordinates. Keep fullscreen weather headers clear of the
 # panel edge and align the forecast rows below them.
@@ -407,12 +408,17 @@ def _sun_weather_icon_y(icon_name, phase):
     # the panel for the rest of this screen's duration.
     progress = progress * progress * (3.0 - 2.0 * progress)
     if icon_name == "clear_day":
+        icon_scale = SUN_WEATHER_ICON_SCALE
         start_y = SUN_WEATHER_RISE_START_Y
     elif icon_name == "clear_night":
+        icon_scale = SUN_WEATHER_MOON_ICON_SCALE
         start_y = SUN_WEATHER_SET_START_Y
     else:
         return SUN_WEATHER_ICON_Y
-    return int(round(start_y + (SUN_WEATHER_ICON_Y - start_y) * progress))
+    icon_size = WEATHER_ICON_WIDTH * icon_scale
+    tile_size = WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE
+    rest_y = SUN_WEATHER_ICON_Y + (tile_size - icon_size) // 2
+    return int(round(start_y + (rest_y - start_y) * progress))
 
 
 def _sun_weather_eased_progress(phase):
@@ -452,13 +458,13 @@ def _sun_weather_set_label_color(index, phase, stale=False):
 
 
 def _sun_weather_rgb(icon_name, stale=False, phase=0):
-    """Colour each solar icon through its own sequential blue/yellow change."""
+    """Keep the moon blue and animate the sunrise sun from blue to yellow."""
     if stale:
         return 0x777777
+    if icon_name == "clear_night":
+        return SUN_WEATHER_MOON_COLOR
     progress = _sun_weather_color_progress(_sun_weather_local_phase(icon_name, phase))
-    if icon_name == "clear_day":
-        return SUN_WEATHER_MOON_COLOR if progress < 1.0 else SUN_WEATHER_SUN_COLOR
-    return SUN_WEATHER_SUN_COLOR if progress < 1.0 else SUN_WEATHER_MOON_COLOR
+    return SUN_WEATHER_MOON_COLOR if progress < 1.0 else SUN_WEATHER_SUN_COLOR
 
 
 def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
@@ -2297,7 +2303,12 @@ class MatrixDisplay:
                     )
                     label_grids.append(("set", index, label_grid, label_palette))
             rows = WEATHER_ICONS[icon_name]
-            icon_width = WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE
+            icon_scale = (
+                SUN_WEATHER_ICON_SCALE
+                if icon_name == "clear_day"
+                else SUN_WEATHER_MOON_ICON_SCALE
+            )
+            icon_width = WEATHER_ICON_WIDTH * icon_scale
             bitmap = displayio.Bitmap(icon_width, icon_width, 2)
             palette = displayio.Palette(2)
             palette[0] = 0x000000
@@ -2306,13 +2317,13 @@ class MatrixDisplay:
             for y, row in enumerate(rows):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
-                        for dx in range(SUN_WEATHER_ICON_SCALE):
-                            for dy in range(SUN_WEATHER_ICON_SCALE):
-                                bitmap[x * SUN_WEATHER_ICON_SCALE + dx, y * SUN_WEATHER_ICON_SCALE + dy] = 1
+                        for dx in range(icon_scale):
+                            for dy in range(icon_scale):
+                                bitmap[x * icon_scale + dx, y * icon_scale + dy] = 1
             icon_grid = displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
-                x=left + 1,
+                x=left + 1 + (WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE - icon_width) // 2,
                 y=_sun_weather_icon_y(icon_name, phase),
             )
             group.append(icon_grid)
@@ -2903,14 +2914,21 @@ class FixtureDisplay:
                     SUN_WEATHER_TIME_SCALE,
                 )
             icon_color = _rgb_tuple(_sun_weather_rgb(icon_name, stale, phase))
+            icon_scale = (
+                SUN_WEATHER_ICON_SCALE
+                if icon_name == "clear_day"
+                else SUN_WEATHER_MOON_ICON_SCALE
+            )
+            icon_width = WEATHER_ICON_WIDTH * icon_scale
+            icon_x = left + 1 + (WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE - icon_width) // 2
             for y, row in enumerate(WEATHER_ICONS[icon_name]):
                 for x, pixel in enumerate(row):
                     if pixel == "#":
-                        for dx in range(SUN_WEATHER_ICON_SCALE):
-                            for dy in range(SUN_WEATHER_ICON_SCALE):
+                        for dx in range(icon_scale):
+                            for dy in range(icon_scale):
                                 self._pixel(
-                                    left + 1 + x * SUN_WEATHER_ICON_SCALE + dx,
-                                    _sun_weather_icon_y(icon_name, phase) + y * SUN_WEATHER_ICON_SCALE + dy,
+                                    icon_x + x * icon_scale + dx,
+                                    _sun_weather_icon_y(icon_name, phase) + y * icon_scale + dy,
                                     icon_color,
                                 )
             self._text_scaled(value, left + 88, 11, text_color, SUN_WEATHER_TIME_SCALE)

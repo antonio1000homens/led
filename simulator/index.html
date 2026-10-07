@@ -798,7 +798,7 @@
         ? `${String(value).slice(0, 2)}:${String(value).slice(2)}` : (value || '--:--');
       const halves = [
         {label:'SUNRISE', value:formatSunTime(screen.sunrise_time), icon:'clear_day', left:0, right:512, startY:128},
-        {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-84}
+        {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-56}
       ];
       halves.forEach(item => {
         const width = item.right - item.left;
@@ -808,11 +808,16 @@
         const colorProgress = localPhase / SUN_WEATHER_COLOR_SECONDS;
         const easedProgress = progress * progress * (3 - 2 * progress);
         const easedColorProgress = colorProgress * colorProgress * (3 - 2 * colorProgress);
-        const iconY = item.startY + (20 - item.startY) * easedProgress;
-        drawWeatherPattern(item.icon, item.left + 4, iconY, 12, stale,
+        const iconScale = item.icon === 'clear_day' ? 12 : 8;
+        const iconSize = 7 * iconScale;
+        const iconTileSize = 7 * 12;
+        const restY = 20 + Math.floor((iconTileSize - iconSize) / 8) * 4;
+        const iconY = item.startY + (restY - item.startY) * easedProgress;
+        const iconX = item.left + 4 + Math.floor((iconTileSize - iconSize) / 8) * 4;
+        drawWeatherPattern(item.icon, iconX, iconY, iconScale, stale,
           item.icon === 'clear_day'
             ? (colorProgress < 1 ? '#0000ff' : '#ffff00')
-            : (colorProgress < 1 ? '#ffff00' : '#0000ff'));
+            : '#0000ff');
         if (item.icon === 'clear_day') {
           const labelY = 128 + (44 - 128) * easedProgress;
           const yellowLetters = Math.min(7, Math.floor(easedColorProgress * 8));
