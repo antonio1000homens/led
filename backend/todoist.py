@@ -1,4 +1,4 @@
-"""Todoist OAuth and upcoming-events adapter."""
+"""Todoist OAuth and scheduled-events adapter."""
 
 from __future__ import annotations
 
@@ -14,7 +14,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 TODOIST_FILTER_URL = "https://api.todoist.com/api/v1/tasks/filter"
 TODOIST_TOKEN_URL = "https://api.todoist.com/oauth/access_token"
-DEFAULT_FILTER_QUERY = "date after: yesterday"
+# Fetch both overdue and future dated tasks.  The provider still removes tasks
+# without a due date during normalization, while retaining active overdue tasks
+# so the board can label them explicitly.
+DEFAULT_FILTER_QUERY = "due before: tomorrow | due after: yesterday"
 DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_MAX_EVENTS = 6
 TOKEN_REFRESH_MARGIN_SECONDS = 60
@@ -186,7 +189,7 @@ def _parse_timed_due(value, due_timezone, display_zone):
 
 
 def normalize_task(task, now=None, timezone_name=DEFAULT_TIMEZONE):
-    """Normalize one Todoist task, returning None when it is not upcoming."""
+    """Normalize one Todoist task, retaining active overdue tasks."""
     if not isinstance(task, dict):
         return None
     due = task.get("due")
@@ -208,8 +211,6 @@ def normalize_task(task, now=None, timezone_name=DEFAULT_TIMEZONE):
             due_date = date.fromisoformat(raw_date[:10])
         except ValueError:
             return None
-        if due_date < local_now.date():
-            return None
         effective = datetime.combine(due_date, time.min, tzinfo=display_zone)
         return {
             "start": due_date.isoformat(),
@@ -221,7 +222,7 @@ def normalize_task(task, now=None, timezone_name=DEFAULT_TIMEZONE):
         }
 
     due_at = _parse_timed_due(raw_date, due.get("timezone"), display_zone)
-    if due_at is None or due_at < local_now:
+    if due_at is None:
         return None
     return {
         "start": due_at.isoformat(),
@@ -286,7 +287,7 @@ class TodoistProvider:
         return payload
 
     def fetch(self):
-        """Return the next scheduled tasks in chronological order."""
+        """Return overdue and future scheduled tasks in chronological order."""
         tasks = []
         cursor = None
         seen_cursors = set()

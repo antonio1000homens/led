@@ -220,8 +220,21 @@ class TodoistProviderTests(unittest.TestCase):
         self.assertTrue(event["all_day"])
         self.assertEqual(event["time_text"], "ALL")
 
-    def test_past_timed_and_undated_tasks_are_excluded(self):
-        self.assertIsNone(normalize_task({"content": "Old", "due": {"date": "2026-09-13T10:00:00Z"}}, now=self.now))
+    def test_overdue_timed_and_all_day_tasks_are_retained(self):
+        timed = normalize_task(
+            {"content": "Old timed", "due": {"date": "2026-09-13T10:00:00Z"}},
+            now=self.now,
+        )
+        all_day = normalize_task(
+            {"content": "Old all day", "due": {"date": "2026-09-12"}},
+            now=self.now,
+        )
+        self.assertEqual(timed["title"], "Old timed")
+        self.assertEqual(timed["time_text"], "11:00")
+        self.assertEqual(all_day["title"], "Old all day")
+        self.assertTrue(all_day["all_day"])
+
+    def test_undated_tasks_are_excluded(self):
         self.assertIsNone(normalize_task({"content": "No date"}, now=self.now))
 
     def test_paginates_sorts_and_limits_to_next_six(self):
@@ -246,7 +259,7 @@ class TodoistProviderTests(unittest.TestCase):
         opener = FakeOpener([first, second])
         provider = TodoistProvider(
             auth,
-            filter_query="date after: yesterday & #Home",
+            filter_query="due before: tomorrow | due after: yesterday",
             opener=opener,
             utcnow=lambda: self.now,
         )
@@ -258,7 +271,7 @@ class TodoistProviderTests(unittest.TestCase):
         first_request = opener.requests[0][0]
         self.assertEqual(first_request.get_header("Authorization"), "Bearer secret-token")
         first_query = parse_qs(urlparse(first_request.full_url).query)
-        self.assertEqual(first_query["query"], ["date after: yesterday & #Home"])
+        self.assertEqual(first_query["query"], ["due before: tomorrow | due after: yesterday"])
         second_query = parse_qs(urlparse(opener.requests[1][0].full_url).query)
         self.assertEqual(second_query["cursor"], ["cursor-2"])
 
