@@ -134,7 +134,7 @@ Queue data is displayed with `Powered by Queue-Times.com` attribution.
 
 ### Todoist upcoming events
 
-Production can append a `calendar_agenda` screen sourced from the Todoist API v1 `GET /api/v1/tasks/filter` endpoint. The publisher follows Todoist cursor pagination, normalizes scheduled items into Europe/London time, sorts them chronologically, removes undated and already-past timed tasks, and publishes at most the next six events.
+Production can append a `calendar_agenda` screen sourced from the Todoist API v1 `GET /api/v1/tasks/filter` endpoint. The publisher follows Todoist cursor pagination, normalizes scheduled items into Europe/London time, retains active overdue tasks, sorts them chronologically, removes only undated tasks, and publishes at most six events. Overdue rows are labelled `OVERDUE` on the board.
 
 The display uses a departure-board-style two-column row:
 
@@ -152,7 +152,7 @@ Default production settings are:
 LED_CALENDAR_SOURCE=off
 LED_TODOIST_CACHE_SECONDS=300
 LED_TODOIST_MAX_EVENTS=6
-LED_TODOIST_FILTER_QUERY=date after: yesterday
+LED_TODOIST_FILTER_QUERY=due before: tomorrow | due after: yesterday
 LED_TODOIST_TIMEZONE=Europe/London
 LED_CALENDAR_DURATION_SECONDS=10
 LED_CALENDAR_PAGE_SECONDS=5

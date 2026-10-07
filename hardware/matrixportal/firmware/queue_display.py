@@ -193,6 +193,11 @@ class QueueAwareDisplay:
             return self.base.adjust_brightness(direction)
         return None
 
+    def set_brightness_percent(self, percent):
+        if hasattr(self.base, "set_brightness_percent"):
+            return self.base.set_brightness_percent(percent)
+        return None
+
     def show_diagnostic(self, color):
         return self.base.show_diagnostic(color)
 
