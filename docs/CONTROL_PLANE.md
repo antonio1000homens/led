@@ -154,12 +154,13 @@ The admin UI obtains choices from the API rather than hard-coding attractions, s
 
 ## Flash events
 
-The `flash` setting owns only operational controls for transient events. It is
-disabled by default and does not make the backend ingest Alexa reminders. The
-future Home Assistant publisher owns the event payload and will publish it to
-the board's configured MQTT topic after issue #4 is complete. The board-side
-MQTT connection currently requires both `MQTT_ENABLED` and the explicit
-`MQTT_ENABLE_EXPERIMENTAL` safety gate; both are false in `hardware/matrixportal/firmware/settings.py`.
+The `flash` setting owns only operational controls for transient events. It
+does not make the backend ingest Alexa reminders. The Home Assistant publisher
+owns the event payload and publishes it to
+the board's configured MQTT topic. Both board-local MQTT gates default to
+enabled; the broker remains board-local, and the listener waits 30 seconds
+after display/client initialization before connecting. Runtime Flash
+enablement remains an independent gate.
 The public `/api/screens` response carries the effective non-secret `flash`
 settings so the board can apply admin changes on its normal HTTP refresh path;
 it never carries broker credentials or reminder payloads.

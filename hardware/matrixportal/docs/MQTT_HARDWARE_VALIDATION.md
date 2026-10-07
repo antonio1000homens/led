@@ -1,9 +1,10 @@
 # Issue #74 hardware validation gate
 
-This is the test procedure for the MatrixPortal MQTT path. The checked-in
-safety flags remain false by default; device-local settings opt the physical
-board into MQTT. The currently deployed Home Assistant contract supersedes the
-original due-only proposal in issue #74: Home Assistant publishes a retained
+This is the test procedure for the MatrixPortal MQTT path. Both local feature
+flags now default to enabled, while broker configuration remains board-local.
+The listener waits 30 seconds after display/client initialization before its
+first connection attempt. The currently deployed Home Assistant contract
+supersedes the original due-only proposal in issue #74: Home Assistant publishes a retained
 QoS 1 snapshot of the nearest future reminder every minute, and the board uses
 its synchronized clock to flash once when that reminder becomes due.
 
@@ -76,10 +77,9 @@ the production bundle and measured with MQTT disabled (`MQTT_ENABLED = False`,
 - departures and calendar rendered, with successful HTTP refreshes during the capture
 - observed render times: 1.070 seconds for departures and 0.526 seconds for calendar
 
-The checked-in firmware remains gated by safe defaults. Local board-only MQTT
-settings were enabled for the controlled tests recorded below; production
-activation still depends on the live Home Assistant issue #4 contract and
-broker approval.
+The following captures are historical. Current firmware enables the MQTT
+listener after its startup delay when the board-local broker is configured and
+the runtime Flash setting is enabled.
 
 ## Fresh synchronized baseline
 

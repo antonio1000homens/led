@@ -1,15 +1,13 @@
 # AWS deployment
 
-Issue #74 adds a dormant MQTT flash-event path for generic reminder screens.
-It is intentionally not enabled: `MQTT_ENABLED` and
-`MQTT_ENABLE_EXPERIMENTAL` are both false, and no broker settings or
-credentials are committed. Do not enable either gate until Home Assistant
-issue #4, the normalized event contract, broker reachability and outage
-behaviour have been reviewed together.
+Issue #74 provides the MQTT flash-event path for generic reminder screens.
+Both local feature gates are enabled by default, but the checked-in broker
+setting is empty; broker address and credentials remain board-local. The
+listener waits 30 seconds after display/client initialization before its first
+connection attempt and still obeys the runtime Flash setting from `/api/screens`.
 
-When that gate is eventually approved, the board will additionally need the
-CircuitPython `adafruit_minimqtt` library copied to `CIRCUITPY/lib`. Until then
-the library is intentionally not imported by the normal boot path.
+The board also needs the CircuitPython `adafruit_minimqtt` library copied to
+`CIRCUITPY/lib`.
 
 The production LED backend is serverless and publishes a static renderer-neutral snapshot instead of running `backend/server.py` continuously.
 

@@ -1,7 +1,7 @@
 """Optional CircuitPython MQTT transport for issue #74.
 
-This module is intentionally not imported unless both safety flags in
-``settings.py`` are enabled. It contains no credentials or broker defaults.
+This module is intentionally not imported unless both local opt-in flags are
+enabled. It contains no credentials or broker defaults.
 """
 
 MQTT_LOOP_INTERVAL_SECONDS = 60.0
@@ -10,10 +10,27 @@ MQTT_SOCKET_TIMEOUT_SECONDS = 0.01
 
 
 class FlashMqttClient:
-    def __init__(self, settings, on_message, mqtt_factory=None):
+    def __init__(
+        self,
+        settings,
+        on_message,
+        mqtt_factory=None,
+        startup_delay_seconds=0.0,
+        started_at=None,
+    ):
         self.settings = settings
         self.on_message = on_message
         self.mqtt_factory = mqtt_factory
+        startup_delay_seconds = float(startup_delay_seconds)
+        if startup_delay_seconds < 0:
+            raise ValueError("startup_delay_seconds must be non-negative")
+        self.connect_after = 0.0
+        if startup_delay_seconds:
+            if started_at is None:
+                import time
+
+                started_at = time.monotonic()
+            self.connect_after = float(started_at) + startup_delay_seconds
         self.client = None
         self.connected = False
         self.enabled = True
@@ -87,7 +104,7 @@ class FlashMqttClient:
         # A Wi-Fi/MQTT handshake can block far longer than socket_timeout.
         # Avoid starting one in the middle of a visible animation.
         if not self.client or not self.connected:
-            if not allow_connect:
+            if not allow_connect or now < self.connect_after:
                 return
             self._connect(now)
         if not self.client or not self.connected:

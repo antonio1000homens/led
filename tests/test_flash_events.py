@@ -244,6 +244,26 @@ class FakeMqtt:
 
 
 class MqttTransportTests(unittest.TestCase):
+    def test_startup_delay_prevents_mqtt_connection_until_deadline(self):
+        attempts = []
+
+        def factory(settings):
+            attempts.append(True)
+            return FakeMqtt()
+
+        transport = FlashMqttClient(
+            FakeSettings,
+            lambda payload: None,
+            mqtt_factory=factory,
+            startup_delay_seconds=30,
+            started_at=100,
+        )
+        transport.poll(129.999)
+        self.assertEqual(attempts, [])
+        transport.poll(130)
+        self.assertEqual(attempts, [True])
+        self.assertTrue(transport.connected)
+
     def test_runtime_disable_disconnects_and_stops_polling_until_reenabled(self):
         first = FakeMqtt()
         second = FakeMqtt()

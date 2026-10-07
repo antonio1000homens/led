@@ -191,7 +191,11 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL:
         if flash.accept(payload, now, epoch_now=epoch_now):
             _flash_started(now)
 
-    mqtt = FlashMqttClient(settings, receive_flash)
+    mqtt = FlashMqttClient(
+        settings,
+        receive_flash,
+        startup_delay_seconds=settings.MQTT_STARTUP_DELAY_SECONDS,
+    )
     # Wait for the first screen payload to apply the admin Flash events gate.
     mqtt.set_enabled(False)
 rendered_diagnostic_index = None
