@@ -1443,6 +1443,19 @@ class MatrixDisplay:
         # display refresh scheduler rather than swapping a frame mid-cycle.
         self._refresh()
 
+    def show_loading(self, title="UPCOMING", message="Loading..."):
+        """Show a cheap transition card before building a heavy screen."""
+        import displayio
+
+        group = displayio.Group()
+        title = _clip(title, 30)
+        message = _clip(message, 30)
+        title_x = max(0, (DISPLAY_WIDTH - len(title) * WEATHER_FONT_WIDTH) // 2)
+        message_x = max(0, (DISPLAY_WIDTH - len(message) * WEATHER_FONT_WIDTH) // 2)
+        self._label(group, title, 0xFFAA00, title_x, 3)
+        self._label(group, message, 0xFFFFFF, message_x, 18)
+        self._present(group)
+
     def show_diagnostic(self, color):
         """Fill the complete physical matrix with one moderate test colour."""
         import displayio
@@ -3225,6 +3238,19 @@ class FixtureDisplay:
             print("WEATHER {} {}".format(weather.get("icon") or "unknown", _weather_text(weather) or "--C"))
         if kind not in WEATHER_FULLSCREEN_KINDS and screen.get("stale"):
             print("STALE")
+
+    def show_loading(self, title="UPCOMING", message="Loading..."):
+        if self.pixels is None:
+            print("\n{} {}".format(title, message))
+            return
+        self.pixels.fill((0, 0, 0))
+        title = _clip(title, 30)
+        message = _clip(message, 30)
+        title_x = max(0, (DISPLAY_WIDTH - len(title) * WEATHER_FONT_WIDTH) // 2)
+        message_x = max(0, (DISPLAY_WIDTH - len(message) * WEATHER_FONT_WIDTH) // 2)
+        self._text(title, title_x, 3, (255, 170, 0))
+        self._text(message, message_x, 18, (255, 255, 255))
+        self.pixels.show()
 
     def show_diagnostic(self, color):
         """Keep fixture mode observable when the hardware path is unavailable."""

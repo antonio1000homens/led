@@ -201,6 +201,11 @@ class QueueAwareDisplay:
     def show_diagnostic(self, color):
         return self.base.show_diagnostic(color)
 
+    def show_loading(self, title="UPCOMING", message="Loading..."):
+        if hasattr(self.base, "show_loading"):
+            return self.base.show_loading(title, message)
+        return None
+
 
 def create(settings):
     from display import create as create_base

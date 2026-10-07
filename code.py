@@ -615,6 +615,16 @@ while True:
         render_started = time.monotonic()
         memory_before = _memory_free()
         root_before = _matrix_root_token()
+        if (
+            isinstance(screen, dict)
+            and screen.get("kind") == "calendar_agenda"
+            and screen.get("source") == "todoist"
+            and hasattr(display, "show_loading")
+        ):
+            # The Todoist scene can take several seconds to construct on the
+            # MatrixPortal. Present a cheap transition card first so the old
+            # departures marquee is never left frozen during that work.
+            display.show_loading("UPCOMING", "Loading...")
         print(
             "RENDER START id={} kind={} index={} phase={} mode={} mem={}".format(
                 render_key[0], render_key[1], rotation.index, phase, runtime_mode.mode, memory_before
