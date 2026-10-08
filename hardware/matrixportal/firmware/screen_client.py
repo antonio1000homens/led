@@ -256,6 +256,7 @@ class ScreenRotation:
         self.index = 0
         self.started_at = None
         self._paused = None
+        self.cycle_number = 0
 
     def update(self, screens, now):
         """Replace the HTTP collection, retaining the legacy single-source API."""
@@ -344,6 +345,7 @@ class ScreenRotation:
         next_screens = list(self.http_screens) + mqtt
         self.screens = next_screens
         if not next_screens:
+            self.cycle_number = 0
             self.index = 0
             self.started_at = None
             return
@@ -395,6 +397,10 @@ class ScreenRotation:
             self.started_at = now
         while True:
             screen = self.screens[self.index]
+            interval = max(1, int(screen.get("display_every_cycles") or 1))
+            if self.cycle_number % interval:
+                self._advance_screen()
+                continue
             duration = max(
                 1.0,
                 float(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
@@ -405,14 +411,20 @@ class ScreenRotation:
             if elapsed < duration:
                 return screen, elapsed
             self.started_at += duration
-            self.index = (self.index + 1) % len(self.screens)
+            self._advance_screen()
+
+    def _advance_screen(self):
+        self.index += 1
+        if self.index >= len(self.screens):
+            self.index = 0
+            self.cycle_number += 1
 
     def next(self, now):
         """Move immediately to the next screen and restart its duration."""
         if not self.screens:
             return
         self.current(now)
-        self.index = (self.index + 1) % len(self.screens)
+        self._advance_screen()
         self.started_at = now
 
     def pause(self, now):
