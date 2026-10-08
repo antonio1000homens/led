@@ -520,6 +520,8 @@ def validate_feed_patch(
         raise RuntimeConfigValidationError("patch must be a non-empty JSON object")
     definition = FEED_REGISTRY[feed_id]
     allowed = set(definition["mutable_fields"])
+    if definition.get("screen_duration"):
+        allowed.add("display_every_cycles")
     unknown = set(patch) - allowed
     if unknown:
         raise RuntimeConfigValidationError(
