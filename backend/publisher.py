@@ -505,6 +505,16 @@ class Publisher:
                 })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
+        # Scheduling is performed locally by the MatrixPortal, not the publisher:
+        # data-refresh cycles must not change screen visibility cadence.
+        schedule_feeds = {"departures": "departures", "queue-times": "queue_times",
+                          "calendar": "calendar", "dad-joke": "dad_joke",
+                          "weather-weekly": "weather", "weather-today": "weather",
+                          "weather-sun": "weather"}
+        for screen in screens:
+            feed_id = schedule_feeds.get(screen.get("id"))
+            if feed_id:
+                screen["display_every_cycles"] = config_feeds[feed_id].get("display_every_cycles", 1)
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
