@@ -412,8 +412,6 @@ def schema_metadata() -> dict[str, Any]:
                 "type": "string",
                 "maximumLength": MAX_STEAM_TRAIN_WORDS_LENGTH,
             }
-        if FEED_REGISTRY[feed_id].get("screen_duration"):
-            raw.setdefault("display_every_cycles", 1)
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
                 fields[field] = {
