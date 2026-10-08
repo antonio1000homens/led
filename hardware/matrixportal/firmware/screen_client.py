@@ -257,6 +257,7 @@ class ScreenRotation:
         self.started_at = None
         self._paused = None
         self.cycle_number = 0
+        self._shown_once = {}
 
     def update(self, screens, now):
         """Replace the HTTP collection, retaining the legacy single-source API."""
@@ -395,12 +396,24 @@ class ScreenRotation:
             return self.screens[self.index % len(self.screens)], 0
         if self.started_at is None:
             self.started_at = now
+        skipped = 0
         while True:
             screen = self.screens[self.index]
             interval = max(1, int(screen.get("display_every_cycles") or 1))
-            if self.cycle_number % interval:
+            once_key = screen.get("joke") if screen.get("kind") == "dad_joke" else None
+            already_shown = once_key is not None and self._shown_once.get(screen.get("id")) == once_key
+            if self.cycle_number % interval or already_shown:
                 self._advance_screen()
+                skipped += 1
+                if skipped >= len(self.screens):
+                    # All screens were suppressed. Avoid a tight infinite loop.
+                    return {
+                        "id": "unavailable", "kind": "message",
+                        "duration_seconds": 8, "title": "Waiting for new content",
+                        "source": "local", "stale": False,
+                    }, 0
                 continue
+            skipped = 0
             duration = max(
                 1.0,
                 float(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
@@ -411,6 +424,8 @@ class ScreenRotation:
             if elapsed < duration:
                 return screen, elapsed
             self.started_at += duration
+            if once_key is not None:
+                self._shown_once[screen.get("id")] = once_key
             self._advance_screen()
 
     def _advance_screen(self):
@@ -423,7 +438,9 @@ class ScreenRotation:
         """Move immediately to the next screen and restart its duration."""
         if not self.screens:
             return
-        self.current(now)
+        screen, _ = self.current(now)
+        if screen.get("kind") == "dad_joke":
+            self._shown_once[screen.get("id")] = screen.get("joke")
         self._advance_screen()
         self.started_at = now
 
