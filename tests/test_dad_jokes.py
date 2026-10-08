@@ -17,14 +17,20 @@ class DadJokesTests(unittest.TestCase):
         self.assertFalse(config["feeds"]["dad_joke"]["enabled"])
         self.assertIn("enabled", schema_metadata()["feeds"]["dad_joke"]["mutable_fields"])
         self.assertEqual(config["feeds"]["dad_joke"]["screen_duration_seconds"], 15)
+        self.assertEqual(config["feeds"]["dad_joke"]["display_every_cycles"], 1)
 
     def test_existing_saved_config_migrates_additively(self):
         config = default_runtime_config({})
         del config["feeds"]["dad_joke"]
-        self.assertFalse(validate_runtime_config(config)["feeds"]["dad_joke"]["enabled"])
+        for feed in config["feeds"].values():
+            feed.pop("display_every_cycles", None)
+        migrated = validate_runtime_config(config)
+        self.assertFalse(migrated["feeds"]["dad_joke"]["enabled"])
+        self.assertEqual(migrated["feeds"]["calendar"]["display_every_cycles"], 1)
 
     def test_admin_patch_validates(self):
         self.assertEqual(validate_feed_patch("dad_joke", {"enabled": True}), {"enabled": True})
+        self.assertEqual(validate_feed_patch("dad_joke", {"display_every_cycles": 3}), {"display_every_cycles": 3})
         with self.assertRaises(ValueError):
             validate_feed_patch("dad_joke", {"poll_seconds": 3})
 
