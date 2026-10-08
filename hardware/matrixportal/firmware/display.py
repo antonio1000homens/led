@@ -123,6 +123,8 @@ WEEKLY_WEATHER_TEMPERATURE_Y = 25
 TODAY_WEATHER_ICON_Y = 11
 TODAY_WEATHER_TEMPERATURE_Y = 27
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
+NOVELTY_HEADING_Y = 5
+NOVELTY_FIRST_LINE_Y = 14
 
 
 def _novelty_page(screen, phase):
@@ -2686,9 +2688,9 @@ class MatrixDisplay:
         if not empty_state and kind in ("dad_joke", "random_fact"):
             group = displayio.Group()
             heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
-            self._label(group, heading, 0xFFAA00, 0, 0)
+            self._label(group, heading, 0xFFAA00, 0, NOVELTY_HEADING_Y)
             for index, line in enumerate(_novelty_page(screen, phase)):
-                self._label(group, line, 0xFFFFFF, 0, 9 + index * 8)
+                self._label(group, line, 0xFFFFFF, 0, NOVELTY_FIRST_LINE_Y + index * 8)
             self._present(group)
             return
         if not empty_state and kind == "flash":
@@ -3025,9 +3027,9 @@ class FixtureDisplay:
         kind = screen.get("kind")
         if kind in ("dad_joke", "random_fact"):
             heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
-            self._text(heading, 0, 0, (255, 170, 0))
+            self._text(heading, 0, NOVELTY_HEADING_Y, (255, 170, 0))
             for index, line in enumerate(_novelty_page(screen, phase)):
-                self._text(line, 0, 9 + index * 8, (255, 255, 255))
+                self._text(line, 0, NOVELTY_FIRST_LINE_Y + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
         elif kind == "weather_weekly":

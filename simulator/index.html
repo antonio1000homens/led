@@ -276,6 +276,8 @@
     const AGENDA_SLIDE_SECONDS = 0.4;
     const AGENDA_MARQUEE_SPEED = 120;
     const AGENDA_MARQUEE_PAUSE_SECONDS = 1.25;
+    const NOVELTY_HEADING_Y = 5;
+    const NOVELTY_FIRST_LINE_Y = 14;
 
     const weatherIcons = {
       clear_day: ['.......', '..###..', '.#####.', '.#####.', '.#####.', '..###..', '.......'],
@@ -1106,9 +1108,9 @@
         const duration = Math.max(1, Number(screen.duration_seconds) || 15);
         const page = Math.min(pages - 1, Math.floor(Math.max(0, phase) * pages / duration));
         context.fillStyle = '#ffaa00';
-        drawLedText(fact ? 'DID YOU KNOW?' : 'DAD JOKE', 0, 0);
+        drawLedText(fact ? 'DID YOU KNOW?' : 'DAD JOKE', 0, NOVELTY_HEADING_Y * FONT_PIXEL_SCALE);
         context.fillStyle = '#ffffff';
-        lines.slice(page * 3, page * 3 + 3).forEach((value, index) => drawLedText(value, 0, (9 + index * 8) * FONT_PIXEL_SCALE));
+        lines.slice(page * 3, page * 3 + 3).forEach((value, index) => drawLedText(value, 0, (NOVELTY_FIRST_LINE_Y + index * 8) * FONT_PIXEL_SCALE));
         suppressHeader = true;
         status.dataset.detail = fact ? 'Random fact' : 'Dad joke';
       } else if (screen.kind === 'weather_weekly') {
