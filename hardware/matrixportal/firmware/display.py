@@ -61,15 +61,21 @@ DISPLAY_WIDTH = 256
 REMINDER_CLOCK_SIZE = 29
 REMINDER_TEXT_X = 37
 REMINDER_TEXT_SCALE = 3
+REMINDER_SCROLL_SPEED = 64.0
+REMINDER_SCROLL_GAP = 24
 
 
 def reminder_scroll_x(screen, phase):
-    """Move the entire clock/text train off-screen within the configured alert."""
+    """Continuously move the clock/text train from right to left and wrap it."""
     label = str(screen.get("label") or "")
     width = REMINDER_TEXT_X + len(label) * WEATHER_FONT_WIDTH * REMINDER_TEXT_SCALE
-    duration = max(1.0, float(screen.get("duration_seconds") or 5))
-    progress = min(1.0, max(0.0, float(phase or 0)) / duration)
-    return DISPLAY_WIDTH - int((DISPLAY_WIDTH + width) * progress)
+    travel = DISPLAY_WIDTH + width + REMINDER_SCROLL_GAP
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    distance = int(elapsed * REMINDER_SCROLL_SPEED) % max(1, travel)
+    return DISPLAY_WIDTH - distance
 
 
 def reminder_clock_pixel(x, y):
@@ -1797,7 +1803,7 @@ class MatrixDisplay:
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
     def _flash(self, group, screen, phase=0):
-        """A large clock leads the complete reminder text from right to left."""
+        """A large clock continuously leads the complete reminder text from right to left."""
         import displayio
         motion = displayio.Group(x=reminder_scroll_x(screen, phase))
         bitmap = displayio.Bitmap(REMINDER_CLOCK_SIZE, REMINDER_CLOCK_SIZE, 2)
