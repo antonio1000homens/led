@@ -1053,6 +1053,22 @@
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
+      } else if (screen.kind === 'dad_joke') {
+        const words = String(screen.joke || '').split(/\s+/).filter(Boolean);
+        const lines = [];
+        let line = '';
+        for (const word of words) {
+          const next = (line + ' ' + word).trim();
+          if (next.length > 42 && line) { lines.push(line); line = word; }
+          else line = next;
+        }
+        if (line) lines.push(line);
+        context.fillStyle = '#ffaa00';
+        drawLedText('DAD JOKE', 0, 0);
+        context.fillStyle = '#ffffff';
+        lines.slice(0, 3).forEach((value, index) => drawLedText(value.slice(0, 42), 0, (9 + index * 8) * FONT_PIXEL_SCALE));
+        suppressHeader = true;
+        status.dataset.detail = 'Dad joke';
       } else if (screen.kind === 'weather_weekly') {
         drawWeeklyWeather(screen);
         suppressHeader = true;
