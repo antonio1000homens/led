@@ -510,14 +510,31 @@
     }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
-      const total = screens.reduce((sum, screen) => sum + Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8), 0) * 1000;
-      let remaining = elapsed % total;
-      for (let index = 0; index < screens.length; index += 1) {
-        const screen = screens[(index + screenOffset + screens.length * 1000) % screens.length];
-        const configuredDuration = Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8);
-        const duration = (screen.kind === 'rail_combined' ? railScreenTiming(screen).duration : configuredDuration) * 1000;
-        if (remaining < duration) return { screen, phase: remaining / 1000, index: (index + screenOffset + screens.length * 1000) % screens.length };
-        remaining -= duration;
+      // Each cycle traverses the configured screens once. A screen with a
+      // display interval of N participates in cycles 0, N, 2N, etc.
+      const interval = screen => Math.max(1, Math.min(6, Number(screen.display_every_cycles) || 1));
+      const duration = screen => (screen.kind === 'rail_combined' ? railScreenTiming(screen).duration : Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8)) * 1000;
+      const period = 60; // LCM(1,2,3,4,5,6); full sequence repeats after this.
+      const cycleScreens = [];
+      let total = 0;
+      for (let cycle = 0; cycle < period; cycle += 1) {
+        const visible = [];
+        for (let index = 0; index < screens.length; index += 1) {
+          const actual = (index + screenOffset + screens.length * 1000) % screens.length;
+          if (cycle % interval(screens[actual]) === 0) visible.push(actual);
+        }
+        const length = visible.reduce((sum, index) => sum + duration(screens[index]), 0);
+        cycleScreens.push({ visible, length });
+        total += length;
+      }
+      let remaining = elapsed % Math.max(1, total);
+      for (const cycle of cycleScreens) {
+        if (remaining >= cycle.length) { remaining -= cycle.length; continue; }
+        for (const index of cycle.visible) {
+          const time = duration(screens[index]);
+          if (remaining < time) return { screen: screens[index], phase: remaining / 1000, index };
+          remaining -= time;
+        }
       }
       return { screen: screens[0], phase: 0, index: 0 };
     }
