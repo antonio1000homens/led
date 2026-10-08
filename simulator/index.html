@@ -90,6 +90,8 @@
     const MATRIX_REFRESH_FPS = 7;
     const BIN_LORRY_SECONDS = 4.0;
     const BIN_LORRY_SPEED = 64;
+    const REMINDER_SCROLL_SPEED = 64;
+    const REMINDER_SCROLL_GAP = 24;
     const SUN_WEATHER_COLOR_SECONDS = 4.0;
     const BIN_COLORS = { blue: '#2255ff', green: '#22aa44', black: '#777777' };
     const SUN_WEATHER_ANIMATION_SECONDS = 4.0;
@@ -504,18 +506,39 @@
       if (progress >= 1) return { start: visible, progress: 0, visible };
       return { start: 0, progress, visible };
     }
+    const seenJokes = new Set();
+    let activeJoke = null;
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'loading', duration_seconds: 8, title: 'UPCOMING', message: 'Loading...' }, phase: 0, index: 0 };
-      const total = screens.reduce((sum, screen) => sum + Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8), 0) * 1000;
-      let remaining = elapsed % total;
-      for (let index = 0; index < screens.length; index += 1) {
-        const screen = screens[(index + screenOffset + screens.length * 1000) % screens.length];
-        const configuredDuration = Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8);
-        const duration = (screen.kind === 'rail_combined' ? railScreenTiming(screen).duration : configuredDuration) * 1000;
-        if (remaining < duration) return { screen, phase: remaining / 1000, index: (index + screenOffset + screens.length * 1000) % screens.length };
-        remaining -= duration;
+      const candidates = screens.map((screen, index) => ({ screen, index })).filter(item => item.screen.kind !== 'dad_joke' || !seenJokes.has(item.screen.joke));
+      if (!candidates.length) return { screen: { id: 'waiting', kind: 'message', title: 'Waiting for new content', duration_seconds: 8 }, phase: 0, index: 0 };
+      // Each cycle traverses the configured screens once. A screen with a
+      // display interval of N participates in cycles 0, N, 2N, etc.
+      const interval = screen => Math.max(1, Math.min(6, Number(screen.display_every_cycles) || 1));
+      const duration = screen => (screen.kind === 'rail_combined' ? railScreenTiming(screen).duration : Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8)) * 1000;
+      const period = 60; // LCM(1,2,3,4,5,6); full sequence repeats after this.
+      const cycleScreens = [];
+      let total = 0;
+      for (let cycle = 0; cycle < period; cycle += 1) {
+        const visible = [];
+        for (let index = 0; index < candidates.length; index += 1) {
+          const actual = (index + screenOffset + candidates.length * 1000) % candidates.length;
+          if (cycle % interval(candidates[actual].screen) === 0) visible.push(actual);
+        }
+        const length = visible.reduce((sum, index) => sum + duration(candidates[index].screen), 0);
+        cycleScreens.push({ visible, length });
+        total += length;
       }
-      return { screen: screens[0], phase: 0, index: 0 };
+      let remaining = elapsed % Math.max(1, total);
+      for (const cycle of cycleScreens) {
+        if (remaining >= cycle.length) { remaining -= cycle.length; continue; }
+        for (const index of cycle.visible) {
+          const time = duration(candidates[index].screen);
+          if (remaining < time) return { screen: candidates[index].screen, phase: remaining / 1000, index: candidates[index].index };
+          remaining -= time;
+        }
+      }
+      return { screen: candidates[0].screen, phase: 0, index: candidates[0].index };
     }
     function stationMarqueeSpeed(screen) {
       return boundedNumber(screen.station_scroll_speed, 20, 10, 80) * 4;
@@ -1027,7 +1050,13 @@
       }
       if (hardwarePreview) lastHardwareFrame = now;
       const elapsed = paused ? pausedAt : now - pauseStarted;
-      const active = screenAt(elapsed);
+      let active = screenAt(elapsed);
+      if (activeJoke !== null && (active.screen.kind !== "dad_joke" || active.screen.joke !== activeJoke)) {
+        seenJokes.add(activeJoke);
+        active = screenAt(elapsed);
+        activeJoke = null;
+      }
+      if (active.screen.kind === "dad_joke") activeJoke = active.screen.joke;
       const screen = active.screen;
       const rawPhase = active.phase;
       const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' ? 2 : rawPhase;
@@ -1052,6 +1081,22 @@
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
+      } else if (screen.kind === 'dad_joke') {
+        const words = String(screen.joke || '').split(/\s+/).filter(Boolean);
+        const lines = [];
+        let line = '';
+        for (const word of words) {
+          const next = (line + ' ' + word).trim();
+          if (next.length > 42 && line) { lines.push(line); line = word; }
+          else line = next;
+        }
+        if (line) lines.push(line);
+        context.fillStyle = '#ffaa00';
+        drawLedText('DAD JOKE', 0, 0);
+        context.fillStyle = '#ffffff';
+        lines.slice(0, 3).forEach((value, index) => drawLedText(value.slice(0, 42), 0, (9 + index * 8) * FONT_PIXEL_SCALE));
+        suppressHeader = true;
+        status.dataset.detail = 'Dad joke';
       } else if (screen.kind === 'weather_weekly') {
         drawWeeklyWeather(screen);
         suppressHeader = true;
@@ -1195,9 +1240,10 @@
       } else if (screen.kind === 'flash') {
         suppressHeader = true;
         const label = String(screen.label || '');
-        const duration = Math.max(1, Number(screen.duration_seconds) || 5);
-        const progress = Math.min(1, Math.max(0, phase) / duration);
-        const clockX = 256 - Math.floor((256 + 37 + label.length * 15) * progress);
+        const reminderWidth = 37 + label.length * 15;
+        const travel = 256 + reminderWidth + REMINDER_SCROLL_GAP;
+        const distance = Math.floor(Math.max(0, Number(phase) || 0) * REMINDER_SCROLL_SPEED) % travel;
+        const clockX = 256 - distance;
         context.fillStyle = '#ffaa00';
         for (let x = 0; x < 29; x += 1) {
           for (let y = 0; y < 29; y += 1) {

@@ -61,15 +61,21 @@ DISPLAY_WIDTH = 256
 REMINDER_CLOCK_SIZE = 29
 REMINDER_TEXT_X = 37
 REMINDER_TEXT_SCALE = 3
+REMINDER_SCROLL_SPEED = 64.0
+REMINDER_SCROLL_GAP = 24
 
 
 def reminder_scroll_x(screen, phase):
-    """Move the entire clock/text train off-screen within the configured alert."""
+    """Continuously move the clock/text train from right to left and wrap it."""
     label = str(screen.get("label") or "")
     width = REMINDER_TEXT_X + len(label) * WEATHER_FONT_WIDTH * REMINDER_TEXT_SCALE
-    duration = max(1.0, float(screen.get("duration_seconds") or 5))
-    progress = min(1.0, max(0.0, float(phase or 0)) / duration)
-    return DISPLAY_WIDTH - int((DISPLAY_WIDTH + width) * progress)
+    travel = DISPLAY_WIDTH + width + REMINDER_SCROLL_GAP
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    distance = int(elapsed * REMINDER_SCROLL_SPEED) % max(1, travel)
+    return DISPLAY_WIDTH - distance
 
 
 def reminder_clock_pixel(x, y):
@@ -149,6 +155,8 @@ BIN_LORRY_HEIGHT = 20
 BIN_ICON_WIDTH = 9
 BIN_ICON_HEIGHT = 12
 BIN_ICON_Y = 10
+BIN_TEXT_X = 40
+BIN_TEXT_RIGHT = 220
 BIN_COLORS = {
     "blue": 0x2255FF,
     "green": 0x22AA44,
@@ -346,14 +354,27 @@ def _sun_weather_local_phase(icon_name, phase):
 
 
 def _bin_collection_motion_state(screen, phase):
-    """Return whether the recycling scene is still entering from the right."""
+    """Return whether the bin lorry or collection label is moving."""
     try:
         elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         elapsed = 0.0
     if elapsed < BIN_LORRY_SECONDS:
         return True, max(0.05, BIN_LORRY_SECONDS - elapsed)
-    return False, None
+    labels = " / ".join(str(item.get("label") or "") for item in screen.get("collections") or [])
+    label_width = len(labels) * 6
+    if label_width <= BIN_TEXT_RIGHT - BIN_TEXT_X:
+        return False, None
+    try:
+        speed = max(0.1, float(screen.get("slide_speed") or 20))
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        speed, elapsed = 20.0, 0.0
+    cycle_distance = label_width + 24
+    distance = (max(0.0, elapsed - BIN_LORRY_SECONDS) * speed) % cycle_distance
+    if distance < label_width:
+        return True, None
+    return False, max(0.05, (cycle_distance - distance) / speed)
 
 
 def _bin_collection_types(screen):
@@ -1772,7 +1793,7 @@ class MatrixDisplay:
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
     def _flash(self, group, screen, phase=0):
-        """A large clock leads the complete reminder text from right to left."""
+        """A large clock continuously leads the complete reminder text from right to left."""
         import displayio
         motion = displayio.Group(x=reminder_scroll_x(screen, phase))
         bitmap = displayio.Bitmap(REMINDER_CLOCK_SIZE, REMINDER_CLOCK_SIZE, 2)
@@ -2631,6 +2652,27 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
+        if not empty_state and kind == "dad_joke":
+            group = displayio.Group()
+            self._label(group, "DAD JOKE", 0xFFAA00, 0, 0)
+            joke = str(screen.get("joke") or "")
+            # Fullscreen compact text; wrap at word boundaries for 5x7 glyphs.
+            words = joke.split()
+            lines = []
+            current = ""
+            for word in words:
+                candidate = (current + " " + word).strip()
+                if len(candidate) > 42 and current:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            if current:
+                lines.append(current)
+            for index, line in enumerate(lines[:3]):
+                self._label(group, line[:42], 0xFFFFFF, 0, 9 + index * 8)
+            self._present(group)
+            return
         if not empty_state and kind == "flash":
             self._show_flash(screen, phase)
             return
@@ -2963,7 +3005,23 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
-        if kind == "steam_train_intro":
+        if kind == "dad_joke":
+            self._text("DAD JOKE", 0, 0, (255, 170, 0))
+            words = str(screen.get("joke") or "").split()
+            lines = []
+            current = ""
+            for word in words:
+                next_line = (current + " " + word).strip()
+                if len(next_line) > 42 and current:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = next_line
+            if current:
+                lines.append(current)
+            for index, line in enumerate(lines[:3]):
+                self._text(line[:42], 0, 9 + index * 8, (255, 255, 255))
+        elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
         elif kind == "weather_weekly":
             self._weekly_weather(screen)
