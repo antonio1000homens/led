@@ -506,11 +506,16 @@
       if (progress >= 1) return { start: visible, progress: 0, visible };
       return { start: 0, progress, visible };
     }
-    const seenJokes = new Set();
-    let activeJoke = null;
+    const seenNovelty = new Set();
+    let activeNovelty = null;
+    function noveltyKey(screen) {
+      if (screen.kind === 'dad_joke') return 'dad_joke:' + String(screen.joke || '');
+      if (screen.kind === 'random_fact') return 'random_fact:' + String(screen.fact || '');
+      return null;
+    }
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'loading', duration_seconds: 8, title: 'UPCOMING', message: 'Loading...' }, phase: 0, index: 0 };
-      const candidates = screens.map((screen, index) => ({ screen, index })).filter(item => item.screen.kind !== 'dad_joke' || !seenJokes.has(item.screen.joke));
+      const candidates = screens.map((screen, index) => ({ screen, index })).filter(item => !noveltyKey(item.screen) || !seenNovelty.has(noveltyKey(item.screen)));
       if (!candidates.length) return { screen: { id: 'waiting', kind: 'message', title: 'Waiting for new content', duration_seconds: 8 }, phase: 0, index: 0 };
       // Each cycle traverses the configured screens once. A screen with a
       // display interval of N participates in cycles 0, N, 2N, etc.
@@ -1051,15 +1056,15 @@
       if (hardwarePreview) lastHardwareFrame = now;
       const elapsed = paused ? pausedAt : now - pauseStarted;
       let active = screenAt(elapsed);
-      if (activeJoke !== null && (active.screen.kind !== "dad_joke" || active.screen.joke !== activeJoke)) {
-        seenJokes.add(activeJoke);
+      if (activeNovelty !== null && noveltyKey(active.screen) !== activeNovelty) {
+        seenNovelty.add(activeNovelty);
         active = screenAt(elapsed);
-        activeJoke = null;
+        activeNovelty = null;
       }
-      if (active.screen.kind === "dad_joke") activeJoke = active.screen.joke;
+      if (noveltyKey(active.screen) !== null) activeNovelty = noveltyKey(active.screen);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1081,22 +1086,31 @@
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
-      } else if (screen.kind === 'dad_joke') {
-        const words = String(screen.joke || '').split(/\s+/).filter(Boolean);
+      } else if (screen.kind === 'dad_joke' || screen.kind === 'random_fact') {
+        const fact = screen.kind === 'random_fact';
+        const words = String(fact ? screen.fact : screen.joke || '').split(/\s+/).filter(Boolean);
         const lines = [];
         let line = '';
-        for (const word of words) {
+        for (let word of words) {
+          while (word.length > 42) {
+            if (line) { lines.push(line); line = ''; }
+            lines.push(word.slice(0, 42));
+            word = word.slice(42);
+          }
           const next = (line + ' ' + word).trim();
           if (next.length > 42 && line) { lines.push(line); line = word; }
           else line = next;
         }
         if (line) lines.push(line);
+        const pages = Math.max(1, Math.ceil(lines.length / 3));
+        const duration = Math.max(1, Number(screen.duration_seconds) || 15);
+        const page = Math.min(pages - 1, Math.floor(Math.max(0, phase) * pages / duration));
         context.fillStyle = '#ffaa00';
-        drawLedText('DAD JOKE', 0, 0);
+        drawLedText(fact ? 'DID YOU KNOW?' : 'DAD JOKE', 0, 0);
         context.fillStyle = '#ffffff';
-        lines.slice(0, 3).forEach((value, index) => drawLedText(value.slice(0, 42), 0, (9 + index * 8) * FONT_PIXEL_SCALE));
+        lines.slice(page * 3, page * 3 + 3).forEach((value, index) => drawLedText(value, 0, (9 + index * 8) * FONT_PIXEL_SCALE));
         suppressHeader = true;
-        status.dataset.detail = 'Dad joke';
+        status.dataset.detail = fact ? 'Random fact' : 'Dad joke';
       } else if (screen.kind === 'weather_weekly') {
         drawWeeklyWeather(screen);
         suppressHeader = true;
