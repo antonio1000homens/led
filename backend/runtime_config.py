@@ -659,6 +659,8 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if not isinstance(raw_value, dict):
             raise RuntimeConfigValidationError(f"{feed_id} must be an object")
         raw = copy.deepcopy(raw_value)
+        if FEED_REGISTRY[feed_id].get("screen_duration"):
+            raw.setdefault("display_every_cycles", 1)
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
