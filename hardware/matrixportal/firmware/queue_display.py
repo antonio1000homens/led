@@ -201,9 +201,9 @@ class QueueAwareDisplay:
     def show_diagnostic(self, color):
         return self.base.show_diagnostic(color)
 
-    def show_loading(self, title="UPCOMING", message="Loading..."):
+    def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         if hasattr(self.base, "show_loading"):
-            return self.base.show_loading(title, message)
+            return self.base.show_loading(title, message, clock_time)
         return None
 
 

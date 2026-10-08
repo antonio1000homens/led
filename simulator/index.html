@@ -91,8 +91,6 @@
     const BIN_LORRY_SECONDS = 4.0;
     const BIN_LORRY_SPEED = 64;
     const SUN_WEATHER_COLOR_SECONDS = 4.0;
-    const BIN_TEXT_X = 40;
-    const BIN_TEXT_RIGHT = 220;
     const BIN_COLORS = { blue: '#2255ff', green: '#22aa44', black: '#777777' };
     const SUN_WEATHER_ANIMATION_SECONDS = 4.0;
     const SUN_WEATHER_TOTAL_ANIMATION_SECONDS = SUN_WEATHER_ANIMATION_SECONDS * 2;
@@ -507,7 +505,7 @@
       return { start: 0, progress, visible };
     }
     function screenAt(elapsed) {
-      if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
+      if (!screens.length) return { screen: { id: 'loading', kind: 'loading', duration_seconds: 8, title: 'UPCOMING', message: 'Loading...' }, phase: 0, index: 0 };
       const total = screens.reduce((sum, screen) => sum + Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8), 0) * 1000;
       let remaining = elapsed % total;
       for (let index = 0; index < screens.length; index += 1) {
@@ -830,14 +828,13 @@
         const iconX = item.left + 4 + Math.floor((iconTileSize - iconSize) / 8) * 4;
         drawWeatherPattern(item.icon, iconX, iconY, iconScale, stale,
           item.icon === 'clear_day'
-            ? (colorProgress < 1 ? '#0000ff' : '#ffff00')
+            ? '#ffff00'
             : '#0000ff');
         if (item.icon === 'clear_day') {
-          const labelY = 128 + (44 - 128) * easedProgress;
           const yellowLetters = Math.min(7, Math.floor(easedColorProgress * 8));
           [...item.label].forEach((character, index) => {
             const color = stale ? '#777777' : (index < yellowLetters ? '#ffff00' : '#0000ff');
-            drawSunText(character, item.left + 108 + index * 32, labelY, 2, color);
+            drawSunText(character, item.left + 108 + index * 32, 44, 2, color);
           });
         } else {
           const blueLetters = Math.min(6, Math.floor(easedColorProgress * 7));
@@ -888,47 +885,42 @@
       context.fillRect(x + 20 * FONT_PIXEL_SCALE, 10 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE);
       context.fillRect(x + 21 * FONT_PIXEL_SCALE, 9 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE);
       context.fillRect(x + 22 * FONT_PIXEL_SCALE, 8 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE);
-      context.fillStyle = '#11151b';
-      context.fillRect(x + 6 * FONT_PIXEL_SCALE, 15 * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, 4 * FONT_PIXEL_SCALE);
-      context.fillRect(x + 34 * FONT_PIXEL_SCALE, 15 * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, 4 * FONT_PIXEL_SCALE);
+      for (const center of [12, 40]) {
+        context.fillStyle = '#171a1e';
+        context.fillRect(x + (center - 1) * FONT_PIXEL_SCALE, 14 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillRect(x + (center - 2) * FONT_PIXEL_SCALE, 15 * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
+        context.fillRect(x + (center - 1) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillStyle = '#8c959c';
+        context.fillRect(x + (center - 1) * FONT_PIXEL_SCALE, 16 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+      }
     }
 
     function drawBinCollection(screen, phase) {
       const elapsed = Math.max(0, Number(phase) || 0);
-      if (elapsed < BIN_LORRY_SECONDS) {
-        const progress = Math.min(1, elapsed / BIN_LORRY_SECONDS);
-        const x = (256 - elapsed * BIN_LORRY_SPEED) * FONT_PIXEL_SCALE;
-        drawBinLorry(x);
-        status.dataset.detail = 'Next recycling collection';
-        return;
-      }
       const labels = (Array.isArray(screen.collections) ? screen.collections : [])
         .map(item => String(item.label || '')).join(' / ');
-      const width = measureLedText(labels).width;
-      const overflow = Math.max(0, width - 1024);
-      const speed = Math.max(0.1, Number(screen.slide_speed) || 20) * FONT_PIXEL_SCALE;
-      const availableWidth = (BIN_TEXT_RIGHT - BIN_TEXT_X) * FONT_PIXEL_SCALE;
-      const x = overflow
-        ? BIN_TEXT_X * FONT_PIXEL_SCALE - Math.floor(((elapsed - BIN_LORRY_SECONDS) * speed) % (width + 24 * FONT_PIXEL_SCALE))
-        : BIN_TEXT_X * FONT_PIXEL_SCALE + Math.max(0, Math.floor((availableWidth - width) / 2));
+      const progress = Math.min(1, elapsed / BIN_LORRY_SECONDS);
+      const x = Math.max(0, 256 - progress * BIN_LORRY_SECONDS * BIN_LORRY_SPEED) * FONT_PIXEL_SCALE;
+      drawBinLorry(x);
+      const binTypes = binCollectionTypes(screen);
+      const dueLabel = binCollectionDueLabel(screen.collection_date);
+      const dueWidth = measureLedText(dueLabel).width;
+      const binWidth = (binTypes.length * 11 - 2) * FONT_PIXEL_SCALE;
+      const typeWidth = Math.max(0,
+        256 * FONT_PIXEL_SCALE - 52 * FONT_PIXEL_SCALE - dueWidth - binWidth - 12 * FONT_PIXEL_SCALE);
+      const typeLabel = fitLeftText(labels, typeWidth);
+      const typeLabelWidth = measureLedText(typeLabel).width;
+      const dueX = x + (52 + 8) * FONT_PIXEL_SCALE + typeLabelWidth;
+      const binX = dueX + dueWidth + 4 * FONT_PIXEL_SCALE;
+      context.fillStyle = '#ffffff';
+      drawLedText(typeLabel, x + (52 + 4) * FONT_PIXEL_SCALE, 14 * FONT_PIXEL_SCALE);
+      context.fillStyle = '#aaaaaa';
+      drawLedText(dueLabel, dueX, 14 * FONT_PIXEL_SCALE);
       context.fillStyle = '#ffaa00';
       drawLedText(String(screen.title || 'NEXT COLLECTION'), 0, 3 * FONT_PIXEL_SCALE);
-      const binTypes = binCollectionTypes(screen);
-      const binWidth = (binTypes.length * 11 - 2) * FONT_PIXEL_SCALE;
-      const binX = BIN_TEXT_RIGHT * FONT_PIXEL_SCALE - binWidth;
       binTypes.forEach((name, index) => {
-        drawBinIcon(binX + index * 11 * FONT_PIXEL_SCALE, 11 * FONT_PIXEL_SCALE, BIN_COLORS[name]);
+        drawBinIcon(binX + index * 11 * FONT_PIXEL_SCALE, 10 * FONT_PIXEL_SCALE, BIN_COLORS[name]);
       });
-      context.save();
-      context.beginPath();
-      context.rect(BIN_TEXT_X * FONT_PIXEL_SCALE, 13 * FONT_PIXEL_SCALE,
-        availableWidth, 8 * FONT_PIXEL_SCALE);
-      context.clip();
-      context.fillStyle = '#ffffff';
-      drawLedText(labels, x, 14 * FONT_PIXEL_SCALE);
-      context.restore();
-      context.fillStyle = '#aaaaaa';
-      drawLedText(binCollectionDueLabel(screen.collection_date), 0, 25 * FONT_PIXEL_SCALE);
       if (screen.stale || forceStale) {
         context.fillStyle = '#ff3300';
         drawLedText('STALE', STALE_X, HEADER_TEXT_Y);
@@ -1045,7 +1037,16 @@
       context.fillStyle = '#000';
       context.fillRect(0, 0, 1024, 128);
       context.fillStyle = '#ffaa00';
-      if (screen.empty_state) {
+      if (screen.kind === 'loading') {
+        context.fillStyle = '#ffaa00';
+        drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, HEADER_TEXT_Y);
+        context.fillStyle = '#ffffff';
+        const message = String(screen.message || 'Loading...').slice(0, 30);
+        drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
+        drawClock(clock);
+        suppressHeader = true;
+        status.dataset.detail = 'Upcoming loading';
+      } else if (screen.empty_state) {
         const message = String(screen.empty_state);
         context.fillStyle = '#ffffff';
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);

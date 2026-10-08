@@ -148,9 +148,7 @@ BIN_LORRY_WIDTH = 52
 BIN_LORRY_HEIGHT = 20
 BIN_ICON_WIDTH = 9
 BIN_ICON_HEIGHT = 12
-BIN_ICON_Y = 11
-BIN_TEXT_X = 40
-BIN_TEXT_RIGHT = 220
+BIN_ICON_Y = 10
 BIN_COLORS = {
     "blue": 0x2255FF,
     "green": 0x22AA44,
@@ -348,27 +346,14 @@ def _sun_weather_local_phase(icon_name, phase):
 
 
 def _bin_collection_motion_state(screen, phase):
-    """Return whether the bin lorry or collection label is moving."""
+    """Return whether the recycling scene is still entering from the right."""
     try:
         elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         elapsed = 0.0
     if elapsed < BIN_LORRY_SECONDS:
         return True, max(0.05, BIN_LORRY_SECONDS - elapsed)
-    labels = " / ".join(str(item.get("label") or "") for item in screen.get("collections") or [])
-    label_width = len(labels) * 6
-    if label_width <= BIN_TEXT_RIGHT - BIN_TEXT_X:
-        return False, None
-    try:
-        speed = max(0.1, float(screen.get("slide_speed") or 20))
-        elapsed = max(0.0, float(phase or 0))
-    except (TypeError, ValueError):
-        speed, elapsed = 20.0, 0.0
-    cycle_distance = label_width + 24
-    distance = (max(0.0, elapsed - BIN_LORRY_SECONDS) * speed) % cycle_distance
-    if distance < label_width:
-        return True, None
-    return False, max(0.05, (cycle_distance - distance) / speed)
+    return False, None
 
 
 def _bin_collection_types(screen):
@@ -458,11 +443,6 @@ def _sun_weather_icon_y(icon_name, phase):
     return int(round(start_y + (rest_y - start_y) * progress))
 
 
-def _sun_weather_eased_progress(phase):
-    progress = _sun_weather_progress(phase)
-    return progress * progress * (3.0 - 2.0 * progress)
-
-
 def _sun_weather_color_progress(phase):
     try:
         elapsed = max(0.0, float(phase or 0))
@@ -470,11 +450,6 @@ def _sun_weather_color_progress(phase):
         elapsed = 0.0
     progress = min(1.0, elapsed / SUN_WEATHER_COLOR_SECONDS)
     return progress * progress * (3.0 - 2.0 * progress)
-
-
-def _sun_weather_rise_label_y(phase):
-    progress = _sun_weather_eased_progress(phase)
-    return int(round(32 + (11 - 32) * progress))
 
 
 def _sun_weather_rise_label_color(index, phase, stale=False):
@@ -495,13 +470,12 @@ def _sun_weather_set_label_color(index, phase, stale=False):
 
 
 def _sun_weather_rgb(icon_name, stale=False, phase=0):
-    """Keep the moon blue and animate the sunrise sun from blue to yellow."""
+    """Keep the sunrise sun yellow and the moon blue throughout the animation."""
     if stale:
         return 0x777777
     if icon_name == "clear_night":
         return SUN_WEATHER_MOON_COLOR
-    progress = _sun_weather_color_progress(_sun_weather_local_phase(icon_name, phase))
-    return SUN_WEATHER_MOON_COLOR if progress < 1.0 else SUN_WEATHER_SUN_COLOR
+    return SUN_WEATHER_SUN_COLOR
 
 
 def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
@@ -827,11 +801,11 @@ class MatrixDisplay:
         self._bin_key = None
         self._bin_weather = None
         self._bin_header_kind = None
-        self._bin_motion_group = None
         self._bin_label = None
         self._bin_title = None
         self._bin_date_group = None
         self._bin_date = None
+        self._bin_footer_group = None
         self._bin_stale = None
         self._bin_clock_label = None
         self._bin_header_group = None
@@ -839,6 +813,7 @@ class MatrixDisplay:
         self._bin_bins_group = None
         self._bin_lorry_group = None
         self._bin_lorry_grid = None
+        self._bin_lorry_label = None
         self._bin_types = ()
 
     @property
@@ -1444,17 +1419,17 @@ class MatrixDisplay:
         # display refresh scheduler rather than swapping a frame mid-cycle.
         self._refresh()
 
-    def show_loading(self, title="UPCOMING", message="Loading..."):
+    def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         """Show a cheap transition card before building a heavy screen."""
         import displayio
 
         group = displayio.Group()
         title = _clip(title, 30)
         message = _clip(message, 30)
-        title_x = max(0, (DISPLAY_WIDTH - len(title) * WEATHER_FONT_WIDTH) // 2)
         message_x = max(0, (DISPLAY_WIDTH - len(message) * WEATHER_FONT_WIDTH) // 2)
-        self._label(group, title, 0xFFAA00, title_x, 3)
+        self._label(group, title, 0xFFAA00, 0, 3)
         self._label(group, message, 0xFFFFFF, message_x, 18)
+        self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
         self._present(group)
 
     def show_diagnostic(self, color):
@@ -2339,11 +2314,10 @@ class MatrixDisplay:
         for label, value, icon_name, left, right in values:
             width = right - left
             if icon_name == "clear_day":
-                label_y = _sun_weather_rise_label_y(phase)
                 for index, character in enumerate(label):
                     label_grid, label_palette = self._sun_text_label(
                         group, character, _sun_weather_rise_label_color(index, phase, stale),
-                        left + 27 + index * 8, label_y, SUN_WEATHER_TIME_SCALE,
+                        left + 27 + index * 8, 11, SUN_WEATHER_TIME_SCALE,
                     )
                     label_grids.append(("rise", index, label_grid, label_palette))
             else:
@@ -2433,19 +2407,15 @@ class MatrixDisplay:
                 icon_grid.y = next_y
                 icon_grid.pixel_shader[1] = next_color
                 changed = True
-        label_y = _sun_weather_rise_label_y(phase)
         for label_kind, index, label_grid, palette in self._sun_label_grids:
-            if label_kind == "rise":
-                rise_color = _sun_weather_rise_label_color(index, phase, stale)
-                if label_grid.y != label_y or palette[1] != rise_color:
-                    label_grid.y = label_y
-                    palette[1] = rise_color
-                    changed = True
-            else:
-                next_color = _sun_weather_set_label_color(index, phase, stale)
-                if palette[1] != next_color:
-                    palette[1] = next_color
-                    changed = True
+            next_color = (
+                _sun_weather_rise_label_color(index, phase, stale)
+                if label_kind == "rise"
+                else _sun_weather_set_label_color(index, phase, stale)
+            )
+            if palette[1] != next_color:
+                palette[1] = next_color
+                changed = True
         if changed:
             self._refresh(animation_class="weather_sun_slide")
 
@@ -2520,13 +2490,11 @@ class MatrixDisplay:
         for px, py in ((17, 8), (18, 8), (19, 9), (18, 10),
                        (20, 10), (21, 9), (22, 8), (23, 8)):
             bitmap[px, py] = 3
-        rect(6, 15, 7, 4, 4)
-        rect(34, 15, 7, 4, 4)
-        for px, py in ((7, 15), (8, 15), (11, 15), (12, 15),
-                       (7, 18), (8, 18), (11, 18), (12, 18),
-                       (35, 15), (36, 15), (39, 15), (40, 15),
-                       (35, 18), (36, 18), (39, 18), (40, 18)):
-            bitmap[px, py] = 4
+        for center in (12, 40):
+            rect(center - 1, 14, 3, 1, 4)
+            rect(center - 2, 15, 5, 3, 4)
+            rect(center - 1, 18, 3, 1, 4)
+            rect(center - 1, 16, 2, 2, 3)
         grid = displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=6)
         # The lorry travels left, so put the cab on the leading (left) side.
         grid.flip_x = True
@@ -2541,31 +2509,40 @@ class MatrixDisplay:
         items = screen.get("collections") or []
         labels = " / ".join(str(item.get("label") or "") for item in items)
         self._bin_title = self._label(content, _clip(title, 40), 0xFFAA00, 0, 3)
-        self._bin_bins_group = displayio.Group()
         self._bin_types = _bin_collection_types(screen)
         bin_width = len(self._bin_types) * (BIN_ICON_WIDTH + 2) - 2
-        self._bin_bins_group.x = BIN_TEXT_RIGHT - bin_width
-        for index, name in enumerate(self._bin_types):
-            self._build_bin_icon(self._bin_bins_group, name, index * (BIN_ICON_WIDTH + 2))
-        content.append(self._bin_bins_group)
-        self._bin_motion_group = displayio.Group()
-        self._bin_label = self._label(self._bin_motion_group, labels, 0xFFFFFF, 0, 14)
-        content.append(self._bin_motion_group)
-        self._bin_date_group = displayio.Group()
-        self._bin_date = self._label(
-            self._bin_date_group,
-            _bin_collection_due_label(screen.get("collection_date"), clock_date),
-            0xAAAAAA,
+        due_label = _bin_collection_due_label(screen.get("collection_date"), clock_date)
+        due_width = len(due_label) * WEATHER_FONT_WIDTH
+        type_width = max(
             0,
-            24,
+            DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3,
         )
-        group.append(self._bin_date_group)
+        type_label = _fit_text_pixels(labels, type_width)
+        type_label_width = len(type_label) * WEATHER_FONT_WIDTH
         group.append(content)
         self._bin_content_group = content
         self._bin_lorry_group = displayio.Group()
         self._bin_lorry_grid = self._build_bin_lorry()
+        self._bin_lorry_grid.x = 0
         self._bin_lorry_group.append(self._bin_lorry_grid)
+        self._bin_lorry_label = self._label(
+            self._bin_lorry_group,
+            type_label,
+            0xFFFFFF,
+            BIN_LORRY_WIDTH + HEADER_GAP,
+            14,
+        )
+        due_x = BIN_LORRY_WIDTH + HEADER_GAP * 2 + type_label_width
+        self._bin_date = self._label(self._bin_lorry_group, due_label, 0xAAAAAA, due_x, 14)
+        self._bin_bins_group = displayio.Group()
+        self._bin_bins_group.x = due_x + due_width + HEADER_GAP
+        for index, name in enumerate(self._bin_types):
+            self._build_bin_icon(self._bin_bins_group, name, index * (BIN_ICON_WIDTH + 2))
+        self._bin_lorry_group.append(self._bin_bins_group)
         group.append(self._bin_lorry_group)
+        self._bin_footer_group = self._bin_lorry_group
+        self._bin_date_group = self._bin_lorry_group
+        self._bin_label = self._bin_lorry_label
         if screen.get("stale"):
             self._bin_stale = self._label(group, "STALE", 0xFF3300, STALE_X, 3)
         else:
@@ -2599,40 +2576,12 @@ class MatrixDisplay:
         else:
             changed = False
         try:
-            speed = max(0.1, float(screen.get("slide_speed") or 20))
-        except (TypeError, ValueError):
-            speed = 20.0
-        label_width = len(self._bin_key[1]) * 6
-        try:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        settled = elapsed >= BIN_LORRY_SECONDS
-        date_x = 0
-        if not settled:
-            # Keep the date behind the lorry as it enters from the right.
-            date_x = _bin_lorry_x(elapsed) + BIN_LORRY_WIDTH + 4
-        if self._bin_date_group.x != date_x:
-            self._bin_date_group.x = date_x
-            changed = True
-        available_width = BIN_TEXT_RIGHT - BIN_TEXT_X
-        if label_width > available_width:
-            travel = label_width + 24
-            next_x = BIN_TEXT_X - int((max(0.0, elapsed - BIN_LORRY_SECONDS) * speed) % travel)
-        else:
-            next_x = BIN_TEXT_X + max(0, (available_width - label_width) // 2)
-        if self._bin_motion_group.x != next_x:
-            self._bin_motion_group.x = next_x
-            changed = True
-        if self._bin_content_group.hidden == (not settled):
-            self._bin_content_group.hidden = not settled
-            changed = True
-        next_lorry_x = _bin_lorry_x(elapsed)
-        if self._bin_lorry_grid.x != next_lorry_x:
-            self._bin_lorry_grid.x = next_lorry_x
-            changed = True
-        if self._bin_lorry_group.hidden == settled:
-            self._bin_lorry_group.hidden = settled
+        next_lorry_x = _bin_lorry_x(min(elapsed, BIN_LORRY_SECONDS))
+        if self._bin_lorry_group.x != next_lorry_x:
+            self._bin_lorry_group.x = next_lorry_x
             changed = True
         if self._bin_clock_label is not None:
             if self._bin_clock_label.text != clock_time:
@@ -2860,52 +2809,48 @@ class FixtureDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        if elapsed < BIN_LORRY_SECONDS:
-            x = _bin_lorry_x(elapsed)
-            def mirror(left, width):
-                return x + BIN_LORRY_WIDTH - left - width
+        x = _bin_lorry_x(min(elapsed, BIN_LORRY_SECONDS))
+        def mirror(left, width):
+            return x + BIN_LORRY_WIDTH - left - width
 
-            self._fill_rect(mirror(2, 32), 11, 32, 8, (34, 170, 68))
-            self._fill_rect(mirror(32, 17), 13, 17, 6, (255, 170, 0))
-            self._fill_rect(mirror(36, 11), 11, 10, 3, (255, 170, 0))
-            self._fill_rect(mirror(37, 6), 13, 5, 2, (221, 238, 255))
-            self._fill_rect(mirror(44, 4), 13, 4, 2, (221, 238, 255))
-            for px, py in ((17, 14), (18, 14), (19, 15),
-                           (18, 16), (20, 16), (21, 15),
-                           (22, 14), (23, 14)):
-                px = x + BIN_LORRY_WIDTH - 1 - px
-                self._fill_rect(px, py, 1, 1, (221, 238, 255))
-            for wheel_x in (8, 36):
-                self._fill_rect(x + BIN_LORRY_WIDTH - wheel_x - 7, 19, 7, 2, (34, 34, 34))
-            self._text(
-                _bin_collection_due_label(screen.get("collection_date"), clock_date),
-                x + BIN_LORRY_WIDTH + 4,
-                25,
-                (170, 170, 170),
-            )
-            return
-        label_width = len(labels) * 6
-        speed = max(0.1, float(screen.get("slide_speed") or 20))
-        available_width = BIN_TEXT_RIGHT - BIN_TEXT_X
-        if label_width > available_width:
-            x = BIN_TEXT_X - int(((elapsed - BIN_LORRY_SECONDS) * speed) % (label_width + 24))
-        else:
-            x = BIN_TEXT_X + max(0, (available_width - label_width) // 2)
+        self._fill_rect(mirror(2, 32), 11, 32, 8, (34, 170, 68))
+        self._fill_rect(mirror(32, 17), 13, 17, 6, (255, 170, 0))
+        self._fill_rect(mirror(36, 11), 11, 10, 3, (255, 170, 0))
+        self._fill_rect(mirror(37, 6), 13, 5, 2, (221, 238, 255))
+        self._fill_rect(mirror(44, 4), 13, 4, 2, (221, 238, 255))
+        for px, py in ((17, 14), (18, 14), (19, 15),
+                       (18, 16), (20, 16), (21, 15),
+                       (22, 14), (23, 14)):
+            px = x + BIN_LORRY_WIDTH - 1 - px
+            self._fill_rect(px, py, 1, 1, (221, 238, 255))
+        for center in (12, 40):
+            self._fill_rect(x + center - 1, 14, 3, 1, (23, 26, 30))
+            self._fill_rect(x + center - 2, 15, 5, 3, (23, 26, 30))
+            self._fill_rect(x + center - 1, 18, 3, 1, (23, 26, 30))
+            self._fill_rect(x + center - 1, 16, 2, 2, (140, 149, 156))
         self._text(_clip(str(screen.get("title") or "NEXT COLLECTION"), 40), 0, 3, (255, 170, 0))
         bin_types = _bin_collection_types(screen)
+        due_label = _bin_collection_due_label(screen.get("collection_date"), clock_date)
         bin_width = len(bin_types) * (BIN_ICON_WIDTH + 2) - 2
-        bin_x = BIN_TEXT_RIGHT - bin_width
+        due_width = len(due_label) * WEATHER_FONT_WIDTH
+        type_width = max(
+            0,
+            DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3,
+        )
+        type_label = _fit_text_pixels(labels, type_width)
+        type_label_width = len(type_label) * WEATHER_FONT_WIDTH
+        due_x = x + BIN_LORRY_WIDTH + HEADER_GAP * 2 + type_label_width
+        bin_x = due_x + due_width + HEADER_GAP
         for index, name in enumerate(bin_types):
             color = tuple((BIN_COLORS[name] >> shift) & 0xFF for shift in (16, 8, 0))
             icon_x = bin_x + index * (BIN_ICON_WIDTH + 2)
-            self._fill_rect(icon_x + 3, 11, 3, 1, color)
-            self._fill_rect(icon_x, 12, BIN_ICON_WIDTH, 2, color)
-            self._fill_rect(icon_x + 1, 14, BIN_ICON_WIDTH - 2, 7, color)
-            self._fill_rect(icon_x + 2, 21, 2, 2, (17, 17, 17))
-            self._fill_rect(icon_x + 5, 21, 2, 2, (17, 17, 17))
-        self._text(labels, x, 14, (255, 255, 255))
-        self._text(_bin_collection_due_label(screen.get("collection_date"), clock_date),
-                   0, 25, (170, 170, 170))
+            self._fill_rect(icon_x + 3, 10, 3, 1, color)
+            self._fill_rect(icon_x, 11, BIN_ICON_WIDTH, 2, color)
+            self._fill_rect(icon_x + 1, 13, BIN_ICON_WIDTH - 2, 7, color)
+            self._fill_rect(icon_x + 2, 20, 2, 2, (17, 17, 17))
+            self._fill_rect(icon_x + 5, 20, 2, 2, (17, 17, 17))
+        self._text(type_label, x + BIN_LORRY_WIDTH + HEADER_GAP, 14, (255, 255, 255))
+        self._text(due_label, due_x, 14, (170, 170, 170))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
@@ -2983,7 +2928,6 @@ class FixtureDisplay:
         )
         for label, value, icon_name, left, right in values:
             width = right - left
-            label_y = _sun_weather_rise_label_y(phase) if icon_name == "clear_day" else 11
             for index, character in enumerate(label):
                 label_palette_color = (
                     _sun_weather_rise_label_color(index, phase, stale)
@@ -2993,7 +2937,7 @@ class FixtureDisplay:
                 self._text_scaled(
                     character,
                     left + 27 + index * 8,
-                    label_y,
+                    11,
                     _rgb_tuple(label_palette_color),
                     SUN_WEATHER_TIME_SCALE,
                 )
@@ -3258,17 +3202,17 @@ class FixtureDisplay:
         if kind not in WEATHER_FULLSCREEN_KINDS and screen.get("stale"):
             print("STALE")
 
-    def show_loading(self, title="UPCOMING", message="Loading..."):
+    def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         if self.pixels is None:
-            print("\n{} {}".format(title, message))
+            print("\n{} {} {}".format(title, message, clock_time))
             return
         self.pixels.fill((0, 0, 0))
         title = _clip(title, 30)
         message = _clip(message, 30)
-        title_x = max(0, (DISPLAY_WIDTH - len(title) * WEATHER_FONT_WIDTH) // 2)
         message_x = max(0, (DISPLAY_WIDTH - len(message) * WEATHER_FONT_WIDTH) // 2)
-        self._text(title, title_x, 3, (255, 170, 0))
+        self._text(title, 0, 0, (255, 170, 0))
         self._text(message, message_x, 18, (255, 255, 255))
+        self._text(clock_time, CLOCK_X, 0, (255, 100, 0))
         self.pixels.show()
 
     def show_diagnostic(self, color):

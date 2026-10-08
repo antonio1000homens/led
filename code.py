@@ -624,7 +624,7 @@ while True:
             # The Todoist scene can take several seconds to construct on the
             # MatrixPortal. Present a cheap transition card first so the old
             # departures marquee is never left frozen during that work.
-            display.show_loading("UPCOMING", "Loading...")
+            display.show_loading("UPCOMING", "Loading...", clock.text(now))
         print(
             "RENDER START id={} kind={} index={} phase={} mode={} mem={}".format(
                 render_key[0], render_key[1], rotation.index, phase, runtime_mode.mode, memory_before

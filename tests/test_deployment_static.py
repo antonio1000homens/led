@@ -10,11 +10,22 @@ class DeploymentStaticTests(unittest.TestCase):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawBinCollection(screen, phase)", simulator)
         self.assertIn("screen.kind === 'bin_collection'", simulator)
-        self.assertIn("screen.slide_speed", simulator)
         self.assertIn("screen.collection_date", simulator)
+        self.assertIn("drawLedText(dueLabel, dueX, 14 * FONT_PIXEL_SCALE);", simulator)
+        self.assertIn("drawBinIcon(binX + index * 11 * FONT_PIXEL_SCALE, 10 * FONT_PIXEL_SCALE", simulator)
+        self.assertIn("for (const center of [12, 40])", simulator)
         self.assertIn("if (screen.stale || forceStale)", simulator)
         self.assertIn("Preview recycling screen", simulator)
         self.assertIn("id: 'homeassistant-next-bin'", simulator)
+
+    def test_loading_upcoming_card_matches_upcoming_header_position(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
+        self.assertIn("kind: 'loading', duration_seconds: 8, title: 'UPCOMING', message: 'Loading...'", simulator)
+        self.assertIn("drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, HEADER_TEXT_Y);", simulator)
+        self.assertIn("drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);", simulator)
+        self.assertIn("self._label(group, title, 0xFFAA00, 0, 3)", display)
+        self.assertIn("self._text(title, 0, 0, (255, 170, 0))", display)
 
     def test_simulator_preview_uses_full_available_width(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")

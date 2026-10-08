@@ -105,6 +105,12 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_loading_title_matches_upcoming_header_position(self):
+        display = CapturingFixture()
+        display.pixels = FakePixels()
+        display.show_loading()
+        self.assertIn(("UPCOMING", 0, 0, (255, 170, 0)), display.drawn)
+
     def test_bin_collection_one_and_two_collection_layout(self):
         display = CapturingFixture()
         display._draw_screen({
@@ -114,8 +120,16 @@ class DisplayLayoutTests(unittest.TestCase):
             "slide_speed": 20,
         }, 4, clock_date="2026-10-07")
         self.assertIn(("NEXT COLLECTION", 0, 3, (255, 170, 0)), display.drawn)
-        self.assertIn(("Mixed recycling", 85, 14, (255, 255, 255)), display.drawn)
-        self.assertIn(("DUE IN 6 DAYS", 0, 25, (170, 170, 170)), display.drawn)
+        self.assertIn(("Mixed recycling", 56, 14, (255, 255, 255)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 135, 14, (170, 170, 170)), display.drawn)
+        display.drawn = []
+        display._draw_screen({
+            "kind": "bin_collection", "title": "NEXT COLLECTION",
+            "collection_date": "2026-10-13",
+            "collections": [{"id": "mixed", "label": "Mixed recycling"}],
+            "slide_speed": 20,
+        }, 5, clock_date="2026-10-07")
+        self.assertIn(("DUE IN 6 DAYS", 135, 14, (170, 170, 170)), display.drawn)
 
         display.drawn = []
         display._draw_screen({
@@ -125,9 +139,9 @@ class DisplayLayoutTests(unittest.TestCase):
                             {"id": "paper", "label": "Paper"}],
             "slide_speed": 20,
         }, 4, clock_date="2026-10-07")
-        self.assertIn(("Mixed recycling / Paper", 61, 14, (255, 255, 255)), display.drawn)
+        self.assertIn(("Mixed recycling / P", 56, 14, (255, 255, 255)), display.drawn)
 
-    def test_bin_collection_long_label_moves_at_supplied_speed(self):
+    def test_bin_collection_long_label_stays_with_parked_lorry(self):
         display = CapturingFixture()
         screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
                   "collection_date": "2026-10-13", "slide_speed": 20,
@@ -137,7 +151,8 @@ class DisplayLayoutTests(unittest.TestCase):
         display.drawn = []
         display._draw_screen(screen, 5)
         second = next(item for item in display.drawn if item[0].startswith("A very long"))
-        self.assertEqual(first[1] - second[1], 20)
+        self.assertEqual(first[1], second[1])
+        self.assertEqual(first[1], led_display.BIN_LORRY_WIDTH + led_display.HEADER_GAP)
 
     def test_bin_collection_date_follows_lorry_in_from_right(self):
         display = CapturingFixture()
@@ -145,7 +160,11 @@ class DisplayLayoutTests(unittest.TestCase):
                   "collection_date": "2026-10-13", "slide_speed": 20,
                   "collections": [{"id": "x", "label": "Mixed recycling"}]}
         display._draw_screen(screen, 3, clock_date="2026-10-07")
-        self.assertIn(("DUE IN 6 DAYS", 120, 25, (170, 170, 170)), display.drawn)
+        self.assertNotIn(("DUE IN 6 DAYS", 120, 25, (170, 170, 170)), display.drawn)
+        self.assertIn(("Mixed recycling", 120, 14, (255, 255, 255)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 199, 14, (170, 170, 170)), display.drawn)
+        display._draw_screen(screen, 5, clock_date="2026-10-07")
+        self.assertIn(("DUE IN 6 DAYS", 135, 14, (170, 170, 170)), display.drawn)
 
     def test_bin_collection_blank_scroll_gap_allows_transport_reconnect(self):
         display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
@@ -189,17 +208,38 @@ class DisplayLayoutTests(unittest.TestCase):
                       "collection_date": "2026-10-13", "slide_speed": 20,
                       "collections": [{"id": "mixed", "label": "Mixed recycling"}],
                       "weather": None}
+            display._show_bin_collection(screen, "21:00", "2026-10-07", 2)
+            self.assertFalse(display._bin_content_group.hidden)
+            self.assertFalse(display._bin_lorry_group.hidden)
+            self.assertEqual(display._bin_lorry_group.x, led_display._bin_lorry_x(2))
+            self.assertEqual(display._bin_lorry_grid.x, 0)
+            footer_mid_x = display._bin_footer_group.x
+            self.assertEqual(footer_mid_x, display._bin_lorry_group.x)
+            display._show_bin_collection(screen, "21:00", "2026-10-07", 3)
+            self.assertFalse(display._bin_content_group.hidden)
+            self.assertFalse(display._bin_lorry_group.hidden)
+            self.assertEqual(display._bin_lorry_group.x, led_display._bin_lorry_x(3))
             display._show_bin_collection(screen, "21:00", "2026-10-07", 4)
-            self.assertEqual((display._bin_title.text, display._bin_label.text, display._bin_date.text),
-                             ("NEXT COLLECTION", "Mixed recycling", "DUE IN 6 DAYS"))
+            self.assertFalse(display._bin_content_group.hidden)
+            self.assertFalse(display._bin_lorry_group.hidden)
+            self.assertEqual(display._bin_lorry_group.x, 0)
+            self.assertEqual(display._bin_date.y, 14)
+            self.assertEqual((display._bin_title.text, display._bin_date.text),
+                             ("NEXT COLLECTION", "DUE IN 6 DAYS"))
+            self.assertEqual(display._bin_label.text, "Mixed recycling")
+            self.assertEqual(display._bin_lorry_label.text, "Mixed recycling")
+            self.assertEqual(display._bin_footer_group.x, 0)
             self.assertTrue(display._bin_lorry_grid.flip_x)
             self.assertEqual(display._bin_clock_label.text, "21:00")
+            self.assertEqual(display._bin_bins_group.x, 204)
             long_screen = dict(screen)
             long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]
             display._show_bin_collection(long_screen, "21:00", "2026-10-07", 4)
-            start_x = display._bin_motion_group.x
+            start_x = display._bin_lorry_group.x
             display._show_bin_collection(long_screen, "21:00", "2026-10-07", 5)
-            self.assertEqual(start_x - display._bin_motion_group.x, 20)
+            self.assertEqual(start_x, display._bin_lorry_group.x)
+            self.assertTrue(display._bin_lorry_label.text.startswith("Mixed recycling"))
+            self.assertLess(len(display._bin_lorry_label.text), len("Mixed recycling " * 5))
         finally:
             if previous is None:
                 del sys.modules["displayio"]
@@ -382,7 +422,8 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertGreater(moon_mid, led_display.SUN_WEATHER_SET_START_Y)
         self.assertLess(moon_mid, led_display.SUN_WEATHER_ICON_Y)
 
-        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 0), 0x0000FF)
+        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 0), 0xFFFF00)
+        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 2), 0xFFFF00)
         self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 4), 0xFFFF00)
         self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 4), 0x0000FF)
         self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 8), 0x0000FF)
