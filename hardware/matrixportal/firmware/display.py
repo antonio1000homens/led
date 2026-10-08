@@ -2688,6 +2688,27 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
+        if not empty_state and kind == "dad_joke":
+            group = displayio.Group()
+            self._label(group, "DAD JOKE", 0xFFAA00, 0, 0)
+            joke = str(screen.get("joke") or "")
+            # Fullscreen compact text; wrap at word boundaries for 5x7 glyphs.
+            words = joke.split()
+            lines = []
+            current = ""
+            for word in words:
+                candidate = (current + " " + word).strip()
+                if len(candidate) > 42 and current:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = candidate
+            if current:
+                lines.append(current)
+            for index, line in enumerate(lines[:3]):
+                self._label(group, line[:42], 0xFFFFFF, 0, 9 + index * 8)
+            self._present(group)
+            return
         if not empty_state and kind == "flash":
             self._show_flash(screen, phase)
             return
@@ -3025,7 +3046,23 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
-        if kind == "steam_train_intro":
+        if kind == "dad_joke":
+            self._text("DAD JOKE", 0, 0, (255, 170, 0))
+            words = str(screen.get("joke") or "").split()
+            lines = []
+            current = ""
+            for word in words:
+                next_line = (current + " " + word).strip()
+                if len(next_line) > 42 and current:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = next_line
+            if current:
+                lines.append(current)
+            for index, line in enumerate(lines[:3]):
+                self._text(line[:42], 0, 9 + index * 8, (255, 255, 255))
+        elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
         elif kind == "weather_weekly":
             self._weekly_weather(screen)

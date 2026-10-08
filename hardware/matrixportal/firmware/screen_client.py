@@ -256,6 +256,8 @@ class ScreenRotation:
         self.index = 0
         self.started_at = None
         self._paused = None
+        self.cycle_number = 0
+        self._shown_once = {}
 
     def update(self, screens, now):
         """Replace the HTTP collection, retaining the legacy single-source API."""
@@ -344,6 +346,7 @@ class ScreenRotation:
         next_screens = list(self.http_screens) + mqtt
         self.screens = next_screens
         if not next_screens:
+            self.cycle_number = 0
             self.index = 0
             self.started_at = None
             return
@@ -393,8 +396,24 @@ class ScreenRotation:
             return self.screens[self.index % len(self.screens)], 0
         if self.started_at is None:
             self.started_at = now
+        skipped = 0
         while True:
             screen = self.screens[self.index]
+            interval = max(1, int(screen.get("display_every_cycles") or 1))
+            once_key = screen.get("joke") if screen.get("kind") == "dad_joke" else None
+            already_shown = once_key is not None and self._shown_once.get(screen.get("id")) == once_key
+            if self.cycle_number % interval or already_shown:
+                self._advance_screen()
+                skipped += 1
+                if skipped >= len(self.screens):
+                    # All screens were suppressed. Avoid a tight infinite loop.
+                    return {
+                        "id": "unavailable", "kind": "message",
+                        "duration_seconds": 8, "title": "Waiting for new content",
+                        "source": "local", "stale": False,
+                    }, 0
+                continue
+            skipped = 0
             duration = max(
                 1.0,
                 float(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
@@ -405,14 +424,24 @@ class ScreenRotation:
             if elapsed < duration:
                 return screen, elapsed
             self.started_at += duration
-            self.index = (self.index + 1) % len(self.screens)
+            if once_key is not None:
+                self._shown_once[screen.get("id")] = once_key
+            self._advance_screen()
+
+    def _advance_screen(self):
+        self.index += 1
+        if self.index >= len(self.screens):
+            self.index = 0
+            self.cycle_number += 1
 
     def next(self, now):
         """Move immediately to the next screen and restart its duration."""
         if not self.screens:
             return
-        self.current(now)
-        self.index = (self.index + 1) % len(self.screens)
+        screen, _ = self.current(now)
+        if screen.get("kind") == "dad_joke":
+            self._shown_once[screen.get("id")] = screen.get("joke")
+        self._advance_screen()
         self.started_at = now
 
     def pause(self, now):
