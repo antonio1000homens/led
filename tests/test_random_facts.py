@@ -142,6 +142,11 @@ class RandomFactTests(unittest.TestCase):
         self.assertTrue(screen_by_id(fourth, "random-fact")["stale"])
         self.assertEqual(screen_by_id(fourth, "random-fact")["fact"], "Another fact")
 
+    def test_lambda_packaging_includes_both_novelty_providers(self):
+        package_script = (ROOT / "scripts" / "package-lambda.sh").read_text()
+        self.assertIn('backend/dad_jokes.py', package_script)
+        self.assertIn('backend/random_facts.py', package_script)
+
     def test_disabled_fact_does_not_fetch(self):
         runtime = default_runtime_config({
             "LED_THORPE_PARK_SOURCE": "off",
