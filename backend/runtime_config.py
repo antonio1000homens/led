@@ -379,7 +379,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
         "updated_by": "system:defaults",
     }
     for feed_id, feed in result["feeds"].items():
-        if FEED_REGISTRY[feed_id].get("screen_duration"):
+        if FEED_REGISTRY[feed_id].get("screen_duration") and not FEED_REGISTRY[feed_id].get("flash"):
             feed["display_every_cycles"] = 1
     return result
 
@@ -395,7 +395,7 @@ def schema_metadata() -> dict[str, Any]:
                 "maximum": MAX_POLL_SECONDS,
             },
         }
-        if definition.get("screen_duration"):
+        if definition.get("screen_duration") and not definition.get("flash"):
             fields["display_every_cycles"] = {"type": "integer", "minimum": 1, "maximum": MAX_DISPLAY_EVERY_CYCLES}
             fields["screen_duration_seconds"] = {
                 "type": "integer",
@@ -453,7 +453,7 @@ def schema_metadata() -> dict[str, Any]:
         feeds[feed_id] = {
             "label": definition["label"],
             "provider": definition["provider"],
-            "mutable_fields": list(definition["mutable_fields"]) + (["display_every_cycles"] if definition.get("screen_duration") else []),
+            "mutable_fields": list(definition["mutable_fields"]) + (["display_every_cycles"] if definition.get("screen_duration") and not definition.get("flash") else []),
             "fields": fields,
             **({"advanced_fields": list(definition["advanced_fields"])} if definition.get("advanced_fields") else {}),
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
@@ -657,7 +657,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if not isinstance(raw_value, dict):
             raise RuntimeConfigValidationError(f"{feed_id} must be an object")
         raw = copy.deepcopy(raw_value)
-        if FEED_REGISTRY[feed_id].get("screen_duration"):
+        if FEED_REGISTRY[feed_id].get("screen_duration") and not FEED_REGISTRY[feed_id].get("flash"):
             raw.setdefault("display_every_cycles", 1)
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
@@ -674,7 +674,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
-        if FEED_REGISTRY[feed_id].get("screen_duration"):
+        if FEED_REGISTRY[feed_id].get("screen_duration") and not FEED_REGISTRY[feed_id].get("flash"):
             expected.add("display_every_cycles")
         if set(raw) != expected:
             raise RuntimeConfigValidationError(f"{feed_id} contains missing or unknown fields")
