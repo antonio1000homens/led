@@ -22,6 +22,7 @@ from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from weather import OpenMeteoProvider
 from dad_jokes import DadJokeProvider
+from random_facts import RandomFactProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
 
 STATE_KEY = "state/feed-cache.json"
@@ -208,7 +209,8 @@ class S3StateStore:
 
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
-                 calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None):
+                 calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
+                  fact_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -227,6 +229,7 @@ class Publisher:
             self.queue_providers[feed_id] = provider
         self.weather_provider = weather_provider or OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
         self.joke_provider = joke_provider or DadJokeProvider()
+        self.fact_provider = fact_provider or RandomFactProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -284,6 +287,23 @@ class Publisher:
                 return {"source": "icanhazdadjoke", "fetched_at": _iso(now),
                         "joke": joke, "history": (history + [joke])[-100:]}
         raise ValueError("Dad joke API returned only previously cached jokes")
+
+    def _fetch_fact(self, now, previous=None):
+        # Store recent displayed fact text in the same durable S3 feed cache as jokes.
+        old = (previous or {}).get("data") or {}
+        history = list(old.get("history") or [])[-99:]
+        if old.get("fact") and old["fact"] not in history:
+            history.append(old["fact"])
+        for _ in range(3):
+            fact = self.fact_provider.fetch()
+            if fact["text"] not in history:
+                return {
+                    "source": "uselessfacts.jsph.pl", "fetched_at": _iso(now),
+                    "fact": fact["text"], "fact_id": fact["id"],
+                    "fact_source": fact.get("source"),
+                    "history": (history + [fact["text"]])[-100:],
+                }
+        raise ValueError("Facts API returned only previously cached facts")
 
     def _fetch_weather(self, now):
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
@@ -456,6 +476,20 @@ class Publisher:
                     "stale": bool(cached_joke.get("stale")),
                     "joke": joke_data["joke"],
                 })
+        fact_cfg = config_feeds["random_fact"]
+        if fact_cfg["enabled"]:
+            cached_fact = feeds.get("random_fact") or {}
+            fact_data = cached_fact.get("data") or {}
+            if fact_data.get("fact"):
+                screens.append({
+                    "id": "random-fact", "kind": "random_fact",
+                    "title": "DID YOU KNOW?", "source": "uselessfacts.jsph.pl",
+                    "duration_seconds": fact_cfg["screen_duration_seconds"],
+                    "stale": bool(cached_fact.get("stale")),
+                    "fact": fact_data["fact"],
+                    "fact_id": fact_data.get("fact_id"),
+                    "fact_source": fact_data.get("fact_source"),
+                })
         weather_config = config_feeds["weather"]
         if weather_config["enabled"]:
             weather = feeds.get("weather") or {}
@@ -520,6 +554,7 @@ class Publisher:
         # data-refresh cycles must not change screen visibility cadence.
         schedule_feeds = {"departures": "departures", "queue-times": "queue_times",
                           "calendar": "calendar", "dad-joke": "dad_joke",
+                           "random-fact": "random_fact",
                           "weather-weekly": "weather", "weather-today": "weather",
                           "weather-sun": "weather"}
         for screen in screens:
@@ -596,6 +631,11 @@ class Publisher:
             feeds["dad_joke"] = self._refresh(
                 "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"],
                 lambda: self._fetch_joke(now, feeds.get("dad_joke")), now,
+            )
+        if settings["random_fact"]["enabled"]:
+            feeds["random_fact"] = self._refresh(
+                "random_fact", feeds.get("random_fact"), settings["random_fact"]["poll_seconds"],
+                lambda: self._fetch_fact(now, feeds.get("random_fact")), now,
             )
         if settings["weather"]["enabled"]:
             weather_previous = feeds.get("weather")

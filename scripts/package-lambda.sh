@@ -21,6 +21,8 @@ cp \
   "${ROOT_DIR}/backend/server.py" \
   "${ROOT_DIR}/backend/queue_times.py" \
   "${ROOT_DIR}/backend/weather.py" \
+  "${ROOT_DIR}/backend/dad_jokes.py" \
+  "${ROOT_DIR}/backend/random_facts.py" \
   "${ROOT_DIR}/backend/todoist.py" \
   "${ROOT_DIR}/shared/formatting.py" \
   "${ROOT_DIR}/shared/fixtures.py" \

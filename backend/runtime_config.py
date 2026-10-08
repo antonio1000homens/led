@@ -209,6 +209,12 @@ FEED_REGISTRY = {
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
     },
+    "random_fact": {
+        "label": "Random facts",
+        "provider": "uselessfacts.jsph.pl",
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "screen_duration": True,
+    },
     "calendar": {
         "label": "Calendar",
         "provider": "todoist",
@@ -342,6 +348,11 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "sun_duration_seconds": DEFAULT_WEATHER_SUN_DURATION_SECONDS,
             },
             "dad_joke": {
+                "enabled": False,
+                "poll_seconds": 3600,
+                "screen_duration_seconds": 15,
+            },
+            "random_fact": {
                 "enabled": False,
                 "poll_seconds": 3600,
                 "screen_duration_seconds": 15,
@@ -645,7 +656,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     supplied_feed_ids = set(raw_feeds)
     missing_feed_ids = supported_feed_ids - supplied_feed_ids
     unknown_feed_ids = supplied_feed_ids - supported_feed_ids
-    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke"}
+    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact"}
     if unknown_feed_ids or not missing_feed_ids.issubset(additive_feed_ids):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
     for feed_id in missing_feed_ids:

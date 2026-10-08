@@ -123,6 +123,37 @@ WEEKLY_WEATHER_TEMPERATURE_Y = 25
 TODAY_WEATHER_ICON_Y = 11
 TODAY_WEATHER_TEMPERATURE_Y = 27
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
+
+
+def _novelty_page(screen, phase):
+    """Wrap novelty text, advancing longer facts across pages during their slot."""
+    message = str(screen.get("joke") if screen.get("kind") == "dad_joke" else screen.get("fact") or "")
+    lines, current = [], ""
+    for word in message.split():
+        # Split unusually long uninterrupted words rather than silently clipping.
+        while len(word) > 42:
+            if current:
+                lines.append(current)
+                current = ""
+            lines.append(word[:42])
+            word = word[42:]
+        if not word:
+            continue
+        candidate = (current + " " + word).strip()
+        if len(candidate) > 42 and current:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    if not lines:
+        return []
+    pages = (len(lines) + 2) // 3
+    duration = max(1.0, float(screen.get("duration_seconds") or 15))
+    page = min(pages - 1, int(max(0.0, float(phase)) * pages / duration))
+    return lines[page * 3:page * 3 + 3]
+
 WEEKLY_WEATHER_TEXT_SCALE = 1
 WEEKLY_WEATHER_GLYPH_WIDTH = 3
 WEEKLY_WEATHER_GLYPHS = {
@@ -2652,25 +2683,12 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
-        if not empty_state and kind == "dad_joke":
+        if not empty_state and kind in ("dad_joke", "random_fact"):
             group = displayio.Group()
-            self._label(group, "DAD JOKE", 0xFFAA00, 0, 0)
-            joke = str(screen.get("joke") or "")
-            # Fullscreen compact text; wrap at word boundaries for 5x7 glyphs.
-            words = joke.split()
-            lines = []
-            current = ""
-            for word in words:
-                candidate = (current + " " + word).strip()
-                if len(candidate) > 42 and current:
-                    lines.append(current)
-                    current = word
-                else:
-                    current = candidate
-            if current:
-                lines.append(current)
-            for index, line in enumerate(lines[:3]):
-                self._label(group, line[:42], 0xFFFFFF, 0, 9 + index * 8)
+            heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
+            self._label(group, heading, 0xFFAA00, 0, 0)
+            for index, line in enumerate(_novelty_page(screen, phase)):
+                self._label(group, line, 0xFFFFFF, 0, 9 + index * 8)
             self._present(group)
             return
         if not empty_state and kind == "flash":
@@ -3005,22 +3023,11 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date=""):
         kind = screen.get("kind")
-        if kind == "dad_joke":
-            self._text("DAD JOKE", 0, 0, (255, 170, 0))
-            words = str(screen.get("joke") or "").split()
-            lines = []
-            current = ""
-            for word in words:
-                next_line = (current + " " + word).strip()
-                if len(next_line) > 42 and current:
-                    lines.append(current)
-                    current = word
-                else:
-                    current = next_line
-            if current:
-                lines.append(current)
-            for index, line in enumerate(lines[:3]):
-                self._text(line[:42], 0, 9 + index * 8, (255, 255, 255))
+        if kind in ("dad_joke", "random_fact"):
+            heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
+            self._text(heading, 0, 0, (255, 170, 0))
+            for index, line in enumerate(_novelty_page(screen, phase)):
+                self._text(line, 0, 9 + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
         elif kind == "weather_weekly":
