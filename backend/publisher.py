@@ -21,6 +21,7 @@ from runtime_config import (
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from weather import OpenMeteoProvider
+from dad_jokes import DadJokeProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
 
 STATE_KEY = "state/feed-cache.json"
@@ -207,7 +208,7 @@ class S3StateStore:
 
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
-                 calendar_provider=None, chessington_provider=None, runtime_config_store=None):
+                 calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -225,6 +226,7 @@ class Publisher:
                 provider = QueueTimesProvider(definition["park_id"])
             self.queue_providers[feed_id] = provider
         self.weather_provider = weather_provider or OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
+        self.joke_provider = joke_provider or DadJokeProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -268,6 +270,9 @@ class Publisher:
         if self.calendar_provider is None:
             raise RuntimeError("calendar provider is not configured")
         return {"source": "todoist", "fetched_at": _iso(now), "events": self.calendar_provider.fetch()}
+
+    def _fetch_joke(self, now):
+        return {"source": "icanhazdadjoke", "fetched_at": _iso(now), "joke": self.joke_provider.fetch()}
 
     def _fetch_weather(self, now):
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
@@ -428,6 +433,18 @@ class Publisher:
                 "page_seconds": self.config.calendar_page_seconds,
                 "events": copy.deepcopy(calendar_events[:task_count]),
             })
+        joke_cfg = config_feeds["dad_joke"]
+        if joke_cfg["enabled"]:
+            cached_joke = feeds.get("dad_joke") or {}
+            joke_data = cached_joke.get("data") or {}
+            if joke_data.get("joke"):
+                screens.append({
+                    "id": "dad-joke", "kind": "dad_joke",
+                    "title": "DAD JOKE", "source": "icanhazdadjoke",
+                    "duration_seconds": joke_cfg["screen_duration_seconds"],
+                    "stale": bool(cached_joke.get("stale")),
+                    "joke": joke_data["joke"],
+                })
         weather_config = config_feeds["weather"]
         if weather_config["enabled"]:
             weather = feeds.get("weather") or {}
@@ -553,6 +570,11 @@ class Publisher:
             feeds["calendar"] = self._refresh(
                 "calendar", feeds.get("calendar"), settings["calendar"]["poll_seconds"],
                 lambda: self._fetch_calendar(now), now,
+            )
+        if settings["dad_joke"]["enabled"]:
+            feeds["dad_joke"] = self._refresh(
+                "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"],
+                lambda: self._fetch_joke(now), now,
             )
         if settings["weather"]["enabled"]:
             weather_previous = feeds.get("weather")
