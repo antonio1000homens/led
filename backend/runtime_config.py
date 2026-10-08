@@ -53,6 +53,7 @@ MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
 DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
+MAX_DISPLAY_EVERY_CYCLES = 6
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -265,7 +266,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
     weather_enabled = env.get("LED_WEATHER_SOURCE", "open_meteo").strip() != "off"
     calendar_enabled = env.get("LED_CALENDAR_SOURCE", "off").strip() != "off"
     thorpe_poll = _int_env(env, "LED_THORPE_PARK_CACHE_SECONDS", 300)
-    return {
+    result = {
         "config_version": 0,
         "display": {"brightness_percent": DEFAULT_DISPLAY_BRIGHTNESS_PERCENT},
         "feeds": {
@@ -377,6 +378,10 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
         "updated_at": None,
         "updated_by": "system:defaults",
     }
+    for feed_id, feed in result["feeds"].items():
+        if FEED_REGISTRY[feed_id].get("screen_duration"):
+            feed["display_every_cycles"] = 1
+    return result
 
 
 def schema_metadata() -> dict[str, Any]:
@@ -391,6 +396,7 @@ def schema_metadata() -> dict[str, Any]:
             },
         }
         if definition.get("screen_duration"):
+            fields["display_every_cycles"] = {"type": "integer", "minimum": 1, "maximum": MAX_DISPLAY_EVERY_CYCLES}
             fields["screen_duration_seconds"] = {
                 "type": "integer",
                 "minimum": MIN_FLASH_SCREEN_DURATION_SECONDS if definition.get("flash") else MIN_SCREEN_DURATION_SECONDS,
@@ -406,6 +412,8 @@ def schema_metadata() -> dict[str, Any]:
                 "type": "string",
                 "maximumLength": MAX_STEAM_TRAIN_WORDS_LENGTH,
             }
+        if FEED_REGISTRY[feed_id].get("screen_duration"):
+            raw.setdefault("display_every_cycles", 1)
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
                 fields[field] = {
@@ -447,7 +455,7 @@ def schema_metadata() -> dict[str, Any]:
         feeds[feed_id] = {
             "label": definition["label"],
             "provider": definition["provider"],
-            "mutable_fields": list(definition["mutable_fields"]),
+            "mutable_fields": list(definition["mutable_fields"]) + (["display_every_cycles"] if definition.get("screen_duration") else []),
             "fields": fields,
             **({"advanced_fields": list(definition["advanced_fields"])} if definition.get("advanced_fields") else {}),
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
@@ -527,6 +535,8 @@ def validate_feed_patch(
         result["poll_seconds"] = _validate_integer(
             feed_id, "poll_seconds", patch["poll_seconds"], MIN_POLL_SECONDS, MAX_POLL_SECONDS
         )
+    if "display_every_cycles" in patch:
+        result["display_every_cycles"] = _validate_integer(feed_id, "display_every_cycles", patch["display_every_cycles"], 1, MAX_DISPLAY_EVERY_CYCLES)
     if "screen_duration_seconds" in patch:
         result["screen_duration_seconds"] = _validate_integer(
             feed_id,
@@ -662,11 +672,13 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
+        if FEED_REGISTRY[feed_id].get("screen_duration"):
+            expected.add("display_every_cycles")
         if set(raw) != expected:
             raise RuntimeConfigValidationError(f"{feed_id} contains missing or unknown fields")
         normalized = validate_feed_patch(
             feed_id,
-            {key: raw[key] for key in FEED_REGISTRY[feed_id]["mutable_fields"]},
+            {key: raw[key] for key in expected - read_only},
         )
         if read_only:
             park_id = raw.get("park_id")
