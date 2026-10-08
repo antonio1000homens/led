@@ -57,6 +57,29 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_joke_is_shown_once_per_new_text_across_refreshes(self):
+        rotation = ScreenRotation()
+        joke = {"id": "dad-joke", "kind": "dad_joke", "joke": "First!", "duration_seconds": 2}
+        other = {"id": "regular", "kind": "message", "duration_seconds": 2}
+        rotation.update([joke, other], 0)
+        self.assertEqual(rotation.current(0)[0]["id"], "dad-joke")
+        self.assertEqual(rotation.current(2)[0]["id"], "regular")
+        self.assertEqual(rotation.current(4)[0]["id"], "regular")
+        rotation.update([dict(joke), other], 5)
+        self.assertEqual(rotation.current(6)[0]["id"], "regular")
+        rotation.update([dict(joke, joke="Second!"), other], 7)
+        # A new joke is eligible at the next suitable rotation.
+        ids = [rotation.current(t)[0]["id"] for t in (8, 10, 12)]
+        self.assertIn("dad-joke", ids)
+        self.assertNotEqual(rotation.current(20)[0]["id"], "dad-joke")
+
+    def test_joke_only_screen_does_not_spin_after_consumption(self):
+        rotation = ScreenRotation()
+        rotation.update([{"id": "dad-joke", "kind": "dad_joke",
+                          "joke": "Only joke", "duration_seconds": 2}], 0)
+        self.assertEqual(rotation.current(0)[0]["id"], "dad-joke")
+        self.assertEqual(rotation.current(3)[0]["id"], "unavailable")
+
     def test_http_and_mqtt_sources_merge_in_independent_stable_order(self):
         rotation = ScreenRotation()
         rotation.update_sources(
