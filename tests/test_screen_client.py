@@ -73,6 +73,30 @@ class RotationTests(unittest.TestCase):
         self.assertIn("dad-joke", ids)
         self.assertNotEqual(rotation.current(20)[0]["id"], "dad-joke")
 
+    def test_fact_is_shown_once_and_reenable_on_new_fact(self):
+        rotation = ScreenRotation()
+        fact = {"id": "random-fact", "kind": "random_fact",
+                "fact": "First fact", "duration_seconds": 2, "display_every_cycles": 1}
+        other = {"id": "regular", "kind": "message", "duration_seconds": 2}
+        rotation.update([fact, other], 0)
+        self.assertEqual(rotation.current(0)[0]["id"], "random-fact")
+        self.assertEqual(rotation.current(2)[0]["id"], "regular")
+        rotation.update([dict(fact), other], 3)
+        self.assertEqual(rotation.current(4)[0]["id"], "regular")
+        rotation.update([dict(fact, fact="Second fact"), other], 5)
+        self.assertIn("random-fact", [rotation.current(t)[0]["id"] for t in (6, 8, 10)])
+        self.assertEqual(rotation.current(20)[0]["id"], "regular")
+
+    def test_fact_manual_next_consumes_content(self):
+        rotation = ScreenRotation()
+        fact = {"id": "random-fact", "kind": "random_fact", "fact": "Only fact", "duration_seconds": 2}
+        rotation.update([fact], 0)
+        self.assertEqual(rotation.current(0)[0]["id"], "random-fact")
+        rotation.next(1)
+        self.assertEqual(rotation.current(1)[0]["id"], "unavailable")
+        rotation.update([dict(fact)], 2)
+        self.assertEqual(rotation.current(2)[0]["id"], "unavailable")
+
     def test_joke_only_screen_does_not_spin_after_consumption(self):
         rotation = ScreenRotation()
         rotation.update([{"id": "dad-joke", "kind": "dad_joke",
