@@ -29,7 +29,7 @@ class Palette(dict):
 
 
 class ReminderAnimationTests(unittest.TestCase):
-    def test_clock_and_complete_text_travel_together_without_rebuilding(self):
+    def test_clock_and_complete_text_loop_together_without_rebuilding(self):
         fake = types.SimpleNamespace(Group=Group, Bitmap=Bitmap, Palette=Palette,
                                      TileGrid=lambda *a, **k: types.SimpleNamespace(**k))
         display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
@@ -37,21 +37,45 @@ class ReminderAnimationTests(unittest.TestCase):
         display._scaled_label = mock.Mock()
         display._attach_brightness_overlay = mock.Mock()
         display._refresh = mock.Mock()
-        screen = {"kind": "flash", "id": "one", "label": "Long reminder " * 8,
-                  "duration_seconds": 12}
+        screen = {"kind": "flash", "id": "one",
+                  "label": "Long reminder message that cannot fit on one screen",
+                  "duration_seconds": 30}
+        width = (
+            led_display.REMINDER_TEXT_X
+            + len(screen["label"]) * led_display.WEATHER_FONT_WIDTH * led_display.REMINDER_TEXT_SCALE
+        )
+        travel = led_display.DISPLAY_WIDTH + width + led_display.REMINDER_SCROLL_GAP
+        cycle_seconds = travel / led_display.REMINDER_SCROLL_SPEED
+
         with mock.patch.dict(sys.modules, {"displayio": fake}):
             display.show(screen, phase=0)
             root = display.display.root_group
             motion = root[0]
-            self.assertEqual(motion.x, 256)
+            self.assertEqual(motion.x, led_display.DISPLAY_WIDTH)
             display._scaled_label.assert_called_once_with(
-                motion, screen["label"], 0xFFFFFF, 37, 5, scale=3)
-            display.show(screen, phase=6)
+                motion,
+                screen["label"],
+                0xFFFFFF,
+                led_display.REMINDER_TEXT_X,
+                5,
+                scale=led_display.REMINDER_TEXT_SCALE,
+            )
+
+            # The full clock/message train clears the left edge instead of
+            # stopping when a reminder is wider than the panel.
+            display.show(screen, phase=(travel - 1) / led_display.REMINDER_SCROLL_SPEED)
+            self.assertLessEqual(motion.x + width, 0)
             self.assertIs(display.display.root_group, root)
-            self.assertLess(motion.x, 0)
-            display.show(screen, phase=12)
-            self.assertLessEqual(motion.x + 37 + len(screen["label"]) * 15, 0)
+
+            # Once fully off-screen, the same cached train wraps back in from
+            # the right and keeps moving for the remainder of the reminder.
+            display.show(screen, phase=cycle_seconds + 0.5)
+            self.assertEqual(
+                motion.x,
+                led_display.DISPLAY_WIDTH - int(0.5 * led_display.REMINDER_SCROLL_SPEED),
+            )
             self.assertEqual(display._scaled_label.call_count, 1)
+
             display.show({**screen, "id": "two", "label": "New reminder"}, phase=0)
             self.assertIsNot(display.display.root_group, root)
 
