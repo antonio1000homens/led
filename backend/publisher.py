@@ -271,8 +271,19 @@ class Publisher:
             raise RuntimeError("calendar provider is not configured")
         return {"source": "todoist", "fetched_at": _iso(now), "events": self.calendar_provider.fetch()}
 
-    def _fetch_joke(self, now):
-        return {"source": "icanhazdadjoke", "fetched_at": _iso(now), "joke": self.joke_provider.fetch()}
+    def _fetch_joke(self, now, previous=None):
+        # Persist a bounded history in the existing S3 feed cache, so API
+        # duplicates are rejected even across Lambda invocations and restarts.
+        old = (previous or {}).get("data") or {}
+        history = list(old.get("history") or [])[-99:]
+        if old.get("joke") and old["joke"] not in history:
+            history.append(old["joke"])
+        for _ in range(3):
+            joke = self.joke_provider.fetch()
+            if joke not in history:
+                return {"source": "icanhazdadjoke", "fetched_at": _iso(now),
+                        "joke": joke, "history": (history + [joke])[-100:]}
+        raise ValueError("Dad joke API returned only previously cached jokes")
 
     def _fetch_weather(self, now):
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
@@ -584,7 +595,7 @@ class Publisher:
         if settings["dad_joke"]["enabled"]:
             feeds["dad_joke"] = self._refresh(
                 "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"],
-                lambda: self._fetch_joke(now), now,
+                lambda: self._fetch_joke(now, feeds.get("dad_joke")), now,
             )
         if settings["weather"]["enabled"]:
             weather_previous = feeds.get("weather")
