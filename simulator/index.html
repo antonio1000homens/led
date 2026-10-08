@@ -508,8 +508,12 @@
       if (progress >= 1) return { start: visible, progress: 0, visible };
       return { start: 0, progress, visible };
     }
+    const seenJokes = new Set();
+    let activeJoke = null;
     function screenAt(elapsed) {
       if (!screens.length) return { screen: { id: 'loading', kind: 'rail_combined', duration_seconds: 8, title: 'Loading', services: [] }, phase: 0, index: 0 };
+      const candidates = screens.map((screen, index) => ({ screen, index })).filter(item => item.screen.kind !== 'dad_joke' || !seenJokes.has(item.screen.joke));
+      if (!candidates.length) return { screen: { id: 'waiting', kind: 'message', title: 'Waiting for new content', duration_seconds: 8 }, phase: 0, index: 0 };
       // Each cycle traverses the configured screens once. A screen with a
       // display interval of N participates in cycles 0, N, 2N, etc.
       const interval = screen => Math.max(1, Math.min(6, Number(screen.display_every_cycles) || 1));
@@ -519,11 +523,11 @@
       let total = 0;
       for (let cycle = 0; cycle < period; cycle += 1) {
         const visible = [];
-        for (let index = 0; index < screens.length; index += 1) {
-          const actual = (index + screenOffset + screens.length * 1000) % screens.length;
-          if (cycle % interval(screens[actual]) === 0) visible.push(actual);
+        for (let index = 0; index < candidates.length; index += 1) {
+          const actual = (index + screenOffset + candidates.length * 1000) % candidates.length;
+          if (cycle % interval(candidates[actual].screen) === 0) visible.push(actual);
         }
-        const length = visible.reduce((sum, index) => sum + duration(screens[index]), 0);
+        const length = visible.reduce((sum, index) => sum + duration(candidates[index].screen), 0);
         cycleScreens.push({ visible, length });
         total += length;
       }
@@ -531,12 +535,12 @@
       for (const cycle of cycleScreens) {
         if (remaining >= cycle.length) { remaining -= cycle.length; continue; }
         for (const index of cycle.visible) {
-          const time = duration(screens[index]);
-          if (remaining < time) return { screen: screens[index], phase: remaining / 1000, index };
+          const time = duration(candidates[index].screen);
+          if (remaining < time) return { screen: candidates[index].screen, phase: remaining / 1000, index: candidates[index].index };
           remaining -= time;
         }
       }
-      return { screen: screens[0], phase: 0, index: 0 };
+      return { screen: candidates[0].screen, phase: 0, index: candidates[0].index };
     }
     function stationMarqueeSpeed(screen) {
       return boundedNumber(screen.station_scroll_speed, 20, 10, 80) * 4;
@@ -1054,7 +1058,13 @@
       }
       if (hardwarePreview) lastHardwareFrame = now;
       const elapsed = paused ? pausedAt : now - pauseStarted;
-      const active = screenAt(elapsed);
+      let active = screenAt(elapsed);
+      if (activeJoke !== null && (active.screen.kind !== "dad_joke" || active.screen.joke !== activeJoke)) {
+        seenJokes.add(activeJoke);
+        active = screenAt(elapsed);
+        activeJoke = null;
+      }
+      if (active.screen.kind === "dad_joke") activeJoke = active.screen.joke;
       const screen = active.screen;
       const rawPhase = active.phase;
       const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' ? 2 : rawPhase;
