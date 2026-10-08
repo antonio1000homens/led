@@ -400,7 +400,8 @@ class ScreenRotation:
         while True:
             screen = self.screens[self.index]
             interval = max(1, int(screen.get("display_every_cycles") or 1))
-            once_key = screen.get("joke") if screen.get("kind") == "dad_joke" else None
+            once_key = (screen.get("joke") if screen.get("kind") == "dad_joke"
+                        else screen.get("fact") if screen.get("kind") == "random_fact" else None)
             already_shown = once_key is not None and self._shown_once.get(screen.get("id")) == once_key
             if self.cycle_number % interval or already_shown:
                 self._advance_screen()
@@ -439,8 +440,10 @@ class ScreenRotation:
         if not self.screens:
             return
         screen, _ = self.current(now)
-        if screen.get("kind") == "dad_joke":
-            self._shown_once[screen.get("id")] = screen.get("joke")
+        if screen.get("kind") in ("dad_joke", "random_fact"):
+            self._shown_once[screen.get("id")] = (
+                screen.get("joke") if screen.get("kind") == "dad_joke" else screen.get("fact")
+            )
         self._advance_screen()
         self.started_at = now
 
