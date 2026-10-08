@@ -90,6 +90,8 @@
     const MATRIX_REFRESH_FPS = 7;
     const BIN_LORRY_SECONDS = 4.0;
     const BIN_LORRY_SPEED = 64;
+    const REMINDER_SCROLL_SPEED = 64;
+    const REMINDER_SCROLL_GAP = 24;
     const SUN_WEATHER_COLOR_SECONDS = 4.0;
     const BIN_TEXT_X = 40;
     const BIN_TEXT_RIGHT = 220;
@@ -1194,9 +1196,10 @@
       } else if (screen.kind === 'flash') {
         suppressHeader = true;
         const label = String(screen.label || '');
-        const duration = Math.max(1, Number(screen.duration_seconds) || 5);
-        const progress = Math.min(1, Math.max(0, phase) / duration);
-        const clockX = 256 - Math.floor((256 + 37 + label.length * 15) * progress);
+        const reminderWidth = 37 + label.length * 15;
+        const travel = 256 + reminderWidth + REMINDER_SCROLL_GAP;
+        const distance = Math.floor(Math.max(0, Number(phase) || 0) * REMINDER_SCROLL_SPEED) % travel;
+        const clockX = 256 - distance;
         context.fillStyle = '#ffaa00';
         for (let x = 0; x < 29; x += 1) {
           for (let y = 0; y < 29; y += 1) {
