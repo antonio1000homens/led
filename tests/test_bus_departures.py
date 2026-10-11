@@ -38,6 +38,17 @@ class BusDepartureTests(unittest.TestCase):
         state.configure_bus(dict(config, heathrow_enabled=False))
         self.assertEqual(state.screens(1791748800), [])
 
+    def test_unavailable_homeassistant_data_does_not_mask_backend_fallback(self):
+        state = MqttScreenState()
+        state.configure_bus({"enabled": True, "heathrow_enabled": True})
+        offline = dict(screen(), status="unavailable", departures=[])
+        payload = {"schema_version": 1, "event": "upsert",
+                   "published_at": "2026-10-11T20:00:00Z",
+                   "expires_at": "2026-10-11T20:04:00Z",
+                   "source": "homeassistant", "screen": offline}
+        self.assertTrue(state.accept("led/screens/sl7-heathrow", payload, 1791748800))
+        self.assertEqual(state.screens(1791748800), [])
+
     def test_mqtt_rejects_mismatched_stop_and_unbounded_retention(self):
         state = MqttScreenState()
         payload = {"schema_version": 1, "event": "upsert", "published_at": "2026-10-11T20:00:00Z", "expires_at": "2026-10-11T20:04:00Z", "source": "homeassistant", "screen": screen()}

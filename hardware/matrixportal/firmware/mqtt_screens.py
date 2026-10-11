@@ -185,6 +185,10 @@ class MqttScreenState:
             if screen.get("kind") != "bus_departures":
                 visible.append(screen)
                 continue
+            # A disconnected or unhealthy HA integration must never mask a
+            # still-working backend Transitous page at the same stop ID.
+            if screen.get("status") == "unavailable":
+                continue
             config = self._bus_config or {}
             stop = screen.get("stop_key")
             page = "heathrow_enabled" if stop == "heathrow" else "new_malden_enabled"
