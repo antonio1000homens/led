@@ -532,11 +532,18 @@
       const after = weatherSequence.indexOf(current.kind);
       return before >= 0 && after > before;
     };
+    const busFollowup = (intro, departures) =>
+      intro.kind === 'bus_intro' && departures.kind === 'bus_departures' &&
+      ['heathrow', 'new-malden'].includes(intro.stop_key) &&
+      intro.stop_key === departures.stop_key;
     function makeCyclePlan() {
       const blocks = [];
-      for (const screen of screens.filter(screen => !staticScreen(screen))) {
+      const normal = screens.filter(screen => !staticScreen(screen));
+      for (let index = 0; index < normal.length; index++) {
+        const screen = normal[index];
+        if (screen.kind === 'bus_intro' && !busFollowup(screen, normal[index + 1] || {})) continue;
         const last = blocks[blocks.length - 1];
-        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || (last[last.length - 1].kind === 'bus_intro' && screen.kind === 'bus_departures') || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
+        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
         else blocks.push([screen]);
       }
       const pages = screens.filter(staticScreen).map(chooseStatic);

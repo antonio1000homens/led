@@ -60,13 +60,71 @@ class RotationTests(unittest.TestCase):
     def test_bus_intro_stays_attached_to_departures(self):
         rotation = ScreenRotation()
         screens = [
-            {"id": "intro", "kind": "bus_intro", "duration_seconds": 2},
-            {"id": "bus", "kind": "bus_departures", "duration_seconds": 5},
+            {"id": "intro", "kind": "bus_intro", "stop_key": "heathrow", "duration_seconds": 2},
+            {"id": "bus", "kind": "bus_departures", "stop_key": "heathrow", "duration_seconds": 5},
             {"id": "other", "duration_seconds": 3},
         ]
         rotation.update(screens, 0)
         self.assertEqual([item["id"] for item in rotation.screens], ["intro", "bus", "other"])
         self.assertEqual(rotation.current(2)[0]["id"], "bus")
+
+    def test_bus_intros_remain_adjacent_under_static_randomisation(self):
+        import random
+        screens = [
+            {"id": "sl7-heathrow-intro", "kind": "bus_intro", "stop_key": "heathrow", "duration_seconds": 2},
+            {"id": "sl7-heathrow", "kind": "bus_departures", "stop_key": "heathrow", "duration_seconds": 4},
+            {"id": "sl7-new-malden-intro", "kind": "bus_intro", "stop_key": "new-malden", "duration_seconds": 2},
+            {"id": "sl7-new-malden", "kind": "bus_departures", "stop_key": "new-malden", "duration_seconds": 4},
+            {"id": "rail", "kind": "rail_combined", "duration_seconds": 4},
+            {"id": "fact", "kind": "random_fact", "duration_seconds": 3},
+            {"id": "joke", "kind": "dad_joke", "duration_seconds": 3},
+        ]
+        for seed in range(40):
+            rotation = ScreenRotation(rng=random.Random(seed))
+            rotation.update(screens, 0)
+            ids = [screen["id"] for screen in rotation.screens]
+            for stop in ("heathrow", "new-malden"):
+                self.assertEqual(ids.index("sl7-" + stop),
+                                 ids.index("sl7-" + stop + "-intro") + 1)
+
+    def test_bus_intro_requires_matching_stop_and_eligible_departures(self):
+        rotation = ScreenRotation()
+        intro = {"id": "sl7-heathrow-intro", "kind": "bus_intro", "stop_key": "heathrow"}
+        other = {"id": "sl7-new-malden", "kind": "bus_departures", "stop_key": "new-malden"}
+        self.assertEqual([item["id"] for item in rotation._cycle_plan([intro, other])],
+                         ["sl7-new-malden"])
+        own = {"id": "sl7-heathrow", "kind": "bus_departures", "stop_key": "heathrow",
+               "display_every_cycles": 2}
+        rotation.cycle_number = 1
+        self.assertEqual(rotation._cycle_plan([intro, own]), [])
+        rotation.cycle_number = 0
+        rotation.update([intro, dict(own, display_every_cycles=1)], 0)
+        self.assertEqual(len(rotation.screens), 2)
+        rotation.update([intro], 1)
+        self.assertEqual(rotation.screens, [])
+
+    def test_maintenance_cannot_split_bus_intro_and_departures(self):
+        rotation = ScreenRotation()
+        screens = [
+            {"id": "sl7-new-malden-intro", "kind": "bus_intro", "stop_key": "new-malden",
+             "duration_seconds": 2},
+            {"id": "sl7-new-malden", "kind": "bus_departures", "stop_key": "new-malden",
+             "duration_seconds": 5},
+            {"id": "other", "kind": "rail_combined", "duration_seconds": 3},
+            {"id": "fact", "kind": "random_fact", "duration_seconds": 3},
+        ]
+        rotation.update(screens, 0)
+        ids = [screen["id"] for screen in rotation.screens]
+        rotation.index = ids.index("sl7-new-malden")
+        rotation.started_at = 2
+        self.assertTrue(rotation.is_paired_transition("sl7-new-malden-intro",
+                                                      rotation.screens[rotation.index]))
+        self.assertFalse(rotation.is_paired_transition("sl7-heathrow-intro",
+                                                       rotation.screens[rotation.index]))
+        rotation.maintenance_slot(2)
+        self.assertEqual([screen["id"] for screen in rotation.screens], ids)
+        self.assertEqual(rotation.current(2)[0]["id"], "sl7-new-malden")
+        self.assertEqual(rotation.current(6.9)[0]["id"], "sl7-new-malden")
 
     def test_millisecond_phases_keep_one_pixel_steps_after_days_of_uptime(self):
         rotation = ScreenRotation(ticks_per_second=1000)
