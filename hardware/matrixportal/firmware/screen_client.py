@@ -370,7 +370,7 @@ class ScreenRotation:
             if item is not None:
                 item = dict(item)
                 if old.get("content_version"):
-                    for key in ("joke", "fact", "content_version", "refresh_ack_url"):
+                    for key in ("joke", "fact", "quote", "author", "content_version", "refresh_ack_url"):
                         if key in old:
                             item[key] = old[key]
                     # Renew expiring capabilities for the selected item.
@@ -459,7 +459,7 @@ class ScreenRotation:
 
     @staticmethod
     def is_static(screen):
-        return screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "today")
+        return screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today")
 
     def _choose(self, screen):
         items = screen.get("items") or ()

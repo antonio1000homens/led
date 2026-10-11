@@ -184,6 +184,23 @@ def _novelty_page(screen, phase):
     page = min(pages - 1, int(max(0.0, float(phase)) * pages / duration))
     return lines[page * 3:page * 3 + 3]
 
+def _quote_lines(screen):
+    """Include the author on its own readable wrapped line(s)."""
+    quote = _novelty_lines({"kind": "dad_joke", "joke": screen.get("quote") or ""})
+    author = _novelty_lines({"kind": "dad_joke", "joke": "- " + str(screen.get("author") or "")})
+    return quote + author
+
+
+def _quote_page(screen, phase):
+    lines = _quote_lines(screen)
+    if not lines:
+        return []
+    pages = (len(lines) + 2) // 3
+    duration = max(1.0, float(screen.get("duration_seconds") or 30))
+    page = min(pages - 1, int(max(0.0, float(phase)) * pages / duration))
+    return lines[page * 3:page * 3 + 3]
+
+
 WEEKLY_WEATHER_TEXT_SCALE = 1
 WEEKLY_WEATHER_GLYPH_WIDTH = 3
 WEEKLY_WEATHER_GLYPHS = {
@@ -1408,7 +1425,7 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
-        if screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "today"):
+        if screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             return 0
         if (
             isinstance(screen, dict)
@@ -1446,8 +1463,9 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "today":
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
-        if kind in ("dad_joke", "random_fact", "insult_of_hour"):
-            pages = max(1, (len(_novelty_lines(screen)) + 2) // 3)
+        if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
+            lines = _quote_lines(screen) if kind == "quotes" else _novelty_lines(screen)
+            pages = max(1, (len(lines) + 2) // 3)
             duration = max(1.0, float(screen.get("duration_seconds") or 15))
             page_seconds = duration / pages
             return max(0.05, page_seconds - (max(0.0, phase) % page_seconds))
@@ -3093,7 +3111,7 @@ class MatrixDisplay:
                         use_rail_auto_refresh
                     )
                 )
-        if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "today"):
+        if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
                 date_label = _today_date_label(clock_date)
                 weather = screen.get("weather") or {}
@@ -3119,17 +3137,19 @@ class MatrixDisplay:
                                         bitmap[column * 2 + dx, row_index * 2 + dy] = 1
                     group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=42, y=11))
                     self._label(group, temperature, 0xFFFFFF, 78, 12)
-                    self._label(group, clock_time, 0xFFAA00, 226, 2)
+                    self._label(group, clock_time, 0xFFAA00, 174, 12)
                     if key[-1]:
-                        self._label(group, "STALE", 0x888888, 226, 24)
+                        self._label(group, "STALE", 0x888888, 226, 2)
                     self._static_group = group
                     self._static_key = key
                 if self.display.root_group is not self._static_group:
                     self._present(self._static_group)
                 return
-            heading = ("TODAY" if kind == "today" else
+            heading = ("QUOTES VIA ZENQUOTES.IO" if kind == "quotes" else
                        "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
-            lines = _novelty_page(screen, phase)
+            if kind == "quotes" and screen.get("stale"):
+                heading += " STALE"
+            lines = _quote_page(screen, phase) if kind == "quotes" else _novelty_page(screen, phase)
             key = (heading, tuple(lines))
             if getattr(self, "_static_key", None) != key:
                 group = displayio.Group()
@@ -3514,7 +3534,7 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--"):
         kind = screen.get("kind")
-        if kind in ("dad_joke", "random_fact", "insult_of_hour", "today"):
+        if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
                 weather = screen.get("weather") or {}
                 date_label = _today_date_label(clock_date)
@@ -3528,13 +3548,16 @@ class FixtureDisplay:
                             self._pixel(42 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
                             self._pixel(43 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
                 self._text(_weather_text(weather), 78, 12, (255, 255, 255))
-                self._text(clock_time, 226, 2, (255, 170, 0))
+                self._text(clock_time, 174, 12, (255, 170, 0))
                 if weather.get("stale") or screen.get("stale"):
-                    self._text("STALE", 226, 24, (136, 136, 136))
+                    self._text("STALE", 226, 2, (136, 136, 136))
                 return
-            heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR"
+            heading = ("QUOTES VIA ZENQUOTES.IO" if kind == "quotes" else
+                       "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
+            if kind == "quotes" and screen.get("stale"):
+                heading += " STALE"
             self._text(heading, 0, NOVELTY_HEADING_Y, (255, 170, 0))
-            lines = _novelty_page(screen, phase)
+            lines = _quote_page(screen, phase) if kind == "quotes" else _novelty_page(screen, phase)
             for index, line in enumerate(lines):
                 self._text(line, 0, NOVELTY_FIRST_LINE_Y + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":
@@ -3716,7 +3739,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "flash", "today", "dad_joke", "random_fact", "insult_of_hour"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "flash", "today", "dad_joke", "random_fact", "insult_of_hour", "quotes"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
