@@ -727,8 +727,12 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     supplied_feed_ids = set(raw_feeds)
     missing_feed_ids = supported_feed_ids - supplied_feed_ids
     unknown_feed_ids = supplied_feed_ids - supported_feed_ids
-    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact", "today", "sl7_bus"}
-    if unknown_feed_ids or not missing_feed_ids.issubset(additive_feed_ids):
+    # The five original v1 feeds must already exist in saved configurations.
+    # Every other registered feed was introduced later and can be backfilled
+    # from its safe default. Derive these additions from the registry so that
+    # introducing another screen cannot break old DynamoDB configurations.
+    original_feed_ids = {"departures", "thorpe_park", "chessington", "weather", "calendar"}
+    if unknown_feed_ids or missing_feed_ids.intersection(original_feed_ids):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
     for feed_id in missing_feed_ids:
         raw_feeds[feed_id] = copy.deepcopy(defaults["feeds"][feed_id])
