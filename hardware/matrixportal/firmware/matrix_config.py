@@ -131,6 +131,11 @@ MATRIX_ANIMATION_PROFILE = "baseline"
 MATRIX_RAIL_ROWS_SCROLL = True
 try:
     import settings_local as _animation_settings_local
+    MATRIX_RAIL_ROWS_SCROLL = bool(getattr(
+        _animation_settings_local,
+        "MATRIX_RAIL_ROWS_SCROLL",
+        MATRIX_RAIL_ROWS_SCROLL,
+    ))
     MATRIX_ANIMATION_PROFILE = getattr(
         _animation_settings_local,
         "MATRIX_ANIMATION_PROFILE",

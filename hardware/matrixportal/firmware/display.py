@@ -1543,6 +1543,10 @@ class MatrixDisplay:
     def _rail(self, group, screen, phase):
         import displayio
 
+        build_started = ticks_ms() if self.telemetry_enabled else None
+        calling_build = 0.0
+        service_build = 0.0
+        mask_build = 0.0
         services = screen.get("services") or []
         rail_right_edge = _header_content_right(screen)
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
@@ -1567,17 +1571,26 @@ class MatrixDisplay:
                     first_service_row = 0 if rows and rows[0][0] == "service" else 1
                     ordinal = row_index - first_service_row + 1
                 color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
+                item_started = ticks_ms() if build_started is not None else None
                 self._rail_service(fixed_group, service, color, 0, y, rail_right_edge, ordinal)
+                if item_started is not None:
+                    service_build += elapsed_seconds(item_started)
             elif row_kind == "calling":
                 calling_group = displayio.Group()
                 presentation = screen.get("rail_presentation") or {}
                 calling = presentation.get("calling_text") or calling_text(service)
                 stations = calling[len(CALLING_LABEL):] if calling.startswith(CALLING_LABEL) else calling
+                item_started = ticks_ms() if build_started is not None else None
                 first = self._calling_label_group(
                     service, y, presentation.get("calling_segments")
                 )
+                if item_started is not None:
+                    calling_build += elapsed_seconds(item_started)
                 calling_group.append(first)
+                item_started = ticks_ms() if build_started is not None else None
                 self._mask(calling_group, 0, y - 3, len(CALLING_LABEL) * WEATHER_FONT_WIDTH, 8)
+                if item_started is not None:
+                    mask_build += elapsed_seconds(item_started)
                 prefix = self._label(calling_group, CALLING_LABEL, 0xFFAA00, 0, y)
                 calling_label_state = {
                     "prefix": prefix,
@@ -1593,13 +1606,17 @@ class MatrixDisplay:
             for index, service in enumerate(services[1:]):
                 row_group = displayio.Group()
                 color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
+                item_started = ticks_ms() if build_started is not None else None
                 self._rail_service(row_group, service, color, 0, 0, rail_right_edge, index + 2)
+                if item_started is not None:
+                    service_build += elapsed_seconds(item_started)
                 row_group.y = RAIL_ROW_Y[-1] + 8
                 group.append(row_group)
                 self._rail_departure_rows.append(row_group)
             # Label coordinates are baselines: glyphs start three pixels
             # above them. Hide moving rows above the lower viewport, then
             # draw both fixed rows on top so outgoing glyphs cannot overlap.
+            item_started = ticks_ms() if build_started is not None else None
             self._mask(
                 group,
                 0,
@@ -1607,11 +1624,21 @@ class MatrixDisplay:
                 DISPLAY_WIDTH,
                 RAIL_ROW_Y[2] - 3,
             )
+            if item_started is not None:
+                mask_build += elapsed_seconds(item_started)
             if calling_group is not None:
                 fixed_group.append(calling_group)
                 self._rail_calling_labels.append(calling_label_state)
             group.append(fixed_group)
         self._rail_phase = state
+        if build_started is not None:
+            print(
+                "RAIL BUILD services={} calling_label={:.3f} service_labels={:.3f} "
+                "masks={:.3f} total={:.3f}".format(
+                    len(services), calling_build, service_build, mask_build,
+                    elapsed_seconds(build_started),
+                )
+            )
 
     def _rail_cache_matches(self, screen):
         return (
