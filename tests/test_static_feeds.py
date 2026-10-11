@@ -206,7 +206,7 @@ class StaticFeedTests(unittest.TestCase):
     def test_explicit_gc_occurs_only_after_static_is_presented(self):
         source = (ROOT / "code.py").read_text()
         self.assertEqual(source.count("gc.collect()"),1)
-        block = source[source.index("    if static_visible and"):source.index("    should_fetch = (fetch_due")]
+        block = source[source.index("    if maintenance_visible and"):source.index("    should_fetch = (fetch_due")]
         self.assertLess(block.index("display.show("),block.index("gc.collect()"))
         self.assertIn("not flash.active(now)",block)
         self.assertNotIn("display.show_loading",source)
