@@ -3119,9 +3119,9 @@ class MatrixDisplay:
                                         bitmap[column * 2 + dx, row_index * 2 + dy] = 1
                     group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=42, y=11))
                     self._label(group, temperature, 0xFFFFFF, 78, 12)
-                    self._label(group, clock_time, 0xFFAA00, 174, 12)
+                    self._label(group, clock_time, 0xFFAA00, 226, 2)
                     if key[-1]:
-                        self._label(group, "STALE", 0x888888, 226, 2)
+                        self._label(group, "STALE", 0x888888, 226, 24)
                     self._static_group = group
                     self._static_key = key
                 if self.display.root_group is not self._static_group:
@@ -3528,9 +3528,9 @@ class FixtureDisplay:
                             self._pixel(42 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
                             self._pixel(43 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
                 self._text(_weather_text(weather), 78, 12, (255, 255, 255))
-                self._text(clock_time, 174, 12, (255, 170, 0))
+                self._text(clock_time, 226, 2, (255, 170, 0))
                 if weather.get("stale") or screen.get("stale"):
-                    self._text("STALE", 226, 2, (136, 136, 136))
+                    self._text("STALE", 226, 24, (136, 136, 136))
                 return
             heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR"
             self._text(heading, 0, NOVELTY_HEADING_Y, (255, 170, 0))

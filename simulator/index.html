@@ -1142,12 +1142,12 @@
         context.fillStyle = '#ffffff';
         drawLedText(temp, 78 * FONT_PIXEL_SCALE, 12 * FONT_PIXEL_SCALE);
         context.fillStyle = '#ffaa00';
-        drawLedText(nowText, 174 * FONT_PIXEL_SCALE, 12 * FONT_PIXEL_SCALE);
+        drawLedText(nowText, 226 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
         context.fillStyle = '#ffffff';
         drawLedText(date, dateX, 2 * FONT_PIXEL_SCALE);
         if (screen.stale || weather.stale) {
           context.fillStyle = '#888888';
-          drawLedText('STALE', 226 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+          drawLedText('STALE', 226 * FONT_PIXEL_SCALE, 24 * FONT_PIXEL_SCALE);
         }
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
       } else if (screen.kind === 'loading') {
