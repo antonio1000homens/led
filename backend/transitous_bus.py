@@ -64,6 +64,11 @@ class TransitousBusProvider:
             for item in rows or []:
                 if not isinstance(item, dict) or item.get("routeShortName") != ROUTE:
                     continue
+                # Radius queries may include neighbouring stops. Honour the
+                # exact requested departure stop when MOTIS supplies a stopId.
+                place_id = (item.get("place") or {}).get("stopId")
+                if place_id and str(place_id).removesuffix("_G") != definition["stop_id"].removesuffix("_G"):
+                    continue
                 departure = self._normalise(item)
                 if departure is None or (departure["trip_id"] and departure["trip_id"] in seen):
                     continue

@@ -2,6 +2,8 @@
 
 import json
 
+from bus_departures import normalise_bus_screen, valid_bus_screen
+
 
 
 def _leap(year):
@@ -68,6 +70,8 @@ def _valid_screen(screen, slot):
         return False
     if not isinstance(screen.get("id"), str) or not screen["id"].strip() or screen["id"] != slot:
         return False
+    if screen.get("kind") == "bus_departures":
+        return valid_bus_screen(screen, slot)
     if screen.get("kind") != "bin_collection" or not _positive_finite(screen.get("duration_seconds")):
         return False
     if not _positive_finite(screen.get("slide_speed")):
@@ -110,6 +114,11 @@ class MqttScreenState:
         self.prefix = topic_filter[:-1]
         self._slots = {}
         self._published = {}
+        self._bus_config = None
+
+    def configure_bus(self, config):
+        """Apply trusted HTTP runtime controls to HA MQTT bus screens."""
+        self._bus_config = dict(config) if isinstance(config, dict) else None
 
     def accept(self, topic, payload, now_epoch):
         """Accept a slot update; invalid or expired messages leave state intact."""
@@ -163,4 +172,33 @@ class MqttScreenState:
 
     def screens(self, now_epoch):
         self.expire(now_epoch)
-        return [self._slots[slot][1] for slot in sorted(self._slots)]
+        visible = []
+        for slot in sorted(self._slots):
+            screen = self._slots[slot][1]
+            if screen.get("kind") != "bus_departures":
+                visible.append(screen)
+                continue
+            config = self._bus_config or {}
+            stop = screen.get("stop_key")
+            page = "heathrow_enabled" if stop == "heathrow" else "new_malden_enabled"
+            if not config.get("enabled") or not config.get(page):
+                continue
+            try:
+                observed = _epoch(screen["observed_at"])
+                stale_after = max(60, min(1800, int(config.get("stale_after_seconds", 180))))
+                count = max(1, min(3, int(config.get("upcoming_bus_count", 3))))
+                normalised = normalise_bus_screen(screen, int(now_epoch), count=count)
+                if normalised is None:
+                    continue
+                normalised["stale"] = bool(screen.get("stale")) or (
+                    int(now_epoch) * 1000 - observed > stale_after * 1000
+                )
+                duration_key = ("no_services_duration_seconds"
+                                if not normalised["departures"] else "screen_duration_seconds")
+                normalised["duration_seconds"] = max(2, min(300, int(config.get(duration_key, 8))))
+                normalised["display_every_cycles"] = max(1, min(6, int(config.get("display_every_cycles", 1))))
+                normalised["destination_scroll_speed"] = max(8, min(80, int(config.get("destination_scroll_speed", 20))))
+                visible.append(normalised)
+            except (TypeError, ValueError, KeyError, OverflowError):
+                continue
+        return visible
