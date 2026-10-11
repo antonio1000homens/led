@@ -147,6 +147,13 @@ class MqttScreenState:
                 if expires <= int(now_epoch) * 1000 or not _valid_screen(message.get("screen"), slot):
                     return False
                 screen = message["screen"]
+                if screen.get("kind") == "bus_departures":
+                    # No indefinite public-transport ETAs from a retained slot.
+                    if (expires - published > 300000
+                            or expires > int(now_epoch) * 1000 + 300000
+                            or published > int(now_epoch) * 1000 + 60000
+                            or _epoch(screen["observed_at"]) > int(now_epoch) * 1000 + 60000):
+                        return False
             previous = self._slots.get(slot)
             if published == self._published.get(slot) and (
                 previous is None and screen is None
