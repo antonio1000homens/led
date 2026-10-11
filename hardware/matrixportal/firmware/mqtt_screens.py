@@ -2,8 +2,6 @@
 
 import json
 
-from bus_departures import normalise_bus_screen, valid_bus_screen
-
 
 
 def _leap(year):
@@ -70,8 +68,6 @@ def _valid_screen(screen, slot):
         return False
     if not isinstance(screen.get("id"), str) or not screen["id"].strip() or screen["id"] != slot:
         return False
-    if screen.get("kind") == "bus_departures":
-        return valid_bus_screen(screen, slot)
     if screen.get("kind") != "bin_collection" or not _positive_finite(screen.get("duration_seconds")):
         return False
     if not _positive_finite(screen.get("slide_speed")):
@@ -114,11 +110,6 @@ class MqttScreenState:
         self.prefix = topic_filter[:-1]
         self._slots = {}
         self._published = {}
-        self._bus_config = None
-
-    def configure_bus(self, config):
-        """Apply trusted HTTP runtime controls to HA MQTT bus screens."""
-        self._bus_config = dict(config) if isinstance(config, dict) else None
 
     def accept(self, topic, payload, now_epoch):
         """Accept a slot update; invalid or expired messages leave state intact."""
@@ -126,6 +117,9 @@ class MqttScreenState:
             return False
         slot = topic[len(self.prefix):]
         if not slot or not slot.strip() or any(char in slot for char in ("/", "+", "#", "\x00")):
+            return False
+        # SL7 is exclusively an HTTPS backend feed, never an MQTT slot.
+        if slot.startswith("sl7-"):
             return False
         try:
             if isinstance(payload, (bytes, bytearray)):
@@ -147,13 +141,6 @@ class MqttScreenState:
                 if expires <= int(now_epoch) * 1000 or not _valid_screen(message.get("screen"), slot):
                     return False
                 screen = message["screen"]
-                if screen.get("kind") == "bus_departures":
-                    # No indefinite public-transport ETAs from a retained slot.
-                    if (expires - published > 300000
-                            or expires > int(now_epoch) * 1000 + 300000
-                            or published > int(now_epoch) * 1000 + 60000
-                            or _epoch(screen["observed_at"]) > int(now_epoch) * 1000 + 60000):
-                        return False
             previous = self._slots.get(slot)
             if published == self._published.get(slot) and (
                 previous is None and screen is None
@@ -178,38 +165,6 @@ class MqttScreenState:
         return removed
 
     def screens(self, now_epoch):
+        """Expose only validated, unexpired non-SL7 MQTT cycle screens."""
         self.expire(now_epoch)
-        visible = []
-        for slot in sorted(self._slots):
-            screen = self._slots[slot][1]
-            if screen.get("kind") != "bus_departures":
-                visible.append(screen)
-                continue
-            # A disconnected or unhealthy HA integration must never mask a
-            # still-working backend Transitous page at the same stop ID.
-            if screen.get("status") == "unavailable":
-                continue
-            config = self._bus_config or {}
-            stop = screen.get("stop_key")
-            page = "heathrow_enabled" if stop == "heathrow" else "new_malden_enabled"
-            if not config.get("enabled") or not config.get(page):
-                continue
-            try:
-                observed = _epoch(screen["observed_at"])
-                stale_after = max(60, min(1800, int(config.get("stale_after_seconds", 180))))
-                count = max(1, min(3, int(config.get("upcoming_bus_count", 3))))
-                normalised = normalise_bus_screen(screen, int(now_epoch), count=count)
-                if normalised is None:
-                    continue
-                normalised["stale"] = bool(screen.get("stale")) or (
-                    int(now_epoch) * 1000 - observed > stale_after * 1000
-                )
-                duration_key = ("no_services_duration_seconds"
-                                if not normalised["departures"] else "screen_duration_seconds")
-                normalised["duration_seconds"] = max(2, min(300, int(config.get(duration_key, 8))))
-                normalised["display_every_cycles"] = max(1, min(6, int(config.get("display_every_cycles", 1))))
-                normalised["destination_scroll_speed"] = max(8, min(80, int(config.get("destination_scroll_speed", 20))))
-                visible.append(normalised)
-            except (TypeError, ValueError, KeyError, OverflowError):
-                continue
-        return visible
+        return [self._slots[slot][1] for slot in sorted(self._slots)]
