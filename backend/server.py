@@ -491,25 +491,6 @@ class ScreenFeed:
             today_blocks = copy.deepcopy(overlay.pop("today_blocks", []))
             sunrise_time = overlay.pop("sunrise_time", None)
             sunset_time = overlay.pop("sunset_time", None)
-            screens.append({
-                "id": "weather-weekly",
-                "kind": "weather_weekly",
-                "duration_seconds": 8,
-                "title": "7 DAY WEATHER",
-                "source": weather.get("source", "unavailable"),
-                "stale": bool(weather.get("stale")),
-                "days": forecast,
-            })
-            if today_blocks:
-                screens.append({
-                    "id": "weather-today",
-                    "kind": "weather_today",
-                    "duration_seconds": 8,
-                    "title": "NEXT 24H",
-                    "source": weather.get("source", "unavailable"),
-                    "stale": bool(weather.get("stale")),
-                    "blocks": today_blocks,
-                })
             if sunrise_time and sunset_time:
                 screens.append({
                     "id": "weather-sun",
@@ -521,6 +502,25 @@ class ScreenFeed:
                     "sunrise_time": sunrise_time,
                     "sunset_time": sunset_time,
                 })
+            if today_blocks:
+                screens.append({
+                    "id": "weather-today",
+                    "kind": "weather_today",
+                    "duration_seconds": 8,
+                    "title": "NEXT 24H",
+                    "source": weather.get("source", "unavailable"),
+                    "stale": bool(weather.get("stale")),
+                    "blocks": today_blocks,
+                })
+            screens.append({
+                "id": "weather-weekly",
+                "kind": "weather_weekly",
+                "duration_seconds": 8,
+                "title": "7 DAY WEATHER",
+                "source": weather.get("source", "unavailable"),
+                "stale": bool(weather.get("stale")),
+                "days": forecast,
+            })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
 

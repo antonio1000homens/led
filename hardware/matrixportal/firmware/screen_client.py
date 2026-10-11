@@ -471,6 +471,22 @@ class ScreenRotation:
     def is_static(screen):
         return screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today")
 
+    @staticmethod
+    def is_maintenance_screen(screen):
+        """Static pages and non-animated weather pages can host GC/network work."""
+        return ScreenRotation.is_static(screen) or screen.get("kind") in (
+            "weather_today", "weather_weekly"
+        )
+
+    @staticmethod
+    def is_weather_followup(previous, current):
+        """Treat whichever enabled weather pages remain as one ordered block."""
+        order = ("weather_sun", "weather_today", "weather_weekly")
+        before = previous.get("kind")
+        after = current.get("kind")
+        return (before in order and after in order
+                and order.index(before) < order.index(after))
+
     def _choose(self, screen):
         items = screen.get("items") or ()
         if not items:
@@ -500,6 +516,7 @@ class ScreenRotation:
             if blocks and (
                 (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
                 or (blocks[-1][-1].get("kind") == "bus_intro" and item.get("kind") == "bus_departures")
+                or self.is_weather_followup(blocks[-1][-1], item)
             ):
                 blocks[-1].append(item)
             else:

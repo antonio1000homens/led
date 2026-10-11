@@ -34,7 +34,9 @@ Every enabled, available screen participates each cycle. Stored
 using that retired field are rejected. Static-page positions are randomized
 once per cycle while normal-screen ordering and train/departures adjacency are
 preserved. An API poll retains the current selected text, phase and cycle order;
-new screens join next cycle.
+new screens join next cycle. The Weather screens are one contiguous normal block
+in the order Sunrise/Sunset, Next 24 hours, then seven-day overview (omitting
+disabled or unavailable pages); static pages cannot be inserted between them.
 
 Explicit GC, screen fetching, content acknowledgements and detached Todoist
 scene construction run only with a static screen already visible. A due refresh

@@ -230,11 +230,11 @@ class WeatherFeedTests(unittest.TestCase):
 
         weather_screens = payload["screens"][-3:]
         self.assertEqual([screen["kind"] for screen in weather_screens],
-                         ["weather_weekly", "weather_today", "weather_sun"])
-        self.assertEqual(weather_screens[0]["days"], sample_forecast())
+                         ["weather_sun", "weather_today", "weather_weekly"])
+        self.assertEqual(weather_screens[2]["days"], sample_forecast())
         self.assertEqual(weather_screens[1]["blocks"], sample_blocks())
-        self.assertEqual(weather_screens[2]["sunrise_time"], "07:08")
-        self.assertEqual(weather_screens[2]["sunset_time"], "18:29")
+        self.assertEqual(weather_screens[0]["sunrise_time"], "07:08")
+        self.assertEqual(weather_screens[0]["sunset_time"], "18:29")
         for screen in payload["screens"]:
             self.assertEqual(screen["weather"]["temperature_c"], 17.4)
             self.assertNotIn("forecast", screen["weather"])

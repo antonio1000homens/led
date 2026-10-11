@@ -185,9 +185,9 @@ class ScreenFeedTests(unittest.TestCase):
         weather_screens = payload["screens"][-3:]
         self.assertEqual(
             [screen["kind"] for screen in weather_screens],
-            ["weather_weekly", "weather_today", "weather_sun"],
+            ["weather_sun", "weather_today", "weather_weekly"],
         )
-        weekly, today, sun = weather_screens
+        sun, today, weekly = weather_screens
         self.assertEqual(weekly["duration_seconds"], 8)
         self.assertEqual(len(weekly["days"]), 7)
         self.assertEqual([block["label"] for block in today["blocks"]],
