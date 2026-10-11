@@ -118,6 +118,8 @@ Resources:
                   - s3:PutBucketPublicAccessBlock
                   - s3:GetEncryptionConfiguration
                   - s3:PutEncryptionConfiguration
+                  - s3:GetLifecycleConfiguration
+                  - s3:PutLifecycleConfiguration
                   - s3:ListBucket
                 Resource: !Sub arn:aws:s3:::led-alf-broadcast-prod-${AWS::AccountId}
               - Sid: HostingObjectsManage
