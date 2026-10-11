@@ -11,7 +11,8 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from insults import InsultProvider
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
-from runtime_config import default_runtime_config, schema_metadata
+from runtime_config import (default_runtime_config, schema_metadata, validate_feed_patch,
+                            validate_runtime_config, RuntimeConfigValidationError)
 
 
 class MemoryStore:
@@ -84,12 +85,53 @@ class InsultTests(unittest.TestCase):
         self.assertEqual(failed_screen["insult"], "Second insult")
         self.assertTrue(failed_screen["stale"])
 
+    def test_initial_failure_shows_fallback_without_retrying_before_one_hour(self):
+        runtime = default_runtime_config({"LED_WEATHER_SOURCE": "off", "LED_THORPE_PARK_SOURCE": "off"})
+        runtime["feeds"]["departures"]["enabled"] = False
+        runtime["feeds"]["insult_of_hour"]["enabled"] = True
+        store = MemoryStore()
+        now = [datetime(2026, 10, 11, tzinfo=timezone.utc)]
+        provider = FakeInsultProvider([TimeoutError("unavailable"), "Recovered insult"])
+        publisher = Publisher(
+            config=PublisherConfig(bucket="test", national_rail_token="unused"),
+            store=store, utcnow=lambda: now[0],
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+            insult_provider=provider,
+        )
+        first = publisher.run()
+        fallback = next(screen for screen in first["screens"] if screen["kind"] == "insult_of_hour")
+        self.assertEqual(fallback["insult"], "Insult temporarily unavailable")
+        self.assertTrue(fallback["stale"])
+        self.assertEqual(fallback["items"], [])
+        now[0] += timedelta(seconds=3599)
+        publisher.run()
+        self.assertEqual(provider.calls, 1)
+        now[0] += timedelta(seconds=2)
+        recovered = publisher.run()
+        screen = next(screen for screen in recovered["screens"] if screen["kind"] == "insult_of_hour")
+        self.assertEqual(screen["insult"], "Recovered insult")
+        self.assertFalse(screen["stale"])
+        self.assertEqual(provider.calls, 2)
+
+    def test_legacy_config_and_interval_guard(self):
+        config = default_runtime_config({})
+        config["feeds"].pop("insult_of_hour")
+        self.assertFalse(validate_runtime_config(config)["feeds"]["insult_of_hour"]["enabled"])
+        config["feeds"]["insult_of_hour"] = {
+            "enabled": True, "poll_seconds": 60, "screen_duration_seconds": 15,
+        }
+        self.assertEqual(validate_runtime_config(config)["feeds"]["insult_of_hour"]["poll_seconds"], 3600)
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("insult_of_hour", {"poll_seconds": 60})
+        self.assertEqual(validate_feed_patch("insult_of_hour", {"poll_seconds": 7200})["poll_seconds"], 7200)
+
     def test_admin_schema_exposes_hourly_controls(self):
         config = default_runtime_config({})
         self.assertFalse(config["feeds"]["insult_of_hour"]["enabled"])
         schema = schema_metadata()["feeds"]["insult_of_hour"]
         self.assertEqual(schema["label"], "Insult of the Hour")
         self.assertEqual(config["feeds"]["insult_of_hour"]["poll_seconds"], 3600)
+        self.assertEqual(schema["fields"]["poll_seconds"]["minimum"], 3600)
 
 
 if __name__ == "__main__":
