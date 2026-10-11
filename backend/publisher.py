@@ -725,15 +725,16 @@ class Publisher:
                 stale = True
             overlay["stale"] = stale
 
-            if weather_config["overview_enabled"]:
+            if weather_config["sun_enabled"] and sunrise_time and sunset_time:
                 screens.append({
-                    "id": "weather-weekly",
-                    "kind": "weather_weekly",
-                    "duration_seconds": weather_config["screen_duration_seconds"],
-                    "title": "7 DAY WEATHER",
+                    "id": "weather-sun",
+                    "kind": "weather_sun",
+                    "duration_seconds": weather_config["sun_duration_seconds"],
+                    "title": "SUNRISE / SUNSET",
                     "source": source,
                     "stale": stale,
-                    "days": forecast,
+                    "sunrise_time": sunrise_time,
+                    "sunset_time": sunset_time,
                 })
             if weather_config["today_enabled"] and today_blocks:
                 screens.append({
@@ -745,16 +746,15 @@ class Publisher:
                     "stale": stale,
                     "blocks": today_blocks,
                 })
-            if weather_config["sun_enabled"] and sunrise_time and sunset_time:
+            if weather_config["overview_enabled"]:
                 screens.append({
-                    "id": "weather-sun",
-                    "kind": "weather_sun",
-                    "duration_seconds": weather_config["sun_duration_seconds"],
-                    "title": "SUNRISE / SUNSET",
+                    "id": "weather-weekly",
+                    "kind": "weather_weekly",
+                    "duration_seconds": weather_config["screen_duration_seconds"],
+                    "title": "7 DAY WEATHER",
                     "source": source,
                     "stale": stale,
-                    "sunrise_time": sunrise_time,
-                    "sunset_time": sunset_time,
+                    "days": forecast,
                 })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
