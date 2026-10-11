@@ -143,7 +143,7 @@ class RuntimeConfigTests(unittest.TestCase):
         for invalid in (4, 81, True):
             with self.subTest(speed=invalid), self.assertRaises(RuntimeConfigValidationError):
                 validate_feed_patch("sl7_bus", {"animation_speed": invalid})
-        for invalid in ("🚍", "beep\\nbeep", "x" * 81, None):
+        for invalid in ("🚍", "beep" + chr(10) + "beep", "x" * 81, None):
             with self.subTest(words=invalid), self.assertRaises(RuntimeConfigValidationError):
                 validate_feed_patch("sl7_bus", {"words": invalid})
         with self.assertRaises(RuntimeConfigValidationError):
