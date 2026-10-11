@@ -26,6 +26,7 @@ from weather import OpenMeteoProvider
 from dad_jokes import DadJokeProvider
 from random_facts import RandomFactProvider
 from insults import InsultProvider
+from zenquotes import ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
 
@@ -42,6 +43,11 @@ BUS_INTRO_WORDS = "Vroom Vroom.."
 
 def content_version(feed_id, cached):
     data = (cached or {}).get("data") or {}
+    if feed_id == "quotes":
+        quote, author = data.get("quote"), data.get("author")
+        if not quote or not author:
+            return None
+        return hashlib.sha256((quote + "\n" + author).encode()).hexdigest()
     text = data.get("joke") if feed_id == "dad_joke" else data.get("fact") if feed_id == "random_fact" else data.get("insult")
     if not text:
         return None
@@ -254,7 +260,7 @@ class S3StateStore:
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
-                 fact_provider=None, insult_provider=None, bus_provider=None):
+                 fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -275,6 +281,7 @@ class Publisher:
         self.joke_provider = joke_provider or DadJokeProvider()
         self.fact_provider = fact_provider or RandomFactProvider()
         self.insult_provider = insult_provider or InsultProvider()
+        self.quotes_provider = quotes_provider or ZenQuotesProvider()
         self.bus_provider = bus_provider or TransitousBusProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
@@ -400,6 +407,20 @@ class Publisher:
                     "insult": insult, "history": (history + [insult])[-100:],
                 }
         raise ValueError("Insult API returned only previously cached insults")
+
+    def _fetch_quotes(self, now):
+        return {"source": "zenquotes.io", "fetched_at": _iso(now),
+                "quotes": self.quotes_provider.fetch()}
+
+    def _refresh_quotes(self, previous, ttl, now):
+        # On a cold-cache failure, throttle retries across Lambda invocations.
+        # Existing data uses the configured TTL and survives refresh errors.
+        previous = previous or {}
+        attempted = _parse_iso(previous.get("last_attempt_at"))
+        if previous.get("data") is None and attempted and (now - attempted).total_seconds() < 300:
+            return previous
+        return self._refresh("quotes", previous, max(60, ttl),
+                             lambda: self._fetch_quotes(now), now)
 
     def _fetch_weather(self, now):
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
@@ -619,6 +640,21 @@ class Publisher:
                     "fact_id": fact_data.get("fact_id"),
                     "fact_source": fact_data.get("fact_source"),
                 })
+        quote_cfg = config_feeds["quotes"]
+        if quote_cfg["enabled"]:
+            cached_quotes = feeds.get("quotes") or {}
+            quote_data = cached_quotes.get("data") or {}
+            quote_pool = quote_data.get("quotes") or []
+            if quote_pool:
+                screens.append({
+                    "id": "quotes", "kind": "quotes", "title": "QUOTES",
+                    "source": "zenquotes.io", "source_url": "https://zenquotes.io/",
+                    "duration_seconds": quote_cfg["screen_duration_seconds"],
+                    "stale": bool(cached_quotes.get("stale")),
+                    "quote": quote_pool[0]["quote"], "author": quote_pool[0]["author"],
+                    "items": [dict(item, content_version=content_version("quotes", {"data": item}))
+                              for item in quote_pool],
+                })
         insult_cfg = config_feeds["insult_of_hour"]
         if insult_cfg["enabled"]:
             cached_insult = feeds.get("insult_of_hour") or {}
@@ -800,6 +836,10 @@ class Publisher:
         if settings["random_fact"]["enabled"]:
             feeds["random_fact"] = self._refresh_static_pool(
                 "random_fact", feeds.get("random_fact"), settings["random_fact"]["poll_seconds"], now,
+            )
+        if settings["quotes"]["enabled"]:
+            feeds["quotes"] = self._refresh_quotes(
+                feeds.get("quotes"), settings["quotes"]["poll_seconds"], now,
             )
         if settings["insult_of_hour"]["enabled"]:
             previous_insult = feeds.get("insult_of_hour")

@@ -222,6 +222,13 @@ FEED_REGISTRY = {
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
     },
+    "quotes": {
+        "label": "Quotes",
+        "display_group": "static_feeds",
+        "provider": "zenquotes.io",
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "screen_duration": True,
+    },
     "insult_of_hour": {
         "label": "Insult of the Hour",
         "display_group": "static_feeds",
@@ -391,6 +398,11 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": False,
                 "poll_seconds": 3600,
                 "screen_duration_seconds": 15,
+            },
+            "quotes": {
+                "enabled": False,
+                "poll_seconds": 7200,
+                "screen_duration_seconds": 30,
             },
             "insult_of_hour": {
                 "enabled": False,
@@ -727,7 +739,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     supplied_feed_ids = set(raw_feeds)
     missing_feed_ids = supported_feed_ids - supplied_feed_ids
     unknown_feed_ids = supplied_feed_ids - supported_feed_ids
-    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact", "today", "sl7_bus"}
+    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact", "insult_of_hour", "quotes", "today", "sl7_bus"}
     if unknown_feed_ids or not missing_feed_ids.issubset(additive_feed_ids):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
     for feed_id in missing_feed_ids:
