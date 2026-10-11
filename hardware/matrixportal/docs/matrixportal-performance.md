@@ -118,6 +118,17 @@ Integer frame deadlines include telemetry/bookkeeping overhead in the cadence
 budget and rebase any overdue deadline rather than issuing catch-up bursts.
 The display cadence, bit depth and panel geometry are unchanged by this fix.
 
+On October 11 the user confirmed the telemetry-off train was smooth throughout
+each crossing, then confirmed it remained smooth after software reload. The
+measured reload preserved aged hardware uptime (299545338 ms before,
+299549570 ms at startup afterward). Readback retained the same train-only
+C8 configuration at 8 FPS / 8 pixels per second, bit depth 1 and 20 ms sleep
+slices, with Wi-Fi on. The firmware hash matched the deployed integer-pacing
+stage. These observations establish a smooth physical train baseline and one
+measured reload check, not a multi-day soak or standard-screen acceptance.
+The full test record and remaining train-only reliability checks are in
+[issue #225](https://github.com/antonio1000homens/led/issues/225).
+
 To distinguish pixel stepping from stalls elsewhere in the application, the
 firmware has an opt-in `STEAM_TRAIN_TEST` mode for the physical board. Set it
 to `True` in the ignored board-local `settings_local.py`; the mode then uses a
