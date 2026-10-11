@@ -71,11 +71,11 @@ class PublisherInvoker:
             client = boto3.client("lambda")
         self.client = client
 
-    def invoke(self) -> None:
+    def invoke(self, payload: bytes = b'{"source":"runtime-control-api"}') -> None:
         self.client.invoke(
             FunctionName=self.function_name,
             InvocationType="Event",
-            Payload=b'{"source":"runtime-control-api"}',
+            Payload=payload,
         )
 
 
@@ -351,6 +351,22 @@ def lambda_handler(event, context):
         if method == "GET" and path == "/api/control/v1/status":
             config = store.ensure()
             return _response(200, _status_payload(config, status_store), version=config["config_version"])
+
+        if method == "POST" and path == "/api/control/v1/maintenance/gc":
+            try:
+                body = json.loads(event.get("body") or "")
+            except (TypeError, json.JSONDecodeError):
+                return _response(400, {"error": "body must be valid JSON"})
+            if not isinstance(body, dict) or body.get("confirm") is not True:
+                return _response(400, {"error": "explicit confirmation is required"})
+            try:
+                PublisherInvoker(publisher_name).invoke(
+                    b'{"source":"runtime-control-api","action":"garbage_collect"}'
+                )
+            except Exception:
+                print(json.dumps({"event": "garbage_collection_request_failed", "identity": identity}))
+                return _response(503, {"error": "garbage collection could not be requested"})
+            return _response(202, {"message": "Garbage collection requested."})
 
         options_match = re.fullmatch(r"/api/control/v1/feeds/([^/]+)/options", path)
         if method == "GET" and options_match:

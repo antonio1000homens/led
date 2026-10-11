@@ -23,6 +23,7 @@ cp \
   "${ROOT_DIR}/backend/weather.py" \
   "${ROOT_DIR}/backend/dad_jokes.py" \
   "${ROOT_DIR}/backend/random_facts.py" \
+  "${ROOT_DIR}/backend/insults.py" \
   "${ROOT_DIR}/backend/transitous_bus.py" \
   "${ROOT_DIR}/backend/todoist.py" \
   "${ROOT_DIR}/shared/formatting.py" \

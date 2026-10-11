@@ -222,6 +222,13 @@ FEED_REGISTRY = {
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
     },
+    "insult_of_hour": {
+        "label": "Insult of the Hour",
+        "display_group": "static_feeds",
+        "provider": "insult.mattbas.org",
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "screen_duration": True,
+    },
     "today": {
         "label": "Today",
         "provider": "open_meteo",
@@ -381,6 +388,11 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "screen_duration_seconds": 15,
             },
             "random_fact": {
+                "enabled": False,
+                "poll_seconds": 3600,
+                "screen_duration_seconds": 15,
+            },
+            "insult_of_hour": {
                 "enabled": False,
                 "poll_seconds": 3600,
                 "screen_duration_seconds": 15,

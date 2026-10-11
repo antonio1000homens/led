@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import gc
 import hashlib
 from datetime import datetime, timezone
 import json
@@ -24,6 +25,7 @@ from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthS
 from weather import OpenMeteoProvider
 from dad_jokes import DadJokeProvider
 from random_facts import RandomFactProvider
+from insults import InsultProvider
 from transitous_bus import TransitousBusProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
 
@@ -37,7 +39,7 @@ STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
 
 def content_version(feed_id, cached):
     data = (cached or {}).get("data") or {}
-    text = data.get("joke") if feed_id == "dad_joke" else data.get("fact")
+    text = data.get("joke") if feed_id == "dad_joke" else data.get("fact") if feed_id == "random_fact" else data.get("insult")
     if not text:
         return None
     return hashlib.sha256((str(data.get("fetched_at")) + ":" + text).encode()).hexdigest()
@@ -249,7 +251,7 @@ class S3StateStore:
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
-                 fact_provider=None, bus_provider=None):
+                 fact_provider=None, insult_provider=None, bus_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -269,6 +271,7 @@ class Publisher:
         self.weather_provider = weather_provider or OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
         self.joke_provider = joke_provider or DadJokeProvider()
         self.fact_provider = fact_provider or RandomFactProvider()
+        self.insult_provider = insult_provider or InsultProvider()
         self.bus_provider = bus_provider or TransitousBusProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
@@ -325,7 +328,8 @@ class Publisher:
         working = previous
         added = []
         for _ in range(count):
-            fetcher = self._fetch_joke if feed_id == "dad_joke" else self._fetch_fact
+            fetcher = {"dad_joke": self._fetch_joke, "random_fact": self._fetch_fact,
+                       "insult_of_hour": self._fetch_insult}[feed_id]
             refreshed = self._refresh(feed_id, working, ttl,
                                       lambda: fetcher(now, working), now, force=True)
             if refreshed.get("stale"):
@@ -379,6 +383,20 @@ class Publisher:
                     "history": (history + [fact["text"]])[-100:],
                 }
         raise ValueError("Facts API returned only previously cached facts")
+
+    def _fetch_insult(self, now, previous=None):
+        old = (previous or {}).get("data") or {}
+        history = list(old.get("history") or [])[-99:]
+        if old.get("insult") and old["insult"] not in history:
+            history.append(old["insult"])
+        for _ in range(3):
+            insult = self.insult_provider.fetch()
+            if insult not in history:
+                return {
+                    "source": "insult.mattbas.org", "fetched_at": _iso(now),
+                    "insult": insult, "history": (history + [insult])[-100:],
+                }
+        raise ValueError("Insult API returned only previously cached insults")
 
     def _fetch_weather(self, now):
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
@@ -588,6 +606,18 @@ class Publisher:
                     "fact_id": fact_data.get("fact_id"),
                     "fact_source": fact_data.get("fact_source"),
                 })
+        insult_cfg = config_feeds["insult_of_hour"]
+        if insult_cfg["enabled"]:
+            cached_insult = feeds.get("insult_of_hour") or {}
+            insult_data = cached_insult.get("data") or {}
+            if insult_data.get("insult"):
+                screens.append({
+                    "id": "insult-of-hour", "kind": "insult_of_hour",
+                    "title": "INSULT OF THE HOUR", "source": "insult.mattbas.org",
+                    "duration_seconds": insult_cfg["screen_duration_seconds"],
+                    "stale": bool(cached_insult.get("stale")),
+                    "insult": insult_data["insult"],
+                })
         if config_feeds["today"]["enabled"]:
             current_weather = feeds.get("weather") or {}
             screens.append({
@@ -661,7 +691,7 @@ class Publisher:
             feed_id = screen.get("kind")
             if FEED_REGISTRY.get(feed_id, {}).get("display_group"):
                 screen["display_group"] = "static_feeds"
-            if feed_id in ("dad_joke", "random_fact"):
+            if feed_id in ("dad_joke", "random_fact", "insult_of_hour"):
                 cached = feeds.get(feed_id) or {}
                 screen["items"] = []
                 for data in cached.get("items") or [cached.get("data") or {}]:
@@ -756,6 +786,12 @@ class Publisher:
             feeds["random_fact"] = self._refresh_static_pool(
                 "random_fact", feeds.get("random_fact"), settings["random_fact"]["poll_seconds"], now,
             )
+        if settings["insult_of_hour"]["enabled"]:
+            previous_insult = feeds.get("insult_of_hour")
+            feeds["insult_of_hour"] = self._refresh(
+                "insult_of_hour", previous_insult, settings["insult_of_hour"]["poll_seconds"],
+                lambda: self._fetch_insult(now, (previous_insult or {})), now,
+            )
         if settings["weather"]["enabled"] or settings["today"]["enabled"]:
             weather_previous = feeds.get("weather")
             weather_data = (weather_previous or {}).get("data")
@@ -799,7 +835,11 @@ _PUBLISHER = None
 
 
 def lambda_handler(event, context):
-    del event, context
+    del context
+    event = event or {}
+    if event.get("action") == "garbage_collect":
+        reclaimed = gc.collect()
+        print(json.dumps({"event": "garbage_collection_requested", "reclaimed": reclaimed}))
     global _PUBLISHER
     if _PUBLISHER is None:
         config = PublisherConfig.from_env()

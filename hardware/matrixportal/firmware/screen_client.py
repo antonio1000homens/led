@@ -459,7 +459,7 @@ class ScreenRotation:
 
     @staticmethod
     def is_static(screen):
-        return screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "today")
+        return screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "today")
 
     def _choose(self, screen):
         items = screen.get("items") or ()

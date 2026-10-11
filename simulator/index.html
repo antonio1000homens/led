@@ -511,7 +511,7 @@
     }
     let cyclePlan = [], cycleStarted = 0, planOffset = 0;
     const recentStaticItems = new Map();
-    const staticScreen = screen => screen.display_group === 'static_feeds' || ['dad_joke','random_fact','today'].includes(screen.kind);
+    const staticScreen = screen => screen.display_group === 'static_feeds' || ['dad_joke','random_fact','insult_of_hour','today'].includes(screen.kind);
     function chooseStatic(screen) {
       const items = screen.items || [];
       if (!items.length) return screen;
@@ -1094,7 +1094,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1126,9 +1126,10 @@
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
-      } else if (screen.kind === 'dad_joke' || screen.kind === 'random_fact') {
+      } else if (screen.kind === 'dad_joke' || screen.kind === 'random_fact' || screen.kind === 'insult_of_hour') {
         const fact = screen.kind === 'random_fact';
-        const words = String(fact ? screen.fact : screen.joke || '').split(/\s+/).filter(Boolean);
+        const insult = screen.kind === 'insult_of_hour';
+        const words = String(fact ? screen.fact : insult ? screen.insult : screen.joke || '').split(/\s+/).filter(Boolean);
         const lines = [];
         let line = '';
         for (let word of words) {
@@ -1146,11 +1147,11 @@
         const duration = Math.max(1, Number(screen.duration_seconds) || 15);
         const page = Math.min(pages - 1, Math.floor(Math.max(0, phase) * pages / duration));
         context.fillStyle = '#ffaa00';
-        drawLedText(fact ? 'DID YOU KNOW?' : 'DAD JOKE', 0, NOVELTY_HEADING_Y * FONT_PIXEL_SCALE);
+        drawLedText(fact ? 'DID YOU KNOW?' : insult ? 'INSULT OF THE HOUR' : 'DAD JOKE', 0, NOVELTY_HEADING_Y * FONT_PIXEL_SCALE);
         context.fillStyle = '#ffffff';
         lines.slice(page * 3, page * 3 + 3).forEach((value, index) => drawLedText(value, 0, (NOVELTY_FIRST_LINE_Y + index * 8) * FONT_PIXEL_SCALE));
         suppressHeader = true;
-        status.dataset.detail = fact ? 'Random fact' : 'Dad joke';
+        status.dataset.detail = fact ? 'Random fact' : insult ? 'Insult of the hour' : 'Dad joke';
       } else if (screen.kind === 'weather_weekly') {
         drawWeeklyWeather(screen);
         suppressHeader = true;

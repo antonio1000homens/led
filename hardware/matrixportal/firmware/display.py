@@ -146,7 +146,8 @@ NOVELTY_FIRST_LINE_Y = 12
 
 def _novelty_lines(screen):
     """Wrap cached content without scrolling or clipping long words."""
-    message = str(screen.get("joke") if screen.get("kind") == "dad_joke" else screen.get("fact") or "")
+    kind = screen.get("kind")
+    message = str(screen.get("joke") if kind == "dad_joke" else screen.get("fact") if kind == "random_fact" else screen.get("insult") or "")
     lines, current = [], ""
     for word in message.split():
         # Split unusually long uninterrupted words rather than silently clipping.
@@ -1362,7 +1363,7 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
-        if screen.get("kind") in ("dad_joke", "random_fact", "today"):
+        if screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "today"):
             return 0
         if (
             isinstance(screen, dict)
@@ -1400,7 +1401,7 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "today":
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
-        if kind in ("dad_joke", "random_fact"):
+        if kind in ("dad_joke", "random_fact", "insult_of_hour"):
             pages = max(1, (len(_novelty_lines(screen)) + 2) // 3)
             duration = max(1.0, float(screen.get("duration_seconds") or 15))
             page_seconds = duration / pages
@@ -2924,9 +2925,9 @@ class MatrixDisplay:
                         use_rail_auto_refresh
                     )
                 )
-        if not empty_state and kind in ("dad_joke", "random_fact", "today"):
+        if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "today"):
             heading = ("TODAY" if kind == "today" else
-                       "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?")
+                       "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
             lines = (_today_lines(screen, clock_time, clock_date) if kind == "today"
                      else _novelty_page(screen, phase))
             key = (heading, tuple(lines))
@@ -3282,8 +3283,8 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--"):
         kind = screen.get("kind")
-        if kind in ("dad_joke", "random_fact", "today"):
-            heading = "TODAY" if kind == "today" else "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
+        if kind in ("dad_joke", "random_fact", "insult_of_hour", "today"):
+            heading = "TODAY" if kind == "today" else "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR"
             self._text(heading, 0, NOVELTY_HEADING_Y, (255, 170, 0))
             lines = _today_lines(screen, clock_time, clock_date) if kind == "today" else _novelty_page(screen, phase)
             for index, line in enumerate(lines):
@@ -3465,7 +3466,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "flash", "today", "dad_joke", "random_fact"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "flash", "today", "dad_joke", "random_fact", "insult_of_hour"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
