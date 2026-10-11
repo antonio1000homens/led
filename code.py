@@ -205,7 +205,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
 
 
 next_fetch = 0
-last_static_slot = None
+last_maintenance_slot = None
 last_visible_screen = None
 task_retry_at = 0
 prepared_task = None
@@ -589,27 +589,29 @@ while True:
                     and candidate.get("source") == "todoist"
                     and not display.tasks_ready(candidate, clock.date_text(now))
                     and ticks_ms() >= task_retry_at)
-    # A train/departures pair is one block: never insert work between them.
+    # Weather is grouped by the rotation scheduler; today's forecast and
+    # the weekly overview can host maintenance without splitting that block.
+    # The train/departures pair also stays together.
     between_train_and_rail = (last_visible_screen == "steam-train"
                              and candidate.get("kind") == "rail_combined")
     if (rotation.screens and not steam_train_test and not flash.active(now)
             and boundary and not between_train_and_rail and (fetch_due or task_unready)
-            and not rotation.is_static(candidate)):
+            and not rotation.is_maintenance_screen(candidate)):
         rotation.maintenance_slot(ticks_ms())
         candidate, candidate_phase = rotation.current(ticks_ms())
-    static_visible = rotation.is_static(candidate)
+    maintenance_visible = rotation.is_static(candidate)
     if not rotation.screens:
         candidate = {"id": "startup-static", "kind": "today", "title": "TODAY",
                      "duration_seconds": 8, "weather": {}}
         candidate_phase = 0
-        static_visible = True
+        maintenance_visible = True
     slot_key = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
-    if static_visible and not steam_train_test and not flash.active(now):
+    if maintenance_visible and not steam_train_test and not flash.active(now):
         maintenance_active = True
         display.show(candidate, clock.text(now), clock_date=clock.date_text(now), phase=candidate_phase)
         if rotation.screens:
             maintenance_resume = rotation.freeze(ticks_ms())
-        if slot_key != last_static_slot:
+        if slot_key != last_maintenance_slot:
             if gc is not None and hasattr(gc, "collect"):
                 gc.collect()
         if client is not None and fetch_due:
@@ -623,7 +625,7 @@ while True:
                 except Exception:
                     print("Static content acknowledgement deferred")
                     break
-    should_fetch = (fetch_due and (static_visible or (steam_train_test and not rotation.screens))
+    should_fetch = (fetch_due and (maintenance_visible or (steam_train_test and not rotation.screens))
                     and not flash.active(now))
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["fetch_decision"] = elapsed_seconds(stage_started)
@@ -703,7 +705,7 @@ while True:
                     break
         if maintenance_resume is not None:
             rotation.resume(ticks_ms(), maintenance_resume[0], maintenance_resume[1])
-        last_static_slot = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
+        last_maintenance_slot = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
 
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):
