@@ -57,6 +57,17 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_bus_intro_stays_attached_to_departures(self):
+        rotation = ScreenRotation()
+        screens = [
+            {"id": "intro", "kind": "bus_intro", "duration_seconds": 2},
+            {"id": "bus", "kind": "bus_departures", "duration_seconds": 5},
+            {"id": "other", "duration_seconds": 3},
+        ]
+        rotation.update(screens, 0)
+        self.assertEqual([item["id"] for item in rotation.screens], ["intro", "bus", "other"])
+        self.assertEqual(rotation.current(2)[0]["id"], "bus")
+
     def test_millisecond_phases_keep_one_pixel_steps_after_days_of_uptime(self):
         rotation = ScreenRotation(ticks_per_second=1000)
         started = 297_805_460

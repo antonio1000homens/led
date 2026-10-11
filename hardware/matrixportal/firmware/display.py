@@ -106,6 +106,10 @@ STEAM_TRAIN_WIDTH = 52
 STEAM_TRAIN_HEIGHT = 26
 STEAM_TRAIN_VERTICAL_OFFSET = 1
 STEAM_TRAIN_TEXT_GAP = 8
+BUS_WIDTH = 52
+BUS_HEIGHT = 26
+BUS_VERTICAL_OFFSET = 1
+BUS_TEXT_GAP = 8
 CLOCK_X = 226
 HEADER_SLOT_X = 224
 STALE_X = 190
@@ -916,6 +920,10 @@ class MatrixDisplay:
         self._steam_train_motion_group = None
         self._steam_train_words = None
         self._steam_train_speed = None
+        self._bus_intro_group = None
+        self._bus_intro_motion_group = None
+        self._bus_intro_words = None
+        self._bus_intro_speed = None
 
         # The solar-times screen only animates its two icon TileGrids. Keep
         # the scene alive during the short entry transition so the physical
@@ -1334,6 +1342,8 @@ class MatrixDisplay:
                 return "todoist_marquee"
             return None
         if kind == "steam_train_intro":
+            return "steam_train"
+        if kind == "bus_intro":
             return "steam_train"
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
@@ -2507,6 +2517,91 @@ class MatrixDisplay:
         if changed:
             self._refresh(animation_class)
 
+    def _bus_intro_cache_matches(self, screen):
+        try:
+            speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
+        except (TypeError, ValueError):
+            speed = 24.0
+        return (
+            self._bus_intro_group is not None
+            and self._bus_intro_words == str(screen.get("words") or "")
+            and self._bus_intro_speed == speed
+        )
+
+    def _build_bus_intro_scene(self, screen):
+        import displayio
+
+        root = displayio.Group()
+        motion = displayio.Group(x=0, y=BUS_VERTICAL_OFFSET)
+        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, 5)
+        palette = displayio.Palette(5)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = 0x2255FF
+        palette[2] = 0xFFFFFF
+        palette[3] = 0xFFAA00
+        palette[4] = 0x222222
+
+        def fill_rect(x, y, width, height, color):
+            for py in range(max(0, y), min(BUS_HEIGHT, y + height)):
+                for px in range(max(0, x), min(BUS_WIDTH, x + width)):
+                    bitmap[px, py] = color
+
+        fill_rect(3, 8, 43, 12, 1)
+        fill_rect(7, 4, 37, 5, 1)
+        fill_rect(12, 6, 8, 5, 2)
+        fill_rect(22, 6, 8, 5, 2)
+        fill_rect(32, 6, 8, 5, 2)
+        fill_rect(42, 11, 6, 7, 3)
+        for center_x in (13, 39):
+            for dx, dy in ((-3, -2), (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -2),
+                           (-3, -1), (3, -1), (-3, 0), (3, 0), (-2, 2), (-1, 3),
+                           (0, 3), (1, 3), (2, 2)):
+                px, py = center_x + dx, 21 + dy
+                if 0 <= px < BUS_WIDTH and 0 <= py < BUS_HEIGHT:
+                    bitmap[px, py] = 4
+
+        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
+        words = str(screen.get("words") or "")
+        if words:
+            self._scaled_label(motion, words, 0xFFAA00, BUS_WIDTH + BUS_TEXT_GAP, 5)
+        root.append(motion)
+        try:
+            speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
+        except (TypeError, ValueError):
+            speed = 24.0
+        self._bus_intro_group = root
+        self._bus_intro_motion_group = motion
+        self._bus_intro_words = words
+        self._bus_intro_speed = speed
+
+    def _update_bus_intro_scene(self, phase):
+        if self._bus_intro_motion_group is None:
+            return False
+        try:
+            elapsed = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            elapsed = 0.0
+        next_x = max(0, DISPLAY_WIDTH - int(elapsed * self._bus_intro_speed))
+        if self._bus_intro_motion_group.x == next_x:
+            return False
+        self._bus_intro_motion_group.x = next_x
+        return True
+
+    def _show_bus_intro(self, screen, phase):
+        if not self._bus_intro_cache_matches(screen):
+            self._build_bus_intro_scene(screen)
+        update_started = ticks_ms()
+        changed = self._update_bus_intro_scene(phase)
+        self._attach_brightness_overlay(self._bus_intro_group)
+        if self.display.root_group is not self._bus_intro_group:
+            self.display.root_group = self._bus_intro_group
+            changed = True
+        animation_class = self._animation_class(screen, phase)
+        self._record_animation_update("bus_intro", changed, elapsed_seconds(update_started), animation_class)
+        if changed:
+            self._refresh(animation_class)
+
     def _weekly_weather(self, group, screen):
         import displayio
 
@@ -2949,6 +3044,10 @@ class MatrixDisplay:
             self._show_steam_train(screen, phase)
             return
 
+        if not empty_state and kind == "bus_intro":
+            self._show_bus_intro(screen, phase)
+            return
+
         if not empty_state and kind == "bin_collection":
             self._show_bin_collection(screen, clock_time, clock_date, phase)
             return
@@ -2994,6 +3093,9 @@ class MatrixDisplay:
             return
         if kind == "rail_combined":
             self._rail(group, screen, phase)
+        elif kind == "bus_intro":
+            self._show_bus_intro(screen, phase)
+            return
         elif kind == "theme_park_queues":
             self._queues(group, screen, phase)
         elif kind == "bus_departures":
@@ -3121,6 +3223,30 @@ class FixtureDisplay:
         if words:
             self._text(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP,
                        12 + offset, (255, 170, 0))
+
+    def _bus_intro(self, screen, phase):
+        try:
+            speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
+        except (TypeError, ValueError):
+            speed = 24.0
+        try:
+            elapsed = max(0.0, float(phase or 0))
+        except (TypeError, ValueError):
+            elapsed = 0.0
+        x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
+        offset = BUS_VERTICAL_OFFSET
+        self._fill_rect(x + 3, 9 + offset, 43, 12, (34, 85, 255))
+        self._fill_rect(x + 7, 5 + offset, 37, 5, (34, 85, 255))
+        for window_x in (12, 22, 32):
+            self._fill_rect(x + window_x, 7 + offset, 8, 5, (255, 255, 255))
+        self._fill_rect(x + 42, 12 + offset, 6, 7, (255, 170, 0))
+        for center_x in (13, 39):
+            self._fill_rect(x + center_x - 3, 20 + offset, 7, 1, (34, 34, 34))
+            self._fill_rect(x + center_x - 2, 21 + offset, 5, 3, (34, 34, 34))
+            self._fill_rect(x + center_x - 1, 22 + offset, 3, 1, (170, 170, 170))
+        words = str(screen.get("words") or "")
+        if words:
+            self._text(words, x + BUS_WIDTH + BUS_TEXT_GAP, 12 + offset, (255, 170, 0))
 
     def _bin_collection(self, screen, phase, clock_date=""):
         items = screen.get("collections") or []
@@ -3291,6 +3417,8 @@ class FixtureDisplay:
                 self._text(line, 0, NOVELTY_FIRST_LINE_Y + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
+        elif kind == "bus_intro":
+            self._bus_intro(screen, phase)
         elif kind == "weather_weekly":
             self._weekly_weather(screen)
         elif kind == "weather_today":
@@ -3466,7 +3594,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "flash", "today", "dad_joke", "random_fact", "insult_of_hour"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "flash", "today", "dad_joke", "random_fact", "insult_of_hour"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
@@ -3484,6 +3612,8 @@ class FixtureDisplay:
             print(due_text)
         if kind == "steam_train_intro":
             print("STEAM TRAIN {}".format(screen.get("words") or ""))
+        elif kind == "bus_intro":
+            print("BUS {}".format(screen.get("words") or ""))
         elif kind == "bin_collection":
             for item in screen.get("collections") or []:
                 print(str(item.get("label") or ""))

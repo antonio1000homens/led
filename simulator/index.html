@@ -115,6 +115,9 @@
     const STEAM_TRAIN_WIDTH = 52 * FONT_PIXEL_SCALE;
     const STEAM_TRAIN_TEXT_GAP = 8 * FONT_PIXEL_SCALE;
     const STEAM_TRAIN_VERTICAL_OFFSET = 1;
+    const BUS_WIDTH = 52 * FONT_PIXEL_SCALE;
+    const BUS_TEXT_GAP = 8 * FONT_PIXEL_SCALE;
+    const BUS_VERTICAL_OFFSET = 1;
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -527,7 +530,7 @@
       const blocks = [];
       for (const screen of screens.filter(screen => !staticScreen(screen))) {
         const last = blocks[blocks.length - 1];
-        if (last && last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') last.push(screen);
+        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || (last[last.length - 1].kind === 'bus_intro' && screen.kind === 'bus_departures'))) last.push(screen);
         else blocks.push([screen]);
       }
       const pages = screens.filter(staticScreen).map(chooseStatic);
@@ -1084,6 +1087,29 @@
       }
       context.restore();
     }
+    function drawBus(screen, phase) {
+      const speed = boundedNumber(screen.animation_speed, 24, 8, 80) * FONT_PIXEL_SCALE;
+      const x = Math.max(0, Math.round((1024 - Math.max(0, Number(phase) || 0) * speed) / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE);
+      context.save();
+      context.translate(0, BUS_VERTICAL_OFFSET * FONT_PIXEL_SCALE);
+      trainRect(x + 3 * FONT_PIXEL_SCALE, 9, 43, 12, '#2255ff');
+      trainRect(x + 7 * FONT_PIXEL_SCALE, 5, 37, 5, '#2255ff');
+      [12, 22, 32].forEach(windowX => trainRect(x + windowX * FONT_PIXEL_SCALE, 7, 8, 5, '#ffffff'));
+      trainRect(x + 42 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00');
+      drawBusWheel(x, 13, 21); drawBusWheel(x, 39, 21);
+      const words = String(screen.words || '');
+      if (words) {
+        context.fillStyle = '#ffaa00';
+        drawLedTextLarge(words, x + BUS_WIDTH + BUS_TEXT_GAP, 5 * FONT_PIXEL_SCALE);
+      }
+      context.restore();
+    }
+    function drawBusWheel(baseX, centerX, centerY) {
+      context.fillStyle = '#222222';
+      context.fillRect(baseX + (centerX - 3) * FONT_PIXEL_SCALE, (centerY - 1) * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
+      context.fillStyle = '#aaaaaa';
+      context.fillRect(baseX + (centerX - 1) * FONT_PIXEL_SCALE, centerY * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+    }
     function draw(now) {
       if (hardwarePreview && now - lastHardwareFrame < MATRIX_FRAME_MS) {
         requestAnimationFrame(draw);
@@ -1094,7 +1120,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1174,6 +1200,10 @@
         drawSteamTrain(screen, phase);
         suppressHeader = true;
         status.dataset.detail = screen.words ? `Steam train · ${screen.words}` : 'Steam train';
+      } else if (screen.kind === 'bus_intro') {
+        drawBus(screen, phase);
+        suppressHeader = true;
+        status.dataset.detail = screen.words ? `Bus · ${screen.words}` : 'Bus';
       } else if (screen.kind === 'rail_combined') {
         const { callingSeconds, summarySeconds } = railScreenTiming(screen);
         const railServices = listPage(screen).services;

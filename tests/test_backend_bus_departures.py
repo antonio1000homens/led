@@ -73,6 +73,11 @@ class BusProviderTests(unittest.TestCase):
         screens = [screen for screen in payload["screens"] if screen["kind"] == "bus_departures"]
         self.assertEqual([screen["id"] for screen in screens], ["sl7-heathrow", "sl7-new-malden"])
         self.assertTrue(all(screen["source"] == "transitous" and not screen["stale"] for screen in screens))
+        self.assertEqual(
+            [(screen["kind"], screen.get("words")) for screen in payload["screens"]],
+            [("bus_intro", "Vroom Vroom.."), ("bus_departures", None),
+             ("bus_intro", "Vroom Vroom.."), ("bus_departures", None)],
+        )
 
 
 if __name__ == "__main__":

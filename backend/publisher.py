@@ -35,6 +35,9 @@ DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
 STEAM_TRAIN_DISPLAY_WIDTH = 256
 STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
+BUS_INTRO_DISPLAY_WIDTH = 256
+BUS_INTRO_EDGE_HOLD_SECONDS = 1.0
+BUS_INTRO_WORDS = "Vroom Vroom.."
 
 
 def content_version(feed_id, cached):
@@ -427,6 +430,16 @@ class Publisher:
         }
 
     @staticmethod
+    def _bus_intro(stop_key, config):
+        speed = max(1, int(config.get("animation_speed", 24)))
+        return {
+            "id": f"sl7-{stop_key}-intro", "kind": "bus_intro",
+            "duration_seconds": max(2.0, BUS_INTRO_DISPLAY_WIDTH / speed + BUS_INTRO_EDGE_HOLD_SECONDS),
+            "title": "Bus", "source": "local_animation", "stale": False,
+            "animation_speed": speed, "words": BUS_INTRO_WORDS, "stop_key": stop_key,
+        }
+
+    @staticmethod
     def _park_payload(feed_id, title, feed, runtime_feed):
         selected_names = runtime_feed.get("rides") or []
         if not selected_names:
@@ -706,8 +719,10 @@ class Publisher:
             bus_feed = feeds.get("sl7_bus") or {}
             bus_data = bus_feed.get("data") or {}
             if bus_config.get("heathrow_enabled"):
+                screens.append(self._bus_intro("heathrow", bus_config))
                 screens.append(self._bus_screen("heathrow", bus_data.get("heathrow"), bus_config, bus_feed.get("stale", False), now))
             if bus_config.get("new_malden_enabled"):
+                screens.append(self._bus_intro("new-malden", bus_config))
                 screens.append(self._bus_screen("new-malden", bus_data.get("new-malden"), bus_config, bus_feed.get("stale", False), now))
         return {
             "fetched_at": _iso(now),

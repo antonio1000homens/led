@@ -482,7 +482,10 @@ class ScreenRotation:
         # represented by one atomic screen.
         blocks = []
         for item in normal:
-            if blocks and blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined":
+            if blocks and (
+                (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
+                or (blocks[-1][-1].get("kind") == "bus_intro" and item.get("kind") == "bus_departures")
+            ):
                 blocks[-1].append(item)
             else:
                 blocks.append([item])
