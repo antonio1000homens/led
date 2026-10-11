@@ -16,6 +16,7 @@ from runtime_config import (
     DEFAULT_UPCOMING_TRAIN_COUNT,
     FEED_REGISTRY,
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
+    MIN_INSULT_POLL_SECONDS,
     RuntimeConfigStore,
     default_runtime_config,
     validate_runtime_config,
@@ -623,14 +624,15 @@ class Publisher:
         if insult_cfg["enabled"]:
             cached_insult = feeds.get("insult_of_hour") or {}
             insult_data = cached_insult.get("data") or {}
-            if insult_data.get("insult"):
-                screens.append({
-                    "id": "insult-of-hour", "kind": "insult_of_hour",
-                    "title": "INSULT OF THE HOUR", "source": "insult.mattbas.org",
-                    "duration_seconds": insult_cfg["screen_duration_seconds"],
-                    "stale": bool(cached_insult.get("stale")),
-                    "insult": insult_data["insult"],
-                })
+            insult = insult_data.get("insult")
+            screens.append({
+                "id": "insult-of-hour", "kind": "insult_of_hour",
+                "title": "INSULT OF THE HOUR",
+                "source": "insult.mattbas.org" if insult else "unavailable",
+                "duration_seconds": insult_cfg["screen_duration_seconds"],
+                "stale": bool(cached_insult.get("stale")) or not bool(insult),
+                "insult": insult or "Insult temporarily unavailable",
+            })
         if config_feeds["today"]["enabled"]:
             current_weather = feeds.get("weather") or {}
             screens.append({
@@ -708,6 +710,10 @@ class Publisher:
                 cached = feeds.get(feed_id) or {}
                 screen["items"] = []
                 for data in cached.get("items") or [cached.get("data") or {}]:
+                    if feed_id == "insult_of_hour" and not data.get("insult"):
+                        # Fallback text is not provider content and must not be
+                        # acknowledged as consumed or assigned a content version.
+                        continue
                     item = {key: value for key, value in data.items() if key != "history"}
                     version = content_version(feed_id, {"data": data})
                     item["content_version"] = version
@@ -802,11 +808,19 @@ class Publisher:
                 "random_fact", feeds.get("random_fact"), settings["random_fact"]["poll_seconds"], now,
             )
         if settings["insult_of_hour"]["enabled"]:
-            previous_insult = feeds.get("insult_of_hour")
-            feeds["insult_of_hour"] = self._refresh(
-                "insult_of_hour", previous_insult, settings["insult_of_hour"]["poll_seconds"],
-                lambda: self._fetch_insult(now, (previous_insult or {})), now,
-            )
+            previous_insult = feeds.get("insult_of_hour") or {}
+            ttl = max(MIN_INSULT_POLL_SECONDS, settings["insult_of_hour"]["poll_seconds"])
+            previous_attempt = _parse_iso(previous_insult.get("last_attempt_at"))
+            # _refresh normally retries absent data immediately; even on a
+            # first-fetch failure this provider must only be queried hourly.
+            if (previous_insult.get("data") is None and previous_attempt is not None
+                    and (now - previous_attempt).total_seconds() < ttl):
+                feeds["insult_of_hour"] = previous_insult
+            else:
+                feeds["insult_of_hour"] = self._refresh(
+                    "insult_of_hour", previous_insult, ttl,
+                    lambda: self._fetch_insult(now, previous_insult), now,
+                )
         if settings["weather"]["enabled"] or settings["today"]["enabled"]:
             weather_previous = feeds.get("weather")
             weather_data = (weather_previous or {}).get("data")
