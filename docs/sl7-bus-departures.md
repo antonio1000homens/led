@@ -19,10 +19,14 @@ Available controls:
 
 - Master enable/disable (off by default)
 - Heathrow and New Malden page switches
+- Optional animated blue bus that enters from the right immediately before each enabled SL7 stop page. Default trailing text: `Beep! Beep!...`
+- Bus intro enable/disable, animation speed (8–80 pixels/second), and printable ASCII trailing text (up to 80 characters)
 - Screen duration and no-service duration
 - Display frequency every 1–6 rotations (intro and departure page remain paired)
 - Number of upcoming buses (1–3)
 - Advanced stale threshold and destination scroll speed
+
+The intro is paired with each corresponding stop and inherits the SL7 display frequency. Disabling the intro does not disable departures or the separate rail steam-train animation. Existing saved SL7 settings are automatically given safe default intro settings.
 
 Changes to `sl7_bus` via the normal authenticated control API affect the backend-published HTTP pages on the next refresh; no HA entity IDs, MQTT broker or board-local bus policy are needed.
 

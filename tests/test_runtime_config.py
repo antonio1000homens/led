@@ -2,6 +2,7 @@ import copy
 import unittest
 
 from runtime_config import (
+    DEFAULT_BUS_INTRO_WORDS,
     DEFAULT_CHESSINGTON_RIDES,
     DEFAULT_NO_SERVICES_DURATION_SECONDS,
     DEFAULT_STEAM_TRAIN_SPEED,
@@ -121,6 +122,43 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertTrue(validated["feeds"]["steam_train"]["enabled"])
         self.assertEqual(validated["feeds"]["steam_train"]["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
         self.assertEqual(validated["feeds"]["steam_train"]["words"], DEFAULT_STEAM_TRAIN_WORDS)
+
+    def test_sl7_bus_intro_controls_and_saved_settings_migrate(self):
+        config = default_runtime_config({})
+        bus = config["feeds"]["sl7_bus"]
+        self.assertTrue(bus["bus_intro_enabled"])
+        self.assertEqual(bus["words"], DEFAULT_BUS_INTRO_WORDS)
+        self.assertEqual(bus["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
+        schema = schema_metadata()["feeds"]["sl7_bus"]
+        for field in ("bus_intro_enabled", "animation_speed", "words"):
+            self.assertIn(field, schema["mutable_fields"])
+            self.assertIn(field, schema["fields"])
+        self.assertEqual(schema["fields"]["words"]["maximumLength"], 80)
+        self.assertEqual(
+            validate_feed_patch("sl7_bus", {
+                "bus_intro_enabled": False, "animation_speed": 40, "words": "Beep! Beep!...",
+            }),
+            {"bus_intro_enabled": False, "animation_speed": 40, "words": "Beep! Beep!..."},
+        )
+        for invalid in (4, 81, True):
+            with self.subTest(speed=invalid), self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("sl7_bus", {"animation_speed": invalid})
+        for invalid in ("🚍", "beep" + chr(10) + "beep", "x" * 81, None):
+            with self.subTest(words=invalid), self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("sl7_bus", {"words": invalid})
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("sl7_bus", {"bus_intro_enabled": "false"})
+
+        # Older persisted SL7 records gain defaults without changing existing selections.
+        config["feeds"]["sl7_bus"].update({"heathrow_enabled": False, "display_every_cycles": 4})
+        for field in ("bus_intro_enabled", "animation_speed", "words"):
+            del config["feeds"]["sl7_bus"][field]
+        migrated = validate_runtime_config(config)["feeds"]["sl7_bus"]
+        self.assertTrue(migrated["bus_intro_enabled"])
+        self.assertEqual(migrated["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
+        self.assertEqual(migrated["words"], DEFAULT_BUS_INTRO_WORDS)
+        self.assertFalse(migrated["heathrow_enabled"])
+        self.assertEqual(migrated["display_every_cycles"], 4)
 
     def test_flash_duration_is_bounded_and_legacy_configs_are_backfilled(self):
         self.assertEqual(

@@ -77,10 +77,32 @@ class BusProviderTests(unittest.TestCase):
         self.assertEqual(screens[0]["departures"][0]["due_text"], "11m")
         self.assertEqual(
             [(screen["kind"], screen.get("words")) for screen in payload["screens"]],
-            [("bus_intro", "Vroom Vroom.."), ("bus_departures", None),
-             ("bus_intro", "Vroom Vroom.."), ("bus_departures", None)],
+            [("bus_intro", "Beep! Beep!..."), ("bus_departures", None),
+             ("bus_intro", "Beep! Beep!..."), ("bus_departures", None)],
         )
 
+
+        for intro in (item for item in payload["screens"] if item["kind"] == "bus_intro"):
+            self.assertEqual(intro["animation_speed"], 24)
+            self.assertEqual(intro["display_every_cycles"], 1)
+        # Custom text and speed are passed straight to the existing renderer.
+        intro = Publisher._bus_intro("heathrow", {
+            **runtime["feeds"]["sl7_bus"], "words": "HONK HONK!", "animation_speed": 40,
+        })
+        self.assertEqual((intro["words"], intro["animation_speed"]), ("HONK HONK!", 40))
+        self.assertAlmostEqual(intro["duration_seconds"], 256 / 40 + 1)
+
+        # Turning off the animation keeps both departure pages and their order.
+        runtime["feeds"]["sl7_bus"]["bus_intro_enabled"] = False
+        without_intro = Publisher(
+            PublisherConfig("bucket", "token", thorpe_park_source="off", weather_source="off"), Store(),
+            bus_provider=Bus(), runtime_config_store=StaticRuntimeConfigStore(runtime),
+            utcnow=lambda: datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+        ).run()
+        self.assertEqual(
+            [(page["kind"], page["id"]) for page in without_intro["screens"]],
+            [("bus_departures", "sl7-heathrow"), ("bus_departures", "sl7-new-malden")],
+        )
 
     def test_publisher_excludes_departed_services_and_uses_london_dst(self):
         runtime = default_runtime_config({})

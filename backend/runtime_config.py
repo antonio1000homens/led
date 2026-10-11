@@ -36,6 +36,7 @@ MAX_STEAM_TRAIN_SPEED = 80
 DEFAULT_STEAM_TRAIN_SPEED = 24
 MAX_STEAM_TRAIN_WORDS_LENGTH = 80
 DEFAULT_STEAM_TRAIN_WORDS = "choo choo"
+DEFAULT_BUS_INTRO_WORDS = "Beep! Beep!..."
 MIN_QUEUE_SCROLL_SPEED = 8
 MAX_QUEUE_SCROLL_SPEED = 80
 DEFAULT_QUEUE_SCROLL_SPEED = 27
@@ -265,6 +266,7 @@ FEED_REGISTRY = {
         "display_group": "transit",
         "mutable_fields": (
             "enabled", "heathrow_enabled", "new_malden_enabled",
+            "bus_intro_enabled", "animation_speed", "words",
             "screen_duration_seconds", "no_services_duration_seconds",
             "display_every_cycles", "upcoming_bus_count",
             "stale_after_seconds", "destination_scroll_speed",
@@ -443,6 +445,9 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": False,
                 "heathrow_enabled": True,
                 "new_malden_enabled": True,
+                "bus_intro_enabled": True,
+                "animation_speed": DEFAULT_STEAM_TRAIN_SPEED,
+                "words": DEFAULT_BUS_INTRO_WORDS,
                 "screen_duration_seconds": 8,
                 "no_services_duration_seconds": DEFAULT_NO_SERVICES_DURATION_SECONDS,
                 "display_every_cycles": 1,
@@ -523,6 +528,11 @@ def schema_metadata() -> dict[str, Any]:
         if feed_id == "sl7_bus":
             fields["heathrow_enabled"] = {"type": "boolean"}
             fields["new_malden_enabled"] = {"type": "boolean"}
+            fields["bus_intro_enabled"] = {"type": "boolean"}
+            fields["animation_speed"] = {
+                "type": "integer", "minimum": MIN_STEAM_TRAIN_SPEED, "maximum": MAX_STEAM_TRAIN_SPEED,
+            }
+            fields["words"] = {"type": "string", "maximumLength": MAX_STEAM_TRAIN_WORDS_LENGTH}
             fields["no_services_duration_seconds"] = {
                 "type": "integer", "minimum": MIN_SCREEN_DURATION_SECONDS, "maximum": MAX_SCREEN_DURATION_SECONDS,
             }
@@ -686,7 +696,7 @@ def validate_feed_patch(
                 metadata["maximum"],
             )
     if feed_id == "sl7_bus":
-        for field in ("heathrow_enabled", "new_malden_enabled"):
+        for field in ("heathrow_enabled", "new_malden_enabled", "bus_intro_enabled"):
             if field in patch:
                 if not isinstance(patch[field], bool):
                     raise RuntimeConfigValidationError(f"{feed_id}.{field} must be boolean")
@@ -776,6 +786,11 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("sun_enabled", True)
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
         if feed_id == "sl7_bus":
+            # Upgrade saved admin settings from before the optional bus intro
+            # controls were introduced. Keep all existing SL7 settings intact.
+            raw.setdefault("bus_intro_enabled", True)
+            raw.setdefault("animation_speed", DEFAULT_STEAM_TRAIN_SPEED)
+            raw.setdefault("words", DEFAULT_BUS_INTRO_WORDS)
             # Previous versions allowed up to five rows, but the actual
             # 32-pixel matrix can show at most three legible rows.
             raw["upcoming_bus_count"] = min(

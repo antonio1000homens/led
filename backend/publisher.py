@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from queue_times import QueueTimesProvider, select_rides
 from runtime_config import (
+    DEFAULT_BUS_INTRO_WORDS,
     DEFAULT_CHESSINGTON_RIDES,
     DEFAULT_UPCOMING_TRAIN_COUNT,
     FEED_REGISTRY,
@@ -39,7 +40,7 @@ STEAM_TRAIN_DISPLAY_WIDTH = 256
 STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
 BUS_INTRO_DISPLAY_WIDTH = 256
 BUS_INTRO_EDGE_HOLD_SECONDS = 1.0
-BUS_INTRO_WORDS = "Vroom Vroom.."
+BUS_INTRO_WORDS = DEFAULT_BUS_INTRO_WORDS
 
 
 def content_version(feed_id, cached):
@@ -477,7 +478,7 @@ class Publisher:
             "id": f"sl7-{stop_key}-intro", "kind": "bus_intro",
             "duration_seconds": max(2.0, BUS_INTRO_DISPLAY_WIDTH / speed + BUS_INTRO_EDGE_HOLD_SECONDS),
             "title": "Bus", "source": "local_animation", "stale": False,
-            "animation_speed": speed, "words": BUS_INTRO_WORDS, "stop_key": stop_key,
+            "animation_speed": speed, "words": config.get("words", BUS_INTRO_WORDS), "stop_key": stop_key,
             "display_every_cycles": config.get("display_every_cycles", 1),
         }
 
@@ -781,10 +782,12 @@ class Publisher:
             bus_feed = feeds.get("sl7_bus") or {}
             bus_data = bus_feed.get("data") or {}
             if bus_config.get("heathrow_enabled"):
-                screens.append(self._bus_intro("heathrow", bus_config))
+                if bus_config.get("bus_intro_enabled", True):
+                    screens.append(self._bus_intro("heathrow", bus_config))
                 screens.append(self._bus_screen("heathrow", bus_data.get("heathrow"), bus_config, bus_feed.get("stale", False), now))
             if bus_config.get("new_malden_enabled"):
-                screens.append(self._bus_intro("new-malden", bus_config))
+                if bus_config.get("bus_intro_enabled", True):
+                    screens.append(self._bus_intro("new-malden", bus_config))
                 screens.append(self._bus_screen("new-malden", bus_data.get("new-malden"), bus_config, bus_feed.get("stale", False), now))
         return {
             "fetched_at": _iso(now),
