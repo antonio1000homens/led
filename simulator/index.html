@@ -1129,13 +1129,26 @@
       context.fillStyle = '#ffaa00';
       if (screen.kind === 'today') {
         const weather = screen.weather || {};
-        drawLedText('TODAY', 0, NOVELTY_HEADING_Y * FONT_PIXEL_SCALE);
-        context.fillStyle = '#ffffff';
+        const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).replace(',', '').toUpperCase();
+        const dateX = Math.max(0, (1024 - measureLedText(date).width) / 2);
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
-        const condition = String(weather.icon || 'Weather unavailable').replaceAll('_',' ').toUpperCase() + ((screen.stale || weather.stale) ? ' (STALE)' : '');
-        const date = wallClock.toLocaleDateString('en-CA',{timeZone:'Europe/London'});
-        [nowText+'   '+temp, condition, date].forEach((line,index)=>drawLedText(line.slice(0,42),0,(NOVELTY_FIRST_LINE_Y+index*8)*FONT_PIXEL_SCALE));
+        const iconName = String(weather.icon || 'unknown');
+        const iconRows = weatherIcons[iconName] || weatherIcons.unknown;
+        context.fillStyle = weather.stale ? '#777777' : '#bbbbbb';
+        iconRows.forEach((row, y) => [...row].forEach((pixel, x) => {
+          if (pixel === '#') context.fillRect((42 + x * 2) * FONT_PIXEL_SCALE, (11 + y * 2) * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+        }));
+        context.fillStyle = '#ffffff';
+        drawLedText(temp, 78 * FONT_PIXEL_SCALE, 12 * FONT_PIXEL_SCALE);
+        context.fillStyle = '#ffaa00';
+        drawLedText(nowText, 174 * FONT_PIXEL_SCALE, 12 * FONT_PIXEL_SCALE);
+        context.fillStyle = '#ffffff';
+        drawLedText(date, dateX, 2 * FONT_PIXEL_SCALE);
+        if (screen.stale || weather.stale) {
+          context.fillStyle = '#888888';
+          drawLedText('STALE', 226 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+        }
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
       } else if (screen.kind === 'loading') {
         context.fillStyle = '#ffaa00';

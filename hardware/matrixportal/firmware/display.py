@@ -672,6 +672,24 @@ def _station_scroll_settings(screen):
     return speed, gap
 
 
+def _cached_calling_x(phase, station_width, speed, calling_seconds):
+    """Calculate the production calling position with integer timing math."""
+    try:
+        speed_int = int(speed)
+        phase_ms = int(max(0.0, float(phase or 0)) * 1000.0)
+        calling_ms = int(max(0.1, float(calling_seconds)) * 1000.0)
+    except (TypeError, ValueError):
+        return None
+    if speed_int <= 0 or speed_int != speed or calling_ms <= 0:
+        return None
+    prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
+    travel_ms = ((DISPLAY_WIDTH - prefix_width + int(station_width)) * 1000 + speed_int - 1) // speed_int
+    within_ms = (phase_ms % calling_ms) % (travel_ms + int(CALLING_MARQUEE_PAUSE_SECONDS * 1000))
+    if within_ms >= travel_ms:
+        return prefix_width - int(station_width)
+    return DISPLAY_WIDTH - (within_ms * speed_int) // 1000
+
+
 def _weather_group_layout(weather, offset=0):
     text = _weather_text(weather) or "--C"
     width = WEATHER_ICON_WIDTH + WEATHER_GAP + len(text) * WEATHER_FONT_WIDTH
@@ -751,10 +769,23 @@ def _today_lines(screen, clock_time, clock_date):
     weather = screen.get("weather") or {}
     temperature = weather.get("temperature_c")
     temperature = "--C" if temperature is None else "{}C".format(int(round(temperature)))
-    conditions = str(weather.get("icon") or "Weather unavailable").replace("_", " ").upper()
-    if weather.get("stale") or screen.get("stale"):
-        conditions += " (STALE)"
-    return ["{}   {}".format(clock_time, temperature), conditions[:42], str(clock_date or "")[:42]]
+    return ["{}   {}".format(clock_time, temperature), _today_date_label(clock_date)]
+
+
+def _today_date_label(clock_date):
+    """Format an ISO date as a UK weekday and day/month/year label."""
+    value = str(clock_date or "")
+    try:
+        year, month, day = [int(part) for part in value[:10].split("-")]
+        # Gregorian weekday calculation; 0 is Sunday.
+        offsets = (0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)
+        adjusted_year = year - (1 if month < 3 else 0)
+        weekday = (adjusted_year + adjusted_year // 4 - adjusted_year // 100
+                   + adjusted_year // 400 + offsets[month - 1] + day) % 7
+        names = ("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY")
+        return "{} {:02d}/{:02d}/{:04d}".format(names[weekday], day, month, year)
+    except (ValueError, IndexError, TypeError):
+        return value[:42]
 
 
 class MatrixDisplay:
@@ -908,6 +939,10 @@ class MatrixDisplay:
         self._rail_departure_rows = []
         self._rail_departure_active_start = None
         self._rail_departure_active_count = 0
+        self._rail_scroll_speed = CALLING_SCROLL_SPEED
+        self._rail_scroll_gap = CALLING_SCROLL_GAP
+        self._rail_calling_seconds = RAIL_CALLING_SECONDS
+        self._rail_summary_seconds = RAIL_SUMMARY_SECONDS
         self._rail_phase = None
         self._rail_clock_group = None
         self._rail_clock_label = None
@@ -1754,6 +1789,9 @@ class MatrixDisplay:
         scenes = {}
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
         summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
+        self._rail_scroll_speed, self._rail_scroll_gap = _station_scroll_settings(screen)
+        self._rail_calling_seconds = calling_seconds
+        self._rail_summary_seconds = summary_seconds
         scene_phases = (0,) if summary_seconds <= 0 else (0, summary_seconds)
         for scene_phase in scene_phases:
             root = displayio.Group()
@@ -1808,20 +1846,27 @@ class MatrixDisplay:
     def _update_rail_scene(self, screen, clock_time, phase):
         """Update only the calling-at marquee and rotating header item."""
         changed = False
-        scroll_speed, scroll_gap = _station_scroll_settings(screen)
-        calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
-        summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
+        scroll_speed = self._rail_scroll_speed
+        scroll_gap = self._rail_scroll_gap
+        calling_seconds = self._rail_calling_seconds
+        summary_seconds = self._rail_summary_seconds
         for labels in self._rail_calling_labels:
-            calling_x = calling_marquee_x(
-                labels["text"],
-                rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
-                display_width=DISPLAY_WIDTH,
-                font_width=WEATHER_FONT_WIDTH,
-                speed=scroll_speed,
-                gap=scroll_gap,
-                stop_at_end=True,
-                station_width=labels["station_width"],
-            )
+            calling_x = None
+            if summary_seconds == 0:
+                calling_x = _cached_calling_x(
+                    phase, labels["station_width"], scroll_speed, calling_seconds
+                )
+            if calling_x is None:
+                calling_x = calling_marquee_x(
+                    labels["text"],
+                    rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
+                    display_width=DISPLAY_WIDTH,
+                    font_width=WEATHER_FONT_WIDTH,
+                    speed=scroll_speed,
+                    gap=scroll_gap,
+                    stop_at_end=True,
+                    station_width=labels["station_width"],
+                )
             first_x = int(calling_x)
             if labels["first"].x != first_x:
                 labels["first"].x = first_x
@@ -1902,6 +1947,34 @@ class MatrixDisplay:
             self._rail_weather_group.x = weather_x
             changed = True
         return changed
+
+    def rail_gc_safe_to_collect(self, screen, phase):
+        """Return whether the calling marquee is visibly paused at its end."""
+        if not isinstance(screen, dict) or screen.get("kind") != "rail_combined":
+            return False
+        summary_seconds = self._rail_summary_seconds
+        calling_seconds = self._rail_calling_seconds
+        if summary_seconds != 0 or not self._rail_calling_labels:
+            return False
+        try:
+            phase_ms = int(max(0.0, float(phase or 0)) * 1000.0)
+            calling_ms = int(max(0.1, float(calling_seconds)) * 1000.0)
+            speed_int = int(self._rail_scroll_speed)
+        except (TypeError, ValueError):
+            return False
+        if speed_int <= 0 or speed_int != self._rail_scroll_speed or calling_ms <= 0:
+            return False
+        prefix_width = len(CALLING_LABEL) * WEATHER_FONT_WIDTH
+        pause_ms = int(CALLING_MARQUEE_PAUSE_SECONDS * 1000)
+        for labels in self._rail_calling_labels:
+            travel_ms = (
+                (DISPLAY_WIDTH - prefix_width + int(labels["station_width"])) * 1000
+                + speed_int - 1
+            ) // speed_int
+            within_ms = (phase_ms % calling_ms) % (travel_ms + pause_ms)
+            if within_ms < travel_ms:
+                return False
+        return True
 
     def _show_rail(self, screen, clock_time, phase):
         """Render departures with a persistent scene and live calling marquee."""
@@ -3021,10 +3094,42 @@ class MatrixDisplay:
                     )
                 )
         if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "today"):
+            if kind == "today":
+                date_label = _today_date_label(clock_date)
+                weather = screen.get("weather") or {}
+                temperature = _weather_text(weather)
+                key = ("TODAY", date_label, clock_time, temperature,
+                       _weather_icon(weather)[0], bool(weather.get("stale") or screen.get("stale")))
+                if getattr(self, "_static_key", None) != key:
+                    import displayio
+                    group = displayio.Group()
+                    self._label(group, date_label, 0xFFFFFF,
+                                max(0, (DISPLAY_WIDTH - len(date_label) * 6) // 2), 2)
+                    icon_name = _weather_icon(weather)[0] or "unknown"
+                    rows = WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])
+                    bitmap = displayio.Bitmap(21, 14, 2)
+                    palette = displayio.Palette(2)
+                    palette.make_transparent(0)
+                    palette[1] = _weather_rgb(icon_name, bool(weather.get("stale")))
+                    for row_index, row in enumerate(rows):
+                        for column, pixel in enumerate(row):
+                            if pixel == "#":
+                                for dx in range(2):
+                                    for dy in range(2):
+                                        bitmap[column * 2 + dx, row_index * 2 + dy] = 1
+                    group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=42, y=11))
+                    self._label(group, temperature, 0xFFFFFF, 78, 12)
+                    self._label(group, clock_time, 0xFFAA00, 174, 12)
+                    if key[-1]:
+                        self._label(group, "STALE", 0x888888, 226, 2)
+                    self._static_group = group
+                    self._static_key = key
+                if self.display.root_group is not self._static_group:
+                    self._present(self._static_group)
+                return
             heading = ("TODAY" if kind == "today" else
                        "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
-            lines = (_today_lines(screen, clock_time, clock_date) if kind == "today"
-                     else _novelty_page(screen, phase))
+            lines = _novelty_page(screen, phase)
             key = (heading, tuple(lines))
             if getattr(self, "_static_key", None) != key:
                 group = displayio.Group()
@@ -3410,9 +3515,26 @@ class FixtureDisplay:
     def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--"):
         kind = screen.get("kind")
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "today"):
-            heading = "TODAY" if kind == "today" else "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR"
+            if kind == "today":
+                weather = screen.get("weather") or {}
+                date_label = _today_date_label(clock_date)
+                self._text(date_label, max(0, (DISPLAY_WIDTH - len(date_label) * WEATHER_FONT_WIDTH) // 2), 2, (255, 255, 255))
+                icon_name = _weather_icon(weather)[0] or "unknown"
+                for y, row in enumerate(WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])):
+                    for x, pixel in enumerate(row):
+                        if pixel == "#":
+                            self._pixel(42 + x * 2, 11 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
+                            self._pixel(43 + x * 2, 11 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
+                            self._pixel(42 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
+                            self._pixel(43 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
+                self._text(_weather_text(weather), 78, 12, (255, 255, 255))
+                self._text(clock_time, 174, 12, (255, 170, 0))
+                if weather.get("stale") or screen.get("stale"):
+                    self._text("STALE", 226, 2, (136, 136, 136))
+                return
+            heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR"
             self._text(heading, 0, NOVELTY_HEADING_Y, (255, 170, 0))
-            lines = _today_lines(screen, clock_time, clock_date) if kind == "today" else _novelty_page(screen, phase)
+            lines = _novelty_page(screen, phase)
             for index, line in enumerate(lines):
                 self._text(line, 0, NOVELTY_FIRST_LINE_Y + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":

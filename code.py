@@ -338,7 +338,8 @@ telemetry_scene_render_max = 0.0
 telemetry_scene_render_over_budget = 0
 animation_cadence = None
 animation_deadline = None
-rail_gc_pause_collected = False
+rail_gc_suspended = False
+rail_gc_pause_active = False
 previous_rail_frame_started = None
 last_rail_sleep_requested_ms = 0.0
 last_rail_preframe_ms = 0.0
@@ -732,19 +733,44 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
-    if isinstance(screen, dict) and screen.get("kind") == "rail_combined":
-        rail_animation_active = display.animation_active(screen, phase)
-        if rail_animation_active:
-            rail_gc_pause_collected = False
-        elif not rail_gc_pause_collected and gc is not None:
-            pause_window = display.animation_sleep_seconds(screen, phase)
-            if pause_window is not None and pause_window >= 1.5:
-                collect = getattr(gc, "collect", None)
-                if collect is not None:
-                    collect()
-                    rail_gc_pause_collected = True
-    else:
-        rail_gc_pause_collected = False
+    rail_screen = (
+        settings.DISPLAY_BACKEND == "matrix"
+        and isinstance(screen, dict)
+        and screen.get("kind") == "rail_combined"
+    )
+    if gc is not None and rail_screen and not rail_gc_suspended:
+        collect = getattr(gc, "collect", None)
+        disable = getattr(gc, "disable", None)
+        if collect is not None:
+            collect()
+        if disable is not None:
+            disable()
+        rail_gc_suspended = True
+        rail_gc_pause_active = False
+    elif gc is not None and rail_screen and rail_gc_suspended:
+        pause_now = (
+            hasattr(display, "rail_gc_safe_to_collect")
+            and display.rail_gc_safe_to_collect(screen, phase)
+        )
+        if pause_now and not rail_gc_pause_active:
+            enable = getattr(gc, "enable", None)
+            collect = getattr(gc, "collect", None)
+            if enable is not None:
+                enable()
+            if collect is not None:
+                collect()
+            if disable is not None:
+                disable()
+        rail_gc_pause_active = pause_now
+    elif gc is not None and not rail_screen and rail_gc_suspended:
+        enable = getattr(gc, "enable", None)
+        collect = getattr(gc, "collect", None)
+        if enable is not None:
+            enable()
+        if collect is not None:
+            collect()
+        rail_gc_suspended = False
+        rail_gc_pause_active = False
     if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"
             and not display.tasks_ready(screen, clock.date_text(now))):
         # Never trigger an unexpected heavy build after entering an animated

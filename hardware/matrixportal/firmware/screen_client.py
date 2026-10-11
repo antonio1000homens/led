@@ -506,11 +506,19 @@ class ScreenRotation:
                 self.started_at = now
                 return
         choices = [item for item in self.http_screens if self.is_static(item)]
-        item = self._choose(choices[self.rng.randrange(len(choices))]) if choices else {
-            "kind": "today", "title": "TODAY", "duration_seconds": 8,
-            "source": "local", "weather": next((screen.get("weather") for screen in self.http_screens
-                                                  if isinstance(screen.get("weather"), dict)), {}),
-        }
+        if choices:
+            item = self._choose(choices[self.rng.randrange(len(choices))])
+        else:
+            weather = {}
+            for screen in self.http_screens:
+                candidate_weather = screen.get("weather")
+                if isinstance(candidate_weather, dict):
+                    weather = candidate_weather
+                    break
+            item = {
+                "kind": "today", "title": "TODAY", "duration_seconds": 8,
+                "source": "local", "weather": weather,
+            }
         item = dict(item)
         item["id"] = "static-maintenance"
         self.screens.insert(self.index, item)
