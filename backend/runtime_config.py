@@ -49,8 +49,8 @@ DEFAULT_WEATHER_SUN_DURATION_SECONDS = 6
 DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
 MIN_FLASH_SCREEN_DURATION_SECONDS = 2
 MAX_FLASH_SCREEN_DURATION_SECONDS = 60
-MIN_BUS_COUNT = 2
-MAX_BUS_COUNT = 5
+MIN_BUS_COUNT = 1
+MAX_BUS_COUNT = 3
 MIN_STALE_AFTER_SECONDS = 60
 MAX_STALE_AFTER_SECONDS = 1800
 MIN_DESTINATION_SCROLL_SPEED = 8
@@ -775,6 +775,12 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("today_duration_seconds", DEFAULT_WEATHER_TODAY_DURATION_SECONDS)
             raw.setdefault("sun_enabled", True)
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
+        if feed_id == "sl7_bus":
+            # Previous versions allowed up to five rows, but the actual
+            # 32-pixel matrix can show at most three legible rows.
+            raw["upcoming_bus_count"] = min(
+                MAX_BUS_COUNT, raw.get("upcoming_bus_count", 3)
+            ) if isinstance(raw.get("upcoming_bus_count"), int) and not isinstance(raw.get("upcoming_bus_count"), bool) else raw.get("upcoming_bus_count")
         if feed_id == "insult_of_hour":
             # Older admins accepted a sub-hourly interval. Migrate that saved
             # setting without discarding the rest of the user configuration.

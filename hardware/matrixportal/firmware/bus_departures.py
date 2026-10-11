@@ -33,9 +33,11 @@ def valid_bus_screen(screen, slot):
         return False
     if screen.get("id") != slot or screen.get("kind") != "bus_departures":
         return False
-    if screen.get("route") != ROUTE or screen.get("stop_key") not in STOP_KEYS:
+    if (screen.get("route") != ROUTE or screen.get("stop_key") not in STOP_KEYS
+            or slot != "sl7-" + screen["stop_key"]):
         return False
-    if not _text(screen.get("title")) or not _text(screen.get("stop_name")):
+    if (not _text(screen.get("title")) or not _text(screen.get("stop_name"))
+            or len(screen["title"]) > MAX_TEXT or len(screen["stop_name"]) > MAX_TEXT):
         return False
     duration = screen.get("duration_seconds")
     if (not isinstance(screen.get("observed_at"), str)
@@ -50,7 +52,8 @@ def valid_bus_screen(screen, slot):
     except (TypeError, ValueError):
         return False
     for item in screen["departures"]:
-        if not isinstance(item, dict) or not _text(item.get("destination")):
+        if (not isinstance(item, dict) or not _text(item.get("destination"))
+                or len(item["destination"]) > MAX_TEXT):
             return False
         if not isinstance(item.get("planned"), str):
             return False
@@ -89,5 +92,6 @@ def normalise_bus_screen(screen, now_epoch, *, count=3, tolerance_seconds=60):
     result["departures"] = [
         item for _, item in selected[:max(1, min(MAX_DEPARTURES, int(count or 3)))]
     ]
-    result["empty_state"] = not result["departures"]
+    if result.get("status") != "unavailable":
+        result["status"] = "ok" if result["departures"] else "empty"
     return result

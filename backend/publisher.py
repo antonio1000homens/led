@@ -434,7 +434,25 @@ class Publisher:
     @staticmethod
     def _bus_screen(stop_key, data, config, feed_stale=False, now=None):
         data = data or {}
-        departures = copy.deepcopy((data.get("departures") or [])[:config["upcoming_bus_count"]])
+        current = now or datetime.now(timezone.utc)
+        candidates = []
+        seen = set()
+        for entry in data.get("departures") or ():
+            row = copy.deepcopy(entry)
+            when = _parse_iso(row.get("estimated") or row.get("planned"))
+            if when is None or (when - current).total_seconds() < -60:
+                continue
+            trip = row.get("trip_id")
+            if trip and trip in seen:
+                continue
+            if trip:
+                seen.add(trip)
+            row["local_time"] = when.astimezone(ZoneInfo("Europe/London")).strftime("%H:%M")
+            remaining = max(0, int(((when - current).total_seconds() + 59) // 60))
+            row["due_text"] = "Due" if remaining <= 1 else str(remaining) + "m"
+            candidates.append((when, row))
+        candidates.sort(key=lambda pair: pair[0])
+        departures = [row for _, row in candidates[:config["upcoming_bus_count"]]]
         status = "ok" if departures else ("empty" if data else "unavailable")
         observed_at = data.get("observed_at") or _iso(now or datetime.now(timezone.utc))
         observed = _parse_iso(observed_at)
@@ -449,6 +467,7 @@ class Publisher:
             "duration_seconds": config["screen_duration_seconds"] if departures else config["no_services_duration_seconds"],
             "observed_at": observed_at, "departures": departures,
             "destination_scroll_speed": config["destination_scroll_speed"],
+            "display_every_cycles": config.get("display_every_cycles", 1),
         }
 
     @staticmethod
@@ -459,6 +478,7 @@ class Publisher:
             "duration_seconds": max(2.0, BUS_INTRO_DISPLAY_WIDTH / speed + BUS_INTRO_EDGE_HOLD_SECONDS),
             "title": "Bus", "source": "local_animation", "stale": False,
             "animation_speed": speed, "words": BUS_INTRO_WORDS, "stop_key": stop_key,
+            "display_every_cycles": config.get("display_every_cycles", 1),
         }
 
     @staticmethod

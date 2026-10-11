@@ -73,11 +73,32 @@ class BusProviderTests(unittest.TestCase):
         screens = [screen for screen in payload["screens"] if screen["kind"] == "bus_departures"]
         self.assertEqual([screen["id"] for screen in screens], ["sl7-heathrow", "sl7-new-malden"])
         self.assertTrue(all(screen["source"] == "transitous" and not screen["stale"] for screen in screens))
+        self.assertEqual(screens[0]["departures"][0]["local_time"], "21:11")
+        self.assertEqual(screens[0]["departures"][0]["due_text"], "11m")
         self.assertEqual(
             [(screen["kind"], screen.get("words")) for screen in payload["screens"]],
             [("bus_intro", "Vroom Vroom.."), ("bus_departures", None),
              ("bus_intro", "Vroom Vroom.."), ("bus_departures", None)],
         )
+
+
+    def test_publisher_excludes_departed_services_and_uses_london_dst(self):
+        runtime = default_runtime_config({})
+        runtime["feeds"]["sl7_bus"]["upcoming_bus_count"] = 3
+        now = datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc)
+        source = {
+            "stop_name": "Heathrow", "observed_at": "2026-10-11T20:00:00Z",
+            "departures": [
+                {"planned": "2026-10-11T19:00:00Z", "destination": "old", "trip_id": "old"},
+                {"planned": "2026-10-11T20:02:00Z", "destination": "second", "trip_id": "2"},
+                {"planned": "2026-10-11T20:01:00Z", "destination": "first", "trip_id": "1"},
+            ],
+        }
+        result = Publisher._bus_screen("heathrow", source, runtime["feeds"]["sl7_bus"], now=now)
+        self.assertEqual([r["destination"] for r in result["departures"]], ["first", "second"])
+        self.assertEqual(result["departures"][0]["local_time"], "21:01")
+        self.assertEqual(result["departures"][0]["due_text"], "Due")
+        self.assertEqual(result["display_every_cycles"], 1)
 
 
 if __name__ == "__main__":

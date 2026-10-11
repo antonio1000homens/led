@@ -974,9 +974,10 @@
       }
       status.dataset.detail = 'Next recycling collection';
     }
-    function drawBusDepartures(screen) {
+    function drawBusDepartures(screen, clock) {
       context.fillStyle = '#ffaa00';
       drawLedText(String(screen.title || 'SL7').slice(0, 26), 0, HEADER_TEXT_Y);
+      drawClock(clock);
       if (screen.status === 'unavailable') {
         context.fillStyle = '#ff3300'; drawLedText('SL7 unavailable', 0, 18 * FONT_PIXEL_SCALE); return;
       }
@@ -985,13 +986,14 @@
         context.fillStyle = '#ffffff'; drawLedText('No SL7 services', 0, 18 * FONT_PIXEL_SCALE); return;
       }
       departures.forEach((item, index) => {
-        const y = [11, 20, 29][index] * FONT_PIXEL_SCALE;
+        const y = [8, 16, 24][index] * FONT_PIXEL_SCALE;
         const color = item.cancelled ? '#ff3300' : (item.estimated && item.estimated !== item.planned ? '#ffaa00' : '#ffffff');
         context.fillStyle = color;
-        drawLedText(String(item.destination || '--').slice(0, 24), 0, y);
+        drawLedText(fitLeftText(item.destination || '--', 170 * FONT_PIXEL_SCALE), 0, y);
         const stamp = String(item.estimated || item.planned || '--:--');
-        drawLedText(stamp.length >= 16 ? stamp.slice(11, 16) : '--:--', 185 * FONT_PIXEL_SCALE, y);
-        if (item.cancelled) drawLedText('CANCEL', 225 * FONT_PIXEL_SCALE, y);
+        drawLedText(item.local_time || (stamp.length >= 16 ? stamp.slice(11, 16) : '--:--'), 178 * FONT_PIXEL_SCALE, y);
+        const status = String(item.cancelled ? 'CANCEL' : item.due_text || '').slice(0, 6);
+        if (status) drawLedText(status, Math.max(218 * FONT_PIXEL_SCALE, 1024 - measureLedText(status).width), y);
       });
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
@@ -1232,7 +1234,7 @@
       } else if (screen.kind === 'bin_collection') {
         drawBinCollection(screen, phase);
       } else if (screen.kind === 'bus_departures') {
-        drawBusDepartures(screen);
+        drawBusDepartures(screen, clock);
         suppressHeader = true;
         status.dataset.detail = screen.status === 'unavailable' ? 'SL7 unavailable' : (screen.stale || forceStale ? 'SL7 stale' : 'SL7 departures');
       } else if (screen.kind === 'steam_train_intro') {
