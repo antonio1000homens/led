@@ -2076,18 +2076,21 @@ class MatrixDisplay:
         if not departures:
             self._label(group, "No SL7 services", 0xFFFFFF, 0, 18)
             return
-        row_y = (11, 20, 29)
+        # Three 8px rows fit at y=8/16/24; y=29 clipped the third
+        # row on the 32px matrix. Reserve the right columns for times/ETAs.
         for index, item in enumerate(departures[:3]):
-            y = row_y[index]
-            destination = _clip(item.get("destination") or "--", 24)
+            y = (8, 16, 24)[index]
             delay = _bus_minutes(item.get("planned"), item.get("estimated"))
-            status = "CANCEL" if item.get("cancelled") else ("+{}m".format(delay) if delay else "")
+            status = "CANCEL" if item.get("cancelled") else str(item.get("due_text") or "")
+            if not status and delay:
+                status = "+{}m".format(delay)
             color = 0xFF3300 if item.get("cancelled") else (0xFFAA00 if delay else 0xFFFFFF)
-            time_text = _bus_time(item.get("estimated") or item.get("planned"))
+            destination = _fit_text_pixels(item.get("destination") or "--", 170)
+            time_text = item.get("local_time") or _bus_time(item.get("estimated") or item.get("planned"))
             self._label(group, destination, color, 0, y)
-            self._label(group, time_text, color, 185, y)
+            self._label(group, time_text, color, 178, y)
             if status:
-                self._label(group, status, color, 225, y)
+                self._label(group, status[:6], color, max(218, _right_aligned_x(status[:6], DISPLAY_WIDTH)), y)
 
     def _calendar(self, group, screen, phase, clock_date=""):
         events, visible, start, progress = _agenda_state(screen, phase)
@@ -3180,6 +3183,7 @@ class MatrixDisplay:
         if not empty_state and kind == "bus_departures":
             group = displayio.Group()
             self._bus_departures(group, screen, phase)
+            self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
             if screen.get("stale"):
                 self._label(group, "STALE", 0xFF3300, STALE_X, 3)
             self._present(group)
@@ -3665,10 +3669,14 @@ class FixtureDisplay:
                 self._text("No SL7 services", 0, 16, (255, 255, 255))
             else:
                 for index, item in enumerate(departures[:3]):
-                    y = (11, 20, 29)[index]
+                    y = (8, 16, 24)[index]
                     color = (255, 20, 0) if item.get("cancelled") else (255, 255, 255)
-                    self._text(_clip(item.get("destination") or "--", 24), 0, y, color)
-                    self._text(_bus_time(item.get("estimated") or item.get("planned")), 185, y, color)
+                    destination = _fit_text_pixels(item.get("destination") or "--", 170)
+                    self._text(destination, 0, y, color)
+                    self._text(item.get("local_time") or _bus_time(item.get("estimated") or item.get("planned")), 178, y, color)
+                    status = "CANCEL" if item.get("cancelled") else str(item.get("due_text") or "")
+                    if status:
+                        self._text(status[:6], max(218, _right_aligned_x(status[:6], DISPLAY_WIDTH)), y, color)
         elif kind == "calendar_agenda":
             events, visible, start, progress = _agenda_state(screen, phase)
             if not events:

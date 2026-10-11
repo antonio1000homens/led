@@ -641,6 +641,7 @@ while True:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = payload.get("screens")
+            mqtt_screens.configure_bus(payload.get("sl7_bus"))
             display_config = payload.get("display")
             if (
                 isinstance(display_config, dict)

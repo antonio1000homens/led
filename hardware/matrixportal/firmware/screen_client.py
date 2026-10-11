@@ -346,6 +346,13 @@ class ScreenRotation:
             next_screens.append(screen)
         return next_screens
 
+    def _available_screens(self):
+        """Replace backend stop pages with MQTT equivalents without duplicates."""
+        mqtt = {item.get("id"): item for item in self.mqtt_screens}
+        available = [mqtt.pop(item.get("id"), item) for item in self.http_screens]
+        available.extend(mqtt[key] for key in sorted(mqtt))
+        return available
+
     def _rebuild(self, now):
         if self.screens:
             self.current(now)
@@ -358,8 +365,7 @@ class ScreenRotation:
             else max(0, now - self.started_at) / self.ticks_per_second if self.started_at is not None
             else 0
         )
-        mqtt = sorted(self.mqtt_screens, key=lambda screen: str(screen.get("id") or ""))
-        available = list(self.http_screens) + mqtt
+        available = self._available_screens()
         by_id = {item.get("id"): item for item in available}
         # Preserve this cycle's order and selected pool item across HTTP polls.
         next_screens = []
@@ -476,7 +482,12 @@ class ScreenRotation:
         return result
 
     def _cycle_plan(self, screens):
-        normal = [item for item in screens if not self.is_static(item)]
+        normal = [
+            item for item in screens
+            if not self.is_static(item)
+            and (item.get("kind") not in ("bus_departures", "bus_intro")
+                 or self.cycle_number % max(1, int(item.get("display_every_cycles", 1))) == 0)
+        ]
         static = [self._choose(item) for item in screens if self.is_static(item)]
         # Do not separate the train from departures. Queue Times is already
         # represented by one atomic screen.
@@ -542,7 +553,7 @@ class ScreenRotation:
         if self.index >= len(self.screens):
             self.index = 0
             self.cycle_number += 1
-            self.screens = self._cycle_plan(list(self.http_screens) + sorted(self.mqtt_screens, key=lambda item: str(item.get("id") or "")))
+            self.screens = self._cycle_plan(self._available_screens())
 
     def next(self, now):
         """Move immediately to the next screen and restart its duration."""
