@@ -93,11 +93,9 @@ class WeatherRotationTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for browser scheduler test")
     def test_simulator_does_not_split_weather_block(self):
-        import re
         html = (ROOT / "simulator" / "index.html").read_text()
-        script = re.search(r"<script>([\\s\\S]*?)</script>", html).group(1)
-        scheduler = script[script.index("    let cyclePlan"):
-                           script.index("    function stationMarqueeSpeed")]
+        scheduler = html[html.index("    let cyclePlan"):
+                         html.index("    function stationMarqueeSpeed")]
         fixture = """
 let screens = [
   {id:'joke',kind:'dad_joke'},
