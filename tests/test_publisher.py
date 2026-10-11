@@ -209,7 +209,7 @@ class PublisherTests(unittest.TestCase):
         first=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run(); self.now+=timedelta(seconds=61)
         second=Publisher(config,self.store,rail_provider=rail,queue_provider=queues,weather_provider=weather,utcnow=self.utcnow,chessington_provider=chessington).run()
         self.assertEqual(rail.calls,2); self.assertEqual(queues.calls,1); self.assertEqual(chessington.calls,1); self.assertEqual(weather.calls,1)
-        self.assertEqual([s["id"] for s in first["screens"]],["steam-train","departures","queue-times","weather-weekly","weather-today","weather-sun"])
+        self.assertEqual([s["id"] for s in first["screens"]],["steam-train","departures","queue-times","weather-sun","weather-today","weather-weekly"])
         queue_screen=screen_by_id(second, "queue-times")
         self.assertEqual(queue_screen["kind"],"theme_park_queues")
         self.assertEqual([park["feed_id"] for park in queue_screen["parks"]],["thorpe_park","chessington"])
@@ -371,8 +371,8 @@ class PublisherTests(unittest.TestCase):
             runtime_config_store=StaticRuntimeConfigStore(runtime),
         ).run()
         weather_screens=[screen for screen in payload["screens"] if screen["kind"].startswith("weather_")]
-        self.assertEqual([screen["kind"] for screen in weather_screens],["weather_today","weather_sun"])
-        self.assertEqual([screen["duration_seconds"] for screen in weather_screens],[11,7])
+        self.assertEqual([screen["kind"] for screen in weather_screens],["weather_sun","weather_today"])
+        self.assertEqual([screen["duration_seconds"] for screen in weather_screens],[7,11])
 
         runtime["feeds"]["weather"]["today_enabled"]=False
         runtime["feeds"]["weather"]["sun_enabled"]=False
