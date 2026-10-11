@@ -14,6 +14,7 @@ from typing import Any
 
 CONFIG_ID = "runtime"
 MIN_POLL_SECONDS = 60
+MIN_INSULT_POLL_SECONDS = 3600  # Never request a new insult more than hourly.
 MAX_POLL_SECONDS = 86400
 MIN_SCREEN_DURATION_SECONDS = 2
 MAX_SCREEN_DURATION_SECONDS = 300
@@ -451,7 +452,7 @@ def schema_metadata() -> dict[str, Any]:
             "enabled": {"type": "boolean"},
             "poll_seconds": {
                 "type": "integer",
-                "minimum": MIN_POLL_SECONDS,
+                "minimum": MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS,
                 "maximum": MAX_POLL_SECONDS,
             },
         }
@@ -601,7 +602,9 @@ def validate_feed_patch(
         result["enabled"] = patch["enabled"]
     if "poll_seconds" in patch:
         result["poll_seconds"] = _validate_integer(
-            feed_id, "poll_seconds", patch["poll_seconds"], MIN_POLL_SECONDS, MAX_POLL_SECONDS
+            feed_id, "poll_seconds", patch["poll_seconds"],
+            MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS,
+            MAX_POLL_SECONDS
         )
     if "screen_duration_seconds" in patch:
         result["screen_duration_seconds"] = _validate_integer(
@@ -727,7 +730,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     supplied_feed_ids = set(raw_feeds)
     missing_feed_ids = supported_feed_ids - supplied_feed_ids
     unknown_feed_ids = supplied_feed_ids - supported_feed_ids
-    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact", "today", "sl7_bus"}
+    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact", "insult_of_hour", "today", "sl7_bus"}
     if unknown_feed_ids or not missing_feed_ids.issubset(additive_feed_ids):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
     for feed_id in missing_feed_ids:
@@ -749,6 +752,12 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if feed_id == "calendar":
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
+        if feed_id == "insult_of_hour":
+            # Older admins accepted a sub-hourly interval. Migrate that saved
+            # setting without discarding the rest of the user configuration.
+            interval = raw.get("poll_seconds")
+            if isinstance(interval, int) and not isinstance(interval, bool):
+                raw["poll_seconds"] = max(MIN_INSULT_POLL_SECONDS, interval)
         if feed_id == "weather":
             raw.setdefault("overview_enabled", True)
             raw.setdefault("screen_duration_seconds", DEFAULT_WEATHER_SCREEN_DURATION_SECONDS)
