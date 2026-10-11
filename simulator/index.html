@@ -29,7 +29,7 @@
     <h1>256 × 32 information board</h1>
     <p>Four 64 × 32 panels. Hardware preview mirrors the MatrixPortal's 5×7 font, 1-bit RGB palette, panel seams and 7 FPS application refresh; switch it off for a clean content view.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
-    <p class="credit">Theme park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>.</p>
+    <p class="credit">Theme park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>. Inspirational quotes, when enabled, are provided by <a href="https://zenquotes.io/" target="_blank" rel="noreferrer">ZenQuotes API</a>.</p>
     <div class="controls" aria-label="Simulator controls">
       <button id="pause" type="button" aria-pressed="false">Pause</button>
       <button id="previous" type="button">Previous screen</button>
@@ -514,7 +514,7 @@
     }
     let cyclePlan = [], cycleStarted = 0, planOffset = 0;
     const recentStaticItems = new Map();
-    const staticScreen = screen => screen.display_group === 'static_feeds' || ['dad_joke','random_fact','insult_of_hour','today'].includes(screen.kind);
+    const staticScreen = screen => screen.display_group === 'static_feeds' || ['dad_joke','random_fact','insult_of_hour','quotes','today'].includes(screen.kind);
     function chooseStatic(screen) {
       const items = screen.items || [];
       if (!items.length) return screen;
@@ -1120,7 +1120,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1165,6 +1165,32 @@
         drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);
         suppressHeader = true;
         status.dataset.detail = message;
+      } else if (screen.kind === 'quotes') {
+        // Source fields are plain text, never the API's HTML 'h' property.
+        function wrapQuote(value) {
+          const lines = []; let line = '';
+          for (let word of String(value || '').split(/\s+/).filter(Boolean)) {
+            while (word.length > 42) {
+              if (line) { lines.push(line); line = ''; }
+              lines.push(word.slice(0, 42)); word = word.slice(42);
+            }
+            const next = (line + ' ' + word).trim();
+            if (next.length > 42 && line) { lines.push(line); line = word; }
+            else line = next;
+          }
+          if (line) lines.push(line);
+          return lines;
+        }
+        const lines = [...wrapQuote(screen.quote), ...wrapQuote('- ' + (screen.author || ''))];
+        const pages = Math.max(1, Math.ceil(lines.length / 3));
+        const duration = Math.max(1, Number(screen.duration_seconds) || 30);
+        const page = Math.min(pages - 1, Math.floor(Math.max(0, phase) * pages / duration));
+        context.fillStyle = '#ffaa00';
+        drawLedText('QUOTES VIA ZENQUOTES.IO' + (screen.stale ? ' STALE' : ''), 0, NOVELTY_HEADING_Y * FONT_PIXEL_SCALE);
+        context.fillStyle = '#ffffff';
+        lines.slice(page * 3, page * 3 + 3).forEach((value, index) => drawLedText(value, 0, (NOVELTY_FIRST_LINE_Y + index * 8) * FONT_PIXEL_SCALE));
+        suppressHeader = true;
+        status.dataset.detail = 'ZenQuotes quote by ' + String(screen.author || 'unknown');
       } else if (screen.kind === 'dad_joke' || screen.kind === 'random_fact' || screen.kind === 'insult_of_hour') {
         const fact = screen.kind === 'random_fact';
         const insult = screen.kind === 'insult_of_hour';
