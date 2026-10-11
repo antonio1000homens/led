@@ -105,6 +105,17 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_novelty_screens_are_shifted_up_two_pixels(self):
+        for kind, heading, field in (
+            ("dad_joke", "DAD JOKE", "joke"),
+            ("random_fact", "DID YOU KNOW?", "fact"),
+        ):
+            with self.subTest(kind=kind):
+                display = CapturingFixture()
+                display._draw_screen({"kind": kind, field: "A short test"}, 0)
+                self.assertIn((heading, 0, 3, (255, 170, 0)), display.drawn)
+                self.assertIn(("A short test", 0, 12, (255, 255, 255)), display.drawn)
+
     def test_loading_title_matches_upcoming_header_position(self):
         display = CapturingFixture()
         display.pixels = FakePixels()

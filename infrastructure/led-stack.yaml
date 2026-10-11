@@ -45,6 +45,12 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
       PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireDisplayedContentMarkers
+            Status: Enabled
+            Prefix: state/displayed/
+            ExpirationInDays: 1
 
   RuntimeConfigTable:
     Type: AWS::DynamoDB::Table
@@ -78,6 +84,7 @@ Resources:
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
                   - !Sub ${HostingBucket.Arn}/api/screens
+                  - !Sub ${HostingBucket.Arn}/state/displayed/*
               - Sid: ReadRuntimeConfiguration
                 Effect: Allow
                 Action: ['dynamodb:GetItem']

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from datetime import datetime, timezone
 import json
 import os
@@ -31,6 +32,14 @@ DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
 STEAM_TRAIN_DISPLAY_WIDTH = 256
 STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
+
+
+def content_version(feed_id, cached):
+    data = (cached or {}).get("data") or {}
+    text = data.get("joke") if feed_id == "dad_joke" else data.get("fact")
+    if not text:
+        return None
+    return hashlib.sha256((str(data.get("fetched_at")) + ":" + text).encode()).hexdigest()
 
 
 def _iso(value):
@@ -174,8 +183,9 @@ class S3StateStore:
         self.bucket = bucket
         if client is None:
             import boto3
+            from botocore.config import Config
 
-            client = boto3.client("s3")
+            client = boto3.client("s3", config=Config(signature_version="s3v4"))
         self.client = client
 
     def _get_json(self, key, default):
@@ -186,7 +196,8 @@ class S3StateStore:
             if str((meta.get("Error") or {}).get("Code") or "") in ("NoSuchKey", "404", "NotFound"):
                 return copy.deepcopy(default)
             raise
-        return json.loads(response["Body"].read().decode("utf-8"))
+        with response["Body"] as body:
+            return json.loads(body.read().decode("utf-8"))
 
     def load(self):
         payload = self._get_json(STATE_KEY, {"version": 2, "feeds": {}})
@@ -204,6 +215,33 @@ class S3StateStore:
             Bucket=self.bucket, Key=SCREENS_KEY,
             Body=json.dumps(payload, separators=(",", ":")).encode(),
             ContentType="application/json", CacheControl="no-store, max-age=0", ServerSideEncryption="AES256",
+        )
+
+    def displayed(self, feed_id, version):
+        if not version:
+            return False
+        # The capability permits a fixed-size marker, not trusted JSON input.
+        # Check existence only: malformed marker bytes must not stop publishing.
+        try:
+            self.client.head_object(Bucket=self.bucket,
+                                    Key="state/displayed/{}/{}.json".format(feed_id, version))
+        except Exception as error:
+            meta = getattr(error, "response", {}) or {}
+            if str((meta.get("Error") or {}).get("Code") or "") in ("NoSuchKey", "404", "NotFound"):
+                return False
+            raise
+        return True
+
+    def acknowledgement(self, feed_id, version):
+        # Write-only capability for this exact content version. No board/admin
+        # credential or cache mutation permission is exposed. Sign the fixed
+        # body length too, so this cannot be used for arbitrary uploads.
+        return self.client.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": self.bucket,
+                    "Key": "state/displayed/{}/{}.json".format(feed_id, version),
+                    "ContentLength": 2, "ContentType": "application/json"},
+            ExpiresIn=3600,
         )
 
 
@@ -265,6 +303,41 @@ class Publisher:
 
     def _fetch_rail(self, now):
         return {"station": self.config.station, "source": "national_rail", "fetched_at": _iso(now), "services": self.rail_provider.fetch()}
+
+    def _refresh_static_pool(self, feed_id, previous, ttl, now):
+        """Replenish a bounded pool; selection belongs to the board.
+
+        At most two new items per scheduled run bounds provider/network work.
+        Failed replenishment keeps the entire last-good pool available.
+        """
+        previous = copy.deepcopy(previous or {})
+        items = list(previous.get("items") or [])
+        if not items and previous.get("data"):
+            items = [copy.deepcopy(previous["data"])]
+        consumed = [item for item in items if hasattr(self.store, "displayed")
+                    and self.store.displayed(feed_id, content_version(feed_id, {"data": item}))]
+        due = self._due(previous, ttl, now)
+        if not (due or consumed or len(items) < 5) or not self._due(previous, 60, now):
+            return previous
+        count = min(2, max(5 - len(items), len(consumed), 1 if due else 0))
+        working = previous
+        added = []
+        for _ in range(count):
+            fetcher = self._fetch_joke if feed_id == "dad_joke" else self._fetch_fact
+            refreshed = self._refresh(feed_id, working, ttl,
+                                      lambda: fetcher(now, working), now, force=True)
+            if refreshed.get("stale"):
+                working = {**working, "last_attempt_at": _iso(now), "stale": True}
+                break
+            working = refreshed
+            added.append(copy.deepcopy(working["data"]))
+        if added:
+            # Remove consumed items first, only when replacement is available.
+            for item in consumed[:len(added)]:
+                items.remove(item)
+            items = (items + added)[-5:]
+        working["items"] = items
+        return working
 
     def _fetch_queues(self, now, provider, park):
         return {"park": park, "source": "queue_times", "fetched_at": _iso(now), "rides": provider.fetch()}
@@ -490,6 +563,15 @@ class Publisher:
                     "fact_id": fact_data.get("fact_id"),
                     "fact_source": fact_data.get("fact_source"),
                 })
+        if config_feeds["today"]["enabled"]:
+            current_weather = feeds.get("weather") or {}
+            screens.append({
+                "id": "today", "kind": "today", "title": "TODAY",
+                "duration_seconds": config_feeds["today"]["screen_duration_seconds"],
+                "source": "open_meteo", "stale": bool(current_weather.get("stale", True)),
+                "weather": {key: value for key, value in (current_weather.get("data") or {}).items()
+                            if key in ("temperature_c", "weather_code", "icon", "is_day", "fetched_at")},
+            })
         weather_config = config_feeds["weather"]
         if weather_config["enabled"]:
             weather = feeds.get("weather") or {}
@@ -550,22 +632,28 @@ class Publisher:
                 })
             for screen in screens:
                 screen["weather"] = copy.deepcopy(overlay)
-        # Scheduling is performed locally by the MatrixPortal, not the publisher:
-        # data-refresh cycles must not change screen visibility cadence.
-        schedule_feeds = {"departures": "departures", "queue-times": "queue_times",
-                          "calendar": "calendar", "dad-joke": "dad_joke",
-                           "random-fact": "random_fact",
-                          "weather-weekly": "weather", "weather-today": "weather",
-                          "weather-sun": "weather"}
         for screen in screens:
-            feed_id = schedule_feeds.get(screen.get("id"))
-            if feed_id:
-                screen["display_every_cycles"] = config_feeds[feed_id].get("display_every_cycles", 1)
+            feed_id = screen.get("kind")
+            if FEED_REGISTRY.get(feed_id, {}).get("display_group"):
+                screen["display_group"] = "static_feeds"
+            if feed_id in ("dad_joke", "random_fact"):
+                cached = feeds.get(feed_id) or {}
+                screen["items"] = []
+                for data in cached.get("items") or [cached.get("data") or {}]:
+                    item = {key: value for key, value in data.items() if key != "history"}
+                    version = content_version(feed_id, {"data": data})
+                    item["content_version"] = version
+                    if hasattr(self.store, "acknowledgement"):
+                        item["refresh_ack_url"] = self.store.acknowledgement(feed_id, version)
+                    screen["items"].append(item)
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
             "display": copy.deepcopy(runtime["display"]),
             "flash": copy.deepcopy(config_feeds["flash"]),
+            # Non-secret MQTT screen policy is consumed by the board. The
+            # publisher cannot report broker health; this is configuration only.
+            "sl7_bus": copy.deepcopy(config_feeds["sl7_bus"]),
             "screens": screens,
         }
 
@@ -628,16 +716,14 @@ class Publisher:
                 lambda: self._fetch_calendar(now), now,
             )
         if settings["dad_joke"]["enabled"]:
-            feeds["dad_joke"] = self._refresh(
-                "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"],
-                lambda: self._fetch_joke(now, feeds.get("dad_joke")), now,
+            feeds["dad_joke"] = self._refresh_static_pool(
+                "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"], now,
             )
         if settings["random_fact"]["enabled"]:
-            feeds["random_fact"] = self._refresh(
-                "random_fact", feeds.get("random_fact"), settings["random_fact"]["poll_seconds"],
-                lambda: self._fetch_fact(now, feeds.get("random_fact")), now,
+            feeds["random_fact"] = self._refresh_static_pool(
+                "random_fact", feeds.get("random_fact"), settings["random_fact"]["poll_seconds"], now,
             )
-        if settings["weather"]["enabled"]:
+        if settings["weather"]["enabled"] or settings["today"]["enabled"]:
             weather_previous = feeds.get("weather")
             weather_data = (weather_previous or {}).get("data")
             # Refresh older cache schemas immediately so all three dedicated
@@ -668,6 +754,7 @@ class Publisher:
         self.store.publish(payload)
         print(json.dumps({"event": "screens_published", "screens": len(payload["screens"]), "config_version": runtime["config_version"]}))
         return payload
+
 
 
 _PUBLISHER = None

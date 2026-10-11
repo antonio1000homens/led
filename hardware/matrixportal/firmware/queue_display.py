@@ -113,7 +113,12 @@ class QueueAwareDisplay:
             return self.base.animation_active(screen, phase)
         return False
 
+    def note_fetch_on_animation_capable_screen(self):
+        if hasattr(self.base, "note_fetch_on_animation_capable_screen"):
+            self.base.note_fetch_on_animation_capable_screen()
+
     def note_fetch_overlap(self):
+        """Keep old code.py compatible during ordered firmware deployment."""
         if hasattr(self.base, "note_fetch_overlap"):
             self.base.note_fetch_overlap()
 
@@ -205,6 +210,13 @@ class QueueAwareDisplay:
         if hasattr(self.base, "show_loading"):
             return self.base.show_loading(title, message, clock_time)
         return None
+
+    def tasks_ready(self, screen, clock_date=""):
+        return not hasattr(self.base, "tasks_ready") or self.base.tasks_ready(screen, clock_date)
+
+    def prepare_tasks(self, screen, clock_time="--:--", clock_date=""):
+        if hasattr(self.base, "prepare_tasks"):
+            return self.base.prepare_tasks(screen, clock_time, clock_date)
 
 
 def create(settings):

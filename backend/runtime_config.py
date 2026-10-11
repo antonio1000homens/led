@@ -48,12 +48,17 @@ DEFAULT_WEATHER_SUN_DURATION_SECONDS = 6
 DEFAULT_FLASH_SCREEN_DURATION_SECONDS = 5
 MIN_FLASH_SCREEN_DURATION_SECONDS = 2
 MAX_FLASH_SCREEN_DURATION_SECONDS = 60
+MIN_BUS_COUNT = 2
+MAX_BUS_COUNT = 5
+MIN_STALE_AFTER_SECONDS = 60
+MAX_STALE_AFTER_SECONDS = 1800
+MIN_DESTINATION_SCROLL_SPEED = 8
+MAX_DESTINATION_SCROLL_SPEED = 80
 MIN_CALENDAR_TASKS = 1
 MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
 DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
-MAX_DISPLAY_EVERY_CYCLES = 6
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -205,15 +210,25 @@ FEED_REGISTRY = {
     },
     "dad_joke": {
         "label": "Dad jokes",
+        "display_group": "static_feeds",
         "provider": "icanhazdadjoke",
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
     },
     "random_fact": {
         "label": "Random facts",
+        "display_group": "static_feeds",
         "provider": "uselessfacts.jsph.pl",
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
+    },
+    "today": {
+        "label": "Today",
+        "provider": "open_meteo",
+        "display_group": "static_feeds",
+        "mutable_fields": ("enabled", "screen_duration_seconds"),
+        "screen_duration": True,
+        "virtual": True,
     },
     "calendar": {
         "label": "Calendar",
@@ -228,6 +243,19 @@ FEED_REGISTRY = {
         "mutable_fields": ("enabled", "screen_duration_seconds"),
         "screen_duration": True,
         "flash": True,
+    },
+    "sl7_bus": {
+        "label": "SL7 bus departures",
+        "provider": "homeassistant_mqtt",
+        "display_group": "transit",
+        "mutable_fields": (
+            "enabled", "heathrow_enabled", "new_malden_enabled",
+            "screen_duration_seconds", "no_services_duration_seconds",
+            "display_every_cycles", "upcoming_bus_count",
+            "stale_after_seconds", "destination_scroll_speed",
+        ),
+        "advanced_fields": ("stale_after_seconds", "destination_scroll_speed"),
+        "screen_duration": True,
     },
 }
 
@@ -357,6 +385,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "poll_seconds": 3600,
                 "screen_duration_seconds": 15,
             },
+            "today": {"enabled": False, "screen_duration_seconds": 15},
             "calendar": {
                 "enabled": calendar_enabled,
                 "poll_seconds": _int_env(env, "LED_TODOIST_CACHE_SECONDS", 300),
@@ -385,13 +414,21 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     maximum=MAX_FLASH_SCREEN_DURATION_SECONDS,
                 ),
             },
+            "sl7_bus": {
+                "enabled": False,
+                "heathrow_enabled": True,
+                "new_malden_enabled": True,
+                "screen_duration_seconds": 8,
+                "no_services_duration_seconds": DEFAULT_NO_SERVICES_DURATION_SECONDS,
+                "display_every_cycles": 1,
+                "upcoming_bus_count": 3,
+                "stale_after_seconds": 180,
+                "destination_scroll_speed": 20,
+            },
         },
         "updated_at": None,
         "updated_by": "system:defaults",
     }
-    for feed_id, feed in result["feeds"].items():
-        if FEED_REGISTRY[feed_id].get("screen_duration") and not FEED_REGISTRY[feed_id].get("flash"):
-            feed["display_every_cycles"] = 1
     return result
 
 
@@ -407,7 +444,6 @@ def schema_metadata() -> dict[str, Any]:
             },
         }
         if definition.get("screen_duration") and not definition.get("flash"):
-            fields["display_every_cycles"] = {"type": "integer", "minimum": 1, "maximum": MAX_DISPLAY_EVERY_CYCLES}
             fields["screen_duration_seconds"] = {
                 "type": "integer",
                 "minimum": MIN_FLASH_SCREEN_DURATION_SECONDS if definition.get("flash") else MIN_SCREEN_DURATION_SECONDS,
@@ -459,12 +495,23 @@ def schema_metadata() -> dict[str, Any]:
                     "minimum": metadata["minimum"],
                     "maximum": metadata["maximum"],
                 }
+        if feed_id == "sl7_bus":
+            fields["heathrow_enabled"] = {"type": "boolean"}
+            fields["new_malden_enabled"] = {"type": "boolean"}
+            fields["no_services_duration_seconds"] = {
+                "type": "integer", "minimum": MIN_SCREEN_DURATION_SECONDS, "maximum": MAX_SCREEN_DURATION_SECONDS,
+            }
+            fields["display_every_cycles"] = {"type": "integer", "minimum": 1, "maximum": 6}
+            fields["upcoming_bus_count"] = {"type": "integer", "minimum": MIN_BUS_COUNT, "maximum": MAX_BUS_COUNT}
+            fields["stale_after_seconds"] = {"type": "integer", "minimum": MIN_STALE_AFTER_SECONDS, "maximum": MAX_STALE_AFTER_SECONDS}
+            fields["destination_scroll_speed"] = {"type": "integer", "minimum": MIN_DESTINATION_SCROLL_SPEED, "maximum": MAX_DESTINATION_SCROLL_SPEED}
         if definition.get("rides"):
             fields["rides"] = {"type": "array", "items": {"type": "string"}, "ordered": True}
         feeds[feed_id] = {
             "label": definition["label"],
             "provider": definition["provider"],
-            "mutable_fields": list(definition["mutable_fields"]) + (["display_every_cycles"] if definition.get("screen_duration") and not definition.get("flash") else []),
+            "mutable_fields": list(definition["mutable_fields"]),
+            **({"display_group": definition["display_group"]} if definition.get("display_group") else {}),
             "fields": fields,
             **({"advanced_fields": list(definition["advanced_fields"])} if definition.get("advanced_fields") else {}),
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
@@ -529,8 +576,6 @@ def validate_feed_patch(
         raise RuntimeConfigValidationError("patch must be a non-empty JSON object")
     definition = FEED_REGISTRY[feed_id]
     allowed = set(definition["mutable_fields"])
-    if definition.get("screen_duration") and not definition.get("flash"):
-        allowed.add("display_every_cycles")
     unknown = set(patch) - allowed
     if unknown:
         raise RuntimeConfigValidationError(
@@ -546,8 +591,6 @@ def validate_feed_patch(
         result["poll_seconds"] = _validate_integer(
             feed_id, "poll_seconds", patch["poll_seconds"], MIN_POLL_SECONDS, MAX_POLL_SECONDS
         )
-    if "display_every_cycles" in patch:
-        result["display_every_cycles"] = _validate_integer(feed_id, "display_every_cycles", patch["display_every_cycles"], 1, MAX_DISPLAY_EVERY_CYCLES)
     if "screen_duration_seconds" in patch:
         result["screen_duration_seconds"] = _validate_integer(
             feed_id,
@@ -615,6 +658,22 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    if feed_id == "sl7_bus":
+        for field in ("heathrow_enabled", "new_malden_enabled"):
+            if field in patch:
+                if not isinstance(patch[field], bool):
+                    raise RuntimeConfigValidationError(f"{feed_id}.{field} must be boolean")
+                result[field] = patch[field]
+        ranges = {
+            "no_services_duration_seconds": (MIN_SCREEN_DURATION_SECONDS, MAX_SCREEN_DURATION_SECONDS),
+            "display_every_cycles": (1, 6),
+            "upcoming_bus_count": (MIN_BUS_COUNT, MAX_BUS_COUNT),
+            "stale_after_seconds": (MIN_STALE_AFTER_SECONDS, MAX_STALE_AFTER_SECONDS),
+            "destination_scroll_speed": (MIN_DESTINATION_SCROLL_SPEED, MAX_DESTINATION_SCROLL_SPEED),
+        }
+        for field, (minimum, maximum) in ranges.items():
+            if field in patch:
+                result[field] = _validate_integer(feed_id, field, patch[field], minimum, maximum)
     if "splash_enabled" in patch:
         if not isinstance(patch["splash_enabled"], bool):
             raise RuntimeConfigValidationError(f"{feed_id}.splash_enabled must be boolean")
@@ -656,7 +715,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     supplied_feed_ids = set(raw_feeds)
     missing_feed_ids = supported_feed_ids - supplied_feed_ids
     unknown_feed_ids = supplied_feed_ids - supported_feed_ids
-    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact"}
+    additive_feed_ids = {"queue_times", "flash", "steam_train", "dad_joke", "random_fact", "today", "sl7_bus"}
     if unknown_feed_ids or not missing_feed_ids.issubset(additive_feed_ids):
         raise RuntimeConfigValidationError("feeds must contain exactly the supported v1 feed IDs")
     for feed_id in missing_feed_ids:
@@ -668,8 +727,10 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if not isinstance(raw_value, dict):
             raise RuntimeConfigValidationError(f"{feed_id} must be an object")
         raw = copy.deepcopy(raw_value)
-        if FEED_REGISTRY[feed_id].get("screen_duration") and not FEED_REGISTRY[feed_id].get("flash"):
-            raw.setdefault("display_every_cycles", 1)
+        # Read old persisted configurations, but never expose or accept new
+        # writes to the retired display-frequency setting.
+        if feed_id != "sl7_bus":
+            raw.pop("display_every_cycles", None)
         if feed_id == "departures":
             for field, metadata in DEPARTURE_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
@@ -685,8 +746,11 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
-        if FEED_REGISTRY[feed_id].get("screen_duration") and not FEED_REGISTRY[feed_id].get("flash"):
-            expected.add("display_every_cycles")
+        # Older saved configs may predate the SL7 frequency control. Keep that
+        # migration additive without making the legacy migration test (or an
+        # older persisted document) acquire a new key unexpectedly.
+        if feed_id == "sl7_bus" and "display_every_cycles" not in raw:
+            expected.discard("display_every_cycles")
         if set(raw) != expected:
             raise RuntimeConfigValidationError(f"{feed_id} contains missing or unknown fields")
         normalized = validate_feed_patch(

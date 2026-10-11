@@ -85,52 +85,32 @@ class RotationTests(unittest.TestCase):
         self.assertEqual((current["id"], phase), ("b", 0.125))
         self.assertIsInstance(rotation.started_at, int)
 
-    def test_joke_is_shown_once_per_new_text_across_refreshes(self):
-        rotation = ScreenRotation()
-        joke = {"id": "dad-joke", "kind": "dad_joke", "joke": "First!", "duration_seconds": 2}
-        other = {"id": "regular", "kind": "message", "duration_seconds": 2}
-        rotation.update([joke, other], 0)
-        self.assertEqual(rotation.current(0)[0]["id"], "dad-joke")
-        self.assertEqual(rotation.current(2)[0]["id"], "regular")
-        self.assertEqual(rotation.current(4)[0]["id"], "regular")
-        rotation.update([dict(joke), other], 5)
-        self.assertEqual(rotation.current(6)[0]["id"], "regular")
-        rotation.update([dict(joke, joke="Second!"), other], 7)
-        # A new joke is eligible at the next suitable rotation.
-        ids = [rotation.current(t)[0]["id"] for t in (8, 10, 12)]
-        self.assertIn("dad-joke", ids)
-        self.assertNotEqual(rotation.current(20)[0]["id"], "dad-joke")
-
-    def test_fact_is_shown_once_and_reenable_on_new_fact(self):
-        rotation = ScreenRotation()
-        fact = {"id": "random-fact", "kind": "random_fact",
-                "fact": "First fact", "duration_seconds": 2, "display_every_cycles": 1}
-        other = {"id": "regular", "kind": "message", "duration_seconds": 2}
-        rotation.update([fact, other], 0)
-        self.assertEqual(rotation.current(0)[0]["id"], "random-fact")
-        self.assertEqual(rotation.current(2)[0]["id"], "regular")
-        rotation.update([dict(fact), other], 3)
-        self.assertEqual(rotation.current(4)[0]["id"], "regular")
-        rotation.update([dict(fact, fact="Second fact"), other], 5)
-        self.assertIn("random-fact", [rotation.current(t)[0]["id"] for t in (6, 8, 10)])
-        self.assertEqual(rotation.current(20)[0]["id"], "regular")
-
-    def test_fact_manual_next_consumes_content(self):
-        rotation = ScreenRotation()
-        fact = {"id": "random-fact", "kind": "random_fact", "fact": "Only fact", "duration_seconds": 2}
+    def test_static_pool_is_selected_locally_and_marks_completed_item(self):
+        import random
+        rotation = ScreenRotation(rng=random.Random(1))
+        fact = {"id": "random-fact", "kind": "random_fact", "duration_seconds": 2,
+                "items": [{"fact": "One", "content_version": "1", "refresh_ack_url": "url1"},
+                          {"fact": "Two", "content_version": "2", "refresh_ack_url": "url2"}]}
         rotation.update([fact], 0)
-        self.assertEqual(rotation.current(0)[0]["id"], "random-fact")
-        rotation.next(1)
-        self.assertEqual(rotation.current(1)[0]["id"], "unavailable")
-        rotation.update([dict(fact)], 2)
-        self.assertEqual(rotation.current(2)[0]["id"], "unavailable")
+        first = rotation.current(0)[0]
+        self.assertEqual(rotation.pending_refresh, {})
+        second = rotation.current(2)[0]
+        self.assertNotEqual(first["fact"], second["fact"])
+        self.assertEqual(rotation.pending_refresh[("random_fact",first["content_version"])], first["refresh_ack_url"])
+        rotation.next(3)
+        self.assertEqual(rotation.current(3)[0]["id"], "random-fact")
 
-    def test_joke_only_screen_does_not_spin_after_consumption(self):
+    def test_joke_only_cached_screen_repeats_without_waiting_or_spinning(self):
         rotation = ScreenRotation()
         rotation.update([{"id": "dad-joke", "kind": "dad_joke",
                           "joke": "Only joke", "duration_seconds": 2}], 0)
-        self.assertEqual(rotation.current(0)[0]["id"], "dad-joke")
-        self.assertEqual(rotation.current(3)[0]["id"], "unavailable")
+        self.assertEqual(rotation.current(3)[0]["id"], "dad-joke")
+
+    def test_retired_frequency_is_ignored(self):
+        rotation = ScreenRotation()
+        rotation.update([{"id":"a","duration_seconds":2,"display_every_cycles":6}],0)
+        for now in range(20):
+            self.assertEqual(rotation.current(now)[0]["id"],"a")
 
     def test_http_and_mqtt_sources_merge_in_independent_stable_order(self):
         rotation = ScreenRotation()

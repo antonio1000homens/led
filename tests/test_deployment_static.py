@@ -6,6 +6,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
+    def test_sl7_bus_contract_and_home_assistant_package_exist(self):
+        mqtt = (ROOT / "hardware" / "matrixportal" / "firmware" / "mqtt_screens.py").read_text()
+        bus = (ROOT / "hardware" / "matrixportal" / "firmware" / "bus_departures.py").read_text()
+        package = (ROOT.parent / "homeassistant" / "packages" / "sl7_led_mqtt.yaml").read_text()
+        self.assertIn("bus_departures", mqtt)
+        self.assertIn("STOP_KEYS = (\"heathrow\", \"new-malden\")", bus)
+        self.assertIn("led/screens/sl7-heathrow", package)
+        self.assertIn("led/screens/sl7-new-malden", package)
+        self.assertIn("input_text.sl7_heathrow_sensor_entity", package)
+
     def test_simulator_renders_and_previews_bin_collection_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawBinCollection(screen, phase)", simulator)
@@ -21,7 +31,8 @@ class DeploymentStaticTests(unittest.TestCase):
     def test_loading_upcoming_card_matches_upcoming_header_position(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
-        self.assertIn("kind: 'loading', duration_seconds: 8, title: 'UPCOMING', message: 'Loading...'", simulator)
+        self.assertIn("id:'static-fallback',kind:'today'", simulator)
+        self.assertNotIn("display.show_loading(", (ROOT / "code.py").read_text())
         self.assertIn("drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, HEADER_TEXT_Y);", simulator)
         self.assertIn("drawLedText(message, Math.max(0, (1024 - measureLedText(message).width) / 2), 18 * FONT_PIXEL_SCALE);", simulator)
         self.assertIn("self._label(group, title, 0xFFAA00, 0, 3)", display)

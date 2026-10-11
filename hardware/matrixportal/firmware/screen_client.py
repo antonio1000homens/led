@@ -9,6 +9,8 @@ from formatting import (
     departure_scroll_duration,
     rail_calling_timing,
 )
+import random
+
 from matrix_config import CALLING_SCROLL_SPEED_OVERRIDE
 
 
@@ -253,7 +255,7 @@ class ScreenRotation:
     motion retains precision after days of physical-board uptime.
     """
 
-    def __init__(self, ticks_per_second=1):
+    def __init__(self, ticks_per_second=1, rng=None):
         self.ticks_per_second = ticks_per_second
         self.screens = []
         self.http_screens = []
@@ -262,7 +264,9 @@ class ScreenRotation:
         self.started_at = None
         self._paused = None
         self.cycle_number = 0
-        self._shown_once = {}
+        self.rng = rng or random
+        self.pending_refresh = {}
+        self._recent_items = {}
 
     def _duration_ticks(self, seconds):
         # Keep the absolute anchor an integer when callers supply millisecond
@@ -355,8 +359,38 @@ class ScreenRotation:
             else 0
         )
         mqtt = sorted(self.mqtt_screens, key=lambda screen: str(screen.get("id") or ""))
-        next_screens = list(self.http_screens) + mqtt
+        available = list(self.http_screens) + mqtt
+        by_id = {item.get("id"): item for item in available}
+        # Preserve this cycle's order and selected pool item across HTTP polls.
+        next_screens = []
+        for old in old_screens:
+            item = by_id.get(old.get("id"))
+            if old.get("id") == "static-maintenance":
+                item = old
+            if item is not None:
+                item = dict(item)
+                if old.get("content_version"):
+                    for key in ("joke", "fact", "content_version", "refresh_ack_url"):
+                        if key in old:
+                            item[key] = old[key]
+                    # Renew expiring capabilities for the selected item.
+                    for candidate in item.get("items") or ():
+                        if candidate.get("content_version") == old.get("content_version"):
+                            item["refresh_ack_url"] = candidate.get("refresh_ack_url")
+                next_screens.append(item)
+        if not next_screens:
+            next_screens = self._cycle_plan(available)
         self.screens = next_screens
+        for screen in available:
+            for item in screen.get("items") or ():
+                key = (screen.get("kind"), item.get("content_version"))
+                if key in self.pending_refresh:
+                    self.pending_refresh[key] = item.get("refresh_ack_url")
+        active_versions = {(screen.get("kind"), item.get("content_version"))
+                           for screen in available for item in screen.get("items") or ()}
+        for key in list(self.pending_refresh):
+            if key not in active_versions:
+                del self.pending_refresh[key]
         if not next_screens:
             self.cycle_number = 0
             self.index = 0
@@ -408,25 +442,8 @@ class ScreenRotation:
             return self.screens[self.index % len(self.screens)], 0
         if self.started_at is None:
             self.started_at = now
-        skipped = 0
         while True:
             screen = self.screens[self.index]
-            interval = max(1, int(screen.get("display_every_cycles") or 1))
-            once_key = (screen.get("joke") if screen.get("kind") == "dad_joke"
-                        else screen.get("fact") if screen.get("kind") == "random_fact" else None)
-            already_shown = once_key is not None and self._shown_once.get(screen.get("id")) == once_key
-            if self.cycle_number % interval or already_shown:
-                self._advance_screen()
-                skipped += 1
-                if skipped >= len(self.screens):
-                    # All screens were suppressed. Avoid a tight infinite loop.
-                    return {
-                        "id": "unavailable", "kind": "message",
-                        "duration_seconds": 8, "title": "Waiting for new content",
-                        "source": "local", "stale": False,
-                    }, 0
-                continue
-            skipped = 0
             duration = max(
                 1.0,
                 float(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
@@ -438,25 +455,89 @@ class ScreenRotation:
             if elapsed_ticks < duration_ticks:
                 return screen, elapsed_ticks / self.ticks_per_second
             self.started_at += duration_ticks
-            if once_key is not None:
-                self._shown_once[screen.get("id")] = once_key
             self._advance_screen()
 
+    @staticmethod
+    def is_static(screen):
+        return screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "today")
+
+    def _choose(self, screen):
+        items = screen.get("items") or ()
+        if not items:
+            return screen
+        kind = screen.get("kind")
+        recent = self._recent_items.get(kind, [])
+        unused = [item for item in items if item.get("content_version") not in recent]
+        non_repeating = [item for item in items if not recent or item.get("content_version") != recent[-1]]
+        choices = unused or non_repeating or list(items)
+        chosen = choices[self.rng.randrange(len(choices))]
+        result = dict(screen)
+        result.update(chosen)
+        return result
+
+    def _cycle_plan(self, screens):
+        normal = [item for item in screens if not self.is_static(item)]
+        static = [self._choose(item) for item in screens if self.is_static(item)]
+        # Do not separate the train from departures. Queue Times is already
+        # represented by one atomic screen.
+        blocks = []
+        for item in normal:
+            if blocks and blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined":
+                blocks[-1].append(item)
+            else:
+                blocks.append([item])
+        for i in range(len(static) - 1, 0, -1):
+            j = self.rng.randrange(i + 1)
+            static[i], static[j] = static[j], static[i]
+        for item in static:
+            blocks.insert(self.rng.randrange(len(blocks) + 1), [item])
+        return [item for block in blocks for item in block]
+
+    def maintenance_slot(self, now):
+        """Insert static maintenance only at a caller-observed block boundary."""
+        if self.screens and self.is_static(self.screens[self.index]):
+            return
+        for index in range(self.index + 1, len(self.screens)):
+            if self.is_static(self.screens[index]):
+                self.screens.insert(self.index, self.screens.pop(index))
+                self.started_at = now
+                return
+        choices = [item for item in self.http_screens if self.is_static(item)]
+        item = self._choose(choices[self.rng.randrange(len(choices))]) if choices else {
+            "kind": "today", "title": "TODAY", "duration_seconds": 8,
+            "source": "local", "weather": next((screen.get("weather") for screen in self.http_screens
+                                                  if isinstance(screen.get("weather"), dict)), {}),
+        }
+        item = dict(item)
+        item["id"] = "static-maintenance"
+        self.screens.insert(self.index, item)
+        self.started_at = now
+
     def _advance_screen(self):
-        self.index += 1
+        screen = self.screens[self.index]
+        version = screen.get("content_version")
+        if version:
+            key = (screen.get("kind"), version)
+            self.pending_refresh[key] = screen.get("refresh_ack_url")
+            recent = self._recent_items.setdefault(screen.get("kind"), [])
+            if version in recent:
+                recent.remove(version)
+            recent.append(version)
+            del recent[:-5]
+        if screen.get("id") == "static-maintenance":
+            self.screens.pop(self.index)
+        else:
+            self.index += 1
         if self.index >= len(self.screens):
             self.index = 0
             self.cycle_number += 1
+            self.screens = self._cycle_plan(list(self.http_screens) + sorted(self.mqtt_screens, key=lambda item: str(item.get("id") or "")))
 
     def next(self, now):
         """Move immediately to the next screen and restart its duration."""
         if not self.screens:
             return
         screen, _ = self.current(now)
-        if screen.get("kind") in ("dad_joke", "random_fact"):
-            self._shown_once[screen.get("id")] = (
-                screen.get("joke") if screen.get("kind") == "dad_joke" else screen.get("fact")
-            )
         self._advance_screen()
         self.started_at = now
 
@@ -530,6 +611,17 @@ class ScreenClient:
             except (AttributeError, OSError, TypeError) as error:
                 print("GTS Root R4 certificate unavailable:", error)
             self.session = adafruit_requests.Session(pool, ssl_context)
+
+    def acknowledge(self, url):
+        self._ensure_session()
+        response = None
+        try:
+            response = self.session.put(url, data="{}", headers={"Content-Type": "application/json"})
+            if not 200 <= response.status_code < 300:
+                raise ValueError("Display acknowledgement failed")
+        finally:
+            if response is not None:
+                response.close()
 
     def fetch(self):
         self._ensure_session()

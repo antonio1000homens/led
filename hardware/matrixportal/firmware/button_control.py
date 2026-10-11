@@ -76,11 +76,15 @@ class MatrixButtons:
         self._down = ButtonGesture(lambda: self._down_io.value)
 
     def poll(self, now):
-        events = []
         up = self._up.poll(now)
         down = self._down.poll(now)
+        if up and down:
+            return (
+                "up_long" if up == "long" else "up",
+                "down_long" if down == "long" else "down",
+            )
         if up:
-            events.append("up_long" if up == "long" else "up")
+            return ("up_long" if up == "long" else "up",)
         if down:
-            events.append("down_long" if down == "long" else "down")
-        return events
+            return ("down_long" if down == "long" else "down",)
+        return ()

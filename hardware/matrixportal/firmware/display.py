@@ -9,6 +9,7 @@ from matrix_config import (
     MATRIX_ANIMATION_PROFILES,
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
+    MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT,
     CALLING_SCROLL_SPEED_OVERRIDE,
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_ROWS_SCROLL,
@@ -21,6 +22,8 @@ from matrix_config import (
 )
 
 from brightness import BrightnessState, pixel_is_blocked
+from bus_departures import normalise_bus_screen
+from mqtt_screens import _epoch
 
 from formatting import (
     AGENDA_SLIDE_SECONDS,
@@ -87,6 +90,18 @@ def reminder_clock_pixel(x, y):
             or (14 <= x <= 22 and 13 <= y <= 15))
 
 
+def _bus_time(value):
+    return value[11:16] if isinstance(value, str) and len(value) >= 16 else "--:--"
+
+
+def _bus_minutes(planned, estimated):
+    value = estimated or planned
+    try:
+        return max(0, int((_epoch(value) - _epoch(planned)) / 60000))
+    except Exception:
+        return None
+
+
 STEAM_TRAIN_WIDTH = 52
 STEAM_TRAIN_HEIGHT = 26
 STEAM_TRAIN_VERTICAL_OFFSET = 1
@@ -125,12 +140,12 @@ WEEKLY_WEATHER_TEMPERATURE_Y = 25
 TODAY_WEATHER_ICON_Y = 11
 TODAY_WEATHER_TEMPERATURE_Y = 27
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
-NOVELTY_HEADING_Y = 5
-NOVELTY_FIRST_LINE_Y = 14
+NOVELTY_HEADING_Y = 3
+NOVELTY_FIRST_LINE_Y = 12
 
 
-def _novelty_page(screen, phase):
-    """Wrap novelty text, advancing longer facts across pages during their slot."""
+def _novelty_lines(screen):
+    """Wrap cached content without scrolling or clipping long words."""
     message = str(screen.get("joke") if screen.get("kind") == "dad_joke" else screen.get("fact") or "")
     lines, current = [], ""
     for word in message.split():
@@ -151,6 +166,12 @@ def _novelty_page(screen, phase):
             current = candidate
     if current:
         lines.append(current)
+    return lines
+
+
+def _novelty_page(screen, phase):
+    """Advance longer facts across static pages during their reading slot."""
+    lines = _novelty_lines(screen)
     if not lines:
         return []
     pages = (len(lines) + 2) // 3
@@ -281,18 +302,49 @@ def _rail_weather_key(weather):
     return (_weather_text(weather), icon_name, bool(weather.get("stale")))
 
 
-def _next_periodic_boundary(elapsed, boundaries, cycle):
-    """Seconds to the next state edge in a repeating animation cycle."""
-    cycle = max(0.001, float(cycle))
+def _periodic_boundary_delta(within, boundary, cycle):
+    """Return the positive delta to one edge in a repeating cycle."""
+    delta = (float(boundary) % cycle) - within
+    if delta <= 1e-6:
+        delta += cycle
+    return delta
+
+
+def _next_departure_rows_boundary(elapsed, max_start, pause_seconds):
+    """Find the next lower-row motion edge without allocating edge lists."""
+    step = pause_seconds + DEPARTURE_SLIDE_SECONDS
+    normal = (max_start + 1) * step
+    reset_start = normal + DEPARTURE_RESET_GAP_SECONDS
+    cycle = reset_start + DEPARTURE_RESET_SLIDE_SECONDS
     within = max(0.0, float(elapsed or 0)) % cycle
-    candidates = []
-    for boundary in boundaries:
-        edge = float(boundary) % cycle
-        delta = edge - within
-        if delta <= 1e-6:
-            delta += cycle
-        candidates.append(delta)
-    return min(candidates) if candidates else cycle
+    nearest = cycle - within
+    delta = _periodic_boundary_delta(within, normal, cycle)
+    if delta < nearest:
+        nearest = delta
+    delta = _periodic_boundary_delta(within, reset_start, cycle)
+    if delta < nearest:
+        nearest = delta
+    for index in range(max_start + 1):
+        edge = index * step + pause_seconds
+        delta = _periodic_boundary_delta(within, edge, cycle)
+        if delta < nearest:
+            nearest = delta
+        delta = _periodic_boundary_delta(
+            within, edge + DEPARTURE_SLIDE_SECONDS, cycle
+        )
+        if delta < nearest:
+            nearest = delta
+    return nearest
+
+
+def _next_calling_marquee_boundary(elapsed, travel, cycle):
+    """Find the next marquee edge without allocating a boundary collection."""
+    within = max(0.0, float(elapsed or 0)) % cycle
+    nearest = cycle - within
+    delta = _periodic_boundary_delta(within, travel, cycle)
+    if delta < nearest:
+        nearest = delta
+    return nearest
 
 
 def _header_content_right(screen):
@@ -690,6 +742,16 @@ def _calendar_due_layout(screen, clock_date, clock_time):
     return text, max(0, right_edge - len(text) * WEATHER_FONT_WIDTH)
 
 
+def _today_lines(screen, clock_time, clock_date):
+    weather = screen.get("weather") or {}
+    temperature = weather.get("temperature_c")
+    temperature = "--C" if temperature is None else "{}C".format(int(round(temperature)))
+    conditions = str(weather.get("icon") or "Weather unavailable").replace("_", " ").upper()
+    if weather.get("stale") or screen.get("stale"):
+        conditions += " (STALE)"
+    return ["{}   {}".format(clock_time, temperature), conditions[:42], str(clock_date or "")[:42]]
+
+
 class MatrixDisplay:
     def __init__(self, brightness_percent=100, steam_train_test=False):
         import displayio
@@ -717,6 +779,7 @@ class MatrixDisplay:
                 "MATRIX_PRESENTATION_MODE must be target_fps, immediate, or auto_refresh"
             )
         self.presentation_mode = MATRIX_PRESENTATION_MODE
+        self._rail_auto_refresh_override = False
         self.telemetry_enabled = MATRIX_TELEMETRY_ENABLED
         self.display = framebufferio.FramebufferDisplay(
             matrix,
@@ -766,8 +829,13 @@ class MatrixDisplay:
         self._stats_refresh_total = 0.0
         self._stats_refresh_max = 0.0
         self._stats_rail_update_heap_gain_max = 0
+        self._stats_rail_slow_updates = 0
+        self._stats_rail_gc_events = 0
         self._stats_rail_refresh_heap_gain_max = 0
-        self._stats_fetch_overlap = 0
+        self._last_rail_update_seconds = 0.0
+        self._last_rail_refresh_seconds = 0.0
+        self._last_rail_heap_gain = None
+        self._stats_fetch_on_animation_capable_screen = 0
         self._stats_cadence_switches = 0
         self._stats_animation_classes = {
             name: {
@@ -833,6 +901,8 @@ class MatrixDisplay:
         self._rail_weather = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []
+        self._rail_departure_active_start = None
+        self._rail_departure_active_count = 0
         self._rail_phase = None
         self._rail_clock_group = None
         self._rail_clock_label = None
@@ -1059,6 +1129,7 @@ class MatrixDisplay:
             ascent = self.font.get_bounding_box()[1]
         y_offset = ascent // 2
         glyphs = []
+        glyph_cache = {}
         cursor_x = 0
         min_x = 0
         max_x = 0
@@ -1067,7 +1138,10 @@ class MatrixDisplay:
         for text, color in segments:
             color_index = 1 if color == 0xFFFFFF else 2
             for character in text:
-                glyph = self.font.get_glyph(ord(character))
+                codepoint = ord(character)
+                if codepoint not in glyph_cache:
+                    glyph_cache[codepoint] = self.font.get_glyph(codepoint)
+                glyph = glyph_cache[codepoint]
                 if glyph is None:
                     continue
                 glyph_x = cursor_x + glyph.dx
@@ -1161,7 +1235,7 @@ class MatrixDisplay:
             "heap_start={} heap_end={} animation_ticks={} todoist_ticks={} "
             "todoist_changed={} rail_ticks={} rail_changed={} "
             "update_avg={} update_max={} refresh_avg={} refresh_max={} "
-            "fetch_overlap={} cadence_switches={} "
+            "fetch_on_animation_capable_screen={} cadence_switches={} "
             "todoist_marquee_ticks={} todoist_marquee_changed={} "
                 "todoist_page_slide_ticks={} todoist_page_slide_changed={} "
                 "todoist_marquee_update_max={} todoist_marquee_refresh_max={} "
@@ -1172,7 +1246,8 @@ class MatrixDisplay:
                 "departures_calling_update_max={} departures_calling_refresh_max={} "
                 "steam_train_ticks={} steam_train_changed={} "
                 "steam_train_update_max={} steam_train_refresh_max={} "
-                "departures_update_heap_gain={} departures_refresh_heap_gain={}".format(
+                "departures_update_heap_gain={} departures_refresh_heap_gain={} "
+                "rail_slow_updates={} rail_gc_events={}".format(
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 elapsed,
@@ -1201,7 +1276,7 @@ class MatrixDisplay:
                 "{:.4f}".format(self._stats_refresh_total / self._stats_refresh_successes)
                 if self._stats_refresh_successes else "n/a",
                 "{:.4f}".format(self._stats_refresh_max),
-                self._stats_fetch_overlap,
+                self._stats_fetch_on_animation_capable_screen,
                 self._stats_cadence_switches,
                 self._stats_animation_classes["todoist_marquee"]["ticks"],
                 self._stats_animation_classes["todoist_marquee"]["changed"],
@@ -1225,13 +1300,19 @@ class MatrixDisplay:
                 "{:.4f}".format(self._stats_animation_classes["steam_train"]["refresh_max"]),
                 self._stats_rail_update_heap_gain_max,
                 self._stats_rail_refresh_heap_gain_max,
+                self._stats_rail_slow_updates,
+                self._stats_rail_gc_events,
             )
         )
         self._stats_last_report = now
 
+    def note_fetch_on_animation_capable_screen(self):
+        """Record a fetch on a screen that supports animation, not overlap."""
+        self._stats_fetch_on_animation_capable_screen += 1
+
     def note_fetch_overlap(self):
-        """Record a blocking fetch that occurred while animation was active."""
-        self._stats_fetch_overlap += 1
+        """Preserve compatibility with the previous internal adapter method."""
+        self.note_fetch_on_animation_capable_screen()
 
     def note_cadence_switch(self):
         self._stats_cadence_switches += 1
@@ -1281,6 +1362,8 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
+        if screen.get("kind") in ("dad_joke", "random_fact", "today"):
+            return 0
         if (
             isinstance(screen, dict)
             and screen.get("kind") == "steam_train_intro"
@@ -1290,6 +1373,12 @@ class MatrixDisplay:
         if (
             isinstance(screen, dict)
             and screen.get("kind") == "bin_collection"
+            and self._animation_class(screen, phase) is None
+        ):
+            return 0
+        if (
+            isinstance(screen, dict)
+            and screen.get("kind") == "rail_combined"
             and self._animation_class(screen, phase) is None
         ):
             return 0
@@ -1309,6 +1398,13 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "today":
+            return 1.0  # Update the clock without animating or rebuilding unchanged text.
+        if kind in ("dad_joke", "random_fact"):
+            pages = max(1, (len(_novelty_lines(screen)) + 2) // 3)
+            duration = max(1.0, float(screen.get("duration_seconds") or 15))
+            page_seconds = duration / pages
+            return max(0.05, page_seconds - (max(0.0, phase) % page_seconds))
         if kind == "bin_collection":
             moving, gap_remaining = _bin_collection_motion_state(screen, phase)
             if not moving and gap_remaining is not None:
@@ -1341,7 +1437,7 @@ class MatrixDisplay:
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
             summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
-            boundaries = [_header_next_boundary_seconds(phase, screen.get("weather"))]
+            nearest = _header_next_boundary_seconds(phase, screen.get("weather"))
             try:
                 value = max(0.0, float(phase or 0))
             except (TypeError, ValueError):
@@ -1349,24 +1445,24 @@ class MatrixDisplay:
             cycle = summary_seconds + calling_seconds
             within = value % cycle
             if rail_phase(phase, summary_seconds, calling_seconds) == "summary":
-                boundaries.append(summary_seconds - within)
+                delta = summary_seconds - within
+                if delta < nearest:
+                    nearest = delta
             else:
-                boundaries.append(cycle - within)
+                delta = cycle - within
+                if delta < nearest:
+                    nearest = delta
                 calling_elapsed = rail_marquee_elapsed(phase, summary_seconds, calling_seconds)
                 services = screen.get("services") or ()
                 upcoming_count = max(0, len(services) - 1)
                 pause = max(0.0, float(screen.get("upcoming_train_pause_seconds", 2) or 0))
                 max_start = max(0, upcoming_count - 2)
                 if max_start and MATRIX_RAIL_ROWS_SCROLL:
-                    step = pause + DEPARTURE_SLIDE_SECONDS
-                    normal = (max_start + 1) * step
-                    row_cycle = normal + DEPARTURE_RESET_GAP_SECONDS + DEPARTURE_RESET_SLIDE_SECONDS
-                    row_edges = [0.0, normal, normal + DEPARTURE_RESET_GAP_SECONDS,
-                                 row_cycle]
-                    for index in range(max_start + 1):
-                        start = index * step + pause
-                        row_edges.extend((start, start + DEPARTURE_SLIDE_SECONDS))
-                    boundaries.append(_next_periodic_boundary(calling_elapsed, row_edges, row_cycle))
+                    delta = _next_departure_rows_boundary(
+                        calling_elapsed, max_start, pause
+                    )
+                    if delta < nearest:
+                        nearest = delta
                 if services:
                     speed, _ = _station_scroll_settings(screen)
                     prepared = screen.get("rail_presentation") or {}
@@ -1376,10 +1472,12 @@ class MatrixDisplay:
                             services, speed, font_width=WEATHER_FONT_WIDTH
                         )[0]
                     marquee_cycle = travel + CALLING_MARQUEE_PAUSE_SECONDS
-                    boundaries.append(_next_periodic_boundary(
-                        calling_elapsed, (0.0, travel, marquee_cycle), marquee_cycle
-                    ))
-            return max(0.05, min(boundaries))
+                    delta = _next_calling_marquee_boundary(
+                        calling_elapsed, travel, marquee_cycle
+                    )
+                    if delta < nearest:
+                        nearest = delta
+            return max(0.05, nearest)
         return _header_next_boundary_seconds(phase, screen.get("weather"))
 
     def _departures_calling_moving(self, screen, phase, calling_seconds=RAIL_CALLING_SECONDS,
@@ -1445,16 +1543,31 @@ class MatrixDisplay:
     def _refresh(self, animation_class=None):
         """Present one changed scene according to the issue #70 test mode."""
         if not self.telemetry_enabled:
-            if self.presentation_mode == "auto_refresh":
+            if self.presentation_mode == "auto_refresh" or self.display.auto_refresh:
+                if animation_class == "departures_calling":
+                    self._last_rail_refresh_seconds = 0.0
                 return True
             target = None if self.presentation_mode == "immediate" else MATRIX_REFRESH_FPS
+            if animation_class == "departures_calling":
+                refresh_started = ticks_ms()
+                refreshed = self.display.refresh(target_frames_per_second=target)
+                refresh_duration = elapsed_seconds(refresh_started)
+                self._last_rail_refresh_seconds = refresh_duration
+                if refresh_duration > 0.2:
+                    print(
+                        "RAIL REFRESH SLOW duration={:.3f}s refreshed={}".format(
+                            refresh_duration,
+                            refreshed,
+                        )
+                    )
+                return refreshed
             return self.display.refresh(target_frames_per_second=target)
 
         self._stats_changes += 1
 
         # With auto-refresh enabled, mutating displayio objects is sufficient.
         # Calling refresh() here would make this mode no longer a clean test.
-        if self.presentation_mode == "auto_refresh":
+        if self.presentation_mode == "auto_refresh" or self.display.auto_refresh:
             self._maybe_report_stats()
             return True
 
@@ -1466,6 +1579,9 @@ class MatrixDisplay:
         refresh_started = ticks_ms()
         refreshed = self.display.refresh(target_frames_per_second=target)
         now = ticks_ms()
+        refresh_duration = elapsed_seconds(refresh_started, now)
+        if animation_class == "departures_calling":
+            self._last_rail_refresh_seconds = refresh_duration
         if heap_before is not None:
             heap_after = self._heap_free()
             if heap_after is not None:
@@ -1475,12 +1591,10 @@ class MatrixDisplay:
                 )
         if animation_class in self._stats_animation_classes:
             counters = self._stats_animation_classes[animation_class]
-            refresh_duration = elapsed_seconds(refresh_started, now)
             counters["refresh_total"] += refresh_duration
             counters["refresh_max"] = max(counters["refresh_max"], refresh_duration)
         if refreshed:
             self._stats_refresh_successes += 1
-            refresh_duration = elapsed_seconds(refresh_started, now)
             self._stats_refresh_total += refresh_duration
             self._stats_refresh_max = max(self._stats_refresh_max, refresh_duration)
             self._record_success_interval(now)
@@ -1543,10 +1657,6 @@ class MatrixDisplay:
     def _rail(self, group, screen, phase):
         import displayio
 
-        build_started = ticks_ms() if self.telemetry_enabled else None
-        calling_build = 0.0
-        service_build = 0.0
-        mask_build = 0.0
         services = screen.get("services") or []
         rail_right_edge = _header_content_right(screen)
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
@@ -1571,26 +1681,17 @@ class MatrixDisplay:
                     first_service_row = 0 if rows and rows[0][0] == "service" else 1
                     ordinal = row_index - first_service_row + 1
                 color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
-                item_started = ticks_ms() if build_started is not None else None
                 self._rail_service(fixed_group, service, color, 0, y, rail_right_edge, ordinal)
-                if item_started is not None:
-                    service_build += elapsed_seconds(item_started)
             elif row_kind == "calling":
                 calling_group = displayio.Group()
                 presentation = screen.get("rail_presentation") or {}
                 calling = presentation.get("calling_text") or calling_text(service)
                 stations = calling[len(CALLING_LABEL):] if calling.startswith(CALLING_LABEL) else calling
-                item_started = ticks_ms() if build_started is not None else None
                 first = self._calling_label_group(
                     service, y, presentation.get("calling_segments")
                 )
-                if item_started is not None:
-                    calling_build += elapsed_seconds(item_started)
                 calling_group.append(first)
-                item_started = ticks_ms() if build_started is not None else None
                 self._mask(calling_group, 0, y - 3, len(CALLING_LABEL) * WEATHER_FONT_WIDTH, 8)
-                if item_started is not None:
-                    mask_build += elapsed_seconds(item_started)
                 prefix = self._label(calling_group, CALLING_LABEL, 0xFFAA00, 0, y)
                 calling_label_state = {
                     "prefix": prefix,
@@ -1606,17 +1707,13 @@ class MatrixDisplay:
             for index, service in enumerate(services[1:]):
                 row_group = displayio.Group()
                 color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
-                item_started = ticks_ms() if build_started is not None else None
                 self._rail_service(row_group, service, color, 0, 0, rail_right_edge, index + 2)
-                if item_started is not None:
-                    service_build += elapsed_seconds(item_started)
                 row_group.y = RAIL_ROW_Y[-1] + 8
                 group.append(row_group)
                 self._rail_departure_rows.append(row_group)
             # Label coordinates are baselines: glyphs start three pixels
             # above them. Hide moving rows above the lower viewport, then
             # draw both fixed rows on top so outgoing glyphs cannot overlap.
-            item_started = ticks_ms() if build_started is not None else None
             self._mask(
                 group,
                 0,
@@ -1624,21 +1721,11 @@ class MatrixDisplay:
                 DISPLAY_WIDTH,
                 RAIL_ROW_Y[2] - 3,
             )
-            if item_started is not None:
-                mask_build += elapsed_seconds(item_started)
             if calling_group is not None:
                 fixed_group.append(calling_group)
                 self._rail_calling_labels.append(calling_label_state)
             group.append(fixed_group)
         self._rail_phase = state
-        if build_started is not None:
-            print(
-                "RAIL BUILD services={} calling_label={:.3f} service_labels={:.3f} "
-                "masks={:.3f} total={:.3f}".format(
-                    len(services), calling_build, service_build, mask_build,
-                    elapsed_seconds(build_started),
-                )
-            )
 
     def _rail_cache_matches(self, screen):
         return (
@@ -1696,6 +1783,12 @@ class MatrixDisplay:
         self._rail_group = scene["group"]
         self._rail_calling_labels = scene["calling_labels"]
         self._rail_departure_rows = scene["departure_rows"]
+        hidden_y = RAIL_ROW_Y[-1] + 8
+        row_step = RAIL_ROW_Y[3] - RAIL_ROW_Y[2]
+        for index in range(len(self._rail_departure_rows)):
+            self._rail_departure_rows[index].y = hidden_y + index * row_step
+        self._rail_departure_active_start = None
+        self._rail_departure_active_count = 0
         self._rail_clock_group = scene["clock_group"]
         self._rail_clock_label = scene["clock_label"]
         self._rail_weather_group = scene["weather_group"]
@@ -1733,32 +1826,54 @@ class MatrixDisplay:
                 screen.get("upcoming_train_pause_seconds", 2),
                 visible_rows=2,
             )
-            for index, row_group in enumerate(self._rail_departure_rows):
-                if reset_progress is None:
-                    row_y = hidden_y + index * row_step
-                elif reset_progress > 0:
-                    if index < 2:
+            if reset_progress is None:
+                active_start = None
+                active_count = 0
+            elif reset_progress > 0:
+                active_start = 0
+                active_count = 2
+            else:
+                active_start = start
+                active_count = 3
+
+            previous_start = self._rail_departure_active_start
+            previous_count = self._rail_departure_active_count
+            if previous_start is not None:
+                previous_end = previous_start + previous_count
+                for index in range(previous_start, previous_end):
+                    if (active_start is None
+                            or index < active_start
+                            or index >= active_start + active_count):
+                        if index < len(self._rail_departure_rows):
+                            row_group = self._rail_departure_rows[index]
+                            row_y = hidden_y + index * row_step
+                            if row_group.y != row_y:
+                                row_group.y = row_y
+                                changed = True
+
+            if active_start is not None:
+                active_end = active_start + active_count
+                for index in range(active_start, active_end):
+                    if index >= len(self._rail_departure_rows):
+                        break
+                    if reset_progress is not None and reset_progress > 0:
                         row_y = RAIL_ROW_Y[2] + 2 * row_step - int(
                             reset_progress * 2 * row_step
                         ) + index * row_step
                     else:
-                        row_y = hidden_y + index * row_step
-                elif start <= index <= start + 2:
-                    row_y = RAIL_ROW_Y[2] + (index - start) * row_step - int(
-                        progress * row_step
-                    )
-                else:
-                    row_y = hidden_y + index * row_step
-                if row_group.y != row_y:
-                    row_group.y = row_y
-                    changed = True
+                        row_y = RAIL_ROW_Y[2] + (index - start) * row_step - int(
+                            progress * row_step
+                        )
+                    row_group = self._rail_departure_rows[index]
+                    if row_group.y != row_y:
+                        row_group.y = row_y
+                        changed = True
+            self._rail_departure_active_start = active_start
+            self._rail_departure_active_count = active_count
         else:
-            for index, row_group in enumerate(self._rail_departure_rows):
-                row_y = (
-                    RAIL_ROW_Y[2] + index * row_step
-                    if index < 2
-                    else hidden_y + index * row_step
-                )
+            for index in range(min(2, len(self._rail_departure_rows))):
+                row_group = self._rail_departure_rows[index]
+                row_y = RAIL_ROW_Y[2] + index * row_step
                 if row_group.y != row_y:
                     row_group.y = row_y
                     changed = True
@@ -1790,13 +1905,28 @@ class MatrixDisplay:
         update_started = ticks_ms()
         changed = self._update_rail_scene(screen, clock_time, phase)
         update_duration = elapsed_seconds(update_started)
+        heap_gain = None
+        self._last_rail_update_seconds = update_duration
+        self._last_rail_heap_gain = None
+        if self.telemetry_enabled and update_duration > 0.1:
+            self._stats_rail_slow_updates += 1
         if update_duration > 0.1 and update_heap_before is not None:
             update_heap_after = self._heap_free()
             if update_heap_after is not None:
+                heap_gain = update_heap_after - update_heap_before
+                self._last_rail_heap_gain = heap_gain
                 self._stats_rail_update_heap_gain_max = max(
-                    self._stats_rail_update_heap_gain_max,
-                    update_heap_after - update_heap_before,
+                    self._stats_rail_update_heap_gain_max, heap_gain
                 )
+                if self.telemetry_enabled and heap_gain > 4096:
+                    self._stats_rail_gc_events += 1
+        if update_duration > 0.2:
+            print(
+                "RAIL UPDATE SLOW duration={:.3f}s heap_gain={}".format(
+                    update_duration,
+                    heap_gain,
+                )
+            )
         self._attach_brightness_overlay(self._rail_group)
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
@@ -1832,6 +1962,30 @@ class MatrixDisplay:
                 self._label(group, state, color, state_x, y)
         self._header_mask(group)
         self._label(group, _clip(screen.get("title") or "THORPE PARK", 30), 0xFFAA00, 0, 3)
+
+    def _bus_departures(self, group, screen, phase=0):
+        """Compact two-row-per-stop timetable for the 256x32 board."""
+        departures = screen.get("departures") or []
+        title = _clip(screen.get("title") or "SL7", 26)
+        self._label(group, title, 0xFFAA00, 0, 3)
+        if screen.get("status") == "unavailable":
+            self._label(group, "SL7 unavailable", 0xFF3300, 0, 18)
+            return
+        if not departures:
+            self._label(group, "No SL7 services", 0xFFFFFF, 0, 18)
+            return
+        row_y = (11, 20, 29)
+        for index, item in enumerate(departures[:3]):
+            y = row_y[index]
+            destination = _clip(item.get("destination") or "--", 24)
+            delay = _bus_minutes(item.get("planned"), item.get("estimated"))
+            status = "CANCEL" if item.get("cancelled") else ("+{}m".format(delay) if delay else "")
+            color = 0xFF3300 if item.get("cancelled") else (0xFFAA00 if delay else 0xFFFFFF)
+            time_text = _bus_time(item.get("estimated") or item.get("planned"))
+            self._label(group, destination, color, 0, y)
+            self._label(group, time_text, color, 185, y)
+            if status:
+                self._label(group, status, color, 225, y)
 
     def _calendar(self, group, screen, phase, clock_date=""):
         events, visible, start, progress = _agenda_state(screen, phase)
@@ -1935,6 +2089,20 @@ class MatrixDisplay:
             and self._todoist_weather_temp == weather_temp
             and self._todoist_weather_stale == weather_stale
         )
+
+    def tasks_ready(self, screen, clock_date=""):
+        return self._todoist_cache_matches(screen, clock_date)
+
+    def prepare_tasks(self, screen, clock_time="--:--", clock_date=""):
+        if not self.tasks_ready(screen, clock_date):
+            fields = ['_todoist_group','_todoist_rows','_todoist_events','_todoist_clock_date','_todoist_title','_todoist_stale','_todoist_viewport_size','_todoist_page_step','_todoist_page_seconds','_todoist_page_starts','_todoist_page_durations','_todoist_weather_icon','_todoist_weather_temp','_todoist_weather_stale','_todoist_clock_group','_todoist_clock_label','_todoist_weather_group']
+            previous = [(name, getattr(self, name, None)) for name in fields]
+            try:
+                self._build_todoist_scene(screen, clock_time, clock_date)
+            except Exception:
+                for name, value in previous:
+                    setattr(self, name, value)
+                raise
 
     def _build_todoist_scene(self, screen, clock_time, clock_date):
         """Build the Todoist scene once; animation mutates only child positions."""
@@ -2739,13 +2907,38 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
-        if not empty_state and kind in ("dad_joke", "random_fact"):
-            group = displayio.Group()
-            heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
-            self._label(group, heading, 0xFFAA00, 0, NOVELTY_HEADING_Y)
-            for index, line in enumerate(_novelty_page(screen, phase)):
-                self._label(group, line, 0xFFFFFF, 0, NOVELTY_FIRST_LINE_Y + index * 8)
-            self._present(group)
+        presentation_mode = getattr(self, "presentation_mode", MATRIX_PRESENTATION_MODE)
+        if presentation_mode != "auto_refresh":
+            use_rail_auto_refresh = (
+                MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT
+                and not empty_state
+                and kind == "rail_combined"
+            )
+            if use_rail_auto_refresh != getattr(
+                self, "_rail_auto_refresh_override", False
+            ):
+                self.display.auto_refresh = use_rail_auto_refresh
+                self._rail_auto_refresh_override = use_rail_auto_refresh
+                print(
+                    "RAIL PRESENTATION auto_refresh={}".format(
+                        use_rail_auto_refresh
+                    )
+                )
+        if not empty_state and kind in ("dad_joke", "random_fact", "today"):
+            heading = ("TODAY" if kind == "today" else
+                       "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?")
+            lines = (_today_lines(screen, clock_time, clock_date) if kind == "today"
+                     else _novelty_page(screen, phase))
+            key = (heading, tuple(lines))
+            if getattr(self, "_static_key", None) != key:
+                group = displayio.Group()
+                self._label(group, heading, 0xFFAA00, 0, NOVELTY_HEADING_Y)
+                for index, line in enumerate(lines):
+                    self._label(group, line, 0xFFFFFF, 0, NOVELTY_FIRST_LINE_Y + index * 8)
+                self._static_group = group
+                self._static_key = key
+            if self.display.root_group is not self._static_group:
+                self._present(self._static_group)
             return
         if not empty_state and kind == "flash":
             self._show_flash(screen, phase)
@@ -2757,6 +2950,14 @@ class MatrixDisplay:
 
         if not empty_state and kind == "bin_collection":
             self._show_bin_collection(screen, clock_time, clock_date, phase)
+            return
+
+        if not empty_state and kind == "bus_departures":
+            group = displayio.Group()
+            self._bus_departures(group, screen, phase)
+            if screen.get("stale"):
+                self._label(group, "STALE", 0xFF3300, STALE_X, 3)
+            self._present(group)
             return
 
         if (
@@ -2794,6 +2995,8 @@ class MatrixDisplay:
             self._rail(group, screen, phase)
         elif kind == "theme_park_queues":
             self._queues(group, screen, phase)
+        elif kind == "bus_departures":
+            self._bus_departures(group, screen, phase)
         elif kind == "calendar_agenda":
             self._calendar(group, screen, phase, clock_date)
         elif kind == "flash":
@@ -3077,12 +3280,13 @@ class FixtureDisplay:
                                 )
             self._text_scaled(value, left + 88, 11, text_color, SUN_WEATHER_TIME_SCALE)
 
-    def _draw_screen(self, screen, phase, clock_date=""):
+    def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--"):
         kind = screen.get("kind")
-        if kind in ("dad_joke", "random_fact"):
-            heading = "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
+        if kind in ("dad_joke", "random_fact", "today"):
+            heading = "TODAY" if kind == "today" else "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?"
             self._text(heading, 0, NOVELTY_HEADING_Y, (255, 170, 0))
-            for index, line in enumerate(_novelty_page(screen, phase)):
+            lines = _today_lines(screen, clock_time, clock_date) if kind == "today" else _novelty_page(screen, phase)
+            for index, line in enumerate(lines):
                 self._text(line, 0, NOVELTY_FIRST_LINE_Y + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
@@ -3177,6 +3381,20 @@ class FixtureDisplay:
                     self._text(state, state_x, y, color)
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "THORPE PARK", 30), 0, 0, (255, 100, 0))
+        elif kind == "bus_departures":
+            title = _clip(screen.get("title") or "SL7", 26)
+            self._text(title, 0, 0, (255, 170, 0))
+            departures = screen.get("departures") or []
+            if screen.get("status") == "unavailable":
+                self._text("SL7 unavailable", 0, 16, (255, 20, 0))
+            elif not departures:
+                self._text("No SL7 services", 0, 16, (255, 255, 255))
+            else:
+                for index, item in enumerate(departures[:3]):
+                    y = (11, 20, 29)[index]
+                    color = (255, 20, 0) if item.get("cancelled") else (255, 255, 255)
+                    self._text(_clip(item.get("destination") or "--", 24), 0, y, color)
+                    self._text(_bus_time(item.get("estimated") or item.get("planned")), 185, y, color)
         elif kind == "calendar_agenda":
             events, visible, start, progress = _agenda_state(screen, phase)
             if not events:
@@ -3246,8 +3464,8 @@ class FixtureDisplay:
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
-            self._draw_screen(screen, phase, clock_date)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "flash"):
+            self._draw_screen(screen, phase, clock_date, clock_time)
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "flash", "today", "dad_joke", "random_fact"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):

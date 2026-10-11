@@ -101,8 +101,8 @@ class QueueDisplayAdapterTests(unittest.TestCase):
             def animation_sleep_seconds(self, screen, phase):
                 return 1.5
 
-            def note_fetch_overlap(self):
-                self.fetch_overlap = True
+            def note_fetch_on_animation_capable_screen(self):
+                self.fetch_on_animation_capable_screen = True
 
             def note_cadence_switch(self):
                 self.cadence_switch = True
@@ -111,9 +111,9 @@ class QueueDisplayAdapterTests(unittest.TestCase):
         display = QueueAwareDisplay(base)
         self.assertEqual(display.animation_cadence({"id": "calendar"}, 2), ({"id": "calendar"}, 2))
         self.assertEqual(display.animation_sleep_seconds({"id": "calendar"}, 2), 1.5)
-        display.note_fetch_overlap()
+        display.note_fetch_on_animation_capable_screen()
         display.note_cadence_switch()
-        self.assertTrue(base.fetch_overlap)
+        self.assertTrue(base.fetch_on_animation_capable_screen)
         self.assertTrue(base.cadence_switch)
 
 

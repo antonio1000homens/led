@@ -55,22 +55,23 @@ class RandomFactTests(unittest.TestCase):
     def test_defaults_schema_validation_and_migration(self):
         config = default_runtime_config({})
         self.assertFalse(config["feeds"]["random_fact"]["enabled"])
-        self.assertEqual(config["feeds"]["random_fact"]["display_every_cycles"], 1)
+        self.assertNotIn("display_every_cycles", config["feeds"]["random_fact"])
         self.assertEqual(config["feeds"]["random_fact"]["poll_seconds"], 3600)
         self.assertEqual(config["feeds"]["random_fact"]["screen_duration_seconds"], 15)
         schema = schema_metadata()["feeds"]["random_fact"]
         self.assertIn("enabled", schema["mutable_fields"])
-        self.assertIn("display_every_cycles", schema["mutable_fields"])
+        self.assertNotIn("display_every_cycles", schema["mutable_fields"])
         self.assertIn("poll_seconds", schema["mutable_fields"])
         self.assertIn("screen_duration_seconds", schema["mutable_fields"])
-        self.assertEqual(validate_feed_patch("random_fact", {"display_every_cycles": 3}), {"display_every_cycles": 3})
+        with self.assertRaises(ValueError):
+            validate_feed_patch("random_fact", {"display_every_cycles": 3})
         with self.assertRaises(ValueError):
             validate_feed_patch("random_fact", {"display_every_cycles": 7})
         config["feeds"]["dad_joke"]["display_every_cycles"] = 4
         del config["feeds"]["random_fact"]
         migrated = validate_runtime_config(config)
         self.assertFalse(migrated["feeds"]["random_fact"]["enabled"])
-        self.assertEqual(migrated["feeds"]["dad_joke"]["display_every_cycles"], 4)
+        self.assertNotIn("display_every_cycles", migrated["feeds"]["dad_joke"])
 
     def test_provider_fetch_and_normalize(self):
         body = b'{"id":"one","text":"The world\\u2019s first fact!","source":"example.net","language":"en"}'
@@ -123,24 +124,19 @@ class RandomFactTests(unittest.TestCase):
         first = Publisher(**kwargs).run()
         screen = screen_by_id(first, "random-fact")
         self.assertEqual(screen["kind"], "random_fact")
-        self.assertEqual(screen["fact"], "The first fact")
-        self.assertEqual(screen["display_every_cycles"], 3)
         self.assertEqual(screen["duration_seconds"], 20)
-        self.assertEqual(provider.calls, 1)
-        clock[0] += timedelta(minutes=15)
-        second = Publisher(**kwargs).run()
-        self.assertEqual(provider.calls, 1)
-        self.assertEqual(screen_by_id(second, "random-fact")["fact"], "The first fact")
-        clock[0] += timedelta(hours=1)
-        third = Publisher(**kwargs).run()
+        self.assertNotIn("display_every_cycles", screen)
+        self.assertEqual([item["fact"] for item in screen["items"]], ["The first fact", "Another fact"])
+        self.assertEqual(provider.calls, 3)  # duplicate rejected while filling pool
+        self.assertEqual(screen["display_group"], "static_feeds")
+        clock[0] += timedelta(seconds=30)
+        Publisher(**kwargs).run()
         self.assertEqual(provider.calls, 3)
-        self.assertEqual(screen_by_id(third, "random-fact")["fact"], "Another fact")
-        self.assertEqual(store.state["feeds"]["random_fact"]["data"]["history"], ["The first fact", "Another fact"])
-        clock[0] += timedelta(hours=1)
-        fourth = Publisher(**kwargs).run()
+        clock[0] += timedelta(seconds=31)
+        failed = Publisher(**kwargs).run()
         self.assertEqual(provider.calls, 6)
-        self.assertTrue(screen_by_id(fourth, "random-fact")["stale"])
-        self.assertEqual(screen_by_id(fourth, "random-fact")["fact"], "Another fact")
+        self.assertTrue(screen_by_id(failed, "random-fact")["stale"])
+        self.assertEqual(screen_by_id(failed, "random-fact")["items"], screen["items"])
 
     def test_lambda_packaging_includes_both_novelty_providers(self):
         package_script = (ROOT / "scripts" / "package-lambda.sh").read_text()

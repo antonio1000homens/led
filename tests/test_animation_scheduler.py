@@ -2,13 +2,43 @@ import unittest
 
 from animation_scheduler import (
     earliest_wake_seconds,
+    frame_gap_exceeded,
     frame_sleep_remaining,
     next_deadline,
     screen_fetch_decision,
+    train_gc_collection_due,
 )
 
 
 class AnimationSchedulerTests(unittest.TestCase):
+    def test_frame_gap_diagnostic_ignores_normal_and_threshold_intervals(self):
+        self.assertFalse(frame_gap_exceeded(None, 125))
+        self.assertFalse(frame_gap_exceeded(1000, 1125))
+        self.assertFalse(frame_gap_exceeded(1000, 1200))
+        self.assertTrue(frame_gap_exceeded(1000, 1201))
+
+    def test_train_gc_waits_until_due_and_for_a_long_static_window(self):
+        self.assertFalse(train_gc_collection_due(59, 60, "rail_combined", False, 2))
+        self.assertFalse(train_gc_collection_due(60, 60, "rail_combined", False, 1.49))
+        self.assertTrue(train_gc_collection_due(60, 60, "rail_combined", False, 1.5))
+
+    def test_train_gc_accepts_a_window_longer_than_the_collection_budget(self):
+        self.assertFalse(
+            train_gc_collection_due(
+                8, 8, "rail_combined", False, 0.59, minimum_idle_seconds=0.6
+            )
+        )
+        self.assertTrue(
+            train_gc_collection_due(
+                8, 8, "rail_combined", False, 0.6, minimum_idle_seconds=0.6
+            )
+        )
+
+    def test_train_gc_never_runs_during_motion_or_on_other_screens(self):
+        self.assertFalse(train_gc_collection_due(60, 60, "rail_combined", True, 3))
+        self.assertFalse(train_gc_collection_due(60, 60, "calendar_agenda", False, 3))
+        self.assertFalse(train_gc_collection_due(60, 60, "rail_combined", False, None))
+
     def test_due_fetch_waits_while_animation_is_active(self):
         should_fetch, retry_at = screen_fetch_decision(10.0, 9.0, True, 4.0)
         self.assertFalse(should_fetch)

@@ -2,6 +2,8 @@
 
 import json
 
+from bus_departures import valid_bus_screen
+
 
 def _leap(year):
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
@@ -67,6 +69,8 @@ def _valid_screen(screen, slot):
         return False
     if not isinstance(screen.get("id"), str) or not screen["id"].strip() or screen["id"] != slot:
         return False
+    if screen.get("kind") == "bus_departures":
+        return valid_bus_screen(screen, slot)
     if screen.get("kind") != "bin_collection" or not _positive_finite(screen.get("duration_seconds")):
         return False
     if not _positive_finite(screen.get("slide_speed")):

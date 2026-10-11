@@ -55,3 +55,23 @@ def screen_fetch_decision(
     ):
         return False, now + max(0.05, float(retry_seconds))
     return True, next_fetch
+
+
+def train_gc_collection_due(now, next_collection, screen_kind, animation_active,
+                           safe_window, minimum_idle_seconds=1.5):
+    """Only collect on the train screen in a sufficiently long idle window."""
+    if now < next_collection or screen_kind != "rail_combined" or animation_active:
+        return False
+    if safe_window is None:
+        return False
+    try:
+        return float(safe_window) >= minimum_idle_seconds
+    except (TypeError, ValueError):
+        return False
+
+
+def frame_gap_exceeded(previous_started_ms, current_started_ms, threshold_ms=200):
+    """Return whether consecutive frame starts exceeded a diagnostic limit."""
+    if previous_started_ms is None or current_started_ms is None:
+        return False
+    return current_started_ms - previous_started_ms > threshold_ms

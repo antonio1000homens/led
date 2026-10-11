@@ -10,6 +10,9 @@
 #   C7 / C8 / C10 / C15 = CircuitPython auto-refresh + application cadence
 # C15 isolates auto-refresh at the live departures calling-at cadence.
 MATRIX_EXPERIMENT_PRESET = "B8"
+# Focused CALLING AT experiment: let CircuitPython refresh the rail framebuffer
+# asynchronously while retaining the existing 8 Hz application animation.
+MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT = True
 try:
     import settings_local as _preset_settings_local
     MATRIX_EXPERIMENT_PRESET = getattr(

@@ -1,7 +1,7 @@
 import unittest
 
 from brightness import BrightnessState, pixel_is_blocked
-from button_control import ButtonGesture, DebouncedButton
+from button_control import ButtonGesture, DebouncedButton, MatrixButtons
 
 
 class DebouncedButtonTests(unittest.TestCase):
@@ -43,6 +43,31 @@ class ButtonGestureTests(unittest.TestCase):
         state[0] = True
         gesture.poll(1.90)
         self.assertIsNone(gesture.poll(1.96))
+
+
+class MatrixButtonsTests(unittest.TestCase):
+    def test_poll_returns_empty_tuple_without_allocating_an_event_list(self):
+        class Gesture:
+            def poll(self, _now):
+                return None
+
+        buttons = MatrixButtons.__new__(MatrixButtons)
+        buttons._up = Gesture()
+        buttons._down = Gesture()
+        self.assertEqual(buttons.poll(1.0), ())
+
+    def test_poll_returns_only_emitted_gestures(self):
+        class Gesture:
+            def __init__(self, event):
+                self.event = event
+
+            def poll(self, _now):
+                return self.event
+
+        buttons = MatrixButtons.__new__(MatrixButtons)
+        buttons._up = Gesture("long")
+        buttons._down = Gesture(None)
+        self.assertEqual(buttons.poll(1.0), ("up_long",))
 
 
 class BrightnessStateTests(unittest.TestCase):

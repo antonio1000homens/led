@@ -36,11 +36,16 @@ start_wifi(settings)
 from queue_display import create
 from fixtures import animated_services
 from flash_events import FlashState
-from animation_scheduler import earliest_wake_seconds, next_deadline, screen_fetch_decision
+from animation_scheduler import (
+    earliest_wake_seconds,
+    frame_gap_exceeded,
+    next_deadline,
+)
 from matrix_runtime import RuntimeMode
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
-from mqtt_screens import MqttScreenState
+from mqtt_screens import MqttScreenState, _epoch
+from bus_departures import normalise_bus_screen
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
@@ -148,8 +153,6 @@ if settings.DISPLAY_BACKEND == "matrix" and not steam_train_test:
 _pending_button_events = []
 _BUTTON_POLL_SECONDS = 0.05
 _MQTT_SLEEP_POLL_SECONDS = 0.25
-_ANIMATION_FETCH_RETRY_SECONDS = 0.5
-_ANIMATION_FETCH_GUARD_SECONDS = 3.0
 mqtt_screens_changed = False
 
 
@@ -203,6 +206,10 @@ def _sleep_interruptible(seconds, service_mqtt=False):
 
 
 next_fetch = 0
+last_static_slot = None
+last_visible_screen = None
+task_retry_at = 0
+prepared_task = None
 transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
@@ -217,6 +224,10 @@ mqtt = None
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
 )
+sl7_config = {
+    "enabled": False, "heathrow_enabled": True, "new_malden_enabled": True,
+    "upcoming_bus_count": 3, "stale_after_seconds": 180,
+}
 
 
 def _reminder_epoch(now):
@@ -225,6 +236,49 @@ def _reminder_epoch(now):
         system_epoch = time.time()
         epoch_now = system_epoch if system_epoch >= 1000000000 else None
     return epoch_now
+
+
+def _apply_sl7_config(payload):
+    global sl7_config
+    config = payload.get("sl7_bus") if isinstance(payload, dict) else None
+    if isinstance(config, dict):
+        sl7_config = dict(sl7_config, **{
+            key: config[key] for key in (
+                "enabled", "heathrow_enabled", "new_malden_enabled",
+                "upcoming_bus_count", "stale_after_seconds", "display_every_cycles",
+                "destination_scroll_speed",
+            ) if key in config
+        })
+
+
+def _mqtt_cycle_screens(epoch_now):
+    screens = []
+    for source in mqtt_screens.screens(epoch_now):
+        if source.get("kind") != "bus_departures":
+            screens.append(source)
+            continue
+        if not sl7_config.get("enabled"):
+            continue
+        stop_key = source.get("stop_key")
+        if stop_key == "heathrow" and not sl7_config.get("heathrow_enabled", True):
+            continue
+        if stop_key == "new-malden" and not sl7_config.get("new_malden_enabled", True):
+            continue
+        if rotation.cycle_number % max(1, int(sl7_config.get("display_every_cycles", 1))) != 0:
+            continue
+        prepared = normalise_bus_screen(
+            source, epoch_now, count=sl7_config.get("upcoming_bus_count", 3)
+        )
+        if prepared is not None:
+            try:
+                prepared["stale"] = bool(
+                    int(epoch_now) - int(_epoch(prepared.get("observed_at")) / 1000)
+                    > int(sl7_config.get("stale_after_seconds", 180))
+                )
+            except (TypeError, ValueError, OverflowError):
+                prepared["stale"] = True
+            screens.append(prepared)
+    return screens
 
 
 def _flash_started(now):
@@ -265,7 +319,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
             rotation.update_sources(
-                rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms()
+                rotation.http_screens, _mqtt_cycle_screens(epoch_now), ticks_ms()
             )
             mqtt_screens_changed = True
 
@@ -334,6 +388,9 @@ telemetry_scene_render_max = 0.0
 telemetry_scene_render_over_budget = 0
 animation_cadence = None
 animation_deadline = None
+previous_rail_frame_started = None
+last_rail_sleep_requested_ms = 0.0
+last_rail_preframe_ms = 0.0
 
 
 def _matrix_root_token():
@@ -351,6 +408,8 @@ def _memory_free():
 
 
 def _display_phase(screen, phase):
+    if screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "today"):
+        return phase
     if screen.get("kind") == "flash":
         return phase
     if settings.ANIMATE:
@@ -540,11 +599,13 @@ while True:
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
-    button_events = list(_pending_button_events) if buttons is not None else ()
     if buttons is not None:
-        _pending_button_events.clear()
-    if buttons is not None:
-        button_events.extend(buttons.poll(now))
+        events = buttons.poll(now)
+        if events:
+            _pending_button_events.extend(events)
+        button_events = _pending_button_events
+    else:
+        button_events = ()
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["buttons"] = elapsed_seconds(stage_started)
     for event in button_events:
@@ -553,6 +614,8 @@ while True:
             continue
         if runtime_mode.handle(event, rotation, ticks_ms()):
             rendered_diagnostic_index = None
+    if buttons is not None:
+        _pending_button_events.clear()
 
     if runtime_mode.mode == "diagnostic":
         if rendered_diagnostic_index != runtime_mode.diagnostic_index:
@@ -564,40 +627,52 @@ while True:
         continue
 
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
-    should_fetch = (
-        settings.SCREEN_SOURCE == "fixture"
-        and (not steam_train_test or not rotation.screens)
-        and now >= next_fetch
-    )
-    if steam_train_test and not rotation.screens and now >= next_fetch:
-        should_fetch = True
-    fetch_during_animation = False
-    if settings.SCREEN_SOURCE != "fixture" and not steam_train_test:
-        candidate = None
+    maintenance_resume = None
+    maintenance_active = False
+    animation_capable_screen = False
+    candidate, candidate_phase = rotation.current(ticks_ms())
+    fetch_due = ticks_ms() >= next_fetch
+    boundary = last_visible_screen != candidate.get("id")
+    task_unready = (candidate.get("kind") == "calendar_agenda"
+                    and candidate.get("source") == "todoist"
+                    and not display.tasks_ready(candidate, clock.date_text(now))
+                    and ticks_ms() >= task_retry_at)
+    # A train/departures pair is one block: never insert work between them.
+    between_train_and_rail = (last_visible_screen == "steam-train"
+                             and candidate.get("kind") == "rail_combined")
+    if (rotation.screens and not steam_train_test and not flash.active(now)
+            and boundary and not between_train_and_rail and (fetch_due or task_unready)
+            and not rotation.is_static(candidate)):
+        rotation.maintenance_slot(ticks_ms())
+        candidate, candidate_phase = rotation.current(ticks_ms())
+    static_visible = rotation.is_static(candidate)
+    if not rotation.screens:
+        candidate = {"id": "startup-static", "kind": "today", "title": "TODAY",
+                     "duration_seconds": 8, "weather": {}}
         candidate_phase = 0
-        if rotation.screens and not flash.active(now):
-            candidate, candidate_phase = rotation.current(ticks_ms())
-            fetch_during_animation = (
-                _smooth_todoist(candidate)
-                or _smooth_departures(candidate)
-                or _smooth_steam_train(candidate)
-                or _smooth_sun_weather(candidate)
-            )
-        animation_active = bool(
-            fetch_during_animation
-            and display.animation_active(candidate, candidate_phase)
-        )
-        safe_window = None
-        if fetch_during_animation and not animation_active:
-            safe_window = display.animation_sleep_seconds(candidate, candidate_phase)
-        should_fetch, next_fetch = screen_fetch_decision(
-            now,
-            next_fetch,
-            animation_active,
-            safe_window,
-            _ANIMATION_FETCH_RETRY_SECONDS,
-            _ANIMATION_FETCH_GUARD_SECONDS,
-        )
+        static_visible = True
+    slot_key = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
+    if static_visible and not steam_train_test and not flash.active(now):
+        maintenance_active = True
+        display.show(candidate, clock.text(now), clock_date=clock.date_text(now), phase=candidate_phase)
+        if rotation.screens:
+            maintenance_resume = rotation.freeze(ticks_ms())
+        if slot_key != last_static_slot:
+            if gc is not None and hasattr(gc, "collect"):
+                gc.collect()
+        if client is not None and fetch_due:
+            # Acknowledge completed items only; retries stay in static windows.
+            for key, url in list(rotation.pending_refresh.items()):
+                if not url:
+                    continue
+                try:
+                    client.acknowledge(url)
+                    del rotation.pending_refresh[key]
+                except Exception:
+                    print("Static content acknowledgement deferred")
+                    break
+    should_fetch = (fetch_due and (static_visible or (steam_train_test and not rotation.screens))
+                    and not flash.active(now))
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["fetch_decision"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
@@ -609,7 +684,7 @@ while True:
         # first post-fetch frame resumes where the last one left off.
         fetch_resume = None
         if rotation.screens and not flash.active(fetch_started):
-            fetch_resume = rotation.pause(ticks_ms())
+            fetch_resume = rotation.freeze(ticks_ms())
         try:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
@@ -630,12 +705,13 @@ while True:
             epoch_now = _reminder_epoch(fetch_completed)
             rotation.update_sources(
                 screens,
-                mqtt_screens.screens(epoch_now) if epoch_now is not None else [],
+                _mqtt_cycle_screens(epoch_now) if epoch_now is not None else [],
                 ticks_ms(),
             )
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
+            _apply_sl7_config(payload)
             fetched_at = payload.get("clock_at") or payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, fetch_completed)
@@ -653,15 +729,34 @@ while True:
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
         now = fetch_completed
-        next_fetch = now + settings.POLL_SECONDS
-        if fetch_during_animation and hasattr(display, "note_fetch_overlap"):
-            display.note_fetch_overlap()
+        next_fetch = ticks_ms() + int(settings.POLL_SECONDS * 1000)
+        if (
+            animation_capable_screen
+            and hasattr(display, "note_fetch_on_animation_capable_screen")
+        ):
+            display.note_fetch_on_animation_capable_screen()
         if MATRIX_TELEMETRY_ENABLED:
             stage_durations["fetch"] = elapsed_seconds(stage_started)
 
+    if maintenance_active:
+        now = time.monotonic()
+        if ticks_ms() >= task_retry_at:
+            for task in rotation.http_screens:
+                if task.get("kind") == "calendar_agenda" and task.get("source") == "todoist":
+                    try:
+                        display.prepare_tasks(task, clock.text(now), clock.date_text(now))
+                        prepared_task = task
+                    except Exception:
+                        task_retry_at = ticks_ms() + 30000
+                        print("Task preparation deferred; retaining last usable scene")
+                    break
+        if maintenance_resume is not None:
+            rotation.resume(ticks_ms(), maintenance_resume[0], maintenance_resume[1])
+        last_static_slot = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
+
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):
-        rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
+        rotation.update_sources(rotation.http_screens, _mqtt_cycle_screens(epoch_now), ticks_ms())
         mqtt_screens_changed = True
 
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
@@ -687,8 +782,32 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
+    if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"
+            and not display.tasks_ready(screen, clock.date_text(now))):
+        # Never trigger an unexpected heavy build after entering an animated
+        # task slot. Failed preparation is retried in a later static window.
+        if prepared_task is not None and display.tasks_ready(prepared_task, clock.date_text(now)):
+            screen = prepared_task
+        else:
+            screen = {"id": screen.get("id"), "kind": "message",
+                      "title": "Tasks unavailable", "empty_state": "Tasks unavailable",
+                      "duration_seconds": screen.get("duration_seconds", 8), "stale": True}
     frame_started = ticks_ms()
-    preframe_duration = elapsed_seconds(loop_started, frame_started) if MATRIX_TELEMETRY_ENABLED else 0.0
+    current_preframe_ms = elapsed_seconds(loop_started, frame_started) * 1000.0
+    rail_timing_before_show = None
+    if isinstance(screen, dict) and screen.get("kind") == "rail_combined":
+        rail_timing_before_show = (
+            getattr(display, "_last_rail_update_seconds", 0.0),
+            getattr(display, "_last_rail_refresh_seconds", 0.0),
+            getattr(display, "_last_rail_heap_gain", None),
+            last_rail_sleep_requested_ms,
+            last_rail_preframe_ms,
+        )
+        last_rail_preframe_ms = current_preframe_ms
+    else:
+        last_rail_sleep_requested_ms = 0.0
+        last_rail_preframe_ms = 0.0
+    preframe_duration = current_preframe_ms / 1000.0 if MATRIX_TELEMETRY_ENABLED else 0.0
     render_key = (
         (screen.get("id"), screen.get("kind"))
         if MATRIX_TELEMETRY_ENABLED and isinstance(screen, dict)
@@ -696,21 +815,9 @@ while True:
     )
     instrument_render = MATRIX_TELEMETRY_ENABLED and render_key != last_render_key
     if instrument_render:
-        if gc is not None and hasattr(gc, "collect"):
-            gc.collect()
         render_started = ticks_ms()
         memory_before = _memory_free()
         root_before = _matrix_root_token()
-        if (
-            isinstance(screen, dict)
-            and screen.get("kind") == "calendar_agenda"
-            and screen.get("source") == "todoist"
-            and hasattr(display, "show_loading")
-        ):
-            # The Todoist scene can take several seconds to construct on the
-            # MatrixPortal. Present a cheap transition card first so the old
-            # departures marquee is never left frozen during that work.
-            display.show_loading("UPCOMING", "Loading...", clock.text(now))
         print(
             "RENDER START id={} kind={} index={} phase={} mode={} mem={}".format(
                 render_key[0], render_key[1], rotation.index, phase, runtime_mode.mode, memory_before
@@ -742,6 +849,7 @@ while True:
             )
         )
         last_render_key = render_key
+    last_visible_screen = screen.get("id")
     mqtt_screens_changed = False
     smooth_animation = (
         (settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "flash")
@@ -754,6 +862,54 @@ while True:
     )
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)
+        if isinstance(screen, dict) and screen.get("kind") == "rail_combined":
+            if desired_cadence > 0:
+                if frame_gap_exceeded(previous_rail_frame_started, frame_started):
+                    (
+                        previous_update,
+                        previous_refresh,
+                        previous_heap_gain,
+                        previous_sleep_requested_ms,
+                        previous_preframe_ms,
+                    ) = (
+                        rail_timing_before_show
+                        if rail_timing_before_show is not None
+                        else (0.0, 0.0, None, 0.0, 0.0)
+                    )
+                    gap_ms = frame_started - previous_rail_frame_started
+                    preframe_ms = elapsed_seconds(loop_started, frame_started) * 1000.0
+                    update_ms = previous_update * 1000.0
+                    refresh_ms = previous_refresh * 1000.0
+                    other_ms = (
+                        gap_ms
+                        - preframe_ms
+                        - update_ms
+                        - refresh_ms
+                        - previous_sleep_requested_ms
+                        - previous_preframe_ms
+                    )
+                    print(
+                        "RAIL FRAME GAP gap_ms={} preframe_ms={:.1f} "
+                        "last_preframe_ms={:.1f} "
+                        "last_update_ms={:.1f} last_refresh_ms={:.1f} "
+                        "sleep_req_ms={:.1f} other_ms={:.1f} "
+                        "last_heap_gain={} phase={:.3f}".format(
+                            gap_ms,
+                            preframe_ms,
+                            previous_preframe_ms,
+                            update_ms,
+                            refresh_ms,
+                            previous_sleep_requested_ms,
+                            other_ms,
+                            previous_heap_gain,
+                            phase,
+                        )
+                    )
+                previous_rail_frame_started = frame_started
+            else:
+                previous_rail_frame_started = None
+        else:
+            previous_rail_frame_started = None
         if desired_cadence <= 0:
             pace_active = False
             pace_last_tick_started = None
@@ -762,7 +918,7 @@ while True:
             boundary_sleep = display.animation_sleep_seconds(screen, phase)
             duration = max(1.0, float(screen.get("duration_seconds") or 8))
             until_rotation = max(0.05, duration - max(0, phase))
-            until_fetch = max(0.05, next_fetch - time.monotonic())
+            until_fetch = max(0.05, (next_fetch - ticks_ms()) / 1000.0)
             _sleep_interruptible(
                 earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep),
                 service_mqtt=True,
@@ -779,6 +935,11 @@ while True:
         if not MATRIX_TELEMETRY_ENABLED:
             animation_deadline, remaining, _, _ = next_deadline(
                 animation_deadline, ticks_ms(), desired_cadence, cadence_changed, 1000
+            )
+            last_rail_sleep_requested_ms = (
+                max(0.0, remaining * 1000.0)
+                if isinstance(screen, dict) and screen.get("kind") == "rail_combined"
+                else 0.0
             )
             if remaining > 0:
                 _sleep_interruptible(remaining)
@@ -879,12 +1040,18 @@ while True:
             animation_deadline, ticks_ms(), desired_cadence, cadence_changed, 1000
         )
         if remaining > 0:
+            last_rail_sleep_requested_ms = (
+                frame_sleep_requested * 1000.0
+                if isinstance(screen, dict) and screen.get("kind") == "rail_combined"
+                else 0.0
+            )
             pace_late_streak = 0
             frame_sleep_requested = remaining
             sleep_started = ticks_ms()
             _sleep_interruptible(remaining)
             frame_sleep_duration = elapsed_seconds(sleep_started)
         else:
+            last_rail_sleep_requested_ms = 0.0
             pace_late_frames += 1
             pace_late_streak += 1
             pace_max_late_streak = max(pace_max_late_streak, pace_late_streak)
@@ -910,6 +1077,7 @@ while True:
         if _report_pace(report_now):
             pace_last_report = report_now
     elif settings.ANIMATE:
+        previous_rail_frame_started = None
         pace_active = False
         pace_last_tick_started = None
         animation_cadence = None
@@ -919,6 +1087,7 @@ while True:
         if remaining > 0:
             _sleep_interruptible(remaining)
     else:
+        previous_rail_frame_started = None
         pace_active = False
         pace_last_tick_started = None
         animation_cadence = None
@@ -929,5 +1098,6 @@ while True:
         # horizontal flashes on long panel chains.
         duration = max(1.0, float(screen.get("duration_seconds") or 8))
         until_rotation = max(0.05, duration - max(0, phase))
-        until_fetch = max(0.05, next_fetch - time.monotonic())
-        _sleep_interruptible(min(until_rotation, until_fetch), service_mqtt=True)
+        until_fetch = max(0.05, (next_fetch - ticks_ms()) / 1000.0)
+        boundary_sleep = display.animation_sleep_seconds(screen, phase)
+        _sleep_interruptible(earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep), service_mqtt=True)

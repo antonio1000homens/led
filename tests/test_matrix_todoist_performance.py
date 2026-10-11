@@ -430,6 +430,106 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display.animation_cadence(long_screen, 10.0), DEPARTURES_CALLING_FPS)
             self.assertEqual(display.animation_cadence(long_screen, 12.5), DEPARTURES_CALLING_FPS)
 
+    def test_baseline_rail_cadence_only_runs_while_pixels_are_moving(self):
+        with patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
+            with patch.dict(sys.modules, fake_modules()):
+                display = led_display.MatrixDisplay()
+                screen = departures_screen()
+                screen["summary_seconds"] = 8
+
+                self.assertEqual(display.animation_cadence(screen, 4.2), 0)
+                self.assertEqual(
+                    display.animation_cadence(screen, 8.1), MATRIX_REFRESH_FPS
+                )
+
+    def test_departure_sleep_boundary_matches_list_based_reference(self):
+        with patch.dict(sys.modules, fake_modules()), patch.object(
+            led_display, "MATRIX_RAIL_ROWS_SCROLL", True
+        ):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["summary_seconds"] = 8
+            screen["calling_seconds"] = 32
+            screen["upcoming_train_pause_seconds"] = 2
+            screen["services"].extend(
+                copy.deepcopy(screen["services"][-1]) for _ in range(5)
+            )
+
+            def legacy_periodic_boundary(elapsed, edges, cycle):
+                within = max(0.0, float(elapsed or 0)) % cycle
+                candidates = []
+                for edge in edges:
+                    delta = (float(edge) % cycle) - within
+                    if delta <= 1e-6:
+                        delta += cycle
+                    candidates.append(delta)
+                return min(candidates) if candidates else cycle
+
+            for phase in (8.1, 8.7, 10.9, 18.2, 24.3, 31.9, 32.0, 39.5):
+                with self.subTest(phase=phase):
+                    calling_seconds = screen["calling_seconds"]
+                    summary_seconds = screen["summary_seconds"]
+                    cycle = summary_seconds + calling_seconds
+                    within = phase % cycle
+                    boundaries = [
+                        led_display._header_next_boundary_seconds(
+                            phase, screen.get("weather")
+                        )
+                    ]
+                    if led_display.rail_phase(
+                        phase, summary_seconds, calling_seconds
+                    ) == "summary":
+                        boundaries.append(summary_seconds - within)
+                    else:
+                        boundaries.append(cycle - within)
+                        calling_elapsed = led_display.rail_marquee_elapsed(
+                            phase, summary_seconds, calling_seconds
+                        )
+                        upcoming_count = len(screen["services"]) - 1
+                        pause = screen["upcoming_train_pause_seconds"]
+                        max_start = max(0, upcoming_count - 2)
+                        if max_start:
+                            step = pause + led_display.DEPARTURE_SLIDE_SECONDS
+                            normal = (max_start + 1) * step
+                            row_cycle = (
+                                normal
+                                + led_display.DEPARTURE_RESET_GAP_SECONDS
+                                + led_display.DEPARTURE_RESET_SLIDE_SECONDS
+                            )
+                            row_edges = [
+                                0.0,
+                                normal,
+                                normal + led_display.DEPARTURE_RESET_GAP_SECONDS,
+                                row_cycle,
+                            ]
+                            for index in range(max_start + 1):
+                                edge = index * step + pause
+                                row_edges.extend(
+                                    (edge, edge + led_display.DEPARTURE_SLIDE_SECONDS)
+                                )
+                            boundaries.append(
+                                legacy_periodic_boundary(
+                                    calling_elapsed, row_edges, row_cycle
+                                )
+                            )
+                        speed, _ = led_display._station_scroll_settings(screen)
+                        travel = led_display.rail_calling_timing(
+                            screen["services"], speed,
+                            font_width=led_display.WEATHER_FONT_WIDTH,
+                        )[0]
+                        marquee_cycle = travel + led_display.CALLING_MARQUEE_PAUSE_SECONDS
+                        boundaries.append(
+                            legacy_periodic_boundary(
+                                calling_elapsed,
+                                (0.0, travel, marquee_cycle),
+                                marquee_cycle,
+                            )
+                        )
+                    expected = max(0.05, min(boundaries))
+                    self.assertAlmostEqual(
+                        display.animation_sleep_seconds(screen, phase), expected
+                    )
+
     def test_animation_active_tracks_pixels_that_are_moving(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
@@ -569,6 +669,58 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                     self.assertTrue(any(isinstance(child, FakeGroup)
                                         and any(item is calling_prefix for item in child)
                                         for child in fixed))
+
+    def test_departure_scroll_updates_only_active_rows_without_changing_layout(self):
+        with patch.dict(sys.modules, fake_modules()), patch.object(
+            led_display, "MATRIX_RAIL_ROWS_SCROLL", True
+        ):
+            display = led_display.MatrixDisplay()
+            screen = departures_screen()
+            screen["summary_seconds"] = 0
+            screen["calling_seconds"] = 30
+            screen["weather"] = None
+            screen["services"].extend(
+                copy.deepcopy(screen["services"][-1]) for _ in range(4)
+            )
+            row_step = led_display.RAIL_ROW_Y[3] - led_display.RAIL_ROW_Y[2]
+            hidden_y = led_display.RAIL_ROW_Y[-1] + 8
+            phases = (0, 2.1, 2.9, 3.0, 5.9, 6.1, 9.3, 12.8, 13.1, 13.7, 14.0)
+
+            for phase in phases:
+                with self.subTest(phase=phase):
+                    display.show(screen, clock_time="19:40", phase=phase)
+                    start, progress, reset_progress = led_display.departure_scroll_state(
+                        led_display.rail_marquee_elapsed(phase, 0, 30),
+                        max(0, len(screen["services"]) - 1),
+                        screen.get("upcoming_train_pause_seconds", 2),
+                        visible_rows=2,
+                    )
+                    expected = []
+                    for index in range(len(display._rail_departure_rows)):
+                        if reset_progress is None:
+                            row_y = hidden_y + index * row_step
+                        elif reset_progress > 0:
+                            if index < 2:
+                                row_y = (
+                                    led_display.RAIL_ROW_Y[2]
+                                    + 2 * row_step
+                                    - int(reset_progress * 2 * row_step)
+                                    + index * row_step
+                                )
+                            else:
+                                row_y = hidden_y + index * row_step
+                        elif start <= index <= start + 2:
+                            row_y = (
+                                led_display.RAIL_ROW_Y[2]
+                                + (index - start) * row_step
+                                - int(progress * row_step)
+                            )
+                        else:
+                            row_y = hidden_y + index * row_step
+                        expected.append(row_y)
+                    self.assertEqual(
+                        [row.y for row in display._rail_departure_rows], expected
+                    )
 
     def test_departures_animation_activity_tracks_only_first_train_calling_row(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -757,7 +909,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display = led_display.MatrixDisplay()
             display._record_animation_update("rail", True, 0.25)
             display._record_animation_update("rail", False, 0.50)
-            display.note_fetch_overlap()
+            display.note_fetch_on_animation_capable_screen()
             display.note_cadence_switch()
 
             with patch.object(display.display, "refresh", return_value=True):
@@ -773,8 +925,34 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertEqual(display._stats_refresh_successes, 1)
             self.assertAlmostEqual(display._stats_refresh_total, 0.25)
             self.assertAlmostEqual(display._stats_refresh_max, 0.25)
-            self.assertEqual(display._stats_fetch_overlap, 1)
+            self.assertEqual(display._stats_fetch_on_animation_capable_screen, 1)
             self.assertEqual(display._stats_cadence_switches, 1)
+
+    def test_slow_departures_refresh_is_reported_without_global_telemetry(self):
+        with patch.object(led_display, "MATRIX_TELEMETRY_ENABLED", False):
+            with patch.dict(sys.modules, fake_modules()):
+                display = led_display.MatrixDisplay()
+                with patch.object(display.display, "refresh", return_value=True):
+                    with patch.object(led_display, "ticks_ms", return_value=1000):
+                        with patch.object(led_display, "elapsed_seconds", return_value=0.25):
+                            with patch("builtins.print") as output:
+                                self.assertTrue(display._refresh("departures_calling"))
+                output.assert_called_once()
+                self.assertIn("RAIL REFRESH SLOW", output.call_args.args[0])
+                self.assertIn("0.250s", output.call_args.args[0])
+                self.assertEqual(display._last_rail_refresh_seconds, 0.25)
+
+    def test_fast_departures_refresh_does_not_emit_diagnostic(self):
+        with patch.object(led_display, "MATRIX_TELEMETRY_ENABLED", False):
+            with patch.dict(sys.modules, fake_modules()):
+                display = led_display.MatrixDisplay()
+                with patch.object(display.display, "refresh", return_value=True):
+                    with patch.object(led_display, "ticks_ms", return_value=1000):
+                        with patch.object(led_display, "elapsed_seconds", return_value=0.125):
+                            with patch("builtins.print") as output:
+                                self.assertTrue(display._refresh("departures_calling"))
+                output.assert_not_called()
+                self.assertEqual(display._last_rail_refresh_seconds, 0.125)
 
     def test_animation_class_telemetry_attributes_changed_and_unchanged_ticks(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -869,6 +1047,21 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 self.assertEqual(display.presentation_mode, "immediate")
                 self.assertTrue(display.display.refresh_targets)
                 self.assertIsNone(display.display.refresh_targets[-1])
+
+    def test_rail_auto_refresh_override_is_limited_to_rail_screen(self):
+        with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "immediate"):
+            with patch.object(led_display, "MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT", True):
+                with patch.dict(sys.modules, fake_modules()):
+                    display = led_display.MatrixDisplay()
+                    display.show(departures_screen(), clock_time="19:40", phase=8.1)
+
+                    self.assertTrue(display.display.auto_refresh)
+                    self.assertEqual(display.display.refresh_targets, [])
+
+                    display.show(todoist_screen(3), clock_time="19:40", phase=0)
+
+                    self.assertFalse(display.display.auto_refresh)
+                    self.assertTrue(display.display.refresh_targets)
 
     def test_auto_refresh_mode_does_not_call_manual_refresh(self):
         with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "auto_refresh"):

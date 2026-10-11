@@ -280,10 +280,10 @@ def _status_payload(config: dict[str, Any], status_store: StatusStore) -> dict[s
     feeds = {}
     for feed_id, definition in FEED_REGISTRY.items():
         effective = config["feeds"][feed_id]
-        state = feed_state.get(feed_id) or {}
+        state = feed_state.get("weather" if feed_id == "today" else feed_id) or {}
         health = (
             "disabled" if not effective["enabled"] else "ok"
-        ) if definition.get("virtual") else _feed_health(effective["enabled"], state)
+        ) if definition.get("virtual") and feed_id != "today" else _feed_health(effective["enabled"], state)
         feeds[feed_id] = {
             "enabled": effective["enabled"],
             "provider": definition["provider"],
