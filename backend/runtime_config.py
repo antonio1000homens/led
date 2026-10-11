@@ -223,6 +223,13 @@ FEED_REGISTRY = {
         "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
         "screen_duration": True,
     },
+    "quotes": {
+        "label": "Quotes",
+        "display_group": "static_feeds",
+        "provider": "zenquotes.io",
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds"),
+        "screen_duration": True,
+    },
     "insult_of_hour": {
         "label": "Insult of the Hour",
         "display_group": "static_feeds",
@@ -392,6 +399,11 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": False,
                 "poll_seconds": 3600,
                 "screen_duration_seconds": 15,
+            },
+            "quotes": {
+                "enabled": False,
+                "poll_seconds": 7200,
+                "screen_duration_seconds": 30,
             },
             "insult_of_hour": {
                 "enabled": False,
@@ -756,12 +768,6 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if feed_id == "calendar":
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 raw.setdefault(field, metadata["default"])
-        if feed_id == "insult_of_hour":
-            # Older admins accepted a sub-hourly interval. Migrate that saved
-            # setting without discarding the rest of the user configuration.
-            interval = raw.get("poll_seconds")
-            if isinstance(interval, int) and not isinstance(interval, bool):
-                raw["poll_seconds"] = max(MIN_INSULT_POLL_SECONDS, interval)
         if feed_id == "weather":
             raw.setdefault("overview_enabled", True)
             raw.setdefault("screen_duration_seconds", DEFAULT_WEATHER_SCREEN_DURATION_SECONDS)
@@ -769,6 +775,12 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("today_duration_seconds", DEFAULT_WEATHER_TODAY_DURATION_SECONDS)
             raw.setdefault("sun_enabled", True)
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
+        if feed_id == "insult_of_hour":
+            # Older admins accepted a sub-hourly interval. Migrate that saved
+            # setting without discarding the rest of the user configuration.
+            interval = raw.get("poll_seconds")
+            if isinstance(interval, int) and not isinstance(interval, bool):
+                raw["poll_seconds"] = max(MIN_INSULT_POLL_SECONDS, interval)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
         # Older saved configs may predate the SL7 frequency control. Keep that

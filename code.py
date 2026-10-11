@@ -360,7 +360,7 @@ def _memory_free():
 
 
 def _display_phase(screen, phase):
-    if screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "today"):
+    if screen.get("display_group") == "static_feeds" or screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
         return phase
     if screen.get("kind") == "flash":
         return phase
