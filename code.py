@@ -44,8 +44,7 @@ from animation_scheduler import (
 from matrix_runtime import RuntimeMode
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
-from mqtt_screens import MqttScreenState, _epoch
-from bus_departures import normalise_bus_screen
+from mqtt_screens import MqttScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_REFRESH_FPS,
@@ -224,10 +223,6 @@ mqtt = None
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
 )
-sl7_config = {
-    "enabled": False, "heathrow_enabled": True, "new_malden_enabled": True,
-    "upcoming_bus_count": 3, "stale_after_seconds": 180,
-}
 
 
 def _reminder_epoch(now):
@@ -236,49 +231,6 @@ def _reminder_epoch(now):
         system_epoch = time.time()
         epoch_now = system_epoch if system_epoch >= 1000000000 else None
     return epoch_now
-
-
-def _apply_sl7_config(payload):
-    global sl7_config
-    config = payload.get("sl7_bus") if isinstance(payload, dict) else None
-    if isinstance(config, dict):
-        sl7_config = dict(sl7_config, **{
-            key: config[key] for key in (
-                "enabled", "heathrow_enabled", "new_malden_enabled",
-                "upcoming_bus_count", "stale_after_seconds", "display_every_cycles",
-                "destination_scroll_speed",
-            ) if key in config
-        })
-
-
-def _mqtt_cycle_screens(epoch_now):
-    screens = []
-    for source in mqtt_screens.screens(epoch_now):
-        if source.get("kind") != "bus_departures":
-            screens.append(source)
-            continue
-        if not sl7_config.get("enabled"):
-            continue
-        stop_key = source.get("stop_key")
-        if stop_key == "heathrow" and not sl7_config.get("heathrow_enabled", True):
-            continue
-        if stop_key == "new-malden" and not sl7_config.get("new_malden_enabled", True):
-            continue
-        if rotation.cycle_number % max(1, int(sl7_config.get("display_every_cycles", 1))) != 0:
-            continue
-        prepared = normalise_bus_screen(
-            source, epoch_now, count=sl7_config.get("upcoming_bus_count", 3)
-        )
-        if prepared is not None:
-            try:
-                prepared["stale"] = bool(
-                    int(epoch_now) - int(_epoch(prepared.get("observed_at")) / 1000)
-                    > int(sl7_config.get("stale_after_seconds", 180))
-                )
-            except (TypeError, ValueError, OverflowError):
-                prepared["stale"] = True
-            screens.append(prepared)
-    return screens
 
 
 def _flash_started(now):
@@ -318,9 +270,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             print("MQTT screen ignored: clock not synchronized")
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
-            rotation.update_sources(
-                rotation.http_screens, _mqtt_cycle_screens(epoch_now), ticks_ms()
-            )
+            rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
 
     mqtt = FlashMqttClient(
@@ -705,13 +655,12 @@ while True:
             epoch_now = _reminder_epoch(fetch_completed)
             rotation.update_sources(
                 screens,
-                _mqtt_cycle_screens(epoch_now) if epoch_now is not None else [],
+                mqtt_screens.screens(epoch_now) if epoch_now is not None else [],
                 ticks_ms(),
             )
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
-            _apply_sl7_config(payload)
             fetched_at = payload.get("clock_at") or payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, fetch_completed)
@@ -756,7 +705,7 @@ while True:
 
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):
-        rotation.update_sources(rotation.http_screens, _mqtt_cycle_screens(epoch_now), ticks_ms())
+        rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
         mqtt_screens_changed = True
 
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None

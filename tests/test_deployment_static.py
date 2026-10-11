@@ -6,15 +6,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
-    def test_sl7_bus_contract_and_home_assistant_package_exist(self):
+    def test_sl7_bus_contract_is_backend_owned(self):
         mqtt = (ROOT / "hardware" / "matrixportal" / "firmware" / "mqtt_screens.py").read_text()
         bus = (ROOT / "hardware" / "matrixportal" / "firmware" / "bus_departures.py").read_text()
-        package = (ROOT.parent / "homeassistant" / "packages" / "sl7_led_mqtt.yaml").read_text()
-        self.assertIn("bus_departures", mqtt)
+        provider = (ROOT / "backend" / "transitous_bus.py").read_text()
+        self.assertNotIn("bus_departures", mqtt)
         self.assertIn("STOP_KEYS = (\"heathrow\", \"new-malden\")", bus)
-        self.assertIn("led/screens/sl7-heathrow", package)
-        self.assertIn("led/screens/sl7-new-malden", package)
-        self.assertIn("input_text.sl7_heathrow_sensor_entity", package)
+        self.assertIn("TransitousBusProvider", provider)
+        self.assertIn("api.transitous.org/api", provider)
+        self.assertFalse((ROOT.parent / "homeassistant" / "packages" / "sl7_led_mqtt.yaml").exists())
 
     def test_simulator_renders_and_previews_bin_collection_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")

@@ -40,7 +40,12 @@ screen](https://github.com/antonio1000homens/homeassistant/issues/7). The board
 uses one MQTT connection, and broker credentials remain in board-local
 settings.
 
-The MatrixPortal does not hold National Rail, Todoist, Queue-Times or weather-provider credentials. It only needs Wi-Fi access to the backend. Feed authentication, polling, caching and stale handling remain server-side.
+SL7 bus departures are polled by the backend from Transitous and arrive in the
+same HTTP `/api/screens` payload as the other feeds; they do not use Home
+Assistant or MQTT. The MatrixPortal does not hold National Rail, Todoist,
+Transitous, Queue-Times or weather-provider credentials. It only needs Wi-Fi
+access to the backend. Feed authentication, polling, caching and stale handling
+remain server-side.
 
 The checked-in defaults run a deterministic fixture mode for Wokwi, with no credentials or LAN backend required. Screens rotate using each screen's `duration_seconds`. The top-right `HH:MM` clock and bottom-right weather status are renderer-level overlays and therefore remain visible on every screen.
 

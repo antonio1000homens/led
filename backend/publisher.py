@@ -24,6 +24,7 @@ from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthS
 from weather import OpenMeteoProvider
 from dad_jokes import DadJokeProvider
 from random_facts import RandomFactProvider
+from transitous_bus import TransitousBusProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
 
 STATE_KEY = "state/feed-cache.json"
@@ -248,7 +249,7 @@ class S3StateStore:
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
-                  fact_provider=None):
+                 fact_provider=None, bus_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -268,6 +269,7 @@ class Publisher:
         self.weather_provider = weather_provider or OpenMeteoProvider(config.weather_latitude, config.weather_longitude)
         self.joke_provider = joke_provider or DadJokeProvider()
         self.fact_provider = fact_provider or RandomFactProvider()
+        self.bus_provider = bus_provider or TransitousBusProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -382,6 +384,29 @@ class Publisher:
         result = {"source": "open_meteo", "fetched_at": _iso(now)}
         result.update(self.weather_provider.fetch())
         return result
+
+    def _fetch_buses(self, now):
+        return self.bus_provider.fetch(now=now)
+
+    @staticmethod
+    def _bus_screen(stop_key, data, config, feed_stale=False, now=None):
+        data = data or {}
+        departures = copy.deepcopy((data.get("departures") or [])[:config["upcoming_bus_count"]])
+        status = "ok" if departures else ("empty" if data else "unavailable")
+        observed_at = data.get("observed_at") or _iso(now or datetime.now(timezone.utc))
+        observed = _parse_iso(observed_at)
+        stale = bool(feed_stale or not data)
+        if observed is not None and now is not None:
+            stale = stale or (now - observed).total_seconds() > config["stale_after_seconds"]
+        return {
+            "id": f"sl7-{stop_key}", "kind": "bus_departures", "route": "SL7",
+            "stop_key": stop_key, "stop_name": data.get("stop_name", stop_key.title()),
+            "title": f"SL7 {data.get('stop_name', stop_key).upper()}",
+            "source": "transitous", "stale": stale, "status": status,
+            "duration_seconds": config["screen_duration_seconds"] if departures else config["no_services_duration_seconds"],
+            "observed_at": observed_at, "departures": departures,
+            "destination_scroll_speed": config["destination_scroll_speed"],
+        }
 
     @staticmethod
     def _park_payload(feed_id, title, feed, runtime_feed):
@@ -646,6 +671,14 @@ class Publisher:
                     if hasattr(self.store, "acknowledgement"):
                         item["refresh_ack_url"] = self.store.acknowledgement(feed_id, version)
                     screen["items"].append(item)
+        bus_config = config_feeds["sl7_bus"]
+        if bus_config["enabled"]:
+            bus_feed = feeds.get("sl7_bus") or {}
+            bus_data = bus_feed.get("data") or {}
+            if bus_config.get("heathrow_enabled"):
+                screens.append(self._bus_screen("heathrow", bus_data.get("heathrow"), bus_config, bus_feed.get("stale", False), now))
+            if bus_config.get("new_malden_enabled"):
+                screens.append(self._bus_screen("new-malden", bus_data.get("new-malden"), bus_config, bus_feed.get("stale", False), now))
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
@@ -741,6 +774,11 @@ class Publisher:
                 "weather", weather_previous, settings["weather"]["poll_seconds"],
                 lambda: self._fetch_weather(now), now,
                 force=needs_weather_contract_upgrade,
+            )
+        if settings["sl7_bus"]["enabled"]:
+            feeds["sl7_bus"] = self._refresh(
+                "sl7_bus", feeds.get("sl7_bus"), settings["sl7_bus"].get("poll_seconds", 60),
+                lambda: self._fetch_buses(now), now,
             )
 
         next_state = {

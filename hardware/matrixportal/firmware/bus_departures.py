@@ -37,7 +37,11 @@ def valid_bus_screen(screen, slot):
         return False
     if not _text(screen.get("title")) or not _text(screen.get("stop_name")):
         return False
-    if not isinstance(screen.get("observed_at"), str) or not isinstance(screen.get("duration_seconds"), (int, float)):
+    duration = screen.get("duration_seconds")
+    if (not isinstance(screen.get("observed_at"), str)
+            or isinstance(duration, bool) or not isinstance(duration, (int, float))
+            or not 2 <= float(duration) <= 300
+            or screen.get("status", "ok") not in ("ok", "empty", "unavailable")):
         return False
     if not isinstance(screen.get("departures"), list) or len(screen["departures"]) > MAX_DEPARTURES:
         return False

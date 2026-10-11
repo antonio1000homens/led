@@ -246,7 +246,7 @@ FEED_REGISTRY = {
     },
     "sl7_bus": {
         "label": "SL7 bus departures",
-        "provider": "homeassistant_mqtt",
+        "provider": "transitous",
         "display_group": "transit",
         "mutable_fields": (
             "enabled", "heathrow_enabled", "new_malden_enabled",

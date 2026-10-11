@@ -18,13 +18,9 @@ def screen():
 
 
 class BusDepartureTests(unittest.TestCase):
-    def test_mqtt_accepts_bus_contract_and_rejects_wrong_route(self):
+    def test_mqtt_does_not_carry_bus_contract(self):
         state = MqttScreenState()
         payload = {"schema_version": 1, "event": "upsert", "published_at": "2026-10-11T20:00:00Z", "expires_at": "2026-10-11T20:04:00Z", "source": "homeassistant", "screen": screen()}
-        self.assertTrue(state.accept("led/screens/sl7-heathrow", payload, 1791748800))
-        invalid = dict(screen(), route="X7")
-        payload["screen"] = invalid
-        payload["published_at"] = "2026-10-11T20:01:00Z"
         self.assertFalse(state.accept("led/screens/sl7-heathrow", payload, 1791748800))
 
     def test_normalise_sorts_deduplicates_and_filters_passed(self):
