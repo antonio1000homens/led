@@ -14,6 +14,8 @@ from matrix_config import (
     MATRIX_RAIL_ROWS_SCROLL,
     MATRIX_REFRESH_FPS,
     MATRIX_STATS_INTERVAL_SECONDS,
+    MATRIX_TELEMETRY_ENABLED,
+    STEAM_TRAIN_TEST_FPS,
     TODOIST_MARQUEE_PAUSE_SECONDS,
     TODOIST_MARQUEE_SPEED,
 )
@@ -689,7 +691,7 @@ def _calendar_due_layout(screen, clock_date, clock_time):
 
 
 class MatrixDisplay:
-    def __init__(self, brightness_percent=100):
+    def __init__(self, brightness_percent=100, steam_train_test=False):
         import displayio
         import framebufferio
         import rgbmatrix
@@ -715,10 +717,12 @@ class MatrixDisplay:
                 "MATRIX_PRESENTATION_MODE must be target_fps, immediate, or auto_refresh"
             )
         self.presentation_mode = MATRIX_PRESENTATION_MODE
+        self.telemetry_enabled = MATRIX_TELEMETRY_ENABLED
         self.display = framebufferio.FramebufferDisplay(
             matrix,
             auto_refresh=self.presentation_mode == "auto_refresh",
         )
+        self.steam_train_test = bool(steam_train_test)
         self.display.root_group = displayio.Group()
         self._refresh_misses = 0
 
@@ -779,6 +783,7 @@ class MatrixDisplay:
                 "todoist_page_slide",
                 "header_slide",
                 "departures_calling",
+                "steam_train",
                 "weather_sun_slide",
             )
         }
@@ -1134,6 +1139,8 @@ class MatrixDisplay:
         self._stats_last_success = now
 
     def _maybe_report_stats(self):
+        if not self.telemetry_enabled:
+            return
         now = time.monotonic()
         if now - self._stats_last_report < MATRIX_STATS_INTERVAL_SECONDS:
             return
@@ -1163,6 +1170,8 @@ class MatrixDisplay:
                 "header_slide_update_max={} header_slide_refresh_max={} "
                 "departures_calling_ticks={} departures_calling_changed={} "
                 "departures_calling_update_max={} departures_calling_refresh_max={} "
+                "steam_train_ticks={} steam_train_changed={} "
+                "steam_train_update_max={} steam_train_refresh_max={} "
                 "departures_update_heap_gain={} departures_refresh_heap_gain={}".format(
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
@@ -1210,6 +1219,10 @@ class MatrixDisplay:
                 self._stats_animation_classes["departures_calling"]["changed"],
                 "{:.4f}".format(self._stats_animation_classes["departures_calling"]["update_max"]),
                 "{:.4f}".format(self._stats_animation_classes["departures_calling"]["refresh_max"]),
+                self._stats_animation_classes["steam_train"]["ticks"],
+                self._stats_animation_classes["steam_train"]["changed"],
+                "{:.4f}".format(self._stats_animation_classes["steam_train"]["update_max"]),
+                "{:.4f}".format(self._stats_animation_classes["steam_train"]["refresh_max"]),
                 self._stats_rail_update_heap_gain_max,
                 self._stats_rail_refresh_heap_gain_max,
             )
@@ -1239,7 +1252,7 @@ class MatrixDisplay:
                 return "todoist_marquee"
             return None
         if kind == "steam_train_intro":
-            return "queue_rows"
+            return "steam_train"
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
             summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
@@ -1268,6 +1281,12 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
+        if (
+            isinstance(screen, dict)
+            and screen.get("kind") == "steam_train_intro"
+            and getattr(self, "steam_train_test", False)
+        ):
+            return STEAM_TRAIN_TEST_FPS
         if (
             isinstance(screen, dict)
             and screen.get("kind") == "bin_collection"
@@ -1402,6 +1421,8 @@ class MatrixDisplay:
         return progress > 0 or (reset_progress is not None and reset_progress > 0)
 
     def _record_animation_update(self, scene, changed, duration, animation_class=None):
+        if not self.telemetry_enabled:
+            return
         self._stats_animation_ticks += 1
         self._stats_update_total += duration
         self._stats_update_max = max(self._stats_update_max, duration)
@@ -1423,6 +1444,12 @@ class MatrixDisplay:
 
     def _refresh(self, animation_class=None):
         """Present one changed scene according to the issue #70 test mode."""
+        if not self.telemetry_enabled:
+            if self.presentation_mode == "auto_refresh":
+                return True
+            target = None if self.presentation_mode == "immediate" else MATRIX_REFRESH_FPS
+            return self.display.refresh(target_frames_per_second=target)
+
         self._stats_changes += 1
 
         # With auto-refresh enabled, mutating displayio objects is sufficient.
@@ -3292,5 +3319,8 @@ class FixtureDisplay:
 
 def create(settings):
     if settings.DISPLAY_BACKEND == "matrix":
-        return MatrixDisplay(getattr(settings, "MATRIX_BRIGHTNESS_PERCENT", 100))
+        return MatrixDisplay(
+            getattr(settings, "MATRIX_BRIGHTNESS_PERCENT", 100),
+            getattr(settings, "STEAM_TRAIN_TEST", False),
+        )
     return FixtureDisplay()

@@ -26,8 +26,8 @@ The stable presentation foundation is:
 - changed frames use `display.refresh(target_frames_per_second=None)`;
 - application-owned scheduling;
 - persistent `displayio` scene graphs for animated screens;
-- repository/default animation profile remains the safe B8/baseline profile
-  unless a later physical experiment explicitly promotes another profile.
+- B8/baseline remains the source default; the physical board is being tested
+  with its board-local adaptive profile after correcting animation pacing.
 
 The preset/application FPS number is **not** the HUB75 electrical scan rate.
 The RGBMatrix/Protomatter driver continuously scans the complete panel chain at
@@ -93,6 +93,49 @@ as the production default because the original acceptance criterion also
 required clear visual superiority. Live departures repeatedly returned
 `No Services`, so the calling-at path could not be visually accepted on
 hardware during that experiment.
+
+## Isolated steam-train motion test
+
+To distinguish pixel stepping from stalls elsewhere in the application, the
+firmware has an opt-in `STEAM_TRAIN_TEST` mode for the physical board. Set it
+to `True` in the ignored board-local `settings_local.py`; the mode then uses a
+single local train screen that repeats after each full crossing and skips API,
+MQTT, and button polling.
+It leaves the presentation preset and bit depth untouched. Configure
+`STEAM_TRAIN_TEST_SPEED` in pixels per second and
+`STEAM_TRAIN_TEST_FPS` from 1 to 30 independently. The startup banner records
+both values and the fixed presentation settings. `FRAME PACE` and
+`MATRIX STATS` report timing gaps and train update/refresh costs every 20
+seconds.
+
+Begin at 8 pixels/second and 8 FPS, then compare 12/12 and (if timing remains
+even) 24/24. Matching speed to cadence targets one-pixel steps. Keep the board
+on each setting long enough to observe repeated 20-second telemetry windows.
+Afterward set `STEAM_TRAIN_TEST` back to `False` and restart to restore normal
+screen selection. Smooth timing data does not replace visual confirmation on
+the physical panel.
+
+To compare the instrumentation itself, set
+`MATRIX_TELEMETRY_ENABLED = False` in board-local `settings_local.py` and
+restart. This bypasses per-frame timing/counter collection and aggregate
+serial summaries while keeping the same animation scheduler and presentation
+mode. Judge that run visually; it intentionally provides no timing report.
+The checked-in default remains enabled.
+
+For an 8 Hz timer-wake experiment, set
+`STEAM_TRAIN_TEST_SLEEP_SLICE_MS = 20` with telemetry enabled. The test loop
+then breaks each frame's idle wait into short sleeps; compare its `sleep_max`,
+`gap_over_200ms`, and visible motion against the default single-sleep path.
+This option is isolated to train-test mode and defaults to zero.
+
+To test whether Wi-Fi activity contributes to visible stalls, the isolated
+train test also supports a one-shot radio-off window. Set
+`STEAM_TRAIN_TEST_WIFI_OFF_AFTER_SECONDS` to a positive delay and
+`STEAM_TRAIN_TEST_WIFI_OFF_DURATION_SECONDS` to the desired window. The radio
+is re-enabled afterward and CircuitPython's native reconnection is allowed to
+run without a blocking application-level connect call. Keep this disabled
+(delay zero) outside a deliberate physical A/B test; Wi-Fi/Web Workflow is
+unavailable while the radio is off.
 
 ## What "partial refresh" means in this project
 

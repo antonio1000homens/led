@@ -23,6 +23,15 @@ ANIMATE = True
 ANIMATION_SECONDS = 8
 FRAME_SECONDS = 0.2
 
+# Optional isolated MatrixPortal train-motion experiment. Enable only in the
+# board-local settings_local.py; normal fixture and production screens ignore it.
+STEAM_TRAIN_TEST = False
+STEAM_TRAIN_TEST_FPS = 8
+STEAM_TRAIN_TEST_SPEED = 8
+STEAM_TRAIN_TEST_SLEEP_SLICE_MS = 0
+STEAM_TRAIN_TEST_WIFI_OFF_AFTER_SECONDS = 0
+STEAM_TRAIN_TEST_WIFI_OFF_DURATION_SECONDS = 30
+
 # MatrixPortal boot brightness. Runtime button changes are session-local.
 MATRIX_BRIGHTNESS_PERCENT = 100
 

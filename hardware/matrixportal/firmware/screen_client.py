@@ -249,7 +249,8 @@ class ClockState:
 class ScreenRotation:
     """Rotate server-provided screens without resetting on every data poll."""
 
-    def __init__(self):
+    def __init__(self, ticks_per_second=1):
+        self.ticks_per_second = ticks_per_second
         self.screens = []
         self.http_screens = []
         self.mqtt_screens = []
@@ -258,6 +259,13 @@ class ScreenRotation:
         self._paused = None
         self.cycle_number = 0
         self._shown_once = {}
+
+    def _duration_ticks(self, seconds):
+        # Keep the absolute anchor an integer when callers supply millisecond
+        # ticks. Only short elapsed durations ever pass through a float.
+        if self.ticks_per_second == 1:
+            return seconds
+        return int(seconds * self.ticks_per_second + 0.5)
 
     def update(self, screens, now):
         """Replace the HTTP collection, retaining the legacy single-source API."""
@@ -339,7 +347,7 @@ class ScreenRotation:
         old_id = old_current.get("id") if old_current else None
         old_phase = (
             self._paused[1] if self._paused is not None
-            else max(0, now - self.started_at) if self.started_at is not None
+            else max(0, now - self.started_at) / self.ticks_per_second if self.started_at is not None
             else 0
         )
         mqtt = sorted(self.mqtt_screens, key=lambda screen: str(screen.get("id") or ""))
@@ -357,7 +365,7 @@ class ScreenRotation:
         for index, screen in enumerate(next_screens):
             if screen.get("id") == old_id:
                 self.index = index
-                self.started_at = now - old_phase
+                self.started_at = now - self._duration_ticks(old_phase)
                 return
         # The visible slot was removed. Select the next surviving old screen
         # in the former cycle and start it with a clean phase.
@@ -421,10 +429,11 @@ class ScreenRotation:
             )
             if "_calling_travel_seconds" in screen:
                 duration = max(1, duration, int(screen.get("duration_seconds") or 8))
-            elapsed = max(0, now - self.started_at)
-            if elapsed < duration:
-                return screen, elapsed
-            self.started_at += duration
+            elapsed_ticks = max(0, now - self.started_at)
+            duration_ticks = self._duration_ticks(duration)
+            if elapsed_ticks < duration_ticks:
+                return screen, elapsed_ticks / self.ticks_per_second
+            self.started_at += duration_ticks
             if once_key is not None:
                 self._shown_once[screen.get("id")] = once_key
             self._advance_screen()
@@ -473,7 +482,7 @@ class ScreenRotation:
             if candidate.get("id") == screen_id:
                 self.index = index
                 resumed_phase = paused_state[1] if screen_id == paused_id else phase
-                self.started_at = float(now) - max(0, float(resumed_phase or 0))
+                self.started_at = now - self._duration_ticks(max(0, float(resumed_phase or 0)))
                 return
 
 

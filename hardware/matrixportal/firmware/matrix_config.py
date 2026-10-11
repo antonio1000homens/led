@@ -10,6 +10,15 @@
 #   C7 / C8 / C10 / C15 = CircuitPython auto-refresh + application cadence
 # C15 isolates auto-refresh at the live departures calling-at cadence.
 MATRIX_EXPERIMENT_PRESET = "B8"
+try:
+    import settings_local as _preset_settings_local
+    MATRIX_EXPERIMENT_PRESET = getattr(
+        _preset_settings_local,
+        "MATRIX_EXPERIMENT_PRESET",
+        MATRIX_EXPERIMENT_PRESET,
+    )
+except ImportError:
+    pass
 
 _MATRIX_EXPERIMENT_PRESETS = {
     "A7": ("target_fps", 7, 7.0),
@@ -40,9 +49,10 @@ except KeyError:
 # panels while retaining the board's eight required colours.
 MATRIX_BIT_DEPTH = 1
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
-# Temporary physical-board speed experiment retained while backend
-# preprocessing is introduced; keep the confirmed B8 baseline.
-CALLING_SCROLL_SPEED_OVERRIDE = 8.0
+# Use the speed delivered in the screen payload. A board-local override here
+# would silently defeat the Departures configuration and make long station
+# lists appear extremely sluggish.
+CALLING_SCROLL_SPEED_OVERRIDE = None
 
 # Issue #91/#94 adaptive partial-scene cadence. These are animation update
 # cadences, not framebuffer refresh modes; Mode B remains the presentation
@@ -63,6 +73,7 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": MATRIX_REFRESH_FPS,
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": MATRIX_REFRESH_FPS,
+        "steam_train": MATRIX_REFRESH_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
@@ -71,6 +82,7 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": TODOIST_PAGE_SLIDE_FPS,
         "header_slide": HEADER_SLIDE_FPS,
         "departures_calling": DEPARTURES_CALLING_FPS,
+        "steam_train": DEPARTURES_CALLING_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
@@ -79,6 +91,7 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": MATRIX_REFRESH_FPS,
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": DEPARTURES_CALLING_FPS,
+        "steam_train": MATRIX_REFRESH_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
@@ -87,6 +100,7 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": MATRIX_REFRESH_FPS,
         "header_slide": MATRIX_REFRESH_FPS,
         "departures_calling": 15,
+        "steam_train": MATRIX_REFRESH_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
@@ -95,6 +109,7 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": 15,
         "header_slide": 15,
         "departures_calling": DEPARTURES_CALLING_FPS,
+        "steam_train": MATRIX_REFRESH_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
@@ -103,6 +118,7 @@ MATRIX_ANIMATION_PROFILES = {
         "todoist_page_slide": 20,
         "header_slide": 20,
         "departures_calling": DEPARTURES_CALLING_FPS,
+        "steam_train": MATRIX_REFRESH_FPS,
         "queue_rows": MATRIX_REFRESH_FPS,
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
     },
@@ -132,3 +148,28 @@ if MATRIX_ANIMATION_PROFILE not in MATRIX_ANIMATION_PROFILES:
 # Aggregate serial summaries are deliberately infrequent so measurement does
 # not materially change MatrixPortal timing.
 MATRIX_STATS_INTERVAL_SECONDS = 20.0
+MATRIX_TELEMETRY_ENABLED = True
+try:
+    import settings_local as _telemetry_settings_local
+    MATRIX_TELEMETRY_ENABLED = bool(
+        getattr(
+            _telemetry_settings_local,
+            "MATRIX_TELEMETRY_ENABLED",
+            MATRIX_TELEMETRY_ENABLED,
+        )
+    )
+except ImportError:
+    pass
+
+# The train-only hardware test can vary animation cadence independently of
+# presentation mode and bit depth. Its speed is configured in settings.py.
+STEAM_TRAIN_TEST_FPS = 8
+try:
+    import settings_local as _test_settings_local
+    STEAM_TRAIN_TEST_FPS = int(
+        getattr(_test_settings_local, "STEAM_TRAIN_TEST_FPS", STEAM_TRAIN_TEST_FPS)
+    )
+except ImportError:
+    pass
+if not 1 <= STEAM_TRAIN_TEST_FPS <= 30:
+    raise ValueError("STEAM_TRAIN_TEST_FPS must be between 1 and 30")

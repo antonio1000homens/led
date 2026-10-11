@@ -20,6 +20,12 @@ def next_deadline(previous_deadline, now, cadence, cadence_changed=False):
     return deadline, remaining, late, rebased
 
 
+def frame_sleep_remaining(frame_started, after_render, cadence, ticks_per_second=1):
+    """Return the sleep required to keep frame starts at the requested cadence."""
+    frame_seconds = 1.0 / max(1.0, float(cadence))
+    return frame_seconds - max(0.0, after_render - frame_started) / ticks_per_second
+
+
 def earliest_wake_seconds(until_rotation, until_fetch, boundary_sleep, fallback=1.0):
     """Choose the earliest positive rotation, fetch, or animation boundary."""
     values = []

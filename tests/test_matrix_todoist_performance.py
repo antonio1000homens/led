@@ -200,6 +200,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
     def test_transition_profiles_only_raise_short_transition_cadence(self):
         self.assertEqual(MATRIX_ANIMATION_PROFILES["baseline"]["todoist_page_slide"], MATRIX_REFRESH_FPS)
         self.assertEqual(MATRIX_ANIMATION_PROFILES["adaptive"]["todoist_page_slide"], 12)
+        self.assertEqual(MATRIX_ANIMATION_PROFILES["adaptive"]["steam_train"], 12)
         self.assertEqual(MATRIX_ANIMATION_PROFILES["transition_15"]["todoist_page_slide"], 15)
         self.assertEqual(MATRIX_ANIMATION_PROFILES["transition_20"]["todoist_page_slide"], 20)
         for profile in ("baseline", "adaptive", "transition_15", "transition_20"):
@@ -889,6 +890,27 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 self.assertEqual(display.display.refresh_targets, [])
                 expected_offset = int(TODOIST_MARQUEE_SPEED / MATRIX_REFRESH_FPS + 1e-9)
                 self.assertEqual(display._todoist_rows[0][1].x, first_x - expected_offset)
+
+    def test_telemetry_disabled_keeps_animation_updates_without_counting(self):
+        with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "auto_refresh"):
+            with patch.object(led_display, "MATRIX_TELEMETRY_ENABLED", False):
+                with patch.dict(sys.modules, fake_modules()):
+                    display = led_display.MatrixDisplay()
+                    screen = todoist_screen(3)
+
+                    display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=0)
+                    first_x = display._todoist_rows[0][1].x
+                    display.show(
+                        screen,
+                        clock_time="19:40",
+                        clock_date="2026-09-20",
+                        phase=1.0 / MATRIX_REFRESH_FPS,
+                    )
+
+                    self.assertEqual(display._todoist_rows[0][1].x, first_x - 1)
+                    self.assertEqual(display._stats_animation_ticks, 0)
+                    self.assertEqual(display._stats_changes, 0)
+                    self.assertEqual(display.display.refresh_targets, [])
 
     def test_invalid_presentation_mode_is_rejected(self):
         with patch.object(led_display, "MATRIX_PRESENTATION_MODE", "unknown"):

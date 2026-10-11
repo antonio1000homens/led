@@ -1,6 +1,11 @@
 import unittest
 
-from animation_scheduler import earliest_wake_seconds, next_deadline, screen_fetch_decision
+from animation_scheduler import (
+    earliest_wake_seconds,
+    frame_sleep_remaining,
+    next_deadline,
+    screen_fetch_decision,
+)
 
 
 class AnimationSchedulerTests(unittest.TestCase):
@@ -27,6 +32,10 @@ class AnimationSchedulerTests(unittest.TestCase):
     def test_wake_arbitration_uses_earliest_boundary(self):
         self.assertEqual(earliest_wake_seconds(7.5, 20, 3.5), 3.5)
         self.assertEqual(earliest_wake_seconds(7.5, 20, None), 7.5)
+
+    def test_frame_sleep_remaining_prevents_catchup_after_a_late_frame(self):
+        self.assertAlmostEqual(frame_sleep_remaining(5.0, 5.005, 12), 1 / 12 - 0.005)
+        self.assertLess(frame_sleep_remaining(5.0, 5.1, 12), 0)
 
     def test_cadence_switch_rebases_before_scheduling_new_frame(self):
         deadline, remaining, late, rebased = next_deadline(
@@ -62,7 +71,6 @@ class AnimationSchedulerTests(unittest.TestCase):
         self.assertGreater(next_remaining, 0)
         self.assertFalse(next_late)
         self.assertFalse(next_rebased)
-
 
 if __name__ == "__main__":
     unittest.main()
