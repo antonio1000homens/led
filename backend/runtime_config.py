@@ -14,6 +14,7 @@ from typing import Any
 
 CONFIG_ID = "runtime"
 MIN_POLL_SECONDS = 60
+MIN_INSULT_POLL_SECONDS = 3600  # Never request a new insult more than hourly.
 MAX_POLL_SECONDS = 86400
 MIN_SCREEN_DURATION_SECONDS = 2
 MAX_SCREEN_DURATION_SECONDS = 300
@@ -463,7 +464,7 @@ def schema_metadata() -> dict[str, Any]:
             "enabled": {"type": "boolean"},
             "poll_seconds": {
                 "type": "integer",
-                "minimum": MIN_POLL_SECONDS,
+                "minimum": MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS,
                 "maximum": MAX_POLL_SECONDS,
             },
         }
@@ -613,7 +614,9 @@ def validate_feed_patch(
         result["enabled"] = patch["enabled"]
     if "poll_seconds" in patch:
         result["poll_seconds"] = _validate_integer(
-            feed_id, "poll_seconds", patch["poll_seconds"], MIN_POLL_SECONDS, MAX_POLL_SECONDS
+            feed_id, "poll_seconds", patch["poll_seconds"],
+            MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS,
+            MAX_POLL_SECONDS
         )
     if "screen_duration_seconds" in patch:
         result["screen_duration_seconds"] = _validate_integer(
@@ -768,6 +771,12 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("today_duration_seconds", DEFAULT_WEATHER_TODAY_DURATION_SECONDS)
             raw.setdefault("sun_enabled", True)
             raw.setdefault("sun_duration_seconds", DEFAULT_WEATHER_SUN_DURATION_SECONDS)
+        if feed_id == "insult_of_hour":
+            # Older admins accepted a sub-hourly interval. Migrate that saved
+            # setting without discarding the rest of the user configuration.
+            interval = raw.get("poll_seconds")
+            if isinstance(interval, int) and not isinstance(interval, bool):
+                raw["poll_seconds"] = max(MIN_INSULT_POLL_SECONDS, interval)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
         # Older saved configs may predate the SL7 frequency control. Keep that
