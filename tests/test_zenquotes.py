@@ -19,7 +19,7 @@ from zenquotes import ZenQuotesProvider
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore, content_version
 from runtime_config import default_runtime_config, schema_metadata, validate_feed_patch, validate_runtime_config
 from screen_client import ScreenRotation
-from display import _quote_lines, _quote_page
+from display import _quote_lines, _quote_page, FixtureDisplay
 
 
 class MemoryStore:
@@ -186,6 +186,24 @@ class ZenQuotesTests(unittest.TestCase):
         rotation.update([replacement], 110)
         selected, _ = rotation.current(110)
         self.assertEqual((selected["quote"], selected["author"]), ("Same", "A"))
+
+    def test_fixture_renderer_displays_quote_author_credit_and_stale_marker(self):
+        class CapturingFixture(FixtureDisplay):
+            def __init__(self):
+                self.labels = []
+
+            def _text(self, label, x, y, color):
+                self.labels.append((label, x, y, color))
+
+        fixture = CapturingFixture()
+        fixture._draw_screen({
+            "kind": "quotes", "quote": "Keep learning",
+            "author": "Sample Author", "stale": True,
+        }, 0)
+        labels = [label for label, _, _, _ in fixture.labels]
+        self.assertIn("QUOTES VIA ZENQUOTES.IO STALE", labels)
+        self.assertIn("Keep learning", labels)
+        self.assertIn("- Sample Author", labels)
 
     def test_multiline_quote_author_and_attribution(self):
         screen = {"kind": "quotes", "duration_seconds": 30,
