@@ -57,6 +57,34 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_millisecond_phases_keep_one_pixel_steps_after_days_of_uptime(self):
+        rotation = ScreenRotation(ticks_per_second=1000)
+        started = 297_805_460
+        train = {"id": "train", "kind": "steam_train_intro", "duration_seconds": 33}
+        rotation.update([train], started)
+        positions = []
+        for tick in range(200):
+            _, phase = rotation.current(started + tick * 125)
+            positions.append(256 - int(phase * 8))
+        self.assertEqual(positions, list(range(256, 56, -1)))
+        self.assertIsInstance(rotation.started_at, int)
+
+    def test_millisecond_anchors_survive_refresh_freeze_resume_and_rotation(self):
+        rotation = ScreenRotation(ticks_per_second=1000)
+        started = 297_805_460
+        screens = [{"id": "a", "duration_seconds": 1.25},
+                   {"id": "b", "duration_seconds": 2}]
+        rotation.update(screens, started)
+        rotation.update(screens, started + 375)
+        self.assertEqual(rotation.current(started + 375)[1], 0.375)
+        screen, phase = rotation.freeze(started + 625)
+        rotation.resume(started + 50_000, screen, phase)
+        self.assertIsInstance(rotation.started_at, int)
+        self.assertEqual(rotation.current(started + 50_125)[1], 0.75)
+        current, phase = rotation.current(started + 50_750)
+        self.assertEqual((current["id"], phase), ("b", 0.125))
+        self.assertIsInstance(rotation.started_at, int)
+
     def test_joke_is_shown_once_per_new_text_across_refreshes(self):
         rotation = ScreenRotation()
         joke = {"id": "dad-joke", "kind": "dad_joke", "joke": "First!", "duration_seconds": 2}

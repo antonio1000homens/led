@@ -10,6 +10,8 @@ for source_path in ("/hardware/matrixportal/firmware", "/shared", "hardware/matr
     if source_path not in sys.path:
         sys.path.append(source_path)
 
+from monotonic_clock import elapsed_seconds, ticks_ms
+
 try:
     import gc
 except ImportError:
@@ -34,7 +36,7 @@ start_wifi(settings)
 from queue_display import create
 from fixtures import animated_services
 from flash_events import FlashState
-from animation_scheduler import earliest_wake_seconds, frame_sleep_remaining, screen_fetch_decision
+from animation_scheduler import earliest_wake_seconds, next_deadline, screen_fetch_decision
 from matrix_runtime import RuntimeMode
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
@@ -122,17 +124,18 @@ def hardware_safe_screen(screen):
 
 
 display = create(settings)
-rotation = ScreenRotation()
+rotation = ScreenRotation(ticks_per_second=1000)
 clock = ClockState()
 if steam_train_test:
     import matrix_config
 
     print(
-        "STEAM TRAIN TEST enabled speed_px_s={} cadence_fps={} presentation_preset={} bit_depth={}".format(
+        "STEAM TRAIN TEST enabled speed_px_s={} cadence_fps={} presentation_preset={} bit_depth={} clock=integer_ms uptime_ms={}".format(
             getattr(settings, "STEAM_TRAIN_TEST_SPEED", 8),
             getattr(settings, "STEAM_TRAIN_TEST_FPS", 8),
             matrix_config.MATRIX_EXPERIMENT_PRESET,
             matrix_config.MATRIX_BIT_DEPTH,
+            ticks_ms(),
         )
     )
 client = ScreenClient(settings) if settings.SCREEN_SOURCE == "api" and not steam_train_test else None
@@ -162,25 +165,25 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         if slice_ms <= 0:
             time.sleep(seconds)
         else:
-            deadline = time.monotonic() + seconds
+            deadline = ticks_ms() + int(seconds * 1000)
             sleep_slice = max(0.001, slice_ms / 1000.0)
             while True:
-                remaining = deadline - time.monotonic()
+                remaining = (deadline - ticks_ms()) / 1000.0
                 if remaining <= 0:
                     break
                 time.sleep(min(sleep_slice, remaining))
         return
-    deadline = time.monotonic() + seconds
+    deadline = ticks_ms() + int(seconds * 1000)
     next_mqtt_poll = time.monotonic()
     while True:
-        remaining = deadline - time.monotonic()
+        remaining = (deadline - ticks_ms()) / 1000.0
         if remaining <= 0:
             return
         time.sleep(min(_BUTTON_POLL_SECONDS, remaining))
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), now)
+            rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
             return
         if service_mqtt and _service_reminder_clock(now):
@@ -209,6 +212,7 @@ flash = FlashState(
     enabled=False,
 )
 flash_resume = None
+flash_started_ticks = None
 mqtt = None
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
@@ -224,9 +228,10 @@ def _reminder_epoch(now):
 
 
 def _flash_started(now):
-    global flash_resume, last_render_key
+    global flash_resume, last_render_key, flash_started_ticks
+    flash_started_ticks = ticks_ms()
     if flash_resume is None:
-        flash_resume = rotation.freeze(now)
+        flash_resume = rotation.freeze(ticks_ms())
     last_render_key = None
     print("FLASH START id={}".format(flash.event["id"]))
 
@@ -260,7 +265,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
             rotation.update_sources(
-                rotation.http_screens, mqtt_screens.screens(epoch_now), now
+                rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms()
             )
             mqtt_screens_changed = True
 
@@ -318,7 +323,7 @@ pace_show_max = 0.0
 
 # Low-volume work-attribution telemetry for soak runs. These counters are
 # reported with FRAME PACE and deliberately avoid per-frame serial output.
-telemetry_started = time.monotonic()
+telemetry_started = ticks_ms()
 telemetry_fetches = 0
 telemetry_fetch_failures = 0
 telemetry_fetch_total = 0.0
@@ -328,6 +333,7 @@ telemetry_scene_render_total = 0.0
 telemetry_scene_render_max = 0.0
 telemetry_scene_render_over_budget = 0
 animation_cadence = None
+animation_deadline = None
 
 
 def _matrix_root_token():
@@ -408,10 +414,10 @@ def _smooth_bin_collection(screen):
 
 
 def _report_pace(now):
-    if not pace_active or now - pace_last_report < MATRIX_STATS_INTERVAL_SECONDS:
+    if not pace_active or elapsed_seconds(pace_last_report, now) < MATRIX_STATS_INTERVAL_SECONDS:
         return False
-    elapsed = max(0.001, now - pace_started)
-    telemetry_elapsed = max(0.001, now - telemetry_started)
+    elapsed = max(0.001, elapsed_seconds(pace_started, now))
+    telemetry_elapsed = max(0.001, elapsed_seconds(telemetry_started, now))
     fetch_average = telemetry_fetch_total / telemetry_fetches if telemetry_fetches else 0.0
     render_average = (
         telemetry_scene_render_total / telemetry_scene_renders
@@ -509,21 +515,21 @@ def _apply_flash_config(payload):
 
 while True:
     now = time.monotonic()
-    loop_started = now
+    loop_started = ticks_ms()
     if steam_train_wifi_isolation is not None:
         steam_train_wifi_isolation.update(now)
-    stage_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+    stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     _service_reminder_clock(now)
     stage_durations = (
-        {"reminder": time.monotonic() - stage_started}
+        {"reminder": elapsed_seconds(stage_started)}
         if MATRIX_TELEMETRY_ENABLED else None
     )
-    stage_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+    stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     if mqtt is not None:
         mqtt_animation_active = False
         mqtt_allow_connect = True
         if rotation.screens and not flash.active(now):
-            mqtt_screen, mqtt_phase = rotation.current(now)
+            mqtt_screen, mqtt_phase = rotation.current(ticks_ms())
             mqtt_animation_active = display.animation_active(mqtt_screen, mqtt_phase)
             mqtt_allow_connect = not mqtt_animation_active
         # MiniMQTT's nominal socket timeout does not bound the complete
@@ -532,20 +538,20 @@ while True:
         if not mqtt_animation_active:
             mqtt.poll(now, allow_connect=mqtt_allow_connect)
     if MATRIX_TELEMETRY_ENABLED:
-        stage_durations["mqtt"] = time.monotonic() - stage_started
-    stage_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+        stage_durations["mqtt"] = elapsed_seconds(stage_started)
+    stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     button_events = list(_pending_button_events) if buttons is not None else ()
     if buttons is not None:
         _pending_button_events.clear()
     if buttons is not None:
         button_events.extend(buttons.poll(now))
     if MATRIX_TELEMETRY_ENABLED:
-        stage_durations["buttons"] = time.monotonic() - stage_started
+        stage_durations["buttons"] = elapsed_seconds(stage_started)
     for event in button_events:
         if runtime_mode.mode == "normal" and event in ("up", "down"):
             display.adjust_brightness(1 if event == "up" else -1)
             continue
-        if runtime_mode.handle(event, rotation, now):
+        if runtime_mode.handle(event, rotation, ticks_ms()):
             rendered_diagnostic_index = None
 
     if runtime_mode.mode == "diagnostic":
@@ -557,7 +563,7 @@ while True:
         _sleep_interruptible(settings.FRAME_SECONDS)
         continue
 
-    stage_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+    stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     should_fetch = (
         settings.SCREEN_SOURCE == "fixture"
         and (not steam_train_test or not rotation.screens)
@@ -570,7 +576,7 @@ while True:
         candidate = None
         candidate_phase = 0
         if rotation.screens and not flash.active(now):
-            candidate, candidate_phase = rotation.current(now)
+            candidate, candidate_phase = rotation.current(ticks_ms())
             fetch_during_animation = (
                 _smooth_todoist(candidate)
                 or _smooth_departures(candidate)
@@ -593,16 +599,17 @@ while True:
             _ANIMATION_FETCH_GUARD_SECONDS,
         )
     if MATRIX_TELEMETRY_ENABLED:
-        stage_durations["fetch_decision"] = time.monotonic() - stage_started
-    stage_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+        stage_durations["fetch_decision"] = elapsed_seconds(stage_started)
+    stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     if should_fetch:
         fetch_started = time.monotonic()
+        fetch_started_ticks = ticks_ms()
         # Screen API calls are synchronous and can take multiple animation
         # frames. Freeze the selected screen phase for that interval so the
         # first post-fetch frame resumes where the last one left off.
         fetch_resume = None
         if rotation.screens and not flash.active(fetch_started):
-            fetch_resume = rotation.pause(fetch_started)
+            fetch_resume = rotation.pause(ticks_ms())
         try:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
@@ -615,7 +622,7 @@ while True:
             ):
                 display.set_brightness_percent(display_config["brightness_percent"])
             fetch_completed = time.monotonic()
-            fetch_duration = fetch_completed - fetch_started
+            fetch_duration = elapsed_seconds(fetch_started_ticks)
             telemetry_fetches += 1
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
@@ -624,10 +631,10 @@ while True:
             rotation.update_sources(
                 screens,
                 mqtt_screens.screens(epoch_now) if epoch_now is not None else [],
-                fetch_completed,
+                ticks_ms(),
             )
             if fetch_resume is not None:
-                rotation.resume(fetch_completed, fetch_resume[0], fetch_resume[1])
+                rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
             fetched_at = payload.get("clock_at") or payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
@@ -636,7 +643,7 @@ while True:
             transport_stale = False
         except Exception as error:
             fetch_completed = time.monotonic()
-            fetch_duration = fetch_completed - fetch_started
+            fetch_duration = elapsed_seconds(fetch_started_ticks)
             telemetry_fetches += 1
             telemetry_fetch_failures += 1
             telemetry_fetch_total += fetch_duration
@@ -644,33 +651,33 @@ while True:
             print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
             transport_stale = bool(rotation.screens)
             if fetch_resume is not None:
-                rotation.resume(fetch_completed, fetch_resume[0], fetch_resume[1])
+                rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
         now = fetch_completed
         next_fetch = now + settings.POLL_SECONDS
         if fetch_during_animation and hasattr(display, "note_fetch_overlap"):
             display.note_fetch_overlap()
         if MATRIX_TELEMETRY_ENABLED:
-            stage_durations["fetch"] = time.monotonic() - stage_started
+            stage_durations["fetch"] = elapsed_seconds(stage_started)
 
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):
-        rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), now)
+        rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
         mqtt_screens_changed = True
 
-    stage_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+    stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     if flash.active(now):
-        screen, phase = flash.screen(), now - flash.started_at
+        screen, phase = flash.screen(), elapsed_seconds(flash_started_ticks)
     else:
         if flash.event is not None:
             flash.clear()
             if flash_resume is not None:
-                rotation.resume(now, flash_resume[0], flash_resume[1])
+                rotation.resume(ticks_ms(), flash_resume[0], flash_resume[1])
                 flash_resume = None
             last_render_key = None
             print("FLASH END")
-        screen, phase = rotation.current(now)
+        screen, phase = rotation.current(ticks_ms())
     if MATRIX_TELEMETRY_ENABLED:
-        stage_durations["screen_select"] = time.monotonic() - stage_started
+        stage_durations["screen_select"] = elapsed_seconds(stage_started)
     screen = hardware_safe_screen(screen)
     if transport_stale and any(candidate is screen for candidate in rotation.http_screens):
         screen = dict(screen)
@@ -680,8 +687,8 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
-    frame_started = time.monotonic()
-    preframe_duration = frame_started - loop_started if MATRIX_TELEMETRY_ENABLED else 0.0
+    frame_started = ticks_ms()
+    preframe_duration = elapsed_seconds(loop_started, frame_started) if MATRIX_TELEMETRY_ENABLED else 0.0
     render_key = (
         (screen.get("id"), screen.get("kind"))
         if MATRIX_TELEMETRY_ENABLED and isinstance(screen, dict)
@@ -691,7 +698,7 @@ while True:
     if instrument_render:
         if gc is not None and hasattr(gc, "collect"):
             gc.collect()
-        render_started = time.monotonic()
+        render_started = ticks_ms()
         memory_before = _memory_free()
         root_before = _matrix_root_token()
         if (
@@ -709,7 +716,7 @@ while True:
                 render_key[0], render_key[1], rotation.index, phase, runtime_mode.mode, memory_before
             )
         )
-    show_started = time.monotonic() if MATRIX_TELEMETRY_ENABLED else None
+    show_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     display.show(
         screen,
         clock.text(now),
@@ -717,12 +724,12 @@ while True:
         phase=_display_phase(screen, phase),
     )
     show_duration = (
-        time.monotonic() - show_started if MATRIX_TELEMETRY_ENABLED else 0.0
+        elapsed_seconds(show_started) if MATRIX_TELEMETRY_ENABLED else 0.0
     )
     if instrument_render:
         memory_after = _memory_free()
         root_after = _matrix_root_token()
-        render_duration = time.monotonic() - render_started
+        render_duration = elapsed_seconds(render_started)
         telemetry_scene_renders += 1
         telemetry_scene_render_total += render_duration
         telemetry_scene_render_max = max(telemetry_scene_render_max, render_duration)
@@ -751,6 +758,7 @@ while True:
             pace_active = False
             pace_last_tick_started = None
             animation_cadence = None
+            animation_deadline = None
             boundary_sleep = display.animation_sleep_seconds(screen, phase)
             duration = max(1.0, float(screen.get("duration_seconds") or 8))
             until_rotation = max(0.05, duration - max(0, phase))
@@ -767,9 +775,11 @@ while True:
             if was_active and hasattr(display, "note_cadence_switch"):
                 display.note_cadence_switch()
         frame_seconds = 1.0 / desired_cadence
-        after_render = time.monotonic()
+        after_render = ticks_ms()
         if not MATRIX_TELEMETRY_ENABLED:
-            remaining = frame_sleep_remaining(frame_started, after_render, desired_cadence)
+            animation_deadline, remaining, _, _ = next_deadline(
+                animation_deadline, ticks_ms(), desired_cadence, cadence_changed, 1000
+            )
             if remaining > 0:
                 _sleep_interruptible(remaining)
             continue
@@ -819,7 +829,7 @@ while True:
                 pace_show_max = max(pace_show_max, show_duration)
         else:
             if pace_last_tick_started is not None:
-                tick_interval = frame_started - pace_last_tick_started
+                tick_interval = elapsed_seconds(pace_last_tick_started, frame_started)
                 pace_interval_total += tick_interval
                 pace_interval_count += 1
                 pace_interval_max = max(pace_interval_max, tick_interval)
@@ -854,8 +864,7 @@ while True:
             pace_show_max = max(pace_show_max, show_duration)
 
         pace_ticks += 1
-        remaining = frame_sleep_remaining(frame_started, after_render, desired_cadence)
-        frame_work_duration = after_render - frame_started
+        frame_work_duration = elapsed_seconds(frame_started, after_render)
         pace_frame_work_overrun_max = max(
             pace_frame_work_overrun_max,
             max(0.0, frame_work_duration - frame_seconds),
@@ -863,15 +872,18 @@ while True:
 
         frame_sleep_duration = 0.0
         frame_sleep_requested = 0.0
-        # Sleep relative to this frame's start. An accumulated absolute
-        # deadline can leave the loop running stale catch-up ticks after a
-        # late frame, even though those positions are no longer useful.
+        # Include telemetry/bookkeeping in the frame budget. Integer deadlines
+        # avoid cumulative overhead drift; overdue deadlines rebase so there
+        # is no burst of stale catch-up frames after a blocking operation.
+        animation_deadline, remaining, _, _ = next_deadline(
+            animation_deadline, ticks_ms(), desired_cadence, cadence_changed, 1000
+        )
         if remaining > 0:
             pace_late_streak = 0
             frame_sleep_requested = remaining
-            sleep_started = time.monotonic()
+            sleep_started = ticks_ms()
             _sleep_interruptible(remaining)
-            frame_sleep_duration = time.monotonic() - sleep_started
+            frame_sleep_duration = elapsed_seconds(sleep_started)
         else:
             pace_late_frames += 1
             pace_late_streak += 1
@@ -894,21 +906,23 @@ while True:
             pace_sleep_actual_max = max(pace_sleep_actual_max, frame_sleep_duration)
             if frame_sleep_duration - frame_sleep_requested > 0.05:
                 pace_sleep_overshoots += 1
-        report_now = time.monotonic()
+        report_now = ticks_ms()
         if _report_pace(report_now):
             pace_last_report = report_now
     elif settings.ANIMATE:
         pace_active = False
         pace_last_tick_started = None
         animation_cadence = None
+        animation_deadline = None
         frame_seconds = settings.FRAME_SECONDS
-        remaining = frame_seconds - (time.monotonic() - frame_started)
+        remaining = frame_seconds - elapsed_seconds(frame_started)
         if remaining > 0:
             _sleep_interruptible(remaining)
     else:
         pace_active = False
         pace_last_tick_started = None
         animation_cadence = None
+        animation_deadline = None
         # Static pages must still rotate independently of the network poll.
         # Waking only at the next page/fetch boundary avoids repeatedly
         # rebuilding the complete HUB75 framebuffer, which can show as

@@ -761,7 +761,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.note_cadence_switch()
 
             with patch.object(display.display, "refresh", return_value=True):
-                with patch.object(led_display.time, "monotonic", side_effect=[10.0, 10.25, 10.25]):
+                with patch.object(led_display, "ticks_ms", side_effect=[10000, 10250, 10250]):
                     self.assertTrue(display._refresh())
 
             self.assertEqual(display._stats_animation_ticks, 2)

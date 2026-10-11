@@ -1,20 +1,24 @@
 """Pure deadline helpers for application-owned Matrix animation pacing."""
 
 
-def next_deadline(previous_deadline, now, cadence, cadence_changed=False):
+def next_deadline(previous_deadline, now, cadence, cadence_changed=False, ticks_per_second=1):
     """Return (deadline, remaining, late, rebased) for one current-state tick.
 
-    A cadence change starts from the current post-render time, so an old
-    cadence cannot leave a stale deadline active. A delay longer than one
-    frame rebases instead of replaying missed animation positions.
+    A cadence change starts from the current post-render time. An overdue
+    deadline rebases instead of replaying missed animation positions. Integer
+    millisecond timestamps preserve precision after long board uptime.
     """
     frame_seconds = 1.0 / max(1.0, float(cadence))
+    frame_ticks = (
+        frame_seconds if ticks_per_second == 1
+        else max(1, int(frame_seconds * ticks_per_second + 0.5))
+    )
     rebased = cadence_changed or previous_deadline is None
     deadline = now if rebased else previous_deadline
-    deadline += frame_seconds
-    remaining = deadline - now
+    deadline += frame_ticks
+    remaining = (deadline - now) / ticks_per_second
     late = remaining <= 0
-    if late and -remaining > frame_seconds:
+    if late:
         deadline = now
         rebased = True
     return deadline, remaining, late, rebased

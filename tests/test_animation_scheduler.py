@@ -37,6 +37,36 @@ class AnimationSchedulerTests(unittest.TestCase):
         self.assertAlmostEqual(frame_sleep_remaining(5.0, 5.005, 12), 1 / 12 - 0.005)
         self.assertLess(frame_sleep_remaining(5.0, 5.1, 12), 0)
 
+    def test_integer_frame_timing_retains_milliseconds_after_days_of_uptime(self):
+        started = 297_805_460
+        self.assertAlmostEqual(
+            frame_sleep_remaining(started, started + 3, 8, 1000), 0.122
+        )
+        self.assertLess(frame_sleep_remaining(started, started + 130, 8, 1000), 0)
+
+    def test_integer_deadlines_include_bookkeeping_without_cumulative_drift(self):
+        started = 297_805_460
+        deadline, _, _, _ = next_deadline(None, started, 8, ticks_per_second=1000)
+        for frame in range(1, 200):
+            # Render and bookkeeping take 10 ms after the planned frame start.
+            deadline, remaining, late, rebased = next_deadline(
+                deadline, started + frame * 125 + 10, 8, ticks_per_second=1000
+            )
+            self.assertEqual(deadline, started + (frame + 1) * 125)
+            self.assertEqual(remaining, 0.115)
+            self.assertFalse(late)
+            self.assertFalse(rebased)
+
+    def test_slightly_late_integer_deadline_rebases_without_catchup(self):
+        now = 297_805_460
+        deadline, remaining, late, rebased = next_deadline(
+            now - 130, now, 8, ticks_per_second=1000
+        )
+        self.assertEqual(deadline, now)
+        self.assertLessEqual(remaining, 0)
+        self.assertTrue(late)
+        self.assertTrue(rebased)
+
     def test_cadence_switch_rebases_before_scheduling_new_frame(self):
         deadline, remaining, late, rebased = next_deadline(
             previous_deadline=100.0,

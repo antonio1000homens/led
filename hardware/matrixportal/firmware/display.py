@@ -1,6 +1,6 @@
 """Display backends: MatrixPortal S3 hardware and Wokwi visual fixture."""
 
-import time
+from monotonic_clock import elapsed_seconds, ticks_ms
 
 import board
 
@@ -743,7 +743,7 @@ class MatrixDisplay:
         self.font = bitmap_font.load_font("/font5x7.pcf")
 
         # Low-overhead aggregate metrics for the physical-board comparison.
-        now = time.monotonic()
+        now = ticks_ms()
         self._stats_started = now
         self._stats_last_report = now
         self._stats_heap_start = self._heap_free()
@@ -1129,7 +1129,7 @@ class MatrixDisplay:
 
     def _record_success_interval(self, now):
         if self._stats_last_success is not None:
-            interval = max(0.0, now - self._stats_last_success)
+            interval = max(0.0, elapsed_seconds(self._stats_last_success, now))
             if self._stats_interval_min is None or interval < self._stats_interval_min:
                 self._stats_interval_min = interval
             if self._stats_interval_max is None or interval > self._stats_interval_max:
@@ -1141,10 +1141,10 @@ class MatrixDisplay:
     def _maybe_report_stats(self):
         if not self.telemetry_enabled:
             return
-        now = time.monotonic()
-        if now - self._stats_last_report < MATRIX_STATS_INTERVAL_SECONDS:
+        now = ticks_ms()
+        if elapsed_seconds(self._stats_last_report, now) < MATRIX_STATS_INTERVAL_SECONDS:
             return
-        elapsed = max(0.001, now - self._stats_started)
+        elapsed = max(0.001, elapsed_seconds(self._stats_started, now))
         if self.presentation_mode == "auto_refresh":
             presented_fps = "n/a"
         else:
@@ -1463,9 +1463,9 @@ class MatrixDisplay:
         heap_before = (
             self._heap_free() if animation_class == "departures_calling" else None
         )
-        refresh_started = time.monotonic()
+        refresh_started = ticks_ms()
         refreshed = self.display.refresh(target_frames_per_second=target)
-        now = time.monotonic()
+        now = ticks_ms()
         if heap_before is not None:
             heap_after = self._heap_free()
             if heap_after is not None:
@@ -1475,12 +1475,12 @@ class MatrixDisplay:
                 )
         if animation_class in self._stats_animation_classes:
             counters = self._stats_animation_classes[animation_class]
-            refresh_duration = now - refresh_started
+            refresh_duration = elapsed_seconds(refresh_started, now)
             counters["refresh_total"] += refresh_duration
             counters["refresh_max"] = max(counters["refresh_max"], refresh_duration)
         if refreshed:
             self._stats_refresh_successes += 1
-            refresh_duration = now - refresh_started
+            refresh_duration = elapsed_seconds(refresh_started, now)
             self._stats_refresh_total += refresh_duration
             self._stats_refresh_max = max(self._stats_refresh_max, refresh_duration)
             self._record_success_interval(now)
@@ -1760,9 +1760,9 @@ class MatrixDisplay:
         elif self._rail_phase != state:
             self._select_rail_scene(phase, calling_seconds, summary_seconds)
         update_heap_before = self._heap_free()
-        update_started = time.monotonic()
+        update_started = ticks_ms()
         changed = self._update_rail_scene(screen, clock_time, phase)
-        update_duration = time.monotonic() - update_started
+        update_duration = elapsed_seconds(update_started)
         if update_duration > 0.1 and update_heap_before is not None:
             update_heap_after = self._heap_free()
             if update_heap_after is not None:
@@ -2188,7 +2188,7 @@ class MatrixDisplay:
         if not self._todoist_cache_matches(screen, clock_date):
             self._build_todoist_scene(screen, clock_time, clock_date)
 
-        update_started = time.monotonic()
+        update_started = ticks_ms()
         changed = self._update_todoist_scene(screen, clock_time, phase)
         self._attach_brightness_overlay(self._todoist_group)
         if self.display.root_group is not self._todoist_group:
@@ -2198,7 +2198,7 @@ class MatrixDisplay:
         self._record_animation_update(
             "todoist",
             changed,
-            time.monotonic() - update_started,
+            elapsed_seconds(update_started),
             animation_class,
         )
         if changed:
@@ -2295,7 +2295,7 @@ class MatrixDisplay:
     def _show_steam_train(self, screen, phase):
         if not self._steam_train_cache_matches(screen):
             self._build_steam_train_scene(screen)
-        update_started = time.monotonic()
+        update_started = ticks_ms()
         changed = self._update_steam_train_scene(phase)
         self._attach_brightness_overlay(self._steam_train_group)
         if self.display.root_group is not self._steam_train_group:
@@ -2305,7 +2305,7 @@ class MatrixDisplay:
         self._record_animation_update(
             "steam_train",
             changed,
-            time.monotonic() - update_started,
+            elapsed_seconds(update_started),
             animation_class,
         )
         if changed:
@@ -2649,7 +2649,7 @@ class MatrixDisplay:
         )
 
     def _show_bin_collection(self, screen, clock_time, clock_date, phase):
-        update_started = time.monotonic()
+        update_started = ticks_ms()
         header_kind, header_offset = _header_item_state(phase, screen.get("weather"))
         if not self._bin_collection_cache_matches(screen, clock_date, header_kind):
             self._build_bin_collection(screen, clock_time, clock_date, phase, header_kind)
@@ -2685,7 +2685,7 @@ class MatrixDisplay:
         else:
             animation_class = self._animation_class(screen, phase)
         self._record_animation_update(
-            "bin_collection", changed, time.monotonic() - update_started, animation_class
+            "bin_collection", changed, elapsed_seconds(update_started), animation_class
         )
 
     def _header_weather(self, group, weather, offset=0):

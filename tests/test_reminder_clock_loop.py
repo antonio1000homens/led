@@ -23,6 +23,7 @@ class ReminderClockLoopTests(unittest.TestCase):
         self.polls = []
         self.scope = {
             "time": SimpleNamespace(monotonic=lambda: self.now, sleep=self.sleep),
+            "ticks_ms": lambda: round(self.now * 1000),
             "clock": SimpleNamespace(epoch=lambda now: self.due - 1 + now),
             "flash": self.flash, "flash_resume": None, "last_render_key": "old",
             "rotation": SimpleNamespace(pause=self.pause, freeze=self.pause),
@@ -57,11 +58,14 @@ class ReminderClockLoopTests(unittest.TestCase):
         self.assertIsNone(self.scope["last_render_key"])
 
     def test_due_checks_during_frames_do_not_poll_or_pause_twice(self):
+        self.now = 0.9
         self.assertFalse(self.scope["_service_reminder_clock"](0.9))
+        self.now = 1.0
         self.assertTrue(self.scope["_service_reminder_clock"](1.0))
+        self.now = 1.1
         self.assertFalse(self.scope["_service_reminder_clock"](1.1))
         self.assertEqual(self.polls, [])
-        self.assertEqual(self.pauses, [1.0])
+        self.assertEqual(self.pauses, [1000])
 
 
 if __name__ == "__main__":

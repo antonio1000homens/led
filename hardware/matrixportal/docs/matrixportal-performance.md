@@ -96,6 +96,28 @@ hardware during that experiment.
 
 ## Isolated steam-train motion test
 
+### Long-uptime clock precision
+
+The October 11 physical investigation found that the 3.45-day-old board's
+`time.monotonic()` returned only four distinct timestamps in 400 samples
+spaced roughly a millisecond apart. Its reported steps included 31.25 ms and
+156.25 ms, while the largest consecutive integer-nanosecond sample interval
+was 3.12 ms. The same coarse float clock had driven both motion and telemetry,
+making apparent 8 Hz loop stability insufficient to establish even movement.
+Saving board-local settings also auto-reloaded the application, changing the
+animation's timing alignment; improvement after the radio experiment alone
+therefore did not establish Wi-Fi as the cause.
+
+Animation timing now uses `time.monotonic_ns()` converted to integer
+milliseconds. Frame waits and measurements subtract integer timestamps before
+converting the short difference to seconds. `ScreenRotation` accepts integer
+millisecond timestamps in the firmware, retains integer anchors across
+rotation, refresh and resume, and returns short phases in seconds to the
+renderers. Long-uptime tests cover one-pixel train steps and pause/resume.
+Integer frame deadlines include telemetry/bookkeeping overhead in the cadence
+budget and rebase any overdue deadline rather than issuing catch-up bursts.
+The display cadence, bit depth and panel geometry are unchanged by this fix.
+
 To distinguish pixel stepping from stalls elsewhere in the application, the
 firmware has an opt-in `STEAM_TRAIN_TEST` mode for the physical board. Set it
 to `True` in the ignored board-local `settings_local.py`; the mode then uses a

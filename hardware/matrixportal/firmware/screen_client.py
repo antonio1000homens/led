@@ -247,7 +247,11 @@ class ClockState:
 
 
 class ScreenRotation:
-    """Rotate server-provided screens without resetting on every data poll."""
+    """Rotate screens, returning phases in seconds.
+
+    ``ticks_per_second=1000`` accepts integer millisecond timestamps so screen
+    motion retains precision after days of physical-board uptime.
+    """
 
     def __init__(self, ticks_per_second=1):
         self.ticks_per_second = ticks_per_second
