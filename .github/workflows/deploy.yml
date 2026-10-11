@@ -43,7 +43,6 @@ on:
       - 'shared/**'
       - 'requirements-server.txt'
       - 'infrastructure/led-stack.yaml'
-      - 'infrastructure/bootstrap.yaml'
       - 'scripts/deploy-stack.sh'
       - 'scripts/load-ssm-secrets.sh'
       - 'scripts/package-lambda.sh'
@@ -145,27 +144,6 @@ jobs:
 
       - name: Load deployment secrets from SSM
         run: bash scripts/load-ssm-secrets.sh
-
-      - name: Refresh bootstrap execution-role policy
-        run: |
-          set +e
-          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-          OIDC_ARN="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
-          aws cloudformation deploy \
-            --region "${AWS_REGION}" \
-            --stack-name led-bootstrap \
-            --template-file infrastructure/bootstrap.yaml \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --parameter-overrides "GitHubOidcProviderArn=${OIDC_ARN}"
-          status=$?
-          if [ "${status}" -ne 0 ]; then
-            aws cloudformation describe-stack-events \
-              --region "${AWS_REGION}" --stack-name led-bootstrap \
-              --query 'StackEvents[0:20].[Timestamp,LogicalResourceId,ResourceType,ResourceStatus,ResourceStatusReason]' \
-              --output table || true
-            exit "${status}"
-          fi
-          set -e
 
       - name: Verify AWS identity and select dedicated code bucket
         run: |
