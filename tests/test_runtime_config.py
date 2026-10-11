@@ -231,6 +231,56 @@ class RuntimeConfigTests(unittest.TestCase):
             DEFAULT_NO_SERVICES_DURATION_SECONDS,
         )
 
+    def test_existing_saved_config_backfills_new_screens_without_reset(self):
+        # An existing DynamoDB item predates newer feeds, including Insult of
+        # the Hour. GET /config must be able to load it without losing settings.
+        legacy = default_runtime_config({})
+        original_ids = {"departures", "thorpe_park", "chessington", "weather", "calendar"}
+        self.assertEqual(set(legacy["feeds"]), set(schema_metadata()["feeds"]))
+        for feed_id in set(legacy["feeds"]) - original_ids:
+            del legacy["feeds"][feed_id]
+        legacy["config_version"] = 17
+        legacy["updated_by"] = "human:admin@example.com"
+        legacy["feeds"]["departures"]["screen_duration_seconds"] = 23
+        legacy["feeds"]["weather"]["enabled"] = False
+        saved_item = {"config_id": "runtime", **copy.deepcopy(legacy)}
+        table = FakeTable()
+        table.item = copy.deepcopy(saved_item)
+        store = RuntimeConfigStore("table", table=table, defaults=default_runtime_config({}))
+
+        loaded = store.load()
+        self.assertEqual(set(loaded["feeds"]), set(schema_metadata()["feeds"]))
+        self.assertFalse(loaded["feeds"]["insult_of_hour"]["enabled"])
+        self.assertEqual(loaded["feeds"]["insult_of_hour"]["poll_seconds"], 3600)
+        self.assertEqual(loaded["config_version"], 17)
+        self.assertEqual(loaded["updated_by"], "human:admin@example.com")
+        self.assertEqual(loaded["feeds"]["departures"]["screen_duration_seconds"], 23)
+        self.assertFalse(loaded["feeds"]["weather"]["enabled"])
+        self.assertEqual(table.item, saved_item)  # Reads do not reset persisted data.
+
+        updated, fields = store.patch_feed(
+            "insult_of_hour", {"enabled": True},
+            expected_version=17, updated_by="human:admin@example.com",
+        )
+        self.assertEqual(fields, ["enabled"])
+        self.assertEqual(updated["config_version"], 18)
+        self.assertTrue(store.load()["feeds"]["insult_of_hour"]["enabled"])
+        self.assertEqual(table.item["feeds"]["departures"]["screen_duration_seconds"], 23)
+
+    def test_missing_original_or_unknown_feed_still_fails_validation(self):
+        config = default_runtime_config({})
+        for feed_id in ("departures", "thorpe_park", "chessington", "weather", "calendar"):
+            with self.subTest(feed_id=feed_id):
+                missing = copy.deepcopy(config)
+                del missing["feeds"][feed_id]
+                with self.assertRaisesRegex(RuntimeConfigValidationError, "supported v1 feed IDs"):
+                    validate_runtime_config(missing)
+
+        unknown = copy.deepcopy(config)
+        unknown["feeds"]["not_a_feed"] = {"enabled": True}
+        with self.assertRaisesRegex(RuntimeConfigValidationError, "supported v1 feed IDs"):
+            validate_runtime_config(unknown)
+
     def test_validation_rejects_sub_minimum_poll_and_unknown_or_read_only_fields(self):
         with self.assertRaises(RuntimeConfigValidationError):
             validate_feed_patch("departures", {"poll_seconds": 59})
