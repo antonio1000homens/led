@@ -6,15 +6,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
-    def test_sl7_bus_contract_has_validated_mqtt_override_and_backend_fallback(self):
+    def test_sl7_bus_uses_https_and_rejects_mqtt_override(self):
         mqtt = (ROOT / "hardware" / "matrixportal" / "firmware" / "mqtt_screens.py").read_text()
         bus = (ROOT / "hardware" / "matrixportal" / "firmware" / "bus_departures.py").read_text()
         provider = (ROOT / "backend" / "transitous_bus.py").read_text()
         rotation = (ROOT / "hardware" / "matrixportal" / "firmware" / "screen_client.py").read_text()
-        self.assertIn('if screen.get("kind") == "bus_departures":', mqtt)
-        self.assertIn("valid_bus_screen(screen, slot)", mqtt)
-        self.assertIn("def configure_bus(self, config):", mqtt)
-        self.assertIn("def _available_screens(self):", rotation)
+        code = (ROOT / "code.py").read_text()
+        admin = (ROOT / "simulator" / "admin.html").read_text()
+        self.assertIn('if slot.startswith("sl7-"):', mqtt)
+        self.assertNotIn("def configure_bus(self, config):", mqtt)
+        self.assertNotIn("mqtt_screens.configure_bus", code)
+        self.assertIn('item.get("kind") != "bus_departures"', rotation)
+        self.assertIn("Transitous / MOTIS · HTTPS API", admin)
         self.assertIn('STOP_KEYS = ("heathrow", "new-malden")', bus)
         self.assertIn("TransitousBusProvider", provider)
         self.assertIn("api.transitous.org/api", provider)

@@ -42,7 +42,8 @@ settings.
 
 SL7 bus departures are polled by the backend from Transitous and arrive in the
 same HTTP `/api/screens` payload as the other feeds; they do not use Home
-Assistant or MQTT. The MatrixPortal does not hold National Rail, Todoist,
+Assistant or MQTT. SL7 MQTT slots are ignored so a retained local message
+cannot replace either HTTPS-backed page. The MatrixPortal does not hold National Rail, Todoist,
 Transitous, Queue-Times or weather-provider credentials. It only needs Wi-Fi
 access to the backend. Feed authentication, polling, caching and stale handling
 remain server-side.

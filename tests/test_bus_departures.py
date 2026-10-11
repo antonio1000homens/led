@@ -18,48 +18,42 @@ def screen():
 
 
 class BusDepartureTests(unittest.TestCase):
-    def test_mqtt_requires_runtime_enable_and_filters_by_stop(self):
+    def test_sl7_mqtt_messages_are_rejected_even_if_retained(self):
         state = MqttScreenState()
-        payload = {"schema_version": 1, "event": "upsert", "published_at": "2026-10-11T20:00:00Z", "expires_at": "2026-10-11T20:04:00Z", "source": "homeassistant", "screen": screen()}
-        self.assertTrue(state.accept("led/screens/sl7-heathrow", payload, 1791748800))
-        self.assertEqual(state.screens(1791748800), [])
-        config = {"enabled": True, "heathrow_enabled": True, "new_malden_enabled": False,
-                  "screen_duration_seconds": 9, "no_services_duration_seconds": 5,
-                  "upcoming_bus_count": 2, "display_every_cycles": 3,
-                  "stale_after_seconds": 180, "destination_scroll_speed": 24}
-        state.configure_bus(config)
-        result = state.screens(1791748800)
-        self.assertEqual(len(result), 1)
-        self.assertEqual([item["trip_id"] for item in result[0]["departures"]], ["a", "b"])
-        self.assertEqual(result[0]["duration_seconds"], 9)
-        self.assertEqual(result[0]["display_every_cycles"], 3)
-        self.assertFalse(result[0]["stale"])
-        self.assertTrue(state.screens(1791748990)[0]["stale"])
-        state.configure_bus(dict(config, heathrow_enabled=False))
+        for stop in ("heathrow", "new-malden"):
+            screen_data = dict(screen(), id="sl7-" + stop, stop_key=stop)
+            payload = {"schema_version": 1, "event": "upsert",
+                       "published_at": "2026-10-11T20:00:00Z",
+                       "expires_at": "2026-10-11T20:04:00Z",
+                       "source": "homeassistant", "screen": screen_data}
+            self.assertFalse(state.accept("led/screens/sl7-" + stop, payload, 1791748800))
+            self.assertFalse(state.accept("led/screens/other-bus", payload, 1791748800))
+            self.assertFalse(state.accept("led/screens/sl7-" + stop, {
+                "schema_version": 1, "event": "clear",
+                "published_at": "2026-10-11T20:00:00Z"}, 1791748800))
         self.assertEqual(state.screens(1791748800), [])
 
-    def test_unavailable_homeassistant_data_does_not_mask_backend_fallback(self):
+    def test_unrelated_mqtt_recycling_screen_is_unchanged(self):
         state = MqttScreenState()
-        state.configure_bus({"enabled": True, "heathrow_enabled": True})
-        offline = dict(screen(), status="unavailable", departures=[])
+        bin_screen = {
+            "id": "homeassistant-next-bin", "kind": "bin_collection",
+            "title": "Next collection", "duration_seconds": 8, "slide_speed": 20,
+            "collection_date": "2026-10-13",
+            "collections": [{"id": "recycling", "label": "Recycling"}],
+        }
         payload = {"schema_version": 1, "event": "upsert",
                    "published_at": "2026-10-11T20:00:00Z",
                    "expires_at": "2026-10-11T20:04:00Z",
-                   "source": "homeassistant", "screen": offline}
-        self.assertTrue(state.accept("led/screens/sl7-heathrow", payload, 1791748800))
-        self.assertEqual(state.screens(1791748800), [])
+                   "source": "homeassistant", "screen": bin_screen}
+        self.assertTrue(state.accept("led/screens/homeassistant-next-bin", payload, 1791748800))
+        self.assertEqual(state.screens(1791748800), [bin_screen])
+        self.assertEqual(state.screens(1791749050), [])
 
-    def test_mqtt_rejects_mismatched_stop_and_unbounded_retention(self):
-        state = MqttScreenState()
-        payload = {"schema_version": 1, "event": "upsert", "published_at": "2026-10-11T20:00:00Z", "expires_at": "2026-10-11T20:04:00Z", "source": "homeassistant", "screen": screen()}
-        self.assertFalse(state.accept("led/screens/sl7-new-malden", payload, 1791748800))
-        self.assertFalse(state.accept("led/screens/sl7-heathrow", dict(payload, expires_at="2026-10-12T20:00:00Z"), 1791748800))
-
-    def test_runtime_replaces_http_bus_without_duplicate_and_skips_configured_cycles(self):
+    def test_http_bus_wins_if_old_mqtt_message_is_injected(self):
         from screen_client import ScreenRotation
         http = [
             {"id": "sl7-heathrow-intro", "kind": "bus_intro", "duration_seconds": 2, "display_every_cycles": 2},
-            dict(screen(), display_every_cycles=2),
+            dict(screen(), source="transitous", display_every_cycles=2),
             {"id": "rail", "kind": "rail_combined", "duration_seconds": 8, "services": []},
         ]
         mqtt = [dict(screen(), source="homeassistant", display_every_cycles=2)]
@@ -67,7 +61,7 @@ class BusDepartureTests(unittest.TestCase):
         rotation.update_sources(http, mqtt, 0)
         self.assertEqual([item["id"] for item in rotation.screens],
                          ["sl7-heathrow-intro", "sl7-heathrow", "rail"])
-        self.assertEqual(rotation.screens[1]["source"], "homeassistant")
+        self.assertEqual(rotation.screens[1]["source"], "transitous")
         rotation.cycle_number = 1
         self.assertEqual([item["id"] for item in rotation._cycle_plan(rotation._available_screens())], ["rail"])
 

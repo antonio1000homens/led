@@ -347,8 +347,12 @@ class ScreenRotation:
         return next_screens
 
     def _available_screens(self):
-        """Replace backend stop pages with MQTT equivalents without duplicates."""
-        mqtt = {item.get("id"): item for item in self.mqtt_screens}
+        """Combine HTTP and MQTT screens, reserving all SL7 IDs for HTTP."""
+        mqtt = {
+            item.get("id"): item for item in self.mqtt_screens
+            if item.get("kind") != "bus_departures"
+            and not str(item.get("id") or "").startswith("sl7-")
+        }
         available = [mqtt.pop(item.get("id"), item) for item in self.http_screens]
         available.extend(mqtt[key] for key in sorted(mqtt))
         return available

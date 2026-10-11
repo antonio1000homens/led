@@ -791,9 +791,6 @@ class Publisher:
             "config_version": runtime["config_version"],
             "display": copy.deepcopy(runtime["display"]),
             "flash": copy.deepcopy(config_feeds["flash"]),
-            # Non-secret MQTT screen policy is consumed by the board. The
-            # publisher cannot report broker health; this is configuration only.
-            "sl7_bus": copy.deepcopy(config_feeds["sl7_bus"]),
             "screens": screens,
         }
 
