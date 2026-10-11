@@ -6,15 +6,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
-    def test_sl7_bus_contract_is_backend_owned(self):
+    def test_sl7_bus_contract_has_validated_mqtt_override_and_backend_fallback(self):
         mqtt = (ROOT / "hardware" / "matrixportal" / "firmware" / "mqtt_screens.py").read_text()
         bus = (ROOT / "hardware" / "matrixportal" / "firmware" / "bus_departures.py").read_text()
         provider = (ROOT / "backend" / "transitous_bus.py").read_text()
-        self.assertNotIn("bus_departures", mqtt)
-        self.assertIn("STOP_KEYS = (\"heathrow\", \"new-malden\")", bus)
+        rotation = (ROOT / "hardware" / "matrixportal" / "firmware" / "screen_client.py").read_text()
+        self.assertIn('if screen.get("kind") == "bus_departures":', mqtt)
+        self.assertIn("valid_bus_screen(screen, slot)", mqtt)
+        self.assertIn("def configure_bus(self, config):", mqtt)
+        self.assertIn("def _available_screens(self):", rotation)
+        self.assertIn('STOP_KEYS = ("heathrow", "new-malden")', bus)
         self.assertIn("TransitousBusProvider", provider)
         self.assertIn("api.transitous.org/api", provider)
-        self.assertFalse((ROOT.parent / "homeassistant" / "packages" / "sl7_led_mqtt.yaml").exists())
 
     def test_simulator_renders_and_previews_bin_collection_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
