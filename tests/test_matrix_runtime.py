@@ -1,6 +1,11 @@
 import unittest
 
-from matrix_runtime import DIAGNOSTIC_COLORS, RuntimeMode
+from matrix_runtime import (
+    DIAGNOSTIC_COLORS,
+    RuntimeMode,
+    collect_gc_with_state,
+    enter_rail_gc_window,
+)
 
 
 class FakeRotation:
@@ -11,7 +16,61 @@ class FakeRotation:
         self.calls.append(now)
 
 
+class FakeGarbageCollector:
+    def __init__(self, fail=False):
+        self.enabled = False
+        self.fail = fail
+        self.collections = 0
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+
+    def collect(self):
+        self.collections += 1
+        if self.fail:
+            raise RuntimeError("collection failed")
+        return 12
+
+
 class RuntimeModeTests(unittest.TestCase):
+    def test_prebuilt_rail_entry_suppresses_gc_without_collecting(self):
+        collector = FakeGarbageCollector()
+        collected = enter_rail_gc_window(
+            collector, allow_during_build=False, collect_at_entry=False
+        )
+        self.assertFalse(collected)
+        self.assertEqual(collector.collections, 0)
+        self.assertFalse(collector.enabled)
+
+    def test_cold_and_post_build_experiment_entry_gc_modes(self):
+        cold_collector = FakeGarbageCollector()
+        self.assertTrue(enter_rail_gc_window(cold_collector))
+        self.assertEqual(cold_collector.collections, 1)
+        self.assertFalse(cold_collector.enabled)
+
+        experiment_collector = FakeGarbageCollector()
+        self.assertFalse(enter_rail_gc_window(
+            experiment_collector, allow_during_build=True
+        ))
+        self.assertEqual(experiment_collector.collections, 0)
+        self.assertTrue(experiment_collector.enabled)
+
+    def test_manual_gc_restores_requested_state_after_success_or_failure(self):
+        for fail in (False, True):
+            for enabled_after in (False, True):
+                collector = FakeGarbageCollector(fail=fail)
+                with self.subTest(fail=fail, enabled_after=enabled_after):
+                    if fail:
+                        with self.assertRaises(RuntimeError):
+                            collect_gc_with_state(collector, enabled_after)
+                    else:
+                        self.assertEqual(collect_gc_with_state(collector, enabled_after), 12)
+                    self.assertEqual(collector.enabled, enabled_after)
+                    self.assertEqual(collector.collections, 1)
+
     def test_long_up_enters_and_exits_diagnostic_mode(self):
         runtime = RuntimeMode()
         self.assertEqual(runtime.mode, "normal")

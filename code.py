@@ -41,13 +41,17 @@ from animation_scheduler import (
     frame_gap_exceeded,
     next_deadline,
 )
-from matrix_runtime import RuntimeMode
+from matrix_runtime import RuntimeMode, collect_gc_with_state, enter_rail_gc_window
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from mqtt_screens import MqttScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
+    MATRIX_RAIL_PREBUILD_EXPERIMENT,
+    MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+    MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
     MATRIX_REFRESH_FPS,
+    MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
     MATRIX_STATS_INTERVAL_SECONDS,
     MATRIX_TELEMETRY_ENABLED,
 )
@@ -345,6 +349,7 @@ rail_gc_suspended = False
 rail_gc_pause_active = False
 rail_gc_last_pressure_collect = None
 sun_gc_completed_key = None
+rail_prebuild_last_slot = None
 previous_rail_frame_started = None
 last_rail_sleep_requested_ms = 0.0
 last_rail_preframe_ms = 0.0
@@ -776,6 +781,45 @@ while True:
             rotation.resume(ticks_ms(), maintenance_resume[0], maintenance_resume[1])
         last_maintenance_slot = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
 
+    if (MATRIX_RAIL_PREBUILD_EXPERIMENT and maintenance_active
+            and settings.DISPLAY_BACKEND == "matrix" and not flash.active(now)):
+        upcoming_rail = rotation.next_paired_rail_screen()
+        prebuild_key = (
+            rotation.cycle_number,
+            candidate.get("id"),
+            rotation.started_at,
+            upcoming_rail.get("id") if upcoming_rail else None,
+            id(upcoming_rail) if upcoming_rail else None,
+        )
+        if prebuild_key != rail_prebuild_last_slot:
+            rail_prebuild_last_slot = prebuild_key
+            print(
+                "RAIL PREBUILD WINDOW cycle={} maintenance_id={} upcoming_id={} display_type={} prepare_available={}".format(
+                    rotation.cycle_number,
+                    candidate.get("id"),
+                    upcoming_rail.get("id") if upcoming_rail else None,
+                    type(display).__name__,
+                    hasattr(display, "prepare_rail_scene"),
+                )
+            )
+            if upcoming_rail is None:
+                print("RAIL PREBUILD SKIP reason=no_future_pair")
+                if hasattr(display, "discard_prepared_rail_scene"):
+                    display.discard_prepared_rail_scene()
+            elif hasattr(display, "prepare_rail_scene"):
+                try:
+                    display.prepare_rail_scene(
+                        upcoming_rail,
+                        clock.text(now),
+                        MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
+                        MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+                    )
+                except Exception as error:
+                    # On-demand construction remains the transition fallback.
+                    print("RAIL PREBUILD FAILED; using on-demand build:", error)
+            else:
+                print("RAIL PREBUILD SKIP reason=renderer_unavailable")
+
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):
         rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
@@ -825,16 +869,58 @@ while True:
         and screen.get("kind") == "rail_combined"
     )
     if gc is not None and rail_screen and not rail_gc_suspended:
-        collect = getattr(gc, "collect", None)
         disable = getattr(gc, "disable", None)
-        if collect is not None:
-            collect()
-        if disable is not None:
-            disable()
+        enable = getattr(gc, "enable", None)
+        scene_ready = (
+            hasattr(display, "rail_scene_ready")
+            and display.rail_scene_ready(screen)
+        )
+        cold_build = not scene_ready
+        prebuilt_scene = (
+            hasattr(display, "rail_scene_prebuilt")
+            and display.rail_scene_prebuilt(screen)
+        )
+        allow_build_gc = (
+            MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT
+            and cold_build
+            and enable is not None
+        )
+        if cold_build and hasattr(display, "discard_prepared_rail_scene"):
+            # Drop an obsolete hidden generation before the entry collection
+            # or automatic-GC build so old and replacement scenes do not peak
+            # together in the heap.
+            display.discard_prepared_rail_scene(reason="on_demand_rebuild")
+        gc_entry_started = ticks_ms()
+        entry_collect = not allow_build_gc and not prebuilt_scene
+        try:
+            entry_collect = enter_rail_gc_window(
+                gc,
+                allow_during_build=allow_build_gc,
+                collect_at_entry=entry_collect,
+            )
+        except Exception as error:
+            if disable is not None:
+                try:
+                    disable()
+                except Exception:
+                    pass
+            print("RAIL GC ENTRY FAILED; continuing with restored collector state:", error)
+        gc_entry_duration = elapsed_seconds(gc_entry_started)
         rail_gc_suspended = True
         rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
-            print("RAIL GC ENTER heap_free={}".format(_memory_free()))
+            print(
+                "RAIL GC ENTER reason={} auto_gc_during_build={} entry_collect={} duration={:.3f}s heap_free={} heap_allocated={}".format(
+                    "cold_scene_build" if cold_build else (
+                        "prepared_scene" if prebuilt_scene else "scene_ready"
+                    ),
+                    allow_build_gc,
+                    entry_collect,
+                    gc_entry_duration,
+                    _memory_free(),
+                    _memory_allocated(),
+                )
+            )
     elif gc is not None and rail_screen and rail_gc_suspended:
         pause_now = (
             hasattr(display, "rail_gc_safe_to_collect")
@@ -851,41 +937,45 @@ while True:
             and pressure_cooldown_elapsed
         )
         if (pause_now and not rail_gc_pause_active) or pressure_due:
-            gc_reason = "calling_end_pause" if pause_now else "heap_pressure"
+            gc_reason = (
+                "calling_end_pause"
+                if pause_now
+                else "heap_pressure_during_motion"
+            )
+            gc_started = ticks_ms()
             if HEAP_DIAGNOSTICS_ENABLED:
                 print(
-                    "RAIL GC START reason={} heap_free={}".format(
-                        gc_reason, heap_before_gc
+                    "RAIL GC START reason={} motion_active={} heap_free={}".format(
+                        gc_reason, not pause_now, heap_before_gc
                     )
                 )
-            enable = getattr(gc, "enable", None)
-            collect = getattr(gc, "collect", None)
-            if enable is not None:
-                enable()
-            if collect is not None:
-                collect()
-            if disable is not None:
-                disable()
+            try:
+                collect_gc_with_state(gc, enabled_after=False)
+            except Exception as error:
+                print("RAIL GC FAILED reason={} collector_state=disabled:".format(gc_reason), error)
+            gc_duration = elapsed_seconds(gc_started)
             if pressure_due:
                 rail_gc_last_pressure_collect = ticks_ms()
             if HEAP_DIAGNOSTICS_ENABLED:
                 print(
-                    "RAIL GC END reason={} heap_free_before={} heap_free_after={}".format(
-                        gc_reason, heap_before_gc, _memory_free()
+                    "RAIL GC END reason={} duration={:.3f}s heap_free_before={} heap_free_after={}".format(
+                        gc_reason, gc_duration, heap_before_gc, _memory_free()
                     )
                 )
         rail_gc_pause_active = pause_now
     elif gc is not None and not rail_screen and rail_gc_suspended:
-        enable = getattr(gc, "enable", None)
-        collect = getattr(gc, "collect", None)
-        if enable is not None:
-            enable()
-        if collect is not None:
-            collect()
-        rail_gc_suspended = False
-        rail_gc_pause_active = False
+        gc_exit_started = ticks_ms()
+        try:
+            collect_gc_with_state(gc, enabled_after=True)
+        except Exception as error:
+            print("RAIL GC EXIT FAILED reason=leaving_rail collector_state=enabled:", error)
+        finally:
+            rail_gc_suspended = False
+            rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
-            print("RAIL GC EXIT heap_free={}".format(_memory_free()))
+            print("RAIL GC EXIT duration={:.3f}s heap_free={}".format(
+                elapsed_seconds(gc_exit_started), _memory_free()
+            ))
     if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"
             and not display.tasks_ready(screen, clock.date_text(now))):
         # Never trigger an unexpected heavy build after entering an animated

@@ -218,6 +218,47 @@ class QueueAwareDisplay:
         if hasattr(self.base, "prepare_tasks"):
             return self.base.prepare_tasks(screen, clock_time, clock_date)
 
+    def prepare_rail_scene(
+        self,
+        screen,
+        clock_time="--:--",
+        minimum_free_bytes=None,
+        maximum_scene_bytes=None,
+    ):
+        if hasattr(self.base, "prepare_rail_scene"):
+            if minimum_free_bytes is None and maximum_scene_bytes is None:
+                return self.base.prepare_rail_scene(screen, clock_time)
+            if minimum_free_bytes is None:
+                return self.base.prepare_rail_scene(
+                    screen, clock_time, maximum_scene_bytes=maximum_scene_bytes
+                )
+            if maximum_scene_bytes is None:
+                return self.base.prepare_rail_scene(
+                    screen, clock_time, minimum_free_bytes=minimum_free_bytes
+                )
+            return self.base.prepare_rail_scene(
+                screen,
+                clock_time,
+                minimum_free_bytes,
+                maximum_scene_bytes,
+            )
+        return False
+
+    def rail_scene_ready(self, screen):
+        if hasattr(self.base, "rail_scene_ready"):
+            return self.base.rail_scene_ready(screen)
+        return False
+
+    def rail_scene_prebuilt(self, screen):
+        if hasattr(self.base, "rail_scene_prebuilt"):
+            return self.base.rail_scene_prebuilt(screen)
+        return False
+
+    def discard_prepared_rail_scene(self, reason="obsolete", collect=False):
+        if hasattr(self.base, "discard_prepared_rail_scene"):
+            return self.base.discard_prepared_rail_scene(reason, collect)
+        return False
+
 
 def create(settings):
     from display import create as create_base
