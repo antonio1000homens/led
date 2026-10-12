@@ -14,6 +14,52 @@ MATRIX_EXPERIMENT_PRESET = "B8"
 # The asynchronous experiment caused visible calling-at frame stalls when the
 # animation mutated the scene while CircuitPython refreshed independently.
 MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT = False
+MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = False
+MATRIX_RAIL_PREBUILD_EXPERIMENT = False
+MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = False
+MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES = 1536 * 1024
+MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES = 512 * 1024
+try:
+    import settings_local as _rail_gc_settings_local
+    MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = bool(
+        getattr(
+            _rail_gc_settings_local,
+            "MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT",
+            MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
+        )
+    )
+    MATRIX_RAIL_PREBUILD_EXPERIMENT = bool(
+        getattr(
+            _rail_gc_settings_local,
+            "MATRIX_RAIL_PREBUILD_EXPERIMENT",
+            MATRIX_RAIL_PREBUILD_EXPERIMENT,
+        )
+    )
+    MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = bool(
+        getattr(
+            _rail_gc_settings_local,
+            "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT",
+            MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT,
+        )
+    )
+    MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES = int(
+        getattr(
+            _rail_gc_settings_local,
+            "MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES",
+            MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
+        )
+    )
+    MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES = int(
+        getattr(
+            _rail_gc_settings_local,
+            "MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES",
+            MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+        )
+    )
+except ImportError:
+    pass
+if MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES < 0 or MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES < 0:
+    raise ValueError("Rail prebuild memory limits must not be negative")
 try:
     import settings_local as _preset_settings_local
     MATRIX_EXPERIMENT_PRESET = getattr(

@@ -64,7 +64,8 @@ class CapturingPalette:
 
 class CapturingTileGrid:
     def __init__(self, bitmap, pixel_shader, x=0, y=0):
-        del bitmap, pixel_shader
+        self.bitmap = bitmap
+        self.pixel_shader = pixel_shader
         self.x, self.y = x, y
 
 
@@ -105,6 +106,303 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_post_build_gc_experiment_is_off_by_default(self):
+        self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
+        self.assertFalse(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
+
+    def test_rail_gc_waits_for_departure_rows_to_stop(self):
+        display = types.SimpleNamespace(
+            _rail_summary_seconds=0,
+            _rail_calling_seconds=300,
+            _rail_scroll_speed=20.0,
+            _rail_calling_labels=[{"station_width": 6}],
+        )
+        screen = {
+            "kind": "rail_combined",
+            "services": [{}, {}, {}, {}, {}],
+            "upcoming_train_pause_seconds": 2,
+        }
+        # The calling line is in its end pause, while the lower rows are
+        # crossing the reset entrance at this phase.
+        with mock.patch.object(led_display, "MATRIX_RAIL_ROWS_SCROLL", True):
+            self.assertFalse(
+                led_display.MatrixDisplay.rail_gc_safe_to_collect(
+                    display, screen, 47.4
+                )
+            )
+        with mock.patch.object(led_display, "MATRIX_RAIL_ROWS_SCROLL", False):
+            self.assertTrue(
+                led_display.MatrixDisplay.rail_gc_safe_to_collect(
+                    display, screen, 11.5
+                )
+            )
+
+    def test_rail_prebuild_obeys_heap_guard_without_touching_visible_root(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        display.display = types.SimpleNamespace(root_group=visible_root)
+        display._rail_group = None
+        display._rail_scenes = {}
+        display._rail_services = None
+        display._rail_title = None
+        display._rail_stale = None
+        display._rail_weather = None
+        display._rail_presentation = None
+        display._rail_calling_seconds_cached = None
+        display._rail_summary_seconds_cached = None
+        display._rail_station_speed_cached = None
+        display._rail_station_spacing_cached = None
+        display._rail_rows_scroll_cached = None
+        display._rail_static_rows_bitmap_cached = None
+        display._rail_pause_seconds_cached = None
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}]}
+        with mock.patch.object(display, "_heap_free", return_value=1000), \
+                mock.patch.object(display, "_build_rail_scene") as build:
+            self.assertFalse(display.prepare_rail_scene(screen, minimum_free_bytes=600,
+                                                        maximum_scene_bytes=500))
+        build.assert_not_called()
+        self.assertIs(display.display.root_group, visible_root)
+
+    def test_rail_scene_discard_releases_only_hidden_cache(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        hidden_rail = object()
+        display.display = types.SimpleNamespace(root_group=visible_root)
+        display._rail_group = hidden_rail
+        display._rail_scenes = {"calling": object()}
+        display._rail_services = [{"id": "old"}]
+        display._rail_prebuilt_pending = True
+        display._rail_calling_labels = []
+        display._rail_departure_rows = []
+        display._rail_phase = None
+        display._rail_clock_group = None
+        display._rail_clock_label = None
+        display._rail_weather_group = None
+        with mock.patch.object(display, "_heap_free", side_effect=[900, 900]):
+            self.assertTrue(display.discard_prepared_rail_scene(reason="changed"))
+        self.assertIs(display.display.root_group, visible_root)
+        self.assertIsNone(display._rail_group)
+        self.assertEqual(display._rail_scenes, {})
+        self.assertIsNone(display._rail_services)
+        self.assertFalse(display._rail_prebuilt_pending)
+
+        display._rail_group = hidden_rail
+        display.display.root_group = hidden_rail
+        self.assertFalse(display.discard_prepared_rail_scene(reason="active"))
+        self.assertIs(display._rail_group, hidden_rail)
+        self.assertIs(display.display.root_group, hidden_rail)
+
+    def test_rail_prebuild_keeps_scene_hidden_and_does_not_refresh(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        display.display = types.SimpleNamespace(root_group=visible_root, refresh=mock.Mock())
+        display._rail_group = None
+        display._rail_scenes = {}
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}], "title": "Departures"}
+
+        def build(payload, clock_time, phase):
+            del clock_time, phase
+            display._rail_group = object()
+            display._rail_services = payload["services"]
+            display._rail_title = payload.get("title")
+            display._rail_stale = False
+            display._rail_weather = None
+            display._rail_presentation = None
+            display._rail_calling_seconds_cached = led_display.RAIL_CALLING_SECONDS
+            display._rail_summary_seconds_cached = led_display.RAIL_SUMMARY_SECONDS
+            display._rail_station_speed_cached = None
+            display._rail_station_spacing_cached = None
+            display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+            display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
+            display._rail_pause_seconds_cached = 2
+
+        with mock.patch.object(display, "_heap_free", side_effect=[10000, 9500, 9400, 9000]), \
+                mock.patch.object(display, "_build_rail_scene", side_effect=build):
+            self.assertTrue(display.prepare_rail_scene(screen, minimum_free_bytes=1000,
+                                                       maximum_scene_bytes=1000))
+        self.assertTrue(display.rail_scene_prebuilt(screen))
+        self.assertIs(display.display.root_group, visible_root)
+        display.display.refresh.assert_not_called()
+
+    def test_rail_scene_cache_identity_includes_payload_and_render_settings(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display._rail_group = object()
+        display._rail_services = [{"id": "one"}]
+        display._rail_title = "Departures"
+        display._rail_stale = False
+        display._rail_weather = None
+        display._rail_presentation = {"calling_seconds": 30}
+        display._rail_calling_seconds_cached = 30
+        display._rail_summary_seconds_cached = 0
+        display._rail_station_speed_cached = 20
+        display._rail_station_spacing_cached = 3
+        display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+        display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
+        display._rail_pause_seconds_cached = 2
+        screen = {
+            "kind": "rail_combined", "services": [{"id": "one"},],
+            "title": "Departures", "stale": False,
+            "rail_presentation": {"calling_seconds": 30},
+            "calling_seconds": 30, "summary_seconds": 0,
+            "station_scroll_speed": 20, "station_list_spacing": 3,
+            "upcoming_train_pause_seconds": 2,
+        }
+        self.assertTrue(display.rail_scene_ready(screen))
+        with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", True):
+            self.assertFalse(display.rail_scene_ready(screen))
+        screen["services"] = [{"id": "changed"}]
+        self.assertFalse(display.rail_scene_ready(screen))
+        screen["services"] = [{"id": "one"}]
+        screen["station_scroll_speed"] = 24
+        self.assertFalse(display.rail_scene_ready(screen))
+
+    def test_rail_prebuild_reuses_equivalent_cached_scene(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.display = types.SimpleNamespace(root_group=object())
+        display._rail_group = object()
+        display._rail_scenes = {}
+        display._rail_services = [{"id": "one"}]
+        display._rail_title = "Departures"
+        display._rail_stale = False
+        display._rail_weather = None
+        display._rail_presentation = None
+        display._rail_calling_seconds_cached = led_display.RAIL_CALLING_SECONDS
+        display._rail_summary_seconds_cached = led_display.RAIL_SUMMARY_SECONDS
+        display._rail_station_speed_cached = None
+        display._rail_station_spacing_cached = None
+        display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+        display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
+        display._rail_pause_seconds_cached = 2
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}], "title": "Departures"}
+        with mock.patch.object(display, "_build_rail_scene") as build, \
+                mock.patch.object(display, "_heap_free") as heap_free:
+            self.assertTrue(display.prepare_rail_scene(screen))
+        build.assert_not_called()
+        heap_free.assert_not_called()
+
+    def test_rail_prebuild_rejects_stale_or_empty_payload(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.discard_prepared_rail_scene = mock.Mock()
+        with mock.patch.object(display, "_build_rail_scene") as build:
+            self.assertFalse(display.prepare_rail_scene({
+                "kind": "rail_combined", "services": [{"id": "one"}], "stale": True,
+            }))
+            self.assertFalse(display.prepare_rail_scene({
+                "kind": "rail_combined", "services": [], "stale": False,
+            }))
+        self.assertEqual(display.discard_prepared_rail_scene.call_count, 2)
+        build.assert_not_called()
+
+    def test_static_rail_row_experiment_uses_one_bitmap_per_service(self):
+        import sys
+
+        class GlyphBitmap:
+            def __getitem__(self, key):
+                return key == (0, 0)
+
+        class Glyph:
+            width = 2
+            height = 3
+            dx = 0
+            dy = 0
+            shift_x = 3
+            bitmap = GlyphBitmap()
+
+        class Font:
+            ascent = 7
+
+            def load_glyphs(self, codepoints):
+                del codepoints
+
+            def get_glyph(self, codepoint):
+                del codepoint
+                return Glyph()
+
+        previous = sys.modules.get("displayio")
+        sys.modules["displayio"] = types.SimpleNamespace(
+            Group=CapturingGroup, Bitmap=CapturingBitmap,
+            Palette=CapturingPalette, TileGrid=CapturingTileGrid,
+        )
+        try:
+            display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+            display.font = Font()
+            group = CapturingGroup()
+            with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", True):
+                display._rail_service(
+                    group,
+                    {"scheduled": "12:34", "destination": "Waterloo", "platform": "2",
+                     "cancelled": True, "status": "CANCELLED"},
+                    0xFF3300,
+                    0,
+                    12,
+                    250,
+                )
+            self.assertEqual(len(group), 1)
+            self.assertIsInstance(group[0], CapturingTileGrid)
+            self.assertEqual(group[0].x, 0)
+            self.assertEqual(group[0].pixel_shader.values[1], 0xFF3300)
+        finally:
+            if previous is None:
+                del sys.modules["displayio"]
+            else:
+                sys.modules["displayio"] = previous
+
+    def test_failed_cold_rail_build_restores_disabled_gc_state(self):
+        import sys
+
+        class FakeGC:
+            def __init__(self):
+                self.disabled = 0
+
+            def disable(self):
+                self.disabled += 1
+
+        previous = sys.modules.get("gc")
+        fake_gc = FakeGC()
+        sys.modules["gc"] = fake_gc
+        try:
+            display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+            display._rail_cache_matches = mock.Mock(return_value=False)
+            display._rail_prebuilt_pending = True
+            display._heap_free = mock.Mock(return_value=1000)
+            display._build_rail_scene = mock.Mock(side_effect=MemoryError("full"))
+            with mock.patch.object(led_display, "MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT", True):
+                with self.assertRaises(MemoryError):
+                    display._show_rail({"kind": "rail_combined", "services": [{}]}, "12:00", 0)
+            self.assertEqual(fake_gc.disabled, 1)
+            self.assertFalse(display._rail_prebuilt_pending)
+        finally:
+            if previous is None:
+                del sys.modules["gc"]
+            else:
+                sys.modules["gc"] = previous
+
+    def test_prebuilt_scene_marker_is_consumed_at_handoff(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        rail_root = object()
+        display.display = types.SimpleNamespace(root_group=visible_root)
+        display._rail_group = rail_root
+        display._rail_prebuilt_pending = True
+        display._rail_cache_matches = mock.Mock(return_value=True)
+        display._rail_phase = "calling"
+        display._rail_first_refresh_pending = False
+        display._rail_update_phase = 0
+        display._heap_free = mock.Mock(return_value=None)
+        display._update_rail_scene = mock.Mock(return_value=False)
+        display._attach_brightness_overlay = mock.Mock()
+        display._animation_class = mock.Mock(return_value="departures_calling")
+        display._record_animation_update = mock.Mock()
+        display._refresh = mock.Mock()
+        display.telemetry_enabled = False
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}]}
+
+        display._show_rail(screen, "12:00", 0)
+
+        self.assertIs(display.display.root_group, rail_root)
+        self.assertFalse(display._rail_prebuilt_pending)
+        display._refresh.assert_called_once_with("departures_calling")
+
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
             ("dad_joke", "DAD JOKE", "joke"),

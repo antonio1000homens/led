@@ -116,6 +116,37 @@ class QueueDisplayAdapterTests(unittest.TestCase):
         self.assertTrue(base.fetch_on_animation_capable_screen)
         self.assertTrue(base.cadence_switch)
 
+    def test_forwards_rail_scene_prepare_and_discard_to_base_display(self):
+        class Base:
+            def prepare_rail_scene(self, screen, clock_time="--:--",
+                                   minimum_free_bytes=10, maximum_scene_bytes=20):
+                self.prepared = (screen, clock_time, minimum_free_bytes, maximum_scene_bytes)
+                return True
+
+            def rail_scene_ready(self, screen):
+                self.ready_screen = screen
+                return True
+
+            def rail_scene_prebuilt(self, screen):
+                self.prebuilt_screen = screen
+                return True
+
+            def discard_prepared_rail_scene(self, reason="obsolete", collect=False):
+                self.discarded = (reason, collect)
+                return True
+
+        base = Base()
+        display = QueueAwareDisplay(base)
+        screen = {"id": "departures", "kind": "rail_combined"}
+        self.assertTrue(display.prepare_rail_scene(screen, "12:34", 100, 200))
+        self.assertEqual(base.prepared, (screen, "12:34", 100, 200))
+        self.assertTrue(display.rail_scene_ready(screen))
+        self.assertIs(base.ready_screen, screen)
+        self.assertTrue(display.rail_scene_prebuilt(screen))
+        self.assertIs(base.prebuilt_screen, screen)
+        self.assertTrue(display.discard_prepared_rail_scene("feed_changed", True))
+        self.assertEqual(base.discarded, ("feed_changed", True))
+
 
 if __name__ == "__main__":
     unittest.main()

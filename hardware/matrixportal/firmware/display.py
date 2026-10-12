@@ -10,6 +10,10 @@ from matrix_config import (
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
     MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT,
+    MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
+    MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+    MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
+    MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT,
     CALLING_SCROLL_SPEED_OVERRIDE,
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_ROWS_SCROLL,
@@ -843,6 +847,7 @@ class MatrixDisplay:
         self._last_present_refresh = None
         self._refresh_misses = 0
         self._rail_first_refresh_pending = False
+        self._rail_build_started_ms = None
 
         self._brightness = BrightnessState(brightness_percent)
         self._brightness_bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 2)
@@ -954,6 +959,17 @@ class MatrixDisplay:
         self._rail_title = None
         self._rail_stale = None
         self._rail_weather = None
+        self._rail_presentation = None
+        self._rail_calling_seconds_cached = None
+        self._rail_summary_seconds_cached = None
+        self._rail_station_speed_cached = None
+        self._rail_station_spacing_cached = None
+        self._rail_rows_scroll_cached = None
+        self._rail_pause_seconds_cached = None
+        self._rail_static_rows_bitmap_cached = None
+        self._rail_prebuilt_pending = False
+        self._rail_static_row_bitmap_count = 0
+        self._rail_retained_heap_cost = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []
         self._rail_departure_active_start = None
@@ -1621,8 +1637,11 @@ class MatrixDisplay:
                 probe_first_refresh = self._rail_first_refresh_pending
                 if probe_first_refresh:
                     print(
-                        "RAIL FIRST REFRESH START mode={} heap_free={}".format(
-                            self.presentation_mode, self._heap_free()
+                        "RAIL FIRST REFRESH START mode={} scene_ready_to_present_ms={} heap_free={}".format(
+                            self.presentation_mode,
+                            ticks_ms() - self._rail_build_started_ms
+                            if self._rail_build_started_ms is not None else None,
+                            self._heap_free()
                         )
                     )
                 refresh_started = ticks_ms()
@@ -1665,8 +1684,11 @@ class MatrixDisplay:
         )
         if probe_first_refresh:
             print(
-                "RAIL FIRST REFRESH START mode={} heap_free={}".format(
-                    self.presentation_mode, heap_before
+                "RAIL FIRST REFRESH START mode={} scene_ready_to_present_ms={} heap_free={}".format(
+                    self.presentation_mode,
+                    ticks_ms() - self._rail_build_started_ms
+                    if self._rail_build_started_ms is not None else None,
+                    heap_before
                 )
             )
         refresh_started = ticks_ms()
@@ -1677,8 +1699,11 @@ class MatrixDisplay:
             self._last_rail_refresh_seconds = refresh_duration
             if probe_first_refresh:
                 print(
-                    "RAIL FIRST REFRESH OK duration={:.3f}s refreshed={} heap_free={}".format(
-                        refresh_duration, refreshed, self._heap_free()
+                    "RAIL FIRST REFRESH OK duration={:.3f}s scene_ready_to_present_ms={} refreshed={} heap_free={}".format(
+                        refresh_duration,
+                        ticks_ms() - self._rail_build_started_ms
+                        if self._rail_build_started_ms is not None else None,
+                        refreshed, self._heap_free()
                     )
                 )
                 self._rail_first_refresh_pending = False
@@ -1747,12 +1772,82 @@ class MatrixDisplay:
         if status and status_x < platform_x + platform_width + HEADER_GAP:
             platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
+        if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
+            group,
+            (
+                (ordinal_text, RAIL_ORDINAL_X + x_offset),
+                (time_text, RAIL_TIME_X + x_offset),
+                (_fit_text_pixels(destination, destination_width), RAIL_DESTINATION_X + x_offset),
+                (platform, platform_x + x_offset),
+                (status, status_x + x_offset),
+            ),
+            color,
+            y,
+        ):
+            self._rail_static_row_bitmap_count = getattr(
+                self, "_rail_static_row_bitmap_count", 0
+            ) + 1
+            return
         self._label(group, ordinal_text, color, RAIL_ORDINAL_X + x_offset, y)
         self._label(group, time_text, color, RAIL_TIME_X + x_offset, y)
         self._label(group, _fit_text_pixels(destination, destination_width), color, RAIL_DESTINATION_X + x_offset, y)
         self._label(group, platform, color, platform_x + x_offset, y)
         if status:
             self._label(group, status, color, status_x + x_offset, y)
+
+    def _rail_service_bitmap(self, group, fields, color, baseline_y):
+        """Render one static service row into a single compact glyph bitmap."""
+        if not hasattr(self.font, "get_glyph"):
+            return False
+        import displayio
+
+        characters = set()
+        for text, _ in fields:
+            characters.update(ord(character) for character in str(text or ""))
+        if hasattr(self.font, "load_glyphs"):
+            self.font.load_glyphs(characters)
+
+        ascent = getattr(self.font, "ascent", None)
+        if ascent is None:
+            ascent = self.font.get_bounding_box()[1]
+        y_offset = ascent // 2
+        glyphs = []
+        min_x = min_y = 0
+        max_x = max_y = 0
+        for text, field_x in fields:
+            cursor_x = 0
+            for character in str(text or ""):
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                glyph_x = int(field_x) + cursor_x + glyph.dx
+                glyph_y = -glyph.height - glyph.dy + y_offset
+                glyphs.append((glyph, glyph_x, glyph_y))
+                min_x = min(min_x, glyph_x)
+                max_x = max(max_x, glyph_x + glyph.width)
+                min_y = min(min_y, glyph_y)
+                max_y = max(max_y, glyph_y + glyph.height)
+                cursor_x += glyph.shift_x
+
+        width = max(1, max_x - min_x)
+        height = max(1, max_y - min_y)
+        bitmap = displayio.Bitmap(width, height, 1)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = color
+        for glyph, glyph_x, glyph_y in glyphs:
+            for gy in range(glyph.height):
+                for gx in range(glyph.width):
+                    if glyph.bitmap[gx, gy]:
+                        bitmap[glyph_x - min_x + gx, glyph_y - min_y + gy] = 1
+        group.append(displayio.TileGrid(
+            bitmap,
+            pixel_shader=palette,
+            x=min_x,
+            y=int(baseline_y) + min_y,
+        ))
+        return True
 
     def _rail(self, group, screen, phase):
         import displayio
@@ -1834,16 +1929,40 @@ class MatrixDisplay:
             and self._rail_title == screen.get("title")
             and self._rail_stale == bool(screen.get("stale"))
             and _rail_weather_key(self._rail_weather) == _rail_weather_key(screen.get("weather"))
+            and self._rail_presentation == screen.get("rail_presentation")
+            and self._rail_calling_seconds_cached
+            == screen.get("calling_seconds", RAIL_CALLING_SECONDS)
+            and self._rail_summary_seconds_cached
+            == screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
+            and self._rail_station_speed_cached == screen.get("station_scroll_speed")
+            and self._rail_station_spacing_cached == screen.get("station_list_spacing")
+            and self._rail_rows_scroll_cached == MATRIX_RAIL_ROWS_SCROLL
+            and self._rail_static_rows_bitmap_cached
+            == MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
+            and self._rail_pause_seconds_cached
+            == screen.get("upcoming_train_pause_seconds", 2)
         )
+
+    def rail_scene_ready(self, screen):
+        """Report whether the persistent rail scene already matches this payload."""
+        return self._rail_cache_matches(screen)
+
+    def rail_scene_prebuilt(self, screen):
+        """Report whether a valid hidden scene is waiting for its paired handoff."""
+        return getattr(self, "_rail_prebuilt_pending", False) and self._rail_cache_matches(screen)
 
     def _build_rail_scene(self, screen, clock_time, phase):
         """Build both departures layouts once; phase changes only swap roots."""
         import displayio
 
         build_started = ticks_ms()
+        heap_before_build = self._heap_free()
+        self._rail_static_row_bitmap_count = 0
         print(
-            "RAIL BUILD START services={} heap_free={}".format(
-                len(screen.get("services") or ()), self._heap_free()
+            "RAIL BUILD START services={} static_row_renderer={} heap_free={}".format(
+                len(screen.get("services") or ()),
+                "bitmap" if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT else "labels",
+                self._heap_free(),
             )
         )
         scenes = {}
@@ -1882,13 +2001,191 @@ class MatrixDisplay:
         self._rail_title = screen.get("title")
         self._rail_stale = bool(screen.get("stale"))
         self._rail_weather = screen.get("weather")
+        self._rail_presentation = screen.get("rail_presentation")
+        self._rail_calling_seconds_cached = calling_seconds
+        self._rail_summary_seconds_cached = summary_seconds
+        self._rail_station_speed_cached = screen.get("station_scroll_speed")
+        self._rail_station_spacing_cached = screen.get("station_list_spacing")
+        self._rail_rows_scroll_cached = MATRIX_RAIL_ROWS_SCROLL
+        self._rail_static_rows_bitmap_cached = MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
+        self._rail_pause_seconds_cached = screen.get("upcoming_train_pause_seconds", 2)
+        heap_after_build = self._heap_free()
+        self._rail_build_started_ms = build_started
         self._select_rail_scene(phase, calling_seconds, summary_seconds)
         self._rail_first_refresh_pending = True
         print(
-            "RAIL BUILD OK scenes={} duration={:.3f}s heap_free={}".format(
-                len(scenes), elapsed_seconds(build_started), self._heap_free()
+            "RAIL BUILD OK scenes={} static_row_bitmaps={} duration={:.3f}s heap_free_before={} heap_free_after={} heap_drop={}".format(
+                len(scenes), self._rail_static_row_bitmap_count,
+                elapsed_seconds(build_started), heap_before_build,
+                heap_after_build,
+                (heap_before_build - heap_after_build)
+                if heap_before_build is not None and heap_after_build is not None
+                else None,
             )
         )
+
+    def _collect_rail_build_garbage(self, heap_before_build, build_started):
+        """Collect after a cold scene build and restore the animated-loop GC state."""
+        import gc
+
+        heap_before_gc = self._heap_free()
+        gc_started = ticks_ms()
+        gc.enable()
+        try:
+            gc.collect()
+        finally:
+            gc.disable()
+        heap_after_gc = self._heap_free()
+        gc_reclaimed = (
+            heap_after_gc - heap_before_gc
+            if heap_before_gc is not None and heap_after_gc is not None
+            else None
+        )
+        retained_heap_drop = (
+            heap_before_build - heap_after_gc
+            if heap_before_build is not None and heap_after_gc is not None
+            else None
+        )
+        print(
+            "RAIL POST BUILD GC duration={:.3f}s heap_free_before={} heap_free_after={} reclaimed_bytes={} retained_heap_drop={} build_to_gc_ms={}".format(
+                elapsed_seconds(gc_started), heap_before_gc, heap_after_gc,
+                gc_reclaimed, retained_heap_drop, ticks_ms() - build_started,
+            )
+        )
+
+    def prepare_rail_scene(
+        self,
+        screen,
+        clock_time="--:--",
+        minimum_free_bytes=MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
+        maximum_scene_bytes=MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+    ):
+        """Build a guarded rail scene without presenting or refreshing it."""
+        if (not isinstance(screen, dict) or screen.get("kind") != "rail_combined"
+                or screen.get("stale") or not screen.get("services")):
+            print("RAIL PREBUILD SKIP reason=missing_or_stale_payload")
+            self.discard_prepared_rail_scene(reason="missing_or_stale_payload", collect=True)
+            return False
+        if self._rail_cache_matches(screen):
+            self._rail_prebuilt_pending = True
+            print("RAIL PREBUILD REUSE screen_id={} services={}".format(
+                screen.get("id"), len(screen.get("services") or ())
+            ))
+            return True
+
+        if self._rail_group is not None:
+            if self.display.root_group is self._rail_group:
+                print("RAIL PREBUILD SKIP reason=visible_rail_scene")
+                return False
+            self.discard_prepared_rail_scene(reason="payload_or_settings_changed", collect=True)
+
+        heap_before = self._heap_free()
+        required_free = max(0, int(minimum_free_bytes)) + max(0, int(maximum_scene_bytes))
+        if heap_before is None or heap_before < required_free:
+            print(
+                "RAIL PREBUILD SKIP reason=memory_guard heap_free={} required_free={}".format(
+                    heap_before, required_free
+                )
+            )
+            return False
+
+        root_before = self.display.root_group
+        started = ticks_ms()
+        try:
+            self._build_rail_scene(screen, clock_time, 0)
+        except MemoryError:
+            print("RAIL PREBUILD SKIP reason=memory_error heap_free={}".format(self._heap_free()))
+            collect = getattr(__import__("gc"), "collect", None)
+            if collect is not None:
+                collect()
+            return False
+
+        # Static maintenance runs with automatic GC enabled. Collect transient
+        # construction garbage while the completed scene is safely cached.
+        import gc
+
+        heap_before_gc = self._heap_free()
+        gc_started = ticks_ms()
+        gc.collect()
+        gc_duration = elapsed_seconds(gc_started)
+        heap_after = self._heap_free()
+        gc_reclaimed = (
+            heap_after - heap_before_gc
+            if heap_before_gc is not None and heap_after is not None
+            else None
+        )
+        self._rail_retained_heap_cost = (
+            heap_before - heap_after
+            if heap_before is not None and heap_after is not None
+            else None
+        )
+        if self.display.root_group is not root_before:
+            self.display.root_group = root_before
+            print("RAIL PREBUILD ERROR reason=hidden_root_changed restored=true")
+            self.discard_prepared_rail_scene(reason="hidden_root_changed", collect=True)
+            return False
+        if heap_after is not None and heap_after < max(0, int(minimum_free_bytes)):
+            self.discard_prepared_rail_scene(reason="post_build_reserve", collect=True)
+            print(
+                "RAIL PREBUILD SKIP reason=post_build_reserve heap_free={} minimum_free={}".format(
+                    self._heap_free(), minimum_free_bytes
+                )
+            )
+            return False
+        print(
+            "RAIL PREBUILD OK screen_id={} duration={:.3f}s gc_duration={:.3f}s gc_reclaimed={} heap_free_before={} heap_free_after={} retained_heap_drop={}".format(
+                screen.get("id"), elapsed_seconds(started), gc_duration,
+                gc_reclaimed, heap_before, heap_after,
+                self._rail_retained_heap_cost,
+            )
+        )
+        self._rail_prebuilt_pending = True
+        return True
+
+    def discard_prepared_rail_scene(self, reason="obsolete", collect=False):
+        """Release a hidden prepared scene, preserving a currently visible rail root."""
+        if self._rail_group is not None and self.display.root_group is self._rail_group:
+            return False
+        had_scene = self._rail_group is not None
+        heap_before = self._heap_free() if had_scene else None
+        self._rail_scenes = {}
+        self._rail_group = None
+        self._rail_services = None
+        self._rail_title = None
+        self._rail_stale = None
+        self._rail_weather = None
+        self._rail_presentation = None
+        self._rail_calling_seconds_cached = None
+        self._rail_summary_seconds_cached = None
+        self._rail_station_speed_cached = None
+        self._rail_station_spacing_cached = None
+        self._rail_rows_scroll_cached = None
+        self._rail_static_rows_bitmap_cached = None
+        self._rail_prebuilt_pending = False
+        self._rail_pause_seconds_cached = None
+        self._rail_calling_labels = []
+        self._rail_departure_rows = []
+        self._rail_phase = None
+        self._rail_clock_group = None
+        self._rail_clock_label = None
+        self._rail_weather_group = None
+        if had_scene and collect:
+            import gc
+
+            gc.collect()
+        heap_after = self._heap_free() if had_scene else None
+        if had_scene:
+            print(
+                "RAIL SCENE DISCARD reason={} heap_free_before={} heap_free_after={} reclaimed_bytes={}".format(
+                    reason,
+                    heap_before,
+                    heap_after,
+                    heap_after - heap_before
+                    if heap_before is not None and heap_after is not None
+                    else None,
+                )
+            )
+        return True
 
     def _select_rail_scene(self, phase, calling_seconds=RAIL_CALLING_SECONDS,
                            summary_seconds=RAIL_SUMMARY_SECONDS):
@@ -2015,7 +2312,7 @@ class MatrixDisplay:
         return changed
 
     def rail_gc_safe_to_collect(self, screen, phase):
-        """Return whether every calling marquee has scrolled off and reached its end pause."""
+        """Return whether all animated rail content is stationary."""
         if not isinstance(screen, dict) or screen.get("kind") != "rail_combined":
             return False
         summary_seconds = self._rail_summary_seconds
@@ -2040,6 +2337,21 @@ class MatrixDisplay:
             within_ms = (phase_ms % calling_ms) % (travel_ms + pause_ms)
             if within_ms < travel_ms:
                 return False
+        if MATRIX_RAIL_ROWS_SCROLL:
+            services = screen.get("services") or ()
+            _, progress, reset_progress = departure_scroll_state(
+                rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
+                max(0, len(services) - 1),
+                screen.get("upcoming_train_pause_seconds", 2),
+                visible_rows=2,
+            )
+            # A blank reset gap and the deliberate row pauses are stationary.
+            if progress > 0 or (reset_progress is not None and reset_progress > 0):
+                return False
+        # The current header alternates clock/weather at rest; it has no slide.
+        # Keep this explicit so future header animation changes gate rail GC.
+        if _header_slide_active(phase, screen.get("weather")):
+            return False
         return True
 
     def _show_rail(self, screen, clock_time, phase):
@@ -2047,10 +2359,34 @@ class MatrixDisplay:
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
         summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
         state = rail_phase(phase, summary_seconds, calling_seconds)
+        prebuilt_for_handoff = self.rail_scene_prebuilt(screen)
+        scene_built = False
         if not self._rail_cache_matches(screen):
-            self._build_rail_scene(screen, clock_time, phase)
+            # A mismatched prepared payload is an on-demand fallback, never a
+            # prepared handoff for a later unchanged cycle.
+            self._rail_prebuilt_pending = False
+            heap_before_build = self._heap_free()
+            build_started = ticks_ms()
+            try:
+                self._build_rail_scene(screen, clock_time, phase)
+            except Exception:
+                # code.py may have enabled automatic GC for this cold build.
+                # If construction fails before the post-build collector runs,
+                # restore the animated-window state before propagating it.
+                if MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT:
+                    import gc
+
+                    gc.disable()
+                raise
+            scene_built = True
+            if MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT:
+                self._collect_rail_build_garbage(heap_before_build, build_started)
         elif self._rail_phase != state:
             self._select_rail_scene(phase, calling_seconds, summary_seconds)
+        if self._rail_first_refresh_pending and not scene_built:
+            # A prepared scene can sit hidden throughout the static slot.
+            # Measure transition-to-present latency separately from its build.
+            self._rail_build_started_ms = ticks_ms()
         update_heap_before = self._heap_free()
         update_started = ticks_ms()
         changed = self._update_rail_scene(screen, clock_time, phase)
@@ -2081,6 +2417,8 @@ class MatrixDisplay:
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
             changed = True
+        if prebuilt_for_handoff:
+            self._rail_prebuilt_pending = False
         animation_class = self._animation_class(screen, phase)
         self._record_animation_update(
             "rail",
