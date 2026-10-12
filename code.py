@@ -695,6 +695,23 @@ while True:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = payload.get("screens")
+            prepare_intro = getattr(display, "prepare_intro", None)
+            if callable(prepare_intro):
+                for intro in screens or ():
+                    if (not isinstance(intro, dict)
+                            or intro.get("kind") not in ("steam_train_intro", "bus_intro")):
+                        continue
+                    try:
+                        if prepare_intro(intro):
+                            print(
+                                "INTRO SCENE PREPARED id={} kind={} heap_free={}".format(
+                                    intro.get("id"), intro.get("kind"), _memory_free()
+                                )
+                            )
+                    except Exception as error:
+                        # Keep fetched screens usable if off-screen preparation
+                        # cannot allocate; the renderer retains its normal fallback.
+                        print("Intro scene preparation deferred:", error)
             display_config = payload.get("display")
             if (
                 isinstance(display_config, dict)
@@ -979,6 +996,7 @@ while True:
         or _smooth_departures(screen)
         or _smooth_queue(screen)
         or _smooth_steam_train(screen)
+        or _smooth_bus_intro(screen)
         or _smooth_sun_weather(screen)
         or _smooth_bin_collection(screen)
     )

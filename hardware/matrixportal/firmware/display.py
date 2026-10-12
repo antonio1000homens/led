@@ -2659,6 +2659,23 @@ class MatrixDisplay:
         if changed:
             self._refresh(animation_class)
 
+    def prepare_intro(self, screen):
+        """Build transition scenes before their first visible animation frame."""
+        if not isinstance(screen, dict):
+            return False
+        kind = screen.get("kind")
+        if kind == "steam_train_intro":
+            if self._steam_train_cache_matches(screen):
+                return False
+            self._build_steam_train_scene(screen)
+            return True
+        if kind == "bus_intro":
+            if self._bus_intro_cache_matches(screen):
+                return False
+            self._build_bus_intro_scene(screen)
+            return True
+        return False
+
     def _bus_intro_cache_matches(self, screen):
         try:
             speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
@@ -2694,7 +2711,10 @@ class MatrixDisplay:
         fill_rect(12, 6, 8, 5, 2)
         fill_rect(22, 6, 8, 5, 2)
         fill_rect(32, 6, 8, 5, 2)
-        fill_rect(42, 11, 6, 7, 3)
+        # The bus travels left, so put its driver windscreen and front marker
+        # on the left to keep the motion reading as forward travel.
+        fill_rect(4, 6, 6, 5, 4)
+        fill_rect(3, 12, 6, 7, 3)
         for center_x in (13, 39):
             for dx, dy in ((-3, -2), (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -2),
                            (-3, -1), (3, -1), (-3, 0), (3, 0), (-2, 2), (-1, 3),
@@ -3416,7 +3436,8 @@ class FixtureDisplay:
         self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
         for window_x in (12, 22, 32):
             self._fill_rect(x + window_x, 7 + offset, 8, 5, (255, 255, 255))
-        self._fill_rect(x + 42, 12 + offset, 6, 7, (255, 170, 0))
+        self._fill_rect(x + 4, 6 + offset, 6, 5, (34, 34, 34))
+        self._fill_rect(x + 3, 12 + offset, 6, 7, (255, 170, 0))
         for center_x in (13, 39):
             self._fill_rect(x + center_x - 3, 20 + offset, 7, 1, (34, 34, 34))
             self._fill_rect(x + center_x - 2, 21 + offset, 5, 3, (34, 34, 34))

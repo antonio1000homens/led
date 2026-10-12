@@ -56,6 +56,8 @@ class BusIntroAnimationTests(unittest.TestCase):
             motion = display._bus_intro_motion_group
             self.assertEqual(motion.x, led_display.DISPLAY_WIDTH)
             self.assertEqual(motion[0].palette[1], 0xFF3300)
+            self.assertEqual(motion[0].bitmap[5, 7], 4)
+            self.assertEqual(motion[0].bitmap[4, 13], 3)
 
             display._show_bus_intro(screen, led_display.DISPLAY_WIDTH / 24)
             self.assertEqual(motion.x, 0)
@@ -74,6 +76,14 @@ class BusIntroAnimationTests(unittest.TestCase):
         display._bus_intro(screen, 0)
         self.assertIn(
             mock.call(led_display.DISPLAY_WIDTH + 3, 10, 43, 12, (255, 51, 0)),
+            display._fill_rect.call_args_list,
+        )
+        self.assertIn(
+            mock.call(led_display.DISPLAY_WIDTH + 4, 7, 6, 5, (34, 34, 34)),
+            display._fill_rect.call_args_list,
+        )
+        self.assertIn(
+            mock.call(led_display.DISPLAY_WIDTH + 3, 13, 6, 7, (255, 170, 0)),
             display._fill_rect.call_args_list,
         )
         display._fill_rect.reset_mock()
@@ -108,12 +118,47 @@ class BusIntroAnimationTests(unittest.TestCase):
             scope["_display_phase"]({"kind": "unrelated"}, 7.5), 2
         )
 
+    def test_bus_intro_uses_smooth_animation_scheduler(self):
+        tree = ast.parse((Path(__file__).parents[1] / "code.py").read_text())
+        assignment = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "smooth_animation"
+                    for target in node.targets)
+        )
+        self.assertTrue(
+            any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "_smooth_bus_intro"
+                for node in ast.walk(assignment.value)
+            ),
+            "bus intro must use the same frame paced loop as the train intro",
+        )
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        bus_fps = display.animation_cadence({"kind": "bus_intro"}, 0)
+        train_fps = display.animation_cadence({"kind": "steam_train_intro"}, 0)
+        self.assertEqual(bus_fps, train_fps)
+
+    def test_intro_scene_is_prebuilt_without_becoming_visible(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display._bus_intro_cache_matches = mock.Mock(return_value=False)
+        display._build_bus_intro_scene = mock.Mock()
+        self.assertTrue(display.prepare_intro({"kind": "bus_intro"}))
+        display._build_bus_intro_scene.assert_called_once_with({"kind": "bus_intro"})
+        display._bus_intro_cache_matches.return_value = True
+        display._build_bus_intro_scene.reset_mock()
+        self.assertFalse(display.prepare_intro({"kind": "bus_intro"}))
+        display._build_bus_intro_scene.assert_not_called()
+
     def test_simulator_matches_red_bus_and_left_edge_stop(self):
         source = (Path(__file__).parents[1] / "simulator/index.html").read_text()
         bus = source.split("function drawBus(screen, phase)", 1)[1].split(
             "function drawBusWheel", 1
         )[0]
         self.assertIn("'#ff3300'", bus)
+        self.assertIn("trainRect(x + 4 * FONT_PIXEL_SCALE, 6, 6, 5, '#222222')", bus)
+        self.assertIn("trainRect(x + 3 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00')", bus)
         self.assertIn("const x = Math.max(0, Math.round(", bus)
 
 
