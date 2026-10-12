@@ -1,8 +1,9 @@
-# Rail departures heap experiment
+# Rail departures heap and prebuild experiments
 
-Issue #241 starts with two controls: low frequency scene-build/first-refresh
-measurements and a board-local, opt-in collection after the persistent rail
-scene has been built. Both remain opt-in/default-off for new GC behavior.
+Issue #241 starts with low frequency scene-build/first-refresh measurements,
+board-local post-build collection, and ahead-of-train scene preparation. Both
+new behaviors remain opt-in/default-off until actual board measurements show
+that the retained scene fits safely alongside the train renderer.
 
 ## A/B setting
 
@@ -33,6 +34,34 @@ uptime conditions.
 collection. These are CircuitPython board measurements; host tests do not
 provide representative heap numbers.
 
+## Ahead-of-train scene preparation
+
+Set `MATRIX_RAIL_PREBUILD_EXPERIMENT = True` in the ignored board-local
+`settings_local.py` to enable preparation. The firmware searches the existing
+rotation for the future adjacent `steam_train_intro` → `rail_combined` pair
+during an already scheduled static maintenance window. It does not add time to
+the train or put work between the train and departures. Preparation is skipped
+for stale/empty payloads and unless free heap exceeds the configured estimated
+scene cost plus the reserve (`MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES` and
+`MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES`). These are safety estimates, not measured
+proof; keep the experiment off until low-water measurements support values for
+the board and payload.
+
+The prepared scene identity includes service data, title/stale/weather data,
+preprocessed calling presentation, phase timings, scroll settings, row-scroll
+mode, and train pause. A mismatch invalidates the hidden scene and uses the
+existing on-demand path. Logs distinguish build duration/heap from
+`scene_ready_to_present_ms`; a prepared scene is measured from the transition,
+not from the earlier maintenance slot. `RAIL PREBUILD OK/SKIP/REUSE` records
+explain the path selected.
+
+| Run | Services | Train + prepared scene min free | Retained scene cost | Prebuild duration | Transition to present | Frame gaps >200 ms | Resets/errors |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Control, cold | | n/a | n/a | n/a | | | |
+| Prebuild, cold | | | | | | | |
+| Control, warm | | n/a | n/a | n/a | | | |
+| Prebuild, warm | | | | | | | |
+
 ## Rail collection safety
 
 The planned rail collection window now requires the calling marquee to be in
@@ -45,7 +74,7 @@ physical runs show useful reclaimed memory without visible pauses or resets.
 
 ## Scope still requiring board evidence
 
-No board measurements are checked in by this source change. Ahead-of-train
-scene preparation, static-label alternatives, row recycling, and a complete
-rail-cycle summary remain separate experiments; none should be claimed as
-accepted based on host tests or simulated heap data.
+No board measurements are checked in by this source change. Static-label
+alternatives, row recycling, a complete rail-cycle summary, and all physical
+acceptance measurements remain open; none should be claimed as accepted based
+on host tests or simulated heap data.
