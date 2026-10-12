@@ -130,17 +130,16 @@ recorded.
 The production guard requires 2 MiB before building (1.5 MiB reserve plus a
 512 KiB scene estimate), above the board's approximately 1.67 MiB total free
 heap at startup. The guarded trials used explicit temporary test budgets.
-The board's active `matrix_config.py` was restored to the staged default-off
-file and its SHA-256 readback matched. A full staged upload then verified all
-23 application files with `code.py` last, triggering the normal firmware
-reload. The uploader refused to remove a pre-existing `boot.py` whose contents
-did not match its temporary-workaround signature; no `boot.py` change was made.
-After the latest temporary-fixture run, the original `settings_local.py` and
-baseline `matrix_config.py` were restored and SHA-256 read back, then all 23
-staged files were uploaded and verified with `code.py` last. Fresh serial logs
-showed the baseline label renderer building the live three-service departures
-screen with no build or refresh error. The serial read began after startup, so
-it does not prove the production fourteen-screen fetch completed in that boot.
+The guarded trials used temporary board-local test budgets; their configuration
+was restored after each run. The latest source candidate promotes the accepted
+bitmap renderer while keeping post-build GC and prebuild off. After the
+repeated label captures, the original production `settings_local.py` was
+restored and read back. The full candidate upload verified all 23 staged files
+with `code.py` last. Remote SHA-256 readback matched the staged
+`matrix_config.py` and `code.py`, and `settings_local.py` matched the saved
+production file. The candidate matrix config has bitmap rows on and both
+post-build GC and prebuild off. Fresh serial logs confirmed B8 presentation and
+`FETCH OK screens=14` from the production feed.
 
 ## Compact static service rows
 
