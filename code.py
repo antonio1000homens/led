@@ -280,6 +280,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
     )
 rendered_diagnostic_index = None
 last_render_key = None
+last_logged_screen_key = None
 
 # Todoist frame-pacing diagnostics are reset whenever the board enters the
 # Todoist screen, so each serial summary represents one comparable run.
@@ -801,10 +802,17 @@ while True:
     preframe_duration = current_preframe_ms / 1000.0 if MATRIX_TELEMETRY_ENABLED else 0.0
     render_key = (
         (screen.get("id"), screen.get("kind"))
-        if MATRIX_TELEMETRY_ENABLED and isinstance(screen, dict)
-        else None
+        if isinstance(screen, dict)
+        else (None, None)
     )
+    log_screen_change = render_key != last_logged_screen_key
     instrument_render = MATRIX_TELEMETRY_ENABLED and render_key != last_render_key
+    if log_screen_change:
+        print(
+            "SCREEN START id={} kind={} title={} heap_free={}".format(
+                render_key[0], render_key[1], screen.get("title", ""), _memory_free()
+            )
+        )
     if instrument_render:
         render_started = ticks_ms()
         memory_before = _memory_free()
@@ -840,6 +848,18 @@ while True:
             )
         )
         last_render_key = render_key
+    if log_screen_change:
+        base_display = getattr(display, "base", display)
+        hardware_display = getattr(base_display, "display", None)
+        root_group = getattr(hardware_display, "root_group", None)
+        brightness = getattr(base_display, "brightness_percent", None)
+        print(
+            "SCREEN OK id={} kind={} heap_free={} root_set={} refresh={} brightness={}".format(
+                render_key[0], render_key[1], _memory_free(), root_group is not None,
+                getattr(base_display, "_last_present_refresh", None), brightness,
+            )
+        )
+        last_logged_screen_key = render_key
     last_visible_screen = screen.get("id")
     mqtt_screens_changed = False
     smooth_animation = (

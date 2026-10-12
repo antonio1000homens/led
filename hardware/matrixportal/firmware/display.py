@@ -840,6 +840,7 @@ class MatrixDisplay:
         )
         self.steam_train_test = bool(steam_train_test)
         self.display.root_group = displayio.Group()
+        self._last_present_refresh = None
         self._refresh_misses = 0
 
         self._brightness = BrightnessState(brightness_percent)
@@ -1676,7 +1677,7 @@ class MatrixDisplay:
         self.display.root_group = group
         # Pace frame publication through framebufferio. This waits for the
         # display refresh scheduler rather than swapping a frame mid-cycle.
-        self._refresh()
+        self._last_present_refresh = self._refresh()
 
     def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         """Show a cheap transition card before building a heavy screen."""
