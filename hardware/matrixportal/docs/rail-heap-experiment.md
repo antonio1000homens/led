@@ -132,6 +132,7 @@ includes this setting so a changed mode cannot reuse an incompatible scene.
 | Labels, cold | 6 | labels | 168,848 B | n/a | 0.444 s | 477 ms | 786,016 B | 7 | 696 ms | 0 |
 | Bitmap rows, cold | 6 | bitmap (6 bitmaps) | 80,624 B | n/a | 0.428 s | 449 ms | 785,408 B | 5 | 598 ms | 0 |
 | Labels, cold | 5 | labels | 160,960 B | n/a | 0.441 s | 464 ms | 788,096 B | 6 | 693 ms | 0 |
+| Labels, next cycle | 5 | labels | 134,976 B | n/a | 0.388 s | 437 ms | 787,520 B | 4 | 886 ms | 0 |
 | Bitmap rows, maximum, first cycle | 10 | bitmap (10 bitmaps) | 129,360 B | n/a | 0.524 s | 556 ms | 785,776 B | 5 | 767 ms | 0 |
 | Bitmap rows, maximum, next cycle | 10 | bitmap (10 bitmaps) | 359,664 B | n/a | 0.533 s | 583 ms | 786,032 B | 5 | 1,039 ms | 0 |
 | Labels, warm | not captured | labels | | | | | | | | |
@@ -141,13 +142,16 @@ In the single six-service cold comparison, bitmap rows reduced the measured
 build heap drop by 88,224 B (about 52%) and did not worsen measured first
 presentation or minimum free heap. The user checked those rows and reported
 “looks fine”, with no observed tearing, flashing, stalls, or resets. The maximum
-setting returned ten services from the live feed. Two bitmap cycles measured
+setting returned ten services from the live feed. The user visually checked
+the maximum bitmap screen and reported “looks fine.” Two bitmap cycles measured
 different build drops (129,360 B and 359,664 B) and first presentation at
 556/583 ms; their current payloads were not byte-identical, so the difference
-does not isolate cache or renderer cost. In the five-service label run, one
-76 ms emergency collection occurred while moving. Retained-scene cost remains
-unmeasured for the bitmap renderer, and a five-service bitmap comparator is
-still needed.
+does not isolate cache or renderer cost. The two five-service label builds
+dropped 160,960 B and 134,976 B and presented in 464/437 ms. The second build
+followed a scene discard, so this is not a warm cache hit; payload equivalence
+has not been established. Each five-service cycle had one emergency collection
+while moving (76/84 ms). Retained-scene cost remains unmeasured for the bitmap
+renderer, and its five-service comparator is running.
 
 ## Rail collection safety
 
@@ -172,13 +176,13 @@ repeated and larger-payload captures. Visible-row recycling is not justified
 by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
-prebuild; five services for one label cycle; and ten services for two bitmap
-cycles. Exact payloads differed across runs. A five-service bitmap comparator,
-maximum-payload labels, repeated warm/cache-identity checks, and retained-cost
-measurements remain open. Overall rotation heap reached 129,680 B on non-rail
+prebuild; five services for two label cycles and a bitmap comparator in
+progress; and ten services for two bitmap cycles. Exact payloads differed
+across runs. Maximum-payload labels, repeated warm/cache-identity checks, and
+retained-cost measurements remain open. Overall rotation heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
-786 KB. The user observed the six-service bitmap rows once; visual acceptance
-of the maximum payload has not been recorded. The corrected prebuild run
+786 KB. The user visually accepted both the six-service and maximum bitmap
+rows. The corrected prebuild run
 reached the paired handoff after two earlier on-demand cycles.
 Rollback is to leave the three `MATRIX_RAIL_*_EXPERIMENT` switches at their
 default `False` values.
