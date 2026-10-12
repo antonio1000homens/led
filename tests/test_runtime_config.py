@@ -129,8 +129,16 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertTrue(bus["bus_intro_enabled"])
         self.assertEqual(bus["words"], DEFAULT_BUS_INTRO_WORDS)
         self.assertEqual(bus["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
+        self.assertEqual(bus["layout_mode"], "split_columns")
+        self.assertEqual(
+            validate_feed_patch("sl7_bus", {"layout_mode":"separate_stops"}),
+            {"layout_mode":"separate_stops"},
+        )
+        for wrong in ("legacy", 123, None):
+            with self.subTest(mode=wrong), self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("sl7_bus", {"layout_mode":wrong})
         schema = schema_metadata()["feeds"]["sl7_bus"]
-        for field in ("bus_intro_enabled", "animation_speed", "words"):
+        for field in ("bus_intro_enabled", "animation_speed", "words", "layout_mode"):
             self.assertIn(field, schema["mutable_fields"])
             self.assertIn(field, schema["fields"])
         self.assertEqual(schema["fields"]["words"]["maximumLength"], 80)
@@ -151,12 +159,13 @@ class RuntimeConfigTests(unittest.TestCase):
 
         # Older persisted SL7 records gain defaults without changing existing selections.
         config["feeds"]["sl7_bus"].update({"heathrow_enabled": False, "display_every_cycles": 4})
-        for field in ("bus_intro_enabled", "animation_speed", "words"):
+        for field in ("bus_intro_enabled", "animation_speed", "words", "layout_mode"):
             del config["feeds"]["sl7_bus"][field]
         migrated = validate_runtime_config(config)["feeds"]["sl7_bus"]
         self.assertTrue(migrated["bus_intro_enabled"])
         self.assertEqual(migrated["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
         self.assertEqual(migrated["words"], DEFAULT_BUS_INTRO_WORDS)
+        self.assertEqual(migrated["layout_mode"], "split_columns")
         self.assertFalse(migrated["heathrow_enabled"])
         self.assertEqual(migrated["display_every_cycles"], 4)
 
