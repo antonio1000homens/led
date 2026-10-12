@@ -1,6 +1,11 @@
 import unittest
 
-from matrix_runtime import DIAGNOSTIC_COLORS, RuntimeMode, collect_gc_with_state
+from matrix_runtime import (
+    DIAGNOSTIC_COLORS,
+    RuntimeMode,
+    collect_gc_with_state,
+    enter_rail_gc_window,
+)
 
 
 class FakeRotation:
@@ -31,6 +36,28 @@ class FakeGarbageCollector:
 
 
 class RuntimeModeTests(unittest.TestCase):
+    def test_prebuilt_rail_entry_suppresses_gc_without_collecting(self):
+        collector = FakeGarbageCollector()
+        collected = enter_rail_gc_window(
+            collector, allow_during_build=False, collect_at_entry=False
+        )
+        self.assertFalse(collected)
+        self.assertEqual(collector.collections, 0)
+        self.assertFalse(collector.enabled)
+
+    def test_cold_and_post_build_experiment_entry_gc_modes(self):
+        cold_collector = FakeGarbageCollector()
+        self.assertTrue(enter_rail_gc_window(cold_collector))
+        self.assertEqual(cold_collector.collections, 1)
+        self.assertFalse(cold_collector.enabled)
+
+        experiment_collector = FakeGarbageCollector()
+        self.assertFalse(enter_rail_gc_window(
+            experiment_collector, allow_during_build=True
+        ))
+        self.assertEqual(experiment_collector.collections, 0)
+        self.assertTrue(experiment_collector.enabled)
+
     def test_manual_gc_restores_requested_state_after_success_or_failure(self):
         for fail in (False, True):
             for enabled_after in (False, True):

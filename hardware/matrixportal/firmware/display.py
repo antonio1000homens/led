@@ -967,6 +967,7 @@ class MatrixDisplay:
         self._rail_rows_scroll_cached = None
         self._rail_pause_seconds_cached = None
         self._rail_static_rows_bitmap_cached = None
+        self._rail_prebuilt_pending = False
         self._rail_static_row_bitmap_count = 0
         self._rail_retained_heap_cost = None
         self._rail_calling_labels = []
@@ -1946,6 +1947,10 @@ class MatrixDisplay:
         """Report whether the persistent rail scene already matches this payload."""
         return self._rail_cache_matches(screen)
 
+    def rail_scene_prebuilt(self, screen):
+        """Report whether a valid hidden scene is waiting for its paired handoff."""
+        return getattr(self, "_rail_prebuilt_pending", False) and self._rail_cache_matches(screen)
+
     def _build_rail_scene(self, screen, clock_time, phase):
         """Build both departures layouts once; phase changes only swap roots."""
         import displayio
@@ -2062,6 +2067,7 @@ class MatrixDisplay:
             self.discard_prepared_rail_scene()
             return False
         if self._rail_cache_matches(screen):
+            self._rail_prebuilt_pending = True
             print("RAIL PREBUILD REUSE screen_id={} services={}".format(
                 screen.get("id"), len(screen.get("services") or ())
             ))
@@ -2133,6 +2139,7 @@ class MatrixDisplay:
                 self._rail_retained_heap_cost,
             )
         )
+        self._rail_prebuilt_pending = True
         return True
 
     def discard_prepared_rail_scene(self):
@@ -2152,6 +2159,7 @@ class MatrixDisplay:
         self._rail_station_spacing_cached = None
         self._rail_rows_scroll_cached = None
         self._rail_static_rows_bitmap_cached = None
+        self._rail_prebuilt_pending = False
         self._rail_pause_seconds_cached = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []
@@ -2333,8 +2341,12 @@ class MatrixDisplay:
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
         summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
         state = rail_phase(phase, summary_seconds, calling_seconds)
+        prebuilt_for_handoff = self.rail_scene_prebuilt(screen)
         scene_built = False
         if not self._rail_cache_matches(screen):
+            # A mismatched prepared payload is an on-demand fallback, never a
+            # prepared handoff for a later unchanged cycle.
+            self._rail_prebuilt_pending = False
             heap_before_build = self._heap_free()
             build_started = ticks_ms()
             try:
@@ -2387,6 +2399,8 @@ class MatrixDisplay:
         if self.display.root_group is not self._rail_group:
             self.display.root_group = self._rail_group
             changed = True
+        if prebuilt_for_handoff:
+            self._rail_prebuilt_pending = False
         animation_class = self._animation_class(screen, phase)
         self._record_animation_update(
             "rail",

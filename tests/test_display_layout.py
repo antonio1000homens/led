@@ -191,6 +191,7 @@ class DisplayLayoutTests(unittest.TestCase):
                 mock.patch.object(display, "_build_rail_scene", side_effect=build):
             self.assertTrue(display.prepare_rail_scene(screen, minimum_free_bytes=1000,
                                                        maximum_scene_bytes=1000))
+        self.assertTrue(display.rail_scene_prebuilt(screen))
         self.assertIs(display.display.root_group, visible_root)
         display.display.refresh.assert_not_called()
 
@@ -333,17 +334,45 @@ class DisplayLayoutTests(unittest.TestCase):
         try:
             display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
             display._rail_cache_matches = mock.Mock(return_value=False)
+            display._rail_prebuilt_pending = True
             display._heap_free = mock.Mock(return_value=1000)
             display._build_rail_scene = mock.Mock(side_effect=MemoryError("full"))
             with mock.patch.object(led_display, "MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT", True):
                 with self.assertRaises(MemoryError):
                     display._show_rail({"kind": "rail_combined", "services": [{}]}, "12:00", 0)
             self.assertEqual(fake_gc.disabled, 1)
+            self.assertFalse(display._rail_prebuilt_pending)
         finally:
             if previous is None:
                 del sys.modules["gc"]
             else:
                 sys.modules["gc"] = previous
+
+    def test_prebuilt_scene_marker_is_consumed_at_handoff(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        rail_root = object()
+        display.display = types.SimpleNamespace(root_group=visible_root)
+        display._rail_group = rail_root
+        display._rail_prebuilt_pending = True
+        display._rail_cache_matches = mock.Mock(return_value=True)
+        display._rail_phase = "calling"
+        display._rail_first_refresh_pending = False
+        display._rail_update_phase = 0
+        display._heap_free = mock.Mock(return_value=None)
+        display._update_rail_scene = mock.Mock(return_value=False)
+        display._attach_brightness_overlay = mock.Mock()
+        display._animation_class = mock.Mock(return_value="departures_calling")
+        display._record_animation_update = mock.Mock()
+        display._refresh = mock.Mock()
+        display.telemetry_enabled = False
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}]}
+
+        display._show_rail(screen, "12:00", 0)
+
+        self.assertIs(display.display.root_group, rail_root)
+        self.assertFalse(display._rail_prebuilt_pending)
+        display._refresh.assert_called_once_with("departures_calling")
 
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (

@@ -58,8 +58,11 @@ preprocessed calling presentation, phase timings, scroll settings, row-scroll
 mode, and train pause. A mismatch invalidates the hidden scene and uses the
 existing on-demand path. Logs distinguish build duration/heap from
 `scene_ready_to_present_ms`; a prepared scene is measured from the transition,
-not from the earlier maintenance slot. `RAIL PREBUILD OK/SKIP/REUSE` records
-explain the path selected.
+not from the earlier maintenance slot. A valid prepared scene skips the
+otherwise normal entry collection; its post-build collection already happened
+during maintenance, and GC is disabled before animated presentation. A stale
+or mismatched scene follows the existing on-demand entry path. `RAIL PREBUILD
+OK/SKIP/REUSE` records explain the path selected.
 
 | Run | Services | Train + prepared scene min free | Retained scene cost | Prebuild duration | Transition to present | Frame gaps >200 ms | Resets/errors |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |

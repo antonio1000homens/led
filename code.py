@@ -41,7 +41,7 @@ from animation_scheduler import (
     frame_gap_exceeded,
     next_deadline,
 )
-from matrix_runtime import RuntimeMode, collect_gc_with_state
+from matrix_runtime import RuntimeMode, collect_gc_with_state, enter_rail_gc_window
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from mqtt_screens import MqttScreenState
@@ -846,18 +846,23 @@ while True:
             hasattr(display, "rail_scene_ready")
             and display.rail_scene_ready(screen)
         )
+        prebuilt_scene = (
+            hasattr(display, "rail_scene_prebuilt")
+            and display.rail_scene_prebuilt(screen)
+        )
         allow_build_gc = (
             MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT
             and cold_build
             and enable is not None
         )
         gc_entry_started = ticks_ms()
-        entry_collect = not allow_build_gc
+        entry_collect = not allow_build_gc and not prebuilt_scene
         try:
-            if allow_build_gc:
-                enable()
-            else:
-                collect_gc_with_state(gc, enabled_after=False)
+            entry_collect = enter_rail_gc_window(
+                gc,
+                allow_during_build=allow_build_gc,
+                collect_at_entry=entry_collect,
+            )
         except Exception as error:
             if disable is not None:
                 try:
@@ -871,7 +876,9 @@ while True:
         if HEAP_DIAGNOSTICS_ENABLED:
             print(
                 "RAIL GC ENTER reason={} auto_gc_during_build={} entry_collect={} duration={:.3f}s heap_free={} heap_allocated={}".format(
-                    "cold_scene_build" if cold_build else "scene_ready",
+                    "cold_scene_build" if cold_build else (
+                        "prepared_scene" if prebuilt_scene else "scene_ready"
+                    ),
                     allow_build_gc,
                     entry_collect,
                     gc_entry_duration,
