@@ -7,6 +7,7 @@ from unittest import mock
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
 import display as led_display
+import matrix_config as rail_config
 
 
 class FakePixels:
@@ -106,12 +107,12 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
-    def test_post_build_gc_experiment_is_off_by_default(self):
+    def test_rail_prebuild_bitmap_and_post_build_gc_defaults(self):
         self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
         self.assertTrue(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
-        self.assertTrue(led_display.MATRIX_RAIL_PREBUILD_EXPERIMENT)
-        self.assertEqual(led_display.MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES, 1024 * 1024)
-        self.assertEqual(led_display.MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES, 512 * 1024)
+        self.assertTrue(rail_config.MATRIX_RAIL_PREBUILD_EXPERIMENT)
+        self.assertEqual(rail_config.MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES, 1024 * 1024)
+        self.assertEqual(rail_config.MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES, 512 * 1024)
 
     def test_rail_gc_waits_for_departure_rows_to_stop(self):
         display = types.SimpleNamespace(
