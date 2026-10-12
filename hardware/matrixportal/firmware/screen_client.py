@@ -492,9 +492,11 @@ class ScreenRotation:
         stop = previous.get("stop_key")
         return (
             previous.get("kind") == "bus_intro"
-            and current.get("kind") == "bus_departures"
-            and stop in ("heathrow", "new-malden")
-            and stop == current.get("stop_key")
+            and ((current.get("kind") == "bus_departures"
+                  and stop in ("heathrow", "new-malden")
+                  and stop == current.get("stop_key"))
+                 or (current.get("kind") == "bus_departures_combined"
+                     and stop == "combined"))
         )
 
     @staticmethod
@@ -506,6 +508,8 @@ class ScreenRotation:
             or (current.get("kind") == "bus_departures"
                 and stop in ("heathrow", "new-malden")
                 and previous_id == "sl7-{}-intro".format(stop))
+            or (current.get("kind") == "bus_departures_combined"
+                and previous_id == "sl7-combined-intro")
         )
 
     def next_paired_rail_screen(self):
@@ -551,7 +555,7 @@ class ScreenRotation:
         normal = [
             item for item in screens
             if not self.is_static(item)
-            and (item.get("kind") not in ("bus_departures", "bus_intro")
+            and (item.get("kind") not in ("bus_departures", "bus_departures_combined", "bus_intro")
                  or self.cycle_number % max(1, int(item.get("display_every_cycles", 1))) == 0)
         ]
         # Keep the Beep! Beep! introduction only when its matching stop's
