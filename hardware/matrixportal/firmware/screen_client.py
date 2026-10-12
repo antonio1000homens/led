@@ -388,6 +388,14 @@ class ScreenRotation:
                         if candidate.get("content_version") == old.get("content_version"):
                             item["refresh_ack_url"] = candidate.get("refresh_ack_url")
                 next_screens.append(item)
+        # A poll may remove a departures page halfway through a cycle.
+        # Never retain its now-orphaned bus introduction.
+        next_screens = [
+            item for index, item in enumerate(next_screens)
+            if item.get("kind") != "bus_intro"
+            or (index + 1 < len(next_screens)
+                and self.is_bus_followup(item, next_screens[index + 1]))
+        ]
         if not next_screens:
             next_screens = self._cycle_plan(available)
         self.screens = next_screens
@@ -479,6 +487,28 @@ class ScreenRotation:
         )
 
     @staticmethod
+    def is_bus_followup(previous, current):
+        """A bus animation may only precede departures for its own SL7 stop."""
+        stop = previous.get("stop_key")
+        return (
+            previous.get("kind") == "bus_intro"
+            and current.get("kind") == "bus_departures"
+            and stop in ("heathrow", "new-malden")
+            and stop == current.get("stop_key")
+        )
+
+    @staticmethod
+    def is_paired_transition(previous_id, current):
+        """Avoid inserting maintenance between an intro and its departures."""
+        stop = current.get("stop_key")
+        return (
+            (previous_id == "steam-train" and current.get("kind") == "rail_combined")
+            or (current.get("kind") == "bus_departures"
+                and stop in ("heathrow", "new-malden")
+                and previous_id == "sl7-{}-intro".format(stop))
+        )
+
+    @staticmethod
     def is_weather_followup(previous, current):
         """Treat whichever enabled weather pages remain as one ordered block."""
         order = ("weather_sun", "weather_today", "weather_weekly")
@@ -508,6 +538,14 @@ class ScreenRotation:
             and (item.get("kind") not in ("bus_departures", "bus_intro")
                  or self.cycle_number % max(1, int(item.get("display_every_cycles", 1))) == 0)
         ]
+        # Keep the Beep! Beep! introduction only when its matching stop's
+        # departures page is present and eligible for this rotation.
+        normal = [
+            item for index, item in enumerate(normal)
+            if item.get("kind") != "bus_intro"
+            or (index + 1 < len(normal)
+                and self.is_bus_followup(item, normal[index + 1]))
+        ]
         static = [self._choose(item) for item in screens if self.is_static(item)]
         # Do not separate the train from departures. Queue Times is already
         # represented by one atomic screen.
@@ -515,7 +553,7 @@ class ScreenRotation:
         for item in normal:
             if blocks and (
                 (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
-                or (blocks[-1][-1].get("kind") == "bus_intro" and item.get("kind") == "bus_departures")
+                or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
             ):
                 blocks[-1].append(item)
@@ -531,6 +569,12 @@ class ScreenRotation:
     def maintenance_slot(self, now):
         """Insert static maintenance only at a caller-observed block boundary."""
         if self.screens and self.is_static(self.screens[self.index]):
+            return
+        # This boundary is not a maintenance opportunity: the SL7 board
+        # must appear immediately after its bus animation.
+        if (self.screens and self.index > 0
+                and self.is_bus_followup(self.screens[self.index - 1],
+                                         self.screens[self.index])):
             return
         for index in range(self.index + 1, len(self.screens)):
             if self.is_static(self.screens[index]):

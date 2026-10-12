@@ -209,6 +209,17 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("sun_duration_seconds", admin)
         self.assertNotIn("day_0_enabled", admin)
 
+    def test_admin_exposes_standalone_today_separately_from_next_24_hours(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("if(feedId==='today')return cardHtml(feedId,feed,schema", admin)
+        self.assertIn("todayNote=feedId==='today'", admin)
+        self.assertIn("Today · current conditions", admin)
+        self.assertIn("Next 24 hours (six forecast blocks)", admin)
+        self.assertIn("labels.enabled=['Enabled','show the standalone current-conditions screen", admin)
+        self.assertIn("labels.screen_duration_seconds=['Today screen duration'", admin)
+        self.assertIn("if(feedId==='weather')return weatherCardHtml", admin)
+        self.assertIn("encodeURIComponent(feedId)", admin)
+
     def test_admin_bootstraps_access_before_fetching_api(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn('<link rel="icon" href="data:,">', admin)

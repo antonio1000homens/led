@@ -590,13 +590,11 @@ while True:
                     and candidate.get("source") == "todoist"
                     and not display.tasks_ready(candidate, clock.date_text(now))
                     and ticks_ms() >= task_retry_at)
-    # Weather is grouped by the rotation scheduler; today's forecast and
-    # the weekly overview can host maintenance without splitting that block.
-    # The train/departures pair also stays together.
-    between_train_and_rail = (last_visible_screen == "steam-train"
-                             and candidate.get("kind") == "rail_combined")
+    # Weather is grouped by the scheduler, while the train and SL7 bus
+    # introductions must transition directly into their departures boards.
+    paired_followup = rotation.is_paired_transition(last_visible_screen, candidate)
     if (rotation.screens and not steam_train_test and not flash.active(now)
-            and boundary and not between_train_and_rail and (fetch_due or task_unready)
+            and boundary and not paired_followup and (fetch_due or task_unready)
             and not rotation.is_maintenance_screen(candidate)):
         rotation.maintenance_slot(ticks_ms())
         candidate, candidate_phase = rotation.current(ticks_ms())

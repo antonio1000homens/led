@@ -172,6 +172,34 @@ class RuntimeConfigTests(unittest.TestCase):
         validated = validate_runtime_config(legacy)
         self.assertFalse(validated["feeds"]["flash"]["enabled"])
 
+    def test_standalone_today_config_is_separate_from_weather_forecast(self):
+        defaults = default_runtime_config({})
+        self.assertFalse(defaults["feeds"]["today"]["enabled"])
+        self.assertEqual(defaults["feeds"]["today"]["screen_duration_seconds"], 15)
+        self.assertTrue(defaults["feeds"]["weather"]["today_enabled"])
+
+        schema = schema_metadata()["feeds"]["today"]
+        self.assertEqual(schema["mutable_fields"], ["enabled", "screen_duration_seconds"])
+        self.assertTrue(schema["virtual"])
+        self.assertEqual(schema["fields"]["screen_duration_seconds"]["minimum"], 2)
+        self.assertEqual(schema["fields"]["screen_duration_seconds"]["maximum"], 300)
+        self.assertEqual(
+            validate_feed_patch("today", {"enabled": True, "screen_duration_seconds": 23}),
+            {"enabled": True, "screen_duration_seconds": 23},
+        )
+        for invalid in (1, 301, True):
+            with self.subTest(duration=invalid):
+                with self.assertRaises(RuntimeConfigValidationError):
+                    validate_feed_patch("today", {"screen_duration_seconds": invalid})
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_feed_patch("today", {"today_enabled": False})
+
+        legacy = default_runtime_config({})
+        del legacy["feeds"]["today"]
+        upgraded = validate_runtime_config(legacy)
+        self.assertEqual(upgraded["feeds"]["today"], defaults["feeds"]["today"])
+        self.assertEqual(upgraded["feeds"]["weather"], defaults["feeds"]["weather"])
+
     def test_weather_screen_controls_are_schema_backed_bounded_and_legacy_safe(self):
         patch = validate_feed_patch(
             "weather",

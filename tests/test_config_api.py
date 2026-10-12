@@ -163,6 +163,35 @@ class ConfigApiTests(unittest.TestCase):
         self.assertEqual(runtime.calls[0][2]["expected_version"], 4)
         self.assertEqual(FakeInvoker.calls, 1)
 
+    def test_standalone_today_patch_updates_own_settings_and_triggers_rebuild(self):
+        runtime = FakeRuntimeStore()
+        status = FakeStatusStore()
+        original_weather = copy.deepcopy(runtime.config["feeds"]["weather"])
+        FakeInvoker.calls = 0
+        event = {
+            "rawPath": "/api/control/v1/feeds/today",
+            "requestContext": {"http": {"method": "PATCH"}, "requestId": "req-today"},
+            "headers": {"If-Match": '"4"'},
+            "body": json.dumps({"enabled": True, "screen_duration_seconds": 23}),
+        }
+        env = {
+            "RUNTIME_CONFIG_TABLE": "table",
+            "STATE_BUCKET": "bucket",
+            "PUBLISHER_FUNCTION_NAME": "publisher",
+        }
+        with patch.dict(config_api.os.environ, env, clear=True), \
+             patch.object(config_api, "authenticate_access", return_value=("human:admin@example.com", {})), \
+             patch.object(config_api, "RuntimeConfigStore", return_value=runtime), \
+             patch.object(config_api, "StatusStore", return_value=status), \
+             patch.object(config_api, "PublisherInvoker", FakeInvoker):
+            response = config_api.lambda_handler(event, None)
+        self.assertEqual(response["statusCode"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["feeds"]["today"], {"enabled": True, "screen_duration_seconds": 23})
+        self.assertEqual(payload["feeds"]["weather"], original_weather)
+        self.assertEqual(runtime.calls[0][0], "today")
+        self.assertEqual(FakeInvoker.calls, 1)
+
     def test_display_patch_updates_brightness_and_triggers_async_rebuild(self):
         runtime = FakeRuntimeStore()
         status = FakeStatusStore()
