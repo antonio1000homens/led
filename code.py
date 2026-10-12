@@ -895,6 +895,7 @@ while True:
                 if pause_now
                 else "heap_pressure_during_motion"
             )
+            gc_started = ticks_ms()
             if HEAP_DIAGNOSTICS_ENABLED:
                 print(
                     "RAIL GC START reason={} motion_active={} heap_free={}".format(
@@ -905,12 +906,13 @@ while True:
                 collect_gc_with_state(gc, enabled_after=False)
             except Exception as error:
                 print("RAIL GC FAILED reason={} collector_state=disabled:".format(gc_reason), error)
+            gc_duration = elapsed_seconds(gc_started)
             if pressure_due:
                 rail_gc_last_pressure_collect = ticks_ms()
             if HEAP_DIAGNOSTICS_ENABLED:
                 print(
-                    "RAIL GC END reason={} heap_free_before={} heap_free_after={}".format(
-                        gc_reason, heap_before_gc, _memory_free()
+                    "RAIL GC END reason={} duration={:.3f}s heap_free_before={} heap_free_after={}".format(
+                        gc_reason, gc_duration, heap_before_gc, _memory_free()
                     )
                 )
         rail_gc_pause_active = pause_now

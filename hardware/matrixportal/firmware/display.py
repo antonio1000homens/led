@@ -2062,7 +2062,9 @@ class MatrixDisplay:
             self.discard_prepared_rail_scene()
             return False
         if self._rail_cache_matches(screen):
-            print("RAIL PREBUILD REUSE services={}".format(len(screen.get("services") or ())))
+            print("RAIL PREBUILD REUSE screen_id={} services={}".format(
+                screen.get("id"), len(screen.get("services") or ())
+            ))
             return True
 
         heap_before = self._heap_free()
@@ -2117,8 +2119,8 @@ class MatrixDisplay:
             )
             return False
         print(
-            "RAIL PREBUILD OK duration={:.3f}s heap_free_before={} heap_free_after={} retained_heap_drop={}".format(
-                elapsed_seconds(started), heap_before, heap_after,
+            "RAIL PREBUILD OK screen_id={} duration={:.3f}s heap_free_before={} heap_free_after={} retained_heap_drop={}".format(
+                screen.get("id"), elapsed_seconds(started), heap_before, heap_after,
                 self._rail_retained_heap_cost,
             )
         )
