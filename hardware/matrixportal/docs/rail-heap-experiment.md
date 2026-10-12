@@ -229,11 +229,12 @@ temporary allocations but had no one-run latency or low-water improvement.
 Static bitmap rows have a controlled ten-service retained-memory result: after
 matched post-build collection they retained 59,568 B less than labels, while
 using more temporary build heap and taking 184 ms longer to collect. Keep the
-renderer opt-in/default-off pending repeated cold builds, a physical ten-service
-label visual check, and maximum-payload prebuild coexistence data. Prebuild now
-has a successful six-service physical handoff measurement, but later animation
-still forces long GC pauses and the measured test budget is below the production
-guard. Keep it disabled pending repeated and larger-payload captures. Visible-row
+renderer opt-in/default-off pending repeated cold builds and a physical
+ten-service label visual check. Prebuild now has one successful ten-service
+changed-content handoff, but later animation still forces heap-pressure GC
+pauses and the measured test budget is below the production guard. Keep it
+disabled until repeated maximum-payload handoffs establish headroom and a
+usable production safety threshold. Visible-row
 recycling is not justified by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
