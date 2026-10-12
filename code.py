@@ -207,6 +207,8 @@ def _sleep_interruptible(seconds, service_mqtt=False):
 next_fetch = 0
 last_maintenance_slot = None
 last_visible_screen = None
+last_logged_screen_started = None
+screen_heap_low_water = None
 task_retry_at = 0
 prepared_task = None
 transport_stale = False
@@ -341,6 +343,8 @@ animation_cadence = None
 animation_deadline = None
 rail_gc_suspended = False
 rail_gc_pause_active = False
+rail_gc_last_pressure_collect = None
+sun_gc_completed_key = None
 previous_rail_frame_started = None
 last_rail_sleep_requested_ms = 0.0
 last_rail_preframe_ms = 0.0
@@ -358,6 +362,20 @@ def _memory_free():
     if gc is None or not hasattr(gc, "mem_free"):
         return None
     return gc.mem_free()
+
+
+def _memory_allocated():
+    if gc is None or not hasattr(gc, "mem_alloc"):
+        return None
+    return gc.mem_alloc()
+
+
+HEAP_DIAGNOSTICS_ENABLED = True
+RAIL_GC_MIN_FREE_BYTES = 768 * 1024
+heap_trace_started = ticks_ms()
+heap_trace_last_report = heap_trace_started
+heap_trace_low_water = _memory_free()
+heap_trace_samples = 0
 
 
 def _display_phase(screen, phase):
@@ -528,6 +546,29 @@ def _apply_flash_config(payload):
 while True:
     now = time.monotonic()
     loop_started = ticks_ms()
+    if HEAP_DIAGNOSTICS_ENABLED:
+        heap_free_now = _memory_free()
+        if heap_free_now is not None:
+            heap_trace_samples += 1
+            if heap_trace_low_water is None or heap_free_now < heap_trace_low_water:
+                heap_trace_low_water = heap_free_now
+            if screen_heap_low_water is None or heap_free_now < screen_heap_low_water:
+                screen_heap_low_water = heap_free_now
+        if elapsed_seconds(heap_trace_last_report, loop_started) >= MATRIX_STATS_INTERVAL_SECONDS:
+            print(
+                "HEAP TRACE elapsed={:.1f}s free={} allocated={} low_water={} samples={} "
+                "last_screen={} rail_gc_suspended={} rail_gc_pause={}".format(
+                    elapsed_seconds(heap_trace_started, loop_started),
+                    heap_free_now,
+                    _memory_allocated(),
+                    heap_trace_low_water,
+                    heap_trace_samples,
+                    last_visible_screen,
+                    rail_gc_suspended,
+                    rail_gc_pause_active,
+                )
+            )
+            heap_trace_last_report = loop_started
     if steam_train_wifi_isolation is not None:
         steam_train_wifi_isolation.update(now)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
@@ -600,8 +641,11 @@ while True:
         candidate, candidate_phase = rotation.current(ticks_ms())
     maintenance_visible = rotation.is_static(candidate)
     if not rotation.screens:
-        candidate = {"id": "startup-static", "kind": "today", "title": "TODAY",
-                     "duration_seconds": 8, "weather": {}}
+        # Do not make the startup placeholder look like the disabled standalone
+        # Today screen or the Next 24H forecast. The feed may still be loading.
+        candidate = {"id": "startup-loading", "kind": "startup",
+                     "title": "STARTING", "empty_state": "LOADING SCREENS",
+                     "duration_seconds": 8}
         candidate_phase = 0
         maintenance_visible = True
     slot_key = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
@@ -734,6 +778,21 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
+    if settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "weather_sun":
+        sun_gc_key = (screen.get("id"), rotation.cycle_number, rotation.started_at)
+        if (sun_gc_completed_key != sun_gc_key
+                and not display.animation_active(screen, phase)):
+            collect = getattr(gc, "collect", None) if gc is not None else None
+            if collect is not None:
+                heap_before_gc = _memory_free()
+                collect()
+                sun_gc_completed_key = sun_gc_key
+                if HEAP_DIAGNOSTICS_ENABLED:
+                    print("SUN GC END reason=animation_complete heap_free_before={} heap_free_after={}".format(
+                        heap_before_gc, _memory_free()
+                    ))
+    else:
+        sun_gc_completed_key = None
     rail_screen = (
         settings.DISPLAY_BACKEND == "matrix"
         and isinstance(screen, dict)
@@ -748,12 +807,31 @@ while True:
             disable()
         rail_gc_suspended = True
         rail_gc_pause_active = False
+        if HEAP_DIAGNOSTICS_ENABLED:
+            print("RAIL GC ENTER heap_free={}".format(_memory_free()))
     elif gc is not None and rail_screen and rail_gc_suspended:
         pause_now = (
             hasattr(display, "rail_gc_safe_to_collect")
             and display.rail_gc_safe_to_collect(screen, phase)
         )
-        if pause_now and not rail_gc_pause_active:
+        heap_before_gc = _memory_free()
+        pressure_cooldown_elapsed = (
+            rail_gc_last_pressure_collect is None
+            or elapsed_seconds(rail_gc_last_pressure_collect, ticks_ms()) >= 5
+        )
+        pressure_due = (
+            heap_before_gc is not None
+            and heap_before_gc < RAIL_GC_MIN_FREE_BYTES
+            and pressure_cooldown_elapsed
+        )
+        if (pause_now and not rail_gc_pause_active) or pressure_due:
+            gc_reason = "calling_end_pause" if pause_now else "heap_pressure"
+            if HEAP_DIAGNOSTICS_ENABLED:
+                print(
+                    "RAIL GC START reason={} heap_free={}".format(
+                        gc_reason, heap_before_gc
+                    )
+                )
             enable = getattr(gc, "enable", None)
             collect = getattr(gc, "collect", None)
             if enable is not None:
@@ -762,6 +840,14 @@ while True:
                 collect()
             if disable is not None:
                 disable()
+            if pressure_due:
+                rail_gc_last_pressure_collect = ticks_ms()
+            if HEAP_DIAGNOSTICS_ENABLED:
+                print(
+                    "RAIL GC END reason={} heap_free_before={} heap_free_after={}".format(
+                        gc_reason, heap_before_gc, _memory_free()
+                    )
+                )
         rail_gc_pause_active = pause_now
     elif gc is not None and not rail_screen and rail_gc_suspended:
         enable = getattr(gc, "enable", None)
@@ -772,6 +858,8 @@ while True:
             collect()
         rail_gc_suspended = False
         rail_gc_pause_active = False
+        if HEAP_DIAGNOSTICS_ENABLED:
+            print("RAIL GC EXIT heap_free={}".format(_memory_free()))
     if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"
             and not display.tasks_ready(screen, clock.date_text(now))):
         # Never trigger an unexpected heavy build after entering an animated
@@ -805,6 +893,20 @@ while True:
     )
     log_screen_change = render_key != last_logged_screen_key
     instrument_render = MATRIX_TELEMETRY_ENABLED and render_key != last_render_key
+    if HEAP_DIAGNOSTICS_ENABLED and log_screen_change and last_logged_screen_key is not None:
+        screen_ended = ticks_ms()
+        print(
+            "SCREEN END id={} kind={} duration={:.1f}s heap_free={} allocated={} low_water={}".format(
+                last_logged_screen_key[0],
+                last_logged_screen_key[1],
+                elapsed_seconds(last_logged_screen_started, screen_ended)
+                if last_logged_screen_started is not None else 0.0,
+                _memory_free(),
+                _memory_allocated(),
+                screen_heap_low_water,
+            )
+        )
+        screen_heap_low_water = _memory_free()
     if log_screen_change:
         print(
             "SCREEN START id={} kind={} title={} heap_free={}".format(
@@ -858,6 +960,8 @@ while True:
             )
         )
         last_logged_screen_key = render_key
+        last_logged_screen_started = ticks_ms()
+        screen_heap_low_water = _memory_free()
     last_visible_screen = screen.get("id")
     mqtt_screens_changed = False
     smooth_animation = (

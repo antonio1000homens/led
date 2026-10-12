@@ -842,6 +842,7 @@ class MatrixDisplay:
         self.display.root_group = displayio.Group()
         self._last_present_refresh = None
         self._refresh_misses = 0
+        self._rail_first_refresh_pending = False
 
         self._brightness = BrightnessState(brightness_percent)
         self._brightness_bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 2)
@@ -1611,13 +1612,30 @@ class MatrixDisplay:
             if self.presentation_mode == "auto_refresh" or self.display.auto_refresh:
                 if animation_class == "departures_calling":
                     self._last_rail_refresh_seconds = 0.0
+                    if self._rail_first_refresh_pending:
+                        print("RAIL FIRST REFRESH AUTO heap_free={}".format(self._heap_free()))
+                        self._rail_first_refresh_pending = False
                 return True
             target = None if self.presentation_mode == "immediate" else MATRIX_REFRESH_FPS
             if animation_class == "departures_calling":
+                probe_first_refresh = self._rail_first_refresh_pending
+                if probe_first_refresh:
+                    print(
+                        "RAIL FIRST REFRESH START mode={} heap_free={}".format(
+                            self.presentation_mode, self._heap_free()
+                        )
+                    )
                 refresh_started = ticks_ms()
                 refreshed = self.display.refresh(target_frames_per_second=target)
                 refresh_duration = elapsed_seconds(refresh_started)
                 self._last_rail_refresh_seconds = refresh_duration
+                if probe_first_refresh:
+                    print(
+                        "RAIL FIRST REFRESH OK duration={:.3f}s refreshed={} heap_free={}".format(
+                            refresh_duration, refreshed, self._heap_free()
+                        )
+                    )
+                    self._rail_first_refresh_pending = False
                 if refresh_duration > 0.2:
                     print(
                         "RAIL REFRESH SLOW duration={:.3f}s refreshed={}".format(
@@ -1641,12 +1659,29 @@ class MatrixDisplay:
         heap_before = (
             self._heap_free() if animation_class == "departures_calling" else None
         )
+        probe_first_refresh = (
+            animation_class == "departures_calling"
+            and self._rail_first_refresh_pending
+        )
+        if probe_first_refresh:
+            print(
+                "RAIL FIRST REFRESH START mode={} heap_free={}".format(
+                    self.presentation_mode, heap_before
+                )
+            )
         refresh_started = ticks_ms()
         refreshed = self.display.refresh(target_frames_per_second=target)
         now = ticks_ms()
         refresh_duration = elapsed_seconds(refresh_started, now)
         if animation_class == "departures_calling":
             self._last_rail_refresh_seconds = refresh_duration
+            if probe_first_refresh:
+                print(
+                    "RAIL FIRST REFRESH OK duration={:.3f}s refreshed={} heap_free={}".format(
+                        refresh_duration, refreshed, self._heap_free()
+                    )
+                )
+                self._rail_first_refresh_pending = False
         if heap_before is not None:
             heap_after = self._heap_free()
             if heap_after is not None:
@@ -1805,6 +1840,12 @@ class MatrixDisplay:
         """Build both departures layouts once; phase changes only swap roots."""
         import displayio
 
+        build_started = ticks_ms()
+        print(
+            "RAIL BUILD START services={} heap_free={}".format(
+                len(screen.get("services") or ()), self._heap_free()
+            )
+        )
         scenes = {}
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
         summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
@@ -1842,6 +1883,12 @@ class MatrixDisplay:
         self._rail_stale = bool(screen.get("stale"))
         self._rail_weather = screen.get("weather")
         self._select_rail_scene(phase, calling_seconds, summary_seconds)
+        self._rail_first_refresh_pending = True
+        print(
+            "RAIL BUILD OK scenes={} duration={:.3f}s heap_free={}".format(
+                len(scenes), elapsed_seconds(build_started), self._heap_free()
+            )
+        )
 
     def _select_rail_scene(self, phase, calling_seconds=RAIL_CALLING_SECONDS,
                            summary_seconds=RAIL_SUMMARY_SECONDS):
@@ -1968,7 +2015,7 @@ class MatrixDisplay:
         return changed
 
     def rail_gc_safe_to_collect(self, screen, phase):
-        """Return whether the calling marquee is visibly paused at its end."""
+        """Return whether every calling marquee has scrolled off and reached its end pause."""
         if not isinstance(screen, dict) or screen.get("kind") != "rail_combined":
             return False
         summary_seconds = self._rail_summary_seconds
