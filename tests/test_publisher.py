@@ -386,6 +386,64 @@ class PublisherTests(unittest.TestCase):
         self.assertFalse(any(screen["kind"].startswith("weather_") for screen in payload["screens"]))
         self.assertIn("weather", screen_by_id(payload, "departures"))
 
+    def test_standalone_today_toggle_preserves_weather_forecast_screens(self):
+        config = PublisherConfig(
+            bucket="test-bucket", national_rail_token="test-token",
+            thorpe_park_source="off", weather_source="open_meteo",
+        )
+        runtime = default_runtime_config({
+            "LED_THORPE_PARK_SOURCE": "off", "LED_CALENDAR_SOURCE": "off",
+        })
+        runtime["feeds"]["today"].update(enabled=True, screen_duration_seconds=23)
+        runtime["feeds"]["weather"]["today_duration_seconds"] = 12
+        rail = FakeProvider([[{"time": "08:01"}]])
+        weather = FakeProvider([weather_payload()])
+
+        def publish():
+            return Publisher(
+                config, self.store, rail_provider=rail, weather_provider=weather,
+                utcnow=self.utcnow, runtime_config_store=StaticRuntimeConfigStore(runtime),
+            ).run()
+
+        enabled = publish()
+        standalone = screen_by_id(enabled, "today")
+        self.assertEqual((standalone["kind"], standalone["duration_seconds"]), ("today", 23))
+        self.assertEqual(standalone["weather"]["temperature_c"], 17.4)
+        forecast_ids = [screen["id"] for screen in enabled["screens"] if screen["kind"].startswith("weather_")]
+        self.assertEqual(forecast_ids, ["weather-sun", "weather-today", "weather-weekly"])
+        self.assertEqual(screen_by_id(enabled, "weather-today")["duration_seconds"], 12)
+
+        runtime["feeds"]["today"]["enabled"] = False
+        disabled = publish()
+        self.assertNotIn("today", [screen["id"] for screen in disabled["screens"]])
+        self.assertEqual(
+            [screen["id"] for screen in disabled["screens"] if screen["kind"].startswith("weather_")],
+            forecast_ids,
+        )
+        self.assertEqual(screen_by_id(disabled, "weather-today")["duration_seconds"], 12)
+        self.assertEqual(weather.calls, 1)  # Today visibility does not reset the shared cache.
+        self.assertIn("weather", screen_by_id(disabled, "departures"))
+
+    def test_standalone_today_uses_shared_weather_poll_when_forecast_is_disabled(self):
+        config = PublisherConfig(
+            bucket="test-bucket", national_rail_token="test-token",
+            thorpe_park_source="off", weather_source="open_meteo",
+        )
+        runtime = default_runtime_config({
+            "LED_THORPE_PARK_SOURCE": "off", "LED_CALENDAR_SOURCE": "off",
+        })
+        runtime["feeds"]["weather"]["enabled"] = False
+        runtime["feeds"]["today"]["enabled"] = True
+        weather = FakeProvider([weather_payload()])
+        payload = Publisher(
+            config, self.store, rail_provider=FakeProvider([[{"time": "08:01"}]]),
+            weather_provider=weather, utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        self.assertEqual(weather.calls, 1)
+        self.assertEqual(screen_by_id(payload, "today")["kind"], "today")
+        self.assertFalse(any(screen["kind"].startswith("weather_") for screen in payload["screens"]))
+
     def test_cold_weather_failure_keeps_other_screens_and_emits_unavailable_weekly_screen(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
         weather=FakeProvider([RuntimeError("weather unavailable")])

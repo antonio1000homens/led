@@ -32,6 +32,8 @@ The Steam Train intro is a virtual screen tied to Departures: when both are enab
 
 Weather's three dedicated screens preserve a fixed order: seven-day overview, Today (six four-hour blocks), then sunrise/sunset. Disabling a sub-screen removes only that screen. Leaving Weather enabled while all three sub-screens are disabled keeps the shared Open-Meteo polling/cache and current-weather overlay active.
 
+The standalone **Today · current conditions** screen is a separate virtual `today` feed with its own `enabled` and `screen_duration_seconds` controls (2–300 seconds) on the admin page. It shares the Open-Meteo weather cache but is **not** the Weather section's **Next 24 hours** forecast (`weather-today`). Changing its enabled state or duration never changes the Weather sub-screen settings. If only standalone Today is enabled, shared weather polling remains active.
+
 Deployment settings still own provider credentials, station CRS, weather coordinates, Todoist OAuth storage, AWS resource names, and Cloudflare Access validation metadata. The control API has no endpoint for arbitrary environment variables and its IAM role does not receive National Rail or Todoist credentials.
 
 For Flash events, the runtime `enabled` setting is applied on the MatrixPortal as well as by the publisher: disabled means the board disconnects from MQTT and does not poll the transport. The local `MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL` settings remain hard safety gates; runtime enablement cannot override either local gate.
