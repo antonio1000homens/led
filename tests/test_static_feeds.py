@@ -230,6 +230,35 @@ if(screenAt(4000).screen.id!=='fact')throw Error('suppressed page');
         # Functions access screens only on invocation, after the fixture exists.
         subprocess.run(["node"],input=code+test,text=True,check=True,capture_output=True)
 
+    def test_sl7_maintenance_guard_and_simulator_pairing(self):
+        source = (ROOT / "code.py").read_text()
+        self.assertIn("rotation.is_paired_transition(last_visible_screen, candidate)", source)
+        self.assertIn("and boundary and not paired_followup", source)
+        html = (ROOT / "simulator/index.html").read_text()
+        script = html[html.index("    let cyclePlan"):html.index("    function stationMarqueeSpeed")]
+        if not shutil.which("node"):
+            self.skipTest("Node is required for browser scheduler tests")
+        test = """
+const screens=[
+  {id:'sl7-heathrow-intro',kind:'bus_intro',stop_key:'heathrow'},
+  {id:'sl7-heathrow',kind:'bus_departures',stop_key:'heathrow'},
+  {id:'sl7-new-malden-intro',kind:'bus_intro',stop_key:'new-malden'},
+  {id:'sl7-new-malden',kind:'bus_departures',stop_key:'new-malden'},
+  {id:'fact',kind:'random_fact'},
+  {id:'joke',kind:'dad_joke'}
+];
+for(let i=0;i<50;i++){
+  const plan=makeCyclePlan();
+  for(const stop of ['heathrow','new-malden']){
+    const at=plan.findIndex(s=>s.id==='sl7-'+stop+'-intro');
+    if(at<0 || plan[at+1]?.id!=='sl7-'+stop)throw Error('SL7 pair split: '+stop);
+  }
+}
+screens.splice(1,1);
+if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intro');
+"""
+        subprocess.run(["node"], input=script+test, text=True, check=True, capture_output=True)
+
     def test_static_scene_is_cached_and_task_preparation_does_not_publish(self):
         led_display.board.MTX_ADDRESS = (0,1,2,3)
         led_display.board.MTX_COMMON = {}
