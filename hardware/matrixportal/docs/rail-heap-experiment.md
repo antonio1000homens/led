@@ -74,18 +74,21 @@ OK/SKIP/REUSE` records explain the path selected.
 | Run | Services | Train + prepared scene min free | Retained scene cost | Prebuild duration | Transition to present | Frame gaps >200 ms | Max gap | Errors |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | Control, cold | 6 | n/a | n/a | n/a | 477 ms | 7 | 696 ms | 0 |
-| Prebuild flag, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
+| Prebuild flag before adapter fix, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
 | Control, warm | not captured | n/a | n/a | n/a | | | | |
 | Prebuild, warm | not captured | | | | | | | |
 
-The prebuild flag was confirmed true in the running module. Across two cold
-rail cycles, the capture contained no prebuild decision/build records and both
-cycles used the on-demand renderer. This does not measure scene coexistence or
-prove that the hidden scene handoff works. The default guard also requires
-2 MiB before building (1.5 MiB reserve plus a 512 KiB scene estimate), more
-than the board's approximately 1.67 MiB total free heap at startup. Keep this
-option off; make the scheduler decision observable and collect a safe guarded
-trial before considering it.
+The prebuild flag was confirmed true in the running module. Two initial cold
+cycles used the on-demand renderer. A follow-up diagnostic found that the
+maintenance scheduler selected the future departures screen, but the
+`QueueAwareDisplay` adapter did not forward `prepare_rail_scene` to the base
+Matrix renderer (`reason=renderer_unavailable`). Forwarding and a host
+regression test are now in the source; the successful physical handoff remains
+to be measured. The production guard requires 2 MiB before building (1.5 MiB
+reserve plus a 512 KiB scene estimate), above the board's approximately
+1.67 MiB total free heap at startup. Any guarded physical trial must use an
+explicit temporary test budget, then restore the defaults; keep the option
+off until the train-plus-scene low-water result supports a production guard.
 
 ## Compact static service rows
 
