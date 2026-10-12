@@ -319,7 +319,9 @@ if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intr
                     advance(2)
                     self.events = copy.deepcopy(screen["events"])
             def blocking(self,operation):
-                if not shown or shown[-1][0] not in ("today","dad_joke","random_fact"):
+                # The startup placeholder is also a non-animated maintenance
+                # screen while the first HTTP payload is being fetched.
+                if not shown or shown[-1][0] not in ("startup","today","dad_joke","random_fact"):
                     raise AssertionError(operation+" interrupted a moving screen")
                 work.append(operation)
             def animation_cadence(self,screen,phase):
