@@ -27,12 +27,19 @@ To roll each saved capture into a comparable cycle table, run
 frame-gap, and screen-end records. Missing fields are shown as `n/a`; do not
 fill them with host-simulated heap values.
 
-| Run | Services | Build heap drop | GC reclaimed | Retained scene cost | Build to first present | Min free | GC time | Frame gaps >200 ms | Resets/errors |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Control, cold | | | n/a | n/a | | | n/a | | |
-| Post-build GC, cold | | | | | | | | | |
-| Control, warm | | | n/a | n/a | | | n/a | | |
-| Post-build GC, warm | | | | | | | | | |
+| Run | Services | Build heap drop | GC reclaimed | Retained scene cost | Build to first present | Min free | GC count/time | Frame gaps >200 ms | Max gap | Errors |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control, cold | 6 | 168,848 B | n/a | n/a | 477 ms | 786,016 B | 3 / 0.237 s | 7 | 696 ms | 0 |
+| Post-build GC, cold | 6 | 55,840 B | 27,504 B | 28,768 B | 620 ms | 786,000 B | 4 / 0.349 s | 6 | 773 ms | 0 |
+| Control, warm | not captured | | n/a | n/a | | | n/a | | | |
+| Post-build GC, warm | not captured | | | | | | | | | |
+
+Board: MatrixPortal S3 UID `86EEF87F7005`, CircuitPython `10.3.0-dirty`; both
+runs used the six-service live screen and B8 presentation preset. The exact
+service contents may have changed between live fetches. These are single
+cold-cycle captures, not repeated statistical samples. Post-build collection
+reclaimed 27.5 KB, but the one run did not improve first-present latency or
+minimum free heap; it is not a reason to enable the option by default.
 
 `heap_drop` is free bytes before build minus free bytes after build.
 `reclaimed_bytes` is free bytes gained by the explicit collection.
@@ -64,12 +71,21 @@ during maintenance, and GC is disabled before animated presentation. A stale
 or mismatched scene follows the existing on-demand entry path. `RAIL PREBUILD
 OK/SKIP/REUSE` records explain the path selected.
 
-| Run | Services | Train + prepared scene min free | Retained scene cost | Prebuild duration | Transition to present | Frame gaps >200 ms | Resets/errors |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Control, cold | | n/a | n/a | n/a | | | |
-| Prebuild, cold | | | | | | | |
-| Control, warm | | n/a | n/a | n/a | | | |
-| Prebuild, warm | | | | | | | |
+| Run | Services | Train + prepared scene min free | Retained scene cost | Prebuild duration | Transition to present | Frame gaps >200 ms | Max gap | Errors |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Control, cold | 6 | n/a | n/a | n/a | 477 ms | 7 | 696 ms | 0 |
+| Prebuild flag, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
+| Control, warm | not captured | n/a | n/a | n/a | | | | |
+| Prebuild, warm | not captured | | | | | | | |
+
+The prebuild flag was confirmed true in the running module. Across two cold
+rail cycles, the capture contained no prebuild decision/build records and both
+cycles used the on-demand renderer. This does not measure scene coexistence or
+prove that the hidden scene handoff works. The default guard also requires
+2 MiB before building (1.5 MiB reserve plus a 512 KiB scene estimate), more
+than the board's approximately 1.67 MiB total free heap at startup. Keep this
+option off; make the scheduler decision observable and collect a safe guarded
+trial before considering it.
 
 ## Compact static service rows
 
@@ -83,12 +99,20 @@ bitmaps (`static_row_bitmaps`); compare cold build heap drop and retained scene
 cost with the normal labels at the same service count. The cache signature
 includes this setting so a changed mode cannot reuse an incompatible scene.
 
-| Run | Services | Static row renderer | Build heap drop | Retained scene cost | Build duration | Min free | Frame gaps >200 ms | Layout defects/resets |
-| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Labels, cold | | labels | | | | | | |
-| Bitmap rows, cold | | bitmap | | | | | | |
-| Labels, warm | | labels | | | | | | |
-| Bitmap rows, warm | | bitmap | | | | | | |
+| Run | Services | Static row renderer | Build heap drop | Retained scene cost | Build duration | First present | Min free | Frame gaps >200 ms | Max gap | Errors |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Labels, cold | 6 | labels | 168,848 B | n/a | 0.444 s | 477 ms | 786,016 B | 7 | 696 ms | 0 |
+| Bitmap rows, cold | 6 | bitmap (6 bitmaps) | 80,624 B | n/a | 0.428 s | 449 ms | 785,408 B | 5 | 598 ms | 0 |
+| Labels, warm | not captured | labels | | | | | | | | |
+| Bitmap rows, warm | not captured | bitmap | | | | | | | | |
+
+In this single six-service cold comparison, bitmap rows reduced the measured
+build heap drop by 88,224 B (about 52%) and did not worsen measured first
+presentation or minimum free heap. The user checked the physical display and
+reported the rows looked fine, with no observed tearing, flashing, stalls, or
+resets. Repeat with 4–5 services, the maximum configured payload, and warm
+cycles before enabling the renderer by default; retained-scene cost was not
+isolated in this bitmap run.
 
 ## Rail collection safety
 
@@ -100,9 +124,20 @@ emergency low-heap collection remains available and its log marks
 Do not enable this experiment as the production default until repeated
 physical runs show useful reclaimed memory without visible pauses or resets.
 
-## Scope still requiring board evidence
+## Decision and remaining evidence
 
-No board measurements are checked in by this source change. Row recycling, a
-complete rail-cycle summary, and all physical acceptance measurements remain
-open; the static bitmap row is only implemented as an unmeasured opt-in
-experiment and must not be called a memory improvement without board data.
+Keep post-build GC and prebuild disabled. The post-build run reclaimed
+temporary allocations but had no one-run latency or low-water improvement.
+Static bitmap rows are a promising, visually checked opt-in experiment, with a
+measured six-service cold build reduction; retain default-off pending repeated
+and larger-payload captures. Prebuild remains unmeasured because no preparation
+record was produced, so do not lower its memory guard based on these captures.
+Visible-row recycling is not justified by the current evidence.
+
+Captures cover only six services and one cold rail cycle per control,
+post-build-GC, and bitmap setting. The prebuild capture contains two
+on-demand cycles. Four-to-five-service, maximum (up to ten) service, repeated
+warm, and measured retained-cost comparisons remain open. The user observed
+the bitmap rows once; this does not establish repeated physical acceptance.
+Rollback is to leave the three `MATRIX_RAIL_*_EXPERIMENT` switches at their
+default `False` values.

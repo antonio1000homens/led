@@ -776,7 +776,17 @@ while True:
         )
         if prebuild_key != rail_prebuild_last_slot:
             rail_prebuild_last_slot = prebuild_key
+            print(
+                "RAIL PREBUILD WINDOW cycle={} maintenance_id={} upcoming_id={} display_type={} prepare_available={}".format(
+                    rotation.cycle_number,
+                    candidate.get("id"),
+                    upcoming_rail.get("id") if upcoming_rail else None,
+                    type(display).__name__,
+                    hasattr(display, "prepare_rail_scene"),
+                )
+            )
             if upcoming_rail is None:
+                print("RAIL PREBUILD SKIP reason=no_future_pair")
                 if hasattr(display, "discard_prepared_rail_scene"):
                     display.discard_prepared_rail_scene()
             elif hasattr(display, "prepare_rail_scene"):
@@ -790,6 +800,8 @@ while True:
                 except Exception as error:
                     # On-demand construction remains the transition fallback.
                     print("RAIL PREBUILD FAILED; using on-demand build:", error)
+            else:
+                print("RAIL PREBUILD SKIP reason=renderer_unavailable")
 
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):

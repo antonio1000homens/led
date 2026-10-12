@@ -82,8 +82,12 @@ def summarize(lines, label="capture"):
             current["gc_count"] += 1
             current["gc_seconds"] += _number(fields.get("duration")) or 0.0
             current["retained_bytes"] = _number(fields.get("retained_heap_drop"))
-        elif current is not None and line.startswith("RAIL FIRST REFRESH OK "):
+        elif current is not None and line.startswith("RAIL FIRST REFRESH START "):
             current["ready_to_present_ms"] = _number(fields.get("scene_ready_to_present_ms"))
+        elif current is not None and line.startswith("RAIL FIRST REFRESH OK "):
+            ready_ms = _number(fields.get("scene_ready_to_present_ms"))
+            if ready_ms is not None:
+                current["ready_to_present_ms"] = ready_ms
         elif current is not None and line.startswith("RAIL GC ENTER "):
             if fields.get("entry_collect") == "True":
                 current["gc_count"] += 1
