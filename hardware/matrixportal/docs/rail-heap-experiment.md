@@ -132,7 +132,9 @@ includes this setting so a changed mode cannot reuse an incompatible scene.
 | Labels, cold | 6 | labels | 168,848 B | n/a | 0.444 s | 477 ms | 786,016 B | 7 | 696 ms | 0 |
 | Bitmap rows, cold | 6 | bitmap (6 bitmaps) | 80,624 B | n/a | 0.428 s | 449 ms | 785,408 B | 5 | 598 ms | 0 |
 | Labels, cold | 5 | labels | 160,960 B | n/a | 0.441 s | 464 ms | 788,096 B | 6 | 693 ms | 0 |
-| Labels, next cycle | 5 | labels | 134,976 B | n/a | 0.388 s | 437 ms | 787,520 B | 4 | 886 ms | 0 |
+| Labels, next cycle | 5 | labels | 134,976 B | n/a | 0.388 s | 437 ms | 787,520 B | 6 | 886 ms | 0 |
+| Bitmap rows, cold | 5 | bitmap (5 bitmaps) | 180,640 B | n/a | 0.324 s | 354 ms | 785,712 B | 5 | 564 ms | 0 |
+| Bitmap rows, next cycle | 5 | bitmap (5 bitmaps) | 241,456 B | n/a | 0.339 s | 370 ms | 785,312 B | 6 | 629 ms | 0 |
 | Bitmap rows, maximum, first cycle | 10 | bitmap (10 bitmaps) | 129,360 B | n/a | 0.524 s | 556 ms | 785,776 B | 5 | 767 ms | 0 |
 | Bitmap rows, maximum, next cycle | 10 | bitmap (10 bitmaps) | 359,664 B | n/a | 0.533 s | 583 ms | 786,032 B | 5 | 1,039 ms | 0 |
 | Labels, warm | not captured | labels | | | | | | | | |
@@ -147,11 +149,15 @@ the maximum bitmap screen and reported “looks fine.” Two bitmap cycles measu
 different build drops (129,360 B and 359,664 B) and first presentation at
 556/583 ms; their current payloads were not byte-identical, so the difference
 does not isolate cache or renderer cost. The two five-service label builds
-dropped 160,960 B and 134,976 B and presented in 464/437 ms. The second build
-followed a scene discard, so this is not a warm cache hit; payload equivalence
-has not been established. Each five-service cycle had one emergency collection
-while moving (76/84 ms). Retained-scene cost remains unmeasured for the bitmap
-renderer, and its five-service comparator is running.
+dropped 160,960 B and 134,976 B and presented in 464/437 ms. The five-service
+bitmap cycles dropped 180,640 B and 241,456 B and presented in 354/370 ms. The
+bitmap runs had five/six frame gaps over 200 ms and a 785 KB rail low-water;
+the label runs had six gaps and a 788 KB low-water. Emergency collections
+during movement took 75/74 ms in the bitmap cycles and 76/84 ms in the label
+cycles. The second build in each pair followed a scene discard, so neither is
+a warm cache hit. Payload equivalence has not been established; the current
+five-service results do not show a bitmap heap saving. Retained-scene cost
+remains unmeasured for the bitmap renderer.
 
 ## Rail collection safety
 
@@ -176,10 +182,10 @@ repeated and larger-payload captures. Visible-row recycling is not justified
 by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
-prebuild; five services for two label cycles and a bitmap comparator in
-progress; and ten services for two bitmap cycles. Exact payloads differed
-across runs. Maximum-payload labels, repeated warm/cache-identity checks, and
-retained-cost measurements remain open. Overall rotation heap reached 129,680 B on non-rail
+prebuild; five services for two label and two bitmap cycles; and ten services
+for two bitmap cycles. Exact payloads differed across runs. Maximum-payload
+labels, repeated warm/cache-identity checks, and retained-cost measurements
+remain open. Overall rotation heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
 rows. The corrected prebuild run
