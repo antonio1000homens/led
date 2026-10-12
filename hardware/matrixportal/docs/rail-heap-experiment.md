@@ -131,16 +131,23 @@ includes this setting so a changed mode cannot reuse an incompatible scene.
 | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | Labels, cold | 6 | labels | 168,848 B | n/a | 0.444 s | 477 ms | 786,016 B | 7 | 696 ms | 0 |
 | Bitmap rows, cold | 6 | bitmap (6 bitmaps) | 80,624 B | n/a | 0.428 s | 449 ms | 785,408 B | 5 | 598 ms | 0 |
+| Labels, cold | 5 | labels | 160,960 B | n/a | 0.441 s | 464 ms | 788,096 B | 6 | 693 ms | 0 |
+| Bitmap rows, maximum, first cycle | 10 | bitmap (10 bitmaps) | 129,360 B | n/a | 0.524 s | 556 ms | 785,776 B | 5 | 767 ms | 0 |
+| Bitmap rows, maximum, next cycle | 10 | bitmap (10 bitmaps) | 359,664 B | n/a | 0.533 s | 583 ms | 786,032 B | 5 | 1,039 ms | 0 |
 | Labels, warm | not captured | labels | | | | | | | | |
 | Bitmap rows, warm | not captured | bitmap | | | | | | | | |
 
-In this single six-service cold comparison, bitmap rows reduced the measured
+In the single six-service cold comparison, bitmap rows reduced the measured
 build heap drop by 88,224 B (about 52%) and did not worsen measured first
-presentation or minimum free heap. The user checked the physical display and
-reported the rows looked fine, with no observed tearing, flashing, stalls, or
-resets. Repeat with 4–5 services, the maximum configured payload, and warm
-cycles before enabling the renderer by default; retained-scene cost was not
-isolated in this bitmap run.
+presentation or minimum free heap. The user checked those rows and reported
+“looks fine”, with no observed tearing, flashing, stalls, or resets. The maximum
+setting returned ten services from the live feed. Two bitmap cycles measured
+different build drops (129,360 B and 359,664 B) and first presentation at
+556/583 ms; their current payloads were not byte-identical, so the difference
+does not isolate cache or renderer cost. In the five-service label run, one
+76 ms emergency collection occurred while moving. Retained-scene cost remains
+unmeasured for the bitmap renderer, and a five-service bitmap comparator is
+still needed.
 
 ## Rail collection safety
 
@@ -158,14 +165,20 @@ Keep post-build GC and prebuild disabled. The post-build run reclaimed
 temporary allocations but had no one-run latency or low-water improvement.
 Static bitmap rows are a promising, visually checked opt-in experiment, with a
 measured six-service cold build reduction; retain default-off pending repeated
-and larger-payload captures. Prebuild remains unmeasured because no preparation
-record was produced, so do not lower its memory guard based on these captures.
-Visible-row recycling is not justified by the current evidence.
+and larger-payload captures. Prebuild now has a successful six-service physical
+handoff measurement, but later animation still forces long GC pauses and the
+measured test budget is below the production guard. Keep it disabled pending
+repeated and larger-payload captures. Visible-row recycling is not justified
+by the current evidence.
 
-Captures cover only six services and one cold rail cycle per control,
-post-build-GC, and bitmap setting. The prebuild capture contains two
-on-demand cycles. Four-to-five-service, maximum (up to ten) service, repeated
-warm, and measured retained-cost comparisons remain open. The user observed
-the bitmap rows once; this does not establish repeated physical acceptance.
+Captures cover six services for control, post-build-GC, bitmap, and corrected
+prebuild; five services for one label cycle; and ten services for two bitmap
+cycles. Exact payloads differed across runs. A five-service bitmap comparator,
+maximum-payload labels, repeated warm/cache-identity checks, and retained-cost
+measurements remain open. Overall rotation heap reached 129,680 B on non-rail
+screens during the maximum bitmap run; the rail-only low-water stayed near
+786 KB. The user observed the six-service bitmap rows once; visual acceptance
+of the maximum payload has not been recorded. The corrected prebuild run
+reached the paired handoff after two earlier on-demand cycles.
 Rollback is to leave the three `MATRIX_RAIL_*_EXPERIMENT` switches at their
 default `False` values.
