@@ -76,6 +76,7 @@ OK/SKIP/REUSE` records explain the path selected.
 | Control, cold | 6 | n/a | n/a | n/a | 477 ms | 7 | 696 ms | 0 |
 | Prebuild flag before adapter fix, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
 | Guarded prebuild before readiness-forwarding fix | 6 | 466,144 B observed during train | 42,832 B | 1.259 s | 501 ms, on-demand fallback | incomplete | 949 ms observed | 0 |
+| Guarded prebuild after adapter fix, cold | 6 | 1,295,568 B train low-water | 42,448 B | 2.041 s | 30 ms | 7 | 923 ms | 0 |
 | Control, warm | not captured | n/a | n/a | n/a | | | | |
 | Prebuild, warm | not captured | | | | | | | |
 
@@ -88,15 +89,31 @@ the train ran, with 466,144 B free at one sampled point. At the paired rail
 boundary, however, `rail_scene_ready` and `rail_scene_prebuilt` were also
 hidden by the adapter. The caller treated the scene as cold, discarded it,
 and rebuilt on demand (501 ms to first present). All four adapter methods now
-forward to the base display and have a host regression test; a successful
-physical handoff has not yet been captured.
+forward to the base display and have a host regression test. The corrected
+physical run retained the six-service scene through the train intro and
+presented departures in 30 ms. The user's visual check of the bitmap rows was
+“looks fine”; no visual report for this corrected prebuild handoff was recorded
+at the time of capture.
+
+That faster entry did not remove later heap-pressure pauses. While departures
+animated, the run forced two collections of about 0.7 s each, with frame gaps
+of 894 ms and 923 ms. The full capture's minimum free heap was 318,880 B outside
+the train/rail pair; its sampled train low-water was 1,295,568 B and the rail
+capture's sampled minimum was 786,272 B. These are one cold six-service run,
+not repeated or warm A/B measurements. Treat prebuild as an entry-latency
+improvement only; leave it disabled until the independent animation-time heap
+pressure and production guard are addressed and repeated payload runs are
+recorded.
 
 The production guard requires 2 MiB before building (1.5 MiB reserve plus a
 512 KiB scene estimate), above the board's approximately 1.67 MiB total free
-heap at startup. The guarded trial used an explicit temporary test budget and
-the board config was then returned to default-off. Keep the option off until a
-corrected handoff and train-plus-scene low-water are measured and support a
-production guard.
+heap at startup. The guarded trial used an explicit temporary test budget.
+The board's active `matrix_config.py` was restored to the staged default-off
+file and its SHA-256 readback matched. A full staged upload then verified all
+23 application files with `code.py` last, triggering the normal firmware
+reload. The uploader refused to remove a pre-existing `boot.py` whose contents
+did not match its temporary-workaround signature; no `boot.py` change was made.
+Fresh serial startup logs after this reload were not captured.
 
 ## Compact static service rows
 
