@@ -248,7 +248,7 @@ class DisplayLayoutTests(unittest.TestCase):
             "upcoming_train_pause_seconds": 2,
         }
         self.assertTrue(display.rail_scene_ready(screen))
-        with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", True):
+        with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", False):
             self.assertFalse(display.rail_scene_ready(screen))
         screen["services"] = [{"id": "changed"}]
         self.assertFalse(display.rail_scene_ready(screen))
