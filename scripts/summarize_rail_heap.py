@@ -29,6 +29,7 @@ def summarize(lines, label="capture"):
     cycles = []
     pending_prebuild = {}
     pending_train_heap = None
+    pending_entry_gc = None
     current = None
     for line in lines:
         fields = _fields(line)
@@ -64,6 +65,10 @@ def summarize(lines, label="capture"):
                     current["train_prepared_min_free"] = pending_train_heap
                     current["gc_count"] += 1
                     current["gc_seconds"] += _number(prepared.get("gc_duration")) or 0.0
+                if pending_entry_gc is not None:
+                    current["gc_count"] += 1
+                    current["gc_seconds"] += pending_entry_gc
+                    pending_entry_gc = None
             elif current is not None and fields.get("kind") not in ("rail_combined",):
                 # An overlay or another screen interrupted this departures cycle.
                 current["errors"] += 1
@@ -83,6 +88,9 @@ def summarize(lines, label="capture"):
             if fields.get("entry_collect") == "True":
                 current["gc_count"] += 1
                 current["gc_seconds"] += _number(fields.get("duration")) or 0.0
+        elif current is None and line.startswith("RAIL GC ENTER "):
+            if fields.get("entry_collect") == "True":
+                pending_entry_gc = _number(fields.get("duration")) or 0.0
         elif current is not None and line.startswith("RAIL GC END "):
             current["gc_count"] += 1
             current["gc_seconds"] += _number(fields.get("duration")) or 0.0

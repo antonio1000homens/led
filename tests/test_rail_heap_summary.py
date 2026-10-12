@@ -12,10 +12,10 @@ class RailHeapSummaryTests(unittest.TestCase):
         log = [
             "RAIL PREBUILD OK screen_id=departures duration=2.000s gc_duration=0.050s gc_reclaimed=200 heap_free_before=5000000 heap_free_after=4500000 retained_heap_drop=500000",
             "SCREEN END id=steam-train kind=steam_train_intro low_water=4300000",
+            "RAIL GC ENTER reason=cold_scene_build auto_gc_during_build=False entry_collect=True duration=0.020s heap_free=3700000 heap_allocated=100000",
             "SCREEN START id=departures kind=rail_combined heap_free=4200000",
             "RAIL BUILD START services=5 static_row_renderer=labels heap_free=4200000",
             "RAIL BUILD OK scenes=1 static_row_bitmaps=0 duration=0.400s heap_free_before=4200000 heap_free_after=3700000 heap_drop=500000",
-            "RAIL GC ENTER reason=cold_scene_build auto_gc_during_build=False entry_collect=True duration=0.020s heap_free=3700000 heap_allocated=100000",
             "RAIL POST BUILD GC duration=0.030s heap_free_before=3700000 heap_free_after=3800000 reclaimed_bytes=100000 retained_heap_drop=400000 build_to_gc_ms=400",
             "RAIL FIRST REFRESH OK duration=0.100s scene_ready_to_present_ms=35 refreshed=True heap_free=3800000",
             "RAIL GC END reason=calling_end_pause duration=0.010s heap_free_before=3800000 heap_free_after=3800100",
