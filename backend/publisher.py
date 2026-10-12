@@ -40,10 +40,6 @@ STEAM_TRAIN_DISPLAY_WIDTH = 256
 STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
 BUS_INTRO_DISPLAY_WIDTH = 256
 BUS_INTRO_EDGE_HOLD_SECONDS = 0.25
-BUS_INTRO_VEHICLE_WIDTH = 52
-BUS_INTRO_TEXT_GAP = 8
-# Large 5x7 lettering uses threefold scaling and a 6-pixel character advance.
-BUS_INTRO_TEXT_CELL_WIDTH = 18
 BUS_INTRO_WORDS = DEFAULT_BUS_INTRO_WORDS
 
 
@@ -479,12 +475,10 @@ class Publisher:
     def _bus_intro(stop_key, config):
         speed = max(1, int(config.get("animation_speed", 24)))
         words = str(config.get("words", BUS_INTRO_WORDS) or "")
-        # The entire bus AND trailing caption must clear the left edge before
-        # transitioning directly to this stop's departures page.
-        trailing_width = BUS_INTRO_VEHICLE_WIDTH
-        if words:
-            trailing_width += BUS_INTRO_TEXT_GAP + len(words) * BUS_INTRO_TEXT_CELL_WIDTH
-        duration = (BUS_INTRO_DISPLAY_WIDTH + trailing_width) / speed
+        # Stop with the bus fully visible at the left edge, then transition to
+        # this stop's departures page. The caption follows the bus and remains
+        # visible during the hold.
+        duration = BUS_INTRO_DISPLAY_WIDTH / speed
         return {
             "id": f"sl7-{stop_key}-intro", "kind": "bus_intro",
             "duration_seconds": max(2.0, duration + BUS_INTRO_EDGE_HOLD_SECONDS),

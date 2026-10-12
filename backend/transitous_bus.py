@@ -11,8 +11,11 @@ TRANSITOUS_API = "https://api.transitous.org/api"
 TRANSITOUS_USER_AGENT = "led-sl7-bus/1.0 (https://github.com/antonio1000homens/led)"
 ROUTE = "SL7"
 DEFAULT_STOPS = {
-    "heathrow": {"name": "Heathrow", "stop_id": "gb-great-britain_490008016S"},
-    "new-malden": {"name": "New Malden", "stop_id": "gb-great-britain_490015206K"},
+    # Use the route-specific platform IDs returned by Transitous. The nearby
+    # stop IDs formerly configured here were valid radius-search origins, but
+    # exact platform filtering then discarded every SL7 result.
+    "heathrow": {"name": "Heathrow", "stop_id": "gb-great-britain_4900801619"},
+    "new-malden": {"name": "New Malden", "stop_id": "gb-great-britain_490015206J"},
 }
 
 def _iso(value):

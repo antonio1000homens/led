@@ -2724,7 +2724,7 @@ class MatrixDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        next_x = DISPLAY_WIDTH - int(elapsed * self._bus_intro_speed)
+        next_x = max(0, DISPLAY_WIDTH - int(elapsed * self._bus_intro_speed))
         if self._bus_intro_motion_group.x == next_x:
             return False
         self._bus_intro_motion_group.x = next_x
@@ -3410,7 +3410,7 @@ class FixtureDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        x = DISPLAY_WIDTH - int(elapsed * speed)
+        x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
         offset = BUS_VERTICAL_OFFSET
         self._fill_rect(x + 3, 9 + offset, 43, 12, (255, 51, 0))
         self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
