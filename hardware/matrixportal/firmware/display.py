@@ -2024,6 +2024,7 @@ class MatrixDisplay:
         if self.display.root_group is not root_before:
             self.display.root_group = root_before
             print("RAIL PREBUILD ERROR reason=hidden_root_changed restored=true")
+            self.discard_prepared_rail_scene()
             return False
         if heap_after is not None and heap_after < max(0, int(minimum_free_bytes)):
             self._rail_scenes = {}

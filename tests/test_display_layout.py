@@ -190,6 +190,71 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertIs(display.display.root_group, visible_root)
         display.display.refresh.assert_not_called()
 
+    def test_rail_scene_cache_identity_includes_payload_and_render_settings(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display._rail_group = object()
+        display._rail_services = [{"id": "one"}]
+        display._rail_title = "Departures"
+        display._rail_stale = False
+        display._rail_weather = None
+        display._rail_presentation = {"calling_seconds": 30}
+        display._rail_calling_seconds_cached = 30
+        display._rail_summary_seconds_cached = 0
+        display._rail_station_speed_cached = 20
+        display._rail_station_spacing_cached = 3
+        display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+        display._rail_pause_seconds_cached = 2
+        screen = {
+            "kind": "rail_combined", "services": [{"id": "one"},],
+            "title": "Departures", "stale": False,
+            "rail_presentation": {"calling_seconds": 30},
+            "calling_seconds": 30, "summary_seconds": 0,
+            "station_scroll_speed": 20, "station_list_spacing": 3,
+            "upcoming_train_pause_seconds": 2,
+        }
+        self.assertTrue(display.rail_scene_ready(screen))
+        screen["services"] = [{"id": "changed"}]
+        self.assertFalse(display.rail_scene_ready(screen))
+        screen["services"] = [{"id": "one"}]
+        screen["station_scroll_speed"] = 24
+        self.assertFalse(display.rail_scene_ready(screen))
+
+    def test_rail_prebuild_reuses_equivalent_cached_scene(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.display = types.SimpleNamespace(root_group=object())
+        display._rail_group = object()
+        display._rail_scenes = {}
+        display._rail_services = [{"id": "one"}]
+        display._rail_title = "Departures"
+        display._rail_stale = False
+        display._rail_weather = None
+        display._rail_presentation = None
+        display._rail_calling_seconds_cached = led_display.RAIL_CALLING_SECONDS
+        display._rail_summary_seconds_cached = led_display.RAIL_SUMMARY_SECONDS
+        display._rail_station_speed_cached = None
+        display._rail_station_spacing_cached = None
+        display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+        display._rail_pause_seconds_cached = 2
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}], "title": "Departures"}
+        with mock.patch.object(display, "_build_rail_scene") as build, \
+                mock.patch.object(display, "_heap_free") as heap_free:
+            self.assertTrue(display.prepare_rail_scene(screen))
+        build.assert_not_called()
+        heap_free.assert_not_called()
+
+    def test_rail_prebuild_rejects_stale_or_empty_payload(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.discard_prepared_rail_scene = mock.Mock()
+        with mock.patch.object(display, "_build_rail_scene") as build:
+            self.assertFalse(display.prepare_rail_scene({
+                "kind": "rail_combined", "services": [{"id": "one"}], "stale": True,
+            }))
+            self.assertFalse(display.prepare_rail_scene({
+                "kind": "rail_combined", "services": [], "stale": False,
+            }))
+        self.assertEqual(display.discard_prepared_rail_scene.call_count, 2)
+        build.assert_not_called()
+
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
             ("dad_joke", "DAD JOKE", "joke"),
