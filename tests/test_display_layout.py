@@ -187,7 +187,7 @@ class DisplayLayoutTests(unittest.TestCase):
             display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
             display._rail_pause_seconds_cached = 2
 
-        with mock.patch.object(display, "_heap_free", side_effect=[10000, 9000]), \
+        with mock.patch.object(display, "_heap_free", side_effect=[10000, 9500, 9400, 9000]), \
                 mock.patch.object(display, "_build_rail_scene", side_effect=build):
             self.assertTrue(display.prepare_rail_scene(screen, minimum_free_bytes=1000,
                                                        maximum_scene_bytes=1000))

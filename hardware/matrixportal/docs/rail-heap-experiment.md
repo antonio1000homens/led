@@ -21,6 +21,12 @@ are `RAIL BUILD START/OK`, `RAIL POST BUILD GC`, `RAIL FIRST REFRESH`,
 `SCREEN END`. Compare paired runs with the same payload, settings and board
 uptime conditions.
 
+To roll each saved capture into a comparable cycle table, run
+`python3 scripts/summarize_rail_heap.py serial.log --label control` (replace
+`control` with the A/B setting). It joins prebuild, build, GC, first-present,
+frame-gap, and screen-end records. Missing fields are shown as `n/a`; do not
+fill them with host-simulated heap values.
+
 | Run | Services | Build heap drop | GC reclaimed | Retained scene cost | Build to first present | Min free | GC time | Frame gaps >200 ms | Resets/errors |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | Control, cold | | | n/a | n/a | | | n/a | | |

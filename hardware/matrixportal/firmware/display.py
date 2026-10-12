@@ -2096,8 +2096,16 @@ class MatrixDisplay:
         # construction garbage while the completed scene is safely cached.
         import gc
 
+        heap_before_gc = self._heap_free()
+        gc_started = ticks_ms()
         gc.collect()
+        gc_duration = elapsed_seconds(gc_started)
         heap_after = self._heap_free()
+        gc_reclaimed = (
+            heap_after - heap_before_gc
+            if heap_before_gc is not None and heap_after is not None
+            else None
+        )
         self._rail_retained_heap_cost = (
             heap_before - heap_after
             if heap_before is not None and heap_after is not None
@@ -2119,8 +2127,9 @@ class MatrixDisplay:
             )
             return False
         print(
-            "RAIL PREBUILD OK screen_id={} duration={:.3f}s heap_free_before={} heap_free_after={} retained_heap_drop={}".format(
-                screen.get("id"), elapsed_seconds(started), heap_before, heap_after,
+            "RAIL PREBUILD OK screen_id={} duration={:.3f}s gc_duration={:.3f}s gc_reclaimed={} heap_free_before={} heap_free_after={} retained_heap_drop={}".format(
+                screen.get("id"), elapsed_seconds(started), gc_duration,
+                gc_reclaimed, heap_before, heap_after,
                 self._rail_retained_heap_cost,
             )
         )

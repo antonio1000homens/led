@@ -851,6 +851,8 @@ while True:
             and cold_build
             and enable is not None
         )
+        gc_entry_started = ticks_ms()
+        entry_collect = not allow_build_gc
         try:
             if allow_build_gc:
                 enable()
@@ -863,13 +865,16 @@ while True:
                 except Exception:
                     pass
             print("RAIL GC ENTRY FAILED; continuing with restored collector state:", error)
+        gc_entry_duration = elapsed_seconds(gc_entry_started)
         rail_gc_suspended = True
         rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
             print(
-                "RAIL GC ENTER reason={} auto_gc_during_build={} heap_free={} heap_allocated={}".format(
+                "RAIL GC ENTER reason={} auto_gc_during_build={} entry_collect={} duration={:.3f}s heap_free={} heap_allocated={}".format(
                     "cold_scene_build" if cold_build else "scene_ready",
                     allow_build_gc,
+                    entry_collect,
+                    gc_entry_duration,
                     _memory_free(),
                     _memory_allocated(),
                 )
@@ -917,6 +922,7 @@ while True:
                 )
         rail_gc_pause_active = pause_now
     elif gc is not None and not rail_screen and rail_gc_suspended:
+        gc_exit_started = ticks_ms()
         try:
             collect_gc_with_state(gc, enabled_after=True)
         except Exception as error:
@@ -925,7 +931,9 @@ while True:
             rail_gc_suspended = False
             rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
-            print("RAIL GC EXIT heap_free={}".format(_memory_free()))
+            print("RAIL GC EXIT duration={:.3f}s heap_free={}".format(
+                elapsed_seconds(gc_exit_started), _memory_free()
+            ))
     if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"
             and not display.tasks_ready(screen, clock.date_text(now))):
         # Never trigger an unexpected heavy build after entering an animated
