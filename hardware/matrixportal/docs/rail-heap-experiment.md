@@ -108,12 +108,13 @@ reused in maintenance and across the adjacent train; first departures refresh
 followed 28 ms after train exit, with 1,562,640 B free at train exit. This
 confirms one physical changed-content invalidation and maximum-service prepared
 handoff under the temporary test budget. It does not validate production guard
-values or establish repeatability. In the complete 300-second capture, five
-frame gaps exceeded 200 ms (maximum 484 ms); a separate heap-pressure
+values or establish repeatability. During the prepared handoff's rail cycle,
+five frame gaps exceeded 200 ms (maximum 484 ms); a separate heap-pressure
 collection during rail movement took 307 ms and caused a 484 ms frame gap. The
-rail low-water was 786,672 B. No capture errors or serial reconnects were
-recorded. The collection total in the table includes the prebuild collection,
-the emergency collection, and the post-departures planned collection.
+preceding cold on-demand entry had one 2,005 ms gap. The full capture's rail
+low-water was 786,672 B. No capture errors or serial reconnects were recorded.
+The collection total in the table includes the prebuild collection, the
+emergency collection, and the post-departures planned collection.
 
 That faster entry did not remove later heap-pressure pauses. While departures
 animated, the run forced two collections of about 0.7 s each, with frame gaps
