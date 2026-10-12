@@ -4,10 +4,10 @@
 
 The LED backend polls the Transitous/MOTIS HTTPS API for the two SL7 stops:
 
-- Heathrow Central Bus Station (`gb-great-britain_490008016S`)
-- New Malden Fountain Roundabout, Stop K (`gb-great-britain_490015206K`)
+- Heathrow Central Bus Station, Stop 19 (`gb-great-britain_4900801619`)
+- New Malden / Fountain Roundabout, Stop J (`gb-great-britain_490015206J`)
 
-The backend filters responses to SL7 and the selected physical stop, normalises departures, caches its results and publishes two `bus_departures` pages (with their bus introductions) through the existing HTTP `/api/screens` payload. The MatrixPortal polls that same HTTP endpoint used by other backend feeds.
+The backend filters responses to SL7 and the selected physical stop, normalises departures, caches its results and publishes two `bus_departures` pages (with their bus introductions) through the existing HTTP `/api/screens` payload. The configured IDs are the route-specific platform IDs returned by Transitous: Heathrow Central Stop 19 (`gb-great-britain_4900801619`) and New Malden Fountain Roundabout Stop J (`gb-great-britain_490015206J`). The MatrixPortal polls that same HTTP endpoint used by other backend feeds.
 
 **SL7 does not subscribe to, publish to or require MQTT.** It does not use Home Assistant sensors or the Home Assistant `ha_departures` integration. The board rejects any `led/screens/sl7-*` MQTT slot (including retained messages from older integrations), and MQTT cycle screens cannot override an HTTP SL7 page. MQTT remains available for unrelated functionality such as recycling screens and reminder notifications.
 
@@ -19,7 +19,7 @@ Available controls:
 
 - Master enable/disable (off by default)
 - Heathrow and New Malden page switches
-- Optional animated blue bus that enters from the right immediately before each enabled SL7 stop page. Default trailing text: `Beep! Beep!...`
+- Optional animated bus that enters from the right, stops fully visible at the left edge, and then gives way to each enabled SL7 stop page. Default trailing text: `Beep! Beep!...`
 - Bus intro enable/disable, animation speed (8–80 pixels/second), and printable ASCII trailing text (up to 80 characters)
 - Screen duration and no-service duration
 - Display frequency every 1–6 rotations (intro and departure page remain paired)

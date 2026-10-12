@@ -2,10 +2,9 @@ import json
 import unittest
 from datetime import datetime, timezone
 
-from transitous_bus import TransitousBusProvider
+from transitous_bus import DEFAULT_STOPS, TransitousBusProvider
 from publisher import (
     BUS_INTRO_DISPLAY_WIDTH, BUS_INTRO_EDGE_HOLD_SECONDS,
-    BUS_INTRO_TEXT_CELL_WIDTH, BUS_INTRO_TEXT_GAP, BUS_INTRO_VEHICLE_WIDTH,
     Publisher, PublisherConfig, StaticRuntimeConfigStore,
 )
 from runtime_config import default_runtime_config
@@ -23,6 +22,15 @@ class Response:
 
 
 class BusProviderTests(unittest.TestCase):
+    def test_default_stop_ids_match_transitous_sl7_platforms(self):
+        self.assertEqual(
+            {key: value["stop_id"] for key, value in DEFAULT_STOPS.items()},
+            {
+                "heathrow": "gb-great-britain_4900801619",
+                "new-malden": "gb-great-britain_490015206J",
+            },
+        )
+
     def test_fetch_filters_route_deduplicates_and_normalises(self):
         calls = []
         payload = [{
@@ -94,21 +102,20 @@ class BusProviderTests(unittest.TestCase):
             **runtime["feeds"]["sl7_bus"], "words": "HONK HONK!", "animation_speed": 40,
         })
         self.assertEqual((intro["words"], intro["animation_speed"]), ("HONK HONK!", 40))
-        full_width = (
-            BUS_INTRO_DISPLAY_WIDTH + BUS_INTRO_VEHICLE_WIDTH + BUS_INTRO_TEXT_GAP
-            + len("HONK HONK!") * BUS_INTRO_TEXT_CELL_WIDTH
+        self.assertAlmostEqual(
+            intro["duration_seconds"],
+            BUS_INTRO_DISPLAY_WIDTH / 40 + BUS_INTRO_EDGE_HOLD_SECONDS,
         )
-        self.assertAlmostEqual(intro["duration_seconds"], full_width / 40 + BUS_INTRO_EDGE_HOLD_SECONDS)
-        # No caption: the bus still traverses the entire board and exits left.
+        # Caption length does not extend the animation past the left edge.
         no_caption = Publisher._bus_intro("heathrow", {
-            **runtime["feeds"]["sl7_bus"], "words": "", "animation_speed": 80,
+            **runtime["feeds"]["sl7_bus"], "words": "", "animation_speed": 40,
         })
         self.assertEqual(no_caption["words"], "")
         self.assertAlmostEqual(
             no_caption["duration_seconds"],
-            (BUS_INTRO_DISPLAY_WIDTH + BUS_INTRO_VEHICLE_WIDTH) / 80 + BUS_INTRO_EDGE_HOLD_SECONDS,
+            BUS_INTRO_DISPLAY_WIDTH / 40 + BUS_INTRO_EDGE_HOLD_SECONDS,
         )
-        self.assertGreater(intro["duration_seconds"], (BUS_INTRO_DISPLAY_WIDTH + BUS_INTRO_VEHICLE_WIDTH) / 40)
+        self.assertAlmostEqual(intro["duration_seconds"], no_caption["duration_seconds"])
 
         # Turning off the animation keeps both departure pages and their order.
         runtime["feeds"]["sl7_bus"]["bus_intro_enabled"] = False

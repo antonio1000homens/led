@@ -59,14 +59,13 @@ class BusIntroAnimationTests(unittest.TestCase):
 
             display._show_bus_intro(screen, led_display.DISPLAY_WIDTH / 24)
             self.assertEqual(motion.x, 0)
-            # Bus and every last letter exit before the departures page.
-            tail = led_display.BUS_WIDTH + led_display.BUS_TEXT_GAP + 18 * len(screen["words"])
-            display._show_bus_intro(screen, (led_display.DISPLAY_WIDTH + tail + 1) / 24)
-            self.assertLess(motion.x, -tail)
+            # The bus reaches the left edge and stays fully visible there.
+            display._show_bus_intro(screen, (led_display.DISPLAY_WIDTH + 100) / 24)
+            self.assertEqual(motion.x, 0)
             self.assertIs(scene, display.display.root_group)
             display._scaled_label.assert_called_once()
 
-    def test_fallback_fixture_bus_is_red_and_exits_left(self):
+    def test_fallback_fixture_bus_stops_at_left_edge(self):
         display = led_display.FixtureDisplay.__new__(led_display.FixtureDisplay)
         display.pixels = None
         display._fill_rect = mock.Mock()
@@ -84,7 +83,7 @@ class BusIntroAnimationTests(unittest.TestCase):
             if call.args[-1] == (255, 51, 0)
         ]
         self.assertEqual(len(red_bodies), 2)
-        self.assertTrue(all(args[0] < 0 for args in red_bodies))
+        self.assertTrue(all(args[0] >= 0 for args in red_bodies))
 
     def test_bus_keeps_real_phase_with_animations_disabled(self):
         tree = ast.parse((Path(__file__).parents[1] / "code.py").read_text())
@@ -109,14 +108,13 @@ class BusIntroAnimationTests(unittest.TestCase):
             scope["_display_phase"]({"kind": "unrelated"}, 7.5), 2
         )
 
-    def test_simulator_matches_red_bus_and_negative_travel(self):
+    def test_simulator_matches_red_bus_and_left_edge_stop(self):
         source = (Path(__file__).parents[1] / "simulator/index.html").read_text()
         bus = source.split("function drawBus(screen, phase)", 1)[1].split(
             "function drawBusWheel", 1
         )[0]
         self.assertIn("'#ff3300'", bus)
-        self.assertIn("const x = Math.round(", bus)
-        self.assertNotIn("const x = Math.max(0", bus)
+        self.assertIn("const x = Math.max(0, Math.round(", bus)
 
 
 if __name__ == "__main__":
