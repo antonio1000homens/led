@@ -324,6 +324,24 @@ retained active snapshot again.
 Clear a slot by publishing a retained `event: "clear"` snapshot with a newer
 `published_at` to that same topic. It has no `screen` or `expires_at` field.
 
+The Recycling admin card controls whether a valid MQTT `bin_collection` screen is
+eligible on the MatrixPortal, its on-device screen duration and label speed,
+and the number of Europe/London calendar days preceding the collection date
+(defaults: enabled, 20 seconds, 15 pixels/second, two days). The LED publisher
+exposes this *presentation policy* under the top-level `recycling` property of
+`/api/screens`; it does not ingest collection dates or MQTT events. Home
+Assistant retains responsibility for the dates and retained MQTT snapshots.
+The board uses its synchronized local date and keeps snapshots untouched until
+the original MQTT expiration or clear. Live MQTT status and next collection
+dates cannot be seen by the cloud admin, so its Recycling health shows
+unavailable instead of a fabricated healthy status. The browser simulator's
+Preview recycling screen button is an explicit fixture preview and ignores
+the enabled/date gate.
+
+**Deployment order:** update the LED board firmware before deploying the Home
+Assistant package change that publishes collections outside the former two-day
+window. See [LED issue #244](https://github.com/antonio1000homens/led/issues/244).
+
 The first MQTT renderer is `bin_collection`: provide `title`, ISO
 `collection_date`, one or two `{id, label}` collection entries,
 `duration_seconds`, and `slide_speed`. The supplied labels are shown together

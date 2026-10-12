@@ -74,6 +74,8 @@
     const clockFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const londonDateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
     let screens = [];
+    // The simulator has no MQTT connection; the manual bin preview is a fixture.
+    let recyclingPolicy = { enabled: true, screen_duration_seconds: 20, slide_speed: 15, days_before_collection: 2 };
     let source = 'loading';
     let fetchedAt = '';
     let feedStale = false;
@@ -1513,17 +1515,20 @@
       status.dataset.detail = 'Reminder flash preview';
     });
     document.getElementById('bin-preview').addEventListener('click', () => {
+      const tomorrow = new Date(Date.now() + 86400000);
+      const dateParts = Object.fromEntries(londonDateFormatter.formatToParts(tomorrow).map(item => [item.type, item.value]));
       screens = [{
         id: 'homeassistant-next-bin', kind: 'bin_collection',
-        title: 'NEXT COLLECTION', duration_seconds: 8, slide_speed: 20,
-        collection_date: '2026-10-08',
+        title: 'NEXT COLLECTION', duration_seconds: recyclingPolicy.screen_duration_seconds,
+        slide_speed: recyclingPolicy.slide_speed,
+        collection_date: `${dateParts.year}-${dateParts.month}-${dateParts.day}`,
         collections: [{ id: 'paper', label: 'Paper' }],
         source: 'homeassistant', stale: false
       }];
       screenOffset = 0;
       paused = false;
       pauseStarted = performance.now();
-      status.dataset.detail = 'Recycling collection preview';
+      status.dataset.detail = 'Recycling fixture preview (ignores admin enable and date window; local MQTT is not observable here)';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       screens = [{
@@ -1545,6 +1550,7 @@
         const response = await fetch('/api/screens', { cache: 'no-store' });
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
+        if (payload.recycling && typeof payload.recycling === 'object') recyclingPolicy = payload.recycling;
         const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
         const nextKey = JSON.stringify(nextScreens.map(screen => { const copy = { ...screen }; delete copy.weather; return copy; }));
         if (nextKey !== screenDataKey) { feedAnimationStarted = performance.now(); screenDataKey = nextKey; }
