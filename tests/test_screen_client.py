@@ -108,6 +108,31 @@ class RotationTests(unittest.TestCase):
                 self.assertEqual(ids.index("sl7-" + stop),
                                  ids.index("sl7-" + stop + "-intro") + 1)
 
+    def test_combined_bus_intro_is_adjacent_and_frequency_gated(self):
+        import random
+        pair = [
+            {"id":"sl7-combined-intro","kind":"bus_intro","stop_key":"combined",
+             "duration_seconds":2,"display_every_cycles":2},
+            {"id":"sl7-combined","kind":"bus_departures_combined",
+             "duration_seconds":8,"display_every_cycles":2},
+        ]
+        for seed in range(20):
+            rotation = ScreenRotation(rng=random.Random(seed))
+            rotation.update(pair + [
+                {"id":"rail","kind":"rail_combined","duration_seconds":5},
+                {"id":"joke","kind":"dad_joke","duration_seconds":4}], 0)
+            ids = [item["id"] for item in rotation.screens]
+            self.assertEqual(ids.index("sl7-combined"), ids.index("sl7-combined-intro") + 1)
+            self.assertTrue(rotation.is_paired_transition("sl7-combined-intro",
+                                                          pair[1]))
+            rotation.cycle_number = 1
+            self.assertFalse(any(item["id"].startswith("sl7-") for item in
+                                 rotation._cycle_plan(rotation._available_screens())))
+        rotation = ScreenRotation()
+        rotation.update(pair, 0)
+        rotation.update(pair[:1], 1)
+        self.assertEqual(rotation.screens, [])
+
     def test_bus_intro_requires_matching_stop_and_eligible_departures(self):
         rotation = ScreenRotation()
         intro = {"id": "sl7-heathrow-intro", "kind": "bus_intro", "stop_key": "heathrow"}
