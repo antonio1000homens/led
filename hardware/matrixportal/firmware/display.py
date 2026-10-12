@@ -2632,7 +2632,7 @@ class MatrixDisplay:
         palette = displayio.Palette(5)
         palette[0] = 0x000000
         palette.make_transparent(0)
-        palette[1] = 0x2255FF
+        palette[1] = 0xFF3300
         palette[2] = 0xFFFFFF
         palette[3] = 0xFFAA00
         palette[4] = 0x222222
@@ -2677,7 +2677,7 @@ class MatrixDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        next_x = max(0, DISPLAY_WIDTH - int(elapsed * self._bus_intro_speed))
+        next_x = DISPLAY_WIDTH - int(elapsed * self._bus_intro_speed)
         if self._bus_intro_motion_group.x == next_x:
             return False
         self._bus_intro_motion_group.x = next_x
@@ -3363,10 +3363,10 @@ class FixtureDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
+        x = DISPLAY_WIDTH - int(elapsed * speed)
         offset = BUS_VERTICAL_OFFSET
-        self._fill_rect(x + 3, 9 + offset, 43, 12, (34, 85, 255))
-        self._fill_rect(x + 7, 5 + offset, 37, 5, (34, 85, 255))
+        self._fill_rect(x + 3, 9 + offset, 43, 12, (255, 51, 0))
+        self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
         for window_x in (12, 22, 32):
             self._fill_rect(x + window_x, 7 + offset, 8, 5, (255, 255, 255))
         self._fill_rect(x + 42, 12 + offset, 6, 7, (255, 170, 0))
