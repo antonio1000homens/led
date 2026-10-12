@@ -244,6 +244,16 @@ class QueueAwareDisplay:
             )
         return False
 
+    def rail_scene_ready(self, screen):
+        if hasattr(self.base, "rail_scene_ready"):
+            return self.base.rail_scene_ready(screen)
+        return False
+
+    def rail_scene_prebuilt(self, screen):
+        if hasattr(self.base, "rail_scene_prebuilt"):
+            return self.base.rail_scene_prebuilt(screen)
+        return False
+
     def discard_prepared_rail_scene(self, reason="obsolete", collect=False):
         if hasattr(self.base, "discard_prepared_rail_scene"):
             return self.base.discard_prepared_rail_scene(reason, collect)

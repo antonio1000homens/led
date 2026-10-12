@@ -75,20 +75,28 @@ OK/SKIP/REUSE` records explain the path selected.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | Control, cold | 6 | n/a | n/a | n/a | 477 ms | 7 | 696 ms | 0 |
 | Prebuild flag before adapter fix, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
+| Guarded prebuild before readiness-forwarding fix | 6 | 466,144 B observed during train | 42,832 B | 1.259 s | 501 ms, on-demand fallback | incomplete | 949 ms observed | 0 |
 | Control, warm | not captured | n/a | n/a | n/a | | | | |
 | Prebuild, warm | not captured | | | | | | | |
 
-The prebuild flag was confirmed true in the running module. Two initial cold
-cycles used the on-demand renderer. A follow-up diagnostic found that the
-maintenance scheduler selected the future departures screen, but the
-`QueueAwareDisplay` adapter did not forward `prepare_rail_scene` to the base
-Matrix renderer (`reason=renderer_unavailable`). Forwarding and a host
-regression test are now in the source; the successful physical handoff remains
-to be measured. The production guard requires 2 MiB before building (1.5 MiB
-reserve plus a 512 KiB scene estimate), above the board's approximately
-1.67 MiB total free heap at startup. Any guarded physical trial must use an
-explicit temporary test budget, then restore the defaults; keep the option
-off until the train-plus-scene low-water result supports a production guard.
+The prebuild flag was confirmed true in the running module. The diagnostic
+found that `QueueAwareDisplay` did not forward `prepare_rail_scene`; a
+temporary 256 KiB reserve plus 256 KiB scene estimate then allowed a six
+service build. It took 1.259 s, reclaimed 126,864 B, and retained 42,832 B;
+the scene was reused in later maintenance windows. It remained allocated while
+the train ran, with 466,144 B free at one sampled point. At the paired rail
+boundary, however, `rail_scene_ready` and `rail_scene_prebuilt` were also
+hidden by the adapter. The caller treated the scene as cold, discarded it,
+and rebuilt on demand (501 ms to first present). All four adapter methods now
+forward to the base display and have a host regression test; a successful
+physical handoff has not yet been captured.
+
+The production guard requires 2 MiB before building (1.5 MiB reserve plus a
+512 KiB scene estimate), above the board's approximately 1.67 MiB total free
+heap at startup. The guarded trial used an explicit temporary test budget and
+the board config was then returned to default-off. Keep the option off until a
+corrected handoff and train-plus-scene low-water are measured and support a
+production guard.
 
 ## Compact static service rows
 
