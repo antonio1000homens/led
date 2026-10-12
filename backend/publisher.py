@@ -799,6 +799,9 @@ class Publisher:
             "config_version": runtime["config_version"],
             "display": copy.deepcopy(runtime["display"]),
             "flash": copy.deepcopy(config_feeds["flash"]),
+            # Board-local presentation/visibility policy for HA MQTT collection screens.
+            # No broker credentials, MQTT status or private collection dates are exposed.
+            "recycling": copy.deepcopy(config_feeds["recycling"]),
             "screens": screens,
         }
 
