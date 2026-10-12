@@ -533,9 +533,11 @@
       return before >= 0 && after > before;
     };
     const busFollowup = (intro, departures) =>
-      intro.kind === 'bus_intro' && departures.kind === 'bus_departures' &&
-      ['heathrow', 'new-malden'].includes(intro.stop_key) &&
-      intro.stop_key === departures.stop_key;
+      intro.kind === 'bus_intro' && (
+        (departures.kind === 'bus_departures' && ['heathrow', 'new-malden'].includes(intro.stop_key) &&
+         intro.stop_key === departures.stop_key) ||
+        (departures.kind === 'bus_departures_combined' && intro.stop_key === 'combined')
+      );
     function makeCyclePlan() {
       const blocks = [];
       const normal = screens.filter(screen => !staticScreen(screen));
@@ -987,6 +989,44 @@
       }
       status.dataset.detail = 'Next recycling collection';
     }
+    function splitSl7Due(item) {
+      if (item.cancelled) return 'CXL';
+      const effective = Date.parse(item.estimated || item.planned || '');
+      if (Number.isFinite(effective)) {
+        const remaining = effective - Date.now();
+        if (remaining <= 60000) return remaining >= -60000 ? 'Due' : '--';
+        return String(Math.min(999, Math.ceil(remaining / 60000))) + 'm';
+      }
+      return String(item.due_text || '--');
+    }
+    function drawSplitSl7(screen) {
+      const directions = screen.directions || {};
+      const columns = [
+        {key:'new-malden', x:0, title:'SL7 to Heathrow'},
+        {key:'heathrow', x:128, title:'SL7 to New Malden'}
+      ];
+      columns.forEach(column => {
+        const side = directions[column.key] || {};
+        const rows = (Array.isArray(side.departures) ? side.departures : []).slice(0, 3);
+        const x = column.x * FONT_PIXEL_SCALE;
+        context.fillStyle = side.stale ? '#ff3300' : '#ffaa00';
+        drawLedText(column.title, x + FONT_PIXEL_SCALE, 0);
+        if (side.stale && rows.length) drawLedText('!', x + 119 * FONT_PIXEL_SCALE, 0);
+        if (!rows.length) {
+          const message = side.status === 'disabled' ? 'OFF' :
+            side.status === 'unavailable' ? 'Unavailable' : side.stale ? 'STALE' : 'No services';
+          context.fillStyle = side.stale || side.status === 'unavailable' ? '#ff3300' : '#ffffff';
+          drawLedText(message, x + 2 * FONT_PIXEL_SCALE, 8 * FONT_PIXEL_SCALE);
+        }
+        rows.forEach((item, i) => {
+          const y = (8 + i * 8) * FONT_PIXEL_SCALE;
+          context.fillStyle = item.cancelled ? '#ff3300' :
+            (item.estimated && item.planned && item.estimated !== item.planned ? '#ffaa00' : '#ffffff');
+          drawLedText(splitSl7Due(item).slice(0,5), x + 2 * FONT_PIXEL_SCALE, y);
+          drawLedText(String(item.local_time || '--:--').slice(0,5), x + 88 * FONT_PIXEL_SCALE, y);
+        });
+      });
+    }
     function drawBusDepartures(screen, clock) {
       context.fillStyle = '#ffaa00';
       drawLedText(String(screen.title || 'SL7').slice(0, 26), 0, HEADER_TEXT_Y);
@@ -1246,6 +1286,10 @@
         status.dataset.detail = 'Today sunrise and sunset';
       } else if (screen.kind === 'bin_collection') {
         drawBinCollection(screen, phase);
+      } else if (screen.kind === 'bus_departures_combined') {
+        drawSplitSl7(screen);
+        suppressHeader = true;
+        status.dataset.detail = 'SL7 to Heathrow and New Malden · two-column departures';
       } else if (screen.kind === 'bus_departures') {
         drawBusDepartures(screen, clock);
         suppressHeader = true;
@@ -1525,14 +1569,20 @@
       status.dataset.detail = 'Recycling collection preview';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
+      const now = Date.now();
+      const departure = (mins, options = {}) => {
+        const date = new Date(now + mins * 60000);
+        return {planned: date.toISOString(), estimated: null,
+          local_time: date.toLocaleTimeString('en-GB', {timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}),
+          cancelled: false, ...options};
+      };
       screens = [{
-        id: 'sl7-heathrow', kind: 'bus_departures', route: 'SL7', stop_key: 'heathrow',
-        stop_name: 'Heathrow', title: 'SL7 HEATHROW', duration_seconds: 8, status: 'ok', stale: false,
-        departures: [
-          { destination: 'West Croydon', planned: '2026-10-11T20:05:00Z', estimated: '2026-10-11T20:06:00Z', cancelled: false },
-          { destination: 'West Croydon', planned: '2026-10-11T20:18:00Z', estimated: null, cancelled: false },
-          { destination: 'West Croydon', planned: '2026-10-11T20:31:00Z', estimated: null, cancelled: true }
-        ]
+        id:'sl7-combined', kind:'bus_departures_combined', route:'SL7',
+        title:'SL7 to Heathrow / New Malden', duration_seconds: 8,
+        directions:{
+          'new-malden':{status:'ok',stale:false,enabled:true,departures:[departure(15),departure(45),departure(50)]},
+          heathrow:{status:'ok',stale:false,enabled:true,departures:[departure(4),departure(34),departure(48)]}
+        }
       }];
       screenOffset = 0; paused = false; pauseStarted = performance.now(); status.dataset.detail = 'SL7 fixture preview';
     });
