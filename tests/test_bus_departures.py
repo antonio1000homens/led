@@ -52,7 +52,8 @@ class BusDepartureTests(unittest.TestCase):
     def test_http_bus_wins_if_old_mqtt_message_is_injected(self):
         from screen_client import ScreenRotation
         http = [
-            {"id": "sl7-heathrow-intro", "kind": "bus_intro", "duration_seconds": 2, "display_every_cycles": 2},
+            {"id": "sl7-heathrow-intro", "kind": "bus_intro", "stop_key": "heathrow",
+             "duration_seconds": 2, "display_every_cycles": 2},
             dict(screen(), source="transitous", display_every_cycles=2),
             {"id": "rail", "kind": "rail_combined", "duration_seconds": 8, "services": []},
         ]
