@@ -108,7 +108,7 @@ def today_blocks():
 class DisplayLayoutTests(unittest.TestCase):
     def test_post_build_gc_experiment_is_off_by_default(self):
         self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
-        self.assertFalse(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
+        self.assertTrue(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
 
     def test_rail_gc_waits_for_departure_rows_to_stop(self):
         display = types.SimpleNamespace(

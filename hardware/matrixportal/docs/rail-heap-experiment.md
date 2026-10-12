@@ -1,9 +1,10 @@
 # Rail departures heap and prebuild experiments
 
-Issue #241 starts with low frequency scene-build/first-refresh measurements,
-board-local post-build collection, and ahead-of-train scene preparation. Both
-new behaviors remain opt-in/default-off until actual board measurements show
-that the retained scene fits safely alongside the train renderer.
+Issue #241 measures rail scene build/first-refresh cost, post-build collection,
+and ahead-of-train preparation. Static service rows now use the physically
+accepted compact bitmap renderer by default. Post-build collection and
+ahead-of-train preparation remain opt-in/default-off until repeated board
+measurements establish safe heap headroom.
 
 ## A/B setting
 
@@ -143,11 +144,12 @@ it does not prove the production fourteen-screen fetch completed in that boot.
 
 ## Compact static service rows
 
-Set `MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = True` in board-local
-`settings_local.py` to render each static service row into a transparent,
-single-bit bitmap. The row uses the existing font glyphs and the existing
-column positions, and preserves the service-wide cancelled colour. It is an
-isolated switch: keep post-build GC and prebuild off while measuring it. The
+With `MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = True` (the default), each
+static service row is rendered into a transparent, single-bit bitmap. Set it
+to `False` in board-local `settings_local.py` to restore the legacy label
+renderer for comparison or rollback. The row uses the existing font glyphs and
+column positions, and preserves the service-wide cancelled colour. Keep
+post-build GC and prebuild off when comparing renderers. The
 build log identifies the renderer (`static_row_renderer`) and number of
 bitmaps (`static_row_bitmaps`); compare cold build heap drop and retained scene
 cost with the normal labels at the same service count. The cache signature
@@ -171,6 +173,8 @@ includes this setting so a changed mode cannot reuse an incompatible scene.
 | Fixed payload, bitmap, post-build GC | 10 | bitmap (10 bitmaps) | 218,464 B | 5,840 B | 1.762 s | 2,031 ms | 940,048 B | 1 | 2,279 ms | 0 |
 | Fixed payload, labels, warm cache | 10 | labels | n/a | n/a | n/a | n/a | 786,736 B | 73 | 363 ms | 0 |
 | Fixed payload, bitmap, warm cache | 10 | bitmap (10 bitmaps) | n/a | n/a | n/a | n/a | 786,688 B | 4 | 467 ms | 0 |
+| Same 3,482-byte payload, labels + post-build GC cold A | 10 | labels | -99,024 B | -115,264 B | 10.047 s | 10,541 ms | 1,113,936 B | 62 | 10,711 ms | 0 |
+| Same 3,482-byte payload, labels + post-build GC cold B | 10 | labels | -98,864 B | -115,104 B | 10.111 s | 10,607 ms | 1,113,888 B | 60 | 10,780 ms | 0 |
 
 In the single six-service cold comparison, bitmap rows reduced the measured
 build heap drop by 88,224 B (about 52%) and did not worsen measured first
@@ -213,6 +217,20 @@ The exact payload was fetched unchanged before warm re-entry in both runs, and
 no second `RAIL BUILD START` occurred, confirming that the cached scene was
 reused after the intervening screens. The warm cycles had no capture errors.
 
+To repeat the maximum-service post-build-GC label result, the board fetched the
+same 3,482-byte fixture (SHA-256
+`e396f1a492fa0367f04e1100c6151fe8008d6e781504c56e229f42a341e07b64`) on two
+separate cold starts. The label builds took 10.047 and 10.111 s, with first
+presentation at 10,541 and 10,607 ms. Both runs reclaimed 16,672 B in the
+explicit post-build GC; the net retained-heap drops were -115,264 and
+-115,104 B because automatic GC during construction had already increased
+free heap by about 99 KB. This is a net free-heap change, not a claim that the
+live scene occupies negative memory. Each cold entry had a frame gap above ten
+seconds; the runs recorded 62/60 gaps above 200 ms, with maxima of
+10,711/10,780 ms. Minimum free heap was 1,113,936/1,113,888 B, with no capture
+errors or serial reconnects. Warm cached cycles did not rebuild the scene, but
+still showed many frame gaps above 200 ms.
+
 ## Rail collection safety
 
 The planned rail collection window now requires the calling marquee to be in
@@ -229,14 +247,15 @@ Keep post-build GC and prebuild disabled. The post-build run reclaimed
 temporary allocations but had no one-run latency or low-water improvement.
 Static bitmap rows have a controlled ten-service retained-memory result: after
 matched post-build collection they retained 59,568 B less than labels, while
-using more temporary build heap and taking 184 ms longer to collect. Keep the
-renderer opt-in/default-off pending repeated cold builds and a physical
-ten-service label visual check. Prebuild now has one successful ten-service
-changed-content handoff, but later animation still forces heap-pressure GC
-pauses and the measured test budget is below the production guard. Keep it
-disabled until repeated maximum-payload handoffs establish headroom and a
-usable production safety threshold. Visible-row
-recycling is not justified by the current evidence.
+using more temporary build heap and taking 184 ms longer to collect. The user
+visually accepted the ten-service bitmap rows. Two exact-payload cold label
+runs also reproduced first-presentation delays above 10.5 s. The compact
+bitmap renderer is therefore the default; set its switch False to roll back to
+labels. Prebuild has one successful ten-service changed-content handoff, but
+later animation still forces heap-pressure GC pauses and the measured test
+budget is below the production guard. Keep prebuild disabled until repeated
+maximum-payload handoffs establish headroom and a usable production safety
+threshold. Visible-row recycling is not justified by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
 prebuild; five services for two label and two bitmap cycles; and ten services
@@ -244,12 +263,14 @@ for two label and two bitmap live-feed cycles plus matched fixed-payload runs.
 The unchanged fixture hash and absence of another `RAIL BUILD START` confirm
 warm scene reuse across intervening screens. One ten-service physical run
 demonstrated changed-content invalidation and a completed prepared handoff;
-repeatable cold prebuild handoffs and repeated cold post-GC captures remain
-open. Overall rotation
+repeatable cold prebuild handoffs remain open. Repeated cold post-GC label
+captures now exist for the same payload. Overall rotation
 heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
 rows. The corrected prebuild run
 reached the paired handoff after two earlier on-demand cycles.
-Rollback is to leave the three `MATRIX_RAIL_*_EXPERIMENT` switches at their
-default `False` values.
+Rollback the static row renderer by setting
+`MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = False` in `settings_local.py`.
+Keep `MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT` and
+`MATRIX_RAIL_PREBUILD_EXPERIMENT` at their default `False` values.
