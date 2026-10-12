@@ -834,11 +834,15 @@ while True:
             and pressure_cooldown_elapsed
         )
         if (pause_now and not rail_gc_pause_active) or pressure_due:
-            gc_reason = "calling_end_pause" if pause_now else "heap_pressure"
+            gc_reason = (
+                "calling_end_pause"
+                if pause_now
+                else "heap_pressure_during_motion"
+            )
             if HEAP_DIAGNOSTICS_ENABLED:
                 print(
-                    "RAIL GC START reason={} heap_free={}".format(
-                        gc_reason, heap_before_gc
+                    "RAIL GC START reason={} motion_active={} heap_free={}".format(
+                        gc_reason, not pause_now, heap_before_gc
                     )
                 )
             enable = getattr(gc, "enable", None)

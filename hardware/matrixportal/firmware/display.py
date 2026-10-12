@@ -10,6 +10,7 @@ from matrix_config import (
     MATRIX_BIT_DEPTH,
     MATRIX_EXPERIMENT_PRESET,
     MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT,
+    MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
     CALLING_SCROLL_SPEED_OVERRIDE,
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_ROWS_SCROLL,
@@ -843,6 +844,7 @@ class MatrixDisplay:
         self._last_present_refresh = None
         self._refresh_misses = 0
         self._rail_first_refresh_pending = False
+        self._rail_build_started_ms = None
 
         self._brightness = BrightnessState(brightness_percent)
         self._brightness_bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 2)
@@ -1621,8 +1623,11 @@ class MatrixDisplay:
                 probe_first_refresh = self._rail_first_refresh_pending
                 if probe_first_refresh:
                     print(
-                        "RAIL FIRST REFRESH START mode={} heap_free={}".format(
-                            self.presentation_mode, self._heap_free()
+                        "RAIL FIRST REFRESH START mode={} build_to_present_ms={} heap_free={}".format(
+                            self.presentation_mode,
+                            ticks_ms() - self._rail_build_started_ms
+                            if self._rail_build_started_ms is not None else None,
+                            self._heap_free()
                         )
                     )
                 refresh_started = ticks_ms()
@@ -1665,8 +1670,11 @@ class MatrixDisplay:
         )
         if probe_first_refresh:
             print(
-                "RAIL FIRST REFRESH START mode={} heap_free={}".format(
-                    self.presentation_mode, heap_before
+                "RAIL FIRST REFRESH START mode={} build_to_present_ms={} heap_free={}".format(
+                    self.presentation_mode,
+                    ticks_ms() - self._rail_build_started_ms
+                    if self._rail_build_started_ms is not None else None,
+                    heap_before
                 )
             )
         refresh_started = ticks_ms()
@@ -1677,8 +1685,11 @@ class MatrixDisplay:
             self._last_rail_refresh_seconds = refresh_duration
             if probe_first_refresh:
                 print(
-                    "RAIL FIRST REFRESH OK duration={:.3f}s refreshed={} heap_free={}".format(
-                        refresh_duration, refreshed, self._heap_free()
+                    "RAIL FIRST REFRESH OK duration={:.3f}s build_to_present_ms={} refreshed={} heap_free={}".format(
+                        refresh_duration,
+                        ticks_ms() - self._rail_build_started_ms
+                        if self._rail_build_started_ms is not None else None,
+                        refreshed, self._heap_free()
                     )
                 )
                 self._rail_first_refresh_pending = False
@@ -1841,6 +1852,7 @@ class MatrixDisplay:
         import displayio
 
         build_started = ticks_ms()
+        heap_before_build = self._heap_free()
         print(
             "RAIL BUILD START services={} heap_free={}".format(
                 len(screen.get("services") or ()), self._heap_free()
@@ -1882,13 +1894,48 @@ class MatrixDisplay:
         self._rail_title = screen.get("title")
         self._rail_stale = bool(screen.get("stale"))
         self._rail_weather = screen.get("weather")
+        heap_after_build = self._heap_free()
+        self._rail_build_started_ms = build_started
         self._select_rail_scene(phase, calling_seconds, summary_seconds)
         self._rail_first_refresh_pending = True
         print(
-            "RAIL BUILD OK scenes={} duration={:.3f}s heap_free={}".format(
-                len(scenes), elapsed_seconds(build_started), self._heap_free()
+            "RAIL BUILD OK scenes={} duration={:.3f}s heap_free_before={} heap_free_after={} heap_drop={}".format(
+                len(scenes), elapsed_seconds(build_started), heap_before_build,
+                heap_after_build,
+                (heap_before_build - heap_after_build)
+                if heap_before_build is not None and heap_after_build is not None
+                else None,
             )
         )
+        if MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT:
+            import gc
+
+            heap_before_gc = self._heap_free()
+            gc_started = ticks_ms()
+            # The complete scene dictionary is held by self._rail_scenes.
+            # Restore the loop's disabled-GC state even if collection raises.
+            gc.enable()
+            try:
+                gc.collect()
+            finally:
+                gc.disable()
+            heap_after_gc = self._heap_free()
+            gc_reclaimed = (
+                heap_after_gc - heap_before_gc
+                if heap_before_gc is not None and heap_after_gc is not None
+                else None
+            )
+            retained_heap_drop = (
+                heap_before_build - heap_after_gc
+                if heap_before_build is not None and heap_after_gc is not None
+                else None
+            )
+            print(
+                "RAIL POST BUILD GC duration={:.3f}s heap_free_before={} heap_free_after={} reclaimed_bytes={} retained_heap_drop={} build_to_gc_ms={}".format(
+                    elapsed_seconds(gc_started), heap_before_gc, heap_after_gc,
+                    gc_reclaimed, retained_heap_drop, ticks_ms() - build_started,
+                )
+            )
 
     def _select_rail_scene(self, phase, calling_seconds=RAIL_CALLING_SECONDS,
                            summary_seconds=RAIL_SUMMARY_SECONDS):
@@ -2015,7 +2062,7 @@ class MatrixDisplay:
         return changed
 
     def rail_gc_safe_to_collect(self, screen, phase):
-        """Return whether every calling marquee has scrolled off and reached its end pause."""
+        """Return whether all animated rail content is stationary."""
         if not isinstance(screen, dict) or screen.get("kind") != "rail_combined":
             return False
         summary_seconds = self._rail_summary_seconds
@@ -2040,6 +2087,21 @@ class MatrixDisplay:
             within_ms = (phase_ms % calling_ms) % (travel_ms + pause_ms)
             if within_ms < travel_ms:
                 return False
+        if MATRIX_RAIL_ROWS_SCROLL:
+            services = screen.get("services") or ()
+            _, progress, reset_progress = departure_scroll_state(
+                rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
+                max(0, len(services) - 1),
+                screen.get("upcoming_train_pause_seconds", 2),
+                visible_rows=2,
+            )
+            # A blank reset gap and the deliberate row pauses are stationary.
+            if progress > 0 or (reset_progress is not None and reset_progress > 0):
+                return False
+        # The current header alternates clock/weather at rest; it has no slide.
+        # Keep this explicit so future header animation changes gate rail GC.
+        if _header_slide_active(phase, screen.get("weather")):
+            return False
         return True
 
     def _show_rail(self, screen, clock_time, phase):

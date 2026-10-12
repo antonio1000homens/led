@@ -105,6 +105,36 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_post_build_gc_experiment_is_off_by_default(self):
+        self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
+
+    def test_rail_gc_waits_for_departure_rows_to_stop(self):
+        display = types.SimpleNamespace(
+            _rail_summary_seconds=0,
+            _rail_calling_seconds=300,
+            _rail_scroll_speed=20.0,
+            _rail_calling_labels=[{"station_width": 6}],
+        )
+        screen = {
+            "kind": "rail_combined",
+            "services": [{}, {}, {}, {}, {}],
+            "upcoming_train_pause_seconds": 2,
+        }
+        # The calling line is in its end pause, while the lower rows are
+        # crossing the reset entrance at this phase.
+        with mock.patch.object(led_display, "MATRIX_RAIL_ROWS_SCROLL", True):
+            self.assertFalse(
+                led_display.MatrixDisplay.rail_gc_safe_to_collect(
+                    display, screen, 47.4
+                )
+            )
+        with mock.patch.object(led_display, "MATRIX_RAIL_ROWS_SCROLL", False):
+            self.assertTrue(
+                led_display.MatrixDisplay.rail_gc_safe_to_collect(
+                    display, screen, 11.5
+                )
+            )
+
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
             ("dad_joke", "DAD JOKE", "joke"),

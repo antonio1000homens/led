@@ -14,6 +14,18 @@ MATRIX_EXPERIMENT_PRESET = "B8"
 # The asynchronous experiment caused visible calling-at frame stalls when the
 # animation mutated the scene while CircuitPython refreshed independently.
 MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT = False
+MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = False
+try:
+    import settings_local as _rail_gc_settings_local
+    MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = bool(
+        getattr(
+            _rail_gc_settings_local,
+            "MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT",
+            MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
+        )
+    )
+except ImportError:
+    pass
 try:
     import settings_local as _preset_settings_local
     MATRIX_EXPERIMENT_PRESET = getattr(
