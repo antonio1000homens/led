@@ -137,6 +137,8 @@ includes this setting so a changed mode cannot reuse an incompatible scene.
 | Bitmap rows, next cycle | 5 | bitmap (5 bitmaps) | 241,456 B | n/a | 0.339 s | 370 ms | 785,312 B | 6 | 629 ms | 0 |
 | Bitmap rows, maximum, first cycle | 10 | bitmap (10 bitmaps) | 129,360 B | n/a | 0.524 s | 556 ms | 785,776 B | 5 | 767 ms | 0 |
 | Bitmap rows, maximum, next cycle | 10 | bitmap (10 bitmaps) | 359,664 B | n/a | 0.533 s | 583 ms | 786,032 B | 5 | 1,039 ms | 0 |
+| Labels, maximum, first cycle | 10 | labels | 201,216 B | n/a | 0.623 s | 658 ms | 818,848 B | 84 | 889 ms | 0 |
+| Labels, maximum, next cycle | 10 | labels | 202,928 B | n/a | 0.581 s | 633 ms | 788,592 B | 98 | 1,102 ms | 0 |
 | Labels, warm | not captured | labels | | | | | | | | |
 | Bitmap rows, warm | not captured | bitmap | | | | | | | | |
 
@@ -157,7 +159,12 @@ during movement took 75/74 ms in the bitmap cycles and 76/84 ms in the label
 cycles. The second build in each pair followed a scene discard, so neither is
 a warm cache hit. Payload equivalence has not been established; the current
 five-service results do not show a bitmap heap saving. Retained-scene cost
-remains unmeasured for the bitmap renderer.
+remains unmeasured for either renderer. The ten-service label cycles dropped
+201,216/202,928 B and first-presented in 658/633 ms, with 84/98 frame gaps
+over 200 ms and maxima of 889/1,102 ms. These large gaps include screen entry
+and emergency collection; no capture errors or serial reconnects were
+recorded. Their current payloads were not verified byte-identical to the
+bitmap pair, so this is not a strict A/B result.
 
 ## Rail collection safety
 
@@ -183,9 +190,9 @@ by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
 prebuild; five services for two label and two bitmap cycles; and ten services
-for two bitmap cycles. Exact payloads differed across runs. Maximum-payload
-labels, repeated warm/cache-identity checks, and retained-cost measurements
-remain open. Overall rotation heap reached 129,680 B on non-rail
+for two label and two bitmap cycles. Exact payloads differed across runs.
+Repeated warm/cache-identity checks and retained-cost measurements remain
+open. Overall rotation heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
 rows. The corrected prebuild run
