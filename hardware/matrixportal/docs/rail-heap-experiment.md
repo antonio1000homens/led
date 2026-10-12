@@ -77,7 +77,7 @@ OK/SKIP/REUSE` records explain the path selected.
 | Prebuild flag before adapter fix, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
 | Guarded prebuild before readiness-forwarding fix | 6 | 466,144 B observed during train | 42,832 B | 1.259 s | 501 ms, on-demand fallback | incomplete | 949 ms observed | 0 |
 | Guarded prebuild after adapter fix, cold | 6 | 1,295,568 B train low-water | 42,448 B | 2.041 s | 30 ms | 7 | 923 ms | 0 |
-| Ten-service bitmap, changed-content prebuild (partial) | 10 | not captured | 9,552 B | 0.450 s | 0.827 s | not captured | 5 | 493 ms | 0 |
+| Ten-service bitmap, changed-content prebuild and handoff | 10 | 1,562,640 B at train exit | 9,552 B | 0.449 s | 0.823 s | 28 ms | 3 / 0.953 s total* | 5 | 484 ms | 0 |
 | Control, warm | not captured | n/a | n/a | n/a | | | | |
 | Prebuild, warm | not captured | | | | | | | |
 
@@ -96,17 +96,24 @@ presented departures in 30 ms. The user's visual check of the bitmap rows was
 “looks fine”; no visual report for this corrected prebuild handoff was recorded
 at the time of capture.
 
-A maximum-payload bitmap capture exercised the changed-content path. The board
-logged `RAIL SCENE DISCARD reason=payload_or_settings_changed`, built ten row
-bitmaps in 450 ms (332,576 B transient build drop), then completed prebuild and
-collection in 827 ms total. That collection took 334 ms, reclaimed 323,488 B,
-and left a measured 9,552 B retained drop. Prepared-scene reuse was then logged
-in maintenance, but the bounded capture ended before the following
-train-to-departures handoff. It therefore does not establish maximum-payload
-train/scene coexistence low-water or first-present latency. Five frame gaps
-exceeded 200 ms in the captured rail interval (maximum 493 ms); no capture
-errors were logged. This is a single partial physical run with test-only
-512 KiB reserve and scene limits, not validation of production guard values.
+A maximum-payload bitmap capture started with fixture SHA-256
+`39071c94a55483008bee981c1543bf07a3b50d603f5f7674aeb551c4fe131f7a` and then
+changed one destination; the board request log confirmed the replacement
+payload SHA-256 `e396f1a492fa0367f04e1100c6151fe8008d6e781504c56e229f42a341e07b64`.
+The board logged `RAIL SCENE DISCARD reason=payload_or_settings_changed`, built
+ten row bitmaps in 449 ms (333,152 B transient build drop), then completed
+prebuild and collection in 823 ms total. The collection took 331 ms, reclaimed
+324,064 B, and left a measured 9,552 B retained drop. The prepared scene was
+reused in maintenance and across the adjacent train; first departures refresh
+followed 28 ms after train exit, with 1,562,640 B free at train exit. This
+confirms one physical changed-content invalidation and maximum-service prepared
+handoff under the temporary test budget. It does not validate production guard
+values or establish repeatability. In the complete 300-second capture, five
+frame gaps exceeded 200 ms (maximum 484 ms); a separate heap-pressure
+collection during rail movement took 307 ms and caused a 484 ms frame gap. The
+rail low-water was 786,672 B. No capture errors or serial reconnects were
+recorded. The collection total in the table includes the prebuild collection,
+the emergency collection, and the post-departures planned collection.
 
 That faster entry did not remove later heap-pressure pauses. While departures
 animated, the run forced two collections of about 0.7 s each, with frame gaps
@@ -233,10 +240,10 @@ Captures cover six services for control, post-build-GC, bitmap, and corrected
 prebuild; five services for two label and two bitmap cycles; and ten services
 for two label and two bitmap live-feed cycles plus matched fixed-payload runs.
 The unchanged fixture hash and absence of another `RAIL BUILD START` confirm
-warm scene reuse across intervening screens. The partial ten-service run
-demonstrated a physical changed-content discard and rebuild, but repeatable
-changed-content invalidation and a completed changed-content prebuild handoff
-remain open. Repeated cold post-GC captures also remain open. Overall rotation
+warm scene reuse across intervening screens. One ten-service physical run
+demonstrated changed-content invalidation and a completed prepared handoff;
+repeatable cold prebuild handoffs and repeated cold post-GC captures remain
+open. Overall rotation
 heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
