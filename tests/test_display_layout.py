@@ -163,6 +163,35 @@ class DisplayLayoutTests(unittest.TestCase):
         build.assert_not_called()
         self.assertIs(display.display.root_group, visible_root)
 
+    def test_rail_scene_discard_releases_only_hidden_cache(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        hidden_rail = object()
+        display.display = types.SimpleNamespace(root_group=visible_root)
+        display._rail_group = hidden_rail
+        display._rail_scenes = {"calling": object()}
+        display._rail_services = [{"id": "old"}]
+        display._rail_prebuilt_pending = True
+        display._rail_calling_labels = []
+        display._rail_departure_rows = []
+        display._rail_phase = None
+        display._rail_clock_group = None
+        display._rail_clock_label = None
+        display._rail_weather_group = None
+        with mock.patch.object(display, "_heap_free", side_effect=[900, 900]):
+            self.assertTrue(display.discard_prepared_rail_scene(reason="changed"))
+        self.assertIs(display.display.root_group, visible_root)
+        self.assertIsNone(display._rail_group)
+        self.assertEqual(display._rail_scenes, {})
+        self.assertIsNone(display._rail_services)
+        self.assertFalse(display._rail_prebuilt_pending)
+
+        display._rail_group = hidden_rail
+        display.display.root_group = hidden_rail
+        self.assertFalse(display.discard_prepared_rail_scene(reason="active"))
+        self.assertIs(display._rail_group, hidden_rail)
+        self.assertIs(display.display.root_group, hidden_rail)
+
     def test_rail_prebuild_keeps_scene_hidden_and_does_not_refresh(self):
         display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
         visible_root = object()

@@ -2064,7 +2064,7 @@ class MatrixDisplay:
         if (not isinstance(screen, dict) or screen.get("kind") != "rail_combined"
                 or screen.get("stale") or not screen.get("services")):
             print("RAIL PREBUILD SKIP reason=missing_or_stale_payload")
-            self.discard_prepared_rail_scene()
+            self.discard_prepared_rail_scene(reason="missing_or_stale_payload", collect=True)
             return False
         if self._rail_cache_matches(screen):
             self._rail_prebuilt_pending = True
@@ -2073,10 +2073,15 @@ class MatrixDisplay:
             ))
             return True
 
+        if self._rail_group is not None:
+            if self.display.root_group is self._rail_group:
+                print("RAIL PREBUILD SKIP reason=visible_rail_scene")
+                return False
+            self.discard_prepared_rail_scene(reason="payload_or_settings_changed", collect=True)
+
         heap_before = self._heap_free()
         required_free = max(0, int(minimum_free_bytes)) + max(0, int(maximum_scene_bytes))
         if heap_before is None or heap_before < required_free:
-            self.discard_prepared_rail_scene()
             print(
                 "RAIL PREBUILD SKIP reason=memory_guard heap_free={} required_free={}".format(
                     heap_before, required_free
@@ -2084,9 +2089,6 @@ class MatrixDisplay:
             )
             return False
 
-        # Drop an obsolete hidden scene before replacement to avoid holding
-        # both generations at the allocation high-water mark.
-        self.discard_prepared_rail_scene()
         root_before = self.display.root_group
         started = ticks_ms()
         try:
@@ -2120,12 +2122,10 @@ class MatrixDisplay:
         if self.display.root_group is not root_before:
             self.display.root_group = root_before
             print("RAIL PREBUILD ERROR reason=hidden_root_changed restored=true")
-            self.discard_prepared_rail_scene()
+            self.discard_prepared_rail_scene(reason="hidden_root_changed", collect=True)
             return False
         if heap_after is not None and heap_after < max(0, int(minimum_free_bytes)):
-            self._rail_scenes = {}
-            self.discard_prepared_rail_scene()
-            gc.collect()
+            self.discard_prepared_rail_scene(reason="post_build_reserve", collect=True)
             print(
                 "RAIL PREBUILD SKIP reason=post_build_reserve heap_free={} minimum_free={}".format(
                     self._heap_free(), minimum_free_bytes
@@ -2142,10 +2142,12 @@ class MatrixDisplay:
         self._rail_prebuilt_pending = True
         return True
 
-    def discard_prepared_rail_scene(self):
+    def discard_prepared_rail_scene(self, reason="obsolete", collect=False):
         """Release a hidden prepared scene, preserving a currently visible rail root."""
-        if self.display.root_group is self._rail_group:
+        if self._rail_group is not None and self.display.root_group is self._rail_group:
             return False
+        had_scene = self._rail_group is not None
+        heap_before = self._heap_free() if had_scene else None
         self._rail_scenes = {}
         self._rail_group = None
         self._rail_services = None
@@ -2167,6 +2169,22 @@ class MatrixDisplay:
         self._rail_clock_group = None
         self._rail_clock_label = None
         self._rail_weather_group = None
+        if had_scene and collect:
+            import gc
+
+            gc.collect()
+        heap_after = self._heap_free() if had_scene else None
+        if had_scene:
+            print(
+                "RAIL SCENE DISCARD reason={} heap_free_before={} heap_free_after={} reclaimed_bytes={}".format(
+                    reason,
+                    heap_before,
+                    heap_after,
+                    heap_after - heap_before
+                    if heap_before is not None and heap_after is not None
+                    else None,
+                )
+            )
         return True
 
     def _select_rail_scene(self, phase, calling_seconds=RAIL_CALLING_SECONDS,

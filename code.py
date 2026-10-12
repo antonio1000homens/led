@@ -842,10 +842,11 @@ while True:
     if gc is not None and rail_screen and not rail_gc_suspended:
         disable = getattr(gc, "disable", None)
         enable = getattr(gc, "enable", None)
-        cold_build = not (
+        scene_ready = (
             hasattr(display, "rail_scene_ready")
             and display.rail_scene_ready(screen)
         )
+        cold_build = not scene_ready
         prebuilt_scene = (
             hasattr(display, "rail_scene_prebuilt")
             and display.rail_scene_prebuilt(screen)
@@ -855,6 +856,11 @@ while True:
             and cold_build
             and enable is not None
         )
+        if cold_build and hasattr(display, "discard_prepared_rail_scene"):
+            # Drop an obsolete hidden generation before the entry collection
+            # or automatic-GC build so old and replacement scenes do not peak
+            # together in the heap.
+            display.discard_prepared_rail_scene(reason="on_demand_rebuild")
         gc_entry_started = ticks_ms()
         entry_collect = not allow_build_gc and not prebuilt_scene
         try:
