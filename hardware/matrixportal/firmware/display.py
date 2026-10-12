@@ -2326,7 +2326,17 @@ class MatrixDisplay:
         if not self._rail_cache_matches(screen):
             heap_before_build = self._heap_free()
             build_started = ticks_ms()
-            self._build_rail_scene(screen, clock_time, phase)
+            try:
+                self._build_rail_scene(screen, clock_time, phase)
+            except Exception:
+                # code.py may have enabled automatic GC for this cold build.
+                # If construction fails before the post-build collector runs,
+                # restore the animated-window state before propagating it.
+                if MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT:
+                    import gc
+
+                    gc.disable()
+                raise
             scene_built = True
             if MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT:
                 self._collect_rail_build_garbage(heap_before_build, build_started)

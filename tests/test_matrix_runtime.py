@@ -1,6 +1,6 @@
 import unittest
 
-from matrix_runtime import DIAGNOSTIC_COLORS, RuntimeMode
+from matrix_runtime import DIAGNOSTIC_COLORS, RuntimeMode, collect_gc_with_state
 
 
 class FakeRotation:
@@ -11,7 +11,39 @@ class FakeRotation:
         self.calls.append(now)
 
 
+class FakeGarbageCollector:
+    def __init__(self, fail=False):
+        self.enabled = False
+        self.fail = fail
+        self.collections = 0
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+
+    def collect(self):
+        self.collections += 1
+        if self.fail:
+            raise RuntimeError("collection failed")
+        return 12
+
+
 class RuntimeModeTests(unittest.TestCase):
+    def test_manual_gc_restores_requested_state_after_success_or_failure(self):
+        for fail in (False, True):
+            for enabled_after in (False, True):
+                collector = FakeGarbageCollector(fail=fail)
+                with self.subTest(fail=fail, enabled_after=enabled_after):
+                    if fail:
+                        with self.assertRaises(RuntimeError):
+                            collect_gc_with_state(collector, enabled_after)
+                    else:
+                        self.assertEqual(collect_gc_with_state(collector, enabled_after), 12)
+                    self.assertEqual(collector.enabled, enabled_after)
+                    self.assertEqual(collector.collections, 1)
+
     def test_long_up_enters_and_exits_diagnostic_mode(self):
         runtime = RuntimeMode()
         self.assertEqual(runtime.mode, "normal")

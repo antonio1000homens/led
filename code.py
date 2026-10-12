@@ -41,7 +41,7 @@ from animation_scheduler import (
     frame_gap_exceeded,
     next_deadline,
 )
-from matrix_runtime import RuntimeMode
+from matrix_runtime import RuntimeMode, collect_gc_with_state
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from mqtt_screens import MqttScreenState
@@ -840,11 +840,8 @@ while True:
         and screen.get("kind") == "rail_combined"
     )
     if gc is not None and rail_screen and not rail_gc_suspended:
-        collect = getattr(gc, "collect", None)
         disable = getattr(gc, "disable", None)
         enable = getattr(gc, "enable", None)
-        if collect is not None:
-            collect()
         cold_build = not (
             hasattr(display, "rail_scene_ready")
             and display.rail_scene_ready(screen)
@@ -854,11 +851,18 @@ while True:
             and cold_build
             and enable is not None
         )
-        if allow_build_gc:
-            if enable is not None:
+        try:
+            if allow_build_gc:
                 enable()
-        elif disable is not None:
-            disable()
+            else:
+                collect_gc_with_state(gc, enabled_after=False)
+        except Exception as error:
+            if disable is not None:
+                try:
+                    disable()
+                except Exception:
+                    pass
+            print("RAIL GC ENTRY FAILED; continuing with restored collector state:", error)
         rail_gc_suspended = True
         rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
@@ -897,14 +901,10 @@ while True:
                         gc_reason, not pause_now, heap_before_gc
                     )
                 )
-            enable = getattr(gc, "enable", None)
-            collect = getattr(gc, "collect", None)
-            if enable is not None:
-                enable()
-            if collect is not None:
-                collect()
-            if disable is not None:
-                disable()
+            try:
+                collect_gc_with_state(gc, enabled_after=False)
+            except Exception as error:
+                print("RAIL GC FAILED reason={} collector_state=disabled:".format(gc_reason), error)
             if pressure_due:
                 rail_gc_last_pressure_collect = ticks_ms()
             if HEAP_DIAGNOSTICS_ENABLED:
@@ -915,14 +915,13 @@ while True:
                 )
         rail_gc_pause_active = pause_now
     elif gc is not None and not rail_screen and rail_gc_suspended:
-        enable = getattr(gc, "enable", None)
-        collect = getattr(gc, "collect", None)
-        if enable is not None:
-            enable()
-        if collect is not None:
-            collect()
-        rail_gc_suspended = False
-        rail_gc_pause_active = False
+        try:
+            collect_gc_with_state(gc, enabled_after=True)
+        except Exception as error:
+            print("RAIL GC EXIT FAILED reason=leaving_rail collector_state=enabled:", error)
+        finally:
+            rail_gc_suspended = False
+            rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
             print("RAIL GC EXIT heap_free={}".format(_memory_free()))
     if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"

@@ -317,6 +317,34 @@ class DisplayLayoutTests(unittest.TestCase):
             else:
                 sys.modules["displayio"] = previous
 
+    def test_failed_cold_rail_build_restores_disabled_gc_state(self):
+        import sys
+
+        class FakeGC:
+            def __init__(self):
+                self.disabled = 0
+
+            def disable(self):
+                self.disabled += 1
+
+        previous = sys.modules.get("gc")
+        fake_gc = FakeGC()
+        sys.modules["gc"] = fake_gc
+        try:
+            display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+            display._rail_cache_matches = mock.Mock(return_value=False)
+            display._heap_free = mock.Mock(return_value=1000)
+            display._build_rail_scene = mock.Mock(side_effect=MemoryError("full"))
+            with mock.patch.object(led_display, "MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT", True):
+                with self.assertRaises(MemoryError):
+                    display._show_rail({"kind": "rail_combined", "services": [{}]}, "12:00", 0)
+            self.assertEqual(fake_gc.disabled, 1)
+        finally:
+            if previous is None:
+                del sys.modules["gc"]
+            else:
+                sys.modules["gc"] = previous
+
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
             ("dad_joke", "DAD JOKE", "joke"),
