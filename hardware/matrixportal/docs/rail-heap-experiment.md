@@ -139,8 +139,12 @@ includes this setting so a changed mode cannot reuse an incompatible scene.
 | Bitmap rows, maximum, next cycle | 10 | bitmap (10 bitmaps) | 359,664 B | n/a | 0.533 s | 583 ms | 786,032 B | 5 | 1,039 ms | 0 |
 | Labels, maximum, first cycle | 10 | labels | 201,216 B | n/a | 0.623 s | 658 ms | 818,848 B | 84 | 889 ms | 0 |
 | Labels, maximum, next cycle | 10 | labels | 202,928 B | n/a | 0.581 s | 633 ms | 788,592 B | 98 | 1,102 ms | 0 |
-| Labels, warm | not captured | labels | | | | | | | | |
-| Bitmap rows, warm | not captured | bitmap | | | | | | | | |
+| Fixed 10-service payload, labels, cold | 10 | labels | 90,800 B | n/a | 6.037 s | 6,063 ms | 895,232 B | 63 | 6,339 ms | 0 |
+| Fixed 10-service payload, bitmap, cold | 10 | bitmap (10 bitmaps) | 227,184 B | n/a | 0.687 s | 708 ms | 847,904 B | 3 | 956 ms | 0 |
+| Fixed payload, labels, post-build GC | 10 | labels | 82,144 B | 65,408 B | 1.897 s | 1,988 ms | 900,688 B | 66 | 2,262 ms | 0 |
+| Fixed payload, bitmap, post-build GC | 10 | bitmap (10 bitmaps) | 218,464 B | 5,840 B | 1.762 s | 2,031 ms | 940,048 B | 1 | 2,279 ms | 0 |
+| Fixed payload, labels, warm cache | 10 | labels | n/a | n/a | n/a | n/a | 786,736 B | 73 | 363 ms | 0 |
+| Fixed payload, bitmap, warm cache | 10 | bitmap (10 bitmaps) | n/a | n/a | n/a | n/a | 786,688 B | 4 | 467 ms | 0 |
 
 In the single six-service cold comparison, bitmap rows reduced the measured
 build heap drop by 88,224 B (about 52%) and did not worsen measured first
@@ -156,15 +160,32 @@ bitmap cycles dropped 180,640 B and 241,456 B and presented in 354/370 ms. The
 bitmap runs had five/six frame gaps over 200 ms and a 785 KB rail low-water;
 the label runs had six gaps and a 788 KB low-water. Emergency collections
 during movement took 75/74 ms in the bitmap cycles and 76/84 ms in the label
-cycles. The second build in each pair followed a scene discard, so neither is
-a warm cache hit. Payload equivalence has not been established; the current
-five-service results do not show a bitmap heap saving. Retained-scene cost
-remains unmeasured for either renderer. The ten-service label cycles dropped
+cycles. The second build in each five-service pair followed a scene discard,
+so neither is a warm cache hit. Payload equivalence has not been established;
+the current five-service results do not show a bitmap heap saving.
+Retained-scene cost for those live-feed runs remains unmeasured. The
+ten-service label cycles dropped
 201,216/202,928 B and first-presented in 658/633 ms, with 84/98 frame gaps
 over 200 ms and maxima of 889/1,102 ms. These large gaps include screen entry
 and emergency collection; no capture errors or serial reconnects were
 recorded. Their current payloads were not verified byte-identical to the
 bitmap pair, so this is not a strict A/B result.
+
+A deterministic ten-service screen payload then replaced the live feed for
+matched label/bitmap runs. The board fetched the same 3,477-byte API response
+with SHA-256 `3cddccfeaa73b4067ce6bc8b5c8382c65f4829c9164f7a7bdf178c18ca24580f`
+throughout both runs. With post-build GC off and equal 1,589,248 B before-build
+free heap, bitmap rows used 136,384 B more build heap but reached first present
+5,355 ms sooner (708 ms versus 6,063 ms). Their first-cycle low-water was
+47,328 B lower than labels. With post-build GC enabled for both renderers, the
+bitmap retained-scene drop was 5,840 B versus 65,408 B for labels, a 59,568 B
+(91%) reduction. Bitmap construction used 136,320 B more temporary heap and
+its explicit collection took 235 ms versus 51 ms; first present was 2,031 ms
+versus 1,988 ms. These results show a real retained-memory reduction with a
+collection-time cost; they do not justify enabling both switches by default.
+The exact payload was fetched unchanged before warm re-entry in both runs, and
+no second `RAIL BUILD START` occurred, confirming that the cached scene was
+reused after the intervening screens. The warm cycles had no capture errors.
 
 ## Rail collection safety
 
@@ -180,19 +201,23 @@ physical runs show useful reclaimed memory without visible pauses or resets.
 
 Keep post-build GC and prebuild disabled. The post-build run reclaimed
 temporary allocations but had no one-run latency or low-water improvement.
-Static bitmap rows are a promising, visually checked opt-in experiment, with a
-measured six-service cold build reduction; retain default-off pending repeated
-and larger-payload captures. Prebuild now has a successful six-service physical
-handoff measurement, but later animation still forces long GC pauses and the
-measured test budget is below the production guard. Keep it disabled pending
-repeated and larger-payload captures. Visible-row recycling is not justified
-by the current evidence.
+Static bitmap rows have a controlled ten-service retained-memory result: after
+matched post-build collection they retained 59,568 B less than labels, while
+using more temporary build heap and taking 184 ms longer to collect. Keep the
+renderer opt-in/default-off pending repeated cold builds, a physical ten-service
+label visual check, and maximum-payload prebuild coexistence data. Prebuild now
+has a successful six-service physical handoff measurement, but later animation
+still forces long GC pauses and the measured test budget is below the production
+guard. Keep it disabled pending repeated and larger-payload captures. Visible-row
+recycling is not justified by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
 prebuild; five services for two label and two bitmap cycles; and ten services
-for two label and two bitmap cycles. Exact payloads differed across runs.
-Repeated warm/cache-identity checks and retained-cost measurements remain
-open. Overall rotation heap reached 129,680 B on non-rail
+for two label and two bitmap live-feed cycles plus matched fixed-payload runs.
+The unchanged fixture hash and absence of another `RAIL BUILD START` confirm
+warm scene reuse across intervening screens. Physical changed-payload
+invalidation and repeated cold post-GC captures remain open. Overall rotation
+heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
 rows. The corrected prebuild run
