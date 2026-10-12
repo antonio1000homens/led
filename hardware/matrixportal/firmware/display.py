@@ -13,6 +13,7 @@ from matrix_config import (
     MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
     MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
     MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
+    MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT,
     CALLING_SCROLL_SPEED_OVERRIDE,
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_ROWS_SCROLL,
@@ -965,6 +966,8 @@ class MatrixDisplay:
         self._rail_station_spacing_cached = None
         self._rail_rows_scroll_cached = None
         self._rail_pause_seconds_cached = None
+        self._rail_static_rows_bitmap_cached = None
+        self._rail_static_row_bitmap_count = 0
         self._rail_retained_heap_cost = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []
@@ -1768,12 +1771,82 @@ class MatrixDisplay:
         if status and status_x < platform_x + platform_width + HEADER_GAP:
             platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
+        if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
+            group,
+            (
+                (ordinal_text, RAIL_ORDINAL_X + x_offset),
+                (time_text, RAIL_TIME_X + x_offset),
+                (_fit_text_pixels(destination, destination_width), RAIL_DESTINATION_X + x_offset),
+                (platform, platform_x + x_offset),
+                (status, status_x + x_offset),
+            ),
+            color,
+            y,
+        ):
+            self._rail_static_row_bitmap_count = getattr(
+                self, "_rail_static_row_bitmap_count", 0
+            ) + 1
+            return
         self._label(group, ordinal_text, color, RAIL_ORDINAL_X + x_offset, y)
         self._label(group, time_text, color, RAIL_TIME_X + x_offset, y)
         self._label(group, _fit_text_pixels(destination, destination_width), color, RAIL_DESTINATION_X + x_offset, y)
         self._label(group, platform, color, platform_x + x_offset, y)
         if status:
             self._label(group, status, color, status_x + x_offset, y)
+
+    def _rail_service_bitmap(self, group, fields, color, baseline_y):
+        """Render one static service row into a single compact glyph bitmap."""
+        if not hasattr(self.font, "get_glyph"):
+            return False
+        import displayio
+
+        characters = set()
+        for text, _ in fields:
+            characters.update(ord(character) for character in str(text or ""))
+        if hasattr(self.font, "load_glyphs"):
+            self.font.load_glyphs(characters)
+
+        ascent = getattr(self.font, "ascent", None)
+        if ascent is None:
+            ascent = self.font.get_bounding_box()[1]
+        y_offset = ascent // 2
+        glyphs = []
+        min_x = min_y = 0
+        max_x = max_y = 0
+        for text, field_x in fields:
+            cursor_x = 0
+            for character in str(text or ""):
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                glyph_x = int(field_x) + cursor_x + glyph.dx
+                glyph_y = -glyph.height - glyph.dy + y_offset
+                glyphs.append((glyph, glyph_x, glyph_y))
+                min_x = min(min_x, glyph_x)
+                max_x = max(max_x, glyph_x + glyph.width)
+                min_y = min(min_y, glyph_y)
+                max_y = max(max_y, glyph_y + glyph.height)
+                cursor_x += glyph.shift_x
+
+        width = max(1, max_x - min_x)
+        height = max(1, max_y - min_y)
+        bitmap = displayio.Bitmap(width, height, 1)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = color
+        for glyph, glyph_x, glyph_y in glyphs:
+            for gy in range(glyph.height):
+                for gx in range(glyph.width):
+                    if glyph.bitmap[gx, gy]:
+                        bitmap[glyph_x - min_x + gx, glyph_y - min_y + gy] = 1
+        group.append(displayio.TileGrid(
+            bitmap,
+            pixel_shader=palette,
+            x=min_x,
+            y=int(baseline_y) + min_y,
+        ))
+        return True
 
     def _rail(self, group, screen, phase):
         import displayio
@@ -1863,6 +1936,8 @@ class MatrixDisplay:
             and self._rail_station_speed_cached == screen.get("station_scroll_speed")
             and self._rail_station_spacing_cached == screen.get("station_list_spacing")
             and self._rail_rows_scroll_cached == MATRIX_RAIL_ROWS_SCROLL
+            and self._rail_static_rows_bitmap_cached
+            == MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
             and self._rail_pause_seconds_cached
             == screen.get("upcoming_train_pause_seconds", 2)
         )
@@ -1877,9 +1952,12 @@ class MatrixDisplay:
 
         build_started = ticks_ms()
         heap_before_build = self._heap_free()
+        self._rail_static_row_bitmap_count = 0
         print(
-            "RAIL BUILD START services={} heap_free={}".format(
-                len(screen.get("services") or ()), self._heap_free()
+            "RAIL BUILD START services={} static_row_renderer={} heap_free={}".format(
+                len(screen.get("services") or ()),
+                "bitmap" if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT else "labels",
+                self._heap_free(),
             )
         )
         scenes = {}
@@ -1924,14 +2002,16 @@ class MatrixDisplay:
         self._rail_station_speed_cached = screen.get("station_scroll_speed")
         self._rail_station_spacing_cached = screen.get("station_list_spacing")
         self._rail_rows_scroll_cached = MATRIX_RAIL_ROWS_SCROLL
+        self._rail_static_rows_bitmap_cached = MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
         self._rail_pause_seconds_cached = screen.get("upcoming_train_pause_seconds", 2)
         heap_after_build = self._heap_free()
         self._rail_build_started_ms = build_started
         self._select_rail_scene(phase, calling_seconds, summary_seconds)
         self._rail_first_refresh_pending = True
         print(
-            "RAIL BUILD OK scenes={} duration={:.3f}s heap_free_before={} heap_free_after={} heap_drop={}".format(
-                len(scenes), elapsed_seconds(build_started), heap_before_build,
+            "RAIL BUILD OK scenes={} static_row_bitmaps={} duration={:.3f}s heap_free_before={} heap_free_after={} heap_drop={}".format(
+                len(scenes), self._rail_static_row_bitmap_count,
+                elapsed_seconds(build_started), heap_before_build,
                 heap_after_build,
                 (heap_before_build - heap_after_build)
                 if heap_before_build is not None and heap_after_build is not None
@@ -2060,6 +2140,7 @@ class MatrixDisplay:
         self._rail_station_speed_cached = None
         self._rail_station_spacing_cached = None
         self._rail_rows_scroll_cached = None
+        self._rail_static_rows_bitmap_cached = None
         self._rail_pause_seconds_cached = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []

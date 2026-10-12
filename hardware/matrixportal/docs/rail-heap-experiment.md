@@ -62,6 +62,25 @@ explain the path selected.
 | Control, warm | | n/a | n/a | n/a | | | |
 | Prebuild, warm | | | | | | | |
 
+## Compact static service rows
+
+Set `MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = True` in board-local
+`settings_local.py` to render each static service row into a transparent,
+single-bit bitmap. The row uses the existing font glyphs and the existing
+column positions, and preserves the service-wide cancelled colour. It is an
+isolated switch: keep post-build GC and prebuild off while measuring it. The
+build log identifies the renderer (`static_row_renderer`) and number of
+bitmaps (`static_row_bitmaps`); compare cold build heap drop and retained scene
+cost with the normal labels at the same service count. The cache signature
+includes this setting so a changed mode cannot reuse an incompatible scene.
+
+| Run | Services | Static row renderer | Build heap drop | Retained scene cost | Build duration | Min free | Frame gaps >200 ms | Layout defects/resets |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Labels, cold | | labels | | | | | | |
+| Bitmap rows, cold | | bitmap | | | | | | |
+| Labels, warm | | labels | | | | | | |
+| Bitmap rows, warm | | bitmap | | | | | | |
+
 ## Rail collection safety
 
 The planned rail collection window now requires the calling marquee to be in
@@ -74,7 +93,7 @@ physical runs show useful reclaimed memory without visible pauses or resets.
 
 ## Scope still requiring board evidence
 
-No board measurements are checked in by this source change. Static-label
-alternatives, row recycling, a complete rail-cycle summary, and all physical
-acceptance measurements remain open; none should be claimed as accepted based
-on host tests or simulated heap data.
+No board measurements are checked in by this source change. Row recycling, a
+complete rail-cycle summary, and all physical acceptance measurements remain
+open; the static bitmap row is only implemented as an unmeasured opt-in
+experiment and must not be called a memory improvement without board data.

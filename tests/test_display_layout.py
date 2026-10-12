@@ -64,7 +64,8 @@ class CapturingPalette:
 
 class CapturingTileGrid:
     def __init__(self, bitmap, pixel_shader, x=0, y=0):
-        del bitmap, pixel_shader
+        self.bitmap = bitmap
+        self.pixel_shader = pixel_shader
         self.x, self.y = x, y
 
 
@@ -107,6 +108,7 @@ def today_blocks():
 class DisplayLayoutTests(unittest.TestCase):
     def test_post_build_gc_experiment_is_off_by_default(self):
         self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
+        self.assertFalse(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
 
     def test_rail_gc_waits_for_departure_rows_to_stop(self):
         display = types.SimpleNamespace(
@@ -151,6 +153,7 @@ class DisplayLayoutTests(unittest.TestCase):
         display._rail_station_speed_cached = None
         display._rail_station_spacing_cached = None
         display._rail_rows_scroll_cached = None
+        display._rail_static_rows_bitmap_cached = None
         display._rail_pause_seconds_cached = None
         screen = {"kind": "rail_combined", "services": [{"id": "one"}]}
         with mock.patch.object(display, "_heap_free", return_value=1000), \
@@ -181,6 +184,7 @@ class DisplayLayoutTests(unittest.TestCase):
             display._rail_station_speed_cached = None
             display._rail_station_spacing_cached = None
             display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+            display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
             display._rail_pause_seconds_cached = 2
 
         with mock.patch.object(display, "_heap_free", side_effect=[10000, 9000]), \
@@ -203,6 +207,7 @@ class DisplayLayoutTests(unittest.TestCase):
         display._rail_station_speed_cached = 20
         display._rail_station_spacing_cached = 3
         display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+        display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
         display._rail_pause_seconds_cached = 2
         screen = {
             "kind": "rail_combined", "services": [{"id": "one"},],
@@ -213,6 +218,8 @@ class DisplayLayoutTests(unittest.TestCase):
             "upcoming_train_pause_seconds": 2,
         }
         self.assertTrue(display.rail_scene_ready(screen))
+        with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", True):
+            self.assertFalse(display.rail_scene_ready(screen))
         screen["services"] = [{"id": "changed"}]
         self.assertFalse(display.rail_scene_ready(screen))
         screen["services"] = [{"id": "one"}]
@@ -234,6 +241,7 @@ class DisplayLayoutTests(unittest.TestCase):
         display._rail_station_speed_cached = None
         display._rail_station_spacing_cached = None
         display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+        display._rail_static_rows_bitmap_cached = led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT
         display._rail_pause_seconds_cached = 2
         screen = {"kind": "rail_combined", "services": [{"id": "one"}], "title": "Departures"}
         with mock.patch.object(display, "_build_rail_scene") as build, \
@@ -254,6 +262,60 @@ class DisplayLayoutTests(unittest.TestCase):
             }))
         self.assertEqual(display.discard_prepared_rail_scene.call_count, 2)
         build.assert_not_called()
+
+    def test_static_rail_row_experiment_uses_one_bitmap_per_service(self):
+        import sys
+
+        class GlyphBitmap:
+            def __getitem__(self, key):
+                return key == (0, 0)
+
+        class Glyph:
+            width = 2
+            height = 3
+            dx = 0
+            dy = 0
+            shift_x = 3
+            bitmap = GlyphBitmap()
+
+        class Font:
+            ascent = 7
+
+            def load_glyphs(self, codepoints):
+                del codepoints
+
+            def get_glyph(self, codepoint):
+                del codepoint
+                return Glyph()
+
+        previous = sys.modules.get("displayio")
+        sys.modules["displayio"] = types.SimpleNamespace(
+            Group=CapturingGroup, Bitmap=CapturingBitmap,
+            Palette=CapturingPalette, TileGrid=CapturingTileGrid,
+        )
+        try:
+            display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+            display.font = Font()
+            group = CapturingGroup()
+            with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", True):
+                display._rail_service(
+                    group,
+                    {"scheduled": "12:34", "destination": "Waterloo", "platform": "2",
+                     "cancelled": True, "status": "CANCELLED"},
+                    0xFF3300,
+                    0,
+                    12,
+                    250,
+                )
+            self.assertEqual(len(group), 1)
+            self.assertIsInstance(group[0], CapturingTileGrid)
+            self.assertEqual(group[0].x, 0)
+            self.assertEqual(group[0].pixel_shader.values[1], 0xFF3300)
+        finally:
+            if previous is None:
+                del sys.modules["displayio"]
+            else:
+                sys.modules["displayio"] = previous
 
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
