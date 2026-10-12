@@ -22,6 +22,24 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("TransitousBusProvider", provider)
         self.assertIn("api.transitous.org/api", provider)
 
+    def test_sl7_split_columns_use_nonoverlapping_four_row_layout(self):
+        display = (ROOT / "hardware/matrixportal/firmware/display.py").read_text()
+        simulator = (ROOT / "simulator/index.html").read_text()
+        admin = (ROOT / "simulator/admin.html").read_text()
+        runtime = (ROOT / "backend/runtime_config.py").read_text()
+        publisher = (ROOT / "backend/publisher.py").read_text()
+        self.assertIn('("new-malden", "SL7 to Heathrow", 0)', display)
+        self.assertIn('("heathrow", "SL7 to New Malden", 128)', display)
+        self.assertIn("y = 11 + index * 8", display)
+        self.assertIn('time_text[:5], color, x + 88, y', display)
+        self.assertIn('kind == "bus_departures_combined"', display)
+        self.assertIn("function drawSplitSl7(screen)", simulator)
+        self.assertIn("const y = (8 + i * 8)", simulator)
+        self.assertIn("drawSplitSl7(screen)", simulator)
+        self.assertIn("layout_mode", runtime)
+        self.assertIn("Side-by-side (default)", admin)
+        self.assertIn('screens.append(self._bus_combined(', publisher)
+
     def test_simulator_renders_and_previews_bin_collection_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawBinCollection(screen, phase)", simulator)
