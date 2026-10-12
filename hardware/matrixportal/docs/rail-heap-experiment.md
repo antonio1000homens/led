@@ -1,10 +1,10 @@
 # Rail departures heap and prebuild experiments
 
 Issue #241 measures rail scene build/first-refresh cost, post-build collection,
-and ahead-of-train preparation. Static service rows now use the physically
-accepted compact bitmap renderer by default. Post-build collection and
-ahead-of-train preparation remain opt-in/default-off until repeated board
-measurements establish safe heap headroom.
+and ahead-of-train preparation. Static service rows use the physically
+accepted compact bitmap renderer by default. Repeated maximum-service captures
+support guarded ahead-of-train preparation by default with a 1 MiB reserve and
+512 KiB scene estimate. Post-build collection remains off.
 
 ## A/B setting
 
@@ -50,16 +50,16 @@ provide representative heap numbers.
 
 ## Ahead-of-train scene preparation
 
-Set `MATRIX_RAIL_PREBUILD_EXPERIMENT = True` in the ignored board-local
-`settings_local.py` to enable preparation. The firmware searches the existing
+`MATRIX_RAIL_PREBUILD_EXPERIMENT` now defaults to `True`; set it to `False` in
+the ignored board-local `settings_local.py` to return to on-demand builds. The
+firmware searches the existing
 rotation for the future adjacent `steam_train_intro` → `rail_combined` pair
 during an already scheduled static maintenance window. It does not add time to
 the train or put work between the train and departures. Preparation is skipped
 for stale/empty payloads and unless free heap exceeds the configured estimated
 scene cost plus the reserve (`MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES` and
-`MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES`). These are safety estimates, not measured
-proof; keep the experiment off until low-water measurements support values for
-the board and payload.
+`MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES`). The current guard requires more than
+1.5 MiB free before building: a 1 MiB reserve plus a 512 KiB scene estimate.
 
 The prepared scene identity includes service data, title/stale/weather data,
 preprocessed calling presentation, phase timings, scroll settings, row-scroll
@@ -79,6 +79,7 @@ OK/SKIP/REUSE` records explain the path selected.
 | Guarded prebuild before readiness-forwarding fix | 6 | 466,144 B observed during train | 42,832 B | 1.259 s | 501 ms, on-demand fallback | incomplete | 949 ms observed | 0 |
 | Guarded prebuild after adapter fix, cold | 6 | 1,295,568 B train low-water | 42,448 B | 2.041 s | 30 ms | 7 | 923 ms | 0 |
 | Ten-service bitmap, changed-content prebuild and handoff | 10 | 1,562,640 B at train exit | 9,552 B | 0.449 s | 0.823 s | 28 ms | 3 / 0.953 s total* | 5 | 484 ms | 0 |
+| Ten-service bitmap, repeated changed-content prebuild and handoff | 10 | 1,552,304 B at train exit | 9,552 B | 0.449 s | 0.824 s | 26 ms | 3 / 0.941 s total* | 3 | 481 ms | 0 |
 | Control, warm | not captured | n/a | n/a | n/a | | | | |
 | Prebuild, warm | not captured | | | | | | | |
 
@@ -108,8 +109,11 @@ prebuild and collection in 823 ms total. The collection took 331 ms, reclaimed
 reused in maintenance and across the adjacent train; first departures refresh
 followed 28 ms after train exit, with 1,562,640 B free at train exit. This
 confirms one physical changed-content invalidation and maximum-service prepared
-handoff under the temporary test budget. It does not validate production guard
-values or establish repeatability. During the prepared handoff's rail cycle,
+handoff under the temporary 1 MiB combined guard. A repeat using the same two
+payload hashes built the changed scene in 449 ms, completed prebuild in 824 ms,
+retained 9,552 B, and presented 26 ms after train exit with 1,552,304 B free.
+Together the runs establish repeatability for this maximum payload and guard.
+During the prepared handoff's rail cycle,
 five frame gaps exceeded 200 ms (maximum 484 ms); a separate heap-pressure
 collection during rail movement took 307 ms and caused a 484 ms frame gap. The
 preceding cold on-demand entry had one 2,005 ms gap. The full capture's rail
@@ -127,19 +131,18 @@ improvement only; leave it disabled until the independent animation-time heap
 pressure and production guard are addressed and repeated payload runs are
 recorded.
 
-The production guard requires 2 MiB before building (1.5 MiB reserve plus a
-512 KiB scene estimate), above the board's approximately 1.67 MiB total free
-heap at startup. The guarded trials used explicit temporary test budgets.
-The guarded trials used temporary board-local test budgets; their configuration
-was restored after each run. The latest source candidate promotes the accepted
-bitmap renderer while keeping post-build GC and prebuild off. After the
-repeated label captures, the original production `settings_local.py` was
-restored and read back. The full candidate upload verified all 23 staged files
-with `code.py` last. Remote SHA-256 readback matched the staged
-`matrix_config.py` and `code.py`, and `settings_local.py` matched the saved
-production file. The candidate matrix config has bitmap rows on and both
-post-build GC and prebuild off. Fresh serial logs confirmed B8 presentation and
-`FETCH OK screens=14` from the production feed.
+The first two handoff captures used temporary board-local budgets. Their
+measured prebuild free heap was about 1.75 MiB, and train-exit low-water was
+1,562,640/1,552,304 B. The 1.5 MiB production gate therefore passed both
+captures with the 512 KiB scene estimate and left the measured train reserve
+above 1.5 MiB. The latest candidate uses this measured guard. After the repeated
+label captures, the original production `settings_local.py` was restored and
+read back. The full candidate upload verified all 23 staged files with
+`code.py` last. Remote SHA-256 readback matched the staged `matrix_config.py`
+and `code.py`, and `settings_local.py` matched the saved production file. The
+candidate config has bitmap rows and guarded prebuild on, with post-build GC
+off. Fresh serial logs confirmed B8 presentation and `FETCH OK screens=14`
+from the production feed.
 
 ## Compact static service rows
 
@@ -242,7 +245,7 @@ physical runs show useful reclaimed memory without visible pauses or resets.
 
 ## Decision and remaining evidence
 
-Keep post-build GC and prebuild disabled. The post-build run reclaimed
+Keep post-build GC disabled. The post-build run reclaimed
 temporary allocations but had no one-run latency or low-water improvement.
 Static bitmap rows have a controlled ten-service retained-memory result: after
 matched post-build collection they retained 59,568 B less than labels, while
@@ -250,20 +253,20 @@ using more temporary build heap and taking 184 ms longer to collect. The user
 visually accepted the ten-service bitmap rows. Two exact-payload cold label
 runs also reproduced first-presentation delays above 10.5 s. The compact
 bitmap renderer is therefore the default; set its switch False to roll back to
-labels. Prebuild has one successful ten-service changed-content handoff, but
-later animation still forces heap-pressure GC pauses and the measured test
-budget is below the production guard. Keep prebuild disabled until repeated
-maximum-payload handoffs establish headroom and a usable production safety
-threshold. Visible-row recycling is not justified by the current evidence.
+labels. Two ten-service changed-content prebuild captures succeeded with the
+measured 1.5 MiB guard and kept more than 1.55 MiB free through train exit.
+Later animation still triggers an emergency collection around 786 KiB, so
+prebuild does not remove the separate animation-time heap-pressure pause.
+Visible-row recycling is not justified by the current evidence.
 
 Captures cover six services for control, post-build-GC, bitmap, and corrected
 prebuild; five services for two label and two bitmap cycles; and ten services
 for two label and two bitmap live-feed cycles plus matched fixed-payload runs.
 The unchanged fixture hash and absence of another `RAIL BUILD START` confirm
-warm scene reuse across intervening screens. One ten-service physical run
-demonstrated changed-content invalidation and a completed prepared handoff;
-repeatable cold prebuild handoffs remain open. Repeated cold post-GC label
-captures now exist for the same payload. Overall rotation
+warm scene reuse across intervening screens. Two ten-service physical runs
+demonstrated changed-content invalidation and completed prepared handoffs with
+the same payload pair and measured guard. Repeated cold post-GC label captures
+also exist for the same payload. Overall rotation
 heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
@@ -271,5 +274,6 @@ rows. The corrected prebuild run
 reached the paired handoff after two earlier on-demand cycles.
 Rollback the static row renderer by setting
 `MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = False` in `settings_local.py`.
-Keep `MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT` and
-`MATRIX_RAIL_PREBUILD_EXPERIMENT` at their default `False` values.
+Keep `MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = False` to preserve normal GC
+behavior. Set `MATRIX_RAIL_PREBUILD_EXPERIMENT = False` to restore on-demand
+scene builds.
