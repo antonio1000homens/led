@@ -135,6 +135,61 @@ class DisplayLayoutTests(unittest.TestCase):
                 )
             )
 
+    def test_rail_prebuild_obeys_heap_guard_without_touching_visible_root(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        display.display = types.SimpleNamespace(root_group=visible_root)
+        display._rail_group = None
+        display._rail_scenes = {}
+        display._rail_services = None
+        display._rail_title = None
+        display._rail_stale = None
+        display._rail_weather = None
+        display._rail_presentation = None
+        display._rail_calling_seconds_cached = None
+        display._rail_summary_seconds_cached = None
+        display._rail_station_speed_cached = None
+        display._rail_station_spacing_cached = None
+        display._rail_rows_scroll_cached = None
+        display._rail_pause_seconds_cached = None
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}]}
+        with mock.patch.object(display, "_heap_free", return_value=1000), \
+                mock.patch.object(display, "_build_rail_scene") as build:
+            self.assertFalse(display.prepare_rail_scene(screen, minimum_free_bytes=600,
+                                                        maximum_scene_bytes=500))
+        build.assert_not_called()
+        self.assertIs(display.display.root_group, visible_root)
+
+    def test_rail_prebuild_keeps_scene_hidden_and_does_not_refresh(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        visible_root = object()
+        display.display = types.SimpleNamespace(root_group=visible_root, refresh=mock.Mock())
+        display._rail_group = None
+        display._rail_scenes = {}
+        screen = {"kind": "rail_combined", "services": [{"id": "one"}], "title": "Departures"}
+
+        def build(payload, clock_time, phase):
+            del clock_time, phase
+            display._rail_group = object()
+            display._rail_services = payload["services"]
+            display._rail_title = payload.get("title")
+            display._rail_stale = False
+            display._rail_weather = None
+            display._rail_presentation = None
+            display._rail_calling_seconds_cached = led_display.RAIL_CALLING_SECONDS
+            display._rail_summary_seconds_cached = led_display.RAIL_SUMMARY_SECONDS
+            display._rail_station_speed_cached = None
+            display._rail_station_spacing_cached = None
+            display._rail_rows_scroll_cached = led_display.MATRIX_RAIL_ROWS_SCROLL
+            display._rail_pause_seconds_cached = 2
+
+        with mock.patch.object(display, "_heap_free", side_effect=[10000, 9000]), \
+                mock.patch.object(display, "_build_rail_scene", side_effect=build):
+            self.assertTrue(display.prepare_rail_scene(screen, minimum_free_bytes=1000,
+                                                       maximum_scene_bytes=1000))
+        self.assertIs(display.display.root_group, visible_root)
+        display.display.refresh.assert_not_called()
+
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
             ("dad_joke", "DAD JOKE", "joke"),

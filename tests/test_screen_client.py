@@ -57,6 +57,27 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_next_paired_rail_screen_finds_future_train_pair(self):
+        rotation = ScreenRotation()
+        rotation.update([
+            {"id": "static", "kind": "weather"},
+            {"id": "train", "kind": "steam_train_intro"},
+            {"id": "rail", "kind": "rail_combined"},
+        ], 0)
+        rotation.index = 0
+        self.assertEqual(rotation.next_paired_rail_screen()["id"], "rail")
+        rotation.index = 1
+        self.assertIsNone(rotation.next_paired_rail_screen())
+
+    def test_next_paired_rail_screen_does_not_pair_across_rotation_end(self):
+        rotation = ScreenRotation()
+        rotation.update([
+            {"id": "rail", "kind": "rail_combined"},
+            {"id": "train", "kind": "steam_train_intro"},
+        ], 0)
+        rotation.index = 0
+        self.assertIsNone(rotation.next_paired_rail_screen())
+
     def test_bus_intro_stays_attached_to_departures(self):
         rotation = ScreenRotation()
         screens = [

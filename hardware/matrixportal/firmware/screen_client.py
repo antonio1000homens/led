@@ -508,6 +508,22 @@ class ScreenRotation:
                 and previous_id == "sl7-{}-intro".format(stop))
         )
 
+    def next_paired_rail_screen(self):
+        """Return the next future rail paired with its steam-train intro."""
+        if len(self.screens) < 2:
+            return None
+        current_index = self.index % len(self.screens)
+        for offset in range(1, len(self.screens)):
+            index = (current_index + offset) % len(self.screens)
+            if index + 1 >= len(self.screens):
+                continue
+            intro = self.screens[index]
+            rail = self.screens[index + 1]
+            if (intro.get("kind") == "steam_train_intro"
+                    and rail.get("kind") == "rail_combined"):
+                return rail
+        return None
+
     @staticmethod
     def is_weather_followup(previous, current):
         """Treat whichever enabled weather pages remain as one ordered block."""

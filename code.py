@@ -47,7 +47,11 @@ from screen_client import ClockState, ScreenClient, ScreenRotation
 from mqtt_screens import MqttScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
+    MATRIX_RAIL_PREBUILD_EXPERIMENT,
+    MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+    MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
     MATRIX_REFRESH_FPS,
+    MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
     MATRIX_STATS_INTERVAL_SECONDS,
     MATRIX_TELEMETRY_ENABLED,
 )
@@ -345,6 +349,7 @@ rail_gc_suspended = False
 rail_gc_pause_active = False
 rail_gc_last_pressure_collect = None
 sun_gc_completed_key = None
+rail_prebuild_last_slot = None
 previous_rail_frame_started = None
 last_rail_sleep_requested_ms = 0.0
 last_rail_preframe_ms = 0.0
@@ -759,6 +764,33 @@ while True:
             rotation.resume(ticks_ms(), maintenance_resume[0], maintenance_resume[1])
         last_maintenance_slot = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
 
+    if (MATRIX_RAIL_PREBUILD_EXPERIMENT and maintenance_active
+            and settings.DISPLAY_BACKEND == "matrix" and not flash.active(now)):
+        upcoming_rail = rotation.next_paired_rail_screen()
+        prebuild_key = (
+            rotation.cycle_number,
+            candidate.get("id"),
+            rotation.started_at,
+            upcoming_rail.get("id") if upcoming_rail else None,
+            id(upcoming_rail) if upcoming_rail else None,
+        )
+        if prebuild_key != rail_prebuild_last_slot:
+            rail_prebuild_last_slot = prebuild_key
+            if upcoming_rail is None:
+                if hasattr(display, "discard_prepared_rail_scene"):
+                    display.discard_prepared_rail_scene()
+            elif hasattr(display, "prepare_rail_scene"):
+                try:
+                    display.prepare_rail_scene(
+                        upcoming_rail,
+                        clock.text(now),
+                        MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES,
+                        MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
+                    )
+                except Exception as error:
+                    # On-demand construction remains the transition fallback.
+                    print("RAIL PREBUILD FAILED; using on-demand build:", error)
+
     epoch_now = _reminder_epoch(now)
     if epoch_now is not None and mqtt_screens.expire(epoch_now):
         rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
@@ -810,14 +842,34 @@ while True:
     if gc is not None and rail_screen and not rail_gc_suspended:
         collect = getattr(gc, "collect", None)
         disable = getattr(gc, "disable", None)
+        enable = getattr(gc, "enable", None)
         if collect is not None:
             collect()
-        if disable is not None:
+        cold_build = not (
+            hasattr(display, "rail_scene_ready")
+            and display.rail_scene_ready(screen)
+        )
+        allow_build_gc = (
+            MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT
+            and cold_build
+            and enable is not None
+        )
+        if allow_build_gc:
+            if enable is not None:
+                enable()
+        elif disable is not None:
             disable()
         rail_gc_suspended = True
         rail_gc_pause_active = False
         if HEAP_DIAGNOSTICS_ENABLED:
-            print("RAIL GC ENTER heap_free={}".format(_memory_free()))
+            print(
+                "RAIL GC ENTER reason={} auto_gc_during_build={} heap_free={} heap_allocated={}".format(
+                    "cold_scene_build" if cold_build else "scene_ready",
+                    allow_build_gc,
+                    _memory_free(),
+                    _memory_allocated(),
+                )
+            )
     elif gc is not None and rail_screen and rail_gc_suspended:
         pause_now = (
             hasattr(display, "rail_gc_safe_to_collect")
