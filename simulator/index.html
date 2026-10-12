@@ -962,16 +962,23 @@
       const labels = (Array.isArray(screen.collections) ? screen.collections : [])
         .map(item => String(item.label || '')).join(' / ');
       const progress = Math.min(1, elapsed / BIN_LORRY_SECONDS);
-      const x = Math.max(0, 256 - progress * BIN_LORRY_SECONDS * BIN_LORRY_SPEED) * FONT_PIXEL_SCALE;
-      drawBinLorry(x);
       const binTypes = binCollectionTypes(screen);
       const dueLabel = binCollectionDueLabel(screen.collection_date);
       const dueWidth = measureLedText(dueLabel).width;
       const binWidth = (binTypes.length * 11 - 2) * FONT_PIXEL_SCALE;
       const typeWidth = Math.max(0,
         256 * FONT_PIXEL_SCALE - 52 * FONT_PIXEL_SCALE - dueWidth - binWidth - 12 * FONT_PIXEL_SCALE);
-      const typeLabel = fitLeftText(labels, typeWidth);
+      const overflow = measureLedText(labels).width > typeWidth;
+      const typeLabel = overflow ? labels : fitLeftText(labels, typeWidth);
       const typeLabelWidth = measureLedText(typeLabel).width;
+      const totalWidth = (52 + 12) * FONT_PIXEL_SCALE + typeLabelWidth + dueWidth + binWidth;
+      const speed = Math.max(0.1, Number(screen.slide_speed) || 20);
+      const distance = elapsed <= BIN_LORRY_SECONDS || !overflow ? 0 :
+        (elapsed - BIN_LORRY_SECONDS) * speed * FONT_PIXEL_SCALE % (totalWidth + 24 * FONT_PIXEL_SCALE);
+      const x = (elapsed < BIN_LORRY_SECONDS
+        ? Math.max(0, 256 - progress * BIN_LORRY_SECONDS * BIN_LORRY_SPEED) * FONT_PIXEL_SCALE
+        : -Math.floor(distance / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE);
+      drawBinLorry(x);
       const dueX = x + (52 + 8) * FONT_PIXEL_SCALE + typeLabelWidth;
       const binX = dueX + dueWidth + 4 * FONT_PIXEL_SCALE;
       context.fillStyle = '#ffffff';
