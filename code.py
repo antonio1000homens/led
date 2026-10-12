@@ -371,6 +371,8 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_steam_train(screen):
         return phase
+    if _smooth_bus_intro(screen):
+        return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
     if _smooth_queue(screen):
@@ -415,6 +417,13 @@ def _smooth_steam_train(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "steam_train_intro"
+    )
+
+
+def _smooth_bus_intro(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "bus_intro"
     )
 
 
