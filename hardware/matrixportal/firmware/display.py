@@ -106,6 +106,38 @@ def _bus_minutes(planned, estimated):
         return None
 
 
+def bus_due_label(item, now_epoch=None):
+    """Rolling due-in countdown from the synced board clock, or feed fallback."""
+    if item.get("cancelled"):
+        return "CXL"
+    if now_epoch is not None:
+        try:
+            remaining_ms = _epoch(item.get("estimated") or item.get("planned")) - int(now_epoch) * 1000
+            if remaining_ms <= 60000:
+                return "Due" if remaining_ms >= -60000 else "--"
+            return "{}m".format(min(999, (remaining_ms + 59999) // 60000))
+        except (ValueError, TypeError, OverflowError):
+            pass
+    return str(item.get("due_text") or "--")
+
+
+def split_sl7_rows(screen, now_epoch=None):
+    """Common compact layout contract for MatrixPortal and software tests."""
+    data = screen.get("directions") or {}
+    columns = []
+    for stop, title, x in (("new-malden", "SL7 to Heathrow", 0),
+                           ("heathrow", "SL7 to New Malden", 128)):
+        direction = data.get(stop) or {}
+        rows = []
+        for item in (direction.get("departures") or [])[:3]:
+            rows.append((bus_due_label(item, now_epoch), item.get("local_time") or "--:--",
+                         bool(item.get("cancelled")),
+                         bool(item.get("estimated") and item.get("estimated") != item.get("planned"))))
+        columns.append((x, title, direction.get("status") or "unavailable",
+                        bool(direction.get("stale")), rows))
+    return columns
+
+
 STEAM_TRAIN_WIDTH = 52
 STEAM_TRAIN_HEIGHT = 26
 STEAM_TRAIN_VERTICAL_OFFSET = 1
@@ -2478,6 +2510,25 @@ class MatrixDisplay:
             if status:
                 self._label(group, status[:6], color, max(218, _right_aligned_x(status[:6], DISPLAY_WIDTH)), y)
 
+    def _bus_departures_split(self, group, screen, now_epoch=None):
+        """Two independent 128-pixel columns, each with a heading + 3 rows."""
+        for x, title, status, stale, rows in split_sl7_rows(screen, now_epoch):
+            self._label(group, title, 0xFF3300 if stale else 0xFFAA00, x + 1, 3)
+            if stale and rows:
+                self._label(group, "!", 0xFF3300, x + 119, 3)
+            if not rows:
+                text = ("OFF" if status == "disabled" else
+                        "Unavailable" if status == "unavailable" else
+                        "STALE" if stale else "No services")
+                self._label(group, text, 0xFF3300 if stale or status == "unavailable"
+                            else 0xFFFFFF, x + 2, 11)
+                continue
+            for index, (due, time_text, cancelled, delayed) in enumerate(rows):
+                y = 11 + index * 8
+                color = 0xFF3300 if cancelled else (0xFFAA00 if delayed else 0xFFFFFF)
+                self._label(group, due[:5], color, x + 2, y)
+                self._label(group, time_text[:5], color, x + 88, y)
+
     def _calendar(self, group, screen, phase, clock_date=""):
         events, visible, start, progress = _agenda_state(screen, phase)
         if not events:
@@ -3478,7 +3529,7 @@ class MatrixDisplay:
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=icon_x, y=0))
         self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, text_x, 3)
 
-    def show(self, screen, clock_time="--:--", clock_date="", phase=2):
+    def show(self, screen, clock_time="--:--", clock_date="", phase=2, now_epoch=None):
         import displayio
 
         empty_state = screen.get("empty_state")
@@ -3564,6 +3615,12 @@ class MatrixDisplay:
 
         if not empty_state and kind == "bin_collection":
             self._show_bin_collection(screen, clock_time, clock_date, phase)
+            return
+
+        if not empty_state and kind == "bus_departures_combined":
+            group = displayio.Group()
+            self._bus_departures_split(group, screen, now_epoch)
+            self._present(group)
             return
 
         if not empty_state and kind == "bus_departures":
@@ -3922,7 +3979,7 @@ class FixtureDisplay:
                                 )
             self._text_scaled(value, left + 88, 11, text_color, SUN_WEATHER_TIME_SCALE)
 
-    def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--"):
+    def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--", now_epoch=None):
         kind = screen.get("kind")
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
@@ -4045,6 +4102,21 @@ class FixtureDisplay:
                     self._text(state, state_x, y, color)
             self._clear_rows(0, 8)
             self._text(_clip(screen.get("title") or "THORPE PARK", 30), 0, 0, (255, 100, 0))
+        elif kind == "bus_departures_combined":
+            for x, title, status, stale, rows in split_sl7_rows(screen, now_epoch):
+                self._text(title, x + 1, 0, (255, 51, 0) if stale else (255, 170, 0))
+                if stale and rows:
+                    self._text("!", x + 119, 0, (255, 51, 0))
+                if not rows:
+                    empty = ("OFF" if status == "disabled" else
+                             "Unavailable" if status == "unavailable" else
+                             "STALE" if stale else "No services")
+                    self._text(empty, x + 2, 8, (255, 51, 0) if stale else (255, 255, 255))
+                for index, (due, time_text, cancelled, delayed) in enumerate(rows):
+                    color = ((255, 51, 0) if cancelled else
+                             (255, 170, 0) if delayed else (255, 255, 255))
+                    self._text(due[:5], x + 2, 8 + index * 8, color)
+                    self._text(time_text[:5], x + 88, 8 + index * 8, color)
         elif kind == "bus_departures":
             title = _clip(screen.get("title") or "SL7", 26)
             self._text(title, 0, 0, (255, 170, 0))
@@ -4117,7 +4189,7 @@ class FixtureDisplay:
                     self._pixel(icon_x + x, y, color)
         self._text(text, text_x, 0, (170, 170, 170) if stale else (255, 255, 255))
 
-    def show(self, screen, clock_time="--:--", clock_date="", phase=2):
+    def show(self, screen, clock_time="--:--", clock_date="", phase=2, now_epoch=None):
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
         if empty_state:
@@ -4132,8 +4204,8 @@ class FixtureDisplay:
         due_text, due_x = _calendar_due_layout(screen, clock_date, clock_time)
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
-            self._draw_screen(screen, phase, clock_date, clock_time)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "flash", "today", "dad_joke", "random_fact", "insult_of_hour", "quotes"):
+            self._draw_screen(screen, phase, clock_date, clock_time, now_epoch)
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "bus_departures_combined", "flash", "today", "dad_joke", "random_fact", "insult_of_hour", "quotes"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
