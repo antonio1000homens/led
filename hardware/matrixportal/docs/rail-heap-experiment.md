@@ -78,8 +78,9 @@ OK/SKIP/REUSE` records explain the path selected.
 | Prebuild flag before adapter fix, cold (two on-demand cycles) | 6 | not prepared | n/a | n/a | 621 / 499 ms | 4 / 8 | 779 / 947 ms | 0 |
 | Guarded prebuild before readiness-forwarding fix | 6 | 466,144 B observed during train | 42,832 B | 1.259 s | 501 ms, on-demand fallback | incomplete | 949 ms observed | 0 |
 | Guarded prebuild after adapter fix, cold | 6 | 1,295,568 B train low-water | 42,448 B | 2.041 s | 30 ms | 7 | 923 ms | 0 |
-| Ten-service bitmap, changed-content prebuild and handoff | 10 | 1,562,640 B at train exit | 9,552 B | 0.449 s | 0.823 s | 28 ms | 3 / 0.953 s total* | 5 | 484 ms | 0 |
-| Ten-service bitmap, repeated changed-content prebuild and handoff | 10 | 1,552,304 B at train exit | 9,552 B | 0.449 s | 0.824 s | 26 ms | 3 / 0.941 s total* | 3 | 481 ms | 0 |
+| Ten-service bitmap, changed-content prebuild and handoff | 10 | 1,562,640 B at train exit | 9,552 B | 0.449 s | 0.823 s | 5 | 484 ms | 0 |
+| Ten-service bitmap, repeated changed-content prebuild and handoff | 10 | 1,552,304 B at train exit | 9,552 B | 0.449 s | 0.824 s | 3 | 481 ms | 0 |
+| Ten-service bitmap, candidate 1.5 MiB guard and handoff | 10 | 1,562,192 B at train exit | 9,552 B | 0.452 s | 0.826 s | 5 | 485 ms | 0 |
 | Control, warm | not captured | n/a | n/a | n/a | | | | |
 | Prebuild, warm | not captured | | | | | | | |
 
@@ -109,40 +110,38 @@ prebuild and collection in 823 ms total. The collection took 331 ms, reclaimed
 reused in maintenance and across the adjacent train; first departures refresh
 followed 28 ms after train exit, with 1,562,640 B free at train exit. This
 confirms one physical changed-content invalidation and maximum-service prepared
-handoff under the temporary 1 MiB combined guard. A repeat using the same two
-payload hashes built the changed scene in 449 ms, completed prebuild in 824 ms,
-retained 9,552 B, and presented 26 ms after train exit with 1,552,304 B free.
-Together the runs establish repeatability for this maximum payload and guard.
-During the prepared handoff's rail cycle,
-five frame gaps exceeded 200 ms (maximum 484 ms); a separate heap-pressure
-collection during rail movement took 307 ms and caused a 484 ms frame gap. The
-preceding cold on-demand entry had one 2,005 ms gap. The full capture's rail
-low-water was 786,672 B. No capture errors or serial reconnects were recorded.
-The collection total in the table includes the prebuild collection, the
-emergency collection, and the post-departures planned collection.
+handoff under a temporary 512 KiB reserve plus 512 KiB scene estimate. A repeat
+using the same two payload hashes built the changed scene in 449 ms, completed
+prebuild in 824 ms, retained 9,552 B, and presented 26 ms after train exit with
+1,552,304 B free. A third capture used the candidate's 1 MiB reserve plus 512
+KiB scene estimate. It built in 452 ms, completed prebuild in 826 ms, retained
+9,552 B, and presented 28 ms after train exit with 1,562,192 B free. This
+validates the candidate guard in one maximum-payload physical handoff.
 
-That faster entry did not remove later heap-pressure pauses. While departures
-animated, the run forced two collections of about 0.7 s each, with frame gaps
-of 894 ms and 923 ms. The full capture's minimum free heap was 318,880 B outside
-the train/rail pair; its sampled train low-water was 1,295,568 B and the rail
-capture's sampled minimum was 786,272 B. These are one cold six-service run,
-not repeated or warm A/B measurements. Treat prebuild as an entry-latency
-improvement only; leave it disabled until the independent animation-time heap
-pressure and production guard are addressed and repeated payload runs are
-recorded.
+Across the three prepared-handoff cycles, five/three/five frame gaps exceeded
+200 ms, with maxima of 484/481/485 ms. The candidate-guard capture also had a
+separate heap-pressure collection during rail movement that took 306 ms and
+caused a 485 ms gap at 785,808 B free. Its rail low-water was 786,288 B. All
+three captures had zero errors and serial reconnects. Each had three GC events
+(prebuild, emergency, later planned), totaling 0.953/0.941/0.951 s. The
+preceding cold on-demand entry had a 2,005 ms gap.
 
-The first two handoff captures used temporary board-local budgets. Their
-measured prebuild free heap was about 1.75 MiB, and train-exit low-water was
-1,562,640/1,552,304 B. The 1.5 MiB production gate therefore passed both
-captures with the 512 KiB scene estimate and left the measured train reserve
-above 1.5 MiB. The latest candidate uses this measured guard. After the repeated
-label captures, the original production `settings_local.py` was restored and
-read back. The full candidate upload verified all 23 staged files with
-`code.py` last. Remote SHA-256 readback matched the staged `matrix_config.py`
-and `code.py`, and `settings_local.py` matched the saved production file. The
-candidate config has bitmap rows and guarded prebuild on, with post-build GC
-off. Fresh serial logs confirmed B8 presentation and `FETCH OK screens=14`
-from the production feed.
+That faster entry did not remove later heap-pressure pauses. In the earlier
+six-service run, two collections during departures took about 0.7 s each, with
+frame gaps of 894 ms and 923 ms. The maximum-service captures also triggered
+an emergency collection during animation, lasting about 306–307 ms at around
+786 KiB free. Prebuild reduces transition latency; it does not prevent
+animation-time heap-pressure collections.
+
+The first two handoff captures used a temporary 512 KiB reserve plus a
+512 KiB scene estimate. The third capture used the candidate's 1 MiB reserve
+plus 512 KiB estimate. It passed with 1,750,624 B before preparation, 1,741,072
+B after prebuild collection, and 1,562,192 B at train exit. After the trial,
+the original production `settings_local.py` was restored and read back. The
+full candidate upload verified all 23 staged files with `code.py` last. Remote
+SHA-256 readback matched the candidate `matrix_config.py` and `code.py`, and
+`settings_local.py` matched the saved production file. The candidate config has
+bitmap rows and guarded prebuild on, with post-build GC off.
 
 ## Compact static service rows
 
@@ -263,10 +262,10 @@ Captures cover six services for control, post-build-GC, bitmap, and corrected
 prebuild; five services for two label and two bitmap cycles; and ten services
 for two label and two bitmap live-feed cycles plus matched fixed-payload runs.
 The unchanged fixture hash and absence of another `RAIL BUILD START` confirm
-warm scene reuse across intervening screens. Two ten-service physical runs
+warm scene reuse across intervening screens. Three ten-service physical runs
 demonstrated changed-content invalidation and completed prepared handoffs with
-the same payload pair and measured guard. Repeated cold post-GC label captures
-also exist for the same payload. Overall rotation
+the same payload pair; the third validated the candidate guard. Repeated cold
+post-GC label captures also exist for the same payload. Overall rotation
 heap reached 129,680 B on non-rail
 screens during the maximum bitmap run; the rail-only low-water stayed near
 786 KB. The user visually accepted both the six-service and maximum bitmap
