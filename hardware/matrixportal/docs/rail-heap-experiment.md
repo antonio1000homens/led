@@ -200,7 +200,9 @@ ten-service label cycles dropped
 over 200 ms and maxima of 889/1,102 ms. These large gaps include screen entry
 and emergency collection; no capture errors or serial reconnects were
 recorded. Their current payloads were not verified byte-identical to the
-bitmap pair, so this is not a strict A/B result.
+bitmap pair, so this is not a strict A/B result. The user visually checked
+the synthetic ten-service label screen and reported “looks fine”; no visual
+defects were reported.
 
 A deterministic ten-service screen payload then replaced the live feed for
 matched label/bitmap runs. The board fetched the same 3,477-byte API response
