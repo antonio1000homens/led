@@ -61,6 +61,12 @@ MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
 DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
+DEFAULT_RECYCLING_DURATION_SECONDS = 20
+DEFAULT_RECYCLING_SCROLL_SPEED = 15
+DEFAULT_RECYCLING_DAYS_BEFORE = 2
+MIN_RECYCLING_SCROLL_SPEED = 1
+MAX_RECYCLING_SCROLL_SPEED = 120
+MAX_RECYCLING_DAYS_BEFORE = 14
 
 DEPARTURE_NUMERIC_FIELDS = {
     "station_scroll_speed": {
@@ -260,6 +266,13 @@ FEED_REGISTRY = {
         "screen_duration": True,
         "flash": True,
     },
+    "recycling": {
+        "label": "Recycling / Next collection",
+        "provider": "Home Assistant · local MQTT",
+        "virtual": True,
+        "mutable_fields": ("enabled", "screen_duration_seconds", "slide_speed", "days_before_collection"),
+        "screen_duration": True,
+    },
     "sl7_bus": {
         "label": "SL7 bus departures",
         "provider": "transitous",
@@ -441,6 +454,12 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     maximum=MAX_FLASH_SCREEN_DURATION_SECONDS,
                 ),
             },
+            "recycling": {
+                "enabled": True,
+                "screen_duration_seconds": DEFAULT_RECYCLING_DURATION_SECONDS,
+                "slide_speed": DEFAULT_RECYCLING_SCROLL_SPEED,
+                "days_before_collection": DEFAULT_RECYCLING_DAYS_BEFORE,
+            },
             "sl7_bus": {
                 "enabled": False,
                 "heathrow_enabled": True,
@@ -526,6 +545,9 @@ def schema_metadata() -> dict[str, Any]:
                     "minimum": metadata["minimum"],
                     "maximum": metadata["maximum"],
                 }
+        if feed_id == "recycling":
+            fields["slide_speed"] = {"type": "integer", "minimum": MIN_RECYCLING_SCROLL_SPEED, "maximum": MAX_RECYCLING_SCROLL_SPEED}
+            fields["days_before_collection"] = {"type": "integer", "minimum": 0, "maximum": MAX_RECYCLING_DAYS_BEFORE}
         if feed_id == "sl7_bus":
             fields["heathrow_enabled"] = {"type": "boolean"}
             fields["new_malden_enabled"] = {"type": "boolean"}
@@ -697,6 +719,13 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    if feed_id == "recycling":
+        for field, minimum, maximum in (
+            ("slide_speed", MIN_RECYCLING_SCROLL_SPEED, MAX_RECYCLING_SCROLL_SPEED),
+            ("days_before_collection", 0, MAX_RECYCLING_DAYS_BEFORE),
+        ):
+            if field in patch:
+                result[field] = _validate_integer(feed_id, field, patch[field], minimum, maximum)
     if feed_id == "sl7_bus":
         if "layout_mode" in patch:
             if patch["layout_mode"] not in ("split_columns", "separate_stops") or not isinstance(patch["layout_mode"], str):

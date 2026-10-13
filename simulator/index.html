@@ -74,6 +74,8 @@
     const clockFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
     const londonDateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
     let screens = [];
+    // The simulator has no MQTT connection; the manual bin preview is a fixture.
+    let recyclingPolicy = { enabled: true, screen_duration_seconds: 20, slide_speed: 15, days_before_collection: 2 };
     let source = 'loading';
     let fetchedAt = '';
     let feedStale = false;
@@ -962,16 +964,23 @@
       const labels = (Array.isArray(screen.collections) ? screen.collections : [])
         .map(item => String(item.label || '')).join(' / ');
       const progress = Math.min(1, elapsed / BIN_LORRY_SECONDS);
-      const x = Math.max(0, 256 - progress * BIN_LORRY_SECONDS * BIN_LORRY_SPEED) * FONT_PIXEL_SCALE;
-      drawBinLorry(x);
       const binTypes = binCollectionTypes(screen);
       const dueLabel = binCollectionDueLabel(screen.collection_date);
       const dueWidth = measureLedText(dueLabel).width;
       const binWidth = (binTypes.length * 11 - 2) * FONT_PIXEL_SCALE;
       const typeWidth = Math.max(0,
         256 * FONT_PIXEL_SCALE - 52 * FONT_PIXEL_SCALE - dueWidth - binWidth - 12 * FONT_PIXEL_SCALE);
-      const typeLabel = fitLeftText(labels, typeWidth);
+      const overflow = measureLedText(labels).width > typeWidth;
+      const typeLabel = overflow ? labels : fitLeftText(labels, typeWidth);
       const typeLabelWidth = measureLedText(typeLabel).width;
+      const totalWidth = (52 + 12) * FONT_PIXEL_SCALE + typeLabelWidth + dueWidth + binWidth;
+      const speed = Math.max(0.1, Number(screen.slide_speed) || 20);
+      const distance = elapsed <= BIN_LORRY_SECONDS || !overflow ? 0 :
+        (elapsed - BIN_LORRY_SECONDS) * speed * FONT_PIXEL_SCALE % (totalWidth + 24 * FONT_PIXEL_SCALE);
+      const x = (elapsed < BIN_LORRY_SECONDS
+        ? Math.max(0, 256 - progress * BIN_LORRY_SECONDS * BIN_LORRY_SPEED) * FONT_PIXEL_SCALE
+        : -Math.floor(distance / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE);
+      drawBinLorry(x);
       const dueX = x + (52 + 8) * FONT_PIXEL_SCALE + typeLabelWidth;
       const binX = dueX + dueWidth + 4 * FONT_PIXEL_SCALE;
       context.fillStyle = '#ffffff';
@@ -1150,7 +1159,8 @@
       trainRect(x + 3 * FONT_PIXEL_SCALE, 9, 43, 12, '#ff3300');
       trainRect(x + 7 * FONT_PIXEL_SCALE, 5, 37, 5, '#ff3300');
       [12, 22, 32].forEach(windowX => trainRect(x + windowX * FONT_PIXEL_SCALE, 7, 8, 5, '#ffffff'));
-      trainRect(x + 42 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00');
+      trainRect(x + 4 * FONT_PIXEL_SCALE, 6, 6, 5, '#222222');
+      trainRect(x + 3 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00');
       drawBusWheel(x, 13, 21); drawBusWheel(x, 39, 21);
       const words = String(screen.words || '');
       if (words) {
@@ -1556,17 +1566,20 @@
       status.dataset.detail = 'Reminder flash preview';
     });
     document.getElementById('bin-preview').addEventListener('click', () => {
+      const tomorrow = new Date(Date.now() + 86400000);
+      const dateParts = Object.fromEntries(londonDateFormatter.formatToParts(tomorrow).map(item => [item.type, item.value]));
       screens = [{
         id: 'homeassistant-next-bin', kind: 'bin_collection',
-        title: 'NEXT COLLECTION', duration_seconds: 8, slide_speed: 20,
-        collection_date: '2026-10-08',
+        title: 'NEXT COLLECTION', duration_seconds: recyclingPolicy.screen_duration_seconds,
+        slide_speed: recyclingPolicy.slide_speed,
+        collection_date: `${dateParts.year}-${dateParts.month}-${dateParts.day}`,
         collections: [{ id: 'paper', label: 'Paper' }],
         source: 'homeassistant', stale: false
       }];
       screenOffset = 0;
       paused = false;
       pauseStarted = performance.now();
-      status.dataset.detail = 'Recycling collection preview';
+      status.dataset.detail = 'Recycling fixture preview (ignores admin enable and date window; local MQTT is not observable here)';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();
@@ -1594,6 +1607,7 @@
         const response = await fetch('/api/screens', { cache: 'no-store' });
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
+        if (payload.recycling && typeof payload.recycling === 'object') recyclingPolicy = payload.recycling;
         const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
         const nextKey = JSON.stringify(nextScreens.map(screen => { const copy = { ...screen }; delete copy.weather; return copy; }));
         if (nextKey !== screenDataKey) { feedAnimationStarted = performance.now(); screenDataKey = nextKey; }

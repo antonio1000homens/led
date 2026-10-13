@@ -498,26 +498,54 @@ def _sun_weather_local_phase(icon_name, phase):
     return min(SUN_WEATHER_ANIMATION_SECONDS, max(0.0, elapsed))
 
 
+def _bin_collection_marquee_geometry(screen, clock_date=""):
+    """Return overflow status and full footer width without allocating sprites."""
+    labels = " / ".join(str(item.get("label") or "") for item in screen.get("collections") or [])
+    due_width = len(_bin_collection_due_label(screen.get("collection_date"), clock_date)) * WEATHER_FONT_WIDTH
+    bin_types = _bin_collection_types(screen)
+    bin_width = len(bin_types) * (BIN_ICON_WIDTH + 2) - 2
+    available = max(0, DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3)
+    label_width = len(labels) * WEATHER_FONT_WIDTH
+    total = BIN_LORRY_WIDTH + label_width + due_width + bin_width + HEADER_GAP * 3
+    return label_width > available, total
+
+
+def _bin_collection_footer_x(screen, phase, clock_date=""):
+    """Scroll an overflowing complete footer; keep short labels parked."""
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    if elapsed < BIN_LORRY_SECONDS:
+        return _bin_lorry_x(elapsed)
+    overflowing, total = _bin_collection_marquee_geometry(screen, clock_date)
+    if not overflowing:
+        return 0
+    try:
+        speed = max(0.1, float(screen.get("slide_speed") or 20))
+    except (TypeError, ValueError):
+        speed = 20.0
+    return -int(((elapsed - BIN_LORRY_SECONDS) * speed) % (total + 24))
+
+
 def _bin_collection_motion_state(screen, phase):
-    """Return whether the bin lorry or collection label is moving."""
+    """Return whether the bin lorry/footer is moving and when blank gap ends."""
     try:
         elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         elapsed = 0.0
     if elapsed < BIN_LORRY_SECONDS:
         return True, max(0.05, BIN_LORRY_SECONDS - elapsed)
-    labels = " / ".join(str(item.get("label") or "") for item in screen.get("collections") or [])
-    label_width = len(labels) * 6
-    if label_width <= BIN_TEXT_RIGHT - BIN_TEXT_X:
+    overflowing, total = _bin_collection_marquee_geometry(screen)
+    if not overflowing:
         return False, None
     try:
         speed = max(0.1, float(screen.get("slide_speed") or 20))
-        elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
-        speed, elapsed = 20.0, 0.0
-    cycle_distance = label_width + 24
-    distance = (max(0.0, elapsed - BIN_LORRY_SECONDS) * speed) % cycle_distance
-    if distance < label_width:
+        speed = 20.0
+    cycle_distance = total + 24
+    distance = ((elapsed - BIN_LORRY_SECONDS) * speed) % cycle_distance
+    if distance < total:
         return True, None
     return False, max(0.05, (cycle_distance - distance) / speed)
 
@@ -3048,6 +3076,23 @@ class MatrixDisplay:
         if changed:
             self._refresh(animation_class)
 
+    def prepare_intro(self, screen):
+        """Build transition scenes before their first visible animation frame."""
+        if not isinstance(screen, dict):
+            return False
+        kind = screen.get("kind")
+        if kind == "steam_train_intro":
+            if self._steam_train_cache_matches(screen):
+                return False
+            self._build_steam_train_scene(screen)
+            return True
+        if kind == "bus_intro":
+            if self._bus_intro_cache_matches(screen):
+                return False
+            self._build_bus_intro_scene(screen)
+            return True
+        return False
+
     def _bus_intro_cache_matches(self, screen):
         try:
             speed = max(8.0, min(80.0, float(screen.get("animation_speed") or 24)))
@@ -3083,7 +3128,10 @@ class MatrixDisplay:
         fill_rect(12, 6, 8, 5, 2)
         fill_rect(22, 6, 8, 5, 2)
         fill_rect(32, 6, 8, 5, 2)
-        fill_rect(42, 11, 6, 7, 3)
+        # The bus travels left, so put its driver windscreen and front marker
+        # on the left to keep the motion reading as forward travel.
+        fill_rect(4, 6, 6, 5, 4)
+        fill_rect(3, 12, 6, 7, 3)
         for center_x in (13, 39):
             for dx, dy in ((-3, -2), (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -2),
                            (-3, -1), (3, -1), (-3, 0), (3, 0), (-2, 2), (-1, 3),
@@ -3420,7 +3468,9 @@ class MatrixDisplay:
             0,
             DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3,
         )
-        type_label = _fit_text_pixels(labels, type_width)
+        # Preserve complete labels when they overflow: the whole lorry/footer
+        # travels together at slide_speed after the opening animation.
+        type_label = labels if len(labels) * WEATHER_FONT_WIDTH > type_width else _fit_text_pixels(labels, type_width)
         type_label_width = len(type_label) * WEATHER_FONT_WIDTH
         group.append(content)
         self._bin_content_group = content
@@ -3482,7 +3532,7 @@ class MatrixDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        next_lorry_x = _bin_lorry_x(min(elapsed, BIN_LORRY_SECONDS))
+        next_lorry_x = _bin_collection_footer_x(screen, elapsed, clock_date)
         if self._bin_lorry_group.x != next_lorry_x:
             self._bin_lorry_group.x = next_lorry_x
             changed = True
@@ -3811,7 +3861,8 @@ class FixtureDisplay:
         self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
         for window_x in (12, 22, 32):
             self._fill_rect(x + window_x, 7 + offset, 8, 5, (255, 255, 255))
-        self._fill_rect(x + 42, 12 + offset, 6, 7, (255, 170, 0))
+        self._fill_rect(x + 4, 6 + offset, 6, 5, (34, 34, 34))
+        self._fill_rect(x + 3, 12 + offset, 6, 7, (255, 170, 0))
         for center_x in (13, 39):
             self._fill_rect(x + center_x - 3, 20 + offset, 7, 1, (34, 34, 34))
             self._fill_rect(x + center_x - 2, 21 + offset, 5, 3, (34, 34, 34))
@@ -3827,7 +3878,7 @@ class FixtureDisplay:
             elapsed = max(0.0, float(phase or 0))
         except (TypeError, ValueError):
             elapsed = 0.0
-        x = _bin_lorry_x(min(elapsed, BIN_LORRY_SECONDS))
+        x = _bin_collection_footer_x(screen, elapsed, clock_date)
         def mirror(left, width):
             return x + BIN_LORRY_WIDTH - left - width
 
@@ -3855,7 +3906,7 @@ class FixtureDisplay:
             0,
             DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3,
         )
-        type_label = _fit_text_pixels(labels, type_width)
+        type_label = labels if len(labels) * WEATHER_FONT_WIDTH > type_width else _fit_text_pixels(labels, type_width)
         type_label_width = len(type_label) * WEATHER_FONT_WIDTH
         due_x = x + BIN_LORRY_WIDTH + HEADER_GAP * 2 + type_label_width
         bin_x = due_x + due_width + HEADER_GAP
