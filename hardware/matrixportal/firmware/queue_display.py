@@ -172,9 +172,12 @@ class QueueAwareDisplay:
             self.base._text(title, SPLASH_TARGET_X, SPLASH_BASELINE_Y, (255, 255, 255))
         self.base.pixels.show()
 
-    def show(self, screen, clock_time="--:--", clock_date="", phase=2):
+    def show(self, screen, clock_time="--:--", clock_date="", phase=2, now_epoch=None):
         if screen.get("kind") != "theme_park_queues" or not screen.get("parks"):
-            return self.base.show(screen, clock_time, clock_date=clock_date, phase=phase)
+            options = {"clock_date": clock_date, "phase": phase}
+            if now_epoch is not None:
+                options["now_epoch"] = now_epoch
+            return self.base.show(screen, clock_time, **options)
 
         rendered, render_phase, mode, progress = queue_render_state(screen, phase)
         if mode == "data":
