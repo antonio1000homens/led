@@ -1,6 +1,7 @@
 import sys
 import types
 import unittest
+from datetime import datetime, timezone
 from unittest import mock
 
 
@@ -107,6 +108,29 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_combined_sl7_rows_hide_expired_departures_and_keep_upcoming_rows(self):
+        now = int(datetime(2026, 10, 13, 15, 0, tzinfo=timezone.utc).timestamp())
+        screen = {
+            "kind": "bus_departures_combined",
+            "directions": {
+                "new-malden": {
+                    "status": "ok",
+                    "departures": [
+                        {"planned": "2026-10-13T14:58:00Z", "estimated": "2026-10-13T14:58:00Z",
+                         "local_time": "15:58", "destination": "West Croydon"},
+                        {"planned": "2026-10-13T15:05:00Z", "estimated": "2026-10-13T15:05:00Z",
+                         "local_time": "16:05", "destination": "West Croydon"},
+                    ],
+                },
+                "heathrow": {"status": "empty", "departures": []},
+            },
+        }
+
+        rows = led_display.split_sl7_rows(screen, now)
+
+        self.assertEqual(rows[0][4], [("5m", "16:05", False, False)])
+        self.assertEqual(rows[1][4], [])
+
     def test_rail_prebuild_bitmap_and_post_build_gc_defaults(self):
         self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
         self.assertTrue(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
@@ -719,6 +743,19 @@ class DisplayLayoutTests(unittest.TestCase):
             led_display._sun_weather_icon_y("clear_night", 0),
             led_display.SUN_WEATHER_SET_START_Y,
         )
+        for phase in range(0, int(led_display.SUN_WEATHER_TOTAL_ANIMATION_SECONDS) + 1):
+            sun_y = led_display._sun_weather_icon_y("clear_day", phase)
+            moon_y = led_display._sun_weather_icon_y("clear_night", phase)
+            self.assertGreaterEqual(sun_y, 0)
+            self.assertLessEqual(
+                sun_y + led_display.WEATHER_ICON_WIDTH * led_display.SUN_WEATHER_ICON_SCALE,
+                32,
+            )
+            self.assertGreaterEqual(moon_y, 0)
+            self.assertLessEqual(
+                moon_y + led_display.WEATHER_ICON_WIDTH * led_display.SUN_WEATHER_MOON_ICON_SCALE,
+                32,
+            )
 
         midpoint = led_display.SUN_WEATHER_ANIMATION_SECONDS / 2
         sun_mid = led_display._sun_weather_icon_y("clear_day", midpoint)

@@ -129,10 +129,18 @@ def split_sl7_rows(screen, now_epoch=None):
                            ("heathrow", "SL7 to New Malden", 128)):
         direction = data.get(stop) or {}
         rows = []
-        for item in (direction.get("departures") or [])[:3]:
-            rows.append((bus_due_label(item, now_epoch), item.get("local_time") or "--:--",
+        for item in direction.get("departures") or []:
+            due = bus_due_label(item, now_epoch)
+            # A fresh API snapshot can become old while the board is between
+            # polls. Never leave a departure on screen once it is over a
+            # minute past due; continue to the next upcoming row instead.
+            if due == "--":
+                continue
+            rows.append((due, item.get("local_time") or "--:--",
                          bool(item.get("cancelled")),
                          bool(item.get("estimated") and item.get("estimated") != item.get("planned"))))
+            if len(rows) >= 3:
+                break
         columns.append((x, title, direction.get("status") or "unavailable",
                         bool(direction.get("stale")), rows))
     return columns
@@ -168,8 +176,10 @@ SUN_WEATHER_ICON_Y = 5
 SUN_WEATHER_ANIMATION_SECONDS = 4.0
 SUN_WEATHER_COLOR_SECONDS = 4.0
 SUN_WEATHER_TOTAL_ANIMATION_SECONDS = SUN_WEATHER_ANIMATION_SECONDS * 2
-SUN_WEATHER_RISE_START_Y = 32
-SUN_WEATHER_SET_START_Y = -(WEATHER_ICON_WIDTH * SUN_WEATHER_MOON_ICON_SCALE)
+# Begin the solar transition fully inside the 32px panel. Starting entirely
+# offscreen made the values render alone for the first phase of the screen.
+SUN_WEATHER_RISE_START_Y = 10
+SUN_WEATHER_SET_START_Y = 0
 # MatrixDisplay labels use font baselines, while the fixture renderer uses
 # top-left pixel coordinates. Keep fullscreen weather headers clear of the
 # panel edge and align the forecast rows below them.
@@ -1009,6 +1019,13 @@ class MatrixDisplay:
         self._todoist_clock_group = None
         self._todoist_clock_label = None
         self._todoist_weather_group = None
+
+        # Weather pages are static while visible. Keep their displayio trees
+        # alive instead of allocating new icon bitmaps and palettes on every
+        # scheduler tick; repeated scene construction can starve the heap and
+        # leave text visible while tile art fails to refresh reliably.
+        self._weather_groups = {}
+        self._weather_keys = {}
 
         # Departures use the same persistent-scene approach as Todoist.  Only
         # the calling-at labels move between frames; rebuilding the complete
@@ -3698,12 +3715,31 @@ class MatrixDisplay:
             if kind == "weather_sun":
                 self._show_sun_weather(screen, phase)
                 return
-            group = displayio.Group()
             if kind == "weather_weekly":
-                self._weekly_weather(group, screen)
+                items = screen.get("days") or []
+                key = (bool(screen.get("stale")), tuple(
+                    (item.get("weekday"), item.get("weather_code"), item.get("icon"),
+                     item.get("temperature_max_c"))
+                    for item in items if isinstance(item, dict)
+                ))
             else:
-                self._today_weather(group, screen)
-            self._present(group)
+                items = screen.get("blocks") or []
+                key = (bool(screen.get("stale")), tuple(
+                    (item.get("label"), item.get("weather_code"), item.get("icon"),
+                     item.get("temperature_c"))
+                    for item in items if isinstance(item, dict)
+                ))
+            if self._weather_keys.get(kind) != key:
+                group = displayio.Group()
+                if kind == "weather_weekly":
+                    self._weekly_weather(group, screen)
+                else:
+                    self._today_weather(group, screen)
+                self._weather_groups[kind] = group
+                self._weather_keys[kind] = key
+            group = self._weather_groups[kind]
+            if self.display.root_group is not group:
+                self._present(group)
             return
 
         group = displayio.Group()
