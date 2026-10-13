@@ -15,9 +15,13 @@ MATRIX_EXPERIMENT_PRESET = "B8"
 # animation mutated the scene while CircuitPython refreshed independently.
 MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT = False
 MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = False
-MATRIX_RAIL_PREBUILD_EXPERIMENT = False
-MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = False
-MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES = 1536 * 1024
+# Two maximum-service board captures reused the changed-content scene across
+# the train handoff with >1.5 MiB free at train exit. Keep a measured reserve.
+MATRIX_RAIL_PREBUILD_EXPERIMENT = True
+# The compact static-row bitmap is the accepted renderer for the measured
+# ten-service feed; set False in settings_local.py to restore legacy labels.
+MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = True
+MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES = 1024 * 1024
 MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES = 512 * 1024
 try:
     import settings_local as _rail_gc_settings_local
