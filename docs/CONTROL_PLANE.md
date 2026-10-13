@@ -23,6 +23,7 @@ DynamoDB contains only non-secret settings that are safe to change at runtime. T
 | `weather` | Open-Meteo | `enabled`, `poll_seconds`, `overview_enabled`, `screen_duration_seconds`, `today_enabled`, `today_duration_seconds`, `sun_enabled`, `sun_duration_seconds` |
 | `calendar` | Todoist | `enabled`, `poll_seconds`, `screen_duration_seconds` |
 | `flash` | Pending MQTT event path | `enabled` (starts or stops board MQTT polling), `screen_duration_seconds` (default 5) |
+| `recycling` | Home Assistant / local MQTT | `enabled`, `screen_duration_seconds` (20s), `slide_speed` (15px/s), `days_before_collection` (2 local days) |
 
 `poll_seconds` is between 60 and 86400 seconds. Screen duration is between 2 and 300 seconds. Queue-Times `park_id` is implementation metadata and cannot be patched.
 
@@ -35,6 +36,10 @@ Weather's three dedicated screens preserve a fixed order: seven-day overview, To
 The standalone **Today · current conditions** screen is a separate virtual `today` feed with its own `enabled` and `screen_duration_seconds` controls (2–300 seconds) on the admin page. It shares the Open-Meteo weather cache but is **not** the Weather section's **Next 24 hours** forecast (`weather-today`). Changing its enabled state or duration never changes the Weather sub-screen settings. If only standalone Today is enabled, shared weather polling remains active.
 
 Deployment settings still own provider credentials, station CRS, weather coordinates, Todoist OAuth storage, AWS resource names, and Cloudflare Access validation metadata. The control API has no endpoint for arbitrary environment variables and its IAM role does not receive National Rail or Todoist credentials.
+
+Recycling is a virtual, **board-only** policy, not a Lambda provider. The admin card persists `recycling` in DynamoDB. The publisher includes its non-secret policy under the top-level `recycling` field of `/api/screens`, not inside `screens`. The MatrixPortal combines this with an independently retained `bin_collection` message on `led/screens/+`, applies the duration and scroll-speed overrides to a copy and gates by the synchronized Europe/London date (0–14 days before collection, including collection day). It does not mutate the MQTT snapshot or its expiry. Disabled recycling does not disable MQTT reminders. Admin health is intentionally `unavailable` for an enabled recycling feed: the backend cannot observe the board's local broker or collection date. The browser simulator has only a manual fixture preview, not live MQTT status.
+
+**Cross-repository deployment order:** deploy the LED backend and MatrixPortal firmware first, then merge/deploy the Home Assistant publisher change (see [LED #244](https://github.com/antonio1000homens/led/issues/244)). The Home Assistant publisher will no longer hide snapshots outside the two-day window; old board firmware could otherwise display them earlier than intended. The producer retains `duration_seconds`/`slide_speed` for compatibility, but the new LED admin policy takes precedence.
 
 For Flash events, the runtime `enabled` setting is applied on the MatrixPortal as well as by the publisher: disabled means the board disconnects from MQTT and does not poll the transport. The local `MQTT_ENABLED` and `MQTT_ENABLE_EXPERIMENTAL` settings remain hard safety gates; runtime enablement cannot override either local gate.
 

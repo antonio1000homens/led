@@ -110,6 +110,30 @@ class MqttScreenState:
         self.prefix = topic_filter[:-1]
         self._slots = {}
         self._published = {}
+        self._recycling = {
+            "enabled": True, "screen_duration_seconds": 20,
+            "slide_speed": 15, "days_before_collection": 2,
+        }
+
+    def configure_recycling(self, config):
+        """Set safe board-local policy; never overwrite retained MQTT messages."""
+        defaults = {
+            "enabled": True, "screen_duration_seconds": 20,
+            "slide_speed": 15, "days_before_collection": 2,
+        }
+        policy = dict(defaults)
+        if isinstance(config, dict):
+            if isinstance(config.get("enabled"), bool):
+                policy["enabled"] = config["enabled"]
+            for key, minimum, maximum in (
+                ("screen_duration_seconds", 2, 300),
+                ("slide_speed", 1, 120),
+                ("days_before_collection", 0, 14),
+            ):
+                value = config.get(key)
+                if isinstance(value, int) and not isinstance(value, bool) and minimum <= value <= maximum:
+                    policy[key] = value
+        self._recycling = policy
 
     def accept(self, topic, payload, now_epoch):
         """Accept a slot update; invalid or expired messages leave state intact."""
@@ -165,6 +189,37 @@ class MqttScreenState:
         return removed
 
     def screens(self, now_epoch):
-        """Expose only validated, unexpired non-SL7 MQTT cycle screens."""
+        """Expose retained validated MQTT snapshots, without presentation edits."""
         self.expire(now_epoch)
         return [self._slots[slot][1] for slot in sorted(self._slots)]
+
+    def effective_screens(self, now_epoch, london_today):
+        """Apply LED admin policy without altering stored MQTT snapshot/expiry.
+
+        The date is supplied by the synchronized Europe/London board clock;
+        hiding is safe if the clock is not yet synchronized.
+        """
+        policy = self._recycling
+        try:
+            today_day = _epoch(london_today + "T00:00:00Z") // 86400000
+        except (ValueError, TypeError):
+            today_day = None
+        result = []
+        for screen in self.screens(now_epoch):
+            if screen.get("kind") != "bin_collection":
+                result.append(screen)
+                continue
+            if not policy["enabled"] or today_day is None:
+                continue
+            try:
+                collection_day = _epoch(screen["collection_date"] + "T00:00:00Z") // 86400000
+            except (ValueError, TypeError, KeyError):
+                continue
+            days_until = collection_day - today_day
+            if not 0 <= days_until <= policy["days_before_collection"]:
+                continue
+            effective = dict(screen)
+            effective["duration_seconds"] = policy["screen_duration_seconds"]
+            effective["slide_speed"] = policy["slide_speed"]
+            result.append(effective)
+        return result
