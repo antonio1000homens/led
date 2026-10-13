@@ -666,7 +666,7 @@ while True:
     slot_key = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
     if maintenance_visible and not steam_train_test and not flash.active(now):
         maintenance_active = True
-        display.show(candidate, clock.text(now), clock_date=clock.date_text(now), phase=candidate_phase)
+        display.show(candidate, clock.text(now), clock_date=clock.date_text(now), phase=candidate_phase, now_epoch=clock.epoch(now))
         if rotation.screens:
             maintenance_resume = rotation.freeze(ticks_ms())
         if slot_key != last_maintenance_slot:
@@ -1055,6 +1055,7 @@ while True:
         clock.text(now),
         clock_date=clock.date_text(now),
         phase=_display_phase(screen, phase),
+        now_epoch=clock.epoch(now),
     )
     show_duration = (
         elapsed_seconds(show_started) if MATRIX_TELEMETRY_ENABLED else 0.0

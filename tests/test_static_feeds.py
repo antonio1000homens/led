@@ -309,7 +309,7 @@ if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intr
         class Display:
             def __init__(self):
                 self.events = None
-            def show(self,screen,clock_time="",clock_date="",phase=0):
+            def show(self,screen,clock_time="",clock_date="",phase=0,now_epoch=None):
                 shown.append((screen["kind"],phase,milliseconds[0]))
             def tasks_ready(self,screen,clock_date=""):
                 return self.events == screen.get("events")

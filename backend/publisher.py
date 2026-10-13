@@ -472,6 +472,33 @@ class Publisher:
         }
 
     @staticmethod
+    def _bus_combined(bus_data, config, feed_stale=False, now=None):
+        """One 256x32 screen with independent Heathrow-bound and Malden-bound columns."""
+        directions = {}
+        for key, enabled in (("new-malden", config.get("new_malden_enabled")),
+                             ("heathrow", config.get("heathrow_enabled"))):
+            if not enabled:
+                directions[key] = {"enabled": False, "status": "disabled", "stale": False, "departures": []}
+                continue
+            source = (bus_data or {}).get(key)
+            normal = Publisher._bus_screen(key, source, config, feed_stale, now)
+            directions[key] = {
+                "enabled": True, "status": normal["status"], "stale": normal["stale"],
+                "departures": normal["departures"],
+            }
+        active = [value for value in directions.values() if value["enabled"]]
+        has_departures = any(value["departures"] for value in active)
+        return {
+            "id": "sl7-combined", "kind": "bus_departures_combined",
+            "title": "SL7 Heathrow / New Malden", "route": "SL7",
+            "source": "transitous", "stale": any(value["stale"] for value in active),
+            "duration_seconds": (config["screen_duration_seconds"] if has_departures
+                                 else config["no_services_duration_seconds"]),
+            "directions": directions,
+            "display_every_cycles": config.get("display_every_cycles", 1),
+        }
+
+    @staticmethod
     def _bus_intro(stop_key, config):
         speed = max(1, int(config.get("animation_speed", 24)))
         words = str(config.get("words", BUS_INTRO_WORDS) or "")
@@ -783,17 +810,21 @@ class Publisher:
                         item["refresh_ack_url"] = self.store.acknowledgement(feed_id, version)
                     screen["items"].append(item)
         bus_config = config_feeds["sl7_bus"]
-        if bus_config["enabled"]:
+        if bus_config["enabled"] and (bus_config.get("heathrow_enabled") or bus_config.get("new_malden_enabled")):
             bus_feed = feeds.get("sl7_bus") or {}
             bus_data = bus_feed.get("data") or {}
-            if bus_config.get("heathrow_enabled"):
+            if bus_config.get("layout_mode", "split_columns") == "split_columns":
                 if bus_config.get("bus_intro_enabled", True):
-                    screens.append(self._bus_intro("heathrow", bus_config))
-                screens.append(self._bus_screen("heathrow", bus_data.get("heathrow"), bus_config, bus_feed.get("stale", False), now))
-            if bus_config.get("new_malden_enabled"):
-                if bus_config.get("bus_intro_enabled", True):
-                    screens.append(self._bus_intro("new-malden", bus_config))
-                screens.append(self._bus_screen("new-malden", bus_data.get("new-malden"), bus_config, bus_feed.get("stale", False), now))
+                    screens.append(self._bus_intro("combined", bus_config))
+                screens.append(self._bus_combined(bus_data, bus_config, bus_feed.get("stale", False), now))
+            else:
+                for key, enabled in (("heathrow", bus_config.get("heathrow_enabled")),
+                                     ("new-malden", bus_config.get("new_malden_enabled"))):
+                    if enabled:
+                        if bus_config.get("bus_intro_enabled", True):
+                            screens.append(self._bus_intro(key, bus_config))
+                        screens.append(self._bus_screen(key, bus_data.get(key), bus_config,
+                                                        bus_feed.get("stale", False), now))
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],

@@ -279,7 +279,7 @@ FEED_REGISTRY = {
         "display_group": "transit",
         "mutable_fields": (
             "enabled", "heathrow_enabled", "new_malden_enabled",
-            "bus_intro_enabled", "animation_speed", "words",
+            "bus_intro_enabled", "animation_speed", "words", "layout_mode",
             "screen_duration_seconds", "no_services_duration_seconds",
             "display_every_cycles", "upcoming_bus_count",
             "stale_after_seconds", "destination_scroll_speed",
@@ -467,6 +467,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "bus_intro_enabled": True,
                 "animation_speed": DEFAULT_STEAM_TRAIN_SPEED,
                 "words": DEFAULT_BUS_INTRO_WORDS,
+                "layout_mode": "split_columns",
                 "screen_duration_seconds": 8,
                 "no_services_duration_seconds": DEFAULT_NO_SERVICES_DURATION_SECONDS,
                 "display_every_cycles": 1,
@@ -555,6 +556,7 @@ def schema_metadata() -> dict[str, Any]:
                 "type": "integer", "minimum": MIN_STEAM_TRAIN_SPEED, "maximum": MAX_STEAM_TRAIN_SPEED,
             }
             fields["words"] = {"type": "string", "maximumLength": MAX_STEAM_TRAIN_WORDS_LENGTH}
+            fields["layout_mode"] = {"type": "select", "values": ["split_columns", "separate_stops"]}
             fields["no_services_duration_seconds"] = {
                 "type": "integer", "minimum": MIN_SCREEN_DURATION_SECONDS, "maximum": MAX_SCREEN_DURATION_SECONDS,
             }
@@ -725,6 +727,10 @@ def validate_feed_patch(
             if field in patch:
                 result[field] = _validate_integer(feed_id, field, patch[field], minimum, maximum)
     if feed_id == "sl7_bus":
+        if "layout_mode" in patch:
+            if patch["layout_mode"] not in ("split_columns", "separate_stops") or not isinstance(patch["layout_mode"], str):
+                raise RuntimeConfigValidationError("sl7_bus.layout_mode must be split_columns or separate_stops")
+            result["layout_mode"] = patch["layout_mode"]
         for field in ("heathrow_enabled", "new_malden_enabled", "bus_intro_enabled"):
             if field in patch:
                 if not isinstance(patch[field], bool):
@@ -820,6 +826,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("bus_intro_enabled", True)
             raw.setdefault("animation_speed", DEFAULT_STEAM_TRAIN_SPEED)
             raw.setdefault("words", DEFAULT_BUS_INTRO_WORDS)
+            raw.setdefault("layout_mode", "split_columns")
             # Previous versions allowed up to five rows, but the actual
             # 32-pixel matrix can show at most three legible rows.
             raw["upcoming_bus_count"] = min(

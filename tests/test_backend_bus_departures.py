@@ -82,15 +82,16 @@ class BusProviderTests(unittest.TestCase):
             utcnow=lambda: datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
         )
         payload = publisher.run()
-        screens = [screen for screen in payload["screens"] if screen["kind"] == "bus_departures"]
-        self.assertEqual([screen["id"] for screen in screens], ["sl7-heathrow", "sl7-new-malden"])
-        self.assertTrue(all(screen["source"] == "transitous" and not screen["stale"] for screen in screens))
-        self.assertEqual(screens[0]["departures"][0]["local_time"], "21:11")
-        self.assertEqual(screens[0]["departures"][0]["due_text"], "11m")
+        screens = [screen for screen in payload["screens"] if screen["kind"] == "bus_departures_combined"]
+        self.assertEqual([screen["id"] for screen in screens], ["sl7-combined"])
+        combined = screens[0]
+        self.assertEqual(combined["source"], "transitous")
+        self.assertEqual(sorted(combined["directions"]), ["heathrow", "new-malden"])
+        self.assertEqual(combined["directions"]["heathrow"]["departures"][0]["local_time"], "21:11")
+        self.assertEqual(combined["directions"]["new-malden"]["departures"][0]["due_text"], "11m")
         self.assertEqual(
             [(screen["kind"], screen.get("words")) for screen in payload["screens"]],
-            [("bus_intro", "Beep! Beep!..."), ("bus_departures", None),
-             ("bus_intro", "Beep! Beep!..."), ("bus_departures", None)],
+            [("bus_intro", "Beep! Beep!..."), ("bus_departures_combined", None)],
         )
 
 
@@ -126,8 +127,34 @@ class BusProviderTests(unittest.TestCase):
         ).run()
         self.assertEqual(
             [(page["kind"], page["id"]) for page in without_intro["screens"]],
-            [("bus_departures", "sl7-heathrow"), ("bus_departures", "sl7-new-malden")],
+            [("bus_departures_combined", "sl7-combined")],
         )
+        # With only one side enabled, the opposite column is disabled rather
+        # than receiving fabricated departures. Both disabled suppresses SL7.
+        runtime["feeds"]["sl7_bus"]["new_malden_enabled"] = False
+        one_side = Publisher._bus_combined(
+            {"heathrow":{"stop_name":"Heathrow","departures":[]}},
+            runtime["feeds"]["sl7_bus"], now=datetime(2026,10,11,20,0,tzinfo=timezone.utc))
+        self.assertEqual(one_side["directions"]["new-malden"]["status"], "disabled")
+        runtime["feeds"]["sl7_bus"]["heathrow_enabled"] = False
+        neither = Publisher(
+            PublisherConfig("bucket", "token", thorpe_park_source="off", weather_source="off"), Store(),
+            bus_provider=Bus(), runtime_config_store=StaticRuntimeConfigStore(runtime),
+            utcnow=lambda: datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+        ).run()
+        self.assertFalse(any(page["kind"] in ("bus_intro", "bus_departures_combined")
+                             for page in neither["screens"]))
+        # Legacy admin layout can still render the separate stop pages.
+        runtime["feeds"]["sl7_bus"]["heathrow_enabled"] = True
+        runtime["feeds"]["sl7_bus"]["new_malden_enabled"] = True
+        runtime["feeds"]["sl7_bus"]["layout_mode"] = "separate_stops"
+        old_layout = Publisher(
+            PublisherConfig("bucket", "token", thorpe_park_source="off", weather_source="off"), Store(),
+            bus_provider=Bus(), runtime_config_store=StaticRuntimeConfigStore(runtime),
+            utcnow=lambda: datetime(2026, 10, 11, 20, 0, tzinfo=timezone.utc),
+        ).run()
+        self.assertEqual([page["kind"] for page in old_layout["screens"]],
+                         ["bus_departures", "bus_departures"])
 
     def test_publisher_excludes_departed_services_and_uses_london_dst(self):
         runtime = default_runtime_config({})
