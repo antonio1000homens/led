@@ -189,7 +189,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
+            rotation.update_sources(rotation.http_screens, mqtt_screens.effective_screens(epoch_now, clock.date_text(now)), ticks_ms())
             mqtt_screens_changed = True
             return
         if service_mqtt and _service_reminder_clock(now):
@@ -229,6 +229,7 @@ mqtt = None
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
 )
+last_recycling_date = None
 
 
 def _reminder_epoch(now):
@@ -276,7 +277,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             print("MQTT screen ignored: clock not synchronized")
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
+            rotation.update_sources(rotation.http_screens, mqtt_screens.effective_screens(epoch_now, clock.date_text(now)), ticks_ms())
             mqtt_screens_changed = True
 
     mqtt = FlashMqttClient(
@@ -730,19 +731,22 @@ while True:
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
+            fetched_at = payload.get("clock_at") or payload.get("fetched_at")
+            if fetched_at and (client is not None or not fixture_clock_synced):
+                clock.sync(fetched_at, fetch_completed)
+                fixture_clock_synced = True
+            mqtt_screens.configure_recycling(payload.get("recycling"))
             epoch_now = _reminder_epoch(fetch_completed)
+            last_recycling_date = clock.date_text(fetch_completed)
             rotation.update_sources(
                 screens,
-                mqtt_screens.screens(epoch_now) if epoch_now is not None else [],
+                mqtt_screens.effective_screens(epoch_now, last_recycling_date)
+                if epoch_now is not None else [],
                 ticks_ms(),
             )
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload)
-            fetched_at = payload.get("clock_at") or payload.get("fetched_at")
-            if fetched_at and (client is not None or not fixture_clock_synced):
-                clock.sync(fetched_at, fetch_completed)
-                fixture_clock_synced = True
             transport_stale = False
         except Exception as error:
             fetch_completed = time.monotonic()
@@ -821,9 +825,16 @@ while True:
                 print("RAIL PREBUILD SKIP reason=renderer_unavailable")
 
     epoch_now = _reminder_epoch(now)
-    if epoch_now is not None and mqtt_screens.expire(epoch_now):
-        rotation.update_sources(rotation.http_screens, mqtt_screens.screens(epoch_now), ticks_ms())
+    recycling_date = clock.date_text(now)
+    expired_mqtt = mqtt_screens.expire(epoch_now) if epoch_now is not None else []
+    if epoch_now is not None and (expired_mqtt or recycling_date != last_recycling_date):
+        rotation.update_sources(
+            rotation.http_screens,
+            mqtt_screens.effective_screens(epoch_now, recycling_date),
+            ticks_ms(),
+        )
         mqtt_screens_changed = True
+    last_recycling_date = recycling_date
 
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     if flash.active(now):
