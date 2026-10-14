@@ -20,8 +20,8 @@ Available controls:
 - Master enable/disable (off by default)
 - Heathrow and New Malden direction switches
 - **Layout mode** (default `split_columns`; optional `separate_stops` legacy pages), configured through the same versioned runtime admin API
-- Split mode: 256×32 display divided into two 128px columns: **SL7 to Heathrow** (left, departures from New Malden) and **SL7 to New Malden** (right, departures from Heathrow). Four 8px lines per column (header and up to three `Due in` + UK-local `HH:MM` pairs), without the normal overlay clock
-- Optional animated bus that enters from the right, stops fully visible at the left edge, and then gives way to each enabled SL7 stop page. Default trailing text: `Beep! Beep!...`
+- Split mode: 256×32 display divided into two 128px columns: **SL7 to Heathrow** (left, departures from New Malden) and **SL7 to New Malden** (right, departures from Heathrow). Four 8px lines per column (header and up to three rows with **`HH:MM` first**, followed by **`Due in 15m`** or **`Due in 0m`** for imminent buses), without the normal overlay clock
+- Optional red double-decker bus, with two distinct rows of passenger windows, that enters from the right, stops fully visible at the left edge, and then gives way to each enabled SL7 stop page. Default trailing text: `Beep! Beep!...`
 - Bus intro enable/disable, animation speed (8–80 pixels/second), and printable ASCII trailing text (up to 80 characters)
 - Screen duration and no-service duration
 - Display frequency every 1–6 rotations (one intro is paired with the combined page; separate mode pairs one intro per enabled stop)
@@ -34,6 +34,6 @@ Changes to `sl7_bus` via the normal authenticated control API affect the backend
 
 ## Rendering and validation
 
-The default combined page has two fixed-width side-by-side sections, each showing the upcoming 1–3 trips as a rolling countdown and Europe/London local departure time. The page deliberately suppresses the global clock/header overlay so neither directional title is obscured. When one direction is disabled or unavailable, the other continues showing live trips. Optional legacy stop pages preserve the prior full-width detail rows. Delayed rows are amber, cancelled rows are red; stale and unavailable states are marked separately. The backend handles Europe/London daylight saving time and removes already-departed services.
+The default combined page has two fixed-width side-by-side sections, each showing the upcoming 1–3 trips as Europe/London local departure time at the left, followed by an explicit `Due in` rolling countdown on the right. A cancelled row displays `CXL` in place of the countdown. The page deliberately suppresses the global clock/header overlay so neither directional title is obscured. When one direction is disabled or unavailable, the other continues showing live trips. Optional legacy stop pages preserve the prior full-width detail rows. Delayed rows are amber, cancelled rows are red; stale and unavailable states are marked separately. The backend handles Europe/London daylight saving time and removes already-departed services.
 
 Run `bash scripts/run-tests.sh` in the LED checkout, preview both SL7 fixture pages in the browser simulator and validate both real stops on the 256×32 MatrixPortal. Confirm timestamps, headsigns, empty/unavailable handling, update frequency and the admin toggles. No Home Assistant or broker setup is part of SL7 acceptance.
