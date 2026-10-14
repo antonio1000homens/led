@@ -58,6 +58,10 @@ class BusIntroAnimationTests(unittest.TestCase):
             self.assertEqual(motion[0].palette[1], 0xFF3300)
             self.assertEqual(motion[0].bitmap[5, 7], 4)
             self.assertEqual(motion[0].bitmap[4, 13], 3)
+            # Passenger windows on both floors, separated by a red band.
+            self.assertEqual(motion[0].bitmap[13, 7], 2)
+            self.assertEqual(motion[0].bitmap[13, 15], 2)
+            self.assertEqual(motion[0].bitmap[13, 11], 1)
 
             display._show_bus_intro(screen, led_display.DISPLAY_WIDTH / 24)
             self.assertEqual(motion.x, 0)
@@ -84,6 +88,10 @@ class BusIntroAnimationTests(unittest.TestCase):
         )
         self.assertIn(
             mock.call(led_display.DISPLAY_WIDTH + 3, 13, 6, 7, (255, 170, 0)),
+            display._fill_rect.call_args_list,
+        )
+        self.assertIn(
+            mock.call(led_display.DISPLAY_WIDTH + 12, 15, 8, 5, (255, 255, 255)),
             display._fill_rect.call_args_list,
         )
         display._fill_rect.reset_mock()
@@ -157,6 +165,7 @@ class BusIntroAnimationTests(unittest.TestCase):
             "function drawBusWheel", 1
         )[0]
         self.assertIn("'#ff3300'", bus)
+        self.assertIn("trainRect(x + windowX * FONT_PIXEL_SCALE, 14, 8, 5, '#ffffff')", bus)
         self.assertIn("trainRect(x + 4 * FONT_PIXEL_SCALE, 6, 6, 5, '#222222')", bus)
         self.assertIn("trainRect(x + 3 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00')", bus)
         self.assertIn("const x = Math.max(0, Math.round(", bus)

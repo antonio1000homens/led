@@ -121,6 +121,13 @@ def bus_due_label(item, now_epoch=None):
     return str(item.get("due_text") or "--")
 
 
+def split_sl7_due_text(due):
+    """Fit the explicit 'Due in' countdown inside a 128px SL7 column."""
+    if due == "CXL":
+        return "CXL"
+    return "Due in {}".format("0m" if due == "Due" else str(due or "--")[:5])
+
+
 def split_sl7_rows(screen, now_epoch=None):
     """Common compact layout contract for MatrixPortal and software tests."""
     data = screen.get("directions") or {}
@@ -146,6 +153,8 @@ BUS_WIDTH = 52
 BUS_HEIGHT = 26
 BUS_VERTICAL_OFFSET = 1
 BUS_TEXT_GAP = 8
+SL7_TIME_COLUMN_X = 2
+SL7_DUE_COLUMN_X = 42
 CLOCK_X = 226
 HEADER_SLOT_X = 224
 STALE_X = 190
@@ -2554,8 +2563,8 @@ class MatrixDisplay:
             for index, (due, time_text, cancelled, delayed) in enumerate(rows):
                 y = 11 + index * 8
                 color = 0xFF3300 if cancelled else (0xFFAA00 if delayed else 0xFFFFFF)
-                self._label(group, due[:5], color, x + 2, y)
-                self._label(group, time_text[:5], color, x + 88, y)
+                self._label(group, time_text[:5], color, x + SL7_TIME_COLUMN_X, y)
+                self._label(group, split_sl7_due_text(due), color, x + SL7_DUE_COLUMN_X, y)
 
     def _calendar(self, group, screen, phase, clock_date=""):
         events, visible, start, progress = _agenda_state(screen, phase)
@@ -3125,9 +3134,11 @@ class MatrixDisplay:
 
         fill_rect(3, 8, 43, 12, 1)
         fill_rect(7, 4, 37, 5, 1)
-        fill_rect(12, 6, 8, 5, 2)
-        fill_rect(22, 6, 8, 5, 2)
-        fill_rect(32, 6, 8, 5, 2)
+        # Two distinct decks of passenger windows, divided by the red
+        # structural band. Draw both into the same tiny cached bitmap.
+        for window_x in (12, 22, 32):
+            fill_rect(window_x, 6, 8, 4, 2)
+            fill_rect(window_x, 13, 8, 5, 2)
         # The bus travels left, so put its driver windscreen and front marker
         # on the left to keep the motion reading as forward travel.
         fill_rect(4, 6, 6, 5, 4)
@@ -3860,7 +3871,8 @@ class FixtureDisplay:
         self._fill_rect(x + 3, 9 + offset, 43, 12, (255, 51, 0))
         self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
         for window_x in (12, 22, 32):
-            self._fill_rect(x + window_x, 7 + offset, 8, 5, (255, 255, 255))
+            self._fill_rect(x + window_x, 7 + offset, 8, 4, (255, 255, 255))
+            self._fill_rect(x + window_x, 14 + offset, 8, 5, (255, 255, 255))
         self._fill_rect(x + 4, 6 + offset, 6, 5, (34, 34, 34))
         self._fill_rect(x + 3, 12 + offset, 6, 7, (255, 170, 0))
         for center_x in (13, 39):
@@ -4166,8 +4178,8 @@ class FixtureDisplay:
                 for index, (due, time_text, cancelled, delayed) in enumerate(rows):
                     color = ((255, 51, 0) if cancelled else
                              (255, 170, 0) if delayed else (255, 255, 255))
-                    self._text(due[:5], x + 2, 8 + index * 8, color)
-                    self._text(time_text[:5], x + 88, 8 + index * 8, color)
+                    self._text(time_text[:5], x + SL7_TIME_COLUMN_X, 8 + index * 8, color)
+                    self._text(split_sl7_due_text(due), x + SL7_DUE_COLUMN_X, 8 + index * 8, color)
         elif kind == "bus_departures":
             title = _clip(screen.get("title") or "SL7", 26)
             self._text(title, 0, 0, (255, 170, 0))

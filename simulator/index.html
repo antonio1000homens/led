@@ -1031,8 +1031,10 @@
           const y = (8 + i * 8) * FONT_PIXEL_SCALE;
           context.fillStyle = item.cancelled ? '#ff3300' :
             (item.estimated && item.planned && item.estimated !== item.planned ? '#ffaa00' : '#ffffff');
-          drawLedText(splitSl7Due(item).slice(0,5), x + 2 * FONT_PIXEL_SCALE, y);
-          drawLedText(String(item.local_time || '--:--').slice(0,5), x + 88 * FONT_PIXEL_SCALE, y);
+          const due = splitSl7Due(item);
+          const countdown = due === 'CXL' ? due : 'Due in ' + (due === 'Due' ? '0m' : due.slice(0, 5));
+          drawLedText(String(item.local_time || '--:--').slice(0,5), x + 2 * FONT_PIXEL_SCALE, y);
+          drawLedText(countdown, x + 42 * FONT_PIXEL_SCALE, y);
         });
       });
     }
@@ -1158,7 +1160,10 @@
       context.translate(0, BUS_VERTICAL_OFFSET * FONT_PIXEL_SCALE);
       trainRect(x + 3 * FONT_PIXEL_SCALE, 9, 43, 12, '#ff3300');
       trainRect(x + 7 * FONT_PIXEL_SCALE, 5, 37, 5, '#ff3300');
-      [12, 22, 32].forEach(windowX => trainRect(x + windowX * FONT_PIXEL_SCALE, 7, 8, 5, '#ffffff'));
+      [12, 22, 32].forEach(windowX => {
+        trainRect(x + windowX * FONT_PIXEL_SCALE, 7, 8, 4, '#ffffff');
+        trainRect(x + windowX * FONT_PIXEL_SCALE, 14, 8, 5, '#ffffff');
+      });
       trainRect(x + 4 * FONT_PIXEL_SCALE, 6, 6, 5, '#222222');
       trainRect(x + 3 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00');
       drawBusWheel(x, 13, 21); drawBusWheel(x, 39, 21);
