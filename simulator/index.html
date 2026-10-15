@@ -157,10 +157,10 @@
         });
       }
     }
-    function drawLedTextLarge(value, x, y) {
+    function drawLedTextScaled(value, x, y, scale) {
       const text = String(value ?? '');
       const color = context.fillStyle;
-      const pixelScale = FONT_PIXEL_SCALE * 3;
+      const pixelScale = FONT_PIXEL_SCALE * scale;
       const startX = Math.round(Number(x || 0) / pixelScale) * pixelScale;
       const startY = Math.round(Number(y || 0) / pixelScale) * pixelScale;
       for (let index = 0; index < text.length; index += 1) {
@@ -170,12 +170,15 @@
           for (let column = 0; column < 5; column += 1) {
             if (rowBits & (1 << (4 - column))) {
               context.fillStyle = color;
-              context.fillRect(startX + index * (FONT_CELL_WIDTH + FONT_PIXEL_SCALE) * 3 + column * pixelScale,
+              context.fillRect(startX + index * (FONT_CELL_WIDTH + FONT_PIXEL_SCALE) * scale + column * pixelScale,
                 startY + row * pixelScale, pixelScale, pixelScale);
             }
           }
         });
       }
+    }
+    function drawLedTextLarge(value, x, y) {
+      drawLedTextScaled(value, x, y, 3);
     }
     const SUN_FONT_3X5 = {
       '0':[7,5,5,5,7], '1':[2,6,2,2,7], '2':[7,1,7,4,7], '3':[7,1,7,1,7],
@@ -1176,9 +1179,13 @@
     }
     function drawBusWheel(baseX, centerX, centerY) {
       context.fillStyle = '#222222';
+      context.fillRect(baseX + (centerX - 1) * FONT_PIXEL_SCALE, (centerY - 3) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+      context.fillRect(baseX + (centerX - 2) * FONT_PIXEL_SCALE, (centerY - 2) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
       context.fillRect(baseX + (centerX - 3) * FONT_PIXEL_SCALE, (centerY - 1) * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
+      context.fillRect(baseX + (centerX - 2) * FONT_PIXEL_SCALE, (centerY + 2) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+      context.fillRect(baseX + (centerX - 1) * FONT_PIXEL_SCALE, (centerY + 3) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
       context.fillStyle = '#aaaaaa';
-      context.fillRect(baseX + (centerX - 1) * FONT_PIXEL_SCALE, centerY * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+      context.fillRect(baseX + (centerX - 1) * FONT_PIXEL_SCALE, (centerY - 1) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
     }
     function draw(now) {
       if (hardwarePreview && now - lastHardwareFrame < MATRIX_FRAME_MS) {
@@ -1199,25 +1206,24 @@
       context.fillStyle = '#ffaa00';
       if (screen.kind === 'today') {
         const weather = screen.weather || {};
-        const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).replace(',', '').toUpperCase();
-        const dateX = Math.max(0, (1024 - measureLedText(date).width) / 2);
+        const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'short',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
+        const dateX = Math.max(0, ((256 - date.length * 12) / 2) * FONT_PIXEL_SCALE);
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
         const iconName = String(weather.icon || 'unknown');
         const iconRows = weatherIcons[iconName] || weatherIcons.unknown;
         context.fillStyle = weather.stale ? '#777777' : '#bbbbbb';
         iconRows.forEach((row, y) => [...row].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect((42 + x * 2) * FONT_PIXEL_SCALE, (11 + y * 2) * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+          if (pixel === '#') context.fillRect((4 + x * 3) * FONT_PIXEL_SCALE, (10 + y * 3) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
         }));
-        context.fillStyle = '#ffffff';
-        drawLedText(temp, 78 * FONT_PIXEL_SCALE, 12 * FONT_PIXEL_SCALE);
         context.fillStyle = '#ffaa00';
-        drawLedText(nowText, 174 * FONT_PIXEL_SCALE, 12 * FONT_PIXEL_SCALE);
+        drawLedText(nowText, 226 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE);
         context.fillStyle = '#ffffff';
-        drawLedText(date, dateX, 2 * FONT_PIXEL_SCALE);
+        drawLedTextScaled(date, dateX, 1 * FONT_PIXEL_SCALE, 2);
+        drawLedText(temp, Math.max(0, (256 - temp.length * 6) * FONT_PIXEL_SCALE), 24 * FONT_PIXEL_SCALE);
         if (screen.stale || weather.stale) {
           context.fillStyle = '#888888';
-          drawLedText('STALE', 226 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+          drawLedText('STALE', 0, 1 * FONT_PIXEL_SCALE);
         }
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
       } else if (screen.kind === 'loading') {

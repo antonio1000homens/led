@@ -168,6 +168,8 @@ AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
+TODAY_HEADER_ICON_SCALE = 3
+TODAY_DATE_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 3
 SUN_WEATHER_MOON_ICON_SCALE = 2
 SUN_WEATHER_TIME_SCALE = 2
@@ -188,6 +190,10 @@ WEEKLY_WEATHER_ICON_Y = 10
 WEEKLY_WEATHER_TEMPERATURE_Y = 25
 TODAY_WEATHER_ICON_Y = 11
 TODAY_WEATHER_TEMPERATURE_Y = 27
+TODAY_HEADER_ICON_X = 4
+TODAY_HEADER_ICON_Y = 10
+TODAY_TIME_BASELINE_Y = 8
+TODAY_TEMPERATURE_BASELINE_Y = 31
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
 NOVELTY_HEADING_Y = 3
 NOVELTY_FIRST_LINE_Y = 12
@@ -876,6 +882,21 @@ def _today_date_label(clock_date):
         return "{} {:02d}/{:02d}/{:04d}".format(names[weekday], day, month, year)
     except (ValueError, IndexError, TypeError):
         return value[:42]
+
+
+def _today_compact_date_label(clock_date):
+    """Return a short UK date that can be centered at twice the normal size."""
+    full_label = _today_date_label(clock_date)
+    parts = full_label.split()
+    if len(parts) != 2 or "/" not in parts[1]:
+        return full_label[:10]
+    try:
+        day, month, _year = parts[1].split("/")
+        month_name = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")[int(month) - 1]
+        return "{} {} {}".format(parts[0][:3], day, month_name)
+    except (ValueError, IndexError):
+        return full_label[:10]
 
 
 class MatrixDisplay:
@@ -3118,14 +3139,15 @@ class MatrixDisplay:
 
         root = displayio.Group()
         motion = displayio.Group(x=0, y=BUS_VERTICAL_OFFSET)
-        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, 5)
-        palette = displayio.Palette(5)
+        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, 6)
+        palette = displayio.Palette(6)
         palette[0] = 0x000000
         palette.make_transparent(0)
         palette[1] = 0xFF3300
         palette[2] = 0xFFFFFF
         palette[3] = 0xFFAA00
         palette[4] = 0x222222
+        palette[5] = 0xAAAAAA
 
         def fill_rect(x, y, width, height, color):
             for py in range(max(0, y), min(BUS_HEIGHT, y + height)):
@@ -3144,12 +3166,13 @@ class MatrixDisplay:
         fill_rect(4, 6, 6, 5, 4)
         fill_rect(3, 12, 6, 7, 3)
         for center_x in (13, 39):
-            for dx, dy in ((-3, -2), (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -2),
-                           (-3, -1), (3, -1), (-3, 0), (3, 0), (-2, 2), (-1, 3),
-                           (0, 3), (1, 3), (2, 2)):
-                px, py = center_x + dx, 21 + dy
-                if 0 <= px < BUS_WIDTH and 0 <= py < BUS_HEIGHT:
-                    bitmap[px, py] = 4
+            # Give each wheel a full, rounded tire and a light hub. The top
+            # overlaps the body slightly, leaving a clear wheel silhouette.
+            for row, (left, width) in enumerate(((-1, 3), (-2, 5), (-3, 7),
+                                                  (-3, 7), (-3, 7), (-2, 5),
+                                                  (-1, 3))):
+                fill_rect(center_x + left, 18 + row, width, 1, 4)
+            fill_rect(center_x - 1, 20, 3, 3, 5)
 
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
         words = str(screen.get("words") or "")
@@ -3614,7 +3637,7 @@ class MatrixDisplay:
                 )
         if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
-                date_label = _today_date_label(clock_date)
+                date_label = _today_compact_date_label(clock_date)
                 weather = screen.get("weather") or {}
                 temperature = _weather_text(weather)
                 key = ("TODAY", date_label, clock_time, temperature,
@@ -3622,25 +3645,42 @@ class MatrixDisplay:
                 if getattr(self, "_static_key", None) != key:
                     import displayio
                     group = displayio.Group()
-                    self._label(group, date_label, 0xFFFFFF,
-                                max(0, (DISPLAY_WIDTH - len(date_label) * 6) // 2), 2)
+                    date_width = len(date_label) * 6 * TODAY_DATE_SCALE
+                    self._scaled_label(
+                        group, date_label, 0xFFFFFF,
+                        max(0, (DISPLAY_WIDTH - date_width) // 2), 1,
+                        scale=TODAY_DATE_SCALE,
+                    )
                     icon_name = _weather_icon(weather)[0] or "unknown"
                     rows = WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])
-                    bitmap = displayio.Bitmap(21, 14, 2)
+                    icon_scale = TODAY_HEADER_ICON_SCALE
+                    bitmap = displayio.Bitmap(
+                        WEATHER_ICON_WIDTH * icon_scale,
+                        WEATHER_ICON_WIDTH * icon_scale, 2,
+                    )
                     palette = displayio.Palette(2)
                     palette.make_transparent(0)
                     palette[1] = _weather_rgb(icon_name, bool(weather.get("stale")))
                     for row_index, row in enumerate(rows):
                         for column, pixel in enumerate(row):
                             if pixel == "#":
-                                for dx in range(2):
-                                    for dy in range(2):
-                                        bitmap[column * 2 + dx, row_index * 2 + dy] = 1
-                    group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=42, y=11))
-                    self._label(group, temperature, 0xFFFFFF, 78, 12)
-                    self._label(group, clock_time, 0xFFAA00, 174, 12)
+                                for dx in range(icon_scale):
+                                    for dy in range(icon_scale):
+                                        bitmap[column * icon_scale + dx,
+                                               row_index * icon_scale + dy] = 1
+                    group.append(displayio.TileGrid(
+                        bitmap, pixel_shader=palette,
+                        x=TODAY_HEADER_ICON_X, y=TODAY_HEADER_ICON_Y,
+                    ))
+                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6)
+                    temperature_x = max(0, DISPLAY_WIDTH - len(temperature) * 6)
+                    self._label(group, clock_time, 0xFFAA00, time_x,
+                                TODAY_TIME_BASELINE_Y)
+                    self._label(group, temperature, 0xFFFFFF, temperature_x,
+                                TODAY_TEMPERATURE_BASELINE_Y)
                     if key[-1]:
-                        self._label(group, "STALE", 0x888888, 226, 2)
+                        self._label(group, "STALE", 0x888888, 0,
+                                    TODAY_TIME_BASELINE_Y)
                     self._static_group = group
                     self._static_key = key
                 if self.display.root_group is not self._static_group:
@@ -3876,9 +3916,13 @@ class FixtureDisplay:
         self._fill_rect(x + 4, 6 + offset, 6, 5, (34, 34, 34))
         self._fill_rect(x + 3, 12 + offset, 6, 7, (255, 170, 0))
         for center_x in (13, 39):
-            self._fill_rect(x + center_x - 3, 20 + offset, 7, 1, (34, 34, 34))
-            self._fill_rect(x + center_x - 2, 21 + offset, 5, 3, (34, 34, 34))
-            self._fill_rect(x + center_x - 1, 22 + offset, 3, 1, (170, 170, 170))
+            for row, (left, width) in enumerate(((-1, 3), (-2, 5), (-3, 7),
+                                                  (-3, 7), (-3, 7), (-2, 5),
+                                                  (-1, 3))):
+                self._fill_rect(x + center_x + left, 18 + row + offset,
+                                width, 1, (34, 34, 34))
+            self._fill_rect(x + center_x - 1, 20 + offset, 3, 3,
+                            (170, 170, 170))
         words = str(screen.get("words") or "")
         if words:
             self._text(words, x + BUS_WIDTH + BUS_TEXT_GAP, 12 + offset, (255, 170, 0))
@@ -4047,20 +4091,34 @@ class FixtureDisplay:
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
                 weather = screen.get("weather") or {}
-                date_label = _today_date_label(clock_date)
-                self._text(date_label, max(0, (DISPLAY_WIDTH - len(date_label) * WEATHER_FONT_WIDTH) // 2), 2, (255, 255, 255))
+                date_label = _today_compact_date_label(clock_date)
+                date_width = len(date_label) * 6 * TODAY_DATE_SCALE
+                self._text(date_label,
+                           max(0, (DISPLAY_WIDTH - date_width) // 2), 1,
+                           (255, 255, 255), scale=TODAY_DATE_SCALE)
                 icon_name = _weather_icon(weather)[0] or "unknown"
+                icon_scale = TODAY_HEADER_ICON_SCALE
                 for y, row in enumerate(WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])):
                     for x, pixel in enumerate(row):
                         if pixel == "#":
-                            self._pixel(42 + x * 2, 11 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                            self._pixel(43 + x * 2, 11 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                            self._pixel(42 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                            self._pixel(43 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                self._text(_weather_text(weather), 78, 12, (255, 255, 255))
-                self._text(clock_time, 174, 12, (255, 170, 0))
+                            for dx in range(icon_scale):
+                                for dy in range(icon_scale):
+                                    self._pixel(
+                                        TODAY_HEADER_ICON_X + x * icon_scale + dx,
+                                        TODAY_HEADER_ICON_Y + y * icon_scale + dy,
+                                        _rgb_tuple(_weather_rgb(
+                                            icon_name, bool(weather.get("stale"))
+                                        )),
+                                    )
+                temperature = _weather_text(weather) or "--C"
+                self._text(clock_time,
+                           max(0, DISPLAY_WIDTH - len(clock_time) * 6),
+                           1, (255, 170, 0))
+                self._text(temperature,
+                           max(0, DISPLAY_WIDTH - len(temperature) * 6),
+                           24, (255, 255, 255))
                 if weather.get("stale") or screen.get("stale"):
-                    self._text("STALE", 226, 2, (136, 136, 136))
+                    self._text("STALE", 0, 1, (136, 136, 136))
                 return
             heading = ("QUOTES VIA ZENQUOTES.IO" if kind == "quotes" else
                        "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
