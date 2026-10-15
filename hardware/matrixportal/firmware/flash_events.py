@@ -91,6 +91,40 @@ def parse_flash_event(payload, now=None):
     }
 
 
+def parse_assistant_response(payload, now=None):
+    """Validate the versioned Home Assistant reply contract."""
+    if isinstance(payload, (str, bytes, bytearray)):
+        try:
+            payload = json.loads(payload if isinstance(payload, str) else payload.decode("utf-8"))
+        except (ValueError, UnicodeError):
+            return None
+    if not isinstance(payload, dict):
+        return None
+    if (type(payload.get("schema_version")) is not int
+            or payload.get("schema_version") != 1
+            or payload.get("type") != "assistant_response"
+            or payload.get("event") != "due"
+            or payload.get("source") != "homeassistant"
+            or payload.get("room") != "living_room"):
+        return None
+    event_id, label = payload.get("id"), payload.get("label")
+    try:
+        due = _iso_epoch(payload.get("due_at"))
+        published = _iso_epoch(payload.get("published_at"))
+        expires = _iso_epoch(payload.get("expires_at"))
+    except (TypeError, ValueError):
+        return None
+    if (not isinstance(event_id, str) or not event_id.strip()
+            or not isinstance(label, str) or not label.strip()
+            or due != published or payload.get("due_at") != payload.get("published_at")
+            or expires - published != 120
+            or (now is not None and expires <= int(now))):
+        return None
+    return {"id": event_id.strip(), "type": "assistant_response",
+            "label": label.strip(), "due_at": payload["due_at"],
+            "expires_at": payload["expires_at"], "source": "homeassistant"}
+
+
 class FlashState:
     """Deduplicate events and keep the active event's replacement semantics."""
 
@@ -114,6 +148,16 @@ class FlashState:
                 return False
         if not isinstance(payload, dict):
             return False
+        if payload.get("type") == "assistant_response":
+            event = parse_assistant_response(payload, epoch_now if epoch_now is not None else now)
+            event_key = self._event_key(event) if event is not None else None
+            if event is None or event_key in self.seen:
+                return False
+            if self.active(now) and self.event.get("type") == "reminder":
+                self.seen.append(event_key)
+                del self.seen[:-self.seen_limit]
+                return False
+            return self._start(event, now)
         snapshot = payload.get("event") in ("scheduled", "clear")
         if snapshot:
             if payload.get("type") != "reminder" or epoch_now is None:
@@ -133,9 +177,9 @@ class FlashState:
             return False
         if snapshot:
             self.last_published = published
-            self.pending = event if event["id"] not in self.seen else None
+            self.pending = event if self._event_key(event) not in self.seen else None
             return self.tick(now, epoch_now)
-        if event["id"] in self.seen:
+        if self._event_key(event) in self.seen:
             return False
         # Legacy due messages also obey due_at whenever a clock is available.
         if epoch_now is not None and event["due_at"] is not None:
@@ -154,16 +198,22 @@ class FlashState:
         if _iso_epoch(event["due_at"]) > epoch_now:
             return False
         self.pending = None
-        if event["id"] in self.seen:
+        if self._event_key(event) in self.seen:
             return False
         return self._start(event, now)
 
     def _start(self, event, now):
-        self.seen.append(event["id"])
+        self.seen.append(self._event_key(event))
         del self.seen[:-self.seen_limit]
         self.event = event
         self.started_at = float(now)
         return True
+
+    @staticmethod
+    def _event_key(event):
+        if event.get("type") == "assistant_response":
+            return "assistant_response:" + event["id"]
+        return event["id"]
 
     def configure(self, enabled=None, duration_seconds=None):
         """Apply public runtime settings without changing transport settings."""
@@ -188,7 +238,7 @@ class FlashState:
         return {
             "id": "flash-" + event["id"],
             "kind": "flash",
-            "title": "REMINDER",
+            "title": "ASSISTANT" if event.get("type") == "assistant_response" else "REMINDER",
             "label": event["label"],
             "due_at": event.get("due_at"),
             "duration_seconds": self.duration_seconds,

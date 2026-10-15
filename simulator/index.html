@@ -1032,12 +1032,19 @@
         }
         rows.forEach((item, i) => {
           const y = (8 + i * 8) * FONT_PIXEL_SCALE;
-          context.fillStyle = item.cancelled ? '#ff3300' :
-            (item.estimated && item.planned && item.estimated !== item.planned ? '#ffaa00' : '#ffffff');
           const due = splitSl7Due(item);
-          const countdown = due === 'CXL' ? due : 'Due in ' + (due === 'Due' ? '0m' : due.slice(0, 5));
+          const countdown = due === 'Due' ? '0m' : due.slice(0, 5);
+          context.fillStyle = item.cancelled ? '#ff3300' : '#ffffff';
           drawLedText(String(item.local_time || '--:--').slice(0,5), x + 2 * FONT_PIXEL_SCALE, y);
-          drawLedText(countdown, x + 42 * FONT_PIXEL_SCALE, y);
+          if (due === 'CXL') {
+            context.fillStyle = '#ff3300';
+            drawLedText('CXL', x + 42 * FONT_PIXEL_SCALE, y);
+          } else {
+            context.fillStyle = '#ffaa00';
+            drawLedText('Due in ', x + 42 * FONT_PIXEL_SCALE, y);
+            context.fillStyle = '#ffffff';
+            drawLedText(countdown, x + (42 + 7 * 5) * FONT_PIXEL_SCALE, y);
+          }
         });
       });
     }
@@ -1207,20 +1214,20 @@
       if (screen.kind === 'today') {
         const weather = screen.weather || {};
         const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'short',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
-        const dateX = Math.max(0, ((256 - date.length * 12) / 2) * FONT_PIXEL_SCALE);
+        const dateX = (2 * 7 + 2) * FONT_PIXEL_SCALE;
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
         const iconName = String(weather.icon || 'unknown');
         const iconRows = weatherIcons[iconName] || weatherIcons.unknown;
         context.fillStyle = weather.stale ? '#777777' : '#bbbbbb';
         iconRows.forEach((row, y) => [...row].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect((4 + x * 3) * FONT_PIXEL_SCALE, (10 + y * 3) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
+          if (pixel === '#') context.fillRect((x * 2) * FONT_PIXEL_SCALE, (8 + y * 2) * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
         }));
         context.fillStyle = '#ffaa00';
-        drawLedText(nowText, 226 * FONT_PIXEL_SCALE, 1 * FONT_PIXEL_SCALE);
+        drawLedTextScaled(nowText, (256 - nowText.length * 12) * FONT_PIXEL_SCALE, 0, 2);
         context.fillStyle = '#ffffff';
-        drawLedTextScaled(date, dateX, 1 * FONT_PIXEL_SCALE, 2);
-        drawLedText(temp, Math.max(0, (256 - temp.length * 6) * FONT_PIXEL_SCALE), 24 * FONT_PIXEL_SCALE);
+        drawLedTextScaled(date, dateX, 3 * FONT_PIXEL_SCALE, 3);
+        drawLedText(temp, 0, 23 * FONT_PIXEL_SCALE);
         if (screen.stale || weather.stale) {
           context.fillStyle = '#888888';
           drawLedText('STALE', 0, 1 * FONT_PIXEL_SCALE);
@@ -1257,7 +1264,11 @@
           if (line) lines.push(line);
           return lines;
         }
-        const lines = [...wrapQuote(screen.quote), ...wrapQuote('- ' + (screen.author || ''))];
+        const quoteLines = wrapQuote(screen.quote);
+        const authorLines = wrapQuote('- ' + (screen.author || ''));
+        const lines = quoteLines.length + authorLines.length <= 3
+          ? [...quoteLines, ...authorLines]
+          : quoteLines;
         const pages = Math.max(1, Math.ceil(lines.length / 3));
         const duration = Math.max(1, Number(screen.duration_seconds) || 30);
         const page = Math.min(pages - 1, Math.floor(Math.max(0, phase) * pages / duration));
@@ -1447,7 +1458,7 @@
         status.dataset.detail = `${title} queues · park ${queueCycle.parkIndex + 1} of ${Math.max(1, (screen.parks || [park]).length)}`;
       } else if (screen.kind === 'flash') {
         suppressHeader = true;
-        const label = String(screen.label || '');
+        const label = (screen.title === 'ASSISTANT' ? 'ASSISTANT: ' : '') + String(screen.label || '');
         const reminderWidth = 37 + label.length * 15;
         const travel = 256 + reminderWidth + REMINDER_SCROLL_GAP;
         const distance = Math.floor(Math.max(0, Number(phase) || 0) * REMINDER_SCROLL_SPEED) % travel;
@@ -1470,7 +1481,7 @@
         context.scale(3, 3);
         drawLedText(label, 0, 0);
         context.restore();
-        status.dataset.detail = 'Scrolling reminder';
+        status.dataset.detail = screen.title === 'ASSISTANT' ? 'Scrolling assistant response' : 'Scrolling reminder';
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {

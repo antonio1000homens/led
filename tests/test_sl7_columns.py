@@ -48,13 +48,16 @@ class Sl7ColumnTests(unittest.TestCase):
         display._bus_departures_split(group, combined_screen())
         calls = display._label.call_args_list
         self.assertIn(mock.call(group, "21:05", 0xFFFFFF, 2, 11), calls)
-        self.assertIn(mock.call(group, "Due in 15m", 0xFFFFFF, 42, 11), calls)
+        self.assertIn(mock.call(group, "Due in", 0xFFAA00, 42, 11), calls)
+        self.assertIn(mock.call(group, "15m", 0xFFFFFF, 84, 11), calls)
         self.assertIn(mock.call(group, "21:35", 0xFFFFFF, 2, 19), calls)
-        self.assertIn(mock.call(group, "Due in 0m", 0xFFFFFF, 42, 19), calls)
+        self.assertIn(mock.call(group, "Due in", 0xFFAA00, 42, 19), calls)
+        self.assertIn(mock.call(group, "0m", 0xFFFFFF, 84, 19), calls)
         self.assertIn(mock.call(group, "21:40", 0xFF3300, 2, 27), calls)
         self.assertIn(mock.call(group, "CXL", 0xFF3300, 42, 27), calls)
         self.assertIn(mock.call(group, "20:54", 0xFFFFFF, 130, 11), calls)
-        self.assertIn(mock.call(group, "Due in 4m", 0xFFFFFF, 170, 11), calls)
+        self.assertIn(mock.call(group, "Due in", 0xFFAA00, 170, 11), calls)
+        self.assertIn(mock.call(group, "4m", 0xFFFFFF, 212, 11), calls)
 
     def test_fixture_matches_time_first_and_countdown_order(self):
         display = led_display.FixtureDisplay.__new__(led_display.FixtureDisplay)
@@ -62,11 +65,14 @@ class Sl7ColumnTests(unittest.TestCase):
         display._draw_screen(combined_screen(), 0)
         calls = display._text.call_args_list
         self.assertIn(mock.call("21:05", 2, 8, (255, 255, 255)), calls)
-        self.assertIn(mock.call("Due in 15m", 42, 8, (255, 255, 255)), calls)
-        self.assertIn(mock.call("Due in 0m", 42, 16, (255, 255, 255)), calls)
+        self.assertIn(mock.call("Due in", 42, 8, (255, 170, 0)), calls)
+        self.assertIn(mock.call("15m", 77, 8, (255, 255, 255)), calls)
+        self.assertIn(mock.call("Due in", 42, 16, (255, 170, 0)), calls)
+        self.assertIn(mock.call("0m", 77, 16, (255, 255, 255)), calls)
         self.assertIn(mock.call("CXL", 42, 24, (255, 51, 0)), calls)
         self.assertIn(mock.call("20:54", 130, 8, (255, 255, 255)), calls)
-        self.assertIn(mock.call("Due in 4m", 170, 8, (255, 255, 255)), calls)
+        self.assertIn(mock.call("Due in", 170, 8, (255, 170, 0)), calls)
+        self.assertIn(mock.call("4m", 205, 8, (255, 255, 255)), calls)
 
     def test_browser_simulator_has_matching_time_first_columns(self):
         simulator = (Path(__file__).parents[1] / "simulator/index.html").read_text()
@@ -74,7 +80,8 @@ class Sl7ColumnTests(unittest.TestCase):
             "function drawBusDepartures", 1
         )[0]
         self.assertIn("drawLedText(String(item.local_time || '--:--').slice(0,5), x + 2 * FONT_PIXEL_SCALE, y)", split)
-        self.assertIn("drawLedText(countdown, x + 42 * FONT_PIXEL_SCALE, y)", split)
+        self.assertIn("drawLedText('Due in ', x + 42 * FONT_PIXEL_SCALE, y)", split)
+        self.assertIn("drawLedText(countdown, x + (42 + 7 * 5) * FONT_PIXEL_SCALE, y)", split)
         self.assertIn("'Due in '", split)
         self.assertIn("due === 'Due' ? '0m'", split)
 

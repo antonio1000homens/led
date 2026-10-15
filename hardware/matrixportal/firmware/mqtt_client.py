@@ -1,10 +1,10 @@
-"""Optional CircuitPython MQTT transport for reminder and cycle screens.
+"""Optional CircuitPython MQTT transport for flash events and cycle screens.
 
 This module is intentionally not imported unless both local opt-in flags are
 enabled. It contains no credentials or broker defaults.
 """
 
-MQTT_LOOP_INTERVAL_SECONDS = 60.0
+MQTT_LOOP_INTERVAL_SECONDS = 1.5
 MQTT_KEEP_ALIVE_SECONDS = 180
 MQTT_SOCKET_TIMEOUT_SECONDS = 0.01
 
@@ -77,11 +77,17 @@ class FlashMqttClient:
             self.client.on_message = lambda client, topic, message: self.on_message(topic, message)
             self.client.connect()
             self.client.subscribe(self.settings.MQTT_TOPIC, qos=1)
+            assistant_topic = getattr(
+                self.settings, "MQTT_ASSISTANT_RESPONSE_TOPIC",
+                "led/flash/assistant-response",
+            )
+            self.client.subscribe(assistant_topic, qos=1)
             screen_topic = getattr(self.settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
             self.client.subscribe(screen_topic, qos=1)
             self.connected = True
             self.next_loop = now
-            print("MQTT subscribed reminder={} screens={}".format(self.settings.MQTT_TOPIC, screen_topic))
+            print("MQTT subscribed reminder={} assistant={} screens={}".format(
+                self.settings.MQTT_TOPIC, assistant_topic, screen_topic))
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 30
@@ -115,8 +121,7 @@ class FlashMqttClient:
             return
         try:
             # Keep MiniMQTT's blocking read below one 8 FPS display frame.
-            # Receive retained screen/reminder snapshots once a minute; due-time checks use no I/O.
-            # Keepalive spans three polls so the broker tolerates this cadence.
+            # Service transient events promptly while keeping reads below one frame.
             self.client.loop(timeout=MQTT_SOCKET_TIMEOUT_SECONDS)
             self.next_loop = now + MQTT_LOOP_INTERVAL_SECONDS
         except Exception as error:

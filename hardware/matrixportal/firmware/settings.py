@@ -35,11 +35,12 @@ STEAM_TRAIN_TEST_WIFI_OFF_DURATION_SECONDS = 30
 # MatrixPortal boot brightness. Runtime button changes are session-local.
 MATRIX_BRIGHTNESS_PERCENT = 100
 
-# MQTT cycle screens and reminders are enabled by default; board-local broker
-# settings are required, and runtime Flash controls gate reminders only.
+# MQTT cycle screens and flash events are enabled by default; board-local broker
+# settings are required, and runtime Flash controls gate transient flash events.
 MQTT_ENABLED = True
 MQTT_ENABLE_EXPERIMENTAL = True
 MQTT_TOPIC = "led/flash/reminder"
+MQTT_ASSISTANT_RESPONSE_TOPIC = "led/flash/assistant-response"
 MQTT_SCREENS_TOPIC = "led/screens/+"
 MQTT_BROKER = ""
 MQTT_PORT = 1883

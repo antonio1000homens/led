@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish one short-lived reminder event for MatrixPortal MQTT testing.
+"""Publish one short-lived flash event for MatrixPortal MQTT testing.
 
 Reads MQTT settings from the board's uncommitted settings_local.py. Requires
 paho-mqtt in the Python environment used to run this script.
@@ -50,10 +50,12 @@ def main():
     parser.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS)
     parser.add_argument("--label", default="Manual MQTT test")
     parser.add_argument("--event-id", help="Reuse an ID to test duplicate suppression")
+    parser.add_argument("--type", choices=("reminder", "assistant_response"), default="reminder")
     parser.add_argument("--event", choices=("due", "scheduled"), default="due")
     parser.add_argument("--due-in-seconds", type=int,
                         help="Defaults to 120 for scheduled events, 0 for due events")
-    parser.add_argument("--expires-in-seconds", type=int, default=300)
+    parser.add_argument("--expires-in-seconds", type=int,
+                        help="Reminder expiry offset (default: 300 seconds after due time)")
     args = parser.parse_args()
 
     try:
@@ -68,20 +70,46 @@ def main():
         print("Cannot load board MQTT settings:", error, file=sys.stderr)
         return 2
 
+    if args.type == "assistant_response" and args.event != "due":
+        parser.error("assistant_response events must use --event due")
+    if args.type == "assistant_response" and args.due_in_seconds is not None:
+        parser.error("assistant_response due_at is the publication time")
+    if args.type == "assistant_response" and args.expires_in_seconds is not None:
+        parser.error("assistant_response expiry is fixed at 120 seconds")
+
     now = datetime.now(timezone.utc)
     due = now + timedelta(seconds=(args.due_in_seconds if args.due_in_seconds is not None
                                    else 120 if args.event == "scheduled" else 0))
     event_id = args.event_id or "manual-" + uuid4().hex
-    payload = {
-        "id": event_id,
-        "type": "reminder",
-        "event": args.event,
-        "label": args.label,
-        "due_at": utc_iso(due),
-        "published_at": utc_iso(now),
-        "expires_at": utc_iso(due + timedelta(seconds=args.expires_in_seconds)),
-        "source": "manual-test",
-    }
+    published_at = utc_iso(now)
+    if args.type == "assistant_response":
+        topic = settings.get("MQTT_ASSISTANT_RESPONSE_TOPIC") or "led/flash/assistant-response"
+        payload = {
+            "schema_version": 1,
+            "id": event_id,
+            "type": "assistant_response",
+            "event": "due",
+            "label": args.label,
+            "due_at": published_at,
+            "published_at": published_at,
+            "expires_at": utc_iso(now + timedelta(seconds=120)),
+            "source": "homeassistant",
+            "room": "living_room",
+        }
+    else:
+        topic = settings["MQTT_TOPIC"]
+        payload = {
+            "id": event_id,
+            "type": "reminder",
+            "event": args.event,
+            "label": args.label,
+            "due_at": utc_iso(due),
+            "published_at": published_at,
+            "expires_at": utc_iso(due + timedelta(
+                seconds=args.expires_in_seconds if args.expires_in_seconds is not None else 300
+            )),
+            "source": "manual-test",
+        }
 
     connected = Event()
     connection_result = {}
@@ -107,7 +135,7 @@ def main():
             raise ConnectionError("Broker rejected MQTT connection: " + connection_result.get("reason", "unknown reason"))
 
         info = client.publish(
-            settings["MQTT_TOPIC"],
+            topic,
             json.dumps(payload, separators=(",", ":")),
             qos=1,
             retain=False,
@@ -125,8 +153,9 @@ def main():
         except Exception:
             pass
 
-    print("Published QoS 1 test event; PUBACK received")
-    print("topic:", settings["MQTT_TOPIC"])
+    print("Published QoS 1 non-retained test event; PUBACK received")
+    print("topic:", topic)
+    print("type:", payload["type"])
     print("id:", event_id)
     print("label:", args.label)
     print("expires:", payload["expires_at"])
