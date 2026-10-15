@@ -1,6 +1,15 @@
 import unittest
 
-from flash_events import FlashState, parse_flash_event, parse_assistant_response, _iso_epoch
+from flash_events import (
+    ASSISTANT_MESSAGE_LINE_SECONDS,
+    ASSISTANT_MESSAGE_LINES_PER_PAGE,
+    FlashState,
+    assistant_message_lines,
+    assistant_message_page,
+    parse_assistant_response,
+    parse_flash_event,
+    _iso_epoch,
+)
 from mqtt_client import (
     FlashMqttClient,
     MQTT_LOOP_INTERVAL_SECONDS,
@@ -27,6 +36,33 @@ ASSISTANT = {
 
 
 class FlashEventTests(unittest.TestCase):
+    def test_assistant_text_wraps_into_quote_style_pages(self):
+        self.assertEqual(
+            assistant_message_lines("Alpha beta gamma delta epsilon"),
+            ["Alpha beta gamma delta epsilon"],
+        )
+        self.assertEqual(
+            assistant_message_lines("a" * 45),
+            ["a" * 42, "aaa"],
+        )
+        label = " ".join("word%02d" % index for index in range(30))
+        lines = assistant_message_lines(label)
+        self.assertEqual(len(assistant_message_page(label, 0)[1]), ASSISTANT_MESSAGE_LINES_PER_PAGE)
+        self.assertEqual(assistant_message_page(label, 2.5)[0], 1)
+        self.assertEqual(assistant_message_page(label, 0)[1], lines[:3])
+        self.assertEqual(assistant_message_page(label, 2.5)[1], lines[3:6])
+
+    def test_assistant_flash_last_long_enough_to_show_each_line(self):
+        label = " ".join(("a" * 42,) * 20)
+        state = FlashState(duration_seconds=15, enabled=True)
+        event = {**ASSISTANT, "label": label}
+        self.assertTrue(state.accept(event, 10, epoch_now=0))
+        page_count = (len(assistant_message_lines(label)) + ASSISTANT_MESSAGE_LINES_PER_PAGE - 1) // ASSISTANT_MESSAGE_LINES_PER_PAGE
+        expected_duration = page_count * ASSISTANT_MESSAGE_LINE_SECONDS
+        self.assertEqual(state.screen()["duration_seconds"], expected_duration)
+        self.assertTrue(state.active(10 + expected_duration - 0.1))
+        self.assertFalse(state.active(10 + expected_duration))
+
     def test_assistant_response_contract_and_expiry(self):
         self.assertEqual(parse_assistant_response(ASSISTANT, 0)["id"], "reply-1")
         self.assertIsNone(parse_assistant_response({**ASSISTANT, "schema_version": 2}, 0))

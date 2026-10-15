@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import threading
 import unittest
@@ -145,8 +145,9 @@ class CacheTests(unittest.TestCase):
 
 class ScreenFeedTests(unittest.TestCase):
     def test_combines_departures_and_calling_points_screen(self):
-        feed = DepartureFeed(FixtureProvider(10), "NEM", 60)
-        payload = ScreenFeed(feed).get()
+        now = datetime(2026, 9, 13, 10, 0, tzinfo=timezone.utc)
+        feed = DepartureFeed(FixtureProvider(10), "NEM", 60, utcnow=lambda: now)
+        payload = ScreenFeed(feed, utcnow=lambda: now).get()
         self.assertEqual([screen["kind"] for screen in payload["screens"]], ["rail_combined"])
         self.assertEqual(payload["screens"][0]["duration_seconds"], 8)
         self.assertEqual(len(payload["screens"][0]["services"]), 3)
@@ -159,6 +160,30 @@ class ScreenFeedTests(unittest.TestCase):
                 for stop in payload["screens"][0]["services"][0]["stops"]
             ),
         )
+
+    def test_local_screen_uses_shared_train_filter_and_marks_empty_result(self):
+        now = datetime(2026, 9, 13, 7, 0, tzinfo=timezone.utc)
+        provider = FakeProvider([[
+            {"time": "07:59", "status": "On time", "destination": "Departed"},
+            {"time": "08:01", "status": "On time", "destination": "Future"},
+            {"time": "07:50", "status": "Delayed", "destination": "Past delayed without estimate"},
+            {"time": "08:02", "status": "Delayed", "destination": "Future delayed without estimate"},
+        ]])
+        feed = DepartureFeed(provider, "NEM", 60, utcnow=lambda: now)
+        screen = ScreenFeed(feed, utcnow=lambda: now).get()["screens"][0]
+        self.assertEqual(
+            [row["destination"] for row in screen["services"]],
+            ["Future", "Future delayed without estimate"],
+        )
+        self.assertIsNone(screen["empty_state"])
+
+        empty_feed = DepartureFeed(
+            FakeProvider([[{"time": "07:59", "status": "On time"}]]),
+            "NEM", 60, utcnow=lambda: now,
+        )
+        empty_screen = ScreenFeed(empty_feed, utcnow=lambda: now).get()["screens"][0]
+        self.assertEqual(empty_screen["services"], [])
+        self.assertEqual(empty_screen["empty_state"], "No Services")
 
     def test_calendar_is_optional_and_independent(self):
         feed = DepartureFeed(FakeProvider([RuntimeError("rail down")]), "NEM", 60)

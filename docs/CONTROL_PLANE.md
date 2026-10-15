@@ -183,9 +183,11 @@ The MatrixPortal also subscribes at QoS 1 to
 payload has `type: "assistant_response"`, `event: "due"`, a unique `id`,
 `label`, matching ISO-8601 `due_at` and `published_at`, an `expires_at` exactly
 120 seconds later, `source: "homeassistant"`, and `room: "living_room"`.
-Replies use the same transient flash duration and pause/resume workflow as
-reminders, with an `ASSISTANT` heading. They are deduplicated and expire
-independently; they never change the pending reminder snapshot. An active
+Replies pause and resume the same screen rotation as reminders, with a fixed
+`ASSISTANT` heading and compact quote-style text. Words wrap to rows of up to
+42 characters, with up to three rows per page; each page remains visible for 2.5 seconds, and the flash
+duration extends when needed to show every page. Replies are deduplicated and
+expire independently; they never change the pending reminder snapshot. An active
 reminder suppresses replies, a due reminder interrupts a reply, and a newer
 reply replaces an older reply. Connected MQTT servicing checks for new events
 every 1.5 seconds with the socket read bounded below one display frame. The

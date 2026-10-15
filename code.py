@@ -441,6 +441,10 @@ def _smooth_sun_weather(screen):
     )
 
 
+def _smooth_today(screen):
+    return settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "today"
+
+
 def _smooth_steam_train(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
@@ -1104,6 +1108,7 @@ while True:
         or _smooth_steam_train(screen)
         or _smooth_bus_intro(screen)
         or _smooth_sun_weather(screen)
+        or _smooth_today(screen)
         or _smooth_bin_collection(screen)
     )
     if smooth_animation:

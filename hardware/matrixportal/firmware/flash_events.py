@@ -5,6 +5,52 @@ from __future__ import annotations
 import json
 
 
+ASSISTANT_MESSAGE_CHARS_PER_LINE = 42
+ASSISTANT_MESSAGE_LINES_PER_PAGE = 3
+ASSISTANT_MESSAGE_LINE_SECONDS = 2.5
+
+
+def assistant_message_lines(label, max_chars=ASSISTANT_MESSAGE_CHARS_PER_LINE):
+    """Wrap an assistant reply to fit the board's compact text font."""
+    try:
+        limit = max(1, int(max_chars))
+    except (TypeError, ValueError):
+        limit = ASSISTANT_MESSAGE_CHARS_PER_LINE
+    words = str(label or "").split()
+    lines = []
+    current = ""
+    for word in words:
+        if len(word) > limit:
+            if current:
+                lines.append(current)
+                current = ""
+            for start in range(0, len(word), limit):
+                lines.append(word[start:start + limit])
+            continue
+        candidate = word if not current else current + " " + word
+        if len(candidate) > limit:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines or [""]
+
+
+def assistant_message_page(label, phase):
+    """Return the current three-line page index and text for an assistant reply."""
+    lines = assistant_message_lines(label)
+    pages = (len(lines) + ASSISTANT_MESSAGE_LINES_PER_PAGE - 1) // ASSISTANT_MESSAGE_LINES_PER_PAGE
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    index = int(elapsed / ASSISTANT_MESSAGE_LINE_SECONDS) % pages
+    start = index * ASSISTANT_MESSAGE_LINES_PER_PAGE
+    return index, lines[start:start + ASSISTANT_MESSAGE_LINES_PER_PAGE]
+
+
 def _days_before_year(year):
     years = year - 1
     return years * 365 + years // 4 - years // 100 + years // 400
@@ -131,6 +177,7 @@ class FlashState:
     def __init__(self, duration_seconds=5, enabled=False, seen_limit=32):
         self.enabled = bool(enabled)
         self.duration_seconds = max(1, int(duration_seconds or 5))
+        self.active_duration_seconds = self.duration_seconds
         self.seen_limit = max(1, int(seen_limit))
         self.seen = []
         self.event = None
@@ -207,7 +254,18 @@ class FlashState:
         del self.seen[:-self.seen_limit]
         self.event = event
         self.started_at = float(now)
+        self.active_duration_seconds = self._event_duration(event)
         return True
+
+    def _event_duration(self, event):
+        if event.get("type") == "assistant_response":
+            lines = assistant_message_lines(event.get("label"))
+            pages = (len(lines) + ASSISTANT_MESSAGE_LINES_PER_PAGE - 1) // ASSISTANT_MESSAGE_LINES_PER_PAGE
+            return max(
+                self.duration_seconds,
+                pages * ASSISTANT_MESSAGE_LINE_SECONDS,
+            )
+        return self.duration_seconds
 
     @staticmethod
     def _event_key(event):
@@ -224,12 +282,17 @@ class FlashState:
                 self.duration_seconds = max(1, int(duration_seconds))
             except (TypeError, ValueError):
                 pass
+            if self.event is not None:
+                self.active_duration_seconds = self._event_duration(self.event)
         if not self.enabled:
             self.clear()
             self.pending = None
 
     def active(self, now):
-        return self.event is not None and float(now) - self.started_at < self.duration_seconds
+        return (
+            self.event is not None
+            and float(now) - self.started_at < self.active_duration_seconds
+        )
 
     def screen(self):
         if self.event is None:
@@ -241,10 +304,11 @@ class FlashState:
             "title": "ASSISTANT" if event.get("type") == "assistant_response" else "REMINDER",
             "label": event["label"],
             "due_at": event.get("due_at"),
-            "duration_seconds": self.duration_seconds,
+            "duration_seconds": self.active_duration_seconds,
             "source": event.get("source", "unknown"),
         }
 
     def clear(self):
         self.event = None
         self.started_at = None
+        self.active_duration_seconds = self.duration_seconds

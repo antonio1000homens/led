@@ -37,8 +37,10 @@ MQTT carries two independent display paths. Retained snapshots on
 `led/flash/reminder` and `led/flash/assistant-response` remain interrupting
 overlays that pause and resume that rotation. Assistant replies use the
 version 1 `assistant_response` contract, render with an `ASSISTANT` heading,
-expire within 120 seconds, and never modify reminder snapshot state. Reminders
-take priority over assistant replies. See [LED issue #251](https://github.com/antonio1000homens/led/issues/251)
+show the complete message in compact quote-style pages of up to three lines,
+and never modify reminder snapshot state. The flash extends as needed to show every page; the event still
+expires if it arrives more than 120 seconds after publication. Reminders take
+priority over assistant replies. See [LED issue #251](https://github.com/antonio1000homens/led/issues/251)
 and the [Home Assistant publisher issue #41](https://github.com/antonio1000homens/homeassistant/issues/41).
 The first cycle-screen producer is the [Home Assistant next-recycling
 screen](https://github.com/antonio1000homens/homeassistant/issues/7). The board

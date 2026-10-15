@@ -84,7 +84,11 @@ class PublisherTests(unittest.TestCase):
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}],RuntimeError("upstream failure must not leak")])
         Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run(); self.now+=timedelta(seconds=61)
         payload=Publisher(self.config,self.store,rail_provider=rail,utcnow=self.utcnow).run()
-        self.assertEqual(rail.calls,2); self.assertTrue(screen_by_id(payload, "departures")["stale"]); self.assertEqual(screen_by_id(payload, "departures")["services"][0]["destination"],"Waterloo")
+        screen = screen_by_id(payload, "departures")
+        self.assertEqual(rail.calls, 2)
+        self.assertTrue(screen["stale"])
+        self.assertEqual(screen["services"], [])
+        self.assertEqual(screen["empty_state"], "No Services")
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
         payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=screen_by_id(payload, "departures")
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])
@@ -107,6 +111,53 @@ class PublisherTests(unittest.TestCase):
         self.assertFalse(screen["stale"])
         self.assertNotIn("rail_presentation", screen)
         self.assertNotIn("effective_duration_seconds", screen)
+
+    def test_departures_filter_past_rows_and_only_keep_delays_with_future_estimates(self):
+        runtime = default_runtime_config({"LED_THORPE_PARK_SOURCE": "off", "LED_WEATHER_SOURCE": "off"})
+        runtime["feeds"]["departures"]["upcoming_train_count"] = 3
+        rail = FakeProvider([[
+            {"time": "07:59", "status": "On time", "destination": "Departed"},
+            {"time": "08:01", "status": "On time", "destination": "Future"},
+            {"time": "07:55", "status": "08:10", "destination": "Revised"},
+            {"time": "07:50", "status": "Delayed", "destination": "Expired delay without estimate"},
+            {"time": "08:02", "status": "Delayed", "destination": "Future delay without estimate"},
+            {"time": "07:45", "status": "07:58", "destination": "Expired revised"},
+        ]])
+        result = Publisher(
+            self.config, self.store, rail_provider=rail, utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        screen = screen_by_id(result, "departures")
+        self.assertEqual([row["destination"] for row in screen["services"]],
+                         ["Future", "Revised", "Future delay without estimate"])
+        self.assertIsNone(screen["empty_state"])
+
+    def test_departure_at_2237_is_filtered_at_2238_without_future_revised_time(self):
+        now = datetime(2026, 10, 15, 21, 38, tzinfo=timezone.utc)
+        runtime = default_runtime_config({"LED_THORPE_PARK_SOURCE": "off", "LED_WEATHER_SOURCE": "off"})
+        result = Publisher(
+            self.config, self.store,
+            rail_provider=FakeProvider([[
+                {"time": "22:37", "status": "Delayed", "destination": "Past, no estimate"},
+                {"time": "22:37", "status": "22:40", "destination": "Future revised time"},
+            ]]),
+            utcnow=lambda: now, runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        screen = screen_by_id(result, "departures")
+        self.assertEqual([row["destination"] for row in screen["services"]], ["Future revised time"])
+
+    def test_departures_filtered_to_empty_use_no_services_state(self):
+        runtime = default_runtime_config({"LED_THORPE_PARK_SOURCE": "off", "LED_WEATHER_SOURCE": "off"})
+        runtime["feeds"]["departures"]["no_services_duration_seconds"] = 5
+        result = Publisher(
+            self.config, self.store,
+            rail_provider=FakeProvider([[{"time": "07:59", "status": "On time"}]]),
+            utcnow=self.utcnow, runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        screen = screen_by_id(result, "departures")
+        self.assertEqual(screen["services"], [])
+        self.assertEqual(screen["empty_state"], "No Services")
+        self.assertEqual(screen["duration_seconds"], 5)
 
     def test_steam_train_intro_precedes_departures_and_uses_runtime_settings(self):
         runtime=default_runtime_config({"LED_THORPE_PARK_SOURCE":"off","LED_WEATHER_SOURCE":"off","LED_CALENDAR_SOURCE":"off"})

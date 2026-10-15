@@ -95,6 +95,9 @@
     const BIN_LORRY_SPEED = 64;
     const REMINDER_SCROLL_SPEED = 64;
     const REMINDER_SCROLL_GAP = 24;
+    const ASSISTANT_LINE_CHARS = 42;
+    const ASSISTANT_LINES_PER_PAGE = 3;
+    const ASSISTANT_LINE_SECONDS = 2.5;
     const SUN_WEATHER_COLOR_SECONDS = 4.0;
     const BIN_COLORS = { blue: '#2255ff', green: '#22aa44', black: '#777777' };
     const SUN_WEATHER_ANIMATION_SECONDS = 4.0;
@@ -179,6 +182,36 @@
     }
     function drawLedTextLarge(value, x, y) {
       drawLedTextScaled(value, x, y, 3);
+    }
+    function assistantMessageLines(value) {
+      const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+      const lines = [];
+      let current = '';
+      words.forEach(word => {
+        if (word.length > ASSISTANT_LINE_CHARS) {
+          if (current) lines.push(current);
+          current = '';
+          for (let i = 0; i < word.length; i += ASSISTANT_LINE_CHARS) {
+            lines.push(word.slice(i, i + ASSISTANT_LINE_CHARS));
+          }
+          return;
+        }
+        const candidate = current ? `${current} ${word}` : word;
+        if (candidate.length > ASSISTANT_LINE_CHARS) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = candidate;
+        }
+      });
+      if (current) lines.push(current);
+      return lines.length ? lines : [''];
+    }
+    function assistantMessagePage(value, phase) {
+      const lines = assistantMessageLines(value);
+      const count = Math.ceil(lines.length / ASSISTANT_LINES_PER_PAGE);
+      const index = Math.floor(Math.max(0, Number(phase) || 0) / ASSISTANT_LINE_SECONDS) % count;
+      return { index, lines: lines.slice(index * ASSISTANT_LINES_PER_PAGE, (index + 1) * ASSISTANT_LINES_PER_PAGE), count };
     }
     const SUN_FONT_3X5 = {
       '0':[7,5,5,5,7], '1':[2,6,2,2,7], '2':[7,1,7,4,7], '3':[7,1,7,1,7],
@@ -1458,30 +1491,39 @@
         status.dataset.detail = `${title} queues · park ${queueCycle.parkIndex + 1} of ${Math.max(1, (screen.parks || [park]).length)}`;
       } else if (screen.kind === 'flash') {
         suppressHeader = true;
-        const label = (screen.title === 'ASSISTANT' ? 'ASSISTANT: ' : '') + String(screen.label || '');
-        const reminderWidth = 37 + label.length * 15;
-        const travel = 256 + reminderWidth + REMINDER_SCROLL_GAP;
-        const distance = Math.floor(Math.max(0, Number(phase) || 0) * REMINDER_SCROLL_SPEED) % travel;
-        const clockX = 256 - distance;
-        context.fillStyle = '#ffaa00';
-        for (let x = 0; x < 29; x += 1) {
-          for (let y = 0; y < 29; y += 1) {
-            const dx = x - 14, dy = y - 14, radius = dx * dx + dy * dy;
-            if ((radius >= 156 && radius <= 205)
-                || (x >= 13 && x <= 15 && y >= 5 && y <= 15)
-                || (x >= 14 && x <= 22 && y >= 13 && y <= 15)) {
-              context.fillRect((clockX + x) * FONT_PIXEL_SCALE, (1 + y) * FONT_PIXEL_SCALE,
-                FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        if (screen.title === 'ASSISTANT') {
+          const page = assistantMessagePage(screen.label, phase);
+          context.fillStyle = '#ffaa00';
+          drawLedText('ASSISTANT', 0, 1 * FONT_PIXEL_SCALE);
+          context.fillStyle = '#ffffff';
+          page.lines.forEach((line, index) => drawLedText(line, 0, (9 + index * 8) * FONT_PIXEL_SCALE));
+          status.dataset.detail = `Assistant page ${page.index + 1} of ${page.count}`;
+        } else {
+          const label = String(screen.label || '');
+          const reminderWidth = 37 + label.length * 15;
+          const travel = 256 + reminderWidth + REMINDER_SCROLL_GAP;
+          const distance = Math.floor(Math.max(0, Number(phase) || 0) * REMINDER_SCROLL_SPEED) % travel;
+          const clockX = 256 - distance;
+          context.fillStyle = '#ffaa00';
+          for (let x = 0; x < 29; x += 1) {
+            for (let y = 0; y < 29; y += 1) {
+              const dx = x - 14, dy = y - 14, radius = dx * dx + dy * dy;
+              if ((radius >= 156 && radius <= 205)
+                  || (x >= 13 && x <= 15 && y >= 5 && y <= 15)
+                  || (x >= 14 && x <= 22 && y >= 13 && y <= 15)) {
+                context.fillRect((clockX + x) * FONT_PIXEL_SCALE, (1 + y) * FONT_PIXEL_SCALE,
+                  FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+              }
             }
           }
+          context.fillStyle = '#ffffff';
+          context.save();
+          context.translate((clockX + 37) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+          context.scale(3, 3);
+          drawLedText(label, 0, 0);
+          context.restore();
+          status.dataset.detail = 'Scrolling reminder';
         }
-        context.fillStyle = '#ffffff';
-        context.save();
-        context.translate((clockX + 37) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
-        context.scale(3, 3);
-        drawLedText(label, 0, 0);
-        context.restore();
-        status.dataset.detail = screen.title === 'ASSISTANT' ? 'Scrolling assistant response' : 'Scrolling reminder';
       } else if (screen.kind === 'calendar_agenda') {
         const events = Array.isArray(screen.events) ? screen.events : [];
         if (!events.length) {
