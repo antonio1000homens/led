@@ -3628,8 +3628,9 @@ class MatrixDisplay:
                 if getattr(self, "_static_key", None) != key:
                     import displayio
                     group = displayio.Group()
+                        # Label.y is centered on the glyph; y=2 clips its top.
                     self._label(group, date_label, 0xFFFFFF,
-                                max(0, (DISPLAY_WIDTH - len(date_label) * 6) // 2), 2)
+                                    max(0, (DISPLAY_WIDTH - len(date_label) * 6) // 2), 5)
                     icon_name = _weather_icon(weather)[0] or "unknown"
                     rows = WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])
                     bitmap = displayio.Bitmap(21, 14, 2)
@@ -3646,7 +3647,7 @@ class MatrixDisplay:
                     self._label(group, temperature, 0xFFFFFF, 78, 12)
                     self._label(group, clock_time, 0xFFAA00, 174, 12)
                     if key[-1]:
-                        self._label(group, "STALE", 0x888888, 226, 2)
+                            self._label(group, "STALE", 0x888888, 226, 5)
                     self._static_group = group
                     self._static_key = key
                 if self.display.root_group is not self._static_group:

@@ -683,12 +683,33 @@ while True:
                 except Exception:
                     print("Static content acknowledgement deferred")
                     break
-    should_fetch = (fetch_due and (maintenance_visible or (steam_train_test and not rotation.screens))
-                    and not flash.active(now))
+    # The browser simulator refreshes the renderer-neutral payload every
+    # 30 seconds. Keep the physical board's departures data on the same
+    # cadence even when that interval expires inside the paired train/rail
+    # block; waiting for the next static maintenance page can leave one
+    # timetable snapshot on the board for the entire 90-second rail screen.
+    rail_refresh_visible = candidate.get("kind") in ("steam_train_intro", "rail_combined")
+    should_fetch = (
+        fetch_due
+        and (maintenance_visible or rail_refresh_visible
+             or (steam_train_test and not rotation.screens))
+        and not flash.active(now)
+    )
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["fetch_decision"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     if should_fetch:
+        fetch_gc_restore = gc is not None and rail_gc_suspended
+        if fetch_gc_restore:
+            # The rail renderer disables automatic collection during motion.
+            # A network refresh allocates a large payload, so run it with GC
+            # enabled and restore the rail setting after the fetch completes.
+            try:
+                collect_gc_with_state(gc, enabled_after=True)
+            except Exception as error:
+                print("RAIL GC FETCH WINDOW FAILED; deferring feed refresh:", error)
+                _sleep_interruptible(settings.FRAME_SECONDS)
+                continue
         fetch_started = time.monotonic()
         fetch_started_ticks = ticks_ms()
         # Screen API calls are synchronous and can take multiple animation
@@ -731,6 +752,23 @@ while True:
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
+            for candidate in screens or ():
+                if (not isinstance(candidate, dict)
+                        or candidate.get("id") != "departures"
+                        or candidate.get("kind") != "rail_combined"):
+                    continue
+                service_times = []
+                for service in candidate.get("services") or ():
+                    if isinstance(service, dict):
+                        service_times.append(str(service.get("time") or "--:--"))
+                    if len(service_times) >= 3:
+                        break
+                print("DEPARTURE FEED stale={} services={} next_times={}".format(
+                    bool(candidate.get("stale")),
+                    len(candidate.get("services") or ()),
+                    ",".join(service_times),
+                ))
+                break
             fetched_at = payload.get("clock_at") or payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, fetch_completed)
@@ -759,6 +797,12 @@ while True:
             transport_stale = bool(rotation.screens)
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
+        finally:
+            if fetch_gc_restore:
+                try:
+                    gc.disable()
+                except Exception as error:
+                    print("RAIL GC FETCH WINDOW RESTORE FAILED:", error)
         now = fetch_completed
         next_fetch = ticks_ms() + int(settings.POLL_SECONDS * 1000)
         if (
