@@ -205,7 +205,7 @@ class ZenQuotesTests(unittest.TestCase):
         self.assertIn("Keep learning", labels)
         self.assertIn("- Sample Author", labels)
 
-    def test_multiline_quote_author_and_attribution(self):
+    def test_long_quote_uses_full_three_line_pages_without_attribution(self):
         screen = {"kind": "quotes", "duration_seconds": 30,
                   "quote": "Some very thoughtful words " * 12,
                   "author": "An author with an unusually long name " * 3}
@@ -217,7 +217,7 @@ class ZenQuotesTests(unittest.TestCase):
         for page in range(pages):
             gathered.extend(_quote_page(screen, (page + .1) * 30 / pages))
         self.assertEqual(gathered, lines)
-        self.assertIn("- An author", " ".join(lines))
+        self.assertNotIn("- An author", " ".join(lines))
         self.assertIn("QUOTES VIA ZENQUOTES.IO", (ROOT / "hardware/matrixportal/firmware/display.py").read_text())
         self.assertIn('href="https://zenquotes.io/"', (ROOT / "simulator/index.html").read_text())
         self.assertIn("card('quotes')", (ROOT / "simulator/admin.html").read_text())

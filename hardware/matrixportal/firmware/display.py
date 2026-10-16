@@ -27,6 +27,7 @@ from matrix_config import (
 
 from brightness import BrightnessState, pixel_is_blocked
 from bus_departures import normalise_bus_screen
+from flash_events import assistant_message_page
 from mqtt_screens import _epoch
 
 from formatting import (
@@ -72,11 +73,16 @@ REMINDER_TEXT_X = 37
 REMINDER_TEXT_SCALE = 3
 REMINDER_SCROLL_SPEED = 64.0
 REMINDER_SCROLL_GAP = 24
+ASSISTANT_MESSAGE_TEXT_SCALE = 1
+ASSISTANT_MESSAGE_TEXT_Y = 9
+ASSISTANT_MESSAGE_CHAR_ADVANCE = 6  # font5x7 glyphs advance by five pixels plus one gap
 
 
 def reminder_scroll_x(screen, phase):
     """Continuously move the clock/text train from right to left and wrap it."""
     label = str(screen.get("label") or "")
+    if screen.get("title") == "ASSISTANT":
+        label = "ASSISTANT: " + label
     width = REMINDER_TEXT_X + len(label) * WEATHER_FONT_WIDTH * REMINDER_TEXT_SCALE
     travel = DISPLAY_WIDTH + width + REMINDER_SCROLL_GAP
     try:
@@ -121,6 +127,20 @@ def bus_due_label(item, now_epoch=None):
     return str(item.get("due_text") or "--")
 
 
+def split_sl7_due_text(due):
+    """Fit the explicit 'Due in' countdown inside a 128px SL7 column."""
+    if due == "CXL":
+        return "CXL"
+    return "Due in {}".format("0m" if due == "Due" else str(due or "--")[:5])
+
+
+def split_sl7_due_parts(due):
+    """Separate the yellow countdown label from its white wait value."""
+    if due == "CXL":
+        return "CXL", ""
+    return "Due in", "0m" if due == "Due" else str(due or "--")[:5]
+
+
 def split_sl7_rows(screen, now_epoch=None):
     """Common compact layout contract for MatrixPortal and software tests."""
     data = screen.get("directions") or {}
@@ -154,6 +174,8 @@ BUS_WIDTH = 52
 BUS_HEIGHT = 26
 BUS_VERTICAL_OFFSET = 1
 BUS_TEXT_GAP = 8
+SL7_TIME_COLUMN_X = 2
+SL7_DUE_COLUMN_X = 42
 CLOCK_X = 226
 HEADER_SLOT_X = 224
 STALE_X = 190
@@ -167,6 +189,12 @@ AGENDA_ROW_HEIGHT = 8
 WEATHER_ICON_WIDTH = 7
 WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
+TODAY_HEADER_ICON_SCALE = 3
+TODAY_DATE_SCALE = 2
+TODAY_DATE_COLOR_CYCLE_SECONDS = 5.0
+TODAY_DATE_ANIMATION_FPS = 4
+TODAY_DATE_COLORS = (0x00D7FF, 0xD957FF, 0xFF9F43, 0x4BE0A2, 0x536DFF)
+TODAY_TIME_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 3
 SUN_WEATHER_MOON_ICON_SCALE = 2
 SUN_WEATHER_TIME_SCALE = 2
@@ -189,6 +217,11 @@ WEEKLY_WEATHER_ICON_Y = 10
 WEEKLY_WEATHER_TEMPERATURE_Y = 25
 TODAY_WEATHER_ICON_Y = 11
 TODAY_WEATHER_TEMPERATURE_Y = 27
+TODAY_HEADER_ICON_X = 0
+TODAY_HEADER_ICON_Y = 5
+TODAY_DATE_Y = 6
+TODAY_TIME_Y = 2
+TODAY_TEMPERATURE_Y = 18
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
 NOVELTY_HEADING_Y = 3
 NOVELTY_FIRST_LINE_Y = 12
@@ -231,10 +264,10 @@ def _novelty_page(screen, phase):
     return lines[page * 3:page * 3 + 3]
 
 def _quote_lines(screen):
-    """Include the author on its own readable wrapped line(s)."""
+    """Keep attribution only when quote and author fit on one three-line page."""
     quote = _novelty_lines({"kind": "dad_joke", "joke": screen.get("quote") or ""})
     author = _novelty_lines({"kind": "dad_joke", "joke": "- " + str(screen.get("author") or "")})
-    return quote + author
+    return quote + author if len(quote) + len(author) <= 3 else quote
 
 
 def _quote_page(screen, phase):
@@ -288,7 +321,7 @@ BIN_COLORS = {
 }
 RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
-RAIL_DESTINATION_X = 60
+RAIL_DESTINATION_X = 63
 RAIL_PLATFORM_X = 152
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
@@ -879,6 +912,37 @@ def _today_date_label(clock_date):
         return value[:42]
 
 
+def _today_compact_date_label(clock_date):
+    """Return a short UK date that can be centered at twice the normal size."""
+    full_label = _today_date_label(clock_date)
+    parts = full_label.split()
+    if len(parts) != 2 or "/" not in parts[1]:
+        return full_label[:10]
+    try:
+        day, month, _year = parts[1].split("/")
+        month_name = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                      "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")[int(month) - 1]
+        return "{} {} {}".format(parts[0][:3], day, month_name)
+    except (ValueError, IndexError):
+        return full_label[:10]
+
+
+def _today_date_colors(phase, character_count):
+    """Reveal one of several colors across the date, then repeat until rotation."""
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    cycle = int(elapsed / TODAY_DATE_COLOR_CYCLE_SECONDS)
+    cycle_phase = elapsed % TODAY_DATE_COLOR_CYCLE_SECONDS
+    color = TODAY_DATE_COLORS[cycle % len(TODAY_DATE_COLORS)]
+    starting_color = 0xFFFFFF if cycle == 0 else TODAY_DATE_COLORS[(cycle - 1) % len(TODAY_DATE_COLORS)]
+    progress = min(1.0, cycle_phase / SUN_WEATHER_COLOR_SECONDS)
+    progress = progress * progress * (3.0 - 2.0 * progress)
+    revealed = min(max(0, int(character_count)), int(progress * (character_count + 1)))
+    return tuple(color if index < revealed else starting_color for index in range(character_count))
+
+
 class MatrixDisplay:
     def __init__(self, brightness_percent=100, steam_train_test=False):
         import displayio
@@ -1019,6 +1083,11 @@ class MatrixDisplay:
         self._todoist_clock_group = None
         self._todoist_clock_label = None
         self._todoist_weather_group = None
+        self._novelty_key = None
+        self._novelty_group = None
+        self._novelty_clock_group = None
+        self._novelty_clock_label = None
+        self._novelty_weather_group = None
 
         # Weather pages are static while visible. Keep their displayio trees
         # alive instead of allocating new icon bitmaps and palettes on every
@@ -1100,6 +1169,8 @@ class MatrixDisplay:
         self._bin_lorry_grid = None
         self._bin_lorry_label = None
         self._bin_types = ()
+        self._today_date_color_targets = ()
+        self._today_date_color_values = ()
 
     @property
     def brightness_percent(self):
@@ -1223,8 +1294,10 @@ class MatrixDisplay:
                             for dx in range(scale):
                                 bitmap[(glyph_x - min_x + gx) * scale + dx,
                                        (glyph_y - min_y + gy) * scale + dy] = 1
-        group.append(displayio.TileGrid(bitmap, pixel_shader=palette,
-                                        x=int(x), y=int(y)))
+        tile = displayio.TileGrid(bitmap, pixel_shader=palette,
+                                  x=int(x), y=int(y))
+        group.append(tile)
+        return tile
 
     def _chunked_label_group(self, text, color, y, chunk_chars=24):
         """Build fixed text chunks so scrolling moves groups without reflowing labels."""
@@ -1480,6 +1553,8 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "flash":
             return "queue_rows"
+        if kind == "today":
+            return "today_date"
         if kind == "calendar_agenda" and screen.get("source") == "todoist":
             if self._todoist_rows and self._todoist_page_slide_active(phase):
                 return "todoist_page_slide"
@@ -1520,7 +1595,9 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
-        if screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
+        if screen.get("kind") == "today":
+            return min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS)
+        if screen.get("kind") in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
             return 0
         if (
             isinstance(screen, dict)
@@ -2568,11 +2645,16 @@ class MatrixDisplay:
                 self._label(group, text, 0xFF3300 if stale or status == "unavailable"
                             else 0xFFFFFF, x + 2, 11)
                 continue
-            for index, (due, time_text, cancelled, delayed) in enumerate(rows):
+            for index, (due, time_text, cancelled, _delayed) in enumerate(rows):
                 y = 11 + index * 8
-                color = 0xFF3300 if cancelled else (0xFFAA00 if delayed else 0xFFFFFF)
-                self._label(group, due[:5], color, x + 2, y)
-                self._label(group, time_text[:5], color, x + 88, y)
+                time_color = 0xFF3300 if cancelled else 0xFFFFFF
+                prefix, value = split_sl7_due_parts(due)
+                due_color = 0xFF3300 if cancelled or prefix == "CXL" else 0xFFAA00
+                self._label(group, time_text[:5], time_color, x + SL7_TIME_COLUMN_X, y)
+                self._label(group, prefix, due_color, x + SL7_DUE_COLUMN_X, y)
+                if value:
+                    value_x = x + SL7_DUE_COLUMN_X + len("Due in ") * (WEATHER_FONT_WIDTH + WEATHER_GAP)
+                    self._label(group, value, 0xFFFFFF, value_x, y)
 
     def _calendar(self, group, screen, phase, clock_date=""):
         events, visible, start, progress = _agenda_state(screen, phase)
@@ -2621,8 +2703,15 @@ class MatrixDisplay:
         self._label(group, _clip(screen.get("title") or "UPCOMING", 30), 0xFFAA00, 0, 3)
 
     def _flash(self, group, screen, phase=0):
-        """A large clock continuously leads the complete reminder text from right to left."""
+        """Build a reminder marquee or a compact, paged assistant message."""
         import displayio
+        if screen.get("title") == "ASSISTANT":
+            self._label(group, "ASSISTANT", 0xFFAA00, 0, 2)
+            _, lines = assistant_message_page(screen.get("label"), phase)
+            for index, line in enumerate(lines):
+                self._label(group, line, 0xFFFFFF, 0, ASSISTANT_MESSAGE_TEXT_Y + index * 8)
+            return group
+
         motion = displayio.Group(x=reminder_scroll_x(screen, phase))
         bitmap = displayio.Bitmap(REMINDER_CLOCK_SIZE, REMINDER_CLOCK_SIZE, 2)
         palette = displayio.Palette(2)
@@ -2633,24 +2722,34 @@ class MatrixDisplay:
                 if reminder_clock_pixel(x, y):
                     bitmap[x, y] = 1
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=1))
-        self._scaled_label(motion, str(screen.get("label") or ""),
+        label = str(screen.get("label") or "")
+        self._scaled_label(motion, label,
                            0xFFFFFF, REMINDER_TEXT_X, 5, scale=REMINDER_TEXT_SCALE)
         group.append(motion)
         return motion
 
     def _show_flash(self, screen, phase):
         import displayio
-        key = (screen.get("id"), screen.get("label"), screen.get("duration_seconds"))
+        assistant = screen.get("title") == "ASSISTANT"
+        page_index = assistant_message_page(screen.get("label"), phase)[0] if assistant else None
+        key = (
+            screen.get("id"),
+            screen.get("title"),
+            screen.get("label"),
+            screen.get("duration_seconds"),
+            page_index,
+        )
         changed = False
         if getattr(self, "_flash_key", None) != key:
             self._flash_group = displayio.Group()
             self._flash_motion = self._flash(self._flash_group, screen, phase)
             self._flash_key = key
             changed = True
-        x = reminder_scroll_x(screen, phase)
-        if self._flash_motion.x != x:
-            self._flash_motion.x = x
-            changed = True
+        if not assistant:
+            x = reminder_scroll_x(screen, phase)
+            if self._flash_motion.x != x:
+                self._flash_motion.x = x
+                changed = True
         self._attach_brightness_overlay(self._flash_group)
         if self.display.root_group is not self._flash_group:
             self.display.root_group = self._flash_group
@@ -3126,14 +3225,15 @@ class MatrixDisplay:
 
         root = displayio.Group()
         motion = displayio.Group(x=0, y=BUS_VERTICAL_OFFSET)
-        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, 5)
-        palette = displayio.Palette(5)
+        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, 6)
+        palette = displayio.Palette(6)
         palette[0] = 0x000000
         palette.make_transparent(0)
         palette[1] = 0xFF3300
         palette[2] = 0xFFFFFF
         palette[3] = 0xFFAA00
         palette[4] = 0x222222
+        palette[5] = 0xAAAAAA
 
         def fill_rect(x, y, width, height, color):
             for py in range(max(0, y), min(BUS_HEIGHT, y + height)):
@@ -3142,20 +3242,23 @@ class MatrixDisplay:
 
         fill_rect(3, 8, 43, 12, 1)
         fill_rect(7, 4, 37, 5, 1)
-        fill_rect(12, 6, 8, 5, 2)
-        fill_rect(22, 6, 8, 5, 2)
-        fill_rect(32, 6, 8, 5, 2)
+        # Two distinct decks of passenger windows, divided by the red
+        # structural band. Draw both into the same tiny cached bitmap.
+        for window_x in (12, 22, 32):
+            fill_rect(window_x, 6, 8, 4, 2)
+            fill_rect(window_x, 13, 8, 5, 2)
         # The bus travels left, so put its driver windscreen and front marker
         # on the left to keep the motion reading as forward travel.
         fill_rect(4, 6, 6, 5, 4)
         fill_rect(3, 12, 6, 7, 3)
         for center_x in (13, 39):
-            for dx, dy in ((-3, -2), (-2, -3), (-1, -3), (0, -3), (1, -3), (2, -2),
-                           (-3, -1), (3, -1), (-3, 0), (3, 0), (-2, 2), (-1, 3),
-                           (0, 3), (1, 3), (2, 2)):
-                px, py = center_x + dx, 21 + dy
-                if 0 <= px < BUS_WIDTH and 0 <= py < BUS_HEIGHT:
-                    bitmap[px, py] = 4
+            # Give each wheel a full, rounded tire and a light hub. The top
+            # overlaps the body slightly, leaving a clear wheel silhouette.
+            for row, (left, width) in enumerate(((-1, 3), (-2, 5), (-3, 7),
+                                                  (-3, 7), (-3, 7), (-2, 5),
+                                                  (-1, 3))):
+                fill_rect(center_x + left, 18 + row, width, 1, 4)
+            fill_rect(center_x - 1, 20, 3, 3, 5)
 
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
         words = str(screen.get("words") or "")
@@ -3596,6 +3699,61 @@ class MatrixDisplay:
         group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=icon_x, y=0))
         self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, text_x, 3)
 
+    @staticmethod
+    def _novelty_weather_key(weather):
+        if not isinstance(weather, dict):
+            return None
+        return (
+            _weather_text(weather), _weather_icon(weather)[0],
+            bool(weather.get("stale")),
+        )
+
+    def _show_novelty(self, screen, heading, lines, clock_time, phase):
+        """Keep joke/fact content static while the shared header stays live."""
+        import displayio
+
+        weather = screen.get("weather")
+        key = (heading, tuple(lines), self._novelty_weather_key(weather))
+        if getattr(self, "_novelty_key", None) != key:
+            root = displayio.Group()
+            self._label(root, heading, 0xFFAA00, 0, NOVELTY_HEADING_Y)
+            for index, line in enumerate(lines):
+                self._label(root, line, 0xFFFFFF, 0, NOVELTY_FIRST_LINE_Y + index * 8)
+            self._mask(root, HEADER_SLOT_X, 0, HEADER_SLOT_WIDTH, 8)
+
+            clock_group = displayio.Group()
+            clock_label = self._label(clock_group, clock_time, 0xFFAA00, CLOCK_X, 3)
+            root.append(clock_group)
+            weather_group = displayio.Group()
+            if isinstance(weather, dict):
+                self._header_weather(weather_group, weather, 0)
+            root.append(weather_group)
+
+            self._novelty_key = key
+            self._novelty_group = root
+            self._novelty_clock_group = clock_group
+            self._novelty_clock_label = clock_label
+            self._novelty_weather_group = weather_group
+
+        changed = False
+        if self._novelty_clock_label.text != clock_time:
+            self._novelty_clock_label.text = clock_time
+            changed = True
+        item, _offset = _header_item_state(phase, weather)
+        clock_x = 0 if item == "clock" else DISPLAY_WIDTH
+        weather_x = 0 if item == "weather" else DISPLAY_WIDTH
+        if self._novelty_clock_group.x != clock_x:
+            self._novelty_clock_group.x = clock_x
+            changed = True
+        if self._novelty_weather_group.x != weather_x:
+            self._novelty_weather_group.x = weather_x
+            changed = True
+
+        if self.display.root_group is not self._novelty_group:
+            self._present(self._novelty_group)
+        elif changed:
+            self._refresh()
+
     def show(self, screen, clock_time="--:--", clock_date="", phase=2, now_epoch=None):
         import displayio
 
@@ -3620,7 +3778,8 @@ class MatrixDisplay:
                 )
         if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
-                date_label = _today_date_label(clock_date)
+                date_label = _today_compact_date_label(clock_date)
+                date_colors = _today_date_colors(phase, len(date_label))
                 weather = screen.get("weather") or {}
                 temperature = _weather_text(weather)
                 key = ("TODAY", date_label, clock_time, temperature,
@@ -3628,36 +3787,72 @@ class MatrixDisplay:
                 if getattr(self, "_static_key", None) != key:
                     import displayio
                     group = displayio.Group()
-                        # Label.y is centered on the glyph; y=2 clips its top.
-                    self._label(group, date_label, 0xFFFFFF,
-                                    max(0, (DISPLAY_WIDTH - len(date_label) * 6) // 2), 5)
+                    date_width = len(date_label) * 6 * TODAY_DATE_SCALE
+                    date_x = max(0, (DISPLAY_WIDTH - date_width) // 2)
+                    self._today_date_color_targets = tuple(
+                        self._scaled_label(
+                            group, character, date_colors[index],
+                            date_x + index * 6 * TODAY_DATE_SCALE, TODAY_DATE_Y,
+                            scale=TODAY_DATE_SCALE,
+                        )
+                        for index, character in enumerate(date_label)
+                    )
+                    self._today_date_color_values = date_colors
                     icon_name = _weather_icon(weather)[0] or "unknown"
                     rows = WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])
-                    bitmap = displayio.Bitmap(21, 14, 2)
+                    icon_scale = TODAY_HEADER_ICON_SCALE
+                    bitmap = displayio.Bitmap(
+                        WEATHER_ICON_WIDTH * icon_scale,
+                        WEATHER_ICON_WIDTH * icon_scale, 2,
+                    )
                     palette = displayio.Palette(2)
                     palette.make_transparent(0)
                     palette[1] = _weather_rgb(icon_name, bool(weather.get("stale")))
                     for row_index, row in enumerate(rows):
                         for column, pixel in enumerate(row):
                             if pixel == "#":
-                                for dx in range(2):
-                                    for dy in range(2):
-                                        bitmap[column * 2 + dx, row_index * 2 + dy] = 1
-                    group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=42, y=11))
-                    self._label(group, temperature, 0xFFFFFF, 78, 12)
-                    self._label(group, clock_time, 0xFFAA00, 174, 12)
+                                for dx in range(icon_scale):
+                                    for dy in range(icon_scale):
+                                        bitmap[column * icon_scale + dx,
+                                               row_index * icon_scale + dy] = 1
+                    group.append(displayio.TileGrid(
+                        bitmap, pixel_shader=palette,
+                        x=TODAY_HEADER_ICON_X, y=TODAY_HEADER_ICON_Y,
+                    ))
+                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
+                    self._scaled_label(group, clock_time, 0xFFAA00, time_x,
+                                       TODAY_TIME_Y, scale=TODAY_TIME_SCALE)
+                    temperature_x = max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE)
+                    self._scaled_label(group, temperature, 0xFFFFFF, temperature_x,
+                                       TODAY_TEMPERATURE_Y, scale=TODAY_TIME_SCALE)
                     if key[-1]:
-                            self._label(group, "STALE", 0x888888, 226, 5)
+                        self._label(group, "STALE", 0x888888, 0, 0)
                     self._static_group = group
                     self._static_key = key
+                date_changed = date_colors != self._today_date_color_values
+                if date_changed:
+                    for index, color in enumerate(date_colors):
+                        if color == self._today_date_color_values[index]:
+                            continue
+                        target = self._today_date_color_targets[index]
+                        if hasattr(target, "pixel_shader"):
+                            target.pixel_shader[1] = color
+                        else:
+                            target.color = color
+                    self._today_date_color_values = date_colors
                 if self.display.root_group is not self._static_group:
                     self._present(self._static_group)
+                elif date_changed:
+                    self._refresh(animation_class="today_date")
                 return
             heading = ("QUOTES VIA ZENQUOTES.IO" if kind == "quotes" else
                        "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
             if kind == "quotes" and screen.get("stale"):
                 heading += " STALE"
             lines = _quote_page(screen, phase) if kind == "quotes" else _novelty_page(screen, phase)
+            if kind in ("dad_joke", "random_fact"):
+                self._show_novelty(screen, heading, lines, clock_time, phase)
+                return
             key = (heading, tuple(lines))
             if getattr(self, "_static_key", None) != key:
                 group = displayio.Group()
@@ -3897,13 +4092,18 @@ class FixtureDisplay:
         self._fill_rect(x + 3, 9 + offset, 43, 12, (255, 51, 0))
         self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
         for window_x in (12, 22, 32):
-            self._fill_rect(x + window_x, 7 + offset, 8, 5, (255, 255, 255))
+            self._fill_rect(x + window_x, 7 + offset, 8, 4, (255, 255, 255))
+            self._fill_rect(x + window_x, 14 + offset, 8, 5, (255, 255, 255))
         self._fill_rect(x + 4, 6 + offset, 6, 5, (34, 34, 34))
         self._fill_rect(x + 3, 12 + offset, 6, 7, (255, 170, 0))
         for center_x in (13, 39):
-            self._fill_rect(x + center_x - 3, 20 + offset, 7, 1, (34, 34, 34))
-            self._fill_rect(x + center_x - 2, 21 + offset, 5, 3, (34, 34, 34))
-            self._fill_rect(x + center_x - 1, 22 + offset, 3, 1, (170, 170, 170))
+            for row, (left, width) in enumerate(((-1, 3), (-2, 5), (-3, 7),
+                                                  (-3, 7), (-3, 7), (-2, 5),
+                                                  (-1, 3))):
+                self._fill_rect(x + center_x + left, 18 + row + offset,
+                                width, 1, (34, 34, 34))
+            self._fill_rect(x + center_x - 1, 20 + offset, 3, 3,
+                            (170, 170, 170))
         words = str(screen.get("words") or "")
         if words:
             self._text(words, x + BUS_WIDTH + BUS_TEXT_GAP, 12 + offset, (255, 170, 0))
@@ -4072,20 +4272,38 @@ class FixtureDisplay:
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
                 weather = screen.get("weather") or {}
-                date_label = _today_date_label(clock_date)
-                self._text(date_label, max(0, (DISPLAY_WIDTH - len(date_label) * WEATHER_FONT_WIDTH) // 2), 2, (255, 255, 255))
+                date_label = _today_compact_date_label(clock_date)
+                date_width = len(date_label) * 6 * TODAY_DATE_SCALE
+                date_x = max(0, (DISPLAY_WIDTH - date_width) // 2)
+                for index, character in enumerate(date_label):
+                    self._text(
+                        character, date_x + index * 6 * TODAY_DATE_SCALE, TODAY_DATE_Y,
+                        _rgb_tuple(_today_date_colors(phase, len(date_label))[index]),
+                        scale=TODAY_DATE_SCALE,
+                    )
                 icon_name = _weather_icon(weather)[0] or "unknown"
+                icon_scale = TODAY_HEADER_ICON_SCALE
                 for y, row in enumerate(WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])):
                     for x, pixel in enumerate(row):
                         if pixel == "#":
-                            self._pixel(42 + x * 2, 11 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                            self._pixel(43 + x * 2, 11 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                            self._pixel(42 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                            self._pixel(43 + x * 2, 12 + y * 2, _rgb_tuple(_weather_rgb(icon_name, bool(weather.get("stale")))))
-                self._text(_weather_text(weather), 78, 12, (255, 255, 255))
-                self._text(clock_time, 174, 12, (255, 170, 0))
+                            for dx in range(icon_scale):
+                                for dy in range(icon_scale):
+                                    self._pixel(
+                                        TODAY_HEADER_ICON_X + x * icon_scale + dx,
+                                        TODAY_HEADER_ICON_Y + y * icon_scale + dy,
+                                        _rgb_tuple(_weather_rgb(
+                                            icon_name, bool(weather.get("stale"))
+                                        )),
+                                    )
+                temperature = _weather_text(weather) or "--C"
+                self._text(clock_time,
+                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3),
+                           TODAY_TIME_Y, (255, 170, 0), scale=TODAY_TIME_SCALE)
+                self._text(temperature,
+                           max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE),
+                           TODAY_TEMPERATURE_Y, (255, 255, 255), scale=TODAY_TIME_SCALE)
                 if weather.get("stale") or screen.get("stale"):
-                    self._text("STALE", 226, 2, (136, 136, 136))
+                    self._text("STALE", 0, 1, (136, 136, 136))
                 return
             heading = ("QUOTES VIA ZENQUOTES.IO" if kind == "quotes" else
                        "DAD JOKE" if kind == "dad_joke" else "DID YOU KNOW?" if kind == "random_fact" else "INSULT OF THE HOUR")
@@ -4200,11 +4418,16 @@ class FixtureDisplay:
                              "Unavailable" if status == "unavailable" else
                              "STALE" if stale else "No services")
                     self._text(empty, x + 2, 8, (255, 51, 0) if stale else (255, 255, 255))
-                for index, (due, time_text, cancelled, delayed) in enumerate(rows):
-                    color = ((255, 51, 0) if cancelled else
-                             (255, 170, 0) if delayed else (255, 255, 255))
-                    self._text(due[:5], x + 2, 8 + index * 8, color)
-                    self._text(time_text[:5], x + 88, 8 + index * 8, color)
+                for index, (due, time_text, cancelled, _delayed) in enumerate(rows):
+                    y = 8 + index * 8
+                    time_color = (255, 51, 0) if cancelled else (255, 255, 255)
+                    prefix, value = split_sl7_due_parts(due)
+                    due_color = (255, 51, 0) if cancelled or prefix == "CXL" else (255, 170, 0)
+                    self._text(time_text[:5], x + SL7_TIME_COLUMN_X, y, time_color)
+                    self._text(prefix, x + SL7_DUE_COLUMN_X, y, due_color)
+                    if value:
+                        value_x = x + SL7_DUE_COLUMN_X + len("Due in ") * WEATHER_FONT_WIDTH
+                        self._text(value, value_x, y, (255, 255, 255))
         elif kind == "bus_departures":
             title = _clip(screen.get("title") or "SL7", 26)
             self._text(title, 0, 0, (255, 170, 0))
@@ -4254,13 +4477,19 @@ class FixtureDisplay:
             self._text(_clip(screen.get("title") or "UPCOMING", 30), 0, 0, (255, 100, 0))
         elif kind == "flash":
             self._clear_rows(0, 32)
-            x = reminder_scroll_x(screen, phase)
-            self._text(str(screen.get("label") or ""),
-                       x + REMINDER_TEXT_X, 5, (255, 255, 255), scale=REMINDER_TEXT_SCALE)
-            for px in range(REMINDER_CLOCK_SIZE):
-                for py in range(REMINDER_CLOCK_SIZE):
-                    if reminder_clock_pixel(px, py):
-                        self._pixel(x + px, 1 + py, (255, 170, 0))
+            if screen.get("title") == "ASSISTANT":
+                self._text("ASSISTANT", 0, 1, (255, 170, 0))
+                _, lines = assistant_message_page(screen.get("label"), phase)
+                for index, line in enumerate(lines):
+                    self._text(line, 0, ASSISTANT_MESSAGE_TEXT_Y + index * 8, (255, 255, 255))
+            else:
+                x = reminder_scroll_x(screen, phase)
+                self._text(str(screen.get("label") or ""),
+                           x + REMINDER_TEXT_X, 5, (255, 255, 255), scale=REMINDER_TEXT_SCALE)
+                for px in range(REMINDER_CLOCK_SIZE):
+                    for py in range(REMINDER_CLOCK_SIZE):
+                        if reminder_clock_pixel(px, py):
+                            self._pixel(x + px, 1 + py, (255, 170, 0))
         else:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
@@ -4293,7 +4522,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time, now_epoch)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "bus_departures_combined", "flash", "today", "dad_joke", "random_fact", "insult_of_hour", "quotes"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):

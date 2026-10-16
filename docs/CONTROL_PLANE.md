@@ -178,6 +178,22 @@ The public `/api/screens` response carries the effective non-secret `flash`
 settings so the board can apply admin changes on its normal HTTP refresh path;
 it never carries broker credentials or reminder payloads.
 
+The MatrixPortal also subscribes at QoS 1 to
+`led/flash/assistant-response` for living-room Assist replies. The version 1
+payload has `type: "assistant_response"`, `event: "due"`, a unique `id`,
+`label`, matching ISO-8601 `due_at` and `published_at`, an `expires_at` exactly
+120 seconds later, `source: "homeassistant"`, and `room: "living_room"`.
+Replies pause and resume the same screen rotation as reminders, with a fixed
+`ASSISTANT` heading and compact quote-style text. Words wrap to rows of up to
+42 characters, with up to three rows per page; each page remains visible for 2.5 seconds, and the flash
+duration extends when needed to show every page. Replies are deduplicated and
+expire independently; they never change the pending reminder snapshot. An active
+reminder suppresses replies, a due reminder interrupts a reply, and a newer
+reply replaces an older reply. Connected MQTT servicing checks for new events
+every 1.5 seconds with the socket read bounded below one display frame. The
+producer contract is tracked in [Home Assistant #41](https://github.com/antonio1000homens/homeassistant/issues/41);
+the board consumer is tracked in [LED #251](https://github.com/antonio1000homens/led/issues/251).
+
 ## Local development and testing
 
 Production authentication has no bypass flag. Unit tests inject a test signing key/JWK client or mock the authenticator at the Lambda boundary. This keeps local tests deterministic without adding a production environment variable that could accidentally disable authentication.

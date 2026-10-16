@@ -219,8 +219,8 @@ transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
 flash = FlashState(
-    # Reminder events stay gated until the screen payload enables Flash in
-    # the admin control plane. Cycle screens use the independent MQTT source.
+    # Flash events stay gated until the screen payload enables Flash in the
+    # admin control plane. Cycle screens use the independent MQTT source.
     enabled=False,
 )
 flash_resume = None
@@ -264,7 +264,11 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
     def receive_mqtt(topic, payload):
         global mqtt_screens_changed
         now = time.monotonic()
-        if topic == settings.MQTT_TOPIC:
+        assistant_topic = getattr(
+            settings, "MQTT_ASSISTANT_RESPONSE_TOPIC",
+            "led/flash/assistant-response",
+        )
+        if topic in (settings.MQTT_TOPIC, assistant_topic):
             epoch_now = _reminder_epoch(now)
             if epoch_now is None:
                 print("FLASH ignored: clock not synchronized")
@@ -437,6 +441,10 @@ def _smooth_sun_weather(screen):
     )
 
 
+def _smooth_today(screen):
+    return settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "today"
+
+
 def _smooth_steam_train(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
@@ -546,7 +554,7 @@ def _apply_flash_config(payload):
     if not isinstance(config, dict):
         return
     # The public screen payload carries only non-secret operational settings.
-    # Both board-local flags and this runtime setting gate reminders.
+    # Both board-local flags and this runtime setting gate flash events.
     runtime_enabled = (
         settings.MQTT_ENABLED
         and settings.MQTT_ENABLE_EXPERIMENTAL
@@ -1144,6 +1152,7 @@ while True:
         or _smooth_steam_train(screen)
         or _smooth_bus_intro(screen)
         or _smooth_sun_weather(screen)
+        or _smooth_today(screen)
         or _smooth_bin_collection(screen)
     )
     if smooth_animation:

@@ -34,11 +34,25 @@ a mounted `CIRCUITPY` volume.
 
 MQTT carries two independent display paths. Retained snapshots on
 `led/screens/+` add expiring screens to the normal rotation; reminder events on
-`led/flash/reminder` remain interrupting overlays that pause and resume that
-rotation. The first cycle-screen producer is the [Home Assistant next-recycling
+`led/flash/reminder` and `led/flash/assistant-response` remain interrupting
+overlays that pause and resume that rotation. Assistant replies use the
+version 1 `assistant_response` contract, render with an `ASSISTANT` heading,
+show the complete message in compact quote-style pages of up to three lines,
+and never modify reminder snapshot state. The flash extends as needed to show every page; the event still
+expires if it arrives more than 120 seconds after publication. Reminders take
+priority over assistant replies. See [LED issue #251](https://github.com/antonio1000homens/led/issues/251)
+and the [Home Assistant publisher issue #41](https://github.com/antonio1000homens/homeassistant/issues/41).
+The first cycle-screen producer is the [Home Assistant next-recycling
 screen](https://github.com/antonio1000homens/homeassistant/issues/7). The board
 uses one MQTT connection, and broker credentials remain in board-local
 settings.
+
+To exercise the assistant-response path on a configured board before the Home
+Assistant publisher is available, run
+`python3 scripts/publish_mqtt_test_event.py --type assistant_response --label "The next collection is recycling tomorrow."`
+and pass `--settings` if `settings_local.py` is not at the script's default
+mounted-board path. The test event uses the production topic and QoS, is
+non-retained, and expires after 120 seconds.
 
 SL7 bus departures are polled by the backend from Transitous and arrive in the
 same HTTP `/api/screens` payload as the other feeds; they do not use Home

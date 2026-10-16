@@ -62,6 +62,7 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn("parameter${TodoistOAuthParameterName}", template)
         self.assertIn("TodoistOAuthParameterName:\n    Value: !Ref TodoistOAuthParameterName", template)
         self.assertIn('"${ROOT_DIR}/backend/todoist.py"', package)
+        self.assertIn('"${ROOT_DIR}/backend/departure_filter.py"', package)
         self.assertIn('"${ROOT_DIR}/shared/formatting.py"', package)
         self.assertNotIn("TodoistToken=", deploy)
         self.assertIn('"CalendarSource=${CALENDAR_SOURCE}"', deploy)

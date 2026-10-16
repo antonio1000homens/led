@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
 from formatting import prepare_rail_presentation, todoist_effective_duration
+from departure_filter import filter_train_services
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
 from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable, weather_icon
 
@@ -374,7 +375,9 @@ class ScreenFeed:
         screens = []
         try:
             departures = self.departure_feed.get()
-            services = copy.deepcopy((departures.get("services") or [])[:3])
+            services = filter_train_services(
+                copy.deepcopy(departures.get("services") or []), self.utcnow(), limit=3,
+            )
             for service in services:
                 service["station_spacing_px"] = self.station_list_spacing
             presentation = prepare_rail_presentation(
@@ -392,6 +395,7 @@ class ScreenFeed:
                 "source": departures["source"],
                 "stale": departures["stale"],
                 "services": services,
+                "empty_state": "No Services" if not services else None,
             }
             if presentation is not None:
                 screen["rail_presentation"] = presentation

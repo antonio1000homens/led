@@ -26,6 +26,7 @@ cp \
   "${ROOT_DIR}/backend/insults.py" \
   "${ROOT_DIR}/backend/zenquotes.py" \
   "${ROOT_DIR}/backend/transitous_bus.py" \
+  "${ROOT_DIR}/backend/departure_filter.py" \
   "${ROOT_DIR}/backend/todoist.py" \
   "${ROOT_DIR}/shared/formatting.py" \
   "${ROOT_DIR}/shared/fixtures.py" \

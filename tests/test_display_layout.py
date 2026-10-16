@@ -9,6 +9,7 @@ sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
 import display as led_display
 import matrix_config as rail_config
+from flash_events import assistant_message_page
 
 
 class FakePixels:
@@ -130,6 +131,38 @@ class DisplayLayoutTests(unittest.TestCase):
 
         self.assertEqual(rows[0][4], [("5m", "16:05", False, False)])
         self.assertEqual(rows[1][4], [])
+
+    def test_assistant_flash_displays_quote_style_page_and_advances(self):
+        fixture = CapturingFixture()
+        screen = {
+            "kind": "flash",
+            "title": "ASSISTANT",
+            "label": "Alpha beta gamma delta",
+        }
+        fixture._draw_screen(screen, phase=0)
+        self.assertIn(("ASSISTANT", 0, 1, (255, 170, 0)), fixture.drawn)
+        self.assertTrue(any(item[0] == "Alpha beta gamma delta" for item in fixture.drawn))
+
+        fixture.drawn.clear()
+        long_text = " ".join("word%02d" % index for index in range(30))
+        screen["label"] = long_text
+        fixture._draw_screen(screen, phase=2.5)
+        self.assertTrue(any(item[0] in assistant_message_page(long_text, 2.5)[1] for item in fixture.drawn))
+
+    def test_assistant_maximum_length_line_is_centered_without_clipping(self):
+        fixture = CapturingFixture()
+        fixture._draw_screen({
+            "kind": "flash",
+            "title": "ASSISTANT",
+            "label": "a" * 42,
+        }, phase=0)
+
+        line = next(item for item in fixture.drawn if item[0] == "a" * 42)
+        self.assertEqual(line[1], 0)
+        self.assertLessEqual(
+            line[1] + 42 * led_display.ASSISTANT_MESSAGE_CHAR_ADVANCE,
+            led_display.DISPLAY_WIDTH,
+        )
 
     def test_rail_prebuild_bitmap_and_post_build_gc_defaults(self):
         self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)

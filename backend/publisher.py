@@ -31,6 +31,7 @@ from insults import InsultProvider
 from zenquotes import ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
+from departure_filter import filter_train_services
 
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
@@ -441,7 +442,7 @@ class Publisher:
         for entry in data.get("departures") or ():
             row = copy.deepcopy(entry)
             when = _parse_iso(row.get("estimated") or row.get("planned"))
-            if when is None or (when - current).total_seconds() < -60:
+            if when is None or when < current:
                 continue
             trip = row.get("trip_id")
             if trip and trip in seen:
@@ -571,7 +572,10 @@ class Publisher:
                 })
             rail = feeds.get("departures") or {}
             rail_data = rail.get("data")
-            services = copy.deepcopy((rail_data.get("services") or [])[:1 + departures_config["upcoming_train_count"]]) if rail_data else []
+            services = filter_train_services(
+                copy.deepcopy(rail_data.get("services") or []), now,
+                limit=1 + departures_config["upcoming_train_count"],
+            ) if rail_data else []
             for service in services:
                 service["station_spacing_px"] = departures_config["station_list_spacing"]
             duration_seconds = (

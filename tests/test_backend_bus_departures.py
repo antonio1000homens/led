@@ -166,10 +166,12 @@ class BusProviderTests(unittest.TestCase):
                 {"planned": "2026-10-11T19:00:00Z", "destination": "old", "trip_id": "old"},
                 {"planned": "2026-10-11T20:02:00Z", "destination": "second", "trip_id": "2"},
                 {"planned": "2026-10-11T20:01:00Z", "destination": "first", "trip_id": "1"},
+                {"planned": "2026-10-11T19:55:00Z", "estimated": "2026-10-11T20:03:00Z", "destination": "delayed", "trip_id": "3"},
+                {"planned": "2026-10-11T19:55:00Z", "estimated": "2026-10-11T19:59:00Z", "destination": "departed", "trip_id": "4"},
             ],
         }
         result = Publisher._bus_screen("heathrow", source, runtime["feeds"]["sl7_bus"], now=now)
-        self.assertEqual([r["destination"] for r in result["departures"]], ["first", "second"])
+        self.assertEqual([r["destination"] for r in result["departures"]], ["first", "second", "delayed"])
         self.assertEqual(result["departures"][0]["local_time"], "21:01")
         self.assertEqual(result["departures"][0]["due_text"], "Due")
         self.assertEqual(result["display_every_cycles"], 1)
