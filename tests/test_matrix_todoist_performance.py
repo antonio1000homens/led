@@ -187,6 +187,32 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
     def tearDown(self):
         led_display.MATRIX_ANIMATION_PROFILE = self._animation_profile
 
+    def test_static_weekly_weather_reuses_icon_scene_between_render_ticks(self):
+        with patch.dict(sys.modules, fake_modules()):
+            display = led_display.MatrixDisplay()
+            screen = {
+                "kind": "weather_weekly",
+                "stale": False,
+                "days": [{
+                    "weekday": "MON", "weather_code": 0, "icon": "clear_day",
+                    "temperature_max_c": 18,
+                }],
+            }
+
+            display.show(screen, phase=0)
+            group = display.display.root_group
+            tile_grid = next(item for item in group if isinstance(item, FakeTileGrid))
+            root_assignments = display.display.root_assignments
+            display.show(screen, phase=1)
+
+            self.assertIs(display.display.root_group, group)
+            self.assertIs(next(item for item in group if isinstance(item, FakeTileGrid)), tile_grid)
+            self.assertEqual(display.display.root_assignments, root_assignments)
+
+            screen["days"][0]["temperature_max_c"] = 19
+            display.show(screen, phase=2)
+            self.assertIsNot(display.display.root_group, group)
+
     def test_marquee_speed_does_not_exceed_update_cadence(self):
         self.assertLessEqual(TODOIST_MARQUEE_SPEED, float(MATRIX_REFRESH_FPS))
 
