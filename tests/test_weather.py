@@ -60,15 +60,20 @@ class FakeWeatherProvider:
 
 
 class IconTests(unittest.TestCase):
-    def test_maps_wmo_codes_to_compact_icon_names(self):
-        self.assertEqual(weather_icon(0, True), "clear_day")
+    def test_maps_wmo_codes_to_sprite_names(self):
+        self.assertEqual(weather_icon(0, True), "sunny")
         self.assertEqual(weather_icon(0, False), "clear_night")
-        self.assertEqual(weather_icon(2, True), "partly_cloudy_day")
-        self.assertEqual(weather_icon(3, True), "cloudy")
+        self.assertEqual(weather_icon(2, True), "partly_cloudy")
+        self.assertEqual(weather_icon(3, True), "overcast")
         self.assertEqual(weather_icon(45, True), "fog")
+        self.assertEqual(weather_icon(51, True), "drizzle")
+        self.assertEqual(weather_icon(56, True), "sleet")
         self.assertEqual(weather_icon(61, True), "rain")
+        self.assertEqual(weather_icon(65, True), "heavy_rain")
+        self.assertEqual(weather_icon(80, True), "showers")
         self.assertEqual(weather_icon(75, True), "snow")
-        self.assertEqual(weather_icon(95, True), "storm")
+        self.assertEqual(weather_icon(95, True), "thunderstorm")
+        self.assertEqual(weather_icon(96, True), "hail")
         self.assertEqual(weather_icon(999, True), "unknown")
 
 

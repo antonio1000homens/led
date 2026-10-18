@@ -99,15 +99,12 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn('s3://${BUCKET}/index.html', deploy_static)
         self.assertIn("--paths '/index.html' '/api/screens'", deploy_static)
 
-    def test_simulator_weather_group_cycles_with_clock_in_header(self):
+    def test_simulator_keeps_static_clock_and_uses_weather_sprites(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("function temperatureText(weather)", simulator)
-        self.assertIn("function weatherGroupLayout(weather, offset = 0)", simulator)
-        self.assertIn("function drawWeatherGroup(weather, offset = 0)", simulator)
-        self.assertIn("function headerItemState(phase, weather)", simulator)
-        self.assertIn("if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);", simulator)
-        self.assertNotIn("drawWeatherIcon(screen.weather);", simulator)
-        self.assertNotIn("iconX: 992", simulator)
+        self.assertIn("function drawWeatherSprite(name, x, y, stale, scale = WEATHER_SPRITE_SCALE, solar = false)", simulator)
+        self.assertIn("drawWeatherSprite(iconName, iconX, 40, stale);", simulator)
+        self.assertIn("drawClock(clock);", simulator)
+        self.assertNotIn("weatherIcons", simulator)
 
     def test_simulator_has_three_fullscreen_weather_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")

@@ -24,19 +24,29 @@ def weather_icon(weather_code, is_day=True):
         return "unknown"
 
     if code == 0:
-        return "clear_day" if is_day else "clear_night"
+        return "sunny" if is_day else "clear_night"
     if code in (1, 2):
-        return "partly_cloudy_day" if is_day else "partly_cloudy_night"
+        return "partly_cloudy" if is_day else "partly_cloudy_night"
     if code == 3:
-        return "cloudy"
+        return "overcast"
     if code in (45, 48):
         return "fog"
-    if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82):
+    if code in (51, 53, 55):
+        return "drizzle"
+    if code in (56, 57, 66, 67):
+        return "sleet"
+    if code in (61, 63):
         return "rain"
+    if code in (65, 82):
+        return "heavy_rain"
+    if code in (80, 81):
+        return "showers"
     if code in (71, 73, 75, 77, 85, 86):
         return "snow"
-    if code in (95, 96, 99):
-        return "storm"
+    if code == 95:
+        return "thunderstorm"
+    if code in (96, 99):
+        return "hail"
     return "unknown"
 
 

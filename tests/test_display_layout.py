@@ -756,9 +756,11 @@ class DisplayLayoutTests(unittest.TestCase):
                 self.assertEqual(display.pixels.shown, 1)
 
     def test_stale_weather_icons_use_one_bit_visible_blue(self):
-        self.assertEqual(led_display._weather_rgb("rain", stale=True), 0x0000FF)
-        self.assertEqual(led_display._weather_rgb("rain", stale=False),
-                         led_display.WEATHER_COLORS["rain"])
+        self.assertEqual(led_display._weather_sprite_color("B", stale=True), 0x0000FF)
+        self.assertEqual(
+            led_display._weather_sprite_color("B", stale=False),
+            led_display.WEATHER_SPRITE_PALETTE["B"],
+        )
 
     def test_sun_weather_draws_today_sunrise_and_sunset_times(self):
         display = CapturingFixture()
@@ -787,12 +789,12 @@ class DisplayLayoutTests(unittest.TestCase):
             moon_y = led_display._sun_weather_icon_y("clear_night", phase)
             self.assertGreaterEqual(sun_y, 0)
             self.assertLessEqual(
-                sun_y + led_display.WEATHER_ICON_WIDTH * led_display.SUN_WEATHER_ICON_SCALE,
+                sun_y + 21,
                 32,
             )
             self.assertGreaterEqual(moon_y, 0)
             self.assertLessEqual(
-                moon_y + led_display.WEATHER_ICON_WIDTH * led_display.SUN_WEATHER_MOON_ICON_SCALE,
+                moon_y + 21,
                 32,
             )
 
@@ -812,11 +814,10 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertGreater(moon_mid, led_display.SUN_WEATHER_SET_START_Y)
         self.assertLess(moon_mid, led_display.SUN_WEATHER_ICON_Y)
 
-        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 0), 0xFFFF00)
-        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 2), 0xFFFF00)
-        self.assertEqual(led_display._sun_weather_rgb("clear_day", False, 4), 0xFFFF00)
-        self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 4), 0x0000FF)
-        self.assertEqual(led_display._sun_weather_rgb("clear_night", False, 8), 0x0000FF)
+        self.assertEqual(len(led_display._celestial_sprite_rows("clear_day")), 21)
+        self.assertEqual(len(led_display._celestial_sprite_rows("clear_night")), 21)
+        self.assertEqual(led_display.WEATHER_SPRITE_PALETTE["Y"], 0xFFFF00)
+        self.assertEqual(led_display.WEATHER_SPRITE_PALETTE["B"], 0x0000FF)
 
         for phase in (
             led_display.SUN_WEATHER_TOTAL_ANIMATION_SECONDS,
@@ -828,12 +829,7 @@ class DisplayLayoutTests(unittest.TestCase):
             )
             self.assertEqual(
                 led_display._sun_weather_icon_y("clear_night", phase),
-                led_display.SUN_WEATHER_ICON_Y
-                + (
-                    led_display.WEATHER_ICON_WIDTH
-                    * (led_display.SUN_WEATHER_ICON_SCALE - led_display.SUN_WEATHER_MOON_ICON_SCALE)
-                )
-                // 2,
+                led_display.SUN_WEATHER_ICON_Y,
             )
             self.assertFalse(led_display._sun_weather_animation_active(phase))
         self.assertTrue(led_display._sun_weather_animation_active(led_display.SUN_WEATHER_ANIMATION_SECONDS))

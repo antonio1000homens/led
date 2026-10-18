@@ -39,6 +39,10 @@ from christmas_sleigh import PALETTE_INDEX as CHRISTMAS_SLEIGH_PALETTE_INDEX
 from christmas_sleigh import WIDTH as CHRISTMAS_SLEIGH_WIDTH
 from christmas_sleigh import draw as draw_christmas_sleigh
 from christmas_sleigh import draw_indexed as draw_christmas_sleigh_indexed
+from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
+from weather_sprites import PALETTE_RGB as WEATHER_SPRITE_PALETTE_RGB
+from weather_sprites import WEATHER_14 as WEATHER_SPRITES_14
+from weather_sprites import CELESTIAL_21 as WEATHER_CELESTIAL_21
 
 from formatting import (
     AGENDA_SLIDE_SECONDS,
@@ -196,10 +200,7 @@ QUEUE_ROW_HEIGHT = 8
 # visible unused band below it.
 AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
-WEATHER_ICON_WIDTH = 7
-WEEKLY_WEATHER_ICON_SCALE = 2
-TODAY_WEATHER_ICON_SCALE = 2
-TODAY_HEADER_ICON_SCALE = 3
+WEATHER_FORECAST_ICON_SIZE = 14
 TODAY_DATE_SCALE = 2
 TODAY_DATE_CHAR_ADVANCE = 11
 TODAY_DATE_COLOR_CYCLE_SECONDS = 5.0
@@ -208,11 +209,7 @@ TODAY_DATE_BLEND_WIDTH = 24
 TODAY_DATE_COLORS = (0x00D7FF, 0xD957FF, 0xFF9F43, 0x4BE0A2, 0x536DFF)
 TODAY_DATE_DITHER = (0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5)
 TODAY_TIME_SCALE = 2
-SUN_WEATHER_ICON_SCALE = 3
-SUN_WEATHER_MOON_ICON_SCALE = 2
 SUN_WEATHER_TIME_SCALE = 2
-SUN_WEATHER_SUN_COLOR = 0xFFFF00
-SUN_WEATHER_MOON_COLOR = 0x0000FF
 SUN_WEATHER_ICON_Y = 5
 SUN_WEATHER_ANIMATION_SECONDS = 4.0
 SUN_WEATHER_COLOR_SECONDS = 4.0
@@ -310,7 +307,6 @@ WEEKLY_WEATHER_GLYPHS = {
 WEATHER_FONT_WIDTH = 5
 WEATHER_GAP = 1
 HEADER_GAP = 4
-HEADER_HOLD_SECONDS = 7.0
 HEADER_SLOT_WIDTH = DISPLAY_WIDTH - HEADER_SLOT_X
 CALLING_SCROLL_SPEED = 20.0
 CALLING_SCROLL_GAP = 28
@@ -340,33 +336,32 @@ RAIL_DESTINATION_TRACKING = 1
 RAIL_PLATFORM_X = 152
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
-WEATHER_ICONS = {
-    # A compact round sun: the filled centre reads as a disc while the
-    # separated cardinal and diagonal pixels remain visible at LED scale.
-    "clear_day": (".......", "..###..", ".#####.", ".#####.", ".#####.", "..###..", "......."),
-    "clear_night": ("...###.", "..###..", ".###...", ".###...", ".####..", "..####.", "...###."),
-    "partly_cloudy_day": (".#.#...", "..#....", ".###...", "...##..", "..#####", ".######", "......."),
-    "partly_cloudy_night": ("..##...", ".##....", ".###...", "...##..", "..#####", ".######", "......."),
-    "cloudy": (".......", "...##..", "..####.", ".######", "#######", ".......", "......."),
-    "fog": (".......", ".#####.", ".......", "#######", ".......", ".#####.", "......."),
-    "rain": ("...##..", "..####.", ".######", "#######", "..#.#..", ".#.#...", "#.#...."),
-    "snow": ("...##..", "..####.", ".######", "#######", ".#.#.#.", "..#.#..", ".#.#.#."),
-    "storm": ("...##..", "..####.", ".######", "#######", "...##..", "..##...", "...#..."),
-    "unknown": (".#####.", "##...##", "....##.", "...##..", "..##...", ".......", "..##..."),
+WEATHER_SPRITE_ALIASES = {
+    "clear_day": "sunny",
+    "partly_cloudy_day": "partly_cloudy",
+    "cloudy": "overcast",
+    "storm": "thunderstorm",
 }
+WEATHER_SPRITE_PALETTE = (
+    WEATHER_SPRITE_PALETTE_8 if MATRIX_BIT_DEPTH == 1 else WEATHER_SPRITE_PALETTE_RGB
+)
+WEATHER_SPRITE_CHAR_INDEX = {".": 0, "Y": 1, "O": 2, "W": 3, "C": 4, "B": 5, "D": 6, "R": 7, "M": 8}
 
-WEATHER_COLORS = {
-    "clear_day": 0xFFAA00,
-    "clear_night": 0xAACCFF,
-    "partly_cloudy_day": 0xFFCC55,
-    "partly_cloudy_night": 0xAACCFF,
-    "cloudy": 0xBBBBBB,
-    "fog": 0x888888,
-    "rain": 0x55AAFF,
-    "snow": 0xFFFFFF,
-    "storm": 0xFFCC00,
-    "unknown": 0x888888,
-}
+
+def _weather_sprite_rows(icon_name):
+    name = WEATHER_SPRITE_ALIASES.get(icon_name, icon_name)
+    name = name if name in WEATHER_SPRITES_14 else "cloudy"
+    return WEATHER_SPRITES_14[name]
+
+
+def _celestial_sprite_rows(icon_name):
+    return WEATHER_CELESTIAL_21["moon" if icon_name == "clear_night" else "sun"]
+
+
+def _weather_sprite_color(symbol, stale=False):
+    if symbol == ".":
+        return 0x000000
+    return 0x0000FF if stale else WEATHER_SPRITE_PALETTE[symbol]
 
 
 def _clip(value, width):
@@ -400,16 +395,8 @@ def _weather_text(weather):
 
 def _weather_icon(weather):
     if not isinstance(weather, dict):
-        return None, WEATHER_ICONS["unknown"]
-    name = str(weather.get("icon") or "unknown")
-    return name, WEATHER_ICONS.get(name, WEATHER_ICONS["unknown"])
-
-
-def _weather_rgb(icon_name, stale=False):
-    color = WEATHER_COLORS.get(icon_name, WEATHER_COLORS["unknown"])
-    # Mid-level gray quantizes to black at the one-bit-per-channel matrix
-    # depth. Blue is a distinct, visible one-bit colour for stale forecasts.
-    return 0x0000FF if stale else color
+        return None, None
+    return str(weather.get("icon") or "unknown"), None
 
 
 def _rail_weather_key(weather):
@@ -507,9 +494,9 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
         width = right - left
         weekday = _fit_text_pixels(str(day.get("weekday") or "").upper()[:3], width)
         maximum = _weekly_temperature_text(day.get("temperature_max_c"))
-        icon_width = WEATHER_ICON_WIDTH * WEEKLY_WEATHER_ICON_SCALE
+        icon_width = WEATHER_FORECAST_ICON_SIZE
         maximum_width = len(maximum) * (WEEKLY_WEATHER_GLYPH_WIDTH + 1) * WEEKLY_WEATHER_TEXT_SCALE
-        icon_name, rows = _weather_icon(day)
+        icon_name, _ = _weather_icon(day)
 
         def centered_x(text, pixel_width):
             return left + max(0, (width - pixel_width) // 2)
@@ -521,7 +508,7 @@ def _weekly_weather_layout(days, display_width=DISPLAY_WIDTH):
             "weekday": weekday,
             "weekday_x": centered_x(weekday, len(weekday) * WEATHER_FONT_WIDTH),
             "icon_name": icon_name,
-            "icon_rows": rows,
+            "sprite_rows": _weather_sprite_rows(icon_name),
             "icon_x": centered_x("", icon_width),
             "max_text": maximum,
             "max_x": left + max(0, (width - maximum_width) // 2),
@@ -692,16 +679,12 @@ def _sun_weather_icon_y(icon_name, phase):
     # the panel for the rest of this screen's duration.
     progress = progress * progress * (3.0 - 2.0 * progress)
     if icon_name == "clear_day":
-        icon_scale = SUN_WEATHER_ICON_SCALE
         start_y = SUN_WEATHER_RISE_START_Y
     elif icon_name == "clear_night":
-        icon_scale = SUN_WEATHER_MOON_ICON_SCALE
         start_y = SUN_WEATHER_SET_START_Y
     else:
         return SUN_WEATHER_ICON_Y
-    icon_size = WEATHER_ICON_WIDTH * icon_scale
-    tile_size = WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE
-    rest_y = SUN_WEATHER_ICON_Y + (tile_size - icon_size) // 2
+    rest_y = SUN_WEATHER_ICON_Y
     return int(round(start_y + (rest_y - start_y) * progress))
 
 
@@ -731,15 +714,6 @@ def _sun_weather_set_label_color(index, phase, stale=False):
     return 0x777777 if stale else 0xFFAA00
 
 
-def _sun_weather_rgb(icon_name, stale=False, phase=0):
-    """Keep the sunrise sun yellow and the moon blue throughout the animation."""
-    if stale:
-        return 0x777777
-    if icon_name == "clear_night":
-        return SUN_WEATHER_MOON_COLOR
-    return SUN_WEATHER_SUN_COLOR
-
-
 def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
     """Build six rolling four-hour Weather columns beginning with Now."""
     if not isinstance(blocks, (list, tuple)):
@@ -752,8 +726,8 @@ def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
         width = right - left
         label = str(block.get("label") or "")[:5]
         temperature = _weekly_temperature_text(block.get("temperature_c"))
-        icon_name, rows = _weather_icon(block)
-        icon_width = WEATHER_ICON_WIDTH * TODAY_WEATHER_ICON_SCALE
+        icon_name, _ = _weather_icon(block)
+        icon_width = WEATHER_FORECAST_ICON_SIZE
         temp_width = len(temperature) * (WEEKLY_WEATHER_GLYPH_WIDTH + 1)
         layout.append({
             "left": left,
@@ -761,7 +735,7 @@ def _today_weather_layout(blocks, display_width=DISPLAY_WIDTH):
             "label": label,
             "label_x": left + max(0, (width - len(label) * WEATHER_FONT_WIDTH) // 2),
             "icon_name": icon_name,
-            "icon_rows": rows,
+            "sprite_rows": _weather_sprite_rows(icon_name),
             "icon_x": left + max(0, (width - icon_width) // 2),
             "icon_width": icon_width,
             "temp_text": temperature,
@@ -839,23 +813,9 @@ def _cached_calling_x(phase, station_width, speed, calling_seconds):
     return DISPLAY_WIDTH - (within_ms * speed_int) // 1000
 
 
-def _weather_group_layout(weather, offset=0):
-    text = _weather_text(weather) or "--C"
-    width = WEATHER_ICON_WIDTH + WEATHER_GAP + len(text) * WEATHER_FONT_WIDTH
-    group_x = max(0, DISPLAY_WIDTH - width) + int(offset)
-    return text, group_x, group_x + WEATHER_ICON_WIDTH + WEATHER_GAP
-
-
 def _header_item_state(phase, weather):
-    """Return the stationary clock or weather item for the top-right slot."""
-    if not isinstance(weather, dict):
-        return "clock", 0
-    try:
-        phase = max(0.0, float(phase or 0))
-    except (TypeError, ValueError):
-        phase = 0.0
-    within = phase % (HEADER_HOLD_SECONDS * 2)
-    return ("clock", 0) if within < HEADER_HOLD_SECONDS else ("weather", 0)
+    """Keep the clock in the header; weather is shown on forecast screens."""
+    return "clock", 0
 
 
 def _header_slide_active(phase, weather):
@@ -864,18 +824,7 @@ def _header_slide_active(phase, weather):
 
 
 def _header_next_boundary_seconds(phase, weather):
-    if not isinstance(weather, dict):
-        return 60.0
-    try:
-        phase = max(0.0, float(phase or 0))
-    except (TypeError, ValueError):
-        phase = 0.0
-    cycle = HEADER_HOLD_SECONDS * 2
-    within = phase % cycle
-    for boundary in (HEADER_HOLD_SECONDS, cycle):
-        if boundary > within + 1e-9:
-            return max(0.05, boundary - within)
-    return max(0.05, cycle - within)
+    return 60.0
 
 
 def _rail_columns(service, ordinal=1):
@@ -954,7 +903,7 @@ def _today_compact_date_label(clock_date):
 
 def _today_date_position(date_label, clock_time):
     date_width = _today_date_width(len(date_label))
-    left = TODAY_HEADER_ICON_X + WEATHER_ICON_WIDTH * TODAY_HEADER_ICON_SCALE + 1
+    left = TODAY_HEADER_ICON_X + WEATHER_FORECAST_ICON_SIZE + 1
     right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
     return left + max(0, (right - left - date_width) // 2)
 
@@ -3489,10 +3438,12 @@ class MatrixDisplay:
         root.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette, x=0, y=4))
 
         count_text = "--" if days is None else str(days)
-        countdown = self._label(
-            root, "{} DAYS UNTIL CHRISTMAS".format(count_text),
-            0xFFFFFF, 88, 29,
+        # Keep the three-digit count's left edge fixed so any extra digit grows
+        # to the right. The second line is centered independently.
+        countdown = self._scaled_label(
+            root, "{} DAYS".format(count_text), 0xFFFFFF, 80, 2, scale=2,
         )
+        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 38, 18, scale=2)
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
@@ -3511,7 +3462,7 @@ class MatrixDisplay:
         days = days_until_christmas(clock_date)
         changed = False
         if days != self._christmas_days:
-            text = "{} DAYS UNTIL CHRISTMAS".format("--" if days is None else days)
+            text = "{} DAYS".format("--" if days is None else days)
             self._christmas_countdown.text = text
             self._christmas_days = days
             changed = True
@@ -3655,17 +3606,16 @@ class MatrixDisplay:
         weekday_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
             self._label(group, item["weekday"], weekday_color, item["weekday_x"], WEATHER_HEADING_BASELINE_Y)
-            bitmap = displayio.Bitmap(item["icon_width"], 14, 2)
-            palette = displayio.Palette(2)
+            bitmap = displayio.Bitmap(14, 14, 4)
+            palette = displayio.Palette(9)
             palette[0] = 0x000000
             palette.make_transparent(0)
-            palette[1] = _weather_rgb(item["icon_name"], stale)
-            for y, row in enumerate(item["icon_rows"]):
+            for symbol, color_index in WEATHER_SPRITE_CHAR_INDEX.items():
+                if symbol != ".":
+                    palette[color_index] = _weather_sprite_color(symbol, stale)
+            for y, row in enumerate(item["sprite_rows"]):
                 for x, pixel in enumerate(row):
-                    if pixel == "#":
-                        for dx in range(WEEKLY_WEATHER_ICON_SCALE):
-                            for dy in range(WEEKLY_WEATHER_ICON_SCALE):
-                                bitmap[x * WEEKLY_WEATHER_ICON_SCALE + dx, y * WEEKLY_WEATHER_ICON_SCALE + dy] = 1
+                    bitmap[x, y] = WEATHER_SPRITE_CHAR_INDEX[pixel]
             group.append(displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
@@ -3690,18 +3640,16 @@ class MatrixDisplay:
         label_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
             self._label(group, item["label"], label_color, item["label_x"], WEATHER_HEADING_BASELINE_Y)
-            bitmap = displayio.Bitmap(item["icon_width"], item["icon_width"], 2)
-            palette = displayio.Palette(2)
+            bitmap = displayio.Bitmap(14, 14, 4)
+            palette = displayio.Palette(9)
             palette[0] = 0x000000
             palette.make_transparent(0)
-            palette[1] = _weather_rgb(item["icon_name"], stale)
-            for y, row in enumerate(item["icon_rows"]):
+            for symbol, color_index in WEATHER_SPRITE_CHAR_INDEX.items():
+                if symbol != ".":
+                    palette[color_index] = _weather_sprite_color(symbol, stale)
+            for y, row in enumerate(item["sprite_rows"]):
                 for x, pixel in enumerate(row):
-                    if pixel == "#":
-                        for dx in range(TODAY_WEATHER_ICON_SCALE):
-                            for dy in range(TODAY_WEATHER_ICON_SCALE):
-                                bitmap[x * TODAY_WEATHER_ICON_SCALE + dx,
-                                       y * TODAY_WEATHER_ICON_SCALE + dy] = 1
+                    bitmap[x, y] = WEATHER_SPRITE_CHAR_INDEX[pixel]
             group.append(displayio.TileGrid(
                 bitmap, pixel_shader=palette, x=item["icon_x"], y=TODAY_WEATHER_ICON_Y
             ))
@@ -3737,28 +3685,23 @@ class MatrixDisplay:
                         left + 27 + index * 8, 11, SUN_WEATHER_TIME_SCALE,
                     )
                     label_grids.append(("set", index, label_grid, label_palette))
-            rows = WEATHER_ICONS[icon_name]
-            icon_scale = (
-                SUN_WEATHER_ICON_SCALE
-                if icon_name == "clear_day"
-                else SUN_WEATHER_MOON_ICON_SCALE
-            )
-            icon_width = WEATHER_ICON_WIDTH * icon_scale
-            bitmap = displayio.Bitmap(icon_width, icon_width, 2)
-            palette = displayio.Palette(2)
+            rows = _celestial_sprite_rows(icon_name)
+            bitmap = displayio.Bitmap(21, 21, 4)
+            palette = displayio.Palette(9)
             palette[0] = 0x000000
             palette.make_transparent(0)
-            palette[1] = _sun_weather_rgb(icon_name, stale, phase)
+            for symbol, color_index in WEATHER_SPRITE_CHAR_INDEX.items():
+                if symbol != ".":
+                    palette[color_index] = (
+                        0x777777 if stale else WEATHER_SPRITE_PALETTE[symbol]
+                    )
             for y, row in enumerate(rows):
                 for x, pixel in enumerate(row):
-                    if pixel == "#":
-                        for dx in range(icon_scale):
-                            for dy in range(icon_scale):
-                                bitmap[x * icon_scale + dx, y * icon_scale + dy] = 1
+                    bitmap[x, y] = WEATHER_SPRITE_CHAR_INDEX[pixel]
             icon_grid = displayio.TileGrid(
                 bitmap,
                 pixel_shader=palette,
-                x=left + 1 + (WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE - icon_width) // 2,
+                x=left + 1,
                 y=_sun_weather_icon_y(icon_name, phase),
             )
             group.append(icon_grid)
@@ -3812,10 +3755,8 @@ class MatrixDisplay:
         stale = bool(screen.get("stale"))
         for icon_name, icon_grid in self._sun_icon_grids:
             next_y = _sun_weather_icon_y(icon_name, phase)
-            next_color = _sun_weather_rgb(icon_name, stale, phase)
-            if icon_grid.y != next_y or icon_grid.pixel_shader[1] != next_color:
+            if icon_grid.y != next_y:
                 icon_grid.y = next_y
-                icon_grid.pixel_shader[1] = next_color
                 changed = True
         for label_kind, index, label_grid, palette in self._sun_label_grids:
             next_color = (
@@ -3992,23 +3933,8 @@ class MatrixDisplay:
         )
 
     def _header_weather(self, group, weather, offset=0):
-        if not isinstance(weather, dict):
-            return
-        import displayio
-
-        text, icon_x, text_x = _weather_group_layout(weather, offset)
-        icon_name, rows = _weather_icon(weather)
-        stale = bool(weather.get("stale"))
-        bitmap = displayio.Bitmap(WEATHER_ICON_WIDTH, 8, 2)
-        palette = displayio.Palette(2)
-        palette[0] = 0x000000
-        palette[1] = _weather_rgb(icon_name, stale)
-        for y, row in enumerate(rows):
-            for x, pixel in enumerate(row):
-                if pixel == "#":
-                    bitmap[x, y] = 1
-        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=icon_x, y=0))
-        self._label(group, text, 0xAAAAAA if stale else 0xFFFFFF, text_x, 3)
+        # The header keeps a steady clock; forecast screens carry weather.
+        return
 
     @staticmethod
     def _novelty_weather_key(weather):
@@ -4101,22 +4027,19 @@ class MatrixDisplay:
                     date_x = _today_date_position(date_label, clock_time)
                     self._today_date_bitmap(group, date_label, date_x)
                     icon_name = _weather_icon(weather)[0] or "unknown"
-                    rows = WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])
-                    icon_scale = TODAY_HEADER_ICON_SCALE
-                    bitmap = displayio.Bitmap(
-                        WEATHER_ICON_WIDTH * icon_scale,
-                        WEATHER_ICON_WIDTH * icon_scale, 2,
-                    )
-                    palette = displayio.Palette(2)
+                    rows = _weather_sprite_rows(icon_name)
+                    bitmap = displayio.Bitmap(14, 14, 4)
+                    palette = displayio.Palette(9)
+                    palette[0] = 0x000000
                     palette.make_transparent(0)
-                    palette[1] = _weather_rgb(icon_name, bool(weather.get("stale")))
+                    for symbol, color_index in WEATHER_SPRITE_CHAR_INDEX.items():
+                        if symbol != ".":
+                            palette[color_index] = _weather_sprite_color(
+                                symbol, bool(weather.get("stale"))
+                            )
                     for row_index, row in enumerate(rows):
                         for column, pixel in enumerate(row):
-                            if pixel == "#":
-                                for dx in range(icon_scale):
-                                    for dy in range(icon_scale):
-                                        bitmap[column * icon_scale + dx,
-                                               row_index * icon_scale + dy] = 1
+                            bitmap[column, row_index] = WEATHER_SPRITE_CHAR_INDEX[pixel]
                     group.append(displayio.TileGrid(
                         bitmap, pixel_shader=palette,
                         x=TODAY_HEADER_ICON_X, y=TODAY_HEADER_ICON_Y,
@@ -4464,7 +4387,8 @@ class FixtureDisplay:
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
-        self._text("{} DAYS UNTIL CHRISTMAS".format(count), 88, 25, white)
+        self._text("{} DAYS".format(count), 80, 2, white, scale=2)
+        self._text("UNTIL CHRISTMAS", 38, 18, white, scale=2)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
@@ -4500,15 +4424,12 @@ class FixtureDisplay:
         weekday_color = (119, 119, 119) if stale else (255, 170, 0)
         for item in layout:
             self._text(item["weekday"], item["weekday_x"], WEATHER_HEADING_PIXEL_Y, weekday_color)
-            icon_color = _rgb_tuple(_weather_rgb(item["icon_name"], stale))
-            for y, row in enumerate(item["icon_rows"]):
+            for y, row in enumerate(item["sprite_rows"]):
                 for x, pixel in enumerate(row):
-                    if pixel == "#":
-                        for dx in range(WEEKLY_WEATHER_ICON_SCALE):
-                            for dy in range(WEEKLY_WEATHER_ICON_SCALE):
-                                self._pixel(item["icon_x"] + x * WEEKLY_WEATHER_ICON_SCALE + dx,
-                                            WEEKLY_WEATHER_ICON_Y + y * WEEKLY_WEATHER_ICON_SCALE + dy,
-                                            icon_color)
+                    if pixel != ".":
+                        self._pixel(item["icon_x"] + x,
+                                    WEEKLY_WEATHER_ICON_Y + y,
+                                    _rgb_tuple(_weather_sprite_color(pixel, stale)))
             self._text_scaled(
                 item["max_text"], item["max_x"], WEEKLY_WEATHER_TEMPERATURE_Y, text_color
             )
@@ -4525,15 +4446,12 @@ class FixtureDisplay:
         label_color = (119, 119, 119) if stale else (255, 170, 0)
         for item in layout:
             self._text(item["label"], item["label_x"], WEATHER_HEADING_PIXEL_Y, label_color)
-            icon_color = _rgb_tuple(_weather_rgb(item["icon_name"], stale))
-            for y, row in enumerate(item["icon_rows"]):
+            for y, row in enumerate(item["sprite_rows"]):
                 for x, pixel in enumerate(row):
-                    if pixel == "#":
-                        for dx in range(TODAY_WEATHER_ICON_SCALE):
-                            for dy in range(TODAY_WEATHER_ICON_SCALE):
-                                self._pixel(item["icon_x"] + x * TODAY_WEATHER_ICON_SCALE + dx,
-                                            TODAY_WEATHER_ICON_Y + y * TODAY_WEATHER_ICON_SCALE + dy,
-                                            icon_color)
+                    if pixel != ".":
+                        self._pixel(item["icon_x"] + x,
+                                    TODAY_WEATHER_ICON_Y + y,
+                                    _rgb_tuple(_weather_sprite_color(pixel, stale)))
             self._text_scaled(
                 item["temp_text"], item["temp_x"], TODAY_WEATHER_TEMPERATURE_Y, text_color
             )
@@ -4561,24 +4479,17 @@ class FixtureDisplay:
                     _rgb_tuple(label_palette_color),
                     SUN_WEATHER_TIME_SCALE,
                 )
-            icon_color = _rgb_tuple(_sun_weather_rgb(icon_name, stale, phase))
-            icon_scale = (
-                SUN_WEATHER_ICON_SCALE
-                if icon_name == "clear_day"
-                else SUN_WEATHER_MOON_ICON_SCALE
-            )
-            icon_width = WEATHER_ICON_WIDTH * icon_scale
-            icon_x = left + 1 + (WEATHER_ICON_WIDTH * SUN_WEATHER_ICON_SCALE - icon_width) // 2
-            for y, row in enumerate(WEATHER_ICONS[icon_name]):
+            icon_rows = _celestial_sprite_rows(icon_name)
+            icon_x = left + 1
+            for y, row in enumerate(icon_rows):
                 for x, pixel in enumerate(row):
-                    if pixel == "#":
-                        for dx in range(icon_scale):
-                            for dy in range(icon_scale):
-                                self._pixel(
-                                    icon_x + x * icon_scale + dx,
-                                    _sun_weather_icon_y(icon_name, phase) + y * icon_scale + dy,
-                                    icon_color,
-                                )
+                    if pixel != ".":
+                        color = 0x777777 if stale else WEATHER_SPRITE_PALETTE[pixel]
+                        self._pixel(
+                            icon_x + x,
+                            _sun_weather_icon_y(icon_name, phase) + y,
+                            _rgb_tuple(color),
+                        )
             self._text_scaled(value, left + 88, 11, text_color, SUN_WEATHER_TIME_SCALE)
 
     def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--", now_epoch=None):
@@ -4603,19 +4514,16 @@ class FixtureDisplay:
                         scale=TODAY_DATE_SCALE,
                     )
                 icon_name = _weather_icon(weather)[0] or "unknown"
-                icon_scale = TODAY_HEADER_ICON_SCALE
-                for y, row in enumerate(WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])):
+                for y, row in enumerate(_weather_sprite_rows(icon_name)):
                     for x, pixel in enumerate(row):
-                        if pixel == "#":
-                            for dx in range(icon_scale):
-                                for dy in range(icon_scale):
-                                    self._pixel(
-                                        TODAY_HEADER_ICON_X + x * icon_scale + dx,
-                                        TODAY_HEADER_ICON_Y + y * icon_scale + dy,
-                                        _rgb_tuple(_weather_rgb(
-                                            icon_name, bool(weather.get("stale"))
-                                        )),
-                                    )
+                        if pixel != ".":
+                            self._pixel(
+                                TODAY_HEADER_ICON_X + x,
+                                TODAY_HEADER_ICON_Y + y,
+                                _rgb_tuple(_weather_sprite_color(
+                                    pixel, bool(weather.get("stale"))
+                                )),
+                            )
                 temperature = _weather_text(weather) or "--C"
                 self._text(clock_time,
                            max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3),
@@ -4819,17 +4727,8 @@ class FixtureDisplay:
             self._text(_clip(screen.get("title") or "Display unavailable", 30), 0, 0, (255, 255, 255))
 
     def _header_weather(self, weather, offset=0):
-        if not isinstance(weather, dict) or self.pixels is None:
-            return
-        text, icon_x, text_x = _weather_group_layout(weather, offset)
-        icon_name, rows = _weather_icon(weather)
-        stale = bool(weather.get("stale"))
-        color = _rgb_tuple(_weather_rgb(icon_name, stale))
-        for y, row in enumerate(rows):
-            for x, pixel in enumerate(row):
-                if pixel == "#":
-                    self._pixel(icon_x + x, y, color)
-        self._text(text, text_x, 0, (170, 170, 170) if stale else (255, 255, 255))
+        # The header keeps a steady clock; forecast screens carry weather.
+        return
 
     def show(self, screen, clock_time="--:--", clock_date="", phase=2, now_epoch=None):
         empty_state = screen.get("empty_state")

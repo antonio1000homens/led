@@ -401,7 +401,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 TODOIST_MARQUEE_FPS,
             )
 
-    def test_header_switches_stationary_items_every_seven_seconds(self):
+    def test_header_clock_stays_visible_without_weather_rotation(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = todoist_screen(3)
@@ -410,7 +410,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.show(screen, clock_time="19:40", clock_date="2026-09-20", phase=phase)
 
             expected_item, expected_offset = led_display._header_item_state(phase, screen["weather"])
-            self.assertEqual(expected_item, "weather")
+            self.assertEqual(expected_item, "clock")
             self.assertEqual(expected_offset, 0)
             self.assertEqual(display.animation_cadence(screen, phase), TODOIST_MARQUEE_FPS)
             self.assertNotEqual(display._animation_class(screen, phase), "header_slide")
@@ -418,7 +418,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 display._todoist_clock_group.x if expected_item == "clock" else display._todoist_weather_group.x,
                 expected_offset,
             )
-            self.assertEqual(led_display._header_item_state(13.99, screen["weather"]), ("weather", 0))
+            self.assertEqual(led_display._header_item_state(13.99, screen["weather"]), ("clock", 0))
             self.assertEqual(led_display._header_item_state(14.0, screen["weather"]), ("clock", 0))
 
     def test_baseline_gate_keeps_fixed_b8_schedule(self):

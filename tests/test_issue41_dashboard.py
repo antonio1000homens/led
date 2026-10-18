@@ -31,22 +31,17 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn("{ kind: 'service', service: list[2] || null }", self.simulator_source)
         self.assertIn("(rowIndex === 0 ? 1 : rowIndex)", self.simulator_source)
 
-    def test_weather_icon_and_temperature_replace_clock_as_one_header_group(self):
+    def test_header_clock_is_static_without_compact_weather_icons(self):
         self.assertIn('def _header_item_state(phase, weather):', self.display_source)
-        self.assertIn('HEADER_HOLD_SECONDS = 7.0', self.display_source)
-        self.assertIn('return ("clock", 0) if within < HEADER_HOLD_SECONDS else ("weather", 0)', self.display_source)
+        self.assertIn('return "clock", 0', self.display_source)
         self.assertIn('def _header_weather(self, group, weather, offset=0):', self.display_source)
-        self.assertIn('text, icon_x, text_x = _weather_group_layout(weather, offset)', self.display_source)
-        self.assertIn('x=icon_x, y=0', self.display_source)
-        self.assertIn('if item == "weather":', self.display_source)
+        self.assertIn('The header keeps a steady clock; forecast screens carry weather.', self.display_source)
+        self.assertNotIn('WEATHER_ICON_WIDTH = 7', self.display_source)
         self.assertNotIn('WEATHER_Y =', self.display_source)
 
-        self.assertIn('function headerItemState(phase, weather)', self.simulator_source)
-        self.assertIn('const HEADER_HOLD_SECONDS = 7.0;', self.simulator_source)
-        self.assertIn("return { item: within < HEADER_HOLD_SECONDS ? 'clock' : 'weather', offset: 0 };", self.simulator_source)
-        self.assertIn('function drawWeatherGroup(weather, offset = 0)', self.simulator_source)
-        self.assertIn("if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);", self.simulator_source)
-        self.assertNotIn('drawWeatherIcon(screen.weather);', self.simulator_source)
+        self.assertIn('drawClock(clock);', self.simulator_source)
+        self.assertNotIn('weatherIcons', self.simulator_source)
+        self.assertNotIn('drawWeatherPattern(', self.simulator_source)
 
     def test_station_marquee_defaults_are_slower_and_keep_fixed_wrap_gap(self):
         self.assertRegex(self.display_source, r'CALLING_SCROLL_SPEED\s*=\s*20\.0')

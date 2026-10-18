@@ -147,6 +147,9 @@
     const BIN_COLORS = { blue: '#2255ff', green: '#22aa44', black: '#777777' };
     const SUN_WEATHER_ANIMATION_SECONDS = 4.0;
     const SUN_WEATHER_TOTAL_ANIMATION_SECONDS = SUN_WEATHER_ANIMATION_SECONDS * 2;
+    const WEATHER_SPRITE_SCALE = 4;
+    const WEATHER_SPRITE_SIZE = 14;
+    const CELESTIAL_SPRITE_SIZE = 21;
     const MATRIX_FRAME_MS = 1000 / MATRIX_REFRESH_FPS;
     const FONT_FIRST_CODEPOINT = 32;
     const FONT_PIXEL_SCALE = 4;
@@ -397,7 +400,6 @@
     const RAIL_MARQUEE_GAP = 112;
     const CALLING_LABEL = 'CALLING AT: ';
     const CALLING_MARQUEE_PAUSE_SECONDS = 3.0;
-    const HEADER_HOLD_SECONDS = 7.0;
     const RAIL_ORDINAL_X = 0;
     const RAIL_TIME_X = 96;
     const RAIL_DESTINATION_X = 252;
@@ -411,24 +413,17 @@
     const NOVELTY_HEADING_Y = 5;
     const NOVELTY_FIRST_LINE_Y = 14;
 
-    const weatherIcons = {
-      clear_day: ['.......', '..###..', '.#####.', '.#####.', '.#####.', '..###..', '.......'],
-      clear_night: ['...###.', '..###..', '.###...', '.###...', '.####..', '..####.', '...###.'],
-      partly_cloudy_day: ['.#.#...', '..#....', '.###...', '...##..', '..#####', '.######', '.......'],
-      partly_cloudy_night: ['..##...', '.##....', '.###...', '...##..', '..#####', '.######', '.......'],
-      cloudy: ['.......', '...##..', '..####.', '.######', '#######', '.......', '.......'],
-      fog: ['.......', '.#####.', '.......', '#######', '.......', '.#####.', '.......'],
-      rain: ['...##..', '..####.', '.######', '#######', '..#.#..', '.#.#...', '#.#....'],
-      snow: ['...##..', '..####.', '.######', '#######', '.#.#.#.', '..#.#..', '.#.#.#.'],
-      storm: ['...##..', '..####.', '.######', '#######', '...##..', '..##...', '...#...'],
-      unknown: ['.#####.', '##...##', '....##.', '...##..', '..##...', '.......', '..##...']
-    };
-    const weatherColors = {
-      clear_day: '#ffaa00', clear_night: '#aaccff', partly_cloudy_day: '#ffcc55',
-      partly_cloudy_night: '#aaccff', cloudy: '#bbbbbb', fog: '#888888',
-      rain: '#55aaff', snow: '#ffffff', storm: '#ffcc00', unknown: '#888888'
-    };
-
+    const spriteData = {"weather":{"sunny":["......Y.......","..............","..Y.......Y...",".....YYY......","....YYYYY.....","...YYYYYYY....","Y..YYYYYYY..Y.","...YYYYYOY....","....YYYOO.....",".....YYY......","..Y.......Y...","..............","......Y.......",".............."],"partly_cloudy":["Y.......Y.....","...YYY........","..YYYYY.......",".YYYYYYY......",".YYYYYYY..Y...",".YYYYYOWWW....","..YYYOWWWWW...","...CCWWWWWWW..","YCCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."],"cloudy":["..............","..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","..............",".............."],"overcast":["..............","..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............",".............."],"drizzle":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...C........C.","........C.....",".............."],"rain":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...B...B...B..","..B...B...B...",".............."],"heavy_rain":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..B....B....B.",".B....B....B..","....B....B....","...B....B....."],"showers":["..YYY.........",".YYYYY........","YYYYYYY.......","YYYYYYY..Y....","YYYYYOYWWW....",".YYYOOWWWWW...","..CCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","..CCCCCWWW....","...B...B...B..","..B...B...B...",".............."],"thunderstorm":["..............","..............",".......BBB....",".....CBBCBB...","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","........Y.....",".........Y..B.","..B...Y.Y..B..",".B............","......Y......."],"snow":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...WCC.WWW....","..WWW...WWW...","...W..W..W....",".....WWW......"],"sleet":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","..BCCW.WWW....",".B..WWW..B....",".....W..B.....",".............."],"hail":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","...WC.......WC","........WC....",".............."],"windy":["..............","..............","..CCC.....CC..",".....CWWWC....","..............","..............","...CCC........","......CC..WC..","..............","..............","..CC....WCC...","....CCC.......","..............",".............."],"fog":["..............",".......BBB....",".....CBBCBBB..","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............","..............","..C.C.C.C.C.C.","..............",".C.C.C.C.C.C..",".............."],"clear_night":["..............","..............",".W....Y.......","WWW.YYY.......","...YYY........","...YY.........","..YYY.........","...YY.........","...YYY......W.","....YYY....WWW","......Y.......","..............","..............",".............."],"partly_cloudy_night":["....Y.........","..YYY.........",".YYY..........",".YY...........","YYY...........",".YY....WWW....",".YYY..WWWWW...","..YCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."]},"celestial":{"sun":["..........Y..........","..........Y..........",".....................","...Y.............Y...","....Y.....Y.....Y....",".......YYYYYYY.......","......YYYYYYYYY......",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....","YY..YYYYYYYYYYYYY..YY",".....YYYYYYYYYYY.....",".....YYYYYYYYYYO.....",".....YYYYYYYYYOY.....","......YYYYYYYOY......",".......YOOOOOY.......","....Y.....Y.....Y....","...Y.............Y...",".....................","..........Y..........","..........Y.........."],"moon":[".....................","..................W..","..........Y......W.W.",".......YYYY.......W..",".....YYYY.........W..","....YYYY.............","....WYY..............","...YYYY..............","...WYY...............","...WYY...............","..YYYY...............","...YYY...............","...YYY...............","...YYYY..............","....YYY..........W...","....YYYY........W.W..",".....YYYY........W...",".......YYYY......W...","..........Y..........",".....................","....................."]},"palette":{"Y":"#ffff00","O":"#ff0000","W":"#ffffff","C":"#00ffff","B":"#0000ff","D":"#0000ff","R":"#ff0000","M":"#ff00ff"}};
+    const weatherSpriteAliases = {clear_day:"sunny",partly_cloudy_day:"partly_cloudy",cloudy:"overcast",storm:"thunderstorm",unknown:"cloudy"};
+    function weatherSpriteName(name) { const key = weatherSpriteAliases[name] || name; return spriteData.weather[key] ? key : "cloudy"; }
+    function drawWeatherSprite(name, x, y, stale, scale = WEATHER_SPRITE_SCALE, solar = false) {
+      const rows = solar ? spriteData.celestial[name === "moon" ? "moon" : "sun"] : spriteData.weather[weatherSpriteName(name)];
+      rows.forEach((line, row) => [...line].forEach((symbol, column) => {
+        if (symbol === ".") return;
+        context.fillStyle = stale ? (solar ? "#777777" : "#0000ff") : spriteData.palette[symbol];
+        context.fillRect(x + column * scale, y + row * scale, scale, scale);
+      }));
+    }
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
     function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
     function ordinalLabel(number) {
@@ -991,44 +986,10 @@
       result.splice(Math.min(insertAt, result.length), 0, ...pair);
       return result;
     }
-    function temperatureText(weather) {
-      if (!weather || typeof weather !== 'object') return '';
-      const temperature = Number(weather.temperature_c);
-      return Number.isFinite(temperature) ? Math.round(temperature) + 'C' : '--C';
-    }
-    function headerItemState(phase, weather) {
-      if (!weather || typeof weather !== 'object') return { item: 'clock', offset: 0 };
-      const safePhase = Math.max(0, Number(phase) || 0);
-      const within = safePhase % (HEADER_HOLD_SECONDS * 2);
-      return { item: within < HEADER_HOLD_SECONDS ? 'clock' : 'weather', offset: 0 };
-    }
     function drawClock(layout, offset = 0) {
       const current = layout || clockLayout();
       context.fillStyle = '#ffaa00';
       drawLedText(current.text, current.x + offset, HEADER_TEXT_Y);
-    }
-    function weatherGroupLayout(weather, offset = 0) {
-      if (!weather || typeof weather !== 'object') return null;
-      const iconName = weatherIcons[weather.icon] ? weather.icon : 'unknown';
-      const text = temperatureText(weather) || '--°C';
-      const groupWidth = 28 + 4 + measureLedText(text).width;
-      const groupX = Math.max(0, 1024 - groupWidth) + offset;
-      return {
-        iconName,
-        pattern: weatherIcons[iconName],
-        stale: Boolean(weather.stale),
-        text,
-        iconX: groupX,
-        textX: groupX + 32
-      };
-    }
-    function drawWeatherGroup(weather, offset = 0) {
-      const layout = weatherGroupLayout(weather, offset);
-      if (!layout) return;
-      context.fillStyle = layout.stale ? '#777777' : weatherColors[layout.iconName];
-      layout.pattern.forEach((line, y) => [...line].forEach((pixel, x) => { if (pixel === '#') context.fillRect(layout.iconX + x * 4, y * 4, 4, 4); }));
-      context.fillStyle = layout.stale ? '#aaaaaa' : '#ffffff';
-      drawLedText(layout.text, layout.textX, HEADER_TEXT_Y);
     }
     const compactWeatherGlyphs = {
       '0':[7,5,5,5,7], '1':[2,6,2,2,7], '2':[7,1,7,4,7], '3':[7,1,7,1,7],
@@ -1059,13 +1020,6 @@
         });
       });
     }
-    function drawWeatherPattern(iconName, x, y, scale, stale, colorOverride = null) {
-      const name = weatherIcons[iconName] ? iconName : 'unknown';
-      context.fillStyle = stale ? '#777777' : (colorOverride || weatherColors[name]);
-      weatherIcons[name].forEach((line, row) => [...line].forEach((pixel, column) => {
-        if (pixel === '#') context.fillRect(x + column * scale, y + row * scale, scale, scale);
-      }));
-    }
     function drawWeeklyWeather(screen) {
       const days = Array.isArray(screen.days) ? screen.days.slice(0, 7) : [];
       if (!days.length) {
@@ -1081,8 +1035,8 @@
         const width = right - left;
         const weekday = String(day.weekday || '').toUpperCase().slice(0, 3);
         const maxText = weeklyTemperature(day.temperature_max_c);
-        const iconName = weatherIcons[day.icon] ? day.icon : 'unknown';
-        const iconWidth = 7 * 8;
+        const iconName = day.icon || 'unknown';
+        const iconWidth = WEATHER_SPRITE_SIZE * WEATHER_SPRITE_SCALE;
         const iconX = left + Math.max(0, (width - iconWidth) / 2);
 
         context.save();
@@ -1091,7 +1045,7 @@
         context.clip();
         context.fillStyle = stale ? '#777777' : '#ffaa00';
         drawLedText(weekday, left + Math.max(0, (width - measureLedText(weekday).width) / 2), 8);
-        drawWeatherPattern(iconName, iconX, 40, 8, stale);
+        drawWeatherSprite(iconName, iconX, 40, stale);
         context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
         drawCompactTemperature(maxText, left + Math.max(0, (width - compactTemperatureWidth(maxText)) / 2), 100);
         context.restore();
@@ -1114,7 +1068,11 @@
         const temp = weeklyTemperature(block.temperature_c);
         context.fillStyle = stale ? '#777777' : '#ffaa00';
         drawLedText(label, left + Math.max(0, (width - measureLedText(label).width) / 2), 8);
-        drawWeatherPattern(block.icon, left + Math.max(0, (width - 56) / 2), 44, 8, stale);
+        drawWeatherSprite(
+          block.icon,
+          left + Math.max(0, (width - WEATHER_SPRITE_SIZE * WEATHER_SPRITE_SCALE) / 2),
+          44, stale
+        );
         context.fillStyle = stale ? '#aaaaaa' : '#ffffff';
         drawCompactTemperature(temp, left + Math.max(0, (width - compactTemperatureWidth(temp)) / 2), 108);
       });
@@ -1125,8 +1083,8 @@
       const formatSunTime = value => /^\d{4}$/.test(String(value || ''))
         ? `${String(value).slice(0, 2)}:${String(value).slice(2)}` : (value || '--:--');
       const halves = [
-        {label:'SUNRISE', value:formatSunTime(screen.sunrise_time), icon:'clear_day', left:0, right:512, startY:128},
-        {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-56}
+        {label:'SUNRISE', value:formatSunTime(screen.sunrise_time), icon:'clear_day', left:0, right:512, startY:32 * WEATHER_SPRITE_SCALE},
+        {label:'SUNSET', value:formatSunTime(screen.sunset_time), icon:'clear_night', left:512, right:1024, startY:-CELESTIAL_SPRITE_SIZE * WEATHER_SPRITE_SCALE}
       ];
       halves.forEach(item => {
         const width = item.right - item.left;
@@ -1136,16 +1094,12 @@
         const colorProgress = localPhase / SUN_WEATHER_COLOR_SECONDS;
         const easedProgress = progress * progress * (3 - 2 * progress);
         const easedColorProgress = colorProgress * colorProgress * (3 - 2 * colorProgress);
-        const iconScale = item.icon === 'clear_day' ? 12 : 8;
-        const iconSize = 7 * iconScale;
-        const iconTileSize = 7 * 12;
-        const restY = 20 + Math.floor((iconTileSize - iconSize) / 8) * 4;
-        const iconY = item.startY + (restY - item.startY) * easedProgress;
-        const iconX = item.left + 4 + Math.floor((iconTileSize - iconSize) / 8) * 4;
-        drawWeatherPattern(item.icon, iconX, iconY, iconScale, stale,
-          item.icon === 'clear_day'
-            ? '#ffff00'
-            : '#0000ff');
+        const restingY = 5 * WEATHER_SPRITE_SCALE;
+        const iconY = item.startY + (restingY - item.startY) * easedProgress;
+        drawWeatherSprite(
+          item.icon === 'clear_day' ? 'sun' : 'moon', item.left + WEATHER_SPRITE_SCALE,
+          iconY, stale, WEATHER_SPRITE_SCALE, true
+        );
         if (item.icon === 'clear_day') {
           const yellowLetters = Math.min(7, Math.floor(easedColorProgress * 8));
           [...item.label].forEach((character, index) => {
@@ -1289,7 +1243,9 @@
       drawChristmasSleigh(0, 4);
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
-      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 88 * px, 25 * px);
+      // Three-digit count anchor stays fixed; added digits grow rightward.
+      drawLedTextScaled(`${days} DAYS`, 80 * px, 2 * px, 2);
+      drawLedTextScaled('UNTIL CHRISTMAS', 38 * px, 18 * px, 2);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {
@@ -1507,14 +1463,12 @@
         const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
         const timeX = Math.max(0, 256 - nowText.length * 12 + 3);
-        const dateX = 22 + Math.max(0, Math.floor((timeX - 22 - todayDateWidth(date.length)) / 2));
+        const dateX = 15 + Math.max(0, Math.floor((timeX - 15 - todayDateWidth(date.length)) / 2));
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
-        const iconName = String(weather.icon || 'unknown');
-        const iconRows = weatherIcons[iconName] || weatherIcons.unknown;
-        context.fillStyle = weather.stale ? '#777777' : '#bbbbbb';
-        iconRows.forEach((row, y) => [...row].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect(x * 3 * FONT_PIXEL_SCALE, (5 + y * 3) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
-        }));
+        drawWeatherSprite(
+          weather.icon || 'unknown', 0, 5 * WEATHER_SPRITE_SCALE,
+          Boolean(weather.stale), WEATHER_SPRITE_SCALE
+        );
         context.fillStyle = '#ffaa00';
         drawLedTextScaled(nowText, timeX * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2, true);
         const dateFps = hardwarePreview ? Math.min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS) : TODAY_DATE_ANIMATION_FPS;
@@ -1850,10 +1804,7 @@
       context.lineWidth = 2;
       for (let seam = 256; seam < 1024; seam += 256) context.strokeRect(seam, 0, 0, 128);
       if (!suppressHeader) {
-        const headerPhase = hardwarePreview ? (screen.source === 'todoist' ? rawPhase : 2) : now / 1000;
-        const header = headerItemState(headerPhase, screen.weather);
-        if (header.item === 'weather') drawWeatherGroup(screen.weather, header.offset);
-        else drawClock(clock, header.offset);
+        drawClock(clock);
       }
       presentPreview();
       const updated = fetchedAt ? ' · updated ' + new Date(fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
