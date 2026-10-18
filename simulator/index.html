@@ -99,6 +99,13 @@
     const ASSISTANT_LINES_PER_PAGE = 3;
     const ASSISTANT_LINE_SECONDS = 2.5;
     const SUN_WEATHER_COLOR_SECONDS = 4.0;
+    const TODAY_DATE_COLOR_CYCLE_SECONDS = 5;
+    const TODAY_DATE_ANIMATION_FPS = 8;
+    const TODAY_DATE_BLEND_WIDTH = 24;
+    const TODAY_DATE_SCALE = 2;
+    const TODAY_DATE_CHAR_ADVANCE = 11;
+    const TODAY_DATE_COLORS = [0x00d7ff, 0xd957ff, 0xff9f43, 0x4be0a2, 0x536dff];
+    const TODAY_DATE_DITHER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
     const BIN_COLORS = { blue: '#2255ff', green: '#22aa44', black: '#777777' };
     const SUN_WEATHER_ANIMATION_SECONDS = 4.0;
     const SUN_WEATHER_TOTAL_ANIMATION_SECONDS = SUN_WEATHER_ANIMATION_SECONDS * 2;
@@ -160,12 +167,13 @@
         });
       }
     }
-    function drawLedTextScaled(value, x, y, scale) {
+    function drawLedTextScaled(value, x, y, scale, alignToPhysicalPixel = false) {
       const text = String(value ?? '');
       const color = context.fillStyle;
       const pixelScale = FONT_PIXEL_SCALE * scale;
-      const startX = Math.round(Number(x || 0) / pixelScale) * pixelScale;
-      const startY = Math.round(Number(y || 0) / pixelScale) * pixelScale;
+      const alignment = alignToPhysicalPixel ? FONT_PIXEL_SCALE : pixelScale;
+      const startX = Math.round(Number(x || 0) / alignment) * alignment;
+      const startY = Math.round(Number(y || 0) / alignment) * alignment;
       for (let index = 0; index < text.length; index += 1) {
         const code = text.charCodeAt(index);
         const rows = FONT_5X7[code - FONT_FIRST_CODEPOINT] || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
@@ -179,6 +187,50 @@
           }
         });
       }
+    }
+    function todayDateWidth(count) {
+      return Math.max(1, (count - 1) * TODAY_DATE_CHAR_ADVANCE + 6 * TODAY_DATE_SCALE);
+    }
+    function todayDateColumnColor(phase, width, x) {
+      const distance = Math.max(0, Number(phase) || 0) * width / TODAY_DATE_COLOR_CYCLE_SECONDS - x;
+      if (distance < 0) return 0xffffff;
+      const cycle = Math.floor(distance / width);
+      const blend = Math.min(TODAY_DATE_BLEND_WIDTH, Math.floor(distance - cycle * width));
+      const old = cycle === 0 ? 0xffffff : TODAY_DATE_COLORS[(cycle - 1) % TODAY_DATE_COLORS.length];
+      const next = TODAY_DATE_COLORS[cycle % TODAY_DATE_COLORS.length];
+      let color = 0;
+      for (const shift of [16, 8, 0]) {
+        const channel = Math.floor((((old >> shift) & 255) * (TODAY_DATE_BLEND_WIDTH - blend) + ((next >> shift) & 255) * blend) / TODAY_DATE_BLEND_WIDTH);
+        color |= channel << shift;
+      }
+      return color;
+    }
+    function todayDatePixelColor(color, x, y) {
+      const threshold = (TODAY_DATE_DITHER[(y & 3) * 4 + (x & 3)] * 2 + 1) * 255;
+      return ((((color >> 16) & 255) * 32 > threshold ? 0xff0000 : 0)
+        | (((color >> 8) & 255) * 32 > threshold ? 0x00ff00 : 0)
+        | ((color & 255) * 32 > threshold ? 0x0000ff : 0));
+    }
+    function drawTodayDate(text, x, y, phase) {
+      const width = todayDateWidth(text.length);
+      const colors = Array.from({length: width}, (_, column) => todayDateColumnColor(phase, width, column));
+      [...text].forEach((character, index) => {
+        const rows = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT] || FONT_5X7[31];
+        rows.forEach((bits, row) => {
+          for (let column = 0; column < 5; column++) {
+            if (!(bits & (1 << (4 - column)))) continue;
+            for (let dy = 0; dy < TODAY_DATE_SCALE; dy++) {
+              for (let dx = 0; dx < TODAY_DATE_SCALE; dx++) {
+                const px = index * TODAY_DATE_CHAR_ADVANCE + column * TODAY_DATE_SCALE + dx;
+                const py = row * TODAY_DATE_SCALE + dy;
+                const color = todayDatePixelColor(colors[px], px, py);
+                context.fillStyle = '#' + color.toString(16).padStart(6, '0');
+                context.fillRect((x + px) * FONT_PIXEL_SCALE, (y + py) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+              }
+            }
+          }
+        });
+      });
     }
     function drawLedTextLarge(value, x, y) {
       drawLedTextScaled(value, x, y, 3);
@@ -310,7 +362,7 @@
     const HEADER_HOLD_SECONDS = 7.0;
     const RAIL_ORDINAL_X = 0;
     const RAIL_TIME_X = 96;
-    const RAIL_DESTINATION_X = 240;
+    const RAIL_DESTINATION_X = 252;
     const RAIL_PLATFORM_X = 608;
     const RAIL_COLUMN_GAP = 16;
     const DEPARTURE_SLIDE_SECONDS = 0.8;
@@ -1237,7 +1289,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1246,21 +1298,23 @@
       context.fillStyle = '#ffaa00';
       if (screen.kind === 'today') {
         const weather = screen.weather || {};
-        const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'short',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
-        const dateX = (2 * 7 + 2) * FONT_PIXEL_SCALE;
+        const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
+        const timeX = Math.max(0, 256 - nowText.length * 12 + 3);
+        const dateX = 22 + Math.max(0, Math.floor((timeX - 22 - todayDateWidth(date.length)) / 2));
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
         const iconName = String(weather.icon || 'unknown');
         const iconRows = weatherIcons[iconName] || weatherIcons.unknown;
         context.fillStyle = weather.stale ? '#777777' : '#bbbbbb';
         iconRows.forEach((row, y) => [...row].forEach((pixel, x) => {
-          if (pixel === '#') context.fillRect((x * 2) * FONT_PIXEL_SCALE, (8 + y * 2) * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+          if (pixel === '#') context.fillRect(x * 3 * FONT_PIXEL_SCALE, (5 + y * 3) * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE, 3 * FONT_PIXEL_SCALE);
         }));
         context.fillStyle = '#ffaa00';
-        drawLedTextScaled(nowText, (256 - nowText.length * 12) * FONT_PIXEL_SCALE, 0, 2);
+        drawLedTextScaled(nowText, timeX * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2, true);
+        const dateFps = hardwarePreview ? Math.min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS) : TODAY_DATE_ANIMATION_FPS;
+        drawTodayDate(date, dateX, 10, Math.floor(phase * dateFps) / dateFps);
         context.fillStyle = '#ffffff';
-        drawLedTextScaled(date, dateX, 3 * FONT_PIXEL_SCALE, 3);
-        drawLedText(temp, 0, 23 * FONT_PIXEL_SCALE);
+        drawLedTextScaled(temp, Math.max(0, 256 - temp.length * 12) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE, 2, true);
         if (screen.stale || weather.stale) {
           context.fillStyle = '#888888';
           drawLedText('STALE', 0, 1 * FONT_PIXEL_SCALE);

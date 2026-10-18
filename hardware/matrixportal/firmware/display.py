@@ -191,9 +191,12 @@ WEEKLY_WEATHER_ICON_SCALE = 2
 TODAY_WEATHER_ICON_SCALE = 2
 TODAY_HEADER_ICON_SCALE = 3
 TODAY_DATE_SCALE = 2
+TODAY_DATE_CHAR_ADVANCE = 11
 TODAY_DATE_COLOR_CYCLE_SECONDS = 5.0
-TODAY_DATE_ANIMATION_FPS = 4
+TODAY_DATE_ANIMATION_FPS = 8
+TODAY_DATE_BLEND_WIDTH = 24
 TODAY_DATE_COLORS = (0x00D7FF, 0xD957FF, 0xFF9F43, 0x4BE0A2, 0x536DFF)
+TODAY_DATE_DITHER = (0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5)
 TODAY_TIME_SCALE = 2
 SUN_WEATHER_ICON_SCALE = 3
 SUN_WEATHER_MOON_ICON_SCALE = 2
@@ -219,7 +222,7 @@ TODAY_WEATHER_ICON_Y = 11
 TODAY_WEATHER_TEMPERATURE_Y = 27
 TODAY_HEADER_ICON_X = 0
 TODAY_HEADER_ICON_Y = 5
-TODAY_DATE_Y = 6
+TODAY_DATE_Y = 10
 TODAY_TIME_Y = 2
 TODAY_TEMPERATURE_Y = 18
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
@@ -322,6 +325,7 @@ BIN_COLORS = {
 RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
 RAIL_DESTINATION_X = 63
+RAIL_DESTINATION_TRACKING = 1
 RAIL_PLATFORM_X = 152
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
@@ -913,7 +917,7 @@ def _today_date_label(clock_date):
 
 
 def _today_compact_date_label(clock_date):
-    """Return a short UK date that can be centered at twice the normal size."""
+    """Return a compact UK date with the full weekday name."""
     full_label = _today_date_label(clock_date)
     parts = full_label.split()
     if len(parts) != 2 or "/" not in parts[1]:
@@ -922,25 +926,60 @@ def _today_compact_date_label(clock_date):
         day, month, _year = parts[1].split("/")
         month_name = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")[int(month) - 1]
-        return "{} {} {}".format(parts[0][:3], day, month_name)
+        return "{} {} {}".format(parts[0], day, month_name)
     except (ValueError, IndexError):
         return full_label[:10]
 
 
-def _today_date_colors(phase, character_count):
-    """Reveal one of several colors across the date, then repeat until rotation."""
+def _today_date_position(date_label, clock_time):
+    date_width = _today_date_width(len(date_label))
+    left = TODAY_HEADER_ICON_X + WEATHER_ICON_WIDTH * TODAY_HEADER_ICON_SCALE + 1
+    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
+    return left + max(0, (right - left - date_width) // 2)
+
+
+def _today_date_width(character_count):
+    return max(1, (character_count - 1) * TODAY_DATE_CHAR_ADVANCE + 6 * TODAY_DATE_SCALE)
+
+
+def _today_date_sweep_position(phase, width):
+    """A constant-speed front; consecutive sweeps overlap at the date edges."""
     try:
         elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         elapsed = 0.0
-    cycle = int(elapsed / TODAY_DATE_COLOR_CYCLE_SECONDS)
-    cycle_phase = elapsed % TODAY_DATE_COLOR_CYCLE_SECONDS
-    color = TODAY_DATE_COLORS[cycle % len(TODAY_DATE_COLORS)]
-    starting_color = 0xFFFFFF if cycle == 0 else TODAY_DATE_COLORS[(cycle - 1) % len(TODAY_DATE_COLORS)]
-    progress = min(1.0, cycle_phase / SUN_WEATHER_COLOR_SECONDS)
-    progress = progress * progress * (3.0 - 2.0 * progress)
-    revealed = min(max(0, int(character_count)), int(progress * (character_count + 1)))
-    return tuple(color if index < revealed else starting_color for index in range(character_count))
+    return elapsed * width / TODAY_DATE_COLOR_CYCLE_SECONDS
+
+
+def _today_date_column_state(position, width, x):
+    distance = position - x
+    if distance < 0:
+        return 0  # Initial white, before the first front arrives.
+    cycle = int(distance // width)
+    blend = min(TODAY_DATE_BLEND_WIDTH, int(distance - cycle * width))
+    return 1 + cycle * (TODAY_DATE_BLEND_WIDTH + 1) + blend
+
+
+def _today_date_blend_color(state):
+    if state == 0:
+        return 0xFFFFFF
+    cycle, blend = divmod(state - 1, TODAY_DATE_BLEND_WIDTH + 1)
+    old = 0xFFFFFF if cycle == 0 else TODAY_DATE_COLORS[(cycle - 1) % len(TODAY_DATE_COLORS)]
+    new = TODAY_DATE_COLORS[cycle % len(TODAY_DATE_COLORS)]
+    color = 0
+    for shift in (16, 8, 0):
+        first, last = (old >> shift) & 255, (new >> shift) & 255
+        channel = (first * (TODAY_DATE_BLEND_WIDTH - blend) + last * blend) // TODAY_DATE_BLEND_WIDTH
+        color |= channel << shift
+    return color
+
+
+def _today_date_pixel_color(color, x, y):
+    """Fixed ordered dithering, expressed in the panel's one-bit RGB gamut."""
+    threshold = (TODAY_DATE_DITHER[(y & 3) * 4 + (x & 3)] * 2 + 1) * 255
+    return ((0xFF0000 if ((color >> 16) & 255) * 32 > threshold else 0)
+            | (0x00FF00 if ((color >> 8) & 255) * 32 > threshold else 0)
+            | (0x0000FF if (color & 255) * 32 > threshold else 0))
 
 
 class MatrixDisplay:
@@ -1047,6 +1086,7 @@ class MatrixDisplay:
                 "departures_calling",
                 "steam_train",
                 "weather_sun_slide",
+                "today_date",
             )
         }
         print(
@@ -1169,8 +1209,8 @@ class MatrixDisplay:
         self._bin_lorry_grid = None
         self._bin_lorry_label = None
         self._bin_types = ()
-        self._today_date_color_targets = ()
-        self._today_date_color_values = ()
+        self._today_date_palette = None
+        self._today_date_column_states = []
 
     @property
     def brightness_percent(self):
@@ -1298,6 +1338,66 @@ class MatrixDisplay:
                                   x=int(x), y=int(y))
         group.append(tile)
         return tile
+
+    def _today_date_bitmap(self, group, text, x):
+        """Cache the existing glyph geometry with one palette index per column/row phase."""
+        import displayio
+
+        self.font.load_glyphs(set(ord(character) for character in text))
+        ascent = getattr(self.font, "ascent", None)
+        if ascent is None:
+            ascent = self.font.get_bounding_box()[1]
+        glyphs = []
+        height = 1
+        for index, character in enumerate(text):
+            glyph = self.font.get_glyph(ord(character))
+            if glyph is None:
+                continue
+            # Match _scaled_label's per-character normalization exactly.
+            gx = glyph.dx - min(0, glyph.dx)
+            gy = -glyph.height - glyph.dy + ascent // 2
+            gy -= min(0, gy)
+            glyphs.append((glyph, index * TODAY_DATE_CHAR_ADVANCE + gx * TODAY_DATE_SCALE,
+                           gy * TODAY_DATE_SCALE))
+            height = max(height, (gy + glyph.height) * TODAY_DATE_SCALE)
+        width = _today_date_width(len(text))
+        palette = displayio.Palette(1 + width * 4)
+        palette.make_transparent(0)
+        bitmap = displayio.Bitmap(width, height, len(palette))
+        for glyph, start_x, start_y in glyphs:
+            for gy in range(glyph.height):
+                for gx in range(glyph.width):
+                    if not glyph.bitmap[gx, gy]:
+                        continue
+                    for dy in range(TODAY_DATE_SCALE):
+                        for dx in range(TODAY_DATE_SCALE):
+                            px = start_x + gx * TODAY_DATE_SCALE + dx
+                            py = start_y + gy * TODAY_DATE_SCALE + dy
+                            bitmap[px, py] = 1 + px * 4 + (py & 3)
+        group.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=TODAY_DATE_Y))
+        self._today_date_palette = palette
+        self._today_date_column_states = [-1] * width
+
+    def _update_today_date_colors(self, phase):
+        """Mutate only columns whose quantized blend changed; never redraw glyphs."""
+        states = self._today_date_column_states
+        width = len(states)
+        position = _today_date_sweep_position(phase, width)
+        changed = False
+        palette = self._today_date_palette
+        for x in range(width):
+            state = _today_date_column_state(position, width, x)
+            if state == states[x]:
+                continue
+            states[x] = state
+            color = _today_date_blend_color(state)
+            for row in range(4):
+                index = 1 + x * 4 + row
+                value = _today_date_pixel_color(color, x, row)
+                if palette[index] != value:
+                    palette[index] = value
+                    changed = True
+        return changed
 
     def _chunked_label_group(self, text, color, y, chunk_chars=24):
         """Build fixed text chunks so scrolling moves groups without reflowing labels."""
@@ -1476,7 +1576,9 @@ class MatrixDisplay:
                 "steam_train_ticks={} steam_train_changed={} "
                 "steam_train_update_max={} steam_train_refresh_max={} "
                 "departures_update_heap_gain={} departures_refresh_heap_gain={} "
-                "rail_slow_updates={} rail_gc_events={}".format(
+                "rail_slow_updates={} rail_gc_events={} "
+                "today_date_ticks={} today_date_changed={} "
+                "today_date_update_max={} today_date_refresh_max={}".format(
                 self.presentation_mode,
                 MATRIX_REFRESH_FPS,
                 elapsed,
@@ -1531,6 +1633,10 @@ class MatrixDisplay:
                 self._stats_rail_refresh_heap_gain_max,
                 self._stats_rail_slow_updates,
                 self._stats_rail_gc_events,
+                self._stats_animation_classes["today_date"]["ticks"],
+                self._stats_animation_classes["today_date"]["changed"],
+                "{:.4f}".format(self._stats_animation_classes["today_date"]["update_max"]),
+                "{:.4f}".format(self._stats_animation_classes["today_date"]["refresh_max"]),
             )
         )
         self._stats_last_report = now
@@ -1937,6 +2043,7 @@ class MatrixDisplay:
             ),
             color,
             y,
+            compact_field_x=RAIL_DESTINATION_X + x_offset,
         ):
             self._rail_static_row_bitmap_count = getattr(
                 self, "_rail_static_row_bitmap_count", 0
@@ -1944,12 +2051,64 @@ class MatrixDisplay:
             return
         self._label(group, ordinal_text, color, RAIL_ORDINAL_X + x_offset, y)
         self._label(group, time_text, color, RAIL_TIME_X + x_offset, y)
-        self._label(group, _fit_text_pixels(destination, destination_width), color, RAIL_DESTINATION_X + x_offset, y)
+        self._rail_destination_label(
+            group, _fit_text_pixels(destination, destination_width), color,
+            RAIL_DESTINATION_X + x_offset, y,
+        )
         self._label(group, platform, color, platform_x + x_offset, y)
         if status:
             self._label(group, status, color, status_x + x_offset, y)
 
-    def _rail_service_bitmap(self, group, fields, color, baseline_y):
+    def _rail_destination_label(self, group, text, color, x, baseline_y):
+        """Draw the destination with one pixel less between glyphs."""
+        if not hasattr(self.font, "get_glyph"):
+            self._label(group, text, color, x, baseline_y)
+            return
+        import displayio
+
+        text = str(text or "")
+        if hasattr(self.font, "load_glyphs"):
+            self.font.load_glyphs(set(ord(character) for character in text))
+        ascent = getattr(self.font, "ascent", None)
+        if ascent is None:
+            ascent = self.font.get_bounding_box()[1]
+        y_offset = ascent // 2
+        glyphs = []
+        cursor_x = min_x = min_y = 0
+        max_x = max_y = 0
+        for character in text:
+            glyph = self.font.get_glyph(ord(character))
+            if glyph is None:
+                continue
+            glyph_x = cursor_x + glyph.dx
+            glyph_y = -glyph.height - glyph.dy + y_offset
+            glyphs.append((glyph, glyph_x, glyph_y))
+            min_x = min(min_x, glyph_x)
+            max_x = max(max_x, glyph_x + glyph.width)
+            min_y = min(min_y, glyph_y)
+            max_y = max(max_y, glyph_y + glyph.height)
+            cursor_x += max(1, glyph.shift_x - RAIL_DESTINATION_TRACKING)
+        if not glyphs:
+            return
+        bitmap = displayio.Bitmap(max(1, max_x - min_x), max(1, max_y - min_y), 2)
+        palette = displayio.Palette(2)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = color
+        for glyph, glyph_x, glyph_y in glyphs:
+            for gy in range(glyph.height):
+                for gx in range(glyph.width):
+                    if glyph.bitmap[gx, gy]:
+                        bitmap[glyph_x - min_x + gx, glyph_y - min_y + gy] = 1
+        group.append(displayio.TileGrid(
+            bitmap,
+            pixel_shader=palette,
+            x=int(x) + min_x,
+            y=int(baseline_y) + min_y,
+        ))
+
+    def _rail_service_bitmap(self, group, fields, color, baseline_y,
+                             compact_field_x=None):
         """Render one static service row into a single compact glyph bitmap."""
         if not hasattr(self.font, "get_glyph"):
             return False
@@ -1981,7 +2140,10 @@ class MatrixDisplay:
                 max_x = max(max_x, glyph_x + glyph.width)
                 min_y = min(min_y, glyph_y)
                 max_y = max(max_y, glyph_y + glyph.height)
-                cursor_x += glyph.shift_x
+                tracking = (RAIL_DESTINATION_TRACKING
+                            if int(field_x) == int(compact_field_x)
+                            else 0)
+                cursor_x += max(1, glyph.shift_x - tracking)
 
         width = max(1, max_x - min_x)
         height = max(1, max_y - min_y)
@@ -3778,8 +3940,8 @@ class MatrixDisplay:
                 )
         if not empty_state and kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
+                update_started = ticks_ms()
                 date_label = _today_compact_date_label(clock_date)
-                date_colors = _today_date_colors(phase, len(date_label))
                 weather = screen.get("weather") or {}
                 temperature = _weather_text(weather)
                 key = ("TODAY", date_label, clock_time, temperature,
@@ -3787,17 +3949,8 @@ class MatrixDisplay:
                 if getattr(self, "_static_key", None) != key:
                     import displayio
                     group = displayio.Group()
-                    date_width = len(date_label) * 6 * TODAY_DATE_SCALE
-                    date_x = max(0, (DISPLAY_WIDTH - date_width) // 2)
-                    self._today_date_color_targets = tuple(
-                        self._scaled_label(
-                            group, character, date_colors[index],
-                            date_x + index * 6 * TODAY_DATE_SCALE, TODAY_DATE_Y,
-                            scale=TODAY_DATE_SCALE,
-                        )
-                        for index, character in enumerate(date_label)
-                    )
-                    self._today_date_color_values = date_colors
+                    date_x = _today_date_position(date_label, clock_time)
+                    self._today_date_bitmap(group, date_label, date_x)
                     icon_name = _weather_icon(weather)[0] or "unknown"
                     rows = WEATHER_ICONS.get(icon_name, WEATHER_ICONS["unknown"])
                     icon_scale = TODAY_HEADER_ICON_SCALE
@@ -3829,17 +3982,10 @@ class MatrixDisplay:
                         self._label(group, "STALE", 0x888888, 0, 0)
                     self._static_group = group
                     self._static_key = key
-                date_changed = date_colors != self._today_date_color_values
-                if date_changed:
-                    for index, color in enumerate(date_colors):
-                        if color == self._today_date_color_values[index]:
-                            continue
-                        target = self._today_date_color_targets[index]
-                        if hasattr(target, "pixel_shader"):
-                            target.pixel_shader[1] = color
-                        else:
-                            target.color = color
-                    self._today_date_color_values = date_colors
+                date_changed = self._update_today_date_colors(phase)
+                self._record_animation_update(
+                    "today", date_changed, elapsed_seconds(update_started), "today_date"
+                )
                 if self.display.root_group is not self._static_group:
                     self._present(self._static_group)
                 elif date_changed:
@@ -3998,6 +4144,7 @@ class FixtureDisplay:
             "6": (1, 1, 0, 1, 1), "7": (1, 0, 0, 0, 0), "8": (1, 1, 1, 1, 1), "9": (1, 1, 1, 0, 1),
         }
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        pixel_color = color if callable(color) else None
         x = int(x)
         y = int(y)
         for char in str(value).upper():
@@ -4011,7 +4158,8 @@ class FixtureDisplay:
                     for row in range(5):
                         for dx in range(scale):
                             for dy in range(scale):
-                                self._pixel(x + column * scale + dx, y + row * scale + dy, color)
+                                px, py = x + column * scale + dx, y + row * scale + dy
+                                self._pixel(px, py, pixel_color(px, py) if pixel_color else color)
             x += WEATHER_FONT_WIDTH * scale
 
     def _text_scaled(self, value, x, y, color, scale=WEEKLY_WEATHER_TEXT_SCALE):
@@ -4273,12 +4421,19 @@ class FixtureDisplay:
             if kind == "today":
                 weather = screen.get("weather") or {}
                 date_label = _today_compact_date_label(clock_date)
-                date_width = len(date_label) * 6 * TODAY_DATE_SCALE
-                date_x = max(0, (DISPLAY_WIDTH - date_width) // 2)
+                date_x = _today_date_position(date_label, clock_time)
+                width = _today_date_width(len(date_label))
+                position = _today_date_sweep_position(phase, width)
+                colors = [_today_date_blend_color(_today_date_column_state(position, width, x))
+                          for x in range(width)]
+                def date_pixel_color(x, y):
+                    return _rgb_tuple(_today_date_pixel_color(
+                        colors[x - date_x], x - date_x, y - TODAY_DATE_Y
+                    ))
                 for index, character in enumerate(date_label):
                     self._text(
-                        character, date_x + index * 6 * TODAY_DATE_SCALE, TODAY_DATE_Y,
-                        _rgb_tuple(_today_date_colors(phase, len(date_label))[index]),
+                        character, date_x + index * TODAY_DATE_CHAR_ADVANCE, TODAY_DATE_Y,
+                        date_pixel_color,
                         scale=TODAY_DATE_SCALE,
                     )
                 icon_name = _weather_icon(weather)[0] or "unknown"

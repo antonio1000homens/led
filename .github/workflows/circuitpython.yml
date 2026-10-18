@@ -94,6 +94,7 @@ jobs:
           tests=(
             test_button_control.py
             test_display_layout.py
+            test_today_date_animation.py
             test_deployment_static.py
             test_flash_events.py
             test_formatting.py

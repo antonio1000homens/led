@@ -34,6 +34,40 @@ The RGBMatrix/Protomatter driver continuously scans the complete panel chain at
 a much higher rate. The application cadence only determines how often Python
 calculates and presents a new visible state.
 
+## Today date colour sweep
+
+The Today date uses a persistent indexed bitmap with the existing per-letter
+glyph geometry. Palette entries identify a physical pixel column and one of
+four row phases, so animation changes palette colours without repainting the
+glyph mask or allocating a new scene. Only columns whose blend step changes
+need palette updates.
+
+The colour front travels at a constant speed of one date width every five
+seconds. A 24-pixel blend band trails the front; the next sweep starts while
+the previous band's tail is still reaching the right edge. This removes the
+old one-second hold and end-of-sweep easing. The first sweep starts from white.
+Fixed 4×4 ordered dithering represents the blend within the existing one-bit
+RGB channel depth. Today requests 8 updates per second, capped by the configured
+matrix cadence; scan timing and colour depth remain unchanged.
+
+`MATRIX STATS` includes `today_date_ticks`, `today_date_changed`,
+`today_date_update_max`, and `today_date_refresh_max`. Unit tests compare the
+cached mask against the previous letter geometry for every weekday, check
+cycle boundaries and stable scene objects, and compare simulator and firmware
+pixel colours. A serial benchmark measures update plus refresh time and
+post-collection heap samples across six sweeps.
+
+On 17 October 2026, the physical MatrixPortal S3 at `192.168.8.88` completed
+240 frames over 30 seconds at 8 Hz with no missed 125 ms frame deadlines.
+Update plus refresh averaged 27.075 ms and peaked at 32.135 ms. All seven
+five-second post-collection heap samples were 1,836,816 bytes free, and the
+scene, palette and column-state objects retained their identities. The initial
+scene build took 153.594 ms; this one-off construction cost is separate from
+steady animation. Minute and date rollover rebuilds completed successfully.
+This isolated renderer benchmark excludes normal application network work.
+Physical visual acceptance of the dithering still requires someone looking
+at the LEDs.
+
 ## Findings from #70: presentation strategy
 
 Issue #70 compared several presentation strategies and application cadences.
