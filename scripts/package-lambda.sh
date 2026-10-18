@@ -30,6 +30,7 @@ cp \
   "${ROOT_DIR}/backend/todoist.py" \
   "${ROOT_DIR}/shared/formatting.py" \
   "${ROOT_DIR}/shared/fixtures.py" \
+  "${ROOT_DIR}/shared/cron_schedule.py" \
   "${PACKAGE_DIR}/"
 
 PACKAGE_DIR="${PACKAGE_DIR}" ZIP_FILE="${ZIP_FILE}" python3 - <<'PY'

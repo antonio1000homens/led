@@ -9,6 +9,7 @@ from formatting import (
     departure_scroll_duration,
     rail_calling_timing,
 )
+from cron_schedule import cron_matches_local
 import random
 
 from matrix_config import CALLING_SCROLL_SPEED_OVERRIDE
@@ -267,6 +268,48 @@ class ScreenRotation:
         self.rng = rng or random
         self.pending_refresh = {}
         self._recent_items = {}
+        self._schedule_parts = None
+        self._schedule_idle = False
+
+    def set_schedule_time(self, date_text, clock_text):
+        """Set synchronized Europe/London fields used at rotation boundaries."""
+        try:
+            year, month, day = (int(part) for part in date_text.split("-"))
+            hour, minute = (int(part) for part in clock_text.split(":"))
+            if not (1 <= month <= 12 and 1 <= day <= _days_in_month(year, month)
+                    and 0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError("invalid local time")
+            self._schedule_parts = (year, month, day, hour, minute)
+        except (AttributeError, TypeError, ValueError):
+            self._schedule_parts = None
+
+    def _schedule_active(self, screen):
+        expression = screen.get("cron_schedule") or ""
+        if not expression:
+            return True
+        if self._schedule_parts is None:
+            return False
+        try:
+            if not cron_matches_local(expression, *self._schedule_parts):
+                return False
+        except (TypeError, ValueError, IndexError):
+            return False
+        kind = screen.get("kind")
+        if kind == "steam_train_intro":
+            followup = self.screens[(self.screens.index(screen) + 1) % len(self.screens)] if len(self.screens) > 1 else None
+            return followup is not None and followup.get("kind") == "rail_combined" and self._schedule_active(followup)
+        if kind == "bus_intro":
+            index = self.screens.index(screen)
+            followup = self.screens[index + 1] if index + 1 < len(self.screens) else None
+            return followup is not None and self.is_bus_followup(screen, followup) and self._schedule_active(followup)
+        return True
+
+    def _first_scheduled_index(self, start=0):
+        for offset in range(len(self.screens)):
+            index = (start + offset) % len(self.screens)
+            if self._schedule_active(self.screens[index]):
+                return index
+        return None
 
     def _duration_ticks(self, seconds):
         # Keep the absolute anchor an integer when callers supply millisecond
@@ -415,7 +458,9 @@ class ScreenRotation:
             self.started_at = None
             return
         if old_current is None:
-            self.index = 0
+            eligible = self._first_scheduled_index(0)
+            self.index = eligible if eligible is not None else 0
+            self._schedule_idle = eligible is None
             self.started_at = now
             return
         for index, screen in enumerate(next_screens):
@@ -458,6 +503,20 @@ class ScreenRotation:
             # The interrupted screen disappeared while an overlay was shown.
             self._paused = (self.screens[self.index % len(self.screens)].get("id"), 0)
             return self.screens[self.index % len(self.screens)], 0
+        if self._schedule_idle or self.started_at is None:
+            eligible = self._first_scheduled_index(self.index)
+            if eligible is None:
+                self._schedule_idle = True
+                if self.started_at is None:
+                    self.started_at = now
+                return {
+                    "id": "schedule-idle", "kind": "message",
+                    "duration_seconds": 60, "title": "NO SCREENS SCHEDULED",
+                    "source": "local", "stale": False,
+                }, max(0, now - self.started_at) / self.ticks_per_second
+            self.index = eligible
+            self._schedule_idle = False
+            self.started_at = now
         if self.started_at is None:
             self.started_at = now
         while True:
@@ -473,7 +532,13 @@ class ScreenRotation:
             if elapsed_ticks < duration_ticks:
                 return screen, elapsed_ticks / self.ticks_per_second
             self.started_at += duration_ticks
-            self._advance_screen()
+            self._advance_screen(now)
+            if self._schedule_idle:
+                return {
+                    "id": "schedule-idle", "kind": "message",
+                    "duration_seconds": 60, "title": "NO SCREENS SCHEDULED",
+                    "source": "local", "stale": False,
+                }, 0
 
     @staticmethod
     def is_static(screen):
@@ -597,11 +662,12 @@ class ScreenRotation:
                                          self.screens[self.index])):
             return
         for index in range(self.index + 1, len(self.screens)):
-            if self.is_static(self.screens[index]):
+            if self.is_static(self.screens[index]) and self._schedule_active(self.screens[index]):
                 self.screens.insert(self.index, self.screens.pop(index))
                 self.started_at = now
                 return
-        choices = [item for item in self.http_screens if self.is_static(item)]
+        choices = [item for item in self.http_screens
+                   if self.is_static(item) and self._schedule_active(item)]
         if choices:
             item = self._choose(choices[self.rng.randrange(len(choices))])
         else:
@@ -614,13 +680,18 @@ class ScreenRotation:
             item = {
                 "kind": "today", "title": "TODAY", "duration_seconds": 8,
                 "source": "local", "weather": weather,
+                "cron_schedule": next((feed.get("cron_schedule", "")
+                                       for feed in self.http_screens
+                                       if feed.get("kind") == "today"), ""),
             }
         item = dict(item)
+        if not self._schedule_active(item):
+            return
         item["id"] = "static-maintenance"
         self.screens.insert(self.index, item)
         self.started_at = now
 
-    def _advance_screen(self):
+    def _advance_screen(self, now=None):
         screen = self.screens[self.index]
         version = screen.get("content_version")
         if version:
@@ -639,13 +710,23 @@ class ScreenRotation:
             self.index = 0
             self.cycle_number += 1
             self.screens = self._cycle_plan(self._available_screens())
+        if self.screens:
+            eligible = self._first_scheduled_index(self.index % len(self.screens))
+            if eligible is None:
+                self.index = 0
+                self._schedule_idle = True
+                if now is not None:
+                    self.started_at = now
+            else:
+                self.index = eligible
+                self._schedule_idle = False
 
     def next(self, now):
         """Move immediately to the next screen and restart its duration."""
         if not self.screens:
             return
         screen, _ = self.current(now)
-        self._advance_screen()
+        self._advance_screen(now)
         self.started_at = now
 
     def pause(self, now):

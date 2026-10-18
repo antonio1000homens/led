@@ -120,6 +120,7 @@ class MqttScreenState:
         defaults = {
             "enabled": True, "screen_duration_seconds": 20,
             "slide_speed": 15, "days_before_collection": 2,
+            "cron_schedule": "",
         }
         policy = dict(defaults)
         if isinstance(config, dict):
@@ -133,6 +134,8 @@ class MqttScreenState:
                 value = config.get(key)
                 if isinstance(value, int) and not isinstance(value, bool) and minimum <= value <= maximum:
                     policy[key] = value
+            if isinstance(config.get("cron_schedule"), str):
+                policy["cron_schedule"] = config["cron_schedule"].strip()
         self._recycling = policy
 
     def accept(self, topic, payload, now_epoch):
@@ -221,5 +224,6 @@ class MqttScreenState:
             effective = dict(screen)
             effective["duration_seconds"] = policy["screen_duration_seconds"]
             effective["slide_speed"] = policy["slide_speed"]
+            effective["cron_schedule"] = policy["cron_schedule"]
             result.append(effective)
         return result
