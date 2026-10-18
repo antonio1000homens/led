@@ -33,6 +33,12 @@ from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
 )
+from christmas_sleigh import HEIGHT as CHRISTMAS_SLEIGH_HEIGHT
+from christmas_sleigh import PALETTE as CHRISTMAS_SLEIGH_PALETTE
+from christmas_sleigh import PALETTE_INDEX as CHRISTMAS_SLEIGH_PALETTE_INDEX
+from christmas_sleigh import WIDTH as CHRISTMAS_SLEIGH_WIDTH
+from christmas_sleigh import draw as draw_christmas_sleigh
+from christmas_sleigh import draw_indexed as draw_christmas_sleigh_indexed
 
 from formatting import (
     AGENDA_SLIDE_SECONDS,
@@ -3404,30 +3410,22 @@ class MatrixDisplay:
         import displayio
 
         root = displayio.Group()
-        motion = displayio.Group(x=SLEIGH_START_X, y=2)
-        bitmap = displayio.Bitmap(52, 26, 3)
-        palette = displayio.Palette(3)
+        motion = displayio.Group(x=SLEIGH_START_X, y=4)
+        bitmap = displayio.Bitmap(
+            CHRISTMAS_SLEIGH_WIDTH, CHRISTMAS_SLEIGH_HEIGHT,
+            len(CHRISTMAS_SLEIGH_PALETTE_INDEX),
+        )
+        palette = displayio.Palette(len(CHRISTMAS_SLEIGH_PALETTE_INDEX))
         palette[0] = 0x000000
         palette.make_transparent(0)
-        palette[1] = 0xD71920
-        palette[2] = 0xFFFFFF
-        for y in range(9, 16):
-            for x in range(8, 43):
-                bitmap[x, y] = 1
-        for y in range(6, 11):
-            for x in range(14, 31):
-                bitmap[x, y] = 1
-        for y in range(8, 16):
-            for x in range(4, 8):
-                bitmap[x, y] = 1
-        for x in range(11, 47):
-            bitmap[x, 18] = 2
-        for x in range(16, 42):
-            bitmap[x, 19] = 1
-        for x, y in ((28, 5), (29, 4), (30, 3), (31, 4), (32, 5)):
-            bitmap[x, y] = 2
+        for key, index in CHRISTMAS_SLEIGH_PALETTE_INDEX.items():
+            if key != ".":
+                red, green, blue = CHRISTMAS_SLEIGH_PALETTE[key]
+                palette[index] = (red << 16) | (green << 8) | blue
+        draw_christmas_sleigh_indexed(bitmap, 0, 0,
+                                      CHRISTMAS_SLEIGH_WIDTH, CHRISTMAS_SLEIGH_HEIGHT)
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 56, 8)
+        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 88, 10)
         root.append(motion)
         self._christmas_intro_group = root
         self._christmas_intro_motion = motion
@@ -3464,33 +3462,25 @@ class MatrixDisplay:
         snow_grid.hidden = False
         root.append(snow_grid)
 
-        sleigh_bitmap = displayio.Bitmap(52, 26, 3)
-        sleigh_palette = displayio.Palette(3)
+        sleigh_bitmap = displayio.Bitmap(
+            CHRISTMAS_SLEIGH_WIDTH, CHRISTMAS_SLEIGH_HEIGHT,
+            len(CHRISTMAS_SLEIGH_PALETTE_INDEX),
+        )
+        sleigh_palette = displayio.Palette(len(CHRISTMAS_SLEIGH_PALETTE_INDEX))
         sleigh_palette[0] = 0x000000
         sleigh_palette.make_transparent(0)
-        sleigh_palette[1] = 0xD71920
-        sleigh_palette[2] = 0xFFFFFF
-        for y in range(9, 16):
-            for x in range(8, 43):
-                sleigh_bitmap[x, y] = 1
-        for y in range(6, 11):
-            for x in range(14, 31):
-                sleigh_bitmap[x, y] = 1
-        for y in range(8, 16):
-            for x in range(4, 8):
-                sleigh_bitmap[x, y] = 1
-        for x in range(11, 47):
-            sleigh_bitmap[x, 18] = 2
-        for x in range(16, 42):
-            sleigh_bitmap[x, 19] = 1
-        for x, y in ((28, 5), (29, 4), (30, 3), (31, 4), (32, 5)):
-            sleigh_bitmap[x, y] = 2
-        root.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette, x=0, y=2))
+        for key, index in CHRISTMAS_SLEIGH_PALETTE_INDEX.items():
+            if key != ".":
+                red, green, blue = CHRISTMAS_SLEIGH_PALETTE[key]
+                sleigh_palette[index] = (red << 16) | (green << 8) | blue
+        draw_christmas_sleigh_indexed(sleigh_bitmap, 0, 0,
+                                      CHRISTMAS_SLEIGH_WIDTH, CHRISTMAS_SLEIGH_HEIGHT)
+        root.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette, x=0, y=4))
 
         count_text = "--" if days is None else str(days)
         countdown = self._label(
             root, "{} DAYS UNTIL CHRISTMAS".format(count_text),
-            0xFFFFFF, 56, 29,
+            0xFFFFFF, 88, 29,
         )
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
@@ -4499,31 +4489,14 @@ class FixtureDisplay:
             self._pixel(SNOW_FLAKE_X[index], y, white)
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
-        self._christmas_tracker_sleigh(0, 2)
-        self._text("{} DAYS UNTIL CHRISTMAS".format(count), 56, 25, white)
-
-    def _christmas_tracker_sleigh(self, x, y_offset):
-        red = (215, 25, 32)
-        white = (255, 255, 255)
-        for left, top, width, height in ((8, 9, 35, 7), (14, 6, 17, 5), (4, 8, 4, 8)):
-            self._fill_rect(x + left, top + y_offset, width, height, red)
-        self._fill_rect(x + 16, 19 + y_offset, 26, 1, red)
-        self._fill_rect(x + 11, 18 + y_offset, 36, 1, white)
-        for left, top in ((28, 5), (29, 4), (30, 3), (31, 4), (32, 5)):
-            self._pixel(x + left, top + y_offset, white)
+        draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
+        self._text("{} DAYS UNTIL CHRISTMAS".format(count), 88, 25, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
         x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
-        red = (215, 25, 32)
-        white = (255, 255, 255)
-        for left, top, width, height in ((8, 9, 35, 7), (14, 6, 17, 5), (4, 8, 4, 8)):
-            self._fill_rect(x + left, top + 2, width, height, red)
-        self._fill_rect(x + 16, 21, 26, 1, red)
-        self._fill_rect(x + 11, 20, 36, 1, white)
-        for left, top in ((28, 7), (29, 6), (30, 5), (31, 6), (32, 7)):
-            self._pixel(x + left, top, white)
-        self._text("HO HO HO...", x + 56, 13, (255, 170, 0))
+        draw_christmas_sleigh(self._pixel, x, 4, DISPLAY_WIDTH, 32)
+        self._text("HO HO HO...", x + 88, 15, (255, 170, 0))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)

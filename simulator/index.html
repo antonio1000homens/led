@@ -95,6 +95,37 @@
     const CHRISTMAS_INTRO_SECONDS = 8;
     const CHRISTMAS_SLEIGH_SECONDS = 3;
     const CHRISTMAS_SLEIGH_START_X = 256;
+    const CHRISTMAS_SLEIGH_ROWS = [
+      '......Y..G..........................................................................',
+      '......G....G..G.....................................................................',
+      '.......G..G...G.....................................................................',
+      '........GGGGGG......................................................................',
+      '.........G..........................................................................',
+      '.........G..........................................................................',
+      '........G...................................................................G.......',
+      '.......BG........................................................FFFFYFFF..GGGG.....',
+      '.....BBNBBB......................................................FFFFYFFFGGDGGG.....',
+      '...RBBBBBBBB...............................................RRRWRRYYYYYYYYGDDDDG.....',
+      '...BBBBBBBBB.BBBBBBBBB.....B..............GGG..............RRRWRRFFFFYFFFDDDDDG.....',
+      '......BBBBBBBBBBBBBBBBBB..Y...............GGGG.............RRRWRRFFFFYFFFDDDDDG.....',
+      '.......BBBBBBBBBBBBBBBBBBBB........YYYYYYYYYYGG............RRRWRRFFFFYFFFDDDDGG.....',
+      '........BBGBBBBBBBBBBBBBB......YYYY.....GY.GRRRGGGGGGGGGGGGGGGGGGGGGGGGGGGDDDGG.....',
+      '..........BBBKKBBBBBKKBBYYYYYYY.........G..GGRRRRRRRRRRRRRRRRRRRRRRRRRRRRGDDDGG.....',
+      '..........BBBKKBBBBBKK..................G..GGRRRRRRRRRRYRRRRRWRRRRRRRRRRRGGGGG......',
+      '............KK.......KK..................G..GGGRRRRRRRRRRRRRRRRRRRRRRRRRRGGGG.......',
+      '............KK.......KK..................G....GGGRRRRRBBRRRRRRRRRRRRRRGBB..G........',
+      '............KK.......KK...................G....GGGGGGGBBGGGGGGGGGGGGGG.BB...........',
+      '...........KK.........KK...................G..........BB...............BB...........',
+      '...........KK.........KK....................GGG.......BB...............BB.....G.....',
+      '............G..........G.......................GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG.Y....',
+      '................................................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.....',
+      '....................................................................................'
+    ];
+    const CHRISTMAS_SLEIGH_PALETTE = {
+      R: '#e1303c', D: '#8d1e33', W: '#fff6de', G: '#ffbd3a', Y: '#ffe17e',
+      B: '#935838', K: '#4f3337', S: '#98c7cc', T: '#377177', F: '#358f5e',
+      L: '#74c569', P: '#f7b88d', N: '#24293b'
+    };
     const CHRISTMAS_FLAKE_X = [7,23,39,55,71,87,103,119,135,151,167,183,199,215,231,247];
     const CHRISTMAS_FLAKE_SPEED = [5,7,9,6,8,10,5,7,9,6,8,10,5,7,9,6];
     const CHRISTMAS_FLAKE_START_Y = [0,7,15,23,3,11,19,27,4,12,20,28,1,9,17,25];
@@ -1126,45 +1157,46 @@
       }
       status.dataset.detail = 'Next recycling collection';
     }
+    function drawChristmasSleigh(x, y) {
+      const px = FONT_PIXEL_SCALE;
+      CHRISTMAS_SLEIGH_ROWS.forEach((row, dy) => {
+        let start = 0;
+        while (start < row.length) {
+          const key = row[start];
+          if (key === '.') {
+            start += 1;
+            continue;
+          }
+          let end = start + 1;
+          while (end < row.length && row[end] === key) end += 1;
+          context.fillStyle = CHRISTMAS_SLEIGH_PALETTE[key];
+          context.fillRect((x + start) * px, (y + dy) * px, (end - start) * px, px);
+          start = end;
+        }
+      });
+    }
     function drawChristmasIntro(screen, phase) {
       const elapsed = Math.max(0, Number(phase) || 0);
       const x = Math.max(0, CHRISTMAS_SLEIGH_START_X - Math.floor(256 * Math.min(1, elapsed / CHRISTMAS_SLEIGH_SECONDS)));
+      drawChristmasSleigh(x, 4);
       const px = FONT_PIXEL_SCALE;
-      context.fillStyle = '#d71920';
-      context.fillRect((x + 8) * px, 9 * px, 35 * px, 7 * px);
-      context.fillRect((x + 14) * px, 6 * px, 17 * px, 5 * px);
-      context.fillRect((x + 4) * px, 8 * px, 4 * px, 8 * px);
-      context.fillRect((x + 16) * px, 19 * px, 26 * px, px);
-      context.fillStyle = '#ffffff';
-      context.fillRect((x + 11) * px, 18 * px, 36 * px, px);
-      context.fillRect((x + 28) * px, 5 * px, 5 * px, px);
-      context.fillRect((x + 30) * px, 3 * px, px, 2 * px);
       context.fillStyle = '#ffaa00';
-      drawLedText('HO HO HO...', (x + 56) * px, 13 * px);
+      drawLedText('HO HO HO...', (x + 88) * px, 15 * px);
       status.dataset.detail = 'Christmas Tracker · HO HO HO sleigh intro';
     }
     function drawChristmasTracker(screen, phase, wallClock) {
       const elapsed = Math.max(0, Number(phase) || 0);
       const px = FONT_PIXEL_SCALE;
-      const x = 0;
-      context.fillStyle = '#d71920';
-      context.fillRect((x + 8) * px, 11 * px, 35 * px, 7 * px);
-      context.fillRect((x + 14) * px, 8 * px, 17 * px, 5 * px);
-      context.fillRect((x + 4) * px, 10 * px, 4 * px, 8 * px);
-      context.fillRect((x + 16) * px, 21 * px, 26 * px, px);
-      context.fillStyle = '#ffffff';
-      context.fillRect((x + 11) * px, 20 * px, 36 * px, px);
-      context.fillRect((x + 28) * px, 7 * px, 5 * px, px);
-      context.fillRect((x + 30) * px, 5 * px, px, 2 * px);
       context.fillStyle = '#ffffff';
       for (let index = 0; index < CHRISTMAS_FLAKE_X.length; index += 1) {
         const y = (CHRISTMAS_FLAKE_START_Y[index]
           + Math.floor(elapsed * CHRISTMAS_FLAKE_SPEED[index])) % 32;
         context.fillRect(CHRISTMAS_FLAKE_X[index] * px, y * px, px, px);
       }
+      drawChristmasSleigh(0, 4);
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
-      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 56 * px, 25 * px);
+      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 88 * px, 25 * px);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {
