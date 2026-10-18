@@ -256,6 +256,8 @@ Set `LED_WEATHER_SOURCE=off` to stop Weather polling and remove all Weather outp
 
 The enabled weather screens form one contiguous block during each rotation, even when static feeds are shuffled. The non-animated next-24-hour and seven-day screens can host explicit garbage collection, scheduled fetches and task preparation; the animated sunrise/sunset screen cannot.
 
+The firmware and browser simulator also add a local `christmas_tracker` screen to the rotation; it is not an API feed and needs no provider configuration. Its 18-second slot slides a Santa sleigh in from the right for three seconds, then keeps a falling-snow animation behind the London-local days-until-Christmas count. The MatrixPortal builds its scene and particle state ahead of the slot, collects before entry, defers automatic garbage collection during the animation, and collects again when the screen exits.
+
 The protected admin/control plane provides independent enable and duration controls for the overview, next-24-hour and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.
 
 The backend maps Open-Meteo WMO weather codes into a renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). All three dedicated Weather screens use the full 256×32 canvas and suppress the normal clock/current-weather/STALE header chrome; the browser simulator mirrors the same screen sequence and supports forced-stale preview.

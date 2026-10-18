@@ -5,6 +5,10 @@ from matrix_runtime import (
     RuntimeMode,
     collect_gc_with_state,
     enter_rail_gc_window,
+    christmas_gc_action,
+    enter_christmas_gc_window,
+    leave_christmas_gc_window,
+    prepare_christmas_scene_gc,
 )
 
 
@@ -36,6 +40,21 @@ class FakeGarbageCollector:
 
 
 class RuntimeModeTests(unittest.TestCase):
+    def test_christmas_gc_is_only_collected_at_scene_boundaries(self):
+        collector = FakeGarbageCollector()
+        self.assertEqual(christmas_gc_action("christmas_tracker", False), "enter")
+        self.assertEqual(prepare_christmas_scene_gc(collector), 12)
+        self.assertTrue(collector.enabled)
+        enter_christmas_gc_window(collector)
+        self.assertFalse(collector.enabled)
+        self.assertEqual(collector.collections, 1)
+        self.assertIsNone(christmas_gc_action("christmas_tracker", True))
+        self.assertEqual(christmas_gc_action("christmas_tracker", True, True), "exit")
+        self.assertEqual(christmas_gc_action("weather_today", True), "exit")
+        self.assertEqual(leave_christmas_gc_window(collector), 12)
+        self.assertTrue(collector.enabled)
+        self.assertEqual(collector.collections, 2)
+
     def test_prebuilt_rail_entry_suppresses_gc_without_collecting(self):
         collector = FakeGarbageCollector()
         collected = enter_rail_gc_window(

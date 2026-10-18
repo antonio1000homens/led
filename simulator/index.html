@@ -91,6 +91,13 @@
     let lastHardwareFrame = -Infinity;
 
     const MATRIX_REFRESH_FPS = 7;
+    const CHRISTMAS_SCREEN_SECONDS = 18;
+    const CHRISTMAS_SLEIGH_SECONDS = 3;
+    const CHRISTMAS_SLEIGH_START_X = 256;
+    const CHRISTMAS_SLEIGH_END_X = 184;
+    const CHRISTMAS_FLAKE_X = [7,23,39,55,71,87,103,119,135,151,167,183,199,215,231,247];
+    const CHRISTMAS_FLAKE_SPEED = [5,7,9,6,8,10,5,7,9,6,8,10,5,7,9,6];
+    const CHRISTMAS_FLAKE_START_Y = [0,7,15,23,3,11,19,27,4,12,20,28,1,9,17,25];
     const BIN_LORRY_SECONDS = 4.0;
     const BIN_LORRY_SPEED = 64;
     const REMINDER_SCROLL_SPEED = 64;
@@ -827,6 +834,20 @@
       const width = measureLedText(text).width;
       return { text, width, x: CLOCK_X };
     }
+    function christmasDaysUntil(date) {
+      const parts = Object.fromEntries(londonDateFormatter.formatToParts(date).map(part => [part.type, part.value]));
+      const year = Number(parts.year), month = Number(parts.month), day = Number(parts.day);
+      const targetYear = month === 12 && day > 25 ? year + 1 : year;
+      return Math.round((Date.UTC(targetYear, 11, 25) - Date.UTC(year, month - 1, day)) / 86400000);
+    }
+    function christmasTrackerScreen() {
+      return { id: 'christmas-tracker', kind: 'christmas_tracker', title: 'CHRISTMAS TRACKER',
+        duration_seconds: CHRISTMAS_SCREEN_SECONDS, source: 'firmware' };
+    }
+    function withChristmasTracker(screens) {
+      return screens.some(screen => screen.kind === 'christmas_tracker')
+        ? screens : [...screens, christmasTrackerScreen()];
+    }
     function temperatureText(weather) {
       if (!weather || typeof weather !== 'object') return '';
       const temperature = Number(weather.temperature_c);
@@ -1086,6 +1107,34 @@
       }
       status.dataset.detail = 'Next recycling collection';
     }
+    function drawChristmasTracker(screen, phase, wallClock) {
+      const elapsed = Math.max(0, Number(phase) || 0);
+      const x = Math.max(CHRISTMAS_SLEIGH_END_X,
+        CHRISTMAS_SLEIGH_START_X - Math.floor((CHRISTMAS_SLEIGH_START_X - CHRISTMAS_SLEIGH_END_X)
+          * Math.min(1, elapsed / CHRISTMAS_SLEIGH_SECONDS)));
+      const px = FONT_PIXEL_SCALE;
+      context.fillStyle = '#d71920';
+      context.fillRect((x + 5) * px, 8 * px, 18 * px, 4 * px);
+      context.fillRect((x + 8) * px, 6 * px, 9 * px, 3 * px);
+      context.fillRect((x + 2) * px, 7 * px, 3 * px, 5 * px);
+      context.fillRect((x + 10) * px, 14 * px, 14 * px, px);
+      context.fillStyle = '#ffffff';
+      context.fillRect((x + 8) * px, 13 * px, 18 * px, px);
+      context.fillRect((x + 18) * px, 5 * px, px, px);
+      context.fillRect((x + 19) * px, 4 * px, px, px);
+      if (elapsed >= CHRISTMAS_SLEIGH_SECONDS) {
+        const snowPhase = elapsed - CHRISTMAS_SLEIGH_SECONDS;
+        for (let index = 0; index < CHRISTMAS_FLAKE_X.length; index += 1) {
+          const y = (CHRISTMAS_FLAKE_START_Y[index]
+            + Math.floor(snowPhase * CHRISTMAS_FLAKE_SPEED[index])) % 32;
+          context.fillRect(CHRISTMAS_FLAKE_X[index] * px, y * px, px, px);
+        }
+      }
+      const days = christmasDaysUntil(wallClock);
+      context.fillStyle = '#ffffff';
+      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 0, 25 * px);
+      status.dataset.detail = 'Christmas Tracker · sleigh and snowfall';
+    }
     function splitSl7Due(item) {
       if (item.cancelled) return 'CXL';
       const effective = Date.parse(item.estimated || item.planned || '');
@@ -1289,7 +1338,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1405,6 +1454,9 @@
         status.dataset.detail = 'Today sunrise and sunset';
       } else if (screen.kind === 'bin_collection') {
         drawBinCollection(screen, phase);
+      } else if (screen.kind === 'christmas_tracker') {
+        drawChristmasTracker(screen, phase, wallClock);
+        suppressHeader = true;
       } else if (screen.kind === 'bus_departures_combined') {
         drawSplitSl7(screen);
         suppressHeader = true;
@@ -1726,7 +1778,7 @@
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
         if (payload.recycling && typeof payload.recycling === 'object') recyclingPolicy = payload.recycling;
-        const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
+        const nextScreens = withChristmasTracker(Array.isArray(payload.screens) ? payload.screens : []);
         const nextKey = JSON.stringify(nextScreens.map(screen => { const copy = { ...screen }; delete copy.weather; return copy; }));
         if (nextKey !== screenDataKey) { feedAnimationStarted = performance.now(); screenDataKey = nextKey; }
         if (cyclePlan.length) {
