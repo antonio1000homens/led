@@ -108,7 +108,10 @@ class ChristmasTrackerTests(unittest.TestCase):
             flakes = renderer._christmas_flakes
             bitmap = renderer._christmas_snow_bitmap
             countdown = renderer._christmas_countdown
-            self.assertEqual(countdown.text, "1 DAYS UNTIL CHRISTMAS")
+            self.assertEqual(countdown.text, "1 DAYS")
+            self.assertEqual((countdown.x, countdown.y), (88, 11))
+            self.assertEqual(group[3].text, "UNTIL CHRISTMAS")
+            self.assertEqual((group[3].x, group[3].y), (88, 27))
             renderer._update_christmas_scene(0, "2026-12-24")
             self.assertFalse(renderer._christmas_snow_grid.hidden)
             first_positions = tuple(flake[2] for flake in flakes)
@@ -118,7 +121,7 @@ class ChristmasTrackerTests(unittest.TestCase):
             self.assertIs(renderer._christmas_snow_bitmap, bitmap)
             self.assertNotEqual(tuple(flake[2] for flake in flakes), first_positions)
             renderer._update_christmas_scene(5, "2026-12-25")
-            self.assertEqual(countdown.text, "0 DAYS UNTIL CHRISTMAS")
+            self.assertEqual(countdown.text, "0 DAYS")
         finally:
             if old_module is None:
                 del sys.modules["displayio"]
@@ -152,7 +155,7 @@ class ChristmasTrackerTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         html = (root / "simulator" / "index.html").read_text(encoding="utf-8")
         start = html.index("    function christmasDaysUntil(date)")
-        end = html.index("    function temperatureText(weather)", start)
+        end = html.index("    function splitSl7Due(item)", start)
         functions = html[start:end]
         harness = """
 const CHRISTMAS_SCREEN_SECONDS = 18;
@@ -171,6 +174,8 @@ process.stdout.write(JSON.stringify(results));
         self.assertEqual(output, '[1,0,364,["christmas_tracker_intro","christmas_tracker"]]')
         self.assertIn("drawChristmasIntro(screen, phase)", html)
         self.assertIn("drawChristmasTracker(screen, phase, wallClock)", html)
+        self.assertIn("drawLedTextScaled(`${days} DAYS`, 88 * px, 2 * px, 2)", functions)
+        self.assertIn("drawLedText('UNTIL CHRISTMAS', 88 * px, 18 * px)", functions)
 
 
 if __name__ == "__main__":

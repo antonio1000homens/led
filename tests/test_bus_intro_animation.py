@@ -55,13 +55,11 @@ class BusIntroAnimationTests(unittest.TestCase):
             scene = display.display.root_group
             motion = display._bus_intro_motion_group
             self.assertEqual(motion.x, led_display.DISPLAY_WIDTH)
-            self.assertEqual(motion[0].palette[1], 0xFF3300)
-            self.assertEqual(motion[0].bitmap[5, 7], 4)
-            self.assertEqual(motion[0].bitmap[4, 13], 3)
-            # Passenger windows on both floors, separated by a red band.
-            self.assertEqual(motion[0].bitmap[13, 7], 2)
-            self.assertEqual(motion[0].bitmap[13, 15], 2)
-            self.assertEqual(motion[0].bitmap[13, 11], 1)
+            self.assertEqual((motion[0].bitmap.width, motion[0].bitmap.height), (84, 24))
+            self.assertEqual(motion[0].palette[led_display.DOUBLE_DECKER_BUS_PALETTE_INDEX['R']], 0xFF0000)
+            self.assertEqual(
+                motion[0].bitmap[6, 0], led_display.DOUBLE_DECKER_BUS_PALETTE_INDEX['D']
+            )
 
             display._show_bus_intro(screen, led_display.DISPLAY_WIDTH / 24)
             self.assertEqual(motion.x, 0)
@@ -74,34 +72,23 @@ class BusIntroAnimationTests(unittest.TestCase):
     def test_fallback_fixture_bus_stops_at_left_edge(self):
         display = led_display.FixtureDisplay.__new__(led_display.FixtureDisplay)
         display.pixels = None
-        display._fill_rect = mock.Mock()
+        display._pixel = mock.Mock()
         display._text = mock.Mock()
         screen = {"words": "Beep", "animation_speed": 40}
-        display._bus_intro(screen, 0)
-        self.assertIn(
-            mock.call(led_display.DISPLAY_WIDTH + 3, 10, 43, 12, (255, 51, 0)),
-            display._fill_rect.call_args_list,
-        )
-        self.assertIn(
-            mock.call(led_display.DISPLAY_WIDTH + 4, 7, 6, 5, (34, 34, 34)),
-            display._fill_rect.call_args_list,
-        )
-        self.assertIn(
-            mock.call(led_display.DISPLAY_WIDTH + 3, 13, 6, 7, (255, 170, 0)),
-            display._fill_rect.call_args_list,
-        )
-        self.assertIn(
-            mock.call(led_display.DISPLAY_WIDTH + 12, 15, 8, 5, (255, 255, 255)),
-            display._fill_rect.call_args_list,
-        )
-        display._fill_rect.reset_mock()
-        display._bus_intro(screen, (led_display.DISPLAY_WIDTH + 70) / 40)
-        red_bodies = [
-            call.args for call in display._fill_rect.call_args_list
-            if call.args[-1] == (255, 51, 0)
-        ]
-        self.assertEqual(len(red_bodies), 2)
-        self.assertTrue(all(args[0] >= 0 for args in red_bodies))
+        with mock.patch.object(led_display, "draw_double_decker_bus") as draw_sprite:
+            display._bus_intro(screen, 0)
+            draw_sprite.assert_called_once_with(
+                display._pixel, led_display.DISPLAY_WIDTH,
+                led_display.BUS_VERTICAL_OFFSET,
+                limited_palette=led_display.MATRIX_BIT_DEPTH == 1,
+            )
+            self.assertEqual(
+                display._text.call_args,
+                mock.call("Beep", led_display.DISPLAY_WIDTH + 84 + led_display.BUS_TEXT_GAP,
+                          12 + led_display.BUS_VERTICAL_OFFSET, (255, 170, 0)),
+            )
+            display._bus_intro(screen, (led_display.DISPLAY_WIDTH + 70) / 40)
+            self.assertEqual(draw_sprite.call_args.args[1], 0)
 
     def test_bus_keeps_real_phase_with_animations_disabled(self):
         tree = ast.parse((Path(__file__).parents[1] / "code.py").read_text())
@@ -162,13 +149,12 @@ class BusIntroAnimationTests(unittest.TestCase):
     def test_simulator_matches_red_bus_and_left_edge_stop(self):
         source = (Path(__file__).parents[1] / "simulator/index.html").read_text()
         bus = source.split("function drawBus(screen, phase)", 1)[1].split(
-            "function drawBusWheel", 1
+            "function splitSl7Due", 1
         )[0]
-        self.assertIn("'#ff3300'", bus)
-        self.assertIn("trainRect(x + windowX * FONT_PIXEL_SCALE, 14, 8, 5, '#ffffff')", bus)
-        self.assertIn("trainRect(x + 4 * FONT_PIXEL_SCALE, 6, 6, 5, '#222222')", bus)
-        self.assertIn("trainRect(x + 3 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00')", bus)
+        self.assertIn("doubleDeckerBusSprite.rows.forEach", bus)
+        self.assertIn("doubleDeckerBusSprite.palette[symbol]", bus)
         self.assertIn("const x = Math.max(0, Math.round(", bus)
+        self.assertIn("const BUS_WIDTH = 84 * FONT_PIXEL_SCALE", source)
 
 
 if __name__ == "__main__":

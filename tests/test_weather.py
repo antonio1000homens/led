@@ -26,7 +26,7 @@ def sample_forecast():
             "temperature_max_c": 17.2,
             "temperature_min_c": 10.4,
             "weather_code": 2,
-            "icon": "partly_cloudy_day",
+            "icon": "partly_cloudy",
             "sunrise_time": "07:10",
             "sunset_time": "18:27",
         },

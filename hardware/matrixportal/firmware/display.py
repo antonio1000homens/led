@@ -39,6 +39,13 @@ from christmas_sleigh import PALETTE_INDEX as CHRISTMAS_SLEIGH_PALETTE_INDEX
 from christmas_sleigh import WIDTH as CHRISTMAS_SLEIGH_WIDTH
 from christmas_sleigh import draw as draw_christmas_sleigh
 from christmas_sleigh import draw_indexed as draw_christmas_sleigh_indexed
+from double_decker_bus import PALETTE as DOUBLE_DECKER_BUS_PALETTE
+from double_decker_bus import PALETTE_8 as DOUBLE_DECKER_BUS_PALETTE_8
+from double_decker_bus import PALETTE_INDEX as DOUBLE_DECKER_BUS_PALETTE_INDEX
+from double_decker_bus import WIDTH as BUS_WIDTH
+from double_decker_bus import HEIGHT as BUS_HEIGHT
+from double_decker_bus import draw_indexed as draw_double_decker_bus_indexed
+from double_decker_bus import draw as draw_double_decker_bus
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
 from weather_sprites import PALETTE_RGB as WEATHER_SPRITE_PALETTE_RGB
 from weather_sprites import WEATHER_14 as WEATHER_SPRITES_14
@@ -184,8 +191,10 @@ STEAM_TRAIN_WIDTH = 52
 STEAM_TRAIN_HEIGHT = 26
 STEAM_TRAIN_VERTICAL_OFFSET = 1
 STEAM_TRAIN_TEXT_GAP = 8
-BUS_WIDTH = 52
-BUS_HEIGHT = 26
+BUS_PALETTE = (
+    DOUBLE_DECKER_BUS_PALETTE_8 if MATRIX_BIT_DEPTH == 1
+    else DOUBLE_DECKER_BUS_PALETTE
+)
 BUS_VERTICAL_OFFSET = 1
 BUS_TEXT_GAP = 8
 SL7_TIME_COLUMN_X = 2
@@ -201,6 +210,7 @@ QUEUE_ROW_HEIGHT = 8
 AGENDA_FIRST_Y = 11
 AGENDA_ROW_HEIGHT = 8
 WEATHER_FORECAST_ICON_SIZE = 14
+TODAY_HEADER_ICON_SIZE = 22
 TODAY_DATE_SCALE = 2
 TODAY_DATE_CHAR_ADVANCE = 11
 TODAY_DATE_COLOR_CYCLE_SECONDS = 5.0
@@ -333,7 +343,7 @@ RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
 RAIL_DESTINATION_X = 63
 RAIL_DESTINATION_TRACKING = 1
-RAIL_PLATFORM_X = 152
+RAIL_PLATFORM_X = 164
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
 WEATHER_SPRITE_ALIASES = {
@@ -903,7 +913,7 @@ def _today_compact_date_label(clock_date):
 
 def _today_date_position(date_label, clock_time):
     date_width = _today_date_width(len(date_label))
-    left = TODAY_HEADER_ICON_X + WEATHER_FORECAST_ICON_SIZE + 1
+    left = TODAY_HEADER_ICON_X + TODAY_HEADER_ICON_SIZE + 1
     right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
     return left + max(0, (right - left - date_width) // 2)
 
@@ -3438,12 +3448,12 @@ class MatrixDisplay:
         root.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette, x=0, y=4))
 
         count_text = "--" if days is None else str(days)
-        # Keep the three-digit count's left edge fixed so any extra digit grows
-        # to the right. The second line is centered independently.
+        # Keep the message to the right of the 84px sleigh. The count's left
+        # edge stays fixed so any extra digit grows to the right.
         countdown = self._scaled_label(
-            root, "{} DAYS".format(count_text), 0xFFFFFF, 80, 2, scale=2,
+            root, "{} DAYS".format(count_text), 0xFFFFFF, 88, 2, scale=2,
         )
-        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 38, 18, scale=2)
+        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 88, 18, scale=1)
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
@@ -3515,42 +3525,16 @@ class MatrixDisplay:
 
         root = displayio.Group()
         motion = displayio.Group(x=0, y=BUS_VERTICAL_OFFSET)
-        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, 6)
-        palette = displayio.Palette(6)
+        bitmap = displayio.Bitmap(BUS_WIDTH, BUS_HEIGHT, len(DOUBLE_DECKER_BUS_PALETTE_INDEX))
+        palette = displayio.Palette(len(DOUBLE_DECKER_BUS_PALETTE_INDEX))
         palette[0] = 0x000000
         palette.make_transparent(0)
-        palette[1] = 0xFF3300
-        palette[2] = 0xFFFFFF
-        palette[3] = 0xFFAA00
-        palette[4] = 0x222222
-        palette[5] = 0xAAAAAA
-
-        def fill_rect(x, y, width, height, color):
-            for py in range(max(0, y), min(BUS_HEIGHT, y + height)):
-                for px in range(max(0, x), min(BUS_WIDTH, x + width)):
-                    bitmap[px, py] = color
-
-        fill_rect(3, 8, 43, 12, 1)
-        fill_rect(7, 4, 37, 5, 1)
-        # Two distinct decks of passenger windows, divided by the red
-        # structural band. Draw both into the same tiny cached bitmap.
-        for window_x in (12, 22, 32):
-            fill_rect(window_x, 6, 8, 4, 2)
-            fill_rect(window_x, 13, 8, 5, 2)
-        # The bus travels left, so put its driver windscreen and front marker
-        # on the left to keep the motion reading as forward travel.
-        fill_rect(4, 6, 6, 5, 4)
-        fill_rect(3, 12, 6, 7, 3)
-        for center_x in (13, 39):
-            # Give each wheel a full, rounded tire and a light hub. The top
-            # overlaps the body slightly, leaving a clear wheel silhouette.
-            for row, (left, width) in enumerate(((-1, 3), (-2, 5), (-3, 7),
-                                                  (-3, 7), (-3, 7), (-2, 5),
-                                                  (-1, 3))):
-                fill_rect(center_x + left, 18 + row, width, 1, 4)
-            fill_rect(center_x - 1, 20, 3, 3, 5)
-
-        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=3))
+        for symbol, index in DOUBLE_DECKER_BUS_PALETTE_INDEX.items():
+            if symbol != ".":
+                red, green, blue = BUS_PALETTE[symbol]
+                palette[index] = (red << 16) | (green << 8) | blue
+        draw_double_decker_bus_indexed(bitmap, 0, 0)
+        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=0))
         words = str(screen.get("words") or "")
         if words:
             self._scaled_label(motion, words, 0xFFAA00, BUS_WIDTH + BUS_TEXT_GAP, 5)
@@ -3606,7 +3590,7 @@ class MatrixDisplay:
         weekday_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
             self._label(group, item["weekday"], weekday_color, item["weekday_x"], WEATHER_HEADING_BASELINE_Y)
-            bitmap = displayio.Bitmap(14, 14, 4)
+            bitmap = displayio.Bitmap(14, 14, 9)
             palette = displayio.Palette(9)
             palette[0] = 0x000000
             palette.make_transparent(0)
@@ -3640,7 +3624,7 @@ class MatrixDisplay:
         label_color = 0x777777 if stale else 0xFFAA00
         for item in layout:
             self._label(group, item["label"], label_color, item["label_x"], WEATHER_HEADING_BASELINE_Y)
-            bitmap = displayio.Bitmap(14, 14, 4)
+            bitmap = displayio.Bitmap(14, 14, 9)
             palette = displayio.Palette(9)
             palette[0] = 0x000000
             palette.make_transparent(0)
@@ -3686,7 +3670,7 @@ class MatrixDisplay:
                     )
                     label_grids.append(("set", index, label_grid, label_palette))
             rows = _celestial_sprite_rows(icon_name)
-            bitmap = displayio.Bitmap(21, 21, 4)
+            bitmap = displayio.Bitmap(21, 21, 9)
             palette = displayio.Palette(9)
             palette[0] = 0x000000
             palette.make_transparent(0)
@@ -4028,7 +4012,9 @@ class MatrixDisplay:
                     self._today_date_bitmap(group, date_label, date_x)
                     icon_name = _weather_icon(weather)[0] or "unknown"
                     rows = _weather_sprite_rows(icon_name)
-                    bitmap = displayio.Bitmap(14, 14, 4)
+                    bitmap = displayio.Bitmap(
+                        TODAY_HEADER_ICON_SIZE, TODAY_HEADER_ICON_SIZE, 9,
+                    )
                     palette = displayio.Palette(9)
                     palette[0] = 0x000000
                     palette.make_transparent(0)
@@ -4037,8 +4023,10 @@ class MatrixDisplay:
                             palette[color_index] = _weather_sprite_color(
                                 symbol, bool(weather.get("stale"))
                             )
-                    for row_index, row in enumerate(rows):
-                        for column, pixel in enumerate(row):
+                    for row_index in range(TODAY_HEADER_ICON_SIZE):
+                        source_row = rows[row_index * len(rows) // TODAY_HEADER_ICON_SIZE]
+                        for column in range(TODAY_HEADER_ICON_SIZE):
+                            pixel = source_row[column * len(rows[0]) // TODAY_HEADER_ICON_SIZE]
                             bitmap[column, row_index] = WEATHER_SPRITE_CHAR_INDEX[pixel]
                     group.append(displayio.TileGrid(
                         bitmap, pixel_shader=palette,
@@ -4316,25 +4304,16 @@ class FixtureDisplay:
         except (TypeError, ValueError):
             elapsed = 0.0
         x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
-        offset = BUS_VERTICAL_OFFSET
-        self._fill_rect(x + 3, 9 + offset, 43, 12, (255, 51, 0))
-        self._fill_rect(x + 7, 5 + offset, 37, 5, (255, 51, 0))
-        for window_x in (12, 22, 32):
-            self._fill_rect(x + window_x, 7 + offset, 8, 4, (255, 255, 255))
-            self._fill_rect(x + window_x, 14 + offset, 8, 5, (255, 255, 255))
-        self._fill_rect(x + 4, 6 + offset, 6, 5, (34, 34, 34))
-        self._fill_rect(x + 3, 12 + offset, 6, 7, (255, 170, 0))
-        for center_x in (13, 39):
-            for row, (left, width) in enumerate(((-1, 3), (-2, 5), (-3, 7),
-                                                  (-3, 7), (-3, 7), (-2, 5),
-                                                  (-1, 3))):
-                self._fill_rect(x + center_x + left, 18 + row + offset,
-                                width, 1, (34, 34, 34))
-            self._fill_rect(x + center_x - 1, 20 + offset, 3, 3,
-                            (170, 170, 170))
+        draw_double_decker_bus(
+            self._pixel, x, BUS_VERTICAL_OFFSET,
+            limited_palette=MATRIX_BIT_DEPTH == 1,
+        )
         words = str(screen.get("words") or "")
         if words:
-            self._text(words, x + BUS_WIDTH + BUS_TEXT_GAP, 12 + offset, (255, 170, 0))
+            self._text(
+                words, x + BUS_WIDTH + BUS_TEXT_GAP, 12 + BUS_VERTICAL_OFFSET,
+                (255, 170, 0),
+            )
 
     def _bin_collection(self, screen, phase, clock_date=""):
         from recycling_lorries import draw
@@ -4387,8 +4366,8 @@ class FixtureDisplay:
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
-        self._text("{} DAYS".format(count), 80, 2, white, scale=2)
-        self._text("UNTIL CHRISTMAS", 38, 18, white, scale=2)
+        self._text("{} DAYS".format(count), 88, 2, white, scale=2)
+        self._text("UNTIL CHRISTMAS", 88, 18, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
@@ -4514,8 +4493,11 @@ class FixtureDisplay:
                         scale=TODAY_DATE_SCALE,
                     )
                 icon_name = _weather_icon(weather)[0] or "unknown"
-                for y, row in enumerate(_weather_sprite_rows(icon_name)):
-                    for x, pixel in enumerate(row):
+                rows = _weather_sprite_rows(icon_name)
+                for y in range(TODAY_HEADER_ICON_SIZE):
+                    source_row = rows[y * len(rows) // TODAY_HEADER_ICON_SIZE]
+                    for x in range(TODAY_HEADER_ICON_SIZE):
+                        pixel = source_row[x * len(rows[0]) // TODAY_HEADER_ICON_SIZE]
                         if pixel != ".":
                             self._pixel(
                                 TODAY_HEADER_ICON_X + x,

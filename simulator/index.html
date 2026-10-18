@@ -149,6 +149,7 @@
     const SUN_WEATHER_TOTAL_ANIMATION_SECONDS = SUN_WEATHER_ANIMATION_SECONDS * 2;
     const WEATHER_SPRITE_SCALE = 4;
     const WEATHER_SPRITE_SIZE = 14;
+    const TODAY_HEADER_ICON_SIZE = 22;
     const CELESTIAL_SPRITE_SIZE = 21;
     const MATRIX_FRAME_MS = 1000 / MATRIX_REFRESH_FPS;
     const FONT_FIRST_CODEPOINT = 32;
@@ -168,7 +169,7 @@
     const STEAM_TRAIN_WIDTH = 52 * FONT_PIXEL_SCALE;
     const STEAM_TRAIN_TEXT_GAP = 8 * FONT_PIXEL_SCALE;
     const STEAM_TRAIN_VERTICAL_OFFSET = 1;
-    const BUS_WIDTH = 52 * FONT_PIXEL_SCALE;
+    const BUS_WIDTH = 84 * FONT_PIXEL_SCALE;
     const BUS_TEXT_GAP = 8 * FONT_PIXEL_SCALE;
     const BUS_VERTICAL_OFFSET = 1;
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
@@ -403,7 +404,7 @@
     const RAIL_ORDINAL_X = 0;
     const RAIL_TIME_X = 96;
     const RAIL_DESTINATION_X = 252;
-    const RAIL_PLATFORM_X = 608;
+    const RAIL_PLATFORM_X = 656;
     const RAIL_COLUMN_GAP = 16;
     const DEPARTURE_SLIDE_SECONDS = 0.8;
     const AGENDA_VISIBLE_ROWS = 3;
@@ -414,6 +415,7 @@
     const NOVELTY_FIRST_LINE_Y = 14;
 
     const spriteData = {"weather":{"sunny":["......Y.......","..............","..Y.......Y...",".....YYY......","....YYYYY.....","...YYYYYYY....","Y..YYYYYYY..Y.","...YYYYYOY....","....YYYOO.....",".....YYY......","..Y.......Y...","..............","......Y.......",".............."],"partly_cloudy":["Y.......Y.....","...YYY........","..YYYYY.......",".YYYYYYY......",".YYYYYYY..Y...",".YYYYYOWWW....","..YYYOWWWWW...","...CCWWWWWWW..","YCCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."],"cloudy":["..............","..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","..............",".............."],"overcast":["..............","..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............",".............."],"drizzle":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...C........C.","........C.....",".............."],"rain":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...B...B...B..","..B...B...B...",".............."],"heavy_rain":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..B....B....B.",".B....B....B..","....B....B....","...B....B....."],"showers":["..YYY.........",".YYYYY........","YYYYYYY.......","YYYYYYY..Y....","YYYYYOYWWW....",".YYYOOWWWWW...","..CCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","..CCCCCWWW....","...B...B...B..","..B...B...B...",".............."],"thunderstorm":["..............","..............",".......BBB....",".....CBBCBB...","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","........Y.....",".........Y..B.","..B...Y.Y..B..",".B............","......Y......."],"snow":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...WCC.WWW....","..WWW...WWW...","...W..W..W....",".....WWW......"],"sleet":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","..BCCW.WWW....",".B..WWW..B....",".....W..B.....",".............."],"hail":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","...WC.......WC","........WC....",".............."],"windy":["..............","..............","..CCC.....CC..",".....CWWWC....","..............","..............","...CCC........","......CC..WC..","..............","..............","..CC....WCC...","....CCC.......","..............",".............."],"fog":["..............",".......BBB....",".....CBBCBBB..","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............","..............","..C.C.C.C.C.C.","..............",".C.C.C.C.C.C..",".............."],"clear_night":["..............","..............",".W....Y.......","WWW.YYY.......","...YYY........","...YY.........","..YYY.........","...YY.........","...YYY......W.","....YYY....WWW","......Y.......","..............","..............",".............."],"partly_cloudy_night":["....Y.........","..YYY.........",".YYY..........",".YY...........","YYY...........",".YY....WWW....",".YYY..WWWWW...","..YCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."]},"celestial":{"sun":["..........Y..........","..........Y..........",".....................","...Y.............Y...","....Y.....Y.....Y....",".......YYYYYYY.......","......YYYYYYYYY......",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....","YY..YYYYYYYYYYYYY..YY",".....YYYYYYYYYYY.....",".....YYYYYYYYYYO.....",".....YYYYYYYYYOY.....","......YYYYYYYOY......",".......YOOOOOY.......","....Y.....Y.....Y....","...Y.............Y...",".....................","..........Y..........","..........Y.........."],"moon":[".....................","..................W..","..........Y......W.W.",".......YYYY.......W..",".....YYYY.........W..","....YYYY.............","....WYY..............","...YYYY..............","...WYY...............","...WYY...............","..YYYY...............","...YYY...............","...YYY...............","...YYYY..............","....YYY..........W...","....YYYY........W.W..",".....YYYY........W...",".......YYYY......W...","..........Y..........",".....................","....................."]},"palette":{"Y":"#ffff00","O":"#ff0000","W":"#ffffff","C":"#00ffff","B":"#0000ff","D":"#0000ff","R":"#ff0000","M":"#ff00ff"}};
+    const doubleDeckerBusSprite = {"width":84,"height":24,"rows":["......DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD.......","......KHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.....","......KHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.....","....RRKKKKKKKKKKKKKKKRRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDD...","....HRKKYYYKYKKKYYYKKRRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCBDDD...","....HRKKYKKKYKKKKKYKKRRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCBDDD...","...RHRKKYYYKYKKKKYKKKRRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCBDRR...","...RHRKKKKYKYKKKKYKKKRRDBBBBBBBDRDBBBBBBBDRDBBBBBBBDRDBBBBBBBDRDBBBBBBBDRDBBBBDRR...","..DRHRKKYYYKYYYKKYKKKRRDBBBBBBCDRDBBBBBBCDRDBBBBBBCDRDBBBBBBCDRDBBBBBBCDRDBBBCDRR...","..DRHRKKKKKKKKKKKKKKKRRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDRR...","..DRRRDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDRR...","..DRRKKKKKKKKKKKKDDKRHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHDRR...","..DRRKBCCCCCCCCBCDDKRRKKKKKKKKKKKRRDDDDDDDDDDRDDDDDDDDDDRDDDDDDDDDDRDDDDDDDDDDDRR...","..DRRKBCCCCCCCCBCDDKRRKBCCCKBCCBKRRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDDRR...","..DRRKBBBBBBBBBBCDDKRRKBCCCKBCCBKRRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDDRR...","..DRRKBBBBBBWBBBBDDKRRKBCCCKBCCBKRRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDDRY...","..WYRKBBBBBBBBBKBDDKRRKBCCCKBCCBKRRDBBBBBBBBDRDBBBBBBBBDRDBBBBBBBBDRDBBBBBBBBDDRR...","..WWRKKKKKKKKKKKKDDKRRKBBBYKBYBBKRRDBBBBBBBCDRDBBBBBBBCDRDBBBBBBBCDRDBBBBBBBCDDRR...","..YRRRRDDDDDDDDDDDDDDDKDDDDDDDDDKDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDW...","...RSSSSSDDDDKKKKKKKKKKDDDDDDDDDKDDHHHHHHHHHHHHHHHHHHHHHHHHHHKKKKKKKKKHHHHHHDKKKK...","....SSSSSKKDKKKSSSSSKKKKKKKKKKKKKDDDDDDDDDDDDDDDDDDDDDDDDDDDKKKSSSSSKKKDDDDDDKKKK...",".....KKKKKK.KKKSGWGSKKK.........KKKKKKKKKKKKKKKKKKKKKKKKKKK.KKKSGWGSKKK.............",".............KKSGGGSKK.......................................KKSGGGSKK..............","..............KSSSSSK.........................................KSSSSSK..............."],"palette":{"K":"#000000","R":"#ff0000","D":"#ff0000","H":"#ff0000","C":"#00ffff","B":"#0000ff","W":"#ffffff","Y":"#ffff00","S":"#ffffff","G":"#000000"}};
     const weatherSpriteAliases = {clear_day:"sunny",partly_cloudy_day:"partly_cloudy",cloudy:"overcast",storm:"thunderstorm",unknown:"cloudy"};
     function weatherSpriteName(name) { const key = weatherSpriteAliases[name] || name; return spriteData.weather[key] ? key : "cloudy"; }
     function drawWeatherSprite(name, x, y, stale, scale = WEATHER_SPRITE_SCALE, solar = false) {
@@ -423,6 +425,23 @@
         context.fillStyle = stale ? (solar ? "#777777" : "#0000ff") : spriteData.palette[symbol];
         context.fillRect(x + column * scale, y + row * scale, scale, scale);
       }));
+    }
+    function drawWeatherSpriteSized(name, x, y, size, stale) {
+      const rows = spriteData.weather[weatherSpriteName(name)];
+      for (let row = 0; row < size; row += 1) {
+        const sourceRow = rows[Math.floor(row * rows.length / size)];
+        for (let column = 0; column < size; column += 1) {
+          const symbol = sourceRow[Math.floor(column * sourceRow.length / size)];
+          if (symbol === '.') continue;
+          context.fillStyle = stale ? '#0000ff' : spriteData.palette[symbol];
+          context.fillRect(
+            x + column * WEATHER_SPRITE_SCALE,
+            y + row * WEATHER_SPRITE_SCALE,
+            WEATHER_SPRITE_SCALE,
+            WEATHER_SPRITE_SCALE
+          );
+        }
+      }
     }
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
     function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
@@ -1243,9 +1262,9 @@
       drawChristmasSleigh(0, 4);
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
-      // Three-digit count anchor stays fixed; added digits grow rightward.
-      drawLedTextScaled(`${days} DAYS`, 80 * px, 2 * px, 2);
-      drawLedTextScaled('UNTIL CHRISTMAS', 38 * px, 18 * px, 2);
+      // Keep the message beyond the sleigh's 84px edge; extra digits grow right.
+      drawLedTextScaled(`${days} DAYS`, 88 * px, 2 * px, 2);
+      drawLedText('UNTIL CHRISTMAS', 88 * px, 18 * px);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {
@@ -1413,23 +1432,21 @@
     function drawBus(screen, phase) {
       const speed = boundedNumber(screen.animation_speed, 24, 8, 80) * FONT_PIXEL_SCALE;
       const x = Math.max(0, Math.round((1024 - Math.max(0, Number(phase) || 0) * speed) / FONT_PIXEL_SCALE) * FONT_PIXEL_SCALE);
-      context.save();
-      context.translate(0, BUS_VERTICAL_OFFSET * FONT_PIXEL_SCALE);
-      trainRect(x + 3 * FONT_PIXEL_SCALE, 9, 43, 12, '#ff3300');
-      trainRect(x + 7 * FONT_PIXEL_SCALE, 5, 37, 5, '#ff3300');
-      [12, 22, 32].forEach(windowX => {
-        trainRect(x + windowX * FONT_PIXEL_SCALE, 7, 8, 4, '#ffffff');
-        trainRect(x + windowX * FONT_PIXEL_SCALE, 14, 8, 5, '#ffffff');
-      });
-      trainRect(x + 4 * FONT_PIXEL_SCALE, 6, 6, 5, '#222222');
-      trainRect(x + 3 * FONT_PIXEL_SCALE, 12, 6, 7, '#ffaa00');
-      drawBusWheel(x, 13, 21); drawBusWheel(x, 39, 21);
+      doubleDeckerBusSprite.rows.forEach((line, row) => [...line].forEach((symbol, column) => {
+        if (symbol === '.') return;
+        context.fillStyle = doubleDeckerBusSprite.palette[symbol];
+        context.fillRect(
+          x + column * FONT_PIXEL_SCALE,
+          (row + BUS_VERTICAL_OFFSET) * FONT_PIXEL_SCALE,
+          FONT_PIXEL_SCALE,
+          FONT_PIXEL_SCALE
+        );
+      }));
       const words = String(screen.words || '');
       if (words) {
         context.fillStyle = '#ffaa00';
         drawLedTextLarge(words, x + BUS_WIDTH + BUS_TEXT_GAP, 5 * FONT_PIXEL_SCALE);
       }
-      context.restore();
     }
     function drawBusWheel(baseX, centerX, centerY) {
       context.fillStyle = '#222222';
@@ -1463,11 +1480,12 @@
         const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
         const timeX = Math.max(0, 256 - nowText.length * 12 + 3);
-        const dateX = 15 + Math.max(0, Math.floor((timeX - 15 - todayDateWidth(date.length)) / 2));
+        const dateLeft = TODAY_HEADER_ICON_SIZE + 1;
+        const dateX = dateLeft + Math.max(0, Math.floor((timeX - dateLeft - todayDateWidth(date.length)) / 2));
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
-        drawWeatherSprite(
+        drawWeatherSpriteSized(
           weather.icon || 'unknown', 0, 5 * WEATHER_SPRITE_SCALE,
-          Boolean(weather.stale), WEATHER_SPRITE_SCALE
+          TODAY_HEADER_ICON_SIZE, Boolean(weather.stale)
         );
         context.fillStyle = '#ffaa00';
         drawLedTextScaled(nowText, timeX * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2, true);

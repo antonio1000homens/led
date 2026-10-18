@@ -168,6 +168,8 @@ class TodayDateAnimationTests(unittest.TestCase):
         screen = {'kind': 'today', 'weather': {'temperature_c': 12, 'icon': 'cloudy'}}
         self.display.show(screen, clock_time='12:34', clock_date='2026-10-21', phase=4)
         first = self.display.display.root_group
+        icon = first[1]
+        self.assertEqual((icon.bitmap.width, icon.bitmap.height), (22, 22))
         self.display.show(screen, clock_time='12:34', clock_date='2026-10-21', phase=4.125)
         self.assertIs(self.display.display.root_group, first)
         self.display._refresh.assert_called_with(animation_class='today_date')
