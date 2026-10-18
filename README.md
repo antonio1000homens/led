@@ -258,6 +258,21 @@ The enabled weather screens form one contiguous block during each rotation, even
 
 The firmware and browser simulator add a local `christmas_tracker_intro` followed immediately by `christmas_tracker`; these screens need no API feed or provider configuration. The 8-second intro slides a 52-pixel Santa sleigh in from the right beside `HO HO HO...`. The following 18-second screen shows the London-local days-until-Christmas count with falling snow from its first frame. They remain one rotation block. The MatrixPortal prepares both scenes before entry, collects before the intro, defers automatic garbage collection across both screens, and collects again after the tracker exits.
 
+Every screen owner also has an optional **Cron schedule** in the admin page's
+Advanced section. Leave it blank to include that screen on every rotation.
+Schedules use five numeric cron fields (`minute hour day-of-month month
+day-of-week`) in `Europe/London`, with `*`, lists, ranges and `/step` values.
+For example, `0 8 * * 1-5` includes the screen at 08:00 on weekdays. The
+MatrixPortal evaluates the schedule when it selects the next screen, so a
+screen already animating finishes its normal duration before a newly inactive
+screen is skipped. A newly active screen is eligible at the next screen
+boundary. If all scheduled screens are inactive, the display shows a short
+local status page and checks again as the clock advances. Weather pages share
+one schedule, as do all SL7 pages; Queue Times is one combined screen. The
+steam-train and bus introductions remain paired with their matching departure
+screen. MQTT recycling screens use the same rotation schedule; transient flash
+events use the schedule configured on Flash events.
+
 The protected admin/control plane provides independent enable and duration controls for the overview, next-24-hour and sunrise/sunset screens. The master Weather `enabled` switch still owns provider polling. If all three dedicated screens are disabled while Weather remains enabled, polling/cache refresh continues and the current-weather overlay can still appear on unrelated screens.
 
 The backend maps Open-Meteo WMO weather codes into a renderer-neutral icon set (`clear_day`, `clear_night`, `partly_cloudy_*`, `cloudy`, `fog`, `rain`, `snow`, `storm`). All three dedicated Weather screens use the full 256×32 canvas and suppress the normal clock/current-weather/STALE header chrome; the browser simulator mirrors the same screen sequence and supports forced-stale preview.

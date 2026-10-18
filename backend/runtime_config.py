@@ -12,6 +12,8 @@ from decimal import Decimal
 import os
 from typing import Any
 
+from cron_schedule import parse_cron_schedule
+
 CONFIG_ID = "runtime"
 MIN_POLL_SECONDS = 60
 MIN_INSULT_POLL_SECONDS = 3600  # Never request a new insult more than hourly.
@@ -37,6 +39,11 @@ DEFAULT_STEAM_TRAIN_SPEED = 24
 MAX_STEAM_TRAIN_WORDS_LENGTH = 80
 DEFAULT_STEAM_TRAIN_WORDS = "choo choo"
 DEFAULT_BUS_INTRO_WORDS = "Beep! Beep!..."
+SCREEN_SCHEDULE_FEEDS = (
+    "steam_train", "departures", "queue_times", "weather", "dad_joke",
+    "random_fact", "quotes", "insult_of_hour", "today", "calendar",
+    "flash", "recycling", "sl7_bus",
+)
 MIN_QUEUE_SCROLL_SPEED = 8
 MAX_QUEUE_SCROLL_SPEED = 80
 DEFAULT_QUEUE_SCROLL_SPEED = 27
@@ -479,6 +486,8 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
         "updated_at": None,
         "updated_by": "system:defaults",
     }
+    for feed_id in SCREEN_SCHEDULE_FEEDS:
+        result["feeds"][feed_id]["cron_schedule"] = ""
     return result
 
 
@@ -564,15 +573,22 @@ def schema_metadata() -> dict[str, Any]:
             fields["upcoming_bus_count"] = {"type": "integer", "minimum": MIN_BUS_COUNT, "maximum": MAX_BUS_COUNT}
             fields["stale_after_seconds"] = {"type": "integer", "minimum": MIN_STALE_AFTER_SECONDS, "maximum": MAX_STALE_AFTER_SECONDS}
             fields["destination_scroll_speed"] = {"type": "integer", "minimum": MIN_DESTINATION_SCROLL_SPEED, "maximum": MAX_DESTINATION_SCROLL_SPEED}
+        if feed_id in SCREEN_SCHEDULE_FEEDS:
+            fields["cron_schedule"] = {"type": "string", "maximumLength": 100}
+        mutable_fields = list(definition["mutable_fields"])
+        advanced_fields = list(definition.get("advanced_fields", ()))
+        if feed_id in SCREEN_SCHEDULE_FEEDS:
+            mutable_fields.append("cron_schedule")
+            advanced_fields.append("cron_schedule")
         if definition.get("rides"):
             fields["rides"] = {"type": "array", "items": {"type": "string"}, "ordered": True}
         feeds[feed_id] = {
             "label": definition["label"],
             "provider": definition["provider"],
-            "mutable_fields": list(definition["mutable_fields"]),
+            "mutable_fields": mutable_fields,
             **({"display_group": definition["display_group"]} if definition.get("display_group") else {}),
             "fields": fields,
-            **({"advanced_fields": list(definition["advanced_fields"])} if definition.get("advanced_fields") else {}),
+            **({"advanced_fields": advanced_fields} if advanced_fields else {}),
             **({"park_id": definition["park_id"]} if "park_id" in definition else {}),
             **({"virtual": True} if definition.get("virtual") else {}),
         }
@@ -635,6 +651,8 @@ def validate_feed_patch(
         raise RuntimeConfigValidationError("patch must be a non-empty JSON object")
     definition = FEED_REGISTRY[feed_id]
     allowed = set(definition["mutable_fields"])
+    if feed_id in SCREEN_SCHEDULE_FEEDS:
+        allowed.add("cron_schedule")
     unknown = set(patch) - allowed
     if unknown:
         raise RuntimeConfigValidationError(
@@ -642,6 +660,16 @@ def validate_feed_patch(
         )
 
     result: dict[str, Any] = {}
+    if "cron_schedule" in patch:
+        schedule = patch["cron_schedule"]
+        if not isinstance(schedule, str) or len(schedule) > 100:
+            raise RuntimeConfigValidationError(f"{feed_id}.cron_schedule must be text of at most 100 characters")
+        schedule = schedule.strip()
+        try:
+            parse_cron_schedule(schedule)
+        except ValueError as error:
+            raise RuntimeConfigValidationError(f"{feed_id}.cron_schedule: {error}") from error
+        result["cron_schedule"] = schedule
     if "enabled" in patch:
         if not isinstance(patch["enabled"], bool):
             raise RuntimeConfigValidationError(f"{feed_id}.enabled must be boolean")
@@ -803,6 +831,8 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if not isinstance(raw_value, dict):
             raise RuntimeConfigValidationError(f"{feed_id} must be an object")
         raw = copy.deepcopy(raw_value)
+        if feed_id in SCREEN_SCHEDULE_FEEDS:
+            raw.setdefault("cron_schedule", "")
         # Read old persisted configurations, but never expose or accept new
         # writes to the retired display-frequency setting.
         if feed_id != "sl7_bus":
@@ -840,6 +870,8 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
                 raw["poll_seconds"] = max(MIN_INSULT_POLL_SECONDS, interval)
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
+        if feed_id in SCREEN_SCHEDULE_FEEDS:
+            expected.add("cron_schedule")
         # Older saved configs may predate the SL7 frequency control. Keep that
         # migration additive without making the legacy migration test (or an
         # older persisted document) acquire a new key unexpectedly.

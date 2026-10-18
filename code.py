@@ -49,6 +49,7 @@ from matrix_runtime import (
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from christmas_tracker import with_christmas_tracker
+from cron_schedule import cron_matches_local
 from mqtt_screens import MqttScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
@@ -564,7 +565,7 @@ def _report_pace(now):
     return True
 
 
-def _apply_flash_config(payload):
+def _apply_flash_config(payload, now=None):
     config = payload.get("flash") if isinstance(payload, dict) else None
     if not isinstance(config, dict):
         return
@@ -575,6 +576,18 @@ def _apply_flash_config(payload):
         and settings.MQTT_ENABLE_EXPERIMENTAL
         and config.get("enabled", False)
     )
+    expression = config.get("cron_schedule") or ""
+    if expression:
+        try:
+            local_date = clock.date_text(now)
+            local_time = clock.text(now)
+            year, month, day = (int(part) for part in local_date.split("-"))
+            hour, minute = (int(part) for part in local_time.split(":"))
+            runtime_enabled = runtime_enabled and cron_matches_local(
+                expression, year, month, day, hour, minute
+            )
+        except (AttributeError, TypeError, ValueError, IndexError):
+            runtime_enabled = False
     flash.configure(
         enabled=runtime_enabled,
         duration_seconds=config.get("screen_duration_seconds"),
@@ -814,6 +827,7 @@ while True:
                             )
                     except Exception as error:
                         print("Intro scene preparation deferred:", error)
+            rotation.set_schedule_time(clock.date_text(fetch_completed), clock.text(fetch_completed))
             mqtt_screens.configure_recycling(payload.get("recycling"))
             epoch_now = _reminder_epoch(fetch_completed)
             last_recycling_date = clock.date_text(fetch_completed)
@@ -825,7 +839,7 @@ while True:
             )
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
-            _apply_flash_config(payload)
+            _apply_flash_config(payload, fetch_completed)
             transport_stale = False
         except Exception as error:
             fetch_completed = time.monotonic()
@@ -932,6 +946,7 @@ while True:
                 flash_resume = None
             last_render_key = None
             print("FLASH END")
+        rotation.set_schedule_time(clock.date_text(now), clock.text(now))
         screen, phase = rotation.current(ticks_ms())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["screen_select"] = elapsed_seconds(stage_started)

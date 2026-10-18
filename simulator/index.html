@@ -640,7 +640,7 @@
       if (progress >= 1) return { start: visible, progress: 0, visible };
       return { start: 0, progress, visible };
     }
-    let cyclePlan = [], cycleStarted = 0, planOffset = 0;
+    let cyclePlan = [], cycleStarted = 0, planOffset = 0, planSourceKey = '', rotationIndex = 0, rotationStarted = null, rotationIdle = false;
     const recentStaticItems = new Map();
     const staticScreen = screen => screen.display_group === 'static_feeds' || ['dad_joke','random_fact','insult_of_hour','quotes','today'].includes(screen.kind);
     function chooseStatic(screen) {
@@ -686,28 +686,79 @@
       for (const page of pages) blocks.splice(Math.floor(Math.random() * (blocks.length + 1)), 0, [page]);
       return blocks.flat();
     }
+    function cronFieldMatches(field, value, minimum, maximum) {
+      return field.split(',').some(part => {
+        const [base, stepText] = part.split('/');
+        const step = stepText === undefined ? 1 : Number(stepText);
+        if (!Number.isInteger(step) || step < 1) return false;
+        let start, end;
+        if (base === '*') { start = minimum; end = maximum; }
+        else if (/^\d+-\d+$/.test(base)) [start, end] = base.split('-').map(Number);
+        else if (/^\d+$/.test(base)) { start = Number(base); end = stepText === undefined ? start : maximum; }
+        else return false;
+        return start >= minimum && end <= maximum && start <= end && value >= start && value <= end && (value - start) % step === 0;
+      });
+    }
+    function cronActive(screen, wallClock = new Date()) {
+      const expression = String(screen.cron_schedule || '').trim();
+      if (!expression) return true;
+      const fields = expression.split(/\s+/);
+      if (fields.length !== 5) return false;
+      const values = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hourCycle:'h23',weekday:'short'}).formatToParts(wallClock).map(part => [part.type, part.value]));
+      const weekday = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[values.weekday];
+      const minute = Number(values.minute), hour = Number(values.hour), day = Number(values.day), month = Number(values.month);
+      const ranges = [[0,59],[0,23],[1,31],[1,12],[0,7]];
+      const matches = fields.map((field, index) => cronFieldMatches(field, index === 0 ? minute : index === 1 ? hour : index === 2 ? day : index === 3 ? month : weekday, ...ranges[index]));
+      if (!matches[0] || !matches[1] || !matches[3]) return false;
+      if (fields[2] !== '*' && fields[4] !== '*') return matches[2] || matches[4];
+      return matches[2] && matches[4];
+    }
+    function scheduledIndex(start, wallClock) {
+      for (let offset = 0; offset < cyclePlan.length; offset += 1) {
+        const index = (start + offset) % cyclePlan.length;
+        const screen = cyclePlan[index];
+        if (!cronActive(screen, wallClock)) continue;
+        if (screen.kind === 'steam_train_intro' && !(cyclePlan[index+1]?.kind === 'rail_combined' && cronActive(cyclePlan[index+1], wallClock))) continue;
+        if (screen.kind === 'bus_intro' && !(busFollowup(screen, cyclePlan[index+1] || {}) && cronActive(cyclePlan[index+1], wallClock))) continue;
+        return index;
+      }
+      return -1;
+    }
     function screenAt(elapsed) {
       if (!screens.length) return {screen: {id:'static-fallback',kind:'today',title:'TODAY',weather:{},duration_seconds:8},phase:0,index:0};
-      if (!cyclePlan.length || elapsed < cycleStarted || planOffset !== screenOffset) {
-        cyclePlan = makeCyclePlan(); cycleStarted = elapsed; planOffset = screenOffset;
+      const sourceKey = JSON.stringify(screens.map(screen => [screen.id, screen.cron_schedule || '']));
+      const previous = cyclePlan[rotationIndex];
+      const previousPhase = rotationStarted === null ? 0 : Math.max(0, elapsed - rotationStarted) / 1000;
+      if (!cyclePlan.length || elapsed < cycleStarted || planOffset !== screenOffset || sourceKey !== planSourceKey) {
+        const preserveCurrent = Boolean(previous && planOffset === screenOffset && elapsed >= cycleStarted);
+        cyclePlan = makeCyclePlan(); cycleStarted = elapsed; planOffset = screenOffset; planSourceKey = sourceKey;
         if (cyclePlan.length) {
           const offset = ((screenOffset % cyclePlan.length) + cyclePlan.length) % cyclePlan.length;
           cyclePlan = [...cyclePlan.slice(offset), ...cyclePlan.slice(0,offset)];
         }
+        const priorIndex = preserveCurrent ? cyclePlan.findIndex(screen => screen.id === previous.id) : -1;
+        const eligibleIndex = scheduledIndex(0, new Date());
+        rotationIndex = priorIndex >= 0 ? priorIndex : Math.max(0, eligibleIndex);
+        rotationStarted = priorIndex >= 0 ? elapsed - previousPhase * 1000 : elapsed;
+        rotationIdle = priorIndex < 0 && eligibleIndex < 0;
       }
       const duration = screen => (screen.kind === 'rail_combined' ? railScreenTiming(screen).duration : Math.max(1, Number(screen.effective_duration_seconds || screen.duration_seconds) || 8)) * 1000;
       while (true) {
-        const total = cyclePlan.reduce((sum, screen) => sum + duration(screen), 0);
-        if (elapsed - cycleStarted < total) break;
-        cycleStarted += total; cyclePlan = makeCyclePlan();
+        const wallClock = new Date();
+        if (rotationIdle) {
+          const next = scheduledIndex(0, wallClock);
+          if (next < 0) return {screen:{id:'schedule-idle',kind:'message',title:'NO SCREENS SCHEDULED',source:'local',duration_seconds:60},phase:0,index:0};
+          rotationIndex = next; rotationStarted = elapsed; rotationIdle = false;
+        }
+        const screen = cyclePlan[rotationIndex];
+        if (elapsed - rotationStarted < duration(screen)) return {screen,phase:Math.max(0,elapsed-rotationStarted)/1000,index:Math.max(0,screens.findIndex(item=>item.id===screen.id))};
+        rotationStarted += duration(screen);
+        let nextIndex = rotationIndex + 1;
+        if (nextIndex >= cyclePlan.length) { cyclePlan = makeCyclePlan(); nextIndex = 0; }
+        const next = scheduledIndex(nextIndex, wallClock);
+        if (next < 0) { rotationIdle = true; rotationStarted = elapsed; continue; }
+        rotationIndex = next;
       }
-      let remaining = elapsed - cycleStarted;
-      for (const screen of cyclePlan) {
-        const time = duration(screen);
-        if (remaining < time) return {screen, phase:remaining/1000,index:Math.max(0,screens.findIndex(item=>item.id===screen.id))};
-        remaining -= time;
-      }
-      return {screen:cyclePlan[0],phase:0,index:0};
     }
     function stationMarqueeSpeed(screen) {
       return boundedNumber(screen.station_scroll_speed, 20, 10, 80) * 4;

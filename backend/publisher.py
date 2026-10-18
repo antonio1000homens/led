@@ -829,6 +829,27 @@ class Publisher:
                             screens.append(self._bus_intro(key, bus_config))
                         screens.append(self._bus_screen(key, bus_data.get(key), bus_config,
                                                         bus_feed.get("stale", False), now))
+        schedule_feed_for_kind = {
+            "steam_train_intro": "steam_train",
+            "rail_combined": "departures",
+            "theme_park_queues": "queue_times",
+            "calendar_agenda": "calendar",
+            "dad_joke": "dad_joke",
+            "random_fact": "random_fact",
+            "quotes": "quotes",
+            "insult_of_hour": "insult_of_hour",
+            "today": "today",
+            "weather_sun": "weather",
+            "weather_today": "weather",
+            "weather_weekly": "weather",
+            "bus_intro": "sl7_bus",
+            "bus_departures": "sl7_bus",
+            "bus_departures_combined": "sl7_bus",
+        }
+        for screen in screens:
+            feed_id = schedule_feed_for_kind.get(screen.get("kind"))
+            if feed_id:
+                screen["cron_schedule"] = config_feeds[feed_id].get("cron_schedule", "")
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
