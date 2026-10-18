@@ -32,7 +32,6 @@ from mqtt_screens import _epoch
 from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
-    sleigh_x, snow_active,
 )
 
 from formatting import (
@@ -1185,8 +1184,9 @@ class MatrixDisplay:
         self._bus_intro_motion_group = None
         self._bus_intro_words = None
         self._bus_intro_speed = None
+        self._christmas_intro_group = None
+        self._christmas_intro_motion = None
         self._christmas_group = None
-        self._christmas_sleigh = None
         self._christmas_snow_grid = None
         self._christmas_snow_bitmap = None
         self._christmas_countdown = None
@@ -1688,6 +1688,8 @@ class MatrixDisplay:
             return "steam_train"
         if kind == "christmas_tracker":
             return "christmas_tracker"
+        if kind == "christmas_tracker_intro":
+            return "steam_train"
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
             summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
@@ -3391,7 +3393,62 @@ class MatrixDisplay:
                 return False
             self._build_christmas_scene(screen, clock_date)
             return True
+        if kind == "christmas_tracker_intro":
+            if self._christmas_intro_group is not None:
+                return False
+            self._build_christmas_intro_scene()
+            return True
         return False
+
+    def _build_christmas_intro_scene(self):
+        import displayio
+
+        root = displayio.Group()
+        motion = displayio.Group(x=SLEIGH_START_X, y=2)
+        bitmap = displayio.Bitmap(52, 26, 3)
+        palette = displayio.Palette(3)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = 0xD71920
+        palette[2] = 0xFFFFFF
+        for y in range(9, 16):
+            for x in range(8, 43):
+                bitmap[x, y] = 1
+        for y in range(6, 11):
+            for x in range(14, 31):
+                bitmap[x, y] = 1
+        for y in range(8, 16):
+            for x in range(4, 8):
+                bitmap[x, y] = 1
+        for x in range(11, 47):
+            bitmap[x, 18] = 2
+        for x in range(16, 42):
+            bitmap[x, 19] = 1
+        for x, y in ((28, 5), (29, 4), (30, 3), (31, 4), (32, 5)):
+            bitmap[x, y] = 2
+        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 56, 8)
+        root.append(motion)
+        self._christmas_intro_group = root
+        self._christmas_intro_motion = motion
+
+    def _show_christmas_intro(self, phase):
+        if self._christmas_intro_group is None:
+            self._build_christmas_intro_scene()
+        update_started = ticks_ms()
+        elapsed = max(0.0, float(phase or 0))
+        x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
+        changed = self._christmas_intro_motion.x != x
+        self._christmas_intro_motion.x = x
+        self._attach_brightness_overlay(self._christmas_intro_group)
+        if self.display.root_group is not self._christmas_intro_group:
+            self.display.root_group = self._christmas_intro_group
+            changed = True
+        self._record_animation_update(
+            "christmas_intro", changed, elapsed_seconds(update_started), "steam_train"
+        )
+        if changed:
+            self._refresh("steam_train")
 
     def _build_christmas_scene(self, screen, clock_date):
         import displayio
@@ -3404,34 +3461,8 @@ class MatrixDisplay:
         snow_palette.make_transparent(0)
         snow_palette[1] = 0xFFFFFF
         snow_grid = displayio.TileGrid(snow_bitmap, pixel_shader=snow_palette)
-        snow_grid.hidden = True
+        snow_grid.hidden = False
         root.append(snow_grid)
-
-        sleigh = displayio.Group(x=SLEIGH_START_X, y=3)
-        sleigh_bitmap = displayio.Bitmap(28, 13, 3)
-        sleigh_palette = displayio.Palette(3)
-        sleigh_palette[0] = 0x000000
-        sleigh_palette.make_transparent(0)
-        sleigh_palette[1] = 0xD71920
-        sleigh_palette[2] = 0xFFFFFF
-        # A compact red sleigh with white runners and a Santa cap.
-        for y in range(5, 9):
-            for x in range(5, 23):
-                sleigh_bitmap[x, y] = 1
-        for y in range(3, 6):
-            for x in range(8, 17):
-                sleigh_bitmap[x, y] = 1
-        for y in range(4, 9):
-            for x in range(2, 5):
-                sleigh_bitmap[x, y] = 1
-        for x in range(8, 26):
-            sleigh_bitmap[x, 10] = 2
-        for x in range(10, 24):
-            sleigh_bitmap[x, 11] = 1
-        sleigh_bitmap[16, 2] = 2
-        sleigh_bitmap[17, 1] = 2
-        sleigh.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette))
-        root.append(sleigh)
 
         count_text = "--" if days is None else str(days)
         countdown = self._label(
@@ -3439,7 +3470,6 @@ class MatrixDisplay:
             0xFFFFFF, 0, 29,
         )
         self._christmas_group = root
-        self._christmas_sleigh = sleigh
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
         self._christmas_countdown = countdown
@@ -3449,7 +3479,7 @@ class MatrixDisplay:
              SNOW_FLAKE_SPEED[index]]
             for index in range(len(SNOW_FLAKE_X))
         ]
-        self._christmas_snow_visible = False
+        self._christmas_snow_visible = True
 
     def _update_christmas_scene(self, phase, clock_date):
         if self._christmas_group is None:
@@ -3461,17 +3491,13 @@ class MatrixDisplay:
             self._christmas_countdown.text = text
             self._christmas_days = days
             changed = True
-        next_x = sleigh_x(phase)
-        if self._christmas_sleigh.x != next_x:
-            self._christmas_sleigh.x = next_x
-            changed = True
-        visible = snow_active(phase)
+        visible = True
         if self._christmas_snow_visible != visible:
             self._christmas_snow_grid.hidden = not visible
             self._christmas_snow_visible = visible
             changed = True
         if visible:
-            phase_value = max(0.0, float(phase or 0)) - SLEIGH_SLIDE_SECONDS
+            phase_value = max(0.0, float(phase or 0))
             for flake in self._christmas_flakes:
                 y = (flake[1] + int(phase_value * flake[3])) % 32
                 if y != flake[2]:
@@ -4145,6 +4171,10 @@ class MatrixDisplay:
             self._show_steam_train(screen, phase)
             return
 
+        if not empty_state and kind == "christmas_tracker_intro":
+            self._show_christmas_intro(phase)
+            return
+
         if not empty_state and kind == "bus_intro":
             self._show_bus_intro(screen, phase)
             return
@@ -4438,25 +4468,28 @@ class FixtureDisplay:
         self._text(due_label, due_x, 14, (170, 170, 170))
 
     def _christmas_tracker(self, screen, phase, clock_date):
-        x = sleigh_x(phase)
-        red = (215, 25, 32)
         white = (255, 255, 255)
-        self._fill_rect(x + 5, 8, 18, 4, red)
-        self._fill_rect(x + 8, 6, 9, 3, red)
-        self._fill_rect(x + 2, 7, 3, 5, red)
-        self._fill_rect(x + 8, 13, 18, 1, white)
-        self._fill_rect(x + 10, 14, 14, 1, red)
-        self._fill_rect(x + 18, 5, 1, 1, white)
-        self._fill_rect(x + 19, 4, 1, 1, white)
-        if snow_active(phase):
-            snow_phase = max(0.0, float(phase or 0)) - SLEIGH_SLIDE_SECONDS
-            for index in range(len(SNOW_FLAKE_X)):
-                y = (SNOW_FLAKE_START_Y[index]
-                     + int(snow_phase * SNOW_FLAKE_SPEED[index])) % 32
-                self._pixel(SNOW_FLAKE_X[index], y, white)
+        snow_phase = max(0.0, float(phase or 0))
+        for index in range(len(SNOW_FLAKE_X)):
+            y = (SNOW_FLAKE_START_Y[index]
+                 + int(snow_phase * SNOW_FLAKE_SPEED[index])) % 32
+            self._pixel(SNOW_FLAKE_X[index], y, white)
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         self._text("{} DAYS UNTIL CHRISTMAS".format(count), 0, 25, white)
+
+    def _christmas_tracker_intro(self, screen, phase):
+        elapsed = max(0.0, float(phase or 0))
+        x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
+        red = (215, 25, 32)
+        white = (255, 255, 255)
+        for left, top, width, height in ((8, 9, 35, 7), (14, 6, 17, 5), (4, 8, 4, 8)):
+            self._fill_rect(x + left, top + 2, width, height, red)
+        self._fill_rect(x + 16, 21, 26, 1, red)
+        self._fill_rect(x + 11, 20, 36, 1, white)
+        for left, top in ((28, 7), (29, 6), (30, 5), (31, 6), (32, 7)):
+            self._pixel(x + left, top, white)
+        self._text("HO HO HO...", x + 56, 13, (255, 170, 0))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
@@ -4622,6 +4655,8 @@ class FixtureDisplay:
                 self._text(line, 0, NOVELTY_FIRST_LINE_Y + index * 8, (255, 255, 255))
         elif kind == "steam_train_intro":
             self._steam_train(screen, phase)
+        elif kind == "christmas_tracker_intro":
+            self._christmas_tracker_intro(screen, phase)
         elif kind == "bus_intro":
             self._bus_intro(screen, phase)
         elif kind == "weather_weekly":
@@ -4831,7 +4866,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time, now_epoch)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "bus_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes", "christmas_tracker"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "christmas_tracker_intro", "bus_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes", "christmas_tracker"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
@@ -4849,6 +4884,8 @@ class FixtureDisplay:
             print(due_text)
         if kind == "steam_train_intro":
             print("STEAM TRAIN {}".format(screen.get("words") or ""))
+        elif kind == "christmas_tracker_intro":
+            print("CHRISTMAS INTRO HO HO HO...")
         elif kind == "bus_intro":
             print("BUS {}".format(screen.get("words") or ""))
         elif kind == "bin_collection":

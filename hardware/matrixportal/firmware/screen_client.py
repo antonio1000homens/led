@@ -505,6 +505,7 @@ class ScreenRotation:
         stop = current.get("stop_key")
         return (
             (previous_id == "steam-train" and current.get("kind") == "rail_combined")
+            or (previous_id == "christmas-tracker-intro" and current.get("kind") == "christmas_tracker")
             or (current.get("kind") == "bus_departures"
                 and stop in ("heathrow", "new-malden")
                 and previous_id == "sl7-{}-intro".format(stop))
@@ -573,6 +574,7 @@ class ScreenRotation:
         for item in normal:
             if blocks and (
                 (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
+                or (blocks[-1][-1].get("kind") == "christmas_tracker_intro" and item.get("kind") == "christmas_tracker")
                 or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
             ):
@@ -590,11 +592,10 @@ class ScreenRotation:
         """Insert static maintenance only at a caller-observed block boundary."""
         if self.screens and self.is_static(self.screens[self.index]):
             return
-        # This boundary is not a maintenance opportunity: the SL7 board
-        # must appear immediately after its bus animation.
+        # Paired follow-up screens must appear immediately after their intro.
         if (self.screens and self.index > 0
-                and self.is_bus_followup(self.screens[self.index - 1],
-                                         self.screens[self.index])):
+                and self.is_paired_transition(self.screens[self.index - 1].get("id", ""),
+                                              self.screens[self.index])):
             return
         for index in range(self.index + 1, len(self.screens)):
             if self.is_static(self.screens[index]):

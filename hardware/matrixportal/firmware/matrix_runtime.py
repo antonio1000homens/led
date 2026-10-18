@@ -45,7 +45,7 @@ def enter_rail_gc_window(gc_module, allow_during_build=False, collect_at_entry=T
 
 def christmas_gc_action(screen_kind, suspended, overlay_active=False):
     """Return enter/exit only at Christmas screen boundaries, never mid-scene."""
-    active = screen_kind == "christmas_tracker" and not overlay_active
+    active = screen_kind in ("christmas_tracker_intro", "christmas_tracker") and not overlay_active
     if active and not suspended:
         return "enter"
     if suspended and not active:

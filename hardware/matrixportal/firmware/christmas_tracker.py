@@ -2,8 +2,9 @@
 
 
 SLEIGH_SLIDE_SECONDS = 3.0
+CHRISTMAS_INTRO_SECONDS = 8
 SLEIGH_START_X = 256
-SLEIGH_END_X = 184
+SLEIGH_END_X = 0
 CHRISTMAS_SCREEN_SECONDS = 18
 SNOW_FLAKE_X = (7, 23, 39, 55, 71, 87, 103, 119,
                 135, 151, 167, 183, 199, 215, 231, 247)
@@ -65,22 +66,45 @@ def sleigh_x(phase):
 
 def snow_active(phase):
     try:
-        return float(phase or 0) >= SLEIGH_SLIDE_SECONDS
+        return float(phase or 0) >= 0
     except (TypeError, ValueError):
         return False
 
 
 def with_christmas_tracker(screens):
-    """Return the feed screens plus one firmware-owned seasonal screen."""
+    """Append the firmware-owned sleigh intro and countdown/snow screens."""
     result = list(screens or ())
-    for screen in result:
-        if isinstance(screen, dict) and screen.get("kind") == "christmas_tracker":
-            return result
-    result.append({
+    intro = None
+    tracker = None
+    for index, screen in enumerate(result):
+        if not isinstance(screen, dict):
+            continue
+        if screen.get("kind") == "christmas_tracker_intro":
+            intro = index
+        elif screen.get("kind") == "christmas_tracker":
+            tracker = index
+    if intro is None:
+        entry = {
+            "id": "christmas-tracker-intro",
+            "kind": "christmas_tracker_intro",
+            "title": "CHRISTMAS",
+            "words": "HO HO HO...",
+            "duration_seconds": CHRISTMAS_INTRO_SECONDS,
+            "source": "firmware",
+        }
+        if tracker is None:
+            result.append(entry)
+            intro = len(result) - 1
+        else:
+            result.insert(tracker, entry)
+            intro = tracker
+            tracker += 1
+    if tracker is None:
+        result.insert(intro + 1, {
         "id": "christmas-tracker",
         "kind": "christmas_tracker",
         "title": "CHRISTMAS TRACKER",
         "duration_seconds": CHRISTMAS_SCREEN_SECONDS,
         "source": "firmware",
-    })
+        })
     return result

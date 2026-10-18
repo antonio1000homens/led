@@ -7,7 +7,7 @@ import shutil
 import subprocess
 
 from christmas_tracker import (
-    CHRISTMAS_SCREEN_SECONDS, SLEIGH_END_X, SLEIGH_SLIDE_SECONDS,
+    CHRISTMAS_INTRO_SECONDS, CHRISTMAS_SCREEN_SECONDS, SLEIGH_END_X, SLEIGH_SLIDE_SECONDS,
     SLEIGH_START_X, days_until_christmas, sleigh_x, snow_active,
     with_christmas_tracker,
 )
@@ -64,12 +64,12 @@ class ChristmasTrackerTests(unittest.TestCase):
         self.assertEqual(clock.date_text(100), "2026-12-25")
         self.assertEqual(days_until_christmas(clock.date_text(100)), 0)
 
-    def test_sleigh_enters_before_snow_starts(self):
+    def test_intro_finishes_before_countdown_screen_snow_starts(self):
         self.assertEqual(sleigh_x(0), SLEIGH_START_X)
         self.assertLess(sleigh_x(1), SLEIGH_START_X)
         self.assertEqual(sleigh_x(SLEIGH_SLIDE_SECONDS), SLEIGH_END_X)
-        self.assertFalse(snow_active(SLEIGH_SLIDE_SECONDS - 0.01))
-        self.assertTrue(snow_active(SLEIGH_SLIDE_SECONDS))
+        self.assertTrue(snow_active(0))
+        self.assertEqual(CHRISTMAS_INTRO_SECONDS, 8)
         self.assertEqual(CHRISTMAS_SCREEN_SECONDS, 18)
 
     def test_renderer_keeps_the_full_screen_on_the_animation_scheduler(self):
@@ -97,22 +97,19 @@ class ChristmasTrackerTests(unittest.TestCase):
             renderer.font = object()
             renderer.label_type = FakeLabel
             renderer._christmas_group = None
-            renderer._christmas_sleigh = None
             renderer._christmas_snow_grid = None
             renderer._christmas_snow_bitmap = None
             renderer._christmas_countdown = None
             renderer._christmas_days = None
             renderer._christmas_flakes = None
-            renderer._christmas_snow_visible = False
+            renderer._christmas_snow_visible = True
             renderer._build_christmas_scene({}, "2026-12-24")
             group = renderer._christmas_group
             flakes = renderer._christmas_flakes
             bitmap = renderer._christmas_snow_bitmap
             countdown = renderer._christmas_countdown
             self.assertEqual(countdown.text, "1 DAYS UNTIL CHRISTMAS")
-            renderer._update_christmas_scene(1, "2026-12-24")
-            self.assertTrue(renderer._christmas_snow_grid.hidden)
-            renderer._update_christmas_scene(3, "2026-12-24")
+            renderer._update_christmas_scene(0, "2026-12-24")
             self.assertFalse(renderer._christmas_snow_grid.hidden)
             first_positions = tuple(flake[2] for flake in flakes)
             renderer._update_christmas_scene(4, "2026-12-24")
@@ -132,10 +129,12 @@ class ChristmasTrackerTests(unittest.TestCase):
         screens = with_christmas_tracker([
             {"id": "feed", "kind": "message", "duration_seconds": 3}
         ])
-        self.assertEqual(len(screens), 2)
-        self.assertEqual(screens[1]["kind"], "christmas_tracker")
+        self.assertEqual(len(screens), 3)
+        self.assertEqual(screens[1]["kind"], "christmas_tracker_intro")
+        self.assertEqual(screens[1]["words"], "HO HO HO...")
+        self.assertEqual(screens[2]["kind"], "christmas_tracker")
         self.assertEqual(screens[1]["source"], "firmware")
-        self.assertEqual(len(with_christmas_tracker(screens)), 2)
+        self.assertEqual(len(with_christmas_tracker(screens)), 3)
         rotation = ScreenRotation(rng=random.Random(2))
         rotation.update(screens, 0)
         tracker = [item for item in rotation.screens
@@ -144,6 +143,9 @@ class ChristmasTrackerTests(unittest.TestCase):
         self.assertEqual(tracker[0]["id"], "christmas-tracker")
         self.assertEqual(tracker[0]["duration_seconds"], CHRISTMAS_SCREEN_SECONDS)
         self.assertFalse(ScreenRotation.is_maintenance_screen(tracker[0]))
+        self.assertEqual(rotation.screens[rotation.index + 1]["kind"], "christmas_tracker_intro")
+        self.assertEqual(rotation.screens[rotation.index + 2]["kind"], "christmas_tracker")
+        self.assertTrue(rotation.is_paired_transition("christmas-tracker-intro", rotation.screens[rotation.index + 2]))
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator checks")
     def test_simulator_countdown_and_screen_sequence(self):
@@ -154,19 +156,20 @@ class ChristmasTrackerTests(unittest.TestCase):
         functions = html[start:end]
         harness = """
 const CHRISTMAS_SCREEN_SECONDS = 18;
+const CHRISTMAS_INTRO_SECONDS = 8;
 const londonDateFormatter = new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', year:'numeric', month:'2-digit', day:'2-digit'});
 """ + functions + """
 const results = [
   christmasDaysUntil(new Date('2026-12-24T23:30:00Z')),
   christmasDaysUntil(new Date('2026-12-25T12:00:00Z')),
   christmasDaysUntil(new Date('2026-12-26T12:00:00Z')),
-  withChristmasTracker([{id:'x',kind:'message'}]).filter(x=>x.kind==='christmas_tracker').length
+  withChristmasTracker([{id:'x',kind:'message'}]).filter(x=>x.kind==='christmas_tracker_intro' || x.kind==='christmas_tracker').map(x=>x.kind)
 ];
 process.stdout.write(JSON.stringify(results));
 """
         output = subprocess.check_output(["node", "-e", harness], text=True)
-        self.assertEqual(output, "[1,0,364,1]")
-        self.assertIn("elapsed >= CHRISTMAS_SLEIGH_SECONDS", html)
+        self.assertEqual(output, '[1,0,364,["christmas_tracker_intro","christmas_tracker"]]')
+        self.assertIn("drawChristmasIntro(screen, phase)", html)
         self.assertIn("drawChristmasTracker(screen, phase, wallClock)", html)
 
 

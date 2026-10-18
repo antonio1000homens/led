@@ -416,7 +416,7 @@ def _display_phase(screen, phase):
     if _smooth_bin_collection(screen):
         return phase
     if (settings.DISPLAY_BACKEND == "matrix"
-            and screen.get("kind") == "christmas_tracker"):
+            and screen.get("kind") in ("christmas_tracker_intro", "christmas_tracker")):
         return phase
     return 2
 
@@ -476,7 +476,9 @@ def _smooth_bin_collection(screen):
 
 
 def _smooth_christmas(screen):
-    return settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "christmas_tracker"
+    return settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") in (
+        "christmas_tracker_intro", "christmas_tracker"
+    )
 
 
 def _report_pace(now):
@@ -793,7 +795,7 @@ while True:
                 for intro in screens:
                     if (not isinstance(intro, dict)
                             or intro.get("kind") not in (
-                                "steam_train_intro", "bus_intro", "christmas_tracker"
+                                "steam_train_intro", "bus_intro", "christmas_tracker_intro", "christmas_tracker"
                             )):
                         continue
                     try:
@@ -803,7 +805,7 @@ while True:
                             else prepare_intro(intro)
                         )
                         if prepared:
-                            if intro.get("kind") == "christmas_tracker":
+                            if intro.get("kind") in ("christmas_tracker_intro", "christmas_tracker"):
                                 prepare_christmas_scene_gc(gc)
                             print(
                                 "INTRO SCENE PREPARED id={} kind={} heap_free={}".format(
@@ -944,7 +946,7 @@ while True:
             screen["weather"] = weather
     christmas_action = christmas_gc_action(
         screen.get("kind"), christmas_gc_suspended,
-        bool(flash.active(now) and screen.get("kind") != "christmas_tracker"),
+        bool(flash.active(now) and screen.get("kind") not in ("christmas_tracker_intro", "christmas_tracker")),
     )
     if settings.DISPLAY_BACKEND == "matrix" and christmas_action == "enter":
         try:
