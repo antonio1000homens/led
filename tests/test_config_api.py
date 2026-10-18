@@ -187,7 +187,9 @@ class ConfigApiTests(unittest.TestCase):
             response = config_api.lambda_handler(event, None)
         self.assertEqual(response["statusCode"], 200)
         payload = json.loads(response["body"])
-        self.assertEqual(payload["feeds"]["today"], {"enabled": True, "screen_duration_seconds": 23})
+        self.assertEqual(payload["feeds"]["today"], {
+            "enabled": True, "screen_duration_seconds": 23, "schedule_windows": [],
+        })
         self.assertEqual(payload["feeds"]["weather"], original_weather)
         self.assertEqual(runtime.calls[0][0], "today")
         self.assertEqual(FakeInvoker.calls, 1)

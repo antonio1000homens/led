@@ -70,6 +70,7 @@ class CapturingTileGrid:
         self.bitmap = bitmap
         self.pixel_shader = pixel_shader
         self.x, self.y = x, y
+        self.flip_x = False
 
 
 class CapturingLabel:
@@ -490,8 +491,8 @@ class DisplayLayoutTests(unittest.TestCase):
             "slide_speed": 20,
         }, 4, clock_date="2026-10-07")
         self.assertIn(("NEXT COLLECTION", 0, 3, (255, 170, 0)), display.drawn)
-        self.assertIn(("Mixed recycling", 56, 14, (255, 255, 255)), display.drawn)
-        self.assertIn(("DUE IN 6 DAYS", 135, 14, (170, 170, 170)), display.drawn)
+        self.assertIn(("Mixed recycling", 88, 14, (255, 255, 255)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 167, 14, (170, 170, 170)), display.drawn)
         display.drawn = []
         display._draw_screen({
             "kind": "bin_collection", "title": "NEXT COLLECTION",
@@ -499,7 +500,7 @@ class DisplayLayoutTests(unittest.TestCase):
             "collections": [{"id": "mixed", "label": "Mixed recycling"}],
             "slide_speed": 20,
         }, 5, clock_date="2026-10-07")
-        self.assertIn(("DUE IN 6 DAYS", 135, 14, (170, 170, 170)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 167, 14, (170, 170, 170)), display.drawn)
 
         display.drawn = []
         display._draw_screen({
@@ -509,7 +510,7 @@ class DisplayLayoutTests(unittest.TestCase):
                             {"id": "paper", "label": "Paper"}],
             "slide_speed": 20,
         }, 4, clock_date="2026-10-07")
-        self.assertIn(("Mixed recycling / Paper", 56, 14, (255, 255, 255)), display.drawn)
+        self.assertIn(("Mixed recycling / Paper", 88, 14, (255, 255, 255)), display.drawn)
 
     def test_bin_collection_long_label_scrolls_with_configured_speed(self):
         display = CapturingFixture()
@@ -531,10 +532,10 @@ class DisplayLayoutTests(unittest.TestCase):
                   "collections": [{"id": "x", "label": "Mixed recycling"}]}
         display._draw_screen(screen, 3, clock_date="2026-10-07")
         self.assertNotIn(("DUE IN 6 DAYS", 120, 25, (170, 170, 170)), display.drawn)
-        self.assertIn(("Mixed recycling", 120, 14, (255, 255, 255)), display.drawn)
-        self.assertIn(("DUE IN 6 DAYS", 199, 14, (170, 170, 170)), display.drawn)
+        self.assertIn(("Mixed recycling", 152, 14, (255, 255, 255)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 231, 14, (170, 170, 170)), display.drawn)
         display._draw_screen(screen, 5, clock_date="2026-10-07")
-        self.assertIn(("DUE IN 6 DAYS", 135, 14, (170, 170, 170)), display.drawn)
+        self.assertIn(("DUE IN 6 DAYS", 167, 14, (170, 170, 170)), display.drawn)
 
     def test_bin_collection_blank_scroll_gap_allows_transport_reconnect(self):
         display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
@@ -601,9 +602,9 @@ class DisplayLayoutTests(unittest.TestCase):
             self.assertEqual(display._bin_label.text, "Mixed recycling")
             self.assertEqual(display._bin_lorry_label.text, "Mixed recycling")
             self.assertEqual(display._bin_footer_group.x, 0)
-            self.assertTrue(display._bin_lorry_grid.flip_x)
+            self.assertFalse(display._bin_lorry_grid.flip_x)
             self.assertEqual(display._bin_clock_label.text, "21:00")
-            self.assertEqual(display._bin_bins_group.x, 204)
+            self.assertEqual(display._bin_bins_group.x, 236)
             long_screen = dict(screen)
             long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]
             display._show_bin_collection(long_screen, "21:00", "2026-10-07", 4)
