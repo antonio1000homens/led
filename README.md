@@ -256,6 +256,8 @@ Set `LED_WEATHER_SOURCE=off` to stop Weather polling and remove all Weather outp
 
 The enabled weather screens form one contiguous block during each rotation, even when static feeds are shuffled. The non-animated next-24-hour and seven-day screens can host explicit garbage collection, scheduled fetches and task preparation; the animated sunrise/sunset screen cannot.
 
+The firmware and browser simulator add a local `christmas_tracker_intro` followed immediately by `christmas_tracker`; these screens need no API feed or provider configuration. The 8-second intro slides a 52-pixel Santa sleigh in from the right beside `HO HO HO...`. The following 18-second screen shows the London-local days-until-Christmas count with falling snow from its first frame. They remain one rotation block. The MatrixPortal prepares both scenes before entry, collects before the intro, defers automatic garbage collection across both screens, and collects again after the tracker exits.
+
 Every screen owner also has an optional **Cron schedule** in the admin page's
 Advanced section. Leave it blank to include that screen on every rotation.
 Schedules use five numeric cron fields (`minute hour day-of-month month

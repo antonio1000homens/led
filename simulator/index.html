@@ -91,6 +91,44 @@
     let lastHardwareFrame = -Infinity;
 
     const MATRIX_REFRESH_FPS = 7;
+    const CHRISTMAS_SCREEN_SECONDS = 18;
+    const CHRISTMAS_INTRO_SECONDS = 8;
+    const CHRISTMAS_SLEIGH_SECONDS = 3;
+    const CHRISTMAS_SLEIGH_START_X = 256;
+    const CHRISTMAS_SLEIGH_ROWS = [
+      '......Y..G..........................................................................',
+      '......G....G..G.....................................................................',
+      '.......G..G...G.....................................................................',
+      '........GGGGGG......................................................................',
+      '.........G..........................................................................',
+      '.........G..........................................................................',
+      '........G...................................................................G.......',
+      '.......BG........................................................FFFFYFFF..GGGG.....',
+      '.....BBNBBB......................................................FFFFYFFFGGDGGG.....',
+      '...RBBBBBBBB...............................................RRRWRRYYYYYYYYGDDDDG.....',
+      '...BBBBBBBBB.BBBBBBBBB.....B..............GGG..............RRRWRRFFFFYFFFDDDDDG.....',
+      '......BBBBBBBBBBBBBBBBBB..Y...............GGGG.............RRRWRRFFFFYFFFDDDDDG.....',
+      '.......BBBBBBBBBBBBBBBBBBBB........YYYYYYYYYYGG............RRRWRRFFFFYFFFDDDDGG.....',
+      '........BBGBBBBBBBBBBBBBB......YYYY.....GY.GRRRGGGGGGGGGGGGGGGGGGGGGGGGGGGDDDGG.....',
+      '..........BBBKKBBBBBKKBBYYYYYYY.........G..GGRRRRRRRRRRRRRRRRRRRRRRRRRRRRGDDDGG.....',
+      '..........BBBKKBBBBBKK..................G..GGRRRRRRRRRRYRRRRRWRRRRRRRRRRRGGGGG......',
+      '............KK.......KK..................G..GGGRRRRRRRRRRRRRRRRRRRRRRRRRRGGGG.......',
+      '............KK.......KK..................G....GGGRRRRRBBRRRRRRRRRRRRRRGBB..G........',
+      '............KK.......KK...................G....GGGGGGGBBGGGGGGGGGGGGGG.BB...........',
+      '...........KK.........KK...................G..........BB...............BB...........',
+      '...........KK.........KK....................GGG.......BB...............BB.....G.....',
+      '............G..........G.......................GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG.Y....',
+      '................................................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.....',
+      '....................................................................................'
+    ];
+    const CHRISTMAS_SLEIGH_PALETTE = {
+      R: '#e1303c', D: '#8d1e33', W: '#fff6de', G: '#ffbd3a', Y: '#ffe17e',
+      B: '#935838', K: '#4f3337', S: '#98c7cc', T: '#377177', F: '#358f5e',
+      L: '#74c569', P: '#f7b88d', N: '#24293b'
+    };
+    const CHRISTMAS_FLAKE_X = [7,23,39,55,71,87,103,119,135,151,167,183,199,215,231,247];
+    const CHRISTMAS_FLAKE_SPEED = [5,7,9,6,8,10,5,7,9,6,8,10,5,7,9,6];
+    const CHRISTMAS_FLAKE_START_Y = [0,7,15,23,3,11,19,27,4,12,20,28,1,9,17,25];
     const BIN_LORRY_SECONDS = 4.0;
     const BIN_LORRY_SPEED = 64;
     const REMINDER_SCROLL_SPEED = 64;
@@ -628,6 +666,8 @@
          intro.stop_key === departures.stop_key) ||
         (departures.kind === 'bus_departures_combined' && intro.stop_key === 'combined')
       );
+    const christmasFollowup = (intro, tracker) =>
+      intro.kind === 'christmas_tracker_intro' && tracker.kind === 'christmas_tracker';
     function makeCyclePlan() {
       const blocks = [];
       const normal = screens.filter(screen => !staticScreen(screen));
@@ -635,7 +675,7 @@
         const screen = normal[index];
         if (screen.kind === 'bus_intro' && !busFollowup(screen, normal[index + 1] || {})) continue;
         const last = blocks[blocks.length - 1];
-        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
+        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
         else blocks.push([screen]);
       }
       const pages = screens.filter(staticScreen).map(chooseStatic);
@@ -877,6 +917,37 @@
       const text = clockFormatter.format(now);
       const width = measureLedText(text).width;
       return { text, width, x: CLOCK_X };
+    }
+    function christmasDaysUntil(date) {
+      const parts = Object.fromEntries(londonDateFormatter.formatToParts(date).map(part => [part.type, part.value]));
+      const year = Number(parts.year), month = Number(parts.month), day = Number(parts.day);
+      const targetYear = month === 12 && day > 25 ? year + 1 : year;
+      return Math.round((Date.UTC(targetYear, 11, 25) - Date.UTC(year, month - 1, day)) / 86400000);
+    }
+    function christmasTrackerScreens() {
+      return [
+        { id: 'christmas-tracker-intro', kind: 'christmas_tracker_intro', title: 'CHRISTMAS',
+          words: 'HO HO HO...', duration_seconds: CHRISTMAS_INTRO_SECONDS, source: 'firmware' },
+        christmasTrackerScreen()
+      ];
+    }
+    function christmasTrackerScreen() {
+      return { id: 'christmas-tracker', kind: 'christmas_tracker', title: 'CHRISTMAS TRACKER',
+        duration_seconds: CHRISTMAS_SCREEN_SECONDS, source: 'firmware' };
+    }
+    function withChristmasTracker(screens) {
+      const intro = screens.find(screen => screen.kind === 'christmas_tracker_intro');
+      const tracker = screens.find(screen => screen.kind === 'christmas_tracker');
+      if (intro && tracker && screens.indexOf(tracker) === screens.indexOf(intro) + 1) return screens;
+      const insertAt = Math.max(0, screens.findIndex(screen =>
+        screen.kind === 'christmas_tracker_intro' || screen.kind === 'christmas_tracker'));
+      const result = screens.filter(screen =>
+        screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'christmas_tracker');
+      const pair = christmasTrackerScreens();
+      if (intro) pair[0] = intro;
+      if (tracker) pair[1] = tracker;
+      result.splice(Math.min(insertAt, result.length), 0, ...pair);
+      return result;
     }
     function temperatureText(weather) {
       if (!weather || typeof weather !== 'object') return '';
@@ -1137,6 +1208,48 @@
       }
       status.dataset.detail = 'Next recycling collection';
     }
+    function drawChristmasSleigh(x, y) {
+      const px = FONT_PIXEL_SCALE;
+      CHRISTMAS_SLEIGH_ROWS.forEach((row, dy) => {
+        let start = 0;
+        while (start < row.length) {
+          const key = row[start];
+          if (key === '.') {
+            start += 1;
+            continue;
+          }
+          let end = start + 1;
+          while (end < row.length && row[end] === key) end += 1;
+          context.fillStyle = CHRISTMAS_SLEIGH_PALETTE[key];
+          context.fillRect((x + start) * px, (y + dy) * px, (end - start) * px, px);
+          start = end;
+        }
+      });
+    }
+    function drawChristmasIntro(screen, phase) {
+      const elapsed = Math.max(0, Number(phase) || 0);
+      const x = Math.max(0, CHRISTMAS_SLEIGH_START_X - Math.floor(256 * Math.min(1, elapsed / CHRISTMAS_SLEIGH_SECONDS)));
+      drawChristmasSleigh(x, 4);
+      const px = FONT_PIXEL_SCALE;
+      context.fillStyle = '#ffaa00';
+      drawLedText('HO HO HO...', (x + 88) * px, 15 * px);
+      status.dataset.detail = 'Christmas Tracker · HO HO HO sleigh intro';
+    }
+    function drawChristmasTracker(screen, phase, wallClock) {
+      const elapsed = Math.max(0, Number(phase) || 0);
+      const px = FONT_PIXEL_SCALE;
+      context.fillStyle = '#ffffff';
+      for (let index = 0; index < CHRISTMAS_FLAKE_X.length; index += 1) {
+        const y = (CHRISTMAS_FLAKE_START_Y[index]
+          + Math.floor(elapsed * CHRISTMAS_FLAKE_SPEED[index])) % 32;
+        context.fillRect(CHRISTMAS_FLAKE_X[index] * px, y * px, px, px);
+      }
+      drawChristmasSleigh(0, 4);
+      const days = christmasDaysUntil(wallClock);
+      context.fillStyle = '#ffffff';
+      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 88 * px, 25 * px);
+      status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
+    }
     function splitSl7Due(item) {
       if (item.cancelled) return 'CXL';
       const effective = Date.parse(item.estimated || item.planned || '');
@@ -1340,7 +1453,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1456,6 +1569,12 @@
         status.dataset.detail = 'Today sunrise and sunset';
       } else if (screen.kind === 'bin_collection') {
         drawBinCollection(screen, phase);
+      } else if (screen.kind === 'christmas_tracker') {
+        drawChristmasTracker(screen, phase, wallClock);
+        suppressHeader = true;
+      } else if (screen.kind === 'christmas_tracker_intro') {
+        drawChristmasIntro(screen, phase);
+        suppressHeader = true;
       } else if (screen.kind === 'bus_departures_combined') {
         drawSplitSl7(screen);
         suppressHeader = true;
@@ -1777,7 +1896,7 @@
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
         if (payload.recycling && typeof payload.recycling === 'object') recyclingPolicy = payload.recycling;
-        const nextScreens = Array.isArray(payload.screens) ? payload.screens : [];
+        const nextScreens = withChristmasTracker(Array.isArray(payload.screens) ? payload.screens : []);
         const nextKey = JSON.stringify(nextScreens.map(screen => { const copy = { ...screen }; delete copy.weather; return copy; }));
         if (nextKey !== screenDataKey) { feedAnimationStarted = performance.now(); screenDataKey = nextKey; }
         if (cyclePlan.length) {

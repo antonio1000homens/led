@@ -206,7 +206,7 @@ class StaticFeedTests(unittest.TestCase):
     def test_explicit_gc_occurs_only_after_static_is_presented(self):
         source = (ROOT / "code.py").read_text()
         self.assertEqual(source.count("gc.collect()"),1)
-        block = source[source.index("    if maintenance_visible and"):source.index("    should_fetch = (fetch_due")]
+        block = source[source.index("    if maintenance_visible and"):source.index("    should_fetch = (")]
         self.assertLess(block.index("display.show("),block.index("gc.collect()"))
         self.assertIn("not flash.active(now)",block)
         self.assertNotIn("display.show_loading",source)
@@ -304,7 +304,7 @@ if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intr
         settings_copy.ANIMATE = True
         def advance(seconds):
             milliseconds[0] += max(1,int(round(seconds*1000)))
-            if milliseconds[0]-started > 90_000:
+            if milliseconds[0]-started > 130_000:
                 raise Finished()
         class Display:
             def __init__(self):

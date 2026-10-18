@@ -172,6 +172,23 @@ class RotationTests(unittest.TestCase):
         self.assertEqual(rotation.current(2)[0]["id"], "sl7-new-malden")
         self.assertEqual(rotation.current(6.9)[0]["id"], "sl7-new-malden")
 
+    def test_christmas_intro_stays_attached_to_tracker_under_static_shuffle(self):
+        import random
+        screens = [
+            {"id": "christmas-tracker-intro", "kind": "christmas_tracker_intro", "duration_seconds": 8},
+            {"id": "christmas-tracker", "kind": "christmas_tracker", "duration_seconds": 18},
+            {"id": "feed", "kind": "message", "duration_seconds": 3},
+            {"id": "fact", "kind": "random_fact", "duration_seconds": 3},
+        ]
+        for seed in range(10):
+            rotation = ScreenRotation(rng=random.Random(seed))
+            rotation.update(screens, 0)
+            ids = [screen["id"] for screen in rotation.screens]
+            self.assertEqual(ids.index("christmas-tracker") - ids.index("christmas-tracker-intro"), 1)
+            rotation.index = ids.index("christmas-tracker")
+            rotation.maintenance_slot(2)
+            self.assertEqual([screen["id"] for screen in rotation.screens], ids)
+
     def test_millisecond_phases_keep_one_pixel_steps_after_days_of_uptime(self):
         rotation = ScreenRotation(ticks_per_second=1000)
         started = 297_805_460

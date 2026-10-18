@@ -41,9 +41,14 @@ from animation_scheduler import (
     frame_gap_exceeded,
     next_deadline,
 )
-from matrix_runtime import RuntimeMode, collect_gc_with_state, enter_rail_gc_window
+from matrix_runtime import (
+    RuntimeMode, collect_gc_with_state, enter_rail_gc_window,
+    christmas_gc_action, enter_christmas_gc_window,
+    leave_christmas_gc_window, prepare_christmas_scene_gc,
+)
 from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
+from christmas_tracker import with_christmas_tracker
 from cron_schedule import cron_matches_local
 from mqtt_screens import MqttScreenState
 from matrix_config import (
@@ -352,6 +357,7 @@ telemetry_scene_render_over_budget = 0
 animation_cadence = None
 animation_deadline = None
 rail_gc_suspended = False
+christmas_gc_suspended = False
 rail_gc_pause_active = False
 rail_gc_last_pressure_collect = None
 sun_gc_completed_key = None
@@ -410,6 +416,9 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_bin_collection(screen):
         return phase
+    if (settings.DISPLAY_BACKEND == "matrix"
+            and screen.get("kind") in ("christmas_tracker_intro", "christmas_tracker")):
+        return phase
     return 2
 
 
@@ -464,6 +473,12 @@ def _smooth_bin_collection(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "bin_collection"
+    )
+
+
+def _smooth_christmas(screen):
+    return settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") in (
+        "christmas_tracker_intro", "christmas_tracker"
     )
 
 
@@ -670,6 +685,17 @@ while True:
     # Weather is grouped by the scheduler, while the train and SL7 bus
     # introductions must transition directly into their departures boards.
     paired_followup = rotation.is_paired_transition(last_visible_screen, candidate)
+    christmas_action = christmas_gc_action(
+        candidate.get("kind"), christmas_gc_suspended, flash.active(now)
+    )
+    if christmas_action == "exit":
+        try:
+            leave_christmas_gc_window(gc)
+        except Exception as error:
+            print("CHRISTMAS GC EXIT FAILED collector_state=enabled:", error)
+            if gc is not None and hasattr(gc, "enable"):
+                gc.enable()
+        christmas_gc_suspended = False
     if (rotation.screens and not steam_train_test and not flash.active(now)
             and boundary and not paired_followup and (fetch_due or task_unready)
             and not rotation.is_maintenance_screen(candidate)):
@@ -742,24 +768,7 @@ while True:
         try:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
-            screens = payload.get("screens")
-            prepare_intro = getattr(display, "prepare_intro", None)
-            if callable(prepare_intro):
-                for intro in screens or ():
-                    if (not isinstance(intro, dict)
-                            or intro.get("kind") not in ("steam_train_intro", "bus_intro")):
-                        continue
-                    try:
-                        if prepare_intro(intro):
-                            print(
-                                "INTRO SCENE PREPARED id={} kind={} heap_free={}".format(
-                                    intro.get("id"), intro.get("kind"), _memory_free()
-                                )
-                            )
-                    except Exception as error:
-                        # Keep fetched screens usable if off-screen preparation
-                        # cannot allocate; the renderer retains its normal fallback.
-                        print("Intro scene preparation deferred:", error)
+            screens = with_christmas_tracker(payload.get("screens"))
             display_config = payload.get("display")
             if (
                 isinstance(display_config, dict)
@@ -794,6 +803,30 @@ while True:
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, fetch_completed)
                 fixture_clock_synced = True
+            prepare_intro = getattr(display, "prepare_intro", None)
+            if callable(prepare_intro):
+                for intro in screens:
+                    if (not isinstance(intro, dict)
+                            or intro.get("kind") not in (
+                                "steam_train_intro", "bus_intro", "christmas_tracker_intro", "christmas_tracker"
+                            )):
+                        continue
+                    try:
+                        prepared = (
+                            prepare_intro(intro, clock.date_text(fetch_completed))
+                            if intro.get("kind") == "christmas_tracker"
+                            else prepare_intro(intro)
+                        )
+                        if prepared:
+                            if intro.get("kind") in ("christmas_tracker_intro", "christmas_tracker"):
+                                prepare_christmas_scene_gc(gc)
+                            print(
+                                "INTRO SCENE PREPARED id={} kind={} heap_free={}".format(
+                                    intro.get("id"), intro.get("kind"), _memory_free()
+                                )
+                            )
+                    except Exception as error:
+                        print("Intro scene preparation deferred:", error)
             rotation.set_schedule_time(clock.date_text(fetch_completed), clock.text(fetch_completed))
             mqtt_screens.configure_recycling(payload.get("recycling"))
             epoch_now = _reminder_epoch(fetch_completed)
@@ -926,6 +959,18 @@ while True:
             weather = dict(weather)
             weather["stale"] = True
             screen["weather"] = weather
+    christmas_action = christmas_gc_action(
+        screen.get("kind"), christmas_gc_suspended,
+        bool(flash.active(now) and screen.get("kind") not in ("christmas_tracker_intro", "christmas_tracker")),
+    )
+    if settings.DISPLAY_BACKEND == "matrix" and christmas_action == "enter":
+        try:
+            enter_christmas_gc_window(gc)
+        except Exception as error:
+            print("CHRISTMAS GC ENTRY FAILED collector_state=disabled:", error)
+            if gc is not None and hasattr(gc, "disable"):
+                gc.disable()
+        christmas_gc_suspended = True
     if settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "weather_sun":
         sun_gc_key = (screen.get("id"), rotation.cycle_number, rotation.started_at)
         if (sun_gc_completed_key != sun_gc_key
@@ -1169,6 +1214,7 @@ while True:
         or _smooth_sun_weather(screen)
         or _smooth_today(screen)
         or _smooth_bin_collection(screen)
+        or _smooth_christmas(screen)
     )
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)
