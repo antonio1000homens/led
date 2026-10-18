@@ -1146,6 +1146,16 @@
     function drawChristmasTracker(screen, phase, wallClock) {
       const elapsed = Math.max(0, Number(phase) || 0);
       const px = FONT_PIXEL_SCALE;
+      const x = 0;
+      context.fillStyle = '#d71920';
+      context.fillRect((x + 8) * px, 11 * px, 35 * px, 7 * px);
+      context.fillRect((x + 14) * px, 8 * px, 17 * px, 5 * px);
+      context.fillRect((x + 4) * px, 10 * px, 4 * px, 8 * px);
+      context.fillRect((x + 16) * px, 21 * px, 26 * px, px);
+      context.fillStyle = '#ffffff';
+      context.fillRect((x + 11) * px, 20 * px, 36 * px, px);
+      context.fillRect((x + 28) * px, 7 * px, 5 * px, px);
+      context.fillRect((x + 30) * px, 5 * px, px, 2 * px);
       context.fillStyle = '#ffffff';
       for (let index = 0; index < CHRISTMAS_FLAKE_X.length; index += 1) {
         const y = (CHRISTMAS_FLAKE_START_Y[index]
@@ -1154,7 +1164,7 @@
       }
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
-      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 0, 25 * px);
+      drawLedText(`${days} DAYS UNTIL CHRISTMAS`, 56 * px, 25 * px);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {

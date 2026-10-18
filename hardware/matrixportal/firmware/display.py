@@ -3464,10 +3464,33 @@ class MatrixDisplay:
         snow_grid.hidden = False
         root.append(snow_grid)
 
+        sleigh_bitmap = displayio.Bitmap(52, 26, 3)
+        sleigh_palette = displayio.Palette(3)
+        sleigh_palette[0] = 0x000000
+        sleigh_palette.make_transparent(0)
+        sleigh_palette[1] = 0xD71920
+        sleigh_palette[2] = 0xFFFFFF
+        for y in range(9, 16):
+            for x in range(8, 43):
+                sleigh_bitmap[x, y] = 1
+        for y in range(6, 11):
+            for x in range(14, 31):
+                sleigh_bitmap[x, y] = 1
+        for y in range(8, 16):
+            for x in range(4, 8):
+                sleigh_bitmap[x, y] = 1
+        for x in range(11, 47):
+            sleigh_bitmap[x, 18] = 2
+        for x in range(16, 42):
+            sleigh_bitmap[x, 19] = 1
+        for x, y in ((28, 5), (29, 4), (30, 3), (31, 4), (32, 5)):
+            sleigh_bitmap[x, y] = 2
+        root.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette, x=0, y=2))
+
         count_text = "--" if days is None else str(days)
         countdown = self._label(
             root, "{} DAYS UNTIL CHRISTMAS".format(count_text),
-            0xFFFFFF, 0, 29,
+            0xFFFFFF, 56, 29,
         )
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
@@ -4476,7 +4499,18 @@ class FixtureDisplay:
             self._pixel(SNOW_FLAKE_X[index], y, white)
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
-        self._text("{} DAYS UNTIL CHRISTMAS".format(count), 0, 25, white)
+        self._christmas_tracker_sleigh(0, 2)
+        self._text("{} DAYS UNTIL CHRISTMAS".format(count), 56, 25, white)
+
+    def _christmas_tracker_sleigh(self, x, y_offset):
+        red = (215, 25, 32)
+        white = (255, 255, 255)
+        for left, top, width, height in ((8, 9, 35, 7), (14, 6, 17, 5), (4, 8, 4, 8)):
+            self._fill_rect(x + left, top + y_offset, width, height, red)
+        self._fill_rect(x + 16, 19 + y_offset, 26, 1, red)
+        self._fill_rect(x + 11, 18 + y_offset, 36, 1, white)
+        for left, top in ((28, 5), (29, 4), (30, 3), (31, 4), (32, 5)):
+            self._pixel(x + left, top + y_offset, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
