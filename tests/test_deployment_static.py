@@ -6,6 +6,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
+    def test_admin_groups_departures_and_steam_train_without_brightness_card(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("function departuresSectionHtml", admin)
+        self.assertIn("Departures &amp; Steam Train", admin)
+        self.assertIn("cardHtml('departures'", admin)
+        self.assertIn("cardHtml('steam_train'", admin)
+        self.assertNotIn("function displayCardHtml", admin)
+        self.assertNotIn("displayCardHtml(config.display", admin)
+
+    def test_admin_schedule_windows_offer_readable_duration_units(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
+        self.assertIn("const WINDOW_UNITS=[['minutes',1],['hours',60],['days',1440],['weeks',10080],['months',43200]]", admin)
+        self.assertIn("duration_minutes:duration", admin)
+        self.assertIn("Month means 30 days", admin)
+        self.assertIn("windowDurationControl(60)", admin)
+
     def test_sl7_bus_uses_https_and_rejects_mqtt_override(self):
         mqtt = (ROOT / "hardware" / "matrixportal" / "firmware" / "mqtt_screens.py").read_text()
         bus = (ROOT / "hardware" / "matrixportal" / "firmware" / "bus_departures.py").read_text()
