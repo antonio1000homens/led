@@ -112,15 +112,14 @@ class MqttScreenState:
         self._published = {}
         self._recycling = {
             "enabled": True, "screen_duration_seconds": 20,
-            "slide_speed": 15, "days_before_collection": 2,
+            "slide_speed": 15, "schedule_windows": [],
         }
 
     def configure_recycling(self, config):
         """Set safe board-local policy; never overwrite retained MQTT messages."""
         defaults = {
             "enabled": True, "screen_duration_seconds": 20,
-            "slide_speed": 15, "days_before_collection": 2,
-            "cron_schedule": "",
+            "slide_speed": 15, "schedule_windows": [],
         }
         policy = dict(defaults)
         if isinstance(config, dict):
@@ -129,13 +128,12 @@ class MqttScreenState:
             for key, minimum, maximum in (
                 ("screen_duration_seconds", 2, 300),
                 ("slide_speed", 1, 120),
-                ("days_before_collection", 0, 14),
             ):
                 value = config.get(key)
                 if isinstance(value, int) and not isinstance(value, bool) and minimum <= value <= maximum:
                     policy[key] = value
-            if isinstance(config.get("cron_schedule"), str):
-                policy["cron_schedule"] = config["cron_schedule"].strip()
+            if isinstance(config.get("schedule_windows"), list):
+                policy["schedule_windows"] = config["schedule_windows"]
         self._recycling = policy
 
     def accept(self, topic, payload, now_epoch):
@@ -197,33 +195,18 @@ class MqttScreenState:
         return [self._slots[slot][1] for slot in sorted(self._slots)]
 
     def effective_screens(self, now_epoch, london_today):
-        """Apply LED admin policy without altering stored MQTT snapshot/expiry.
-
-        The date is supplied by the synchronized Europe/London board clock;
-        hiding is safe if the clock is not yet synchronized.
-        """
+        """Apply presentation policy without altering MQTT state or expiry."""
         policy = self._recycling
-        try:
-            today_day = _epoch(london_today + "T00:00:00Z") // 86400000
-        except (ValueError, TypeError):
-            today_day = None
         result = []
         for screen in self.screens(now_epoch):
             if screen.get("kind") != "bin_collection":
                 result.append(screen)
                 continue
-            if not policy["enabled"] or today_day is None:
-                continue
-            try:
-                collection_day = _epoch(screen["collection_date"] + "T00:00:00Z") // 86400000
-            except (ValueError, TypeError, KeyError):
-                continue
-            days_until = collection_day - today_day
-            if not 0 <= days_until <= policy["days_before_collection"]:
+            if not policy["enabled"]:
                 continue
             effective = dict(screen)
             effective["duration_seconds"] = policy["screen_duration_seconds"]
             effective["slide_speed"] = policy["slide_speed"]
-            effective["cron_schedule"] = policy["cron_schedule"]
+            effective["schedule_windows"] = policy["schedule_windows"]
             result.append(effective)
         return result

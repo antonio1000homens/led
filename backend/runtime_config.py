@@ -42,8 +42,10 @@ DEFAULT_BUS_INTRO_WORDS = "Beep! Beep!..."
 SCREEN_SCHEDULE_FEEDS = (
     "steam_train", "departures", "queue_times", "weather", "dad_joke",
     "random_fact", "quotes", "insult_of_hour", "today", "calendar",
-    "flash", "recycling", "sl7_bus",
+    "recycling", "sl7_bus", "christmas",
 )
+MAX_SCHEDULE_WINDOWS = 16
+MAX_SCHEDULE_WINDOW_MINUTES = 31 * 24 * 60
 MIN_QUEUE_SCROLL_SPEED = 8
 MAX_QUEUE_SCROLL_SPEED = 80
 DEFAULT_QUEUE_SCROLL_SPEED = 27
@@ -277,8 +279,14 @@ FEED_REGISTRY = {
         "label": "Recycling / Next collection",
         "provider": "Home Assistant · local MQTT",
         "virtual": True,
-        "mutable_fields": ("enabled", "screen_duration_seconds", "slide_speed", "days_before_collection"),
+        "mutable_fields": ("enabled", "screen_duration_seconds", "slide_speed"),
         "screen_duration": True,
+    },
+    "christmas": {
+        "label": "Christmas tracker",
+        "provider": "MatrixPortal firmware",
+        "virtual": True,
+        "mutable_fields": ("enabled",),
     },
     "sl7_bus": {
         "label": "SL7 bus departures",
@@ -465,8 +473,8 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "enabled": True,
                 "screen_duration_seconds": DEFAULT_RECYCLING_DURATION_SECONDS,
                 "slide_speed": DEFAULT_RECYCLING_SCROLL_SPEED,
-                "days_before_collection": DEFAULT_RECYCLING_DAYS_BEFORE,
             },
+            "christmas": {"enabled": True},
             "sl7_bus": {
                 "enabled": False,
                 "heathrow_enabled": True,
@@ -487,7 +495,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
         "updated_by": "system:defaults",
     }
     for feed_id in SCREEN_SCHEDULE_FEEDS:
-        result["feeds"][feed_id]["cron_schedule"] = ""
+        result["feeds"][feed_id]["schedule_windows"] = []
     return result
 
 
@@ -556,7 +564,6 @@ def schema_metadata() -> dict[str, Any]:
                 }
         if feed_id == "recycling":
             fields["slide_speed"] = {"type": "integer", "minimum": MIN_RECYCLING_SCROLL_SPEED, "maximum": MAX_RECYCLING_SCROLL_SPEED}
-            fields["days_before_collection"] = {"type": "integer", "minimum": 0, "maximum": MAX_RECYCLING_DAYS_BEFORE}
         if feed_id == "sl7_bus":
             fields["heathrow_enabled"] = {"type": "boolean"}
             fields["new_malden_enabled"] = {"type": "boolean"}
@@ -574,12 +581,12 @@ def schema_metadata() -> dict[str, Any]:
             fields["stale_after_seconds"] = {"type": "integer", "minimum": MIN_STALE_AFTER_SECONDS, "maximum": MAX_STALE_AFTER_SECONDS}
             fields["destination_scroll_speed"] = {"type": "integer", "minimum": MIN_DESTINATION_SCROLL_SPEED, "maximum": MAX_DESTINATION_SCROLL_SPEED}
         if feed_id in SCREEN_SCHEDULE_FEEDS:
-            fields["cron_schedule"] = {"type": "string", "maximumLength": 100}
+            fields["schedule_windows"] = {"type": "array", "maximumItems": MAX_SCHEDULE_WINDOWS, "items": {"cron": "five-field numeric cron", "duration_minutes": {"minimum": 1, "maximum": MAX_SCHEDULE_WINDOW_MINUTES}}}
         mutable_fields = list(definition["mutable_fields"])
         advanced_fields = list(definition.get("advanced_fields", ()))
         if feed_id in SCREEN_SCHEDULE_FEEDS:
-            mutable_fields.append("cron_schedule")
-            advanced_fields.append("cron_schedule")
+            mutable_fields.append("schedule_windows")
+            advanced_fields.append("schedule_windows")
         if definition.get("rides"):
             fields["rides"] = {"type": "array", "items": {"type": "string"}, "ordered": True}
         feeds[feed_id] = {
@@ -652,7 +659,7 @@ def validate_feed_patch(
     definition = FEED_REGISTRY[feed_id]
     allowed = set(definition["mutable_fields"])
     if feed_id in SCREEN_SCHEDULE_FEEDS:
-        allowed.add("cron_schedule")
+        allowed.add("schedule_windows")
     unknown = set(patch) - allowed
     if unknown:
         raise RuntimeConfigValidationError(
@@ -660,16 +667,24 @@ def validate_feed_patch(
         )
 
     result: dict[str, Any] = {}
-    if "cron_schedule" in patch:
-        schedule = patch["cron_schedule"]
-        if not isinstance(schedule, str) or len(schedule) > 100:
-            raise RuntimeConfigValidationError(f"{feed_id}.cron_schedule must be text of at most 100 characters")
-        schedule = schedule.strip()
-        try:
-            parse_cron_schedule(schedule)
-        except ValueError as error:
-            raise RuntimeConfigValidationError(f"{feed_id}.cron_schedule: {error}") from error
-        result["cron_schedule"] = schedule
+    if "schedule_windows" in patch:
+        windows = patch["schedule_windows"]
+        if not isinstance(windows, list) or len(windows) > MAX_SCHEDULE_WINDOWS:
+            raise RuntimeConfigValidationError(f"{feed_id}.schedule_windows must be a list of at most {MAX_SCHEDULE_WINDOWS} windows")
+        checked = []
+        for index, window in enumerate(windows):
+            if not isinstance(window, dict) or set(window) != {"cron", "duration_minutes"}:
+                raise RuntimeConfigValidationError(f"{feed_id}.schedule_windows[{index}] must contain cron and duration_minutes")
+            cron = window["cron"]
+            if not isinstance(cron, str) or len(cron) > 100 or not cron.strip():
+                raise RuntimeConfigValidationError(f"{feed_id}.schedule_windows[{index}].cron must be non-empty cron text")
+            try:
+                parse_cron_schedule(cron)
+            except ValueError as error:
+                raise RuntimeConfigValidationError(f"{feed_id}.schedule_windows[{index}].cron: {error}") from error
+            duration = _validate_integer(feed_id, f"schedule_windows[{index}].duration_minutes", window["duration_minutes"], 1, MAX_SCHEDULE_WINDOW_MINUTES)
+            checked.append({"cron": cron.strip(), "duration_minutes": duration})
+        result["schedule_windows"] = checked
     if "enabled" in patch:
         if not isinstance(patch["enabled"], bool):
             raise RuntimeConfigValidationError(f"{feed_id}.enabled must be boolean")
@@ -750,7 +765,6 @@ def validate_feed_patch(
     if feed_id == "recycling":
         for field, minimum, maximum in (
             ("slide_speed", MIN_RECYCLING_SCROLL_SPEED, MAX_RECYCLING_SCROLL_SPEED),
-            ("days_before_collection", 0, MAX_RECYCLING_DAYS_BEFORE),
         ):
             if field in patch:
                 result[field] = _validate_integer(feed_id, field, patch[field], minimum, maximum)
@@ -831,8 +845,11 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         if not isinstance(raw_value, dict):
             raise RuntimeConfigValidationError(f"{feed_id} must be an object")
         raw = copy.deepcopy(raw_value)
+        legacy_cron = raw.pop("cron_schedule", "")
         if feed_id in SCREEN_SCHEDULE_FEEDS:
-            raw.setdefault("cron_schedule", "")
+            raw.setdefault("schedule_windows", ([{"cron": legacy_cron, "duration_minutes": 1}] if legacy_cron else []))
+        if feed_id == "recycling":
+            raw.pop("days_before_collection", None)
         # Read old persisted configurations, but never expose or accept new
         # writes to the retired display-frequency setting.
         if feed_id != "sl7_bus":
@@ -871,7 +888,7 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
         read_only = {"park_id"} if "park_id" in default_feed else set()
         expected = set(FEED_REGISTRY[feed_id]["mutable_fields"]) | read_only
         if feed_id in SCREEN_SCHEDULE_FEEDS:
-            expected.add("cron_schedule")
+            expected.add("schedule_windows")
         # Older saved configs may predate the SL7 frequency control. Keep that
         # migration additive without making the legacy migration test (or an
         # older persisted document) acquire a new key unexpectedly.

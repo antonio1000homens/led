@@ -188,7 +188,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertTrue(defaults["feeds"]["weather"]["today_enabled"])
 
         schema = schema_metadata()["feeds"]["today"]
-        self.assertEqual(schema["mutable_fields"], ["enabled", "screen_duration_seconds"])
+        self.assertEqual(schema["mutable_fields"], ["enabled", "screen_duration_seconds", "schedule_windows"])
         self.assertTrue(schema["virtual"])
         self.assertEqual(schema["fields"]["screen_duration_seconds"]["minimum"], 2)
         self.assertEqual(schema["fields"]["screen_duration_seconds"]["maximum"], 300)
@@ -208,6 +208,18 @@ class RuntimeConfigTests(unittest.TestCase):
         upgraded = validate_runtime_config(legacy)
         self.assertEqual(upgraded["feeds"]["today"], defaults["feeds"]["today"])
         self.assertEqual(upgraded["feeds"]["weather"], defaults["feeds"]["weather"])
+
+    def test_cron_feed_settings_migrate_to_one_minute_windows(self):
+        old = default_runtime_config({})
+        old["feeds"]["weather"].pop("schedule_windows")
+        old["feeds"]["weather"]["cron_schedule"] = "0 8 * * 1-5"
+        old["feeds"]["recycling"].pop("schedule_windows")
+        old["feeds"]["recycling"]["days_before_collection"] = 2
+        migrated = validate_runtime_config(old)
+        self.assertEqual(migrated["feeds"]["weather"]["schedule_windows"], [
+            {"cron": "0 8 * * 1-5", "duration_minutes": 1}
+        ])
+        self.assertNotIn("days_before_collection", migrated["feeds"]["recycling"])
 
     def test_weather_screen_controls_are_schema_backed_bounded_and_legacy_safe(self):
         patch = validate_feed_patch(

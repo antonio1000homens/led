@@ -25,7 +25,7 @@ class CombinedQueueRuntimeTests(unittest.TestCase):
         self.assertTrue(schema["virtual"])
         self.assertEqual(
             schema["advanced_fields"],
-            ["queue_scroll_speed", "queue_scroll_pause_seconds", "splash_enabled"],
+            ["queue_scroll_speed", "queue_scroll_pause_seconds", "splash_enabled", "schedule_windows"],
         )
 
     def test_legacy_persisted_config_is_upgraded_with_queue_times_defaults(self):

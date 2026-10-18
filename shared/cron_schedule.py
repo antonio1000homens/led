@@ -76,3 +76,128 @@ def cron_matches_local(expression, year, month, day, hour, minute):
     if not dom_wild and not dow_wild:
         return dom_match or dow_match
     return dom_match and dow_match
+
+
+def _days_before_year(year):
+    prior = year - 1
+    return prior * 365 + prior // 4 - prior // 100 + prior // 400
+
+
+def _civil_from_days(days):
+    """Return a Gregorian date for days since the Unix epoch."""
+    days += _days_before_year(1970)
+    low, high = 1, days // 365 + 2
+    while low + 1 < high:
+        middle = (low + high) // 2
+        if _days_before_year(middle) <= days:
+            low = middle
+        else:
+            high = middle
+    year = low
+    offset = days - _days_before_year(year)
+    month_days = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+                  31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    month = 1
+    while offset >= month_days[month - 1]:
+        offset -= month_days[month - 1]
+        month += 1
+    return year, month, offset + 1
+
+
+def _last_sunday(year, month):
+    month_days = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+                  31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    day = month_days[month - 1]
+    adjusted_year = year - 1 if month < 3 else year
+    weekday = (adjusted_year + adjusted_year // 4 - adjusted_year // 100
+               + adjusted_year // 400 + (0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)[month - 1] + day) % 7
+    return day - weekday
+
+
+def _london_offset(epoch_minute):
+    year, _, _ = _civil_from_days(epoch_minute // 1440)
+    unix_epoch_day = _days_before_year(1970)
+    start = (_days_before_year(year) - unix_epoch_day
+             + sum((31, 28 + (1 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 0))[:2])
+             + _last_sunday(year, 3) - 1) * 1440 + 60
+    end = (_days_before_year(year) - unix_epoch_day
+           + sum((31, 28 + (1 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 0), 31, 30, 31, 30, 31, 31, 30)[:9])
+           + _last_sunday(year, 10) - 1) * 1440 + 60
+    return 60 if start <= epoch_minute < end else 0
+
+
+_PARSED_SCHEDULES = {}
+_WINDOW_RESULT_CACHE = {}
+
+
+def schedule_window_active(windows, epoch_seconds):
+    """Whether a UTC instant lies in any Europe/London cron-start window."""
+    if not windows:
+        return True
+    if isinstance(epoch_seconds, bool) or not isinstance(epoch_seconds, (int, float)):
+        return False
+    now = int(epoch_seconds // 60)
+    try:
+        cache_key = (repr(windows), now)
+        if cache_key in _WINDOW_RESULT_CACHE:
+            return _WINDOW_RESULT_CACHE[cache_key]
+    except Exception:
+        cache_key = None
+    result = False
+    for window in windows:
+        if not isinstance(window, dict):
+            continue
+        try:
+            expression = window["cron"]
+            duration = window["duration_minutes"]
+            if isinstance(duration, bool) or not isinstance(duration, int) or duration < 1:
+                continue
+            if expression not in _PARSED_SCHEDULES:
+                if len(_PARSED_SCHEDULES) >= 128:
+                    _PARSED_SCHEDULES.clear()
+                _PARSED_SCHEDULES[expression] = parse_cron_schedule(expression)
+            parsed = _PARSED_SCHEDULES[expression]
+            if parsed is None:
+                continue
+        except (KeyError, TypeError, ValueError):
+            continue
+        minute_values, hour_values, dom_values, month_values, dow_values = parsed
+        local_now = now + _london_offset(now)
+        local_day = local_now // 1440
+        oldest_day = max((now - duration) // 1440 - 1, local_day - 32)
+        for day in range(local_day, oldest_day - 1, -1):
+            year, month, monthday = _civil_from_days(day)
+            adjusted_year = year - 1 if month < 3 else year
+            weekday = (adjusted_year + adjusted_year // 4 - adjusted_year // 100
+                       + adjusted_year // 400
+                       + (0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)[month - 1] + monthday) % 7
+            dom_wild = expression.split()[2] == "*"
+            dow_wild = expression.split()[4] == "*"
+            date_match = ((monthday in dom_values or weekday in dow_values)
+                          if not dom_wild and not dow_wild
+                          else monthday in dom_values and weekday in dow_values)
+            if month in month_values and date_match:
+                for hour in sorted(hour_values, reverse=True):
+                    for minute in sorted(minute_values, reverse=True):
+                        local_start = day * 1440 + hour * 60 + minute
+                        for assumed_offset in (0, 60):
+                            start = local_start - assumed_offset
+                            age = now - start
+                            if age < 0 or age >= duration:
+                                continue
+                            if _london_offset(start) == assumed_offset:
+                                result = True
+                                break
+                        if result:
+                            break
+                    if result:
+                        break
+            if result:
+                break
+        if result:
+            break
+    if cache_key is not None:
+        if len(_WINDOW_RESULT_CACHE) > 64:
+            _WINDOW_RESULT_CACHE.clear()
+        _WINDOW_RESULT_CACHE[cache_key] = result
+    return result

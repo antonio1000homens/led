@@ -103,7 +103,7 @@ class ZenQuotesTests(unittest.TestCase):
         schema = schema_metadata()["feeds"]["quotes"]
         self.assertEqual(schema["display_group"], "static_feeds")
         self.assertEqual(schema["mutable_fields"],
-                         ["enabled", "poll_seconds", "screen_duration_seconds"])
+                         ["enabled", "poll_seconds", "screen_duration_seconds", "schedule_windows"])
         old = copy.deepcopy(config)
         del old["feeds"]["quotes"]
         del old["feeds"]["insult_of_hour"]

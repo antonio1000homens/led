@@ -845,11 +845,13 @@ class Publisher:
             "bus_intro": "sl7_bus",
             "bus_departures": "sl7_bus",
             "bus_departures_combined": "sl7_bus",
+            "christmas_tracker_intro": "christmas",
+            "christmas_tracker": "christmas",
         }
         for screen in screens:
             feed_id = schedule_feed_for_kind.get(screen.get("kind"))
             if feed_id:
-                screen["cron_schedule"] = config_feeds[feed_id].get("cron_schedule", "")
+                screen["schedule_windows"] = copy.deepcopy(config_feeds[feed_id].get("schedule_windows", []))
         return {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
@@ -858,6 +860,7 @@ class Publisher:
             # Board-local presentation/visibility policy for HA MQTT collection screens.
             # No broker credentials, MQTT status or private collection dates are exposed.
             "recycling": copy.deepcopy(config_feeds["recycling"]),
+            "christmas": copy.deepcopy(config_feeds["christmas"]),
             "screens": screens,
         }
 

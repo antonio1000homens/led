@@ -769,6 +769,11 @@ while True:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = with_christmas_tracker(payload.get("screens"))
+            christmas_policy = payload.get("christmas") or {}
+            for scheduled_screen in screens:
+                if scheduled_screen.get("kind") in ("christmas_tracker_intro", "christmas_tracker"):
+                    scheduled_screen["schedule_windows"] = christmas_policy.get("schedule_windows", [])
+                    scheduled_screen["schedule_enabled"] = christmas_policy.get("enabled", True)
             display_config = payload.get("display")
             if (
                 isinstance(display_config, dict)
@@ -828,6 +833,7 @@ while True:
                     except Exception as error:
                         print("Intro scene preparation deferred:", error)
             rotation.set_schedule_time(clock.date_text(fetch_completed), clock.text(fetch_completed))
+            rotation.set_schedule_epoch(clock.epoch(fetch_completed))
             mqtt_screens.configure_recycling(payload.get("recycling"))
             epoch_now = _reminder_epoch(fetch_completed)
             last_recycling_date = clock.date_text(fetch_completed)
@@ -947,6 +953,7 @@ while True:
             last_render_key = None
             print("FLASH END")
         rotation.set_schedule_time(clock.date_text(now), clock.text(now))
+        rotation.set_schedule_epoch(clock.epoch(now))
         screen, phase = rotation.current(ticks_ms())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["screen_select"] = elapsed_seconds(stage_started)

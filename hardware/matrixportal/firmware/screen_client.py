@@ -9,7 +9,7 @@ from formatting import (
     departure_scroll_duration,
     rail_calling_timing,
 )
-from cron_schedule import cron_matches_local
+from cron_schedule import schedule_window_active
 import random
 
 from matrix_config import CALLING_SCROLL_SPEED_OVERRIDE
@@ -270,6 +270,7 @@ class ScreenRotation:
         self._recent_items = {}
         self._schedule_parts = None
         self._schedule_idle = False
+        self._schedule_epoch = None
 
     def set_schedule_time(self, date_text, clock_text):
         """Set synchronized Europe/London fields used at rotation boundaries."""
@@ -283,16 +284,18 @@ class ScreenRotation:
         except (AttributeError, TypeError, ValueError):
             self._schedule_parts = None
 
+    def set_schedule_epoch(self, epoch_seconds):
+        self._schedule_epoch = epoch_seconds if isinstance(epoch_seconds, (int, float)) and not isinstance(epoch_seconds, bool) else None
+
     def _schedule_active(self, screen):
-        expression = screen.get("cron_schedule") or ""
-        if not expression:
-            return True
-        if self._schedule_parts is None:
+        if screen.get("schedule_enabled") is False:
             return False
-        try:
-            if not cron_matches_local(expression, *self._schedule_parts):
-                return False
-        except (TypeError, ValueError, IndexError):
+        windows = screen.get("schedule_windows") or []
+        if not windows:
+            return True
+        if self._schedule_epoch is None:
+            return False
+        if not schedule_window_active(windows, self._schedule_epoch):
             return False
         kind = screen.get("kind")
         if kind == "steam_train_intro":

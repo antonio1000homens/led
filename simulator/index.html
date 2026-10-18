@@ -75,7 +75,7 @@
     const londonDateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' });
     let screens = [];
     // The simulator has no MQTT connection; the manual bin preview is a fixture.
-    let recyclingPolicy = { enabled: true, screen_duration_seconds: 20, slide_speed: 15, days_before_collection: 2 };
+    let recyclingPolicy = { enabled: true, screen_duration_seconds: 20, slide_speed: 15, schedule_windows: [] };
     let source = 'loading';
     let fetchedAt = '';
     let feedStale = false;
@@ -699,9 +699,8 @@
         return start >= minimum && end <= maximum && start <= end && value >= start && value <= end && (value - start) % step === 0;
       });
     }
-    function cronActive(screen, wallClock = new Date()) {
-      const expression = String(screen.cron_schedule || '').trim();
-      if (!expression) return true;
+    const windowCache = new Map();
+    function cronMatchesAt(expression, wallClock) {
       const fields = expression.split(/\s+/);
       if (fields.length !== 5) return false;
       const values = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hourCycle:'h23',weekday:'short'}).formatToParts(wallClock).map(part => [part.type, part.value]));
@@ -712,6 +711,49 @@
       if (!matches[0] || !matches[1] || !matches[3]) return false;
       if (fields[2] !== '*' && fields[4] !== '*') return matches[2] || matches[4];
       return matches[2] && matches[4];
+    }
+    function cronActive(screen, wallClock = new Date()) {
+      if (screen.schedule_enabled === false) return false;
+      const windows = screen.schedule_windows || [];
+      if (!windows.length) return true;
+      const now = Math.floor(wallClock.getTime() / 60000);
+      const key = JSON.stringify([screen.id, windows, now]);
+      if (windowCache.has(key)) return windowCache.get(key);
+      let active = false;
+      for (const window of windows) {
+        const duration = Number(window.duration_minutes);
+        if (!window.cron || !Number.isInteger(duration) || duration < 1) continue;
+        const fields = window.cron.trim().split(/\s+/);
+        if (fields.length !== 5) continue;
+        const values = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hourCycle:'h23',weekday:'short'}).formatToParts(wallClock).map(part => [part.type, part.value]));
+        const currentLocalDay = Date.UTC(Number(values.year), Number(values.month)-1, Number(values.day));
+        const weekdayMap = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+        for (let dayOffset = 0; dayOffset <= 32 && !active; dayOffset += 1) {
+          const dayDate = new Date(currentLocalDay - dayOffset * 86400000);
+          const year = dayDate.getUTCFullYear(), month = dayDate.getUTCMonth()+1, day = dayDate.getUTCDate(), weekday = dayDate.getUTCDay();
+          const ranges = [[0,59],[0,23],[1,31],[1,12],[0,7]];
+          const dom = cronFieldMatches(fields[2], day, ...ranges[2]), dow = cronFieldMatches(fields[4], weekday, ...ranges[4]);
+          const dateMatch = fields[2] !== '*' && fields[4] !== '*' ? dom || dow : dom && dow;
+          if (!dateMatch || !cronFieldMatches(fields[3], month, ...ranges[3])) continue;
+          for (let hour = 23; hour >= 0 && !active; hour -= 1) {
+            if (!cronFieldMatches(fields[1], hour, ...ranges[1])) continue;
+            for (let minute = 59; minute >= 0 && !active; minute -= 1) {
+              if (!cronFieldMatches(fields[0], minute, ...ranges[0])) continue;
+              const localStart = Date.UTC(year, month-1, day, hour, minute);
+              for (const offset of [0,60]) {
+                const start = localStart - offset*60000, age = now - Math.floor(start/60000);
+                if (age < 0 || age >= duration) continue;
+                const roundTrip = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hourCycle:'h23'}).formatToParts(new Date(start)).map(part => [part.type, part.value]));
+                if (Number(roundTrip.year)===year && Number(roundTrip.month)===month && Number(roundTrip.day)===day && Number(roundTrip.hour)===hour && Number(roundTrip.minute)===minute) { active = true; break; }
+              }
+            }
+          }
+        }
+        if (active) break;
+      }
+      if (windowCache.size > 128) windowCache.clear();
+      windowCache.set(key, active);
+      return active;
     }
     function scheduledIndex(start, wallClock) {
       for (let offset = 0; offset < cyclePlan.length; offset += 1) {
@@ -726,7 +768,7 @@
     }
     function screenAt(elapsed) {
       if (!screens.length) return {screen: {id:'static-fallback',kind:'today',title:'TODAY',weather:{},duration_seconds:8},phase:0,index:0};
-      const sourceKey = JSON.stringify(screens.map(screen => [screen.id, screen.cron_schedule || '']));
+      const sourceKey = JSON.stringify(screens.map(screen => [screen.id, screen.schedule_windows || []]));
       const previous = cyclePlan[rotationIndex];
       const previousPhase = rotationStarted === null ? 0 : Math.max(0, elapsed - rotationStarted) / 1000;
       if (!cyclePlan.length || elapsed < cycleStarted || planOffset !== screenOffset || sourceKey !== planSourceKey) {
@@ -1867,7 +1909,7 @@
       screenOffset = 0;
       paused = false;
       pauseStarted = performance.now();
-      status.dataset.detail = 'Recycling fixture preview (ignores admin enable and date window; local MQTT is not observable here)';
+      status.dataset.detail = 'Recycling fixture preview (ignores admin enable and schedule windows; local MQTT is not observable here)';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();
@@ -1897,6 +1939,11 @@
         const payload = await response.json();
         if (payload.recycling && typeof payload.recycling === 'object') recyclingPolicy = payload.recycling;
         const nextScreens = withChristmasTracker(Array.isArray(payload.screens) ? payload.screens : []);
+        const christmasPolicy = payload.christmas || {};
+        for (const screen of nextScreens) if (screen.kind === 'christmas_tracker' || screen.kind === 'christmas_tracker_intro') {
+          screen.schedule_windows = christmasPolicy.schedule_windows || [];
+          screen.schedule_enabled = christmasPolicy.enabled !== false;
+        }
         const nextKey = JSON.stringify(nextScreens.map(screen => { const copy = { ...screen }; delete copy.weather; return copy; }));
         if (nextKey !== screenDataKey) { feedAnimationStarted = performance.now(); screenDataKey = nextKey; }
         if (cyclePlan.length) {

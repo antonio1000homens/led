@@ -320,8 +320,9 @@ MIN_CALLING_SCROLL_GAP = 8
 MAX_CALLING_SCROLL_GAP = 80
 BIN_LORRY_SECONDS = 4.0
 BIN_LORRY_SPEED = 64.0
-BIN_LORRY_WIDTH = 52
-BIN_LORRY_HEIGHT = 20
+BIN_LORRY_WIDTH = 84
+BIN_LORRY_HEIGHT = 28
+BIN_LORRY_Y = 2
 BIN_ICON_WIDTH = 9
 BIN_ICON_HEIGHT = 12
 BIN_ICON_Y = 10
@@ -617,6 +618,14 @@ def _bin_collection_types(screen):
     if any(token in ids or token in labels for token in ("plastic", "plastics", "recycle-mixed")):
         return ("green",)
     return ("green",)
+
+
+def _bin_collection_lorry_kind(screen):
+    """Choose the matching recycling lorry for the next collection."""
+    items = screen.get("collections") or []
+    ids = " ".join(str(item.get("id") or "").lower() for item in items)
+    labels = " ".join(str(item.get("label") or "").lower() for item in items)
+    return "paper" if "paper" in ids or "paper" in labels else "plastic_glass"
 
 
 def _date_ordinal(value):
@@ -3859,45 +3868,15 @@ class MatrixDisplay:
         grid = displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=BIN_ICON_Y)
         group.append(grid)
 
-    def _build_bin_lorry(self):
+    def _build_bin_lorry(self, kind):
         import displayio
+        from recycling_lorries import INDEX, draw_indexed, palette_for
 
-        bitmap = displayio.Bitmap(BIN_LORRY_WIDTH, BIN_LORRY_HEIGHT, 5)
-        palette = displayio.Palette(5)
-        palette[0] = 0x000000
+        bitmap = displayio.Bitmap(BIN_LORRY_WIDTH, BIN_LORRY_HEIGHT + BIN_LORRY_Y, len(INDEX))
+        draw_indexed(bitmap, 0, BIN_LORRY_Y, kind=kind)
+        palette = palette_for(kind, limited_palette=MATRIX_BIT_DEPTH == 1)
         palette.make_transparent(0)
-        palette[1] = 0x22AA44  # recycling body
-        palette[2] = 0xFFAA00  # cab
-        palette[3] = 0xDDEEFF  # windows / highlights
-        palette[4] = 0x222222  # wheels
-
-        def rect(left, top, width, height, value):
-            for px in range(left, left + width):
-                for py in range(top, top + height):
-                    if 0 <= px < BIN_LORRY_WIDTH and 0 <= py < BIN_LORRY_HEIGHT:
-                        bitmap[px, py] = value
-
-        rect(2, 5, 32, 10, 1)
-        rect(0, 8, 4, 7, 1)
-        rect(32, 7, 17, 8, 2)
-        rect(36, 4, 11, 4, 2)
-        rect(37, 6, 6, 3, 3)
-        rect(44, 6, 4, 3, 3)
-        rect(49, 12, 3, 3, 3)
-        # Three tiny highlight marks suggest the recycling arrows without
-        # making the lorry noisy at 1-pixel LED resolution.
-        for px, py in ((17, 8), (18, 8), (19, 9), (18, 10),
-                       (20, 10), (21, 9), (22, 8), (23, 8)):
-            bitmap[px, py] = 3
-        for center in (12, 40):
-            rect(center - 1, 14, 3, 1, 4)
-            rect(center - 2, 15, 5, 3, 4)
-            rect(center - 1, 18, 3, 1, 4)
-            rect(center - 1, 16, 2, 2, 3)
-        grid = displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=6)
-        # The lorry travels left, so put the cab on the leading (left) side.
-        grid.flip_x = True
-        return grid
+        return displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=0)
 
     def _build_bin_collection(self, screen, clock_time, clock_date, phase, header_kind):
         import displayio
@@ -3920,10 +3899,9 @@ class MatrixDisplay:
         # travels together at slide_speed after the opening animation.
         type_label = labels if len(labels) * WEATHER_FONT_WIDTH > type_width else _fit_text_pixels(labels, type_width)
         type_label_width = len(type_label) * WEATHER_FONT_WIDTH
-        group.append(content)
         self._bin_content_group = content
         self._bin_lorry_group = displayio.Group()
-        self._bin_lorry_grid = self._build_bin_lorry()
+        self._bin_lorry_grid = self._build_bin_lorry(_bin_collection_lorry_kind(screen))
         self._bin_lorry_grid.x = 0
         self._bin_lorry_group.append(self._bin_lorry_grid)
         self._bin_lorry_label = self._label(
@@ -3941,6 +3919,9 @@ class MatrixDisplay:
             self._build_bin_icon(self._bin_bins_group, name, index * (BIN_ICON_WIDTH + 2))
         self._bin_lorry_group.append(self._bin_bins_group)
         group.append(self._bin_lorry_group)
+        # The new artwork fills most of the matrix height; keep the title
+        # legible when the moving sprite passes behind it.
+        group.append(content)
         self._bin_footer_group = self._bin_lorry_group
         self._bin_date_group = self._bin_lorry_group
         self._bin_label = self._bin_lorry_label
@@ -4431,6 +4412,8 @@ class FixtureDisplay:
             self._text(words, x + BUS_WIDTH + BUS_TEXT_GAP, 12 + offset, (255, 170, 0))
 
     def _bin_collection(self, screen, phase, clock_date=""):
+        from recycling_lorries import draw
+
         items = screen.get("collections") or []
         labels = " / ".join(str(item.get("label") or "") for item in items)
         try:
@@ -4438,24 +4421,13 @@ class FixtureDisplay:
         except (TypeError, ValueError):
             elapsed = 0.0
         x = _bin_collection_footer_x(screen, elapsed, clock_date)
-        def mirror(left, width):
-            return x + BIN_LORRY_WIDTH - left - width
-
-        self._fill_rect(mirror(2, 32), 11, 32, 8, (34, 170, 68))
-        self._fill_rect(mirror(32, 17), 13, 17, 6, (255, 170, 0))
-        self._fill_rect(mirror(36, 11), 11, 10, 3, (255, 170, 0))
-        self._fill_rect(mirror(37, 6), 13, 5, 2, (221, 238, 255))
-        self._fill_rect(mirror(44, 4), 13, 4, 2, (221, 238, 255))
-        for px, py in ((17, 14), (18, 14), (19, 15),
-                       (18, 16), (20, 16), (21, 15),
-                       (22, 14), (23, 14)):
-            px = x + BIN_LORRY_WIDTH - 1 - px
-            self._fill_rect(px, py, 1, 1, (221, 238, 255))
-        for center in (12, 40):
-            self._fill_rect(x + center - 1, 14, 3, 1, (23, 26, 30))
-            self._fill_rect(x + center - 2, 15, 5, 3, (23, 26, 30))
-            self._fill_rect(x + center - 1, 18, 3, 1, (23, 26, 30))
-            self._fill_rect(x + center - 1, 16, 2, 2, (140, 149, 156))
+        draw(
+            self._pixel,
+            x,
+            BIN_LORRY_Y,
+            kind=_bin_collection_lorry_kind(screen),
+            limited_palette=MATRIX_BIT_DEPTH == 1,
+        )
         self._text(_clip(str(screen.get("title") or "NEXT COLLECTION"), 40), 0, 3, (255, 170, 0))
         bin_types = _bin_collection_types(screen)
         due_label = _bin_collection_due_label(screen.get("collection_date"), clock_date)

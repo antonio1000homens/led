@@ -45,14 +45,14 @@ class RecyclingPolicyTests(unittest.TestCase):
         defaults = default_runtime_config({})
         expected = {
             "enabled": True, "screen_duration_seconds": 20,
-            "slide_speed": 15, "days_before_collection": 2,
+            "slide_speed": 15, "schedule_windows": [],
         }
         self.assertEqual(defaults["feeds"]["recycling"], expected)
         schema = schema_metadata()["feeds"]["recycling"]
         self.assertTrue(schema["virtual"])
         self.assertEqual(schema["provider"], "Home Assistant · local MQTT")
         self.assertEqual(set(schema["mutable_fields"]), set(expected))
-        self.assertEqual(schema["fields"]["days_before_collection"]["maximum"], 14)
+        self.assertIn("schedule_windows", schema["mutable_fields"])
         old = copy.deepcopy(defaults)
         old["feeds"].pop("recycling")
         self.assertEqual(validate_runtime_config(old)["feeds"]["recycling"], expected)
@@ -65,7 +65,6 @@ class RecyclingPolicyTests(unittest.TestCase):
             {"enabled": "true"}, {"screen_duration_seconds": 1},
             {"screen_duration_seconds": 301}, {"slide_speed": 0},
             {"slide_speed": 121}, {"slide_speed": True},
-            {"days_before_collection": -1}, {"days_before_collection": 15},
             {"days_before_collection": False}, {"poll_seconds": 60},
         ]
         for invalid in cases:
@@ -74,8 +73,6 @@ class RecyclingPolicyTests(unittest.TestCase):
                     validate_feed_patch("recycling", invalid)
 
     def test_window_duration_speed_and_source_snapshot_immutability(self):
-        # 13 Oct is visible from 11 Oct at local midnight.
-        self.assertEqual(self.mqtt.effective_screens(self.epoch, "2026-10-10"), [])
         effective = self.mqtt.effective_screens(self.epoch, "2026-10-11")
         self.assertEqual(len(effective), 1)
         self.assertEqual(effective[0]["duration_seconds"], 20)
@@ -83,7 +80,7 @@ class RecyclingPolicyTests(unittest.TestCase):
         self.assertEqual(self.mqtt.screens(self.epoch)[0], self.raw["screen"])
         self.assertIsNot(effective[0], self.mqtt.screens(self.epoch)[0])
         self.mqtt.configure_recycling({
-            "enabled": True, "days_before_collection": 14,
+            "enabled": True,
             "screen_duration_seconds": 40, "slide_speed": 60,
         })
         changed = self.mqtt.effective_screens(self.epoch, "2026-10-07")
@@ -94,10 +91,10 @@ class RecyclingPolicyTests(unittest.TestCase):
         self.assertEqual(len(self.mqtt.screens(self.epoch)), 1)
 
     def test_midnight_and_zero_day_window_and_clock_not_synchronized(self):
-        self.mqtt.configure_recycling({"days_before_collection": 0})
-        self.assertEqual(self.mqtt.effective_screens(self.epoch, "2026-10-12"), [])
+        self.mqtt.configure_recycling({"schedule_windows": []})
+        self.assertEqual(len(self.mqtt.effective_screens(self.epoch, "2026-10-12")), 1)
         self.assertEqual(len(self.mqtt.effective_screens(self.epoch, "2026-10-13")), 1)
-        self.assertEqual(self.mqtt.effective_screens(self.epoch, ""), [])
+        self.assertEqual(len(self.mqtt.effective_screens(self.epoch, "")), 1)
         clock = ClockState()
         clock.sync("2026-10-12T22:59:59Z", 100)
         self.assertEqual(clock.date_text(100), "2026-10-12")
@@ -110,7 +107,7 @@ class RecyclingPolicyTests(unittest.TestCase):
         epoch = timestamp("2026-12-31T10:00:00+00:00")
         self.assertTrue(mqtt.accept("led/screens/homeassistant-next-bin", value, epoch))
         self.assertEqual(len(mqtt.effective_screens(epoch, "2026-12-31")), 1)
-        self.assertEqual(mqtt.effective_screens(epoch, "2026-12-30"), [])
+        self.assertEqual(len(mqtt.effective_screens(epoch, "2026-12-30")), 1)
         # Calendar-day window must not be implemented as 2*86400 UTC seconds.
         clock = ClockState()
         clock.sync("2026-10-25T00:59:59Z", 100)
@@ -152,9 +149,10 @@ class RecyclingPolicyTests(unittest.TestCase):
         admin = (root / "simulator" / "admin.html").read_text()
         simulator = (root / "simulator" / "index.html").read_text()
         self.assertIn("Not available from LED control plane", admin)
-        self.assertIn("days_before_collection", admin)
+        self.assertNotIn("days_before_collection", admin)
+        self.assertIn("schedule_windows", admin)
         self.assertIn("recyclingPolicy.screen_duration_seconds", simulator)
-        self.assertIn("ignores admin enable and date window", simulator)
+        self.assertIn("ignores admin enable and schedule windows", simulator)
 
 
 if __name__ == "__main__":
