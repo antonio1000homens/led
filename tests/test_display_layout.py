@@ -755,6 +755,11 @@ class DisplayLayoutTests(unittest.TestCase):
                 self.assertNotIn("STALE", text)
                 self.assertEqual(display.pixels.shown, 1)
 
+    def test_stale_weather_icons_use_one_bit_visible_blue(self):
+        self.assertEqual(led_display._weather_rgb("rain", stale=True), 0x0000FF)
+        self.assertEqual(led_display._weather_rgb("rain", stale=False),
+                         led_display.WEATHER_COLORS["rain"])
+
     def test_sun_weather_draws_today_sunrise_and_sunset_times(self):
         display = CapturingFixture()
         display._draw_screen({

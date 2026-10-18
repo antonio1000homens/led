@@ -407,7 +407,9 @@ def _weather_icon(weather):
 
 def _weather_rgb(icon_name, stale=False):
     color = WEATHER_COLORS.get(icon_name, WEATHER_COLORS["unknown"])
-    return 0x777777 if stale else color
+    # Mid-level gray quantizes to black at the one-bit-per-channel matrix
+    # depth. Blue is a distinct, visible one-bit colour for stale forecasts.
+    return 0x0000FF if stale else color
 
 
 def _rail_weather_key(weather):
