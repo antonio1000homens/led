@@ -59,10 +59,10 @@ def prepare_christmas_scene_gc(gc_module):
 
 
 def enter_christmas_gc_window(gc_module):
-    """Defer automatic GC at the screen boundary without pausing the prior scene."""
-    disable = getattr(gc_module, "disable", None)
-    if disable is not None:
-        disable()
+    """Keep automatic collection enabled while the animated scene is active."""
+    enable = getattr(gc_module, "enable", None)
+    if enable is not None:
+        enable()
 
 
 def leave_christmas_gc_window(gc_module):

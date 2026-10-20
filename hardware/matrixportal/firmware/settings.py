@@ -42,6 +42,7 @@ MQTT_ENABLE_EXPERIMENTAL = True
 MQTT_TOPIC = "led/flash/reminder"
 MQTT_ASSISTANT_RESPONSE_TOPIC = "led/flash/assistant-response"
 MQTT_SCREENS_TOPIC = "led/screens/+"
+MQTT_BOARD_STATUS_TOPIC = "led/board/screen"
 MQTT_BROKER = ""
 MQTT_PORT = 1883
 MQTT_USERNAME = ""
