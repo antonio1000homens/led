@@ -895,7 +895,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             display.show(screen, clock_time="19:40", phase=0)
 
             sleep_seconds = display.animation_sleep_seconds(screen, 0.5)
-            self.assertEqual(sleep_seconds, 6.5)
+            self.assertEqual(sleep_seconds, 7.5)
             self.assertEqual(display.animation_cadence(screen, 4.0), 0)
 
             todoist = todoist_screen(6)
