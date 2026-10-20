@@ -40,14 +40,14 @@ class FakeGarbageCollector:
 
 
 class RuntimeModeTests(unittest.TestCase):
-    def test_christmas_gc_is_only_collected_at_scene_boundaries(self):
+    def test_christmas_animation_keeps_automatic_gc_enabled(self):
         collector = FakeGarbageCollector()
         self.assertEqual(christmas_gc_action("christmas_tracker", False), "enter")
         self.assertEqual(christmas_gc_action("christmas_tracker_intro", False), "enter")
         self.assertEqual(prepare_christmas_scene_gc(collector), 12)
         self.assertTrue(collector.enabled)
         enter_christmas_gc_window(collector)
-        self.assertFalse(collector.enabled)
+        self.assertTrue(collector.enabled)
         self.assertEqual(collector.collections, 1)
         self.assertIsNone(christmas_gc_action("christmas_tracker", True))
         self.assertIsNone(christmas_gc_action("christmas_tracker_intro", True))

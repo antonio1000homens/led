@@ -258,6 +258,14 @@ Install `adafruit_minimqtt` into `CIRCUITPY/lib` with
 `settings_local.py` for broker hostname, port, topic and any credentials. The
 board connects outbound and does not require a reserved IP.
 
+When MQTT is connected, firmware publishes one retained status payload to
+`MQTT_BOARD_STATUS_TOPIC` (default `led/board/screen`) after each successfully
+rendered screen change. It includes the screen ID and kind, expected display
+duration, uptime, and the synchronized epoch deadline when available. A
+watchdog can alert when the retained report passes its deadline plus a grace
+period. This detects a stopped rotation or an offline board; it cannot prove
+that the physical LEDs are lit.
+
 `gtsr4.pem` is a public Google Trust Services root certificate required by the
 current `led.alf-broadcast.co.uk` certificate chain on this CircuitPython
 firmware. Keep it on `CIRCUITPY`; it contains no project secret.

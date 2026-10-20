@@ -36,6 +36,7 @@ class FlashMqttClient:
         self.enabled = True
         self.next_attempt = 0
         self.next_loop = 0
+        self.pending_screen_status = None
 
     def set_enabled(self, enabled):
         """Apply the admin runtime gate and close the connection when disabled."""
@@ -86,6 +87,14 @@ class FlashMqttClient:
             self.client.subscribe(screen_topic, qos=1)
             self.connected = True
             self.next_loop = now
+            if self.pending_screen_status is not None:
+                self.client.publish(
+                    getattr(self.settings, "MQTT_BOARD_STATUS_TOPIC", "led/board/screen"),
+                    self.pending_screen_status,
+                    retain=True,
+                    qos=0,
+                )
+                self.pending_screen_status = None
             print("MQTT subscribed reminder={} assistant={} screens={}".format(
                 self.settings.MQTT_TOPIC, assistant_topic, screen_topic))
         except Exception as error:
@@ -105,6 +114,24 @@ class FlashMqttClient:
                     disconnect()
             except Exception:
                 pass
+
+    def publish_screen_status(self, payload, now):
+        """Publish the latest selected screen for an external stall watchdog."""
+        topic = getattr(self.settings, "MQTT_BOARD_STATUS_TOPIC", "")
+        if not self.enabled or not topic:
+            return False
+        if not self.connected or self.client is None:
+            self.pending_screen_status = payload
+            return False
+        try:
+            self.client.publish(topic, payload, retain=True, qos=0)
+            return True
+        except Exception as error:
+            self.pending_screen_status = payload
+            self._discard_client()
+            self.next_attempt = now + 5
+            print("MQTT screen status unavailable:", error)
+            return False
 
     def poll(self, now, allow_connect=True):
         if not self.enabled:

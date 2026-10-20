@@ -3451,9 +3451,9 @@ class MatrixDisplay:
         # Keep the message to the right of the 84px sleigh. The count's left
         # edge stays fixed so any extra digit grows to the right.
         countdown = self._scaled_label(
-            root, "{} DAYS".format(count_text), 0xFFFFFF, 88, 2, scale=2,
+            root, "{} DAYS".format(count_text), 0xFFFFFF, 88, -4, scale=2,
         )
-        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 88, 18, scale=1)
+        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 88, 12, scale=1)
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
@@ -4366,14 +4366,14 @@ class FixtureDisplay:
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
-        self._text("{} DAYS".format(count), 88, 2, white, scale=2)
-        self._text("UNTIL CHRISTMAS", 88, 18, white)
+        self._text("{} DAYS".format(count), 88, -4, white, scale=2)
+        self._text("UNTIL CHRISTMAS", 88, 12, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
         x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
         draw_christmas_sleigh(self._pixel, x, 4, DISPLAY_WIDTH, 32)
-        self._text("HO HO HO...", x + 88, 15, (255, 170, 0))
+        self._text("HO HO HO...", x + 88, 9, (255, 170, 0))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)

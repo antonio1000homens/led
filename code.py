@@ -1,5 +1,6 @@
 """MatrixPortal / Wokwi information-board entrypoint."""
 
+import json
 import sys
 import time
 
@@ -594,6 +595,22 @@ def _apply_flash_config(payload, now=None):
     )
 
 
+def _screen_status_payload(screen, now):
+    duration = max(
+        1,
+        int(screen.get("effective_duration_seconds") or screen.get("duration_seconds") or 8),
+    )
+    reported_at = clock.epoch(now)
+    return json.dumps({
+        "screen_id": str(screen.get("id") or ""),
+        "screen_kind": str(screen.get("kind") or ""),
+        "expected_duration_seconds": duration,
+        "uptime_seconds": int(now),
+        "reported_at_epoch": reported_at,
+        "deadline_epoch": reported_at + duration if reported_at is not None else None,
+    }, separators=(",", ":"))
+
+
 while True:
     now = time.monotonic()
     loop_started = ticks_ms()
@@ -974,9 +991,15 @@ while True:
         try:
             enter_christmas_gc_window(gc)
         except Exception as error:
-            print("CHRISTMAS GC ENTRY FAILED collector_state=disabled:", error)
-            if gc is not None and hasattr(gc, "disable"):
-                gc.disable()
+            print("CHRISTMAS GC ENTRY FAILED collector_state=unknown:", error)
+            # Preserve the board's ability to reclaim memory even if the GC
+            # state transition itself fails. Disabling here could turn a
+            # recoverable allocation spike into a permanent display stall.
+            if gc is not None and hasattr(gc, "enable"):
+                try:
+                    gc.enable()
+                except Exception as enable_error:
+                    print("CHRISTMAS GC ENABLE RETRY FAILED:", enable_error)
         christmas_gc_suspended = True
     if settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "weather_sun":
         sun_gc_key = (screen.get("id"), rotation.cycle_number, rotation.started_at)
@@ -1209,6 +1232,8 @@ while True:
         last_logged_screen_key = render_key
         last_logged_screen_started = ticks_ms()
         screen_heap_low_water = _memory_free()
+        if mqtt is not None:
+            mqtt.publish_screen_status(_screen_status_payload(screen, now), now)
     last_visible_screen = screen.get("id")
     mqtt_screens_changed = False
     smooth_animation = (

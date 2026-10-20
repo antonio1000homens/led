@@ -1247,7 +1247,7 @@
       drawChristmasSleigh(x, 4);
       const px = FONT_PIXEL_SCALE;
       context.fillStyle = '#ffaa00';
-      drawLedText('HO HO HO...', (x + 88) * px, 15 * px);
+      drawLedText('HO HO HO...', (x + 88) * px, 9 * px);
       status.dataset.detail = 'Christmas Tracker · HO HO HO sleigh intro';
     }
     function drawChristmasTracker(screen, phase, wallClock) {
@@ -1263,8 +1263,8 @@
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
       // Keep the message beyond the sleigh's 84px edge; extra digits grow right.
-      drawLedTextScaled(`${days} DAYS`, 88 * px, 2 * px, 2);
-      drawLedText('UNTIL CHRISTMAS', 88 * px, 18 * px);
+      drawLedTextScaled(`${days} DAYS`, 88 * px, -4 * px, 2);
+      drawLedText('UNTIL CHRISTMAS', 88 * px, 12 * px);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {
