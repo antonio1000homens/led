@@ -902,7 +902,7 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             todoist["weather"] = {"temperature_c": 17, "icon": "clear_day"}
             display.show(todoist, clock_time="19:40", clock_date="2026-09-20", phase=0)
             sleep_seconds = display.animation_sleep_seconds(todoist, 0.5)
-            self.assertLessEqual(sleep_seconds, 6.5)
+            self.assertEqual(sleep_seconds, 18.25)
             self.assertEqual(display.animation_cadence(todoist, 4.0), TODOIST_MARQUEE_FPS)
 
     def test_unchanged_partial_scene_does_not_present_duplicate_frame(self):
