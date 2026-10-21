@@ -5,6 +5,9 @@ import unicodedata
 from urllib.request import Request, urlopen
 
 
+MAX_QUOTE_CHOICES = 3
+
+
 class ZenQuotesProvider:
     URL = "https://zenquotes.io/api/quotes"
 
@@ -45,4 +48,4 @@ class ZenQuotesProvider:
                 quotes.append({"quote": quote, "author": author})
         if not quotes:
             raise ValueError("ZenQuotes API returned no usable plain-text quotes")
-        return quotes[:50]
+        return quotes[:MAX_QUOTE_CHOICES]

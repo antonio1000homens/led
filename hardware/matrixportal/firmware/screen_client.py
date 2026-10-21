@@ -15,6 +15,16 @@ import random
 from matrix_config import CALLING_SCROLL_SPEED_OVERRIDE
 
 
+def _free_heap_bytes():
+    try:
+        import gc
+
+        mem_free = getattr(gc, "mem_free", None)
+        return mem_free() if mem_free is not None else -1
+    except Exception:
+        return -1
+
+
 def _valid_rail_presentation(value):
     if not isinstance(value, dict):
         return False
@@ -821,9 +831,16 @@ class ScreenClient:
         if not base:
             raise ValueError("SCREEN_API_URL is required for api mode")
         response = None
+        stage = "request"
         try:
+            print("SCREEN FETCH REQUEST heap_free={}".format(_free_heap_bytes()))
             response = self.session.get(base + "/api/screens")
             status_code = getattr(response, "status_code", None)
+            headers = getattr(response, "headers", {}) or {}
+            print("SCREEN FETCH RESPONSE status={} bytes={} heap_free={}".format(
+                status_code, headers.get("content-length") or headers.get("Content-Length", "?"),
+                _free_heap_bytes(),
+            ))
             if status_code is not None:
                 if status_code < 200 or status_code >= 300:
                     raise ValueError("Screen API returned HTTP {}".format(status_code))
@@ -831,7 +848,9 @@ class ScreenClient:
                 # Keep compatibility with the CPython test double and
                 # requests-like sessions that expose raise_for_status().
                 response.raise_for_status()
+            stage = "json"
             payload = response.json()
+            print("SCREEN FETCH JSON OK heap_free={}".format(_free_heap_bytes()))
             if not isinstance(payload, dict) or not isinstance(payload.get("screens"), list):
                 raise ValueError("Invalid screen API response")
             # fetched_at is the screen-data age, not the current wall clock.
@@ -841,6 +860,11 @@ class ScreenClient:
             if clock_at:
                 payload["clock_at"] = clock_at
             return payload
+        except MemoryError:
+            print("SCREEN FETCH MEMORYERROR stage={} heap_free={}".format(
+                stage, _free_heap_bytes(),
+            ))
+            raise
         finally:
             if response is not None:
                 response.close()

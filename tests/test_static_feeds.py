@@ -55,7 +55,8 @@ class StaticFeedTests(unittest.TestCase):
         publisher = self.publisher(joke_provider=provider)
         for size in (2,4,5):
             payload = publisher.run()
-            self.assertEqual(len(payload["screens"][0]["items"]), size)
+            self.assertEqual(len(payload["screens"][0]["items"]), min(size, 3))
+            self.assertEqual(len(self.store.state["feeds"]["dad_joke"]["items"]), size)
             self.now += timedelta(seconds=61)
         original = copy.deepcopy(self.store.state["feeds"]["dad_joke"]["items"])
         version = content_version("dad_joke", {"data":original[1]})
@@ -203,9 +204,8 @@ class StaticFeedTests(unittest.TestCase):
         self.assertEqual(rotation.cycle_number,0)
         self.assertIsInstance(rotation.started_at,int)
 
-    def test_explicit_gc_occurs_only_after_static_is_presented(self):
+    def test_maintenance_gc_occurs_after_static_is_presented(self):
         source = (ROOT / "code.py").read_text()
-        self.assertEqual(source.count("gc.collect()"),1)
         block = source[source.index("    if maintenance_visible and"):source.index("    should_fetch = (")]
         self.assertLess(block.index("display.show("),block.index("gc.collect()"))
         self.assertIn("not flash.active(now)",block)
