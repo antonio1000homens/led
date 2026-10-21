@@ -40,6 +40,7 @@ class BoardHealthTests(unittest.TestCase):
 
     def test_fetch_results_keep_bounded_provider_state_and_only_error_class(self):
         health = BoardHealth("boot-a")
+        health.begin_fetch(12)
         health.fetch_result(12.5, 0.25, [
             {"source": "open_meteo", "stale": True},
             {"source": "open_meteo", "stale": False},

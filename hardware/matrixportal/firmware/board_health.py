@@ -131,7 +131,6 @@ class BoardHealth:
         })
 
     def fetch_result(self, uptime, duration, feeds=None, error=None):
-        self.state["last_fetch_attempt_uptime_seconds"] = int(uptime)
         self.state["fetch_duration_seconds"] = round(float(duration), 3)
         self.state["last_fetch_error_class"] = (
             str(error) if str(error) in ERROR_CLASSES else "other"
@@ -179,6 +178,9 @@ class BoardHealth:
                     break
                 summary.append({"source": name, **status})
         self.state["feed_health"] = summary
+
+    def begin_fetch(self, uptime):
+        self.state["last_fetch_attempt_uptime_seconds"] = int(uptime)
 
     def due(self, uptime):
         return self.last_report is None or uptime - self.last_report >= HEARTBEAT_SECONDS

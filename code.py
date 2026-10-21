@@ -823,6 +823,7 @@ while True:
         if rotation.screens and not flash.active(fetch_started):
             fetch_resume = rotation.freeze(ticks_ms())
         try:
+            board_health.begin_fetch(time.monotonic())
             _checkpoint_board_health("fetch", candidate, now)
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
