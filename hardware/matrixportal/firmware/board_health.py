@@ -57,6 +57,7 @@ class BoardHealth:
             "fetch_duration_seconds": None,
             "last_fetch_attempt_uptime_seconds": None,
             "last_fetch_success_uptime_seconds": None,
+            "last_fetch_successful": None,
             "last_fetch_error_class": "",
             "feed_health": [],
             "cycle_number": 0,
@@ -136,8 +137,10 @@ class BoardHealth:
             str(error) if str(error) in ERROR_CLASSES else "other"
         )
         if error:
+            self.state["last_fetch_successful"] = False
             self.failure("fetch")
             return
+        self.state["last_fetch_successful"] = True
         self.state["last_fetch_success_uptime_seconds"] = int(uptime)
         self.state["last_fetch_error_class"] = ""
         summary = []

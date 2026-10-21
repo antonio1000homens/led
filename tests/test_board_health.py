@@ -45,10 +45,12 @@ class BoardHealthTests(unittest.TestCase):
             {"source": "open_meteo", "stale": False},
             {"source": "national_rail", "stale": False},
         ])
+        self.assertTrue(health.state["last_fetch_successful"])
         health.checkpoint("fetch", {"id": "calendar", "kind": "calendar_agenda", "source": "todoist"})
         health.fetch_result(20, 2.1, error="Token leaked in URL")
         payload = json.loads(health.payload(20, None, None))
         self.assertEqual(payload["fetch_failures"], 1)
+        self.assertFalse(payload["last_fetch_successful"])
         self.assertEqual(payload["last_fetch_error_class"], "other")
         self.assertEqual(payload["attempted_screen_id"], "calendar")
         self.assertEqual(len(payload["feed_health"]), 2)
