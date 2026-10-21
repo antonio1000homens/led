@@ -59,7 +59,10 @@ class FlashMqttClient:
         if not self.settings.MQTT_BROKER:
             return
         if self.on_connecting is not None:
-            self.on_connecting()
+            try:
+                self.on_connecting()
+            except Exception as error:
+                print("MQTT health checkpoint skipped:", type(error).__name__)
         try:
             if self.mqtt_factory is None:
                 import adafruit_connection_manager

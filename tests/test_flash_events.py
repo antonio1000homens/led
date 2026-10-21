@@ -353,6 +353,16 @@ class MqttTransportTests(unittest.TestCase):
         self.assertEqual(attempts, [True])
         self.assertTrue(transport.connected)
 
+    def test_health_checkpoint_exception_does_not_prevent_mqtt_connection(self):
+        client = FakeMqtt()
+        transport = FlashMqttClient(
+            FakeSettings, lambda topic, payload: None,
+            mqtt_factory=lambda settings: client,
+            on_connecting=lambda: (_ for _ in ()).throw(MemoryError("allocation")),
+        )
+        transport.poll(0)
+        self.assertTrue(transport.connected)
+
     def test_runtime_disable_disconnects_and_stops_polling_until_reenabled(self):
         first = FakeMqtt()
         second = FakeMqtt()

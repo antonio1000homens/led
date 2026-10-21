@@ -252,8 +252,11 @@ def _publish_board_health(now, force=False):
     uptime = time.monotonic()
     if not force and not board_health.due(uptime):
         return
-    payload = board_health.payload(uptime, clock.epoch(uptime), _memory_free())
-    mqtt.publish_health(payload, uptime)
+    try:
+        payload = board_health.payload(uptime, clock.epoch(uptime), _memory_free())
+        mqtt.publish_health(payload, uptime)
+    except Exception as error:
+        print("MQTT health snapshot skipped:", type(error).__name__)
 
 
 def _checkpoint_board_health(stage, screen, now):
