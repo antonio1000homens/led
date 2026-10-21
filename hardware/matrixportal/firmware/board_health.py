@@ -11,13 +11,16 @@ def _text(value, limit=48):
     if value is None:
         return ""
     value = str(value)
-    return "".join(char for char in value if char.isalnum() or char in "._-:")[:limit]
+    return "".join(
+        char for char in value
+        if "0" <= char <= "9" or "A" <= char <= "Z" or "a" <= char <= "z" or char in "._-:"
+    )[:limit]
 
 
 def _source_timestamp(value):
     if not isinstance(value, str):
         return None
-    value = "".join(char for char in value if char.isdigit() or char in "-:.TZ+")[:32]
+    value = "".join(char for char in value if "0" <= char <= "9" or char in "-:.TZ+")[:32]
     return value if len(value) >= 10 else None
 
 
