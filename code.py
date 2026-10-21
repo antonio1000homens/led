@@ -1,6 +1,7 @@
 """MatrixPortal / Wokwi information-board entrypoint."""
 
 import json
+import os
 import sys
 import time
 
@@ -12,6 +13,7 @@ for source_path in ("/hardware/matrixportal/firmware", "/shared", "hardware/matr
         sys.path.append(source_path)
 
 from monotonic_clock import elapsed_seconds, ticks_ms
+from board_health import BoardHealth
 
 try:
     import gc
@@ -233,6 +235,33 @@ flash = FlashState(
 flash_resume = None
 flash_started_ticks = None
 mqtt = None
+try:
+    _session_suffix = os.urandom(4).hex()
+except (AttributeError, NotImplementedError):
+    _session_suffix = str(int(time.monotonic() * 1000))
+board_health = BoardHealth(
+    _session_suffix,
+    getattr(settings, "FIRMWARE_REVISION", "led-health-v1"),
+    getattr(settings, "BOARD_ID", "matrixportal-s3"),
+)
+
+
+def _publish_board_health(now, force=False):
+    if mqtt is None:
+        return
+    uptime = time.monotonic()
+    if not force and not board_health.due(uptime):
+        return
+    try:
+        payload = board_health.payload(uptime, clock.epoch(uptime), _memory_free())
+        mqtt.publish_health(payload, uptime)
+    except Exception as error:
+        print("MQTT health snapshot skipped:", type(error).__name__)
+
+
+def _checkpoint_board_health(stage, screen, now):
+    if board_health.checkpoint(stage, screen, time.monotonic()):
+        _publish_board_health(now, force=True)
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
 )
@@ -295,6 +324,11 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
         settings,
         receive_mqtt,
         startup_delay_seconds=settings.MQTT_STARTUP_DELAY_SECONDS,
+        on_connecting=lambda: _checkpoint_board_health(
+            "mqtt",
+            rotation.current(ticks_ms())[0] if rotation.screens else None,
+            time.monotonic(),
+        ),
     )
 rendered_diagnostic_index = None
 last_render_key = None
@@ -682,10 +716,17 @@ while True:
     if runtime_mode.mode == "diagnostic":
         if rendered_diagnostic_index != runtime_mode.diagnostic_index:
             name, color = runtime_mode.diagnostic()
+            diagnostic_screen = {"id": "diagnostic", "kind": "diagnostic", "source": "local"}
+            _checkpoint_board_health("diagnostic", diagnostic_screen, now)
+            board_health.set_mode("diagnostic")
             print("DIAGNOSTIC", name)
             display.show_diagnostic(color)
+            board_health.completed_render(
+                diagnostic_screen, time.monotonic(), clock.epoch(time.monotonic()), _memory_free(),
+            )
             rendered_diagnostic_index = runtime_mode.diagnostic_index
         _sleep_interruptible(settings.FRAME_SECONDS)
+        _publish_board_health(time.monotonic())
         continue
 
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
@@ -735,6 +776,7 @@ while True:
             maintenance_resume = rotation.freeze(ticks_ms())
         if slot_key != last_maintenance_slot:
             if gc is not None and hasattr(gc, "collect"):
+                _checkpoint_board_health("gc", candidate, now)
                 gc.collect()
         if client is not None and fetch_due:
             # Acknowledge completed items only; retries stay in static windows.
@@ -769,6 +811,7 @@ while True:
             # A network refresh allocates a large payload, so run it with GC
             # enabled and restore the rail setting after the fetch completes.
             try:
+                _checkpoint_board_health("gc", candidate, now)
                 collect_gc_with_state(gc, enabled_after=True)
             except Exception as error:
                 print("RAIL GC FETCH WINDOW FAILED; deferring feed refresh:", error)
@@ -783,6 +826,8 @@ while True:
         if rotation.screens and not flash.active(fetch_started):
             fetch_resume = rotation.freeze(ticks_ms())
         try:
+            board_health.begin_fetch(time.monotonic())
+            _checkpoint_board_health("fetch", candidate, now)
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = with_christmas_tracker(payload.get("screens"))
@@ -825,6 +870,7 @@ while True:
             if fetched_at and (client is not None or not fixture_clock_synced):
                 clock.sync(fetched_at, fetch_completed)
                 fixture_clock_synced = True
+            board_health.fetch_result(fetch_completed, fetch_duration, screens)
             prepare_intro = getattr(display, "prepare_intro", None)
             if callable(prepare_intro):
                 for intro in screens:
@@ -834,6 +880,7 @@ while True:
                             )):
                         continue
                     try:
+                        _checkpoint_board_health("build", intro, fetch_completed)
                         prepared = (
                             prepare_intro(intro, clock.date_text(fetch_completed))
                             if intro.get("kind") == "christmas_tracker"
@@ -865,13 +912,19 @@ while True:
             _apply_flash_config(payload, fetch_completed)
             transport_stale = False
         except Exception as error:
+            board_health.failure("fetch")
+            _publish_board_health(time.monotonic(), force=True)
             fetch_completed = time.monotonic()
             fetch_duration = elapsed_seconds(fetch_started_ticks)
             telemetry_fetches += 1
             telemetry_fetch_failures += 1
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
+            board_health.fetch_result(
+                fetch_completed, fetch_duration, error=type(error).__name__
+            )
             print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
+            _publish_board_health(fetch_completed, force=True)
             transport_stale = bool(rotation.screens)
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
@@ -934,6 +987,7 @@ while True:
                     display.discard_prepared_rail_scene()
             elif hasattr(display, "prepare_rail_scene"):
                 try:
+                    _checkpoint_board_health("build", upcoming_rail, now)
                     display.prepare_rail_scene(
                         upcoming_rail,
                         clock.text(now),
@@ -975,6 +1029,7 @@ while True:
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["screen_select"] = elapsed_seconds(stage_started)
     screen = hardware_safe_screen(screen)
+    board_health.set_mode("normal")
     if transport_stale and any(candidate is screen for candidate in rotation.http_screens):
         screen = dict(screen)
         screen["stale"] = True
@@ -1103,6 +1158,7 @@ while True:
                     )
                 )
             try:
+                _checkpoint_board_health("gc", screen, now)
                 collect_gc_with_state(gc, enabled_after=False)
             except Exception as error:
                 print("RAIL GC FAILED reason={} collector_state=disabled:".format(gc_reason), error)
@@ -1119,6 +1175,7 @@ while True:
     elif gc is not None and not rail_screen and rail_gc_suspended:
         gc_exit_started = ticks_ms()
         try:
+            _checkpoint_board_health("gc", screen, now)
             collect_gc_with_state(gc, enabled_after=True)
         except Exception as error:
             print("RAIL GC EXIT FAILED reason=leaving_rail collector_state=enabled:", error)
@@ -1192,13 +1249,20 @@ while True:
             )
         )
     show_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
-    display.show(
-        screen,
-        clock.text(now),
-        clock_date=clock.date_text(now),
-        phase=_display_phase(screen, phase),
-        now_epoch=clock.epoch(now),
-    )
+    _checkpoint_board_health("render", screen, now)
+    try:
+        display.show(
+            screen,
+            clock.text(now),
+            clock_date=clock.date_text(now),
+            phase=_display_phase(screen, phase),
+            now_epoch=clock.epoch(now),
+        )
+    except Exception as error:
+        board_health.failure("render")
+        _publish_board_health(time.monotonic(), force=True)
+        print("Screen render failed:", type(error).__name__)
+        raise
     show_duration = (
         elapsed_seconds(show_started) if MATRIX_TELEMETRY_ENABLED else 0.0
     )
@@ -1234,6 +1298,13 @@ while True:
         screen_heap_low_water = _memory_free()
         if mqtt is not None:
             mqtt.publish_screen_status(_screen_status_payload(screen, now), now)
+    board_health.completed_render(
+        screen, time.monotonic(), clock.epoch(time.monotonic()), _memory_free(),
+        rotation.cycle_number,
+        getattr(getattr(display, "base", display), "brightness_percent", None),
+        _matrix_root_token() is not None,
+    )
+    _publish_board_health(time.monotonic())
     last_visible_screen = screen.get("id")
     mqtt_screens_changed = False
     smooth_animation = (

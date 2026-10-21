@@ -307,6 +307,7 @@ class FakeMqtt:
         self.loop_calls = 0
         self.loop_timeouts = []
         self.disconnect_calls = 0
+        self.published = []
 
     def connect(self):
         self.connected = True
@@ -317,6 +318,9 @@ class FakeMqtt:
 
     def subscribe(self, topic, qos=0):
         self.subscriptions.append((topic, qos))
+
+    def publish(self, topic, payload, retain=False, qos=0):
+        self.published.append((topic, payload, retain, qos))
 
     def loop(self, timeout=0):
         self.loop_calls += 1
@@ -347,6 +351,16 @@ class MqttTransportTests(unittest.TestCase):
         self.assertEqual(attempts, [])
         transport.poll(130)
         self.assertEqual(attempts, [True])
+        self.assertTrue(transport.connected)
+
+    def test_health_checkpoint_exception_does_not_prevent_mqtt_connection(self):
+        client = FakeMqtt()
+        transport = FlashMqttClient(
+            FakeSettings, lambda topic, payload: None,
+            mqtt_factory=lambda settings: client,
+            on_connecting=lambda: (_ for _ in ()).throw(MemoryError("allocation")),
+        )
+        transport.poll(0)
         self.assertTrue(transport.connected)
 
     def test_runtime_disable_disconnects_and_stops_polling_until_reenabled(self):
@@ -420,6 +434,33 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(31)
         self.assertTrue(transport.connected)
         self.assertEqual(len(attempts), 2)
+
+    def test_health_keeps_only_newest_snapshot_until_reconnect(self):
+        first = FakeMqtt(fail_loop=True)
+        second = FakeMqtt()
+        clients = [first, second]
+        transport = FlashMqttClient(
+            FakeSettings, lambda topic, payload: None,
+            mqtt_factory=lambda settings: clients.pop(0),
+        )
+        transport.poll(0)
+        transport.publish_health("old", 0)
+        transport.publish_health("new", 1)
+        self.assertEqual(transport.pending_health, "new")
+        transport.poll(5)
+        self.assertTrue(transport.connected)
+        self.assertEqual(second.published, [
+            ("led/board/health", "new", True, 0),
+        ])
+
+    def test_connected_health_snapshot_is_retained(self):
+        client = FakeMqtt()
+        transport = FlashMqttClient(FakeSettings, lambda topic, payload: None, mqtt_factory=lambda settings: client)
+        transport.poll(0)
+        self.assertTrue(transport.publish_health('{"sequence":1}', 1))
+        self.assertEqual(client.published, [
+            ("led/board/health", '{"sequence":1}', True, 0),
+        ])
 
     def test_disconnect_is_contained_and_reconnect_resubscribes(self):
         first = FakeMqtt(fail_loop=True)

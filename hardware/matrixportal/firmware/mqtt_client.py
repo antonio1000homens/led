@@ -17,6 +17,7 @@ class FlashMqttClient:
         mqtt_factory=None,
         startup_delay_seconds=0.0,
         started_at=None,
+        on_connecting=None,
     ):
         self.settings = settings
         self.on_message = on_message
@@ -37,6 +38,8 @@ class FlashMqttClient:
         self.next_attempt = 0
         self.next_loop = 0
         self.pending_screen_status = None
+        self.pending_health = None
+        self.on_connecting = on_connecting
 
     def set_enabled(self, enabled):
         """Apply the admin runtime gate and close the connection when disabled."""
@@ -55,6 +58,11 @@ class FlashMqttClient:
             return
         if not self.settings.MQTT_BROKER:
             return
+        if self.on_connecting is not None:
+            try:
+                self.on_connecting()
+            except Exception as error:
+                print("MQTT health checkpoint skipped:", type(error).__name__)
         try:
             if self.mqtt_factory is None:
                 import adafruit_connection_manager
@@ -95,6 +103,14 @@ class FlashMqttClient:
                     qos=0,
                 )
                 self.pending_screen_status = None
+            if self.pending_health is not None:
+                self.client.publish(
+                    getattr(self.settings, "MQTT_BOARD_HEALTH_TOPIC", "led/board/health"),
+                    self.pending_health,
+                    retain=True,
+                    qos=0,
+                )
+                self.pending_health = None
             print("MQTT subscribed reminder={} assistant={} screens={}".format(
                 self.settings.MQTT_TOPIC, assistant_topic, screen_topic))
         except Exception as error:
@@ -133,6 +149,23 @@ class FlashMqttClient:
             print("MQTT screen status unavailable:", error)
             return False
 
+    def publish_health(self, payload, now):
+        """Publish the newest board health snapshot without blocking rendering."""
+        topic = getattr(self.settings, "MQTT_BOARD_HEALTH_TOPIC", "led/board/health")
+        if not self.enabled or not topic:
+            return False
+        if not self.connected or self.client is None:
+            self.pending_health = payload
+            return False
+        try:
+            self.client.publish(topic, payload, retain=True, qos=0)
+            return True
+        except Exception as error:
+            self.pending_health = payload
+            self._discard_client()
+            self.next_attempt = now + 5
+            print("MQTT health unavailable:", error)
+            return False
     def poll(self, now, allow_connect=True):
         if not self.enabled:
             return
