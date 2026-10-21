@@ -176,7 +176,9 @@ class BoardHealth:
             for name, status in statuses.items():
                 if len(summary) >= 8:
                     break
-                summary.append({"source": name, **status})
+                entry = {"source": name}
+                entry.update(status)
+                summary.append(entry)
         self.state["feed_health"] = summary
 
     def begin_fetch(self, uptime):
