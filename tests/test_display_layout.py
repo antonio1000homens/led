@@ -512,7 +512,7 @@ class DisplayLayoutTests(unittest.TestCase):
         }, 4, clock_date="2026-10-07")
         self.assertIn(("Mixed recycling / Paper", 88, 14, (255, 255, 255)), display.drawn)
 
-    def test_bin_collection_long_label_scrolls_with_configured_speed(self):
+    def test_bin_collection_long_label_stops_beside_parked_lorry(self):
         display = CapturingFixture()
         screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
                   "collection_date": "2026-10-13", "slide_speed": 20,
@@ -522,8 +522,9 @@ class DisplayLayoutTests(unittest.TestCase):
         display.drawn = []
         display._draw_screen(screen, 5)
         second = next(item for item in display.drawn if item[0].startswith("A very long"))
-        self.assertEqual(first[1] - second[1], 20)
+        self.assertEqual(first[1], second[1])
         self.assertEqual(first[1], led_display.BIN_LORRY_WIDTH + led_display.HEADER_GAP)
+        self.assertNotEqual(first[0], screen["collections"][0]["label"])
 
     def test_bin_collection_date_follows_lorry_in_from_right(self):
         display = CapturingFixture()
@@ -537,17 +538,16 @@ class DisplayLayoutTests(unittest.TestCase):
         display._draw_screen(screen, 5, clock_date="2026-10-07")
         self.assertIn(("DUE IN 6 DAYS", 167, 14, (170, 170, 170)), display.drawn)
 
-    def test_bin_collection_blank_scroll_gap_allows_transport_reconnect(self):
+    def test_bin_collection_stops_animating_after_lorry_enters(self):
         display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
         screen = {"kind": "bin_collection", "slide_speed": 20,
                   "collections": [{"id": "x", "label": "X" * 50}]}
         with mock.patch.object(led_display, "MATRIX_ANIMATION_PROFILE", "baseline"):
             self.assertTrue(display.animation_active(screen, 0))
-            _, footer_width = led_display._bin_collection_marquee_geometry(screen)
-            blank_phase = led_display.BIN_LORRY_SECONDS + (footer_width + 20) / 20
-            self.assertFalse(display.animation_active(screen, blank_phase))
-            self.assertEqual(display.animation_cadence(screen, blank_phase), 0)
-            self.assertAlmostEqual(display.animation_sleep_seconds(screen, blank_phase), 0.2)
+            parked_phase = led_display.BIN_LORRY_SECONDS
+            self.assertFalse(display.animation_active(screen, parked_phase))
+            self.assertEqual(display.animation_cadence(screen, parked_phase), 0)
+            self.assertEqual(led_display._bin_collection_footer_x(screen, 5), 0)
 
     def test_bin_collection_hardware_layout_keeps_normal_clock_header(self):
         import sys
@@ -573,10 +573,8 @@ class DisplayLayoutTests(unittest.TestCase):
             display._bin_weather = None
             display._bin_header_kind = None
             display._bin_content_group = None
-            display._bin_bins_group = None
             display._bin_lorry_group = None
             display._bin_lorry_grid = None
-            display._bin_types = ()
             screen = {"kind": "bin_collection", "title": "NEXT COLLECTION",
                       "collection_date": "2026-10-13", "slide_speed": 20,
                       "collections": [{"id": "mixed", "label": "Mixed recycling"}],
@@ -604,14 +602,15 @@ class DisplayLayoutTests(unittest.TestCase):
             self.assertEqual(display._bin_footer_group.x, 0)
             self.assertFalse(display._bin_lorry_grid.flip_x)
             self.assertEqual(display._bin_clock_label.text, "21:00")
-            self.assertEqual(display._bin_bins_group.x, 236)
+            self.assertFalse(hasattr(display, "_bin_bins_group"))
             long_screen = dict(screen)
             long_screen["collections"] = [{"id": "custom", "label": "Mixed recycling " * 5}]
             display._show_bin_collection(long_screen, "21:00", "2026-10-07", 4)
             start_x = display._bin_lorry_group.x
             display._show_bin_collection(long_screen, "21:00", "2026-10-07", 5)
-            self.assertEqual(start_x - display._bin_lorry_group.x, 20)
-            self.assertEqual(display._bin_lorry_label.text, "Mixed recycling " * 5)
+            self.assertEqual(start_x, 0)
+            self.assertEqual(display._bin_lorry_group.x, 0)
+            self.assertLess(len(display._bin_lorry_label.text), len("Mixed recycling " * 5))
         finally:
             if previous is None:
                 del sys.modules["displayio"]

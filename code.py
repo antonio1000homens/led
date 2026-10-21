@@ -168,6 +168,17 @@ _MQTT_SLEEP_POLL_SECONDS = 0.25
 mqtt_screens_changed = False
 
 
+def _mqtt_connection_allowed(now):
+    """Only start slow MQTT handshakes on the loading or a static page."""
+    if not rotation.screens or flash.active(now):
+        return False
+    screen, phase = rotation.current(ticks_ms())
+    return (
+        rotation.is_maintenance_screen(screen)
+        and not display.animation_active(screen, phase)
+    )
+
+
 def _sleep_interruptible(seconds, service_mqtt=False):
     """Sleep without changing render cadence, servicing requested I/O while idle."""
     global mqtt_screens_changed
@@ -204,7 +215,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         if service_mqtt and _service_reminder_clock(now):
             return
         if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
-            mqtt.poll(now)
+            mqtt.poll(now, allow_connect=_mqtt_connection_allowed(now))
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
             if mqtt_screens_changed:
                 return
@@ -247,7 +258,7 @@ board_health = BoardHealth(
 
 
 def _publish_board_health(now, force=False):
-    if mqtt is None:
+    if mqtt is None or not getattr(settings, "MQTT_BOARD_TELEMETRY_ENABLED", False):
         return
     uptime = time.monotonic()
     if not force and not board_health.due(uptime):
@@ -686,7 +697,15 @@ while True:
         if rotation.screens and not flash.active(now):
             mqtt_screen, mqtt_phase = rotation.current(ticks_ms())
             mqtt_animation_active = display.animation_active(mqtt_screen, mqtt_phase)
-            mqtt_allow_connect = not mqtt_animation_active
+            # Keep MQTT reads alive during stationary marquee pauses, but do
+            # not begin a Wi-Fi/broker handshake inside the departures scene.
+            # MiniMQTT connect can block for seconds and leave the rail display
+            # frozen even though the calling-at text is between motion phases.
+            mqtt_allow_connect = (
+                mqtt_allow_connect
+                and not mqtt_animation_active
+                and mqtt_screen.get("kind") != "rail_combined"
+            )
         # MiniMQTT's nominal socket timeout does not bound the complete
         # CircuitPython/Wi-Fi path. Do not interrupt visible animation with
         # keepalive/reconnect work; service the connection in an idle window.
@@ -786,6 +805,10 @@ while True:
     if maintenance_visible and not steam_train_test and not flash.active(now):
         maintenance_active = True
         display.show(candidate, clock.text(now), clock_date=clock.date_text(now), phase=candidate_phase, now_epoch=clock.epoch(now))
+        if mqtt is not None and candidate.get("id") == "startup-loading":
+            # Keep the loading frame visible if the initial broker handshake
+            # takes several seconds; do not move it into the animation loop.
+            mqtt.poll(time.monotonic(), allow_connect=True)
         if rotation.screens:
             maintenance_resume = rotation.freeze(ticks_ms())
         if slot_key != last_maintenance_slot:
@@ -804,14 +827,21 @@ while True:
                     print("Static content acknowledgement deferred")
                     break
     # The browser simulator refreshes the renderer-neutral payload every
-    # 30 seconds. Keep the physical board's departures data on the same
-    # cadence even when that interval expires inside the paired train/rail
-    # block; waiting for the next static maintenance page can leave one
-    # timetable snapshot on the board for the entire 90-second rail screen.
+    # 30 seconds. On the physical board, let a due refresh run only after the
+    # train/departures scene has been shown and its animation is stationary;
+    # never block a moving frame on the synchronous screen API request.
     rail_refresh_visible = candidate.get("kind") in ("steam_train_intro", "rail_combined")
+    rail_refresh_ready = (
+        not rail_refresh_visible
+        or settings.DISPLAY_BACKEND != "matrix"
+        or (
+            last_visible_screen == candidate.get("id")
+            and not display.animation_active(candidate, candidate_phase)
+        )
+    )
     should_fetch = (
         fetch_due
-        and (maintenance_visible or rail_refresh_visible
+        and (maintenance_visible or (rail_refresh_visible and rail_refresh_ready)
              or (steam_train_test and not rotation.screens))
         and not flash.active(now)
     )
@@ -1310,7 +1340,7 @@ while True:
         last_logged_screen_key = render_key
         last_logged_screen_started = ticks_ms()
         screen_heap_low_water = _memory_free()
-        if mqtt is not None:
+        if mqtt is not None and getattr(settings, "MQTT_BOARD_TELEMETRY_ENABLED", False):
             mqtt.publish_screen_status(_screen_status_payload(screen, now), now)
     board_health.completed_render(
         screen, time.monotonic(), clock.epoch(time.monotonic()), _memory_free(),

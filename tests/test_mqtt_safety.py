@@ -8,7 +8,7 @@ class MqttSafetyTests(unittest.TestCase):
         self.assertTrue(settings.MQTT_ENABLED)
         self.assertTrue(settings.MQTT_ENABLE_EXPERIMENTAL)
         self.assertEqual(settings.MQTT_BROKER, "")
-        self.assertEqual(settings.MQTT_STARTUP_DELAY_SECONDS, 30)
+        self.assertEqual(settings.MQTT_STARTUP_DELAY_SECONDS, 0)
         self.assertEqual(settings.MQTT_TOPIC, "led/flash/reminder")
         self.assertEqual(settings.MQTT_SCREENS_TOPIC, "led/screens/+")
 

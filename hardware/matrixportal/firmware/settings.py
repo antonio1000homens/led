@@ -44,12 +44,15 @@ MQTT_ASSISTANT_RESPONSE_TOPIC = "led/flash/assistant-response"
 MQTT_SCREENS_TOPIC = "led/screens/+"
 MQTT_BOARD_STATUS_TOPIC = "led/board/screen"
 MQTT_BOARD_HEALTH_TOPIC = "led/board/health"
+# Synchronous outbound telemetry can stall display rendering on slow broker
+# connections. Leave it off unless explicitly enabled in settings_local.py.
+MQTT_BOARD_TELEMETRY_ENABLED = False
 FIRMWARE_REVISION = "led-health-v1"
 MQTT_BROKER = ""
 MQTT_PORT = 1883
 MQTT_USERNAME = ""
 MQTT_PASSWORD = ""
-MQTT_STARTUP_DELAY_SECONDS = 30
+MQTT_STARTUP_DELAY_SECONDS = 0
 
 WIFI_SSID = _web_workflow_value("WIFI_SSID")
 WIFI_PASSWORD = _web_workflow_value("WIFI_PASSWORD")

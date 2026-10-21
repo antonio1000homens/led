@@ -686,17 +686,19 @@ class ScreenRotation:
             item = self._choose(choices[self.rng.randrange(len(choices))])
         else:
             weather = {}
+            today_cron_schedule = ""
             for screen in self.http_screens:
                 candidate_weather = screen.get("weather")
                 if isinstance(candidate_weather, dict):
                     weather = candidate_weather
+                if screen.get("kind") == "today":
+                    today_cron_schedule = screen.get("cron_schedule", "")
+                if weather and today_cron_schedule:
                     break
             item = {
                 "kind": "today", "title": "TODAY", "duration_seconds": 8,
                 "source": "local", "weather": weather,
-                "cron_schedule": next((feed.get("cron_schedule", "")
-                                       for feed in self.http_screens
-                                       if feed.get("kind") == "today"), ""),
+                "cron_schedule": today_cron_schedule,
             }
         item = dict(item)
         if not self._schedule_active(item):

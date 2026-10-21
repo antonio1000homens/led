@@ -329,16 +329,6 @@ BIN_LORRY_SPEED = 64.0
 BIN_LORRY_WIDTH = 84
 BIN_LORRY_HEIGHT = 28
 BIN_LORRY_Y = 2
-BIN_ICON_WIDTH = 9
-BIN_ICON_HEIGHT = 12
-BIN_ICON_Y = 10
-BIN_TEXT_X = 40
-BIN_TEXT_RIGHT = 220
-BIN_COLORS = {
-    "blue": 0x2255FF,
-    "green": 0x22AA44,
-    "black": 0x777777,
-}
 RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
 RAIL_DESTINATION_X = 63
@@ -555,68 +545,26 @@ def _sun_weather_local_phase(icon_name, phase):
     return min(SUN_WEATHER_ANIMATION_SECONDS, max(0.0, elapsed))
 
 
-def _bin_collection_marquee_geometry(screen, clock_date=""):
-    """Return overflow status and full footer width without allocating sprites."""
-    labels = " / ".join(str(item.get("label") or "") for item in screen.get("collections") or [])
-    due_width = len(_bin_collection_due_label(screen.get("collection_date"), clock_date)) * WEATHER_FONT_WIDTH
-    bin_types = _bin_collection_types(screen)
-    bin_width = len(bin_types) * (BIN_ICON_WIDTH + 2) - 2
-    available = max(0, DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3)
-    label_width = len(labels) * WEATHER_FONT_WIDTH
-    total = BIN_LORRY_WIDTH + label_width + due_width + bin_width + HEADER_GAP * 3
-    return label_width > available, total
-
-
 def _bin_collection_footer_x(screen, phase, clock_date=""):
-    """Scroll an overflowing complete footer; keep short labels parked."""
+    """Slide the lorry in, then keep the lorry and clipped footer parked."""
     try:
         elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         elapsed = 0.0
     if elapsed < BIN_LORRY_SECONDS:
         return _bin_lorry_x(elapsed)
-    overflowing, total = _bin_collection_marquee_geometry(screen, clock_date)
-    if not overflowing:
-        return 0
-    try:
-        speed = max(0.1, float(screen.get("slide_speed") or 20))
-    except (TypeError, ValueError):
-        speed = 20.0
-    return -int(((elapsed - BIN_LORRY_SECONDS) * speed) % (total + 24))
+    return 0
 
 
 def _bin_collection_motion_state(screen, phase):
-    """Return whether the bin lorry/footer is moving and when blank gap ends."""
+    """Report only the lorry entrance as animation; the completed footer parks."""
     try:
         elapsed = max(0.0, float(phase or 0))
     except (TypeError, ValueError):
         elapsed = 0.0
     if elapsed < BIN_LORRY_SECONDS:
         return True, max(0.05, BIN_LORRY_SECONDS - elapsed)
-    overflowing, total = _bin_collection_marquee_geometry(screen)
-    if not overflowing:
-        return False, None
-    try:
-        speed = max(0.1, float(screen.get("slide_speed") or 20))
-    except (TypeError, ValueError):
-        speed = 20.0
-    cycle_distance = total + 24
-    distance = ((elapsed - BIN_LORRY_SECONDS) * speed) % cycle_distance
-    if distance < total:
-        return True, None
-    return False, max(0.05, (cycle_distance - distance) / speed)
-
-
-def _bin_collection_types(screen):
-    """Map Home Assistant collection IDs to the bins shown on the board."""
-    items = screen.get("collections") or []
-    ids = " ".join(str(item.get("id") or "").lower() for item in items)
-    labels = " ".join(str(item.get("label") or "").lower() for item in items)
-    if "paper" in ids or "paper" in labels:
-        return ("blue", "green", "black")
-    if any(token in ids or token in labels for token in ("plastic", "plastics", "recycle-mixed")):
-        return ("green",)
-    return ("green",)
+    return False, None
 
 
 def _bin_collection_lorry_kind(screen):
@@ -1138,6 +1086,9 @@ class MatrixDisplay:
         self._rail_retained_heap_cost = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []
+        self._rail_summary_header_group = None
+        self._rail_top_service_group = None
+        self._rail_calling_group = None
         self._rail_departure_active_start = None
         self._rail_departure_active_count = 0
         self._rail_scroll_speed = CALLING_SCROLL_SPEED
@@ -1193,11 +1144,9 @@ class MatrixDisplay:
         self._bin_clock_label = None
         self._bin_header_group = None
         self._bin_content_group = None
-        self._bin_bins_group = None
         self._bin_lorry_group = None
         self._bin_lorry_grid = None
         self._bin_lorry_label = None
-        self._bin_types = ()
         self._today_date_palette = None
         self._today_date_column_states = []
 
@@ -2024,8 +1973,11 @@ class MatrixDisplay:
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
         platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
         platform_x = RAIL_PLATFORM_X
+        # Keep the platform column fixed across refreshes and rows. Moving it
+        # left to make room for a long status also cuts the station name, and
+        # the available status area changes when the feed is marked stale.
         if status and status_x < platform_x + platform_width + HEADER_GAP:
-            platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
+            status = ""
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
             group,
@@ -2263,12 +2215,15 @@ class MatrixDisplay:
         return getattr(self, "_rail_prebuilt_pending", False) and self._rail_cache_matches(screen)
 
     def _build_rail_scene(self, screen, clock_time, phase):
-        """Build both departures layouts once; phase changes only swap roots."""
+        """Build one shared departures scene for both presentation phases."""
         import displayio
 
         build_started = ticks_ms()
         heap_before_build = self._heap_free()
         self._rail_static_row_bitmap_count = 0
+        self._rail_calling_labels = []
+        self._rail_departure_rows = []
+        self._rail_top_service_group = None
         print(
             "RAIL BUILD START services={} static_row_renderer={} heap_free={}".format(
                 len(screen.get("services") or ()),
@@ -2276,38 +2231,102 @@ class MatrixDisplay:
                 self._heap_free(),
             )
         )
-        scenes = {}
         calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
         summary_seconds = screen.get("summary_seconds", RAIL_SUMMARY_SECONDS)
         self._rail_scroll_speed, self._rail_scroll_gap = _station_scroll_settings(screen)
         self._rail_calling_seconds = calling_seconds
         self._rail_summary_seconds = summary_seconds
-        scene_phases = (0,) if summary_seconds <= 0 else (0, summary_seconds)
-        for scene_phase in scene_phases:
-            root = displayio.Group()
-            self._rail(root, screen, scene_phase)
-            calling_labels = self._rail_calling_labels
-            departure_rows = self._rail_departure_rows
+        services = screen.get("services") or ()
+        right_edge = _header_content_right(screen)
+        root = displayio.Group()
+        scroll_group = displayio.Group()
+        service_rows = []
+        for index, service in enumerate(services):
+            row_group = displayio.Group()
+            if service is not None:
+                color = 0xFF3300 if service.get("cancelled") else 0xFFFFFF
+                self._rail_service(
+                    row_group, service, color, 0, 0, right_edge, index + 1
+                )
+            if index == 0:
+                self._rail_top_service_group = row_group
+            else:
+                scroll_group.append(row_group)
+                self._rail_departure_rows.append(row_group)
+            service_rows.append(row_group)
 
-            # Departures owns all four physical rows. The generic header mask
-            # used by other screens would cover row 1.
-            clock_group = displayio.Group()
-            clock_label = self._label(clock_group, "", 0xFFAA00, CLOCK_X, 3)
-            weather_group = displayio.Group()
-            if isinstance(screen.get("weather"), dict):
-                self._header_weather(weather_group, screen.get("weather"), 0)
-            root.append(clock_group)
-            root.append(weather_group)
-            scenes[rail_phase(scene_phase, summary_seconds, calling_seconds)] = {
-                "group": root,
-                "calling_labels": calling_labels,
-                "departure_rows": departure_rows,
-                "clock_group": clock_group,
-                "clock_label": clock_label,
-                "weather_group": weather_group,
-            }
+        root.append(scroll_group)
 
-        self._rail_scenes = scenes
+        # In the calling phase this masks scrolling rows while they pass
+        # behind the fixed top service and the calling-at line. It is moved
+        # offscreen during the summary phase.
+        mask_group = displayio.Group()
+        self._mask(mask_group, 0, 0, DISPLAY_WIDTH, RAIL_ROW_Y[2] - 3)
+        root.append(mask_group)
+
+        if self._rail_top_service_group is not None:
+            root.append(self._rail_top_service_group)
+        summary_header_group = displayio.Group()
+        self._label(summary_header_group, "DEPARTURES", 0xFFAA00, 0, 0)
+        root.append(summary_header_group)
+
+        calling_group = displayio.Group()
+        calling_labels = []
+        if services:
+            service = services[0]
+            presentation = screen.get("rail_presentation") or {}
+            calling = presentation.get("calling_text") or calling_text(service)
+            stations = calling[len(CALLING_LABEL):] if calling.startswith(CALLING_LABEL) else calling
+            first = self._calling_label_group(
+                service, RAIL_ROW_Y[1], presentation.get("calling_segments")
+            )
+            calling_group.append(first)
+            self._mask(
+                calling_group, 0, RAIL_ROW_Y[1] - 3,
+                len(CALLING_LABEL) * WEATHER_FONT_WIDTH, 8,
+            )
+            prefix = self._label(
+                calling_group, CALLING_LABEL, 0xFFAA00, 0, RAIL_ROW_Y[1]
+            )
+            calling_labels.append({
+                "prefix": prefix,
+                "first": first,
+                "text": calling,
+                "station_width": presentation.get(
+                    "calling_station_width_px", len(stations) * WEATHER_FONT_WIDTH
+                ),
+            })
+        root.append(calling_group)
+
+        # The four physical rows are reused across both phases. Only their
+        # positions and the three small overlay groups change at handoff.
+        clock_group = displayio.Group()
+        clock_label = self._label(clock_group, "", 0xFFAA00, CLOCK_X, 3)
+        weather_group = displayio.Group()
+        if isinstance(screen.get("weather"), dict):
+            self._header_weather(weather_group, screen.get("weather"), 0)
+        root.append(clock_group)
+        root.append(weather_group)
+
+        scene = {
+            "group": root,
+            "calling_labels": calling_labels,
+            "departure_rows": self._rail_departure_rows,
+            "service_rows": service_rows,
+            "mask_group": mask_group,
+            "summary_header_group": summary_header_group,
+            "top_service_group": self._rail_top_service_group,
+            "calling_group": calling_group,
+            "clock_group": clock_group,
+            "clock_label": clock_label,
+            "weather_group": weather_group,
+        }
+        # Both keys refer to the same scene object, rather than two complete
+        # displayio trees with duplicate row bitmaps and labels.
+        self._rail_scenes = {"summary": scene, "calling": scene}
+        self._rail_calling_labels = calling_labels
+        self._rail_summary_header_group = summary_header_group
+        self._rail_calling_group = calling_group
         self._rail_services = screen.get("services")
         self._rail_title = screen.get("title")
         self._rail_stale = bool(screen.get("stale"))
@@ -2326,7 +2345,7 @@ class MatrixDisplay:
         self._rail_first_refresh_pending = True
         print(
             "RAIL BUILD OK scenes={} static_row_bitmaps={} duration={:.3f}s heap_free_before={} heap_free_after={} heap_drop={}".format(
-                len(scenes), self._rail_static_row_bitmap_count,
+                1, self._rail_static_row_bitmap_count,
                 elapsed_seconds(build_started), heap_before_build,
                 heap_after_build,
                 (heap_before_build - heap_after_build)
@@ -2476,6 +2495,9 @@ class MatrixDisplay:
         self._rail_pause_seconds_cached = None
         self._rail_calling_labels = []
         self._rail_departure_rows = []
+        self._rail_summary_header_group = None
+        self._rail_top_service_group = None
+        self._rail_calling_group = None
         self._rail_phase = None
         self._rail_clock_group = None
         self._rail_clock_label = None
@@ -2500,7 +2522,7 @@ class MatrixDisplay:
 
     def _select_rail_scene(self, phase, calling_seconds=RAIL_CALLING_SECONDS,
                            summary_seconds=RAIL_SUMMARY_SECONDS):
-        """Select a cached summary/calling layout without rebuilding labels."""
+        """Switch the shared departures scene between summary and calling."""
         state = rail_phase(phase, summary_seconds, calling_seconds)
         scene = self._rail_scenes[state]
         self._rail_group = scene["group"]
@@ -2508,8 +2530,32 @@ class MatrixDisplay:
         self._rail_departure_rows = scene["departure_rows"]
         hidden_y = RAIL_ROW_Y[-1] + 8
         row_step = RAIL_ROW_Y[3] - RAIL_ROW_Y[2]
-        for index in range(len(self._rail_departure_rows)):
-            self._rail_departure_rows[index].y = hidden_y + index * row_step
+        if self._rail_top_service_group is not None:
+            self._rail_top_service_group.y = (
+                RAIL_ROW_Y[0]
+                if state == "calling" or len(self._rail_services or ()) >= 4
+                else RAIL_ROW_Y[1]
+            )
+        if self._rail_summary_header_group is not None:
+            self._rail_summary_header_group.y = (
+                RAIL_ROW_Y[0]
+                if state == "summary" and len(self._rail_services or ()) < 4
+                else -DISPLAY_WIDTH
+            )
+        if self._rail_calling_group is not None:
+            self._rail_calling_group.y = 0 if state == "calling" else -DISPLAY_WIDTH
+        mask_group = scene["mask_group"]
+        mask_group.y = 0 if state == "calling" else -DISPLAY_WIDTH
+        summary_offset = 0 if len(self._rail_services or ()) >= 4 else 1
+        for index, row_group in enumerate(self._rail_departure_rows):
+            if state == "summary":
+                visible_rows = 3 if summary_offset == 0 else 2
+                if index < visible_rows:
+                    row_group.y = RAIL_ROW_Y[index + 1 + summary_offset]
+                else:
+                    row_group.y = hidden_y + index * row_step
+            else:
+                row_group.y = hidden_y + index * row_step
         self._rail_departure_active_start = None
         self._rail_departure_active_count = 0
         self._rail_clock_group = scene["clock_group"]
@@ -2524,32 +2570,33 @@ class MatrixDisplay:
         scroll_gap = self._rail_scroll_gap
         calling_seconds = self._rail_calling_seconds
         summary_seconds = self._rail_summary_seconds
-        for labels in self._rail_calling_labels:
-            calling_x = None
-            if summary_seconds == 0:
-                calling_x = _cached_calling_x(
-                    phase, labels["station_width"], scroll_speed, calling_seconds
-                )
-            if calling_x is None:
-                calling_x = calling_marquee_x(
-                    labels["text"],
-                    rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
-                    display_width=DISPLAY_WIDTH,
-                    font_width=WEATHER_FONT_WIDTH,
-                    speed=scroll_speed,
-                    gap=scroll_gap,
-                    stop_at_end=True,
-                    station_width=labels["station_width"],
-                )
-            first_x = int(calling_x)
-            if labels["first"].x != first_x:
-                labels["first"].x = first_x
-                changed = True
+        if self._rail_phase == "calling":
+            for labels in self._rail_calling_labels:
+                calling_x = None
+                if summary_seconds == 0:
+                    calling_x = _cached_calling_x(
+                        phase, labels["station_width"], scroll_speed, calling_seconds
+                    )
+                if calling_x is None:
+                    calling_x = calling_marquee_x(
+                        labels["text"],
+                        rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
+                        display_width=DISPLAY_WIDTH,
+                        font_width=WEATHER_FONT_WIDTH,
+                        speed=scroll_speed,
+                        gap=scroll_gap,
+                        stop_at_end=True,
+                        station_width=labels["station_width"],
+                    )
+                first_x = int(calling_x)
+                if labels["first"].x != first_x:
+                    labels["first"].x = first_x
+                    changed = True
 
         services = screen.get("services") or ()
         hidden_y = RAIL_ROW_Y[-1] + 8
         row_step = RAIL_ROW_Y[3] - RAIL_ROW_Y[2]
-        if MATRIX_RAIL_ROWS_SCROLL:
+        if self._rail_phase == "calling" and MATRIX_RAIL_ROWS_SCROLL:
             start, progress, reset_progress = departure_scroll_state(
                 rail_marquee_elapsed(phase, summary_seconds, calling_seconds),
                 max(0, len(services) - 1),
@@ -2600,7 +2647,7 @@ class MatrixDisplay:
                         changed = True
             self._rail_departure_active_start = active_start
             self._rail_departure_active_count = active_count
-        else:
+        elif self._rail_phase == "calling":
             for index in range(min(2, len(self._rail_departure_rows))):
                 row_group = self._rail_departure_rows[index]
                 row_y = RAIL_ROW_Y[2] + index * row_step
@@ -2692,15 +2739,19 @@ class MatrixDisplay:
             scene_built = True
             if MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT:
                 self._collect_rail_build_garbage(heap_before_build, build_started)
+            phase_changed = False
         elif self._rail_phase != state:
             self._select_rail_scene(phase, calling_seconds, summary_seconds)
+            phase_changed = True
+        else:
+            phase_changed = False
         if self._rail_first_refresh_pending and not scene_built:
             # A prepared scene can sit hidden throughout the static slot.
             # Measure transition-to-present latency separately from its build.
             self._rail_build_started_ms = ticks_ms()
         update_heap_before = self._heap_free()
         update_started = ticks_ms()
-        changed = self._update_rail_scene(screen, clock_time, phase)
+        changed = self._update_rail_scene(screen, clock_time, phase) or phase_changed
         update_duration = elapsed_seconds(update_started)
         heap_gain = None
         self._last_rail_update_seconds = update_duration
@@ -3761,7 +3812,6 @@ class MatrixDisplay:
             " / ".join(str(item.get("label") or "") for item in items),
             _bin_collection_due_label(screen.get("collection_date"), clock_date),
             bool(screen.get("stale")),
-            _bin_collection_types(screen),
         )
         weather = screen.get("weather")
         return (
@@ -3770,30 +3820,6 @@ class MatrixDisplay:
             and self._bin_header_kind == header_kind
             and self._bin_weather == weather
         )
-
-    def _build_bin_icon(self, group, name, x):
-        import displayio
-
-        bitmap = displayio.Bitmap(BIN_ICON_WIDTH, BIN_ICON_HEIGHT, 3)
-        palette = displayio.Palette(3)
-        palette[0] = 0x000000
-        palette.make_transparent(0)
-        palette[1] = BIN_COLORS[name]
-        palette[2] = 0x111111
-
-        def rect(left, top, width, height, value):
-            for px in range(left, left + width):
-                for py in range(top, top + height):
-                    if 0 <= px < BIN_ICON_WIDTH and 0 <= py < BIN_ICON_HEIGHT:
-                        bitmap[px, py] = value
-
-        rect(3, 0, 3, 1, 1)  # handle
-        rect(0, 1, BIN_ICON_WIDTH, 2, 1)  # lid
-        rect(1, 3, BIN_ICON_WIDTH - 2, 7, 1)  # body
-        rect(2, 10, 2, 2, 2)
-        rect(5, 10, 2, 2, 2)
-        grid = displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=BIN_ICON_Y)
-        group.append(grid)
 
     def _build_bin_lorry(self, kind):
         import displayio
@@ -3814,17 +3840,13 @@ class MatrixDisplay:
         items = screen.get("collections") or []
         labels = " / ".join(str(item.get("label") or "") for item in items)
         self._bin_title = self._label(content, _clip(title, 40), 0xFFAA00, 0, 3)
-        self._bin_types = _bin_collection_types(screen)
-        bin_width = len(self._bin_types) * (BIN_ICON_WIDTH + 2) - 2
         due_label = _bin_collection_due_label(screen.get("collection_date"), clock_date)
         due_width = len(due_label) * WEATHER_FONT_WIDTH
         type_width = max(
             0,
-            DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3,
+            DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - HEADER_GAP * 2,
         )
-        # Preserve complete labels when they overflow: the whole lorry/footer
-        # travels together at slide_speed after the opening animation.
-        type_label = labels if len(labels) * WEATHER_FONT_WIDTH > type_width else _fit_text_pixels(labels, type_width)
+        type_label = _fit_text_pixels(labels, type_width)
         type_label_width = len(type_label) * WEATHER_FONT_WIDTH
         self._bin_content_group = content
         self._bin_lorry_group = displayio.Group()
@@ -3840,11 +3862,6 @@ class MatrixDisplay:
         )
         due_x = BIN_LORRY_WIDTH + HEADER_GAP * 2 + type_label_width
         self._bin_date = self._label(self._bin_lorry_group, due_label, 0xAAAAAA, due_x, 14)
-        self._bin_bins_group = displayio.Group()
-        self._bin_bins_group.x = due_x + due_width + HEADER_GAP
-        for index, name in enumerate(self._bin_types):
-            self._build_bin_icon(self._bin_bins_group, name, index * (BIN_ICON_WIDTH + 2))
-        self._bin_lorry_group.append(self._bin_bins_group)
         group.append(self._bin_lorry_group)
         # The new artwork fills most of the matrix height; keep the title
         # legible when the moving sprite passes behind it.
@@ -3873,7 +3890,6 @@ class MatrixDisplay:
             labels,
             _bin_collection_due_label(screen.get("collection_date"), clock_date),
             bool(screen.get("stale")),
-            self._bin_types,
         )
 
     def _show_bin_collection(self, screen, clock_time, clock_date, phase):
@@ -4333,26 +4349,15 @@ class FixtureDisplay:
             limited_palette=MATRIX_BIT_DEPTH == 1,
         )
         self._text(_clip(str(screen.get("title") or "NEXT COLLECTION"), 40), 0, 3, (255, 170, 0))
-        bin_types = _bin_collection_types(screen)
         due_label = _bin_collection_due_label(screen.get("collection_date"), clock_date)
-        bin_width = len(bin_types) * (BIN_ICON_WIDTH + 2) - 2
         due_width = len(due_label) * WEATHER_FONT_WIDTH
         type_width = max(
             0,
-            DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - bin_width - HEADER_GAP * 3,
+            DISPLAY_WIDTH - BIN_LORRY_WIDTH - due_width - HEADER_GAP * 2,
         )
-        type_label = labels if len(labels) * WEATHER_FONT_WIDTH > type_width else _fit_text_pixels(labels, type_width)
+        type_label = _fit_text_pixels(labels, type_width)
         type_label_width = len(type_label) * WEATHER_FONT_WIDTH
         due_x = x + BIN_LORRY_WIDTH + HEADER_GAP * 2 + type_label_width
-        bin_x = due_x + due_width + HEADER_GAP
-        for index, name in enumerate(bin_types):
-            color = tuple((BIN_COLORS[name] >> shift) & 0xFF for shift in (16, 8, 0))
-            icon_x = bin_x + index * (BIN_ICON_WIDTH + 2)
-            self._fill_rect(icon_x + 3, 10, 3, 1, color)
-            self._fill_rect(icon_x, 11, BIN_ICON_WIDTH, 2, color)
-            self._fill_rect(icon_x + 1, 13, BIN_ICON_WIDTH - 2, 7, color)
-            self._fill_rect(icon_x + 2, 20, 2, 2, (17, 17, 17))
-            self._fill_rect(icon_x + 5, 20, 2, 2, (17, 17, 17))
         self._text(type_label, x + BIN_LORRY_WIDTH + HEADER_GAP, 14, (255, 255, 255))
         self._text(due_label, due_x, 14, (170, 170, 170))
 
@@ -4381,7 +4386,7 @@ class FixtureDisplay:
         platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
         platform_x = RAIL_PLATFORM_X
         if status and status_x < platform_x + platform_width + HEADER_GAP:
-            platform_x = max(RAIL_DESTINATION_X, status_x - platform_width - HEADER_GAP)
+            status = ""
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         self._text(ordinal_text, RAIL_ORDINAL_X + x_offset, y, color)
         self._text(time_text, RAIL_TIME_X + x_offset, y, color)
