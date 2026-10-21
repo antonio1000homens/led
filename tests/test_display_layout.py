@@ -168,7 +168,7 @@ class DisplayLayoutTests(unittest.TestCase):
     def test_rail_prebuild_bitmap_and_post_build_gc_defaults(self):
         self.assertFalse(led_display.MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT)
         self.assertTrue(led_display.MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT)
-        self.assertTrue(rail_config.MATRIX_RAIL_PREBUILD_EXPERIMENT)
+        self.assertFalse(rail_config.MATRIX_RAIL_PREBUILD_EXPERIMENT)
         self.assertEqual(rail_config.MATRIX_RAIL_PREBUILD_MIN_FREE_BYTES, 1024 * 1024)
         self.assertEqual(rail_config.MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES, 512 * 1024)
 

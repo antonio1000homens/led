@@ -15,9 +15,11 @@ MATRIX_EXPERIMENT_PRESET = "B8"
 # animation mutated the scene while CircuitPython refreshed independently.
 MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT = False
 MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT = False
-# Two maximum-service board captures reused the changed-content scene across
-# the train handoff with >1.5 MiB free at train exit. Keep a measured reserve.
-MATRIX_RAIL_PREBUILD_EXPERIMENT = True
+# The retained hidden rail scene reduced transition build time but left roughly
+# 400 KB less free heap on the next departures pass, causing extra collections
+# while the calling-at text was moving. Build at handoff with GC already at the
+# boundary so the animation has more headroom.
+MATRIX_RAIL_PREBUILD_EXPERIMENT = False
 # The compact static-row bitmap is the accepted renderer for the measured
 # ten-service feed; set False in settings_local.py to restore legacy labels.
 MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT = True

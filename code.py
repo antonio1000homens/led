@@ -751,7 +751,6 @@ while True:
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     maintenance_resume = None
     maintenance_active = False
-    animation_capable_screen = False
     candidate, candidate_phase = rotation.current(ticks_ms())
     fetch_due = ticks_ms() >= next_fetch
     boundary = last_visible_screen != candidate.get("id")
@@ -801,7 +800,10 @@ while True:
                      "duration_seconds": 8}
         candidate_phase = 0
         maintenance_visible = True
-    slot_key = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
+    # A maintenance slot is an identity, not a new slot on every resumed loop.
+    # resume() adjusts started_at to preserve the fractional phase, so including
+    # it here caused a full gc.collect() and rail prebuild attempt every frame.
+    slot_key = (rotation.cycle_number, candidate.get("id"))
     if maintenance_visible and not steam_train_test and not flash.active(now):
         maintenance_active = True
         display.show(candidate, clock.text(now), clock_date=clock.date_text(now), phase=candidate_phase, now_epoch=clock.epoch(now))
@@ -826,23 +828,12 @@ while True:
                 except Exception:
                     print("Static content acknowledgement deferred")
                     break
-    # The browser simulator refreshes the renderer-neutral payload every
-    # 30 seconds. On the physical board, let a due refresh run only after the
-    # train/departures scene has been shown and its animation is stationary;
-    # never block a moving frame on the synchronous screen API request.
-    rail_refresh_visible = candidate.get("kind") in ("steam_train_intro", "rail_combined")
-    rail_refresh_ready = (
-        not rail_refresh_visible
-        or settings.DISPLAY_BACKEND != "matrix"
-        or (
-            last_visible_screen == candidate.get("id")
-            and not display.animation_active(candidate, candidate_phase)
-        )
-    )
+    # Screen API refreshes replace payload objects and can require a complete
+    # departures-scene rebuild. Keep synchronous fetches out of all live
+    # animations; the next static slot is soon enough to apply new data.
     should_fetch = (
         fetch_due
-        and (maintenance_visible or (rail_refresh_visible and rail_refresh_ready)
-             or (steam_train_test and not rotation.screens))
+        and (maintenance_visible or (steam_train_test and not rotation.screens))
         and not flash.active(now)
     )
     if MATRIX_TELEMETRY_ENABLED:
@@ -980,11 +971,6 @@ while True:
                     print("RAIL GC FETCH WINDOW RESTORE FAILED:", error)
         now = fetch_completed
         next_fetch = ticks_ms() + int(settings.POLL_SECONDS * 1000)
-        if (
-            animation_capable_screen
-            and hasattr(display, "note_fetch_on_animation_capable_screen")
-        ):
-            display.note_fetch_on_animation_capable_screen()
         if MATRIX_TELEMETRY_ENABLED:
             stage_durations["fetch"] = elapsed_seconds(stage_started)
 
@@ -1002,7 +988,7 @@ while True:
                     break
         if maintenance_resume is not None:
             rotation.resume(ticks_ms(), maintenance_resume[0], maintenance_resume[1])
-        last_maintenance_slot = (rotation.cycle_number, candidate.get("id"), rotation.started_at)
+        last_maintenance_slot = (rotation.cycle_number, candidate.get("id"))
 
     if (MATRIX_RAIL_PREBUILD_EXPERIMENT and maintenance_active
             and settings.DISPLAY_BACKEND == "matrix" and not flash.active(now)):
@@ -1010,7 +996,6 @@ while True:
         prebuild_key = (
             rotation.cycle_number,
             candidate.get("id"),
-            rotation.started_at,
             upcoming_rail.get("id") if upcoming_rail else None,
             id(upcoming_rail) if upcoming_rail else None,
         )
