@@ -754,6 +754,19 @@ while True:
             if gc is not None and hasattr(gc, "enable"):
                 gc.enable()
         christmas_gc_suspended = False
+    if (boundary and last_logged_screen_key is not None
+            and last_logged_screen_key[1] == "bin_collection"
+            and gc is not None and hasattr(gc, "collect")):
+        try:
+            _checkpoint_board_health("gc", candidate, now)
+            gc_started = ticks_ms()
+            heap_before_gc = _memory_free()
+            gc.collect()
+            print("BIN GC EXIT duration={:.3f}s heap_free_before={} heap_free_after={}".format(
+                elapsed_seconds(gc_started), heap_before_gc, _memory_free()
+            ))
+        except Exception as error:
+            print("BIN GC EXIT FAILED:", error)
     if (rotation.screens and not steam_train_test and not flash.active(now)
             and boundary and not paired_followup and (fetch_due or task_unready)
             and not rotation.is_maintenance_screen(candidate)):
@@ -1056,21 +1069,6 @@ while True:
                 except Exception as enable_error:
                     print("CHRISTMAS GC ENABLE RETRY FAILED:", enable_error)
         christmas_gc_suspended = True
-    if settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "weather_sun":
-        sun_gc_key = (screen.get("id"), rotation.cycle_number, rotation.started_at)
-        if (sun_gc_completed_key != sun_gc_key
-                and not display.animation_active(screen, phase)):
-            collect = getattr(gc, "collect", None) if gc is not None else None
-            if collect is not None:
-                heap_before_gc = _memory_free()
-                collect()
-                sun_gc_completed_key = sun_gc_key
-                if HEAP_DIAGNOSTICS_ENABLED:
-                    print("SUN GC END reason=animation_complete heap_free_before={} heap_free_after={}".format(
-                        heap_before_gc, _memory_free()
-                    ))
-    else:
-        sun_gc_completed_key = None
     rail_screen = (
         settings.DISPLAY_BACKEND == "matrix"
         and isinstance(screen, dict)
@@ -1266,6 +1264,21 @@ while True:
     show_duration = (
         elapsed_seconds(show_started) if MATRIX_TELEMETRY_ENABLED else 0.0
     )
+    if settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") == "weather_sun":
+        sun_gc_key = (screen.get("id"), rotation.cycle_number, rotation.started_at)
+        if (sun_gc_completed_key != sun_gc_key
+                and not display.animation_active(screen, phase)):
+            collect = getattr(gc, "collect", None) if gc is not None else None
+            if collect is not None:
+                heap_before_gc = _memory_free()
+                collect()
+                sun_gc_completed_key = sun_gc_key
+                if HEAP_DIAGNOSTICS_ENABLED:
+                    print("SUN GC END reason=animation_complete heap_free_before={} heap_free_after={}".format(
+                        heap_before_gc, _memory_free()
+                    ))
+    else:
+        sun_gc_completed_key = None
     if instrument_render:
         memory_after = _memory_free()
         root_after = _matrix_root_token()
