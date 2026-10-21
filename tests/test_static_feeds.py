@@ -55,7 +55,8 @@ class StaticFeedTests(unittest.TestCase):
         publisher = self.publisher(joke_provider=provider)
         for size in (2,4,5):
             payload = publisher.run()
-            self.assertEqual(len(payload["screens"][0]["items"]), size)
+            self.assertEqual(len(payload["screens"][0]["items"]), min(size, 3))
+            self.assertEqual(len(self.store.state["feeds"]["dad_joke"]["items"]), size)
             self.now += timedelta(seconds=61)
         original = copy.deepcopy(self.store.state["feeds"]["dad_joke"]["items"])
         version = content_version("dad_joke", {"data":original[1]})

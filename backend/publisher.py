@@ -35,6 +35,7 @@ from departure_filter import filter_train_services
 
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
+MAX_STATIC_SCREEN_CHOICES = 3
 DEFAULT_WEATHER_LATITUDE = 51.4039
 DEFAULT_WEATHER_LONGITUDE = -0.256
 STEAM_TRAIN_DISPLAY_WIDTH = 256
@@ -804,7 +805,7 @@ class Publisher:
             if feed_id in ("dad_joke", "random_fact", "insult_of_hour"):
                 cached = feeds.get(feed_id) or {}
                 screen["items"] = []
-                for data in cached.get("items") or [cached.get("data") or {}]:
+                for data in (cached.get("items") or [cached.get("data") or {}])[:MAX_STATIC_SCREEN_CHOICES]:
                     if feed_id == "insult_of_hour" and not data.get("insult"):
                         # Fallback text is not provider content and must not be
                         # acknowledged as consumed or assigned a content version.
