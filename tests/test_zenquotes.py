@@ -75,12 +75,15 @@ class ZenQuotesTests(unittest.TestCase):
         payload = b'[{"q":"Don\\u2019t panic","a":"An Author","h":"<script>alert(1)</script>"},' \
                   b'{"q":"Don\\u2019t panic","a":"An Author"},' \
                   b'{"q":"Second text","a":"Someone Else"},' \
+                  b'{"q":"Third text","a":"Third Author"},' \
+                  b'{"q":"Fourth text","a":"Fourth Author"},' \
                   b'{"q":"","a":"Nobody"},{"q":"Hello","a":""}]'
         with patch("zenquotes.urlopen", return_value=BytesIO(payload)) as opener:
             result = ZenQuotesProvider().fetch()
         self.assertEqual(result, [
             {"quote": "Don't panic", "author": "An Author"},
             {"quote": "Second text", "author": "Someone Else"},
+            {"quote": "Third text", "author": "Third Author"},
         ])
         self.assertEqual(opener.call_args.kwargs["timeout"], 5)
         request = opener.call_args.args[0]
@@ -124,7 +127,7 @@ class ZenQuotesTests(unittest.TestCase):
         self.assertEqual(screen["duration_seconds"], 30)
         self.assertEqual(screen["source_url"], "https://zenquotes.io/")
         self.assertEqual(screen["display_group"], "static_feeds")
-        self.assertEqual(len(screen["items"]), 50)
+        self.assertEqual(len(screen["items"]), 3)
         self.assertEqual(provider.calls, 1)
         rotation = ScreenRotation(rng=random.Random(16))
         rotation.update([screen], 0)
@@ -133,7 +136,7 @@ class ZenQuotesTests(unittest.TestCase):
             selected, _ = rotation.current(step * 30)
             choices.append(selected["content_version"])
             if step:
-                self.assertNotIn(choices[-1], choices[max(0, step-5):step])
+                self.assertNotEqual(choices[-1], choices[-2])
         self.assertEqual(provider.calls, 1)
         self.now += timedelta(seconds=7199)
         publisher.run()

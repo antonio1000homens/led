@@ -28,7 +28,7 @@ from weather import OpenMeteoProvider
 from dad_jokes import DadJokeProvider
 from random_facts import RandomFactProvider
 from insults import InsultProvider
-from zenquotes import ZenQuotesProvider
+from zenquotes import MAX_QUOTE_CHOICES, ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
@@ -702,7 +702,9 @@ class Publisher:
         if quote_cfg["enabled"]:
             cached_quotes = feeds.get("quotes") or {}
             quote_data = cached_quotes.get("data") or {}
-            quote_pool = quote_data.get("quotes") or []
+            # Bound the published screen even when S3 still has an older,
+            # larger cached pool from before the provider limit changed.
+            quote_pool = (quote_data.get("quotes") or [])[:MAX_QUOTE_CHOICES]
             if quote_pool:
                 screens.append({
                     "id": "quotes", "kind": "quotes", "title": "QUOTES",
