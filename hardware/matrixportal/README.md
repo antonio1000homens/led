@@ -157,6 +157,27 @@ drive on the computer. Then run:
 python3 scripts/upload-firmware-wifi.py --host http://matrixportal-s3.local
 ```
 
+For a long-running serial capture, use `--follow-serial`. It reconnects after
+board resets and writes timestamped output to a rotating log. On
+`windsor-app1`, the board is reachable as `http://led.internal.alf1000.uk`:
+
+```sh
+set -o pipefail
+set -a
+. ~/.config/bws/env
+set +a
+bws secret get 46d4f1fe-be23-4d57-9c5b-b4e700c2acd3 --output json \
+  | jq -er '.value' \
+  | python3 scripts/upload-firmware-wifi.py \
+      --host http://led.internal.alf1000.uk \
+      --follow-serial \
+      --password-stdin \
+      --serial-log ~/.local/state/led-board/serial.log
+```
+
+Run that command inside tmux to keep it alive after disconnecting SSH. The
+password is piped directly from Bitwarden and is not written to the log.
+
 The helper stages the same application payload as the USB installer, uploads
 `code.py` last, and verifies every file by SHA-256 readback. It never modifies
 `settings.toml`, `settings_local.py`, or `lib/`.

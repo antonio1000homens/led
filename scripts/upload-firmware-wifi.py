@@ -7,6 +7,9 @@ import argparse
 import base64
 import getpass
 import hashlib
+import logging
+from logging.handlers import RotatingFileHandler
+import os
 from pathlib import Path
 import secrets
 import socket
@@ -116,11 +119,12 @@ class WebWorkflowSerial:
         messages = []
         while time.monotonic() < end:
             try:
-                self.buffer.extend(self.socket.recv(4096))
+                chunk = self.socket.recv(4096)
             except socket.timeout:
                 continue
-            except OSError:
-                break
+            if not chunk:
+                raise ConnectionError("serial WebSocket closed")
+            self.buffer.extend(chunk)
             while len(self.buffer) >= 2:
                 first, second = self.buffer[0], self.buffer[1]
                 size = second & 0x7F
@@ -152,11 +156,51 @@ class WebWorkflowSerial:
                 if opcode == 1:
                     messages.append(payload.decode("utf-8", "replace"))
                 elif opcode == 8:
-                    return messages
+                    raise ConnectionError("serial WebSocket closed")
         return messages
 
     def close(self) -> None:
         self.socket.close()
+
+
+def follow_serial(host: str, password: str, log_path: Path) -> int:
+    """Continuously capture serial output, reconnecting after board resets."""
+    os.umask(0o077)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    logger = logging.getLogger("matrixportal_serial")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    handler = RotatingFileHandler(log_path, maxBytes=10_000_000, backupCount=5, encoding="utf-8")
+    formatter = logging.Formatter("%(asctime)sZ %(message)s", datefmt="%Y-%m-%dT%H:%M:%S")
+    formatter.converter = time.gmtime
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    log_path.chmod(0o600)
+
+    try:
+        while True:
+            serial = None
+            try:
+                serial = WebWorkflowSerial(host, password)
+                print(f"Serial connected; writing capture to {log_path}", flush=True)
+                logger.info("--- serial connected to %s ---", host)
+                while True:
+                    for message in serial.read_text(1.0):
+                        for line in message.replace("\r\n", "\n").replace("\r", "\n").splitlines():
+                            logger.info("%s", line)
+            except KeyboardInterrupt:
+                print("Serial capture stopped.", flush=True)
+                return 0
+            except (OSError, RuntimeError, ValueError) as exc:
+                logger.warning("--- serial disconnected; reconnecting (%s) ---", type(exc).__name__)
+                print(f"Serial unavailable ({type(exc).__name__}); retrying in 5 seconds.", flush=True)
+                time.sleep(5)
+            finally:
+                if serial is not None:
+                    serial.close()
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
 
 
 def stage_application(stage: Path) -> None:
@@ -266,10 +310,35 @@ def main(argv: list[str] | None = None) -> int:
         metavar="SECONDS",
         help="capture live serial output without sending input",
     )
+    parser.add_argument(
+        "--follow-serial",
+        action="store_true",
+        help="capture serial output continuously and reconnect after board resets",
+    )
+    parser.add_argument(
+        "--serial-log",
+        type=Path,
+        default=Path.home() / "logs" / "matrixportal-serial.log",
+        help="rotating log path for --follow-serial",
+    )
+    parser.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="read the Web Workflow password from stdin without echoing or storing it",
+    )
     args = parser.parse_args(argv)
     host = args.host if "://" in args.host else "http://" + args.host
-    password = getpass.getpass("CircuitPython Web Workflow password: ")
+    if args.password_stdin:
+        if not args.follow_serial:
+            parser.error("--password-stdin requires --follow-serial")
+        password = sys.stdin.readline().rstrip("\r\n")
+        if not password:
+            parser.error("no Web Workflow password received on stdin")
+    else:
+        password = getpass.getpass("CircuitPython Web Workflow password: ")
     try:
+        if args.follow_serial:
+            return follow_serial(host, password, args.serial_log)
         client = WebWorkflowClient(host, password)
         if args.capture_serial is not None:
             if args.capture_serial < 1 or args.capture_serial > 300:
