@@ -884,6 +884,9 @@ while True:
         if rotation.screens and not flash.active(fetch_started):
             fetch_resume = rotation.freeze(ticks_ms())
         try:
+            if gc is not None:
+                gc.collect()
+                print("FETCH GC free={}".format(_memory_free()))
             if board_health is not None:
                 board_health.begin_fetch(time.monotonic())
             _checkpoint_board_health("fetch", candidate, now)
