@@ -616,28 +616,35 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
             self.assertIn(display._rail_clock_group, display._rail_group)
             self.assertIn(display._rail_weather_group, display._rail_group)
 
-    def test_departures_phase_switch_reuses_prebuilt_layouts(self):
+    def test_departures_phase_switch_reuses_shared_layout(self):
         with patch.dict(sys.modules, fake_modules()):
             display = led_display.MatrixDisplay()
             screen = departures_screen()
             screen["summary_seconds"] = 8
 
             display.show(screen, clock_time="19:40", phase=0)
-            summary_group = display._rail_group
-            summary_labels = display._rail_calling_labels
+            shared_group = display._rail_group
+            calling_labels = display._rail_calling_labels
+            self.assertEqual(display._rail_phase, "summary")
+            self.assertEqual(display._rail_calling_group.y, -led_display.DISPLAY_WIDTH)
 
             display.show(screen, clock_time="19:40", phase=8)
-            calling_group = display._rail_group
-            calling_labels = display._rail_calling_labels
-            self.assertIsNot(summary_group, calling_group)
+            self.assertIs(display._rail_group, shared_group)
+            self.assertIs(display._rail_calling_labels, calling_labels)
+            self.assertEqual(display._rail_phase, "calling")
+            self.assertEqual(display._rail_calling_group.y, 0)
             self.assertTrue(calling_labels)
 
             display.show(screen, clock_time="19:40", phase=20)
-            self.assertIs(display._rail_group, summary_group)
-            self.assertIs(display._rail_calling_labels, summary_labels)
-            display.show(screen, clock_time="19:40", phase=28)
-            self.assertIs(display._rail_group, calling_group)
+            self.assertIs(display._rail_group, shared_group)
             self.assertIs(display._rail_calling_labels, calling_labels)
+            self.assertEqual(display._rail_phase, "summary")
+            self.assertEqual(display._rail_calling_group.y, -led_display.DISPLAY_WIDTH)
+            display.show(screen, clock_time="19:40", phase=28)
+            self.assertIs(display._rail_group, shared_group)
+            self.assertIs(display._rail_calling_labels, calling_labels)
+            self.assertEqual(display._rail_phase, "calling")
+            self.assertEqual(display._rail_calling_group.y, 0)
 
     def test_calling_layout_has_one_marquee_between_trains_one_and_two(self):
         with patch.dict(sys.modules, fake_modules()):
@@ -677,24 +684,21 @@ class MatrixTodoistPerformanceTests(unittest.TestCase):
                 with self.subTest(phase=phase):
                     display.show(screen, clock_time="19:40", phase=phase)
                     root = display._rail_group
-                    mask = next(child for child in root
-                                if isinstance(child, FakeTileGrid)
-                                and child.bitmap.width == led_display.DISPLAY_WIDTH
-                                and child.bitmap.height > 8)
-                    mask_index = next(i for i, child in enumerate(root) if child is mask)
+                    # The scrolling rows and moving viewport mask are nested
+                    # groups in the shared scene, beneath fixed overlay rows.
+                    scroll_group, mask_group = root[0], root[1]
+                    mask = mask_group[0]
+                    self.assertIsInstance(mask, FakeTileGrid)
                     self.assertEqual(mask.y, 0)
-                    # The first lower row's seven-pixel glyph spans y=17..23.
-                    self.assertEqual(mask.y + mask.bitmap.height, 17)
+                    self.assertEqual(mask.bitmap.height, led_display.RAIL_ROW_Y[2] - 3)
                     for row in display._rail_departure_rows:
-                        self.assertLess(next(i for i, child in enumerate(root)
-                                             if child is row), mask_index)
-                    fixed = root[mask_index + 1]
+                        self.assertIn(row, scroll_group)
+                    fixed = root[2]
                     self.assertIn("1st", [child.text for child in fixed
                                           if isinstance(child, FakeLabel)])
                     calling_prefix = display._rail_calling_labels[0]["prefix"]
-                    self.assertTrue(any(isinstance(child, FakeGroup)
-                                        and any(item is calling_prefix for item in child)
-                                        for child in fixed))
+                    calling_group = root[4]
+                    self.assertTrue(any(item is calling_prefix for item in calling_group))
 
     def test_departure_scroll_updates_only_active_rows_without_changing_layout(self):
         with patch.dict(sys.modules, fake_modules()), patch.object(

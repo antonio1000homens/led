@@ -64,7 +64,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("screen.kind === 'bin_collection'", simulator)
         self.assertIn("screen.collection_date", simulator)
         self.assertIn("drawLedText(dueLabel, dueX, 14 * FONT_PIXEL_SCALE);", simulator)
-        self.assertIn("drawBinIcon(binX + index * 11 * FONT_PIXEL_SCALE, 10 * FONT_PIXEL_SCALE", simulator)
+        self.assertIn("drawBinLorry(x);", simulator)
         self.assertIn("for (const center of [12, 40])", simulator)
         self.assertIn("if (screen.stale || forceStale)", simulator)
         self.assertIn("Preview recycling screen", simulator)
