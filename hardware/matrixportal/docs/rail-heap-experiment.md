@@ -238,11 +238,10 @@ still showed many frame gaps above 200 ms.
 
 The planned rail collection window now requires the calling marquee to be in
 its end pause and the lower departure rows to be outside their slide/reset
-movement. The clock/weather header currently switches while stationary. An
-emergency low-heap collection remains available and its log marks
-`heap_pressure_during_motion` when the planned safe window is unavailable.
-Do not enable this experiment as the production default until repeated
-physical runs show useful reclaimed memory without visible pauses or resets.
+movement. The clock/weather header currently switches while stationary. Normal
+heap-pressure collections wait for this safe window; a collection during
+motion is reserved for critical pressure below 192 KiB and is logged as
+`critical_heap_during_motion`.
 
 ## Decision and remaining evidence
 

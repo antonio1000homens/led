@@ -510,7 +510,9 @@ class DisplayLayoutTests(unittest.TestCase):
                             {"id": "paper", "label": "Paper"}],
             "slide_speed": 20,
         }, 4, clock_date="2026-10-07")
-        self.assertIn(("Mixed recycling / Paper", 88, 14, (255, 255, 255)), display.drawn)
+        # The combined collection label shares this row with the due date,
+        # so it is clipped to the space available beside the parked lorry.
+        self.assertIn(("Mixed recycling / P", 88, 14, (255, 255, 255)), display.drawn)
 
     def test_bin_collection_long_label_stops_beside_parked_lorry(self):
         display = CapturingFixture()

@@ -3524,7 +3524,28 @@ class MatrixDisplay:
         changed = False
         if days != self._christmas_days:
             text = "{} DAYS".format("--" if days is None else days)
-            self._christmas_countdown.text = text
+            try:
+                self._christmas_countdown.text = text
+            except AttributeError:
+                # The physical renderer's scaled label is a TileGrid bitmap,
+                # not a text Label. Replace that layer when the daily count
+                # changes; assigning .text stops the main loop on CircuitPython.
+                group = self._christmas_group
+                old_countdown = self._christmas_countdown
+                countdown_index = None
+                for index in range(len(group)):
+                    if group[index] is old_countdown:
+                        countdown_index = index
+                        break
+                if countdown_index is None:
+                    raise RuntimeError("Christmas countdown layer is missing")
+                countdown = self._scaled_label(
+                    group, text, 0xFFFFFF, 103, 2, scale=2,
+                )
+                group.remove(countdown)
+                group.remove(old_countdown)
+                group.insert(countdown_index, countdown)
+                self._christmas_countdown = countdown
             self._christmas_days = days
             changed = True
         visible = True

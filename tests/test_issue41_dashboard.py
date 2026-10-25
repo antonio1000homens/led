@@ -82,7 +82,7 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*164')
         self.assertIn('platform_x = RAIL_PLATFORM_X', self.display_source)
         self.assertRegex(self.simulator_source, r'const RAIL_PLATFORM_X\s*=\s*656;')
-        self.assertIn('let platformX = RAIL_PLATFORM_X;', self.simulator_source)
+        self.assertIn('const platformX = RAIL_PLATFORM_X;', self.simulator_source)
 
 
 if __name__ == "__main__":
