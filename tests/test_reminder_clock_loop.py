@@ -26,8 +26,16 @@ class ReminderClockLoopTests(unittest.TestCase):
             "ticks_ms": lambda: round(self.now * 1000),
             "clock": SimpleNamespace(epoch=lambda now: self.due - 1 + now),
             "flash": self.flash, "flash_resume": None, "last_render_key": "old",
-            "rotation": SimpleNamespace(pause=self.pause, freeze=self.pause),
-            "mqtt": SimpleNamespace(poll=self.polls.append), "buttons": None,
+            "rotation": SimpleNamespace(
+                pause=self.pause, freeze=self.pause, screens=[{"kind": "quotes"}],
+                current=lambda now: ({"kind": "quotes"}, 0),
+                is_maintenance_screen=lambda screen: True,
+            ),
+            "display": SimpleNamespace(animation_active=lambda screen, phase: False),
+            "mqtt": SimpleNamespace(
+                poll=lambda now, allow_connect=False: self.polls.append((now, allow_connect))
+            ),
+            "buttons": None,
             "mqtt_screens": SimpleNamespace(expire=lambda epoch: []),
             "mqtt_screens_changed": False,
             "_BUTTON_POLL_SECONDS": 0.05, "_MQTT_SLEEP_POLL_SECONDS": 0.25,
@@ -35,7 +43,7 @@ class ReminderClockLoopTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         tree = ast.parse((root / "code.py").read_text())
         names = {"_sleep_interruptible", "_reminder_epoch", "_flash_started",
-                 "_service_reminder_clock"}
+                 "_service_reminder_clock", "_mqtt_connection_allowed"}
         functions = ast.Module(body=[node for node in tree.body
                                     if isinstance(node, ast.FunctionDef)
                                     and node.name in names], type_ignores=[])
