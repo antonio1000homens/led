@@ -98,6 +98,12 @@ class RecyclingPolicyTests(unittest.TestCase):
         self.assertEqual(recycling_policy({"mqtt": {"recycling": "invalid"}, "recycling": legacy}), legacy)
         self.assertIsNone(recycling_policy({"mqtt": "invalid"}))
 
+    def test_firmware_fetch_uses_the_module_level_policy_reader(self):
+        source = (Path(__file__).resolve().parents[1] / "code.py").read_text()
+        self.assertIn("from mqtt_screens import MqttScreenState, recycling_policy", source)
+        self.assertIn("mqtt_screens.configure_recycling(recycling_policy(payload))", source)
+        self.assertNotIn("mqtt_screens.recycling_policy", source)
+
     def test_midnight_and_zero_day_window_and_clock_not_synchronized(self):
         self.mqtt.configure_recycling({"schedule_windows": []})
         self.assertEqual(len(self.mqtt.effective_screens(self.epoch, "2026-10-12")), 1)

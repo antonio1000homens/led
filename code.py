@@ -53,7 +53,8 @@ from wifi_isolation_window import WifiIsolationWindow
 from screen_client import ClockState, ScreenClient, ScreenRotation
 from christmas_tracker import with_christmas_tracker
 from cron_schedule import cron_matches_local
-from mqtt_screens import MqttScreenState
+from mqtt_screens import MqttScreenState, recycling_policy
+from football_screens import FootballScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
@@ -209,7 +210,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.effective_screens(epoch_now, clock.date_text(now)), ticks_ms())
+            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
             return
         if service_mqtt and _service_reminder_clock(now):
@@ -278,7 +279,20 @@ def _checkpoint_board_health(stage, screen, now):
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
 )
+football_screens = FootballScreenState(
+    getattr(settings, "MQTT_FOOTBALL_TOPIC", "led/football/+"),
+    enabled=getattr(settings, "MQTT_FOOTBALL_ENABLED", True),
+)
 last_recycling_date = None
+
+
+def _effective_mqtt_screens(epoch_now):
+    football = football_screens.screens(epoch_now)
+    if epoch_now is None:
+        return football
+    return mqtt_screens.effective_screens(
+        epoch_now, clock.date_text(time.monotonic())
+    ) + football
 
 
 def _reminder_epoch(now):
@@ -325,12 +339,23 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             if flash.accept(payload, now, epoch_now=epoch_now):
                 _flash_started(now)
             return
+        football_prefix = football_screens.prefix
+        if topic.startswith(football_prefix):
+            if football_screens.accept(topic, payload):
+                epoch_now = _reminder_epoch(now)
+                rotation.update_sources(
+                    rotation.http_screens,
+                    _effective_mqtt_screens(epoch_now),
+                    ticks_ms(),
+                )
+                mqtt_screens_changed = True
+            return
         epoch_now = _reminder_epoch(now)
         if epoch_now is None:
             print("MQTT screen ignored: clock not synchronized")
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.effective_screens(epoch_now, clock.date_text(now)), ticks_ms())
+            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
 
     mqtt = FlashMqttClient(
@@ -457,6 +482,8 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_bus_intro(screen):
         return phase
+    if _smooth_football_intro(screen):
+        return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
     if _smooth_queue(screen):
@@ -515,6 +542,13 @@ def _smooth_bus_intro(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "bus_intro"
+    )
+
+
+def _smooth_football_intro(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "football_intro"
     )
 
 
@@ -928,7 +962,8 @@ while True:
                 for intro in screens:
                     if (not isinstance(intro, dict)
                             or intro.get("kind") not in (
-                                "steam_train_intro", "bus_intro", "christmas_tracker_intro", "christmas_tracker"
+                                "steam_train_intro", "bus_intro", "football_intro",
+                                "christmas_tracker_intro", "christmas_tracker"
                             )):
                         continue
                     try:
@@ -950,12 +985,12 @@ while True:
                         print("Intro scene preparation deferred:", error)
             rotation.set_schedule_time(clock.date_text(fetch_completed), clock.text(fetch_completed))
             rotation.set_schedule_epoch(clock.epoch(fetch_completed))
-            mqtt_screens.configure_recycling(mqtt_screens.recycling_policy(payload))
+            mqtt_screens.configure_recycling(recycling_policy(payload))
             epoch_now = _reminder_epoch(fetch_completed)
             last_recycling_date = clock.date_text(fetch_completed)
             rotation.update_sources(
                 screens,
-                mqtt_screens.effective_screens(epoch_now, last_recycling_date)
+                _effective_mqtt_screens(epoch_now)
                 if epoch_now is not None else [],
                 ticks_ms(),
             )
@@ -1051,10 +1086,11 @@ while True:
     epoch_now = _reminder_epoch(now)
     recycling_date = clock.date_text(now)
     expired_mqtt = mqtt_screens.expire(epoch_now) if epoch_now is not None else []
-    if epoch_now is not None and (expired_mqtt or recycling_date != last_recycling_date):
+    football_stale_changed = football_screens.staleness_changed(epoch_now)
+    if epoch_now is not None and (expired_mqtt or football_stale_changed or recycling_date != last_recycling_date):
         rotation.update_sources(
             rotation.http_screens,
-            mqtt_screens.effective_screens(epoch_now, recycling_date),
+            _effective_mqtt_screens(epoch_now),
             ticks_ms(),
         )
         mqtt_screens_changed = True
@@ -1378,6 +1414,7 @@ while True:
         or _smooth_queue(screen)
         or _smooth_steam_train(screen)
         or _smooth_bus_intro(screen)
+        or _smooth_football_intro(screen)
         or _smooth_sun_weather(screen)
         or _smooth_today(screen)
         or _smooth_bin_collection(screen)

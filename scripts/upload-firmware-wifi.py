@@ -226,6 +226,51 @@ def upload(stage: Path, client: WebWorkflowClient) -> list[str]:
     return uploaded
 
 
+def pause_application(host: str, password: str, timeout: float = 8.0) -> None:
+    """Interrupt code.py and confirm the REPL, reconnecting if Ctrl-C drops serial."""
+    serial = WebWorkflowSerial(host, password)
+    try:
+        serial.send_text(b"\x03")
+        try:
+            messages = serial.read_text(min(1.0, timeout))
+        except ConnectionError:
+            messages = []
+    finally:
+        serial.close()
+    if any(">>>" in message for message in messages):
+        print("Board application paused at the CircuitPython REPL.")
+        return
+    deadline = time.monotonic() + max(0.0, timeout - 1.0)
+    while time.monotonic() < deadline:
+        serial = None
+        try:
+            serial = WebWorkflowSerial(host, password)
+            remaining = max(0.1, deadline - time.monotonic())
+            messages = serial.read_text(min(1.0, remaining))
+            if any(">>>" in message for message in messages):
+                print("Board application paused at the CircuitPython REPL.")
+                return
+        except (ConnectionError, OSError, RuntimeError, ValueError):
+            pass
+        finally:
+            if serial is not None:
+                serial.close()
+        time.sleep(0.2)
+    raise RuntimeError("Board did not reach the CircuitPython REPL prompt")
+
+
+def resume_application(host: str, password: str, capture_seconds: float = 5.0) -> None:
+    """Resume/reload code.py and show the first serial output for verification."""
+    serial = WebWorkflowSerial(host, password)
+    try:
+        serial.send_text(b"\x04")
+        print("Reload requested; capturing startup serial output.")
+        for message in serial.read_text(capture_seconds):
+            print(message, end="" if message.endswith("\n") else "\n")
+    finally:
+        serial.close()
+
+
 def remove_temporary_boot_py(client: WebWorkflowClient) -> None:
     """Remove the temporary boot.py used to disable USB MSC during upload."""
     try:
@@ -299,6 +344,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Remove and verify the temporary boot.py used to disable USB mass storage",
     )
     parser.add_argument(
+        "--pause-before-upload",
+        action="store_true",
+        help="send Ctrl-C and verify the REPL prompt before uploading files",
+    )
+    parser.add_argument(
+        "--resume-after-upload",
+        action="store_true",
+        help="send Ctrl-D after a successful upload and capture startup output",
+    )
+    parser.add_argument(
         "--reload-and-capture-serial",
         type=int,
         metavar="SECONDS",
@@ -327,6 +382,13 @@ def main(argv: list[str] | None = None) -> int:
         help="read the Web Workflow password from stdin without echoing or storing it",
     )
     args = parser.parse_args(argv)
+    if args.resume_after_upload and not args.pause_before_upload:
+        parser.error("--resume-after-upload requires --pause-before-upload")
+    if (args.pause_before_upload or args.resume_after_upload) and (
+        args.follow_serial or args.capture_serial is not None
+        or args.reload_and_capture_serial is not None or args.remove_temporary_boot_py
+    ):
+        parser.error("pause/resume options can only be used for a firmware upload")
     host = args.host if "://" in args.host else "http://" + args.host
     if args.password_stdin:
         if not args.follow_serial:
@@ -370,7 +432,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if not args.skip_stage:
             stage_application(args.stage_dir)
+        if args.pause_before_upload:
+            pause_application(host, password)
         names = upload(args.stage_dir, client)
+        if args.resume_after_upload:
+            resume_application(host, password)
     except (HTTPError, URLError, OSError, RuntimeError, ValueError, subprocess.CalledProcessError, KeyboardInterrupt) as exc:
         if isinstance(exc, HTTPError):
             exc.close()
@@ -379,7 +445,8 @@ def main(argv: list[str] | None = None) -> int:
         print(recovery, file=sys.stderr)
         return 1
     print(f"Uploaded and verified {len(names)} application files to {host}")
-    print("Press Ctrl-D in the Web Workflow serial console to return to standard mode.")
+    if not args.resume_after_upload:
+        print("Press Ctrl-D in the Web Workflow serial console to return to standard mode.")
     return 0
 
 

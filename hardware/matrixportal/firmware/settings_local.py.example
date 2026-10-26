@@ -18,4 +18,6 @@ WIFI_STARTUP_DELAY_SECONDS = 10
 WIFI_TX_POWER_DBM = 8
 # MQTT screen topic is board-local and may be overridden per installation.
 MQTT_SCREENS_TOPIC = "led/screens/+"
+MQTT_FOOTBALL_TOPIC = "led/football/+"
+MQTT_FOOTBALL_ENABLED = True
 MQTT_BOARD_STATUS_TOPIC = "led/board/screen"
