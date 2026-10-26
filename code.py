@@ -840,17 +840,6 @@ while True:
             if gc is not None and hasattr(gc, "collect"):
                 _checkpoint_board_health("gc", candidate, now)
                 gc.collect()
-        if client is not None and fetch_due:
-            # Acknowledge completed items only; retries stay in static windows.
-            for key, url in list(rotation.pending_refresh.items()):
-                if not url:
-                    continue
-                try:
-                    client.acknowledge(url)
-                    del rotation.pending_refresh[key]
-                except Exception:
-                    print("Static content acknowledgement deferred")
-                    break
     # Screen API refreshes replace payload objects and can require a complete
     # departures-scene rebuild. Keep synchronous fetches out of all live
     # animations; the next static slot is soon enough to apply new data.
@@ -961,7 +950,7 @@ while True:
                         print("Intro scene preparation deferred:", error)
             rotation.set_schedule_time(clock.date_text(fetch_completed), clock.text(fetch_completed))
             rotation.set_schedule_epoch(clock.epoch(fetch_completed))
-            mqtt_screens.configure_recycling(payload.get("recycling"))
+            mqtt_screens.configure_recycling(mqtt_screens.recycling_policy(payload))
             epoch_now = _reminder_epoch(fetch_completed)
             last_recycling_date = clock.date_text(fetch_completed)
             rotation.update_sources(

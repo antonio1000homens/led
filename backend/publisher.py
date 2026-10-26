@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import gc
-import hashlib
 from datetime import datetime, timezone
 import json
 import os
@@ -43,19 +42,6 @@ STEAM_TRAIN_EDGE_HOLD_SECONDS = 1.0
 BUS_INTRO_DISPLAY_WIDTH = 256
 BUS_INTRO_EDGE_HOLD_SECONDS = 0.25
 BUS_INTRO_WORDS = DEFAULT_BUS_INTRO_WORDS
-
-
-def content_version(feed_id, cached):
-    data = (cached or {}).get("data") or {}
-    if feed_id == "quotes":
-        quote, author = data.get("quote"), data.get("author")
-        if not quote or not author:
-            return None
-        return hashlib.sha256((quote + "\n" + author).encode()).hexdigest()
-    text = data.get("joke") if feed_id == "dad_joke" else data.get("fact") if feed_id == "random_fact" else data.get("insult")
-    if not text:
-        return None
-    return hashlib.sha256((str(data.get("fetched_at")) + ":" + text).encode()).hexdigest()
 
 
 def _iso(value):
@@ -233,34 +219,6 @@ class S3StateStore:
             ContentType="application/json", CacheControl="no-store, max-age=0", ServerSideEncryption="AES256",
         )
 
-    def displayed(self, feed_id, version):
-        if not version:
-            return False
-        # The capability permits a fixed-size marker, not trusted JSON input.
-        # Check existence only: malformed marker bytes must not stop publishing.
-        try:
-            self.client.head_object(Bucket=self.bucket,
-                                    Key="state/displayed/{}/{}.json".format(feed_id, version))
-        except Exception as error:
-            meta = getattr(error, "response", {}) or {}
-            if str((meta.get("Error") or {}).get("Code") or "") in ("NoSuchKey", "404", "NotFound"):
-                return False
-            raise
-        return True
-
-    def acknowledgement(self, feed_id, version):
-        # Write-only capability for this exact content version. No board/admin
-        # credential or cache mutation permission is exposed. Sign the fixed
-        # body length too, so this cannot be used for arbitrary uploads.
-        return self.client.generate_presigned_url(
-            "put_object",
-            Params={"Bucket": self.bucket,
-                    "Key": "state/displayed/{}/{}.json".format(feed_id, version),
-                    "ContentLength": 2, "ContentType": "application/json"},
-            ExpiresIn=3600,
-        )
-
-
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
@@ -333,12 +291,13 @@ class Publisher:
         items = list(previous.get("items") or [])
         if not items and previous.get("data"):
             items = [copy.deepcopy(previous["data"])]
-        consumed = [item for item in items if hasattr(self.store, "displayed")
-                    and self.store.displayed(feed_id, content_version(feed_id, {"data": item}))]
+        if len(items) > 5:
+            items = items[-5:]
+            previous["items"] = items
         due = self._due(previous, ttl, now)
-        if not (due or consumed or len(items) < 5) or not self._due(previous, 60, now):
+        if not (due or len(items) < 5) or not self._due(previous, 60, now):
             return previous
-        count = min(2, max(5 - len(items), len(consumed), 1 if due else 0))
+        count = min(2, max(5 - len(items), 1 if due else 0))
         working = previous
         added = []
         for _ in range(count):
@@ -352,9 +311,6 @@ class Publisher:
             working = refreshed
             added.append(copy.deepcopy(working["data"]))
         if added:
-            # Remove consumed items first, only when replacement is available.
-            for item in consumed[:len(added)]:
-                items.remove(item)
             items = (items + added)[-5:]
         working["items"] = items
         return working
@@ -713,8 +669,7 @@ class Publisher:
                     "duration_seconds": quote_cfg["screen_duration_seconds"],
                     "stale": bool(cached_quotes.get("stale")),
                     "quote": quote_pool[0]["quote"], "author": quote_pool[0]["author"],
-                    "items": [dict(item, content_version=content_version("quotes", {"data": item}))
-                              for item in quote_pool],
+                    "items": [dict(item) for item in quote_pool],
                 })
         insult_cfg = config_feeds["insult_of_hour"]
         if insult_cfg["enabled"]:
@@ -807,14 +762,8 @@ class Publisher:
                 screen["items"] = []
                 for data in (cached.get("items") or [cached.get("data") or {}])[:MAX_STATIC_SCREEN_CHOICES]:
                     if feed_id == "insult_of_hour" and not data.get("insult"):
-                        # Fallback text is not provider content and must not be
-                        # acknowledged as consumed or assigned a content version.
                         continue
                     item = {key: value for key, value in data.items() if key != "history"}
-                    version = content_version(feed_id, {"data": data})
-                    item["content_version"] = version
-                    if hasattr(self.store, "acknowledgement"):
-                        item["refresh_ack_url"] = self.store.acknowledgement(feed_id, version)
                     screen["items"].append(item)
         bus_config = config_feeds["sl7_bus"]
         if bus_config["enabled"] and (bus_config.get("heathrow_enabled") or bus_config.get("new_malden_enabled")):
@@ -860,9 +809,9 @@ class Publisher:
             "config_version": runtime["config_version"],
             "display": copy.deepcopy(runtime["display"]),
             "flash": copy.deepcopy(config_feeds["flash"]),
-            # Board-local presentation/visibility policy for HA MQTT collection screens.
+            # Board-local policy for MQTT-delivered screens.
             # No broker credentials, MQTT status or private collection dates are exposed.
-            "recycling": copy.deepcopy(config_feeds["recycling"]),
+            "mqtt": {"recycling": copy.deepcopy(config_feeds["recycling"])},
             "christmas": copy.deepcopy(config_feeds["christmas"]),
             "screens": screens,
         }

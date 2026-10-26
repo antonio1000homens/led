@@ -3,6 +3,17 @@
 import json
 
 
+def recycling_policy(payload):
+    """Read namespaced MQTT policy, accepting the previous payload shape."""
+    if not isinstance(payload, dict):
+        return None
+    mqtt = payload.get("mqtt")
+    if isinstance(mqtt, dict) and isinstance(mqtt.get("recycling"), dict):
+        return mqtt["recycling"]
+    legacy = payload.get("recycling")
+    return legacy if isinstance(legacy, dict) else None
+
+
 
 def _leap(year):
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
