@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from config_api import _status_payload
-from mqtt_screens import MqttScreenState
+from mqtt_screens import MqttScreenState, recycling_policy
 from runtime_config import (
     RuntimeConfigValidationError, default_runtime_config, schema_metadata,
     validate_feed_patch, validate_runtime_config,
@@ -89,6 +89,14 @@ class RecyclingPolicyTests(unittest.TestCase):
         self.mqtt.configure_recycling({"enabled": False})
         self.assertEqual(self.mqtt.effective_screens(self.epoch, "2026-10-13"), [])
         self.assertEqual(len(self.mqtt.screens(self.epoch)), 1)
+
+    def test_mqtt_recycling_policy_reads_nested_shape_and_legacy_fallback(self):
+        nested = {"enabled": False, "screen_duration_seconds": 40}
+        legacy = {"enabled": True, "screen_duration_seconds": 20}
+        self.assertEqual(recycling_policy({"mqtt": {"recycling": nested}}), nested)
+        self.assertEqual(recycling_policy({"mqtt": {}, "recycling": legacy}), legacy)
+        self.assertEqual(recycling_policy({"mqtt": {"recycling": "invalid"}, "recycling": legacy}), legacy)
+        self.assertIsNone(recycling_policy({"mqtt": "invalid"}))
 
     def test_midnight_and_zero_day_window_and_clock_not_synchronized(self):
         self.mqtt.configure_recycling({"schedule_windows": []})

@@ -361,8 +361,9 @@ The Recycling admin card controls whether a valid MQTT `bin_collection` screen i
 eligible on the MatrixPortal, its on-device screen duration and label speed,
 and the number of Europe/London calendar days preceding the collection date
 (defaults: enabled, 20 seconds, 15 pixels/second, two days). The LED publisher
-exposes this *presentation policy* under the top-level `recycling` property of
-`/api/screens`; it does not ingest collection dates or MQTT events. Home
+exposes this *presentation policy* under `mqtt.recycling` in `/api/screens`;
+firmware also accepts the former root-level `recycling` field during staggered
+rollouts. The publisher does not ingest collection dates or MQTT events. Home
 Assistant retains responsibility for the dates and retained MQTT snapshots.
 The board uses its synchronized local date and keeps snapshots untouched until
 the original MQTT expiration or clear. Live MQTT status and next collection
