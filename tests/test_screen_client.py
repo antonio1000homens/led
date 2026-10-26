@@ -217,18 +217,20 @@ class RotationTests(unittest.TestCase):
         self.assertEqual((current["id"], phase), ("b", 0.125))
         self.assertIsInstance(rotation.started_at, int)
 
-    def test_static_pool_is_selected_locally_and_marks_completed_item(self):
-        import random
-        rotation = ScreenRotation(rng=random.Random(1))
+    def test_static_pool_is_selected_locally_and_can_repeat(self):
+        class RepeatFirst:
+            @staticmethod
+            def randrange(limit):
+                return 0
+        rotation = ScreenRotation(rng=RepeatFirst())
         fact = {"id": "random-fact", "kind": "random_fact", "duration_seconds": 2,
-                "items": [{"fact": "One", "content_version": "1", "refresh_ack_url": "url1"},
-                          {"fact": "Two", "content_version": "2", "refresh_ack_url": "url2"}]}
+                "items": [{"fact": "One"}, {"fact": "Two"}]}
         rotation.update([fact], 0)
         first = rotation.current(0)[0]
-        self.assertEqual(rotation.pending_refresh, {})
         second = rotation.current(2)[0]
-        self.assertNotEqual(first["fact"], second["fact"])
-        self.assertEqual(rotation.pending_refresh[("random_fact",first["content_version"])], first["refresh_ack_url"])
+        self.assertEqual(first["fact"], second["fact"])
+        self.assertNotIn("content_version", second)
+        self.assertNotIn("refresh_ack_url", second)
         rotation.next(3)
         self.assertEqual(rotation.current(3)[0]["id"], "random-fact")
 

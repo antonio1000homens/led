@@ -276,8 +276,6 @@ class ScreenRotation:
         self._paused = None
         self.cycle_number = 0
         self.rng = rng or random
-        self.pending_refresh = {}
-        self._recent_items = {}
         self._schedule_parts = None
         self._schedule_idle = False
         self._schedule_epoch = None
@@ -435,14 +433,12 @@ class ScreenRotation:
                 item = old
             if item is not None:
                 item = dict(item)
-                if old.get("content_version"):
-                    for key in ("joke", "fact", "quote", "author", "content_version", "refresh_ack_url"):
+                if self.is_static(old):
+                    # Keep the selected text stable until this slot completes,
+                    # even if a poll replaces or reorders the pool.
+                    for key in ("joke", "fact", "quote", "author", "insult", "fact_id", "fact_source"):
                         if key in old:
                             item[key] = old[key]
-                    # Renew expiring capabilities for the selected item.
-                    for candidate in item.get("items") or ():
-                        if candidate.get("content_version") == old.get("content_version"):
-                            item["refresh_ack_url"] = candidate.get("refresh_ack_url")
                 next_screens.append(item)
         # A poll may remove a departures page halfway through a cycle.
         # Never retain its now-orphaned bus introduction.
@@ -455,16 +451,6 @@ class ScreenRotation:
         if not next_screens:
             next_screens = self._cycle_plan(available)
         self.screens = next_screens
-        for screen in available:
-            for item in screen.get("items") or ():
-                key = (screen.get("kind"), item.get("content_version"))
-                if key in self.pending_refresh:
-                    self.pending_refresh[key] = item.get("refresh_ack_url")
-        active_versions = {(screen.get("kind"), item.get("content_version"))
-                           for screen in available for item in screen.get("items") or ()}
-        for key in list(self.pending_refresh):
-            if key not in active_versions:
-                del self.pending_refresh[key]
         if not next_screens:
             self.cycle_number = 0
             self.index = 0
@@ -620,12 +606,7 @@ class ScreenRotation:
         items = screen.get("items") or ()
         if not items:
             return screen
-        kind = screen.get("kind")
-        recent = self._recent_items.get(kind, [])
-        unused = [item for item in items if item.get("content_version") not in recent]
-        non_repeating = [item for item in items if not recent or item.get("content_version") != recent[-1]]
-        choices = unused or non_repeating or list(items)
-        chosen = choices[self.rng.randrange(len(choices))]
+        chosen = items[self.rng.randrange(len(items))]
         result = dict(screen)
         result.update(chosen)
         return result
@@ -709,15 +690,6 @@ class ScreenRotation:
 
     def _advance_screen(self, now=None):
         screen = self.screens[self.index]
-        version = screen.get("content_version")
-        if version:
-            key = (screen.get("kind"), version)
-            self.pending_refresh[key] = screen.get("refresh_ack_url")
-            recent = self._recent_items.setdefault(screen.get("kind"), [])
-            if version in recent:
-                recent.remove(version)
-            recent.append(version)
-            del recent[:-5]
         if screen.get("id") == "static-maintenance":
             self.screens.pop(self.index)
         else:
@@ -815,17 +787,6 @@ class ScreenClient:
             except (AttributeError, OSError, TypeError) as error:
                 print("GTS Root R4 certificate unavailable:", error)
             self.session = adafruit_requests.Session(pool, ssl_context)
-
-    def acknowledge(self, url):
-        self._ensure_session()
-        response = None
-        try:
-            response = self.session.put(url, data="{}", headers={"Content-Type": "application/json"})
-            if not 200 <= response.status_code < 300:
-                raise ValueError("Display acknowledgement failed")
-        finally:
-            if response is not None:
-                response.close()
 
     def fetch(self):
         self._ensure_session()

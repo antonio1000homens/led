@@ -16,7 +16,7 @@ for source in ("backend", "shared", "hardware/matrixportal/firmware"):
 sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
 
 from zenquotes import ZenQuotesProvider
-from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore, content_version
+from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
 from runtime_config import default_runtime_config, schema_metadata, validate_feed_patch, validate_runtime_config
 from screen_client import ScreenRotation
 from display import _quote_lines, _quote_page, FixtureDisplay
@@ -134,10 +134,11 @@ class ZenQuotesTests(unittest.TestCase):
         choices = []
         for step in range(10):
             selected, _ = rotation.current(step * 30)
-            choices.append(selected["content_version"])
-            if step:
-                self.assertNotEqual(choices[-1], choices[-2])
+            choices.append((selected["quote"], selected["author"]))
+        self.assertTrue(set(choices).issubset({(item["quote"], item["author"]) for item in screen["items"]}))
         self.assertEqual(provider.calls, 1)
+        self.assertNotIn("content_version",screen["items"][0])
+        self.assertNotIn("refresh_ack_url",screen["items"][0])
         self.now += timedelta(seconds=7199)
         publisher.run()
         self.assertEqual(provider.calls, 1)
@@ -175,17 +176,15 @@ class ZenQuotesTests(unittest.TestCase):
         self.now += timedelta(seconds=300)
         self.assertEqual(quotes_screen(publisher.run())["quote"], "Recovered")
 
-    def test_versions_identify_quote_author_and_survive_polls(self):
+    def test_selected_quote_survives_polls_without_version_metadata(self):
         first = {"quote": "Same", "author": "A"}
         second = {"quote": "Same", "author": "B"}
-        self.assertNotEqual(content_version("quotes", {"data": first}),
-                            content_version("quotes", {"data": second}))
         screen = {"id": "quotes", "kind": "quotes", "duration_seconds": 30,
-                  "items": [dict(first, content_version=content_version("quotes", {"data": first}))]}
+                  "items": [first]}
         rotation = ScreenRotation(rng=random.Random(2))
         rotation.update([screen], 100)
         replacement = copy.deepcopy(screen)
-        replacement["items"] = [dict(second, content_version=content_version("quotes", {"data": second}))]
+        replacement["items"] = [second]
         rotation.update([replacement], 110)
         selected, _ = rotation.current(110)
         self.assertEqual((selected["quote"], selected["author"]), ("Same", "A"))

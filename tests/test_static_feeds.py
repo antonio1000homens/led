@@ -15,7 +15,7 @@ import types
 import unittest
 from unittest.mock import Mock, patch
 
-from publisher import Publisher, PublisherConfig, S3StateStore, StaticRuntimeConfigStore, content_version
+from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
 from runtime_config import default_runtime_config, schema_metadata, validate_runtime_config
 from screen_client import ScreenClient, ScreenRotation
 from test_publisher import MemoryStore, FakeProvider, weather_payload
@@ -25,32 +25,21 @@ import display as led_display
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class PoolStore(MemoryStore):
-    def __init__(self):
-        super().__init__()
-        self.consumed = set()
-
-    def displayed(self, feed_id, version):
-        return (feed_id, version) in self.consumed
-
-    def acknowledgement(self, feed_id, version):
-        return "https://example.invalid/" + feed_id + "/" + version
-
-
 class StaticFeedTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 10, 11, tzinfo=timezone.utc)
         self.runtime = default_runtime_config({"LED_WEATHER_SOURCE":"off", "LED_THORPE_PARK_SOURCE":"off"})
         self.runtime["feeds"]["departures"]["enabled"] = False
-        self.store = PoolStore()
+        self.store = MemoryStore()
 
     def publisher(self, **kwargs):
         return Publisher(PublisherConfig(bucket="test", national_rail_token="unused"), self.store,
                          runtime_config_store=StaticRuntimeConfigStore(self.runtime),
                          utcnow=lambda:self.now, **kwargs)
 
-    def test_pool_fills_gradually_and_replaces_only_consumed_item_before_ttl(self):
+    def test_pool_fills_gradually_stays_bounded_and_refreshes_on_ttl(self):
         self.runtime["feeds"]["dad_joke"]["enabled"] = True
+        self.runtime["feeds"]["dad_joke"]["poll_seconds"] = 60
         provider = FakeProvider(["Joke {}".format(i) for i in range(20)])
         publisher = self.publisher(joke_provider=provider)
         for size in (2,4,5):
@@ -59,18 +48,20 @@ class StaticFeedTests(unittest.TestCase):
             self.assertEqual(len(self.store.state["feeds"]["dad_joke"]["items"]), size)
             self.now += timedelta(seconds=61)
         original = copy.deepcopy(self.store.state["feeds"]["dad_joke"]["items"])
-        version = content_version("dad_joke", {"data":original[1]})
-        self.store.consumed.add(("dad_joke",version))
-        publisher.run()
+        self.now += timedelta(seconds=61)
+        payload = publisher.run()
         after = self.store.state["feeds"]["dad_joke"]["items"]
         self.assertEqual(len(after),5)
-        self.assertNotIn(original[1],after)
-        self.assertTrue(all(item in after for index,item in enumerate(original) if index!=1))
+        self.assertNotEqual(after, original)
+        self.assertLessEqual(len(after),5)
+        self.assertEqual(len(payload["screens"][0]["items"]),3)
         self.assertEqual(provider.calls,6)
-        # Replayed acknowledgement for removed content cannot consume a newer item.
+        refreshed = copy.deepcopy(after)
         self.now += timedelta(seconds=61)
         publisher.run()
-        self.assertEqual(provider.calls,6)
+        self.assertEqual(provider.calls,7)
+        self.assertLessEqual(len(self.store.state["feeds"]["dad_joke"]["items"]),5)
+        self.assertNotEqual(self.store.state["feeds"]["dad_joke"]["items"],refreshed)
 
     def test_failed_replenishment_keeps_entire_pool_and_retries_are_bounded(self):
         self.runtime["feeds"]["dad_joke"]["enabled"] = True
@@ -85,6 +76,19 @@ class StaticFeedTests(unittest.TestCase):
         self.now += timedelta(seconds=10)
         publisher.run()
         self.assertEqual(provider.calls,3)
+
+    def test_legacy_oversized_pool_is_capped_even_before_ttl(self):
+        self.runtime["feeds"]["dad_joke"]["enabled"] = True
+        self.store.state["feeds"]["dad_joke"] = {
+            "last_attempt_at": "2026-10-11T00:00:00Z", "last_success_at": "2026-10-11T00:00:00Z",
+            "stale": False, "data": {"joke": "Joke 6"},
+            "items": [{"joke": "Joke {}".format(index)} for index in range(6)],
+        }
+        provider = FakeProvider([])
+        payload = self.publisher(joke_provider=provider).run()
+        self.assertEqual(len(self.store.state["feeds"]["dad_joke"]["items"]),5)
+        self.assertEqual(provider.calls,0)
+        self.assertEqual(len(payload["screens"][0]["items"]),3)
 
     def test_today_uses_shared_weather_even_when_forecast_screens_disabled(self):
         self.runtime["feeds"]["today"]["enabled"] = True
@@ -111,50 +115,29 @@ class StaticFeedTests(unittest.TestCase):
         self.assertIn("<h2>Static feeds</h2>",html)
         self.assertNotIn("display_every_cycles",html)
 
-    def test_acknowledgement_capability_is_scoped_to_item_and_fixed_size(self):
-        client = Mock()
-        store = S3StateStore("test",client=client)
-        store.acknowledgement("random_fact","version")
-        arguments = client.generate_presigned_url.call_args
-        self.assertEqual(arguments.args,("put_object",))
-        self.assertEqual(arguments.kwargs["Params"]["Key"],"state/displayed/random_fact/version.json")
-        self.assertEqual(arguments.kwargs["Params"]["ContentLength"],2)
-        self.assertEqual(arguments.kwargs["ExpiresIn"],3600)
-
-    def test_acknowledgement_closes_response_on_failure(self):
-        client = ScreenClient(Mock(), session=Mock())
-        response = client.session.put.return_value
-        response.status_code = 403
-        with self.assertRaises(ValueError):
-            client.acknowledge("https://example.invalid")
-        response.close.assert_called_once()
-
-    def test_marker_contents_are_not_trusted_or_parsed(self):
-        client = Mock()
-        store = S3StateStore("test",client=client)
-        self.assertTrue(store.displayed("random_fact","version"))
-        client.get_object.assert_not_called()
-        class Missing(Exception):
-            response = {"Error":{"Code":"404"}}
-        client.head_object.side_effect = Missing()
-        self.assertFalse(store.displayed("random_fact","version"))
-        client.head_object.side_effect = RuntimeError("permission failure")
-        with self.assertRaises(RuntimeError):
-            store.displayed("random_fact","version")
-
-    def test_real_sdk_signs_fixed_content_length_and_content_type(self):
-        try:
-            import boto3
-            from botocore.config import Config
-        except ImportError:
-            self.skipTest("Optional deployment SDK not installed")
-        from urllib.parse import urlparse, parse_qs
-        client = boto3.client("s3",region_name="eu-west-2",config=Config(signature_version="s3v4"),
-                              aws_access_key_id="test",aws_secret_access_key="test")
-        url = S3StateStore("test",client=client).acknowledgement("random_fact","version")
-        query = parse_qs(urlparse(url).query)
-        self.assertEqual(query["X-Amz-SignedHeaders"],["content-length;content-type;host"])
-        self.assertTrue(urlparse(url).path.endswith("/state/displayed/random_fact/version.json"))
+    def test_published_static_items_have_no_ack_metadata_and_recycling_is_namespaced(self):
+        self.runtime["feeds"]["dad_joke"]["enabled"] = True
+        self.runtime["feeds"]["random_fact"]["enabled"] = True
+        self.runtime["feeds"]["quotes"]["enabled"] = True
+        publisher = self.publisher(joke_provider=FakeProvider(["Joke"]),
+                                   fact_provider=FakeProvider([{"text":"Fact","id":"1"}]),
+                                   quotes_provider=FakeProvider([[{"quote":"Quote","author":"Author"}]]))
+        payload = publisher.run()
+        encoded = __import__("json").dumps(payload,separators=(",",":"))
+        self.assertIn("mqtt",payload)
+        self.assertIn("recycling",payload["mqtt"])
+        self.assertNotIn("recycling",payload)
+        self.assertNotIn("refresh_ack_url",encoded)
+        self.assertNotIn("content_version",encoded)
+        self.assertLess(len(encoded), 22_000)
+        legacy = copy.deepcopy(payload)
+        choices = [choice for screen in legacy["screens"] for choice in screen.get("items", [])][:3]
+        self.assertEqual(len(choices),3)
+        for index, choice in enumerate(choices):
+            choice["content_version"] = "version-{}".format(index)
+            choice["refresh_ack_url"] = "https://s3.example.invalid/" + ("x" * 1_600)
+        legacy_size = len(__import__("json").dumps(legacy,separators=(",",":")))
+        self.assertGreater(legacy_size - len(encoded), 4_800)
 
     def test_shuffle_preserves_train_pair_normal_order_and_every_screen(self):
         screens = [{"id":"train","kind":"steam_train_intro"},
@@ -177,18 +160,19 @@ class StaticFeedTests(unittest.TestCase):
     def test_poll_preserves_selected_item_phase_and_plan(self):
         rotation = ScreenRotation(ticks_per_second=1000,rng=random.Random(3))
         screen = {"id":"fact","kind":"random_fact","duration_seconds":2,
-                  "items":[{"fact":"A","content_version":"a","refresh_ack_url":"old"}]}
+                  "items":[{"fact":"A"}]}
         aged = 500_000_000
         rotation.update([screen],aged)
         selected,phase = rotation.freeze(aged+375)
         changed = copy.deepcopy(screen)
-        changed["items"][0]["refresh_ack_url"] = "renewed"
-        changed["items"].append({"fact":"B","content_version":"b"})
+        changed["items"][0]["fact"] = "New text"
+        changed["items"].append({"fact":"B"})
         rotation.update([changed,{"id":"added","duration_seconds":2}],aged+5000)
         rotation.resume(aged+5000,selected,phase)
         current,phase = rotation.current(aged+5000)
         self.assertEqual((current["fact"],phase),("A",0.375))
-        self.assertEqual(current["refresh_ack_url"],"renewed")
+        self.assertNotIn("refresh_ack_url",current)
+        self.assertNotIn("content_version",current)
         self.assertEqual(len(rotation.screens),1)
         rotation.current(aged+7000)
         self.assertEqual(len(rotation.screens),2)
@@ -213,7 +197,7 @@ class StaticFeedTests(unittest.TestCase):
         ast.parse(source)
 
     @unittest.skipUnless(shutil.which("node"),"Node is required for browser scheduler tests")
-    def test_browser_scripts_parse_and_pool_selection_repeats_without_suppression(self):
+    def test_browser_scripts_parse_and_pool_selection_allows_repeats(self):
         for filename in ("index.html","admin.html"):
             html = (ROOT / "simulator" / filename).read_text()
             script = re.search(r"<script>([\s\S]*?)</script>",html).group(1)
@@ -221,10 +205,11 @@ class StaticFeedTests(unittest.TestCase):
         html = (ROOT / "simulator/index.html").read_text()
         code = html[html.index("    let cyclePlan"):html.index("    function stationMarqueeSpeed")]
         test = """
-const screens=[{id:'fact',kind:'random_fact',duration_seconds:2,items:[{fact:'A',content_version:'a'},{fact:'B',content_version:'b'}]}];
+const screens=[{id:'fact',kind:'random_fact',duration_seconds:2,items:[{fact:'A'},{fact:'B'}]}];
 let screenOffset=0;
+Math.random=()=>0;
 const first=screenAt(0).screen.fact;
-if(screenAt(2000).screen.fact===first)throw Error('repeated pool item');
+if(screenAt(2000).screen.fact!==first)throw Error('repeatable pool item was suppressed');
 if(screenAt(4000).screen.id!=='fact')throw Error('suppressed page');
 """
         # Functions access screens only on invocation, after the fixture exists.
@@ -285,7 +270,7 @@ if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intr
             self.assertIs(display._todoist_group,previous)
             self.assertTrue(display.tasks_ready(task,"2026-10-11"))
 
-    def test_entrypoint_keeps_blocking_work_on_static_pages_over_multiple_cycles(self):
+    def test_entrypoint_keeps_fetch_and_gc_without_acknowledgement_requests(self):
         import gc
         import queue_display
         import screen_client
@@ -345,11 +330,8 @@ if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intr
                     {"id":"calendar","kind":"calendar_agenda","source":"todoist","duration_seconds":2,
                      "events":[{"title":"Task "+str(self.fetches)}]},
                     {"id":"fact","kind":"random_fact","duration_seconds":4,
-                     "items":[{"fact":"A","content_version":"a","refresh_ack_url":"url"}]},
+                     "items":[{"fact":"A"}]},
                 ]}
-            def acknowledge(self,url):
-                display.blocking("acknowledge")
-                advance(1)
         namespace = {"__name__":"static_feed_entrypoint_test"}
         modules = {"settings":settings_copy,"settings_local":types.SimpleNamespace()}
         with patch.dict(sys.modules,modules), patch.object(queue_display,"create",return_value=display), \
@@ -362,9 +344,7 @@ if(makeCyclePlan().some(s=>s.id==='sl7-heathrow-intro'))throw Error('orphan intr
             with self.assertRaises(Finished):
                 exec(compile((ROOT/"code.py").read_text(),"code.py","exec"),namespace)
         self.assertGreater(work.count("fetch"),3)
-        self.assertIn("acknowledge",work)
-        self.assertIn("prepare",work)
+        self.assertNotIn("acknowledge",(ROOT/"code.py").read_text())
         self.assertIn("gc",work)
-        self.assertGreater(namespace["rotation"].cycle_number,1)
         self.assertIsInstance(namespace["next_fetch"],int)
 

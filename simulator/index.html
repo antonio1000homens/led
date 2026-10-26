@@ -654,17 +654,11 @@
       return { start: 0, progress, visible };
     }
     let cyclePlan = [], cycleStarted = 0, planOffset = 0, planSourceKey = '', rotationIndex = 0, rotationStarted = null, rotationIdle = false;
-    const recentStaticItems = new Map();
     const staticScreen = screen => screen.display_group === 'static_feeds' || ['dad_joke','random_fact','insult_of_hour','quotes','today'].includes(screen.kind);
     function chooseStatic(screen) {
       const items = screen.items || [];
       if (!items.length) return screen;
-      const recent = recentStaticItems.get(screen.kind) || [];
-      const unused = items.filter(item => !recent.includes(item.content_version));
-      const nonRepeating = items.filter(item => !recent.length || item.content_version !== recent[recent.length-1]);
-      const choices = unused.length ? unused : nonRepeating.length ? nonRepeating : items;
-      const chosen = choices[Math.floor(Math.random() * choices.length)];
-      recentStaticItems.set(screen.kind, [...recent.filter(value=>value!==chosen.content_version), chosen.content_version].slice(-5));
+      const chosen = items[Math.floor(Math.random() * items.length)];
       return {...screen, ...chosen};
     }
     const weatherSequence = ['weather_sun', 'weather_today', 'weather_weekly'];
@@ -1872,7 +1866,10 @@
         const response = await fetch('/api/screens', { cache: 'no-store' });
         if (!response.ok) throw new Error('feed unavailable');
         const payload = await response.json();
-        if (payload.recycling && typeof payload.recycling === 'object') recyclingPolicy = payload.recycling;
+        const mqttPolicy = payload.mqtt && typeof payload.mqtt === 'object' ? payload.mqtt : {};
+        const nextRecyclingPolicy = mqttPolicy.recycling && typeof mqttPolicy.recycling === 'object'
+          ? mqttPolicy.recycling : payload.recycling;
+        if (nextRecyclingPolicy && typeof nextRecyclingPolicy === 'object') recyclingPolicy = nextRecyclingPolicy;
         const nextScreens = withChristmasTracker(Array.isArray(payload.screens) ? payload.screens : []);
         const christmasPolicy = payload.christmas || {};
         for (const screen of nextScreens) if (screen.kind === 'christmas_tracker' || screen.kind === 'christmas_tracker_intro') {
@@ -1886,7 +1883,7 @@
           cyclePlan = cyclePlan.map(old=>{
             const fresh = byId.get(old.id);
             if (!fresh) return old; // removal takes effect at next cycle boundary
-            if (old.content_version) return {...fresh,...Object.fromEntries(['joke','fact','content_version'].filter(key=>key in old).map(key=>[key,old[key]]))};
+            if (staticScreen(old)) return {...fresh,...Object.fromEntries(['joke','fact','quote','author','insult','fact_id','fact_source'].filter(key=>key in old).map(key=>[key,old[key]]))};
             return fresh;
           });
         }
