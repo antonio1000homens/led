@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 LOCAL_ZONE = ZoneInfo("Europe/London")
 MAX_ICS_BYTES = 1024 * 1024
 MAX_EVENTS = 12
+MAX_CACHE_EVENTS = 100
 MAX_HORIZON_DAYS = 366
 DAY_CODES = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
 
@@ -89,7 +90,7 @@ def _read_vevents(text):
                     current["ALL_DAY"] = params.get("VALUE") == "DATE" or len(value) == 8
             elif key in ("SUMMARY", "UID", "STATUS", "RRULE"):
                 current[key] = _unescape(value).strip()
-    return [event for event in events if event.get("DTSTART") is not None and event.get("SUMMARY")]
+    return [event for event in events if event.get("DTSTART") is not None and (event.get("SUMMARY") or (event.get("RECURRENCE-ID") is not None and event.get("STATUS", "").upper() == "CANCELLED"))]
 
 
 def _rule_matches(day, first, rule):
@@ -136,7 +137,6 @@ def _occurrences(event, now):
             if cursor > end_day or seen >= count:
                 break
             if _rule_matches(cursor, start.date(), rule):
-                occurrence = datetime.combine(cursor, start.timetz()).astimezone(LOCAL_ZONE)
                 # Calendar instances in local time stay at the same wall-clock hour
                 # across British Summer Time transitions.
                 occurrence = datetime.combine(cursor, start.time(), tzinfo=LOCAL_ZONE)
@@ -185,7 +185,7 @@ def parse_cubs_events(text, now=None, max_events=MAX_EVENTS):
             title = " ".join(instance["SUMMARY"].split())[:120]
             if not title:
                 continue
-            key = (event.get("UID") or title, instant)
+            key = (title.casefold(), begins.astimezone(timezone.utc))
             if key in seen:
                 continue
             seen.add(key)
@@ -197,7 +197,7 @@ def parse_cubs_events(text, now=None, max_events=MAX_EVENTS):
                 "title": title,
             })
     result.sort(key=lambda item: (item["start"][:10], item["time_text"], item["title"]))
-    return result[:max(1, min(MAX_EVENTS, max_events))]
+    return result[:max(1, min(MAX_CACHE_EVENTS, max_events))]
 
 
 class CubsCalendarProvider:
@@ -253,7 +253,7 @@ class CubsCalendarProvider:
             raise RuntimeError("All configured Cubs ICS feeds failed")
         # Combine before de-duplicating, retaining individual VEVENT boundaries.
         contents = "\n".join(combined)
-        events = parse_cubs_events(contents, now=self.utcnow())
+        events = parse_cubs_events(contents, now=self.utcnow(), max_events=MAX_CACHE_EVENTS)
         if failed:
             raise RuntimeError("A configured Cubs ICS feed failed; retain previous cache")
         return events
