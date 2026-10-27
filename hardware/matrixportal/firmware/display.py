@@ -816,7 +816,7 @@ def _agenda_state(screen, phase):
 
 def _calendar_due_layout(screen, clock_date, clock_time):
     """Keep the legacy header countdown for non-Todoist calendar feeds."""
-    if screen.get("kind") != "calendar_agenda" or screen.get("source") == "todoist":
+    if screen.get("kind") != "calendar_agenda" or screen.get("source") in ("todoist", "cubs_ics"):
         return "", 0
     events = screen.get("events") or []
     if not events:
@@ -1620,7 +1620,7 @@ class MatrixDisplay:
             return "queue_rows"
         if kind == "today":
             return "today_date"
-        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+        if kind == "calendar_agenda" and screen.get("source") in ("todoist", "cubs_ics"):
             if self._todoist_rows and self._todoist_page_slide_active(phase):
                 return "todoist_page_slide"
             if _header_slide_active(phase, screen.get("weather")):
@@ -1720,7 +1720,7 @@ class MatrixDisplay:
                 return gap_remaining
             if gap_remaining is None:
                 return max(0.05, _header_next_boundary_seconds(phase, screen.get("weather")))
-        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+        if kind == "calendar_agenda" and screen.get("source") in ("todoist", "cubs_ics"):
             if self._todoist_rows:
                 try:
                     phase = max(0.0, float(phase or 0))
@@ -2992,7 +2992,7 @@ class MatrixDisplay:
                 event = events[event_index]
                 when, title = calendar_row_parts(event)
                 y = AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset
-                due = todoist_due_label(event, clock_date) if screen.get("source") == "todoist" else ""
+                due = todoist_due_label(event, clock_date) if screen.get("source") in ("todoist", "cubs_ics") else ""
                 if due:
                     due_x = _right_aligned_x(due, DISPLAY_WIDTH)
                     title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
@@ -4276,7 +4276,7 @@ class MatrixDisplay:
         if (
             not empty_state
             and kind == "calendar_agenda"
-            and screen.get("source") == "todoist"
+            and screen.get("source") in ("todoist", "cubs_ics")
         ):
             self._show_todoist(screen, clock_time, clock_date, phase)
             return
@@ -4848,7 +4848,7 @@ class FixtureDisplay:
                         break
                     when, title = calendar_row_parts(events[event_index])
                     y = AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset
-                    due = todoist_due_label(events[event_index], clock_date) if screen.get("source") == "todoist" else ""
+                    due = todoist_due_label(events[event_index], clock_date) if screen.get("source") in ("todoist", "cubs_ics") else ""
                     if due:
                         due_x = _right_aligned_x(due, DISPLAY_WIDTH)
                         title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
