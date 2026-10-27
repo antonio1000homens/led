@@ -76,6 +76,11 @@ env:
   LED_TODOIST_TIMEZONE: "${{ vars.LED_TODOIST_TIMEZONE || 'Europe/London' }}"
   LED_CALENDAR_DURATION_SECONDS: "${{ vars.LED_CALENDAR_DURATION_SECONDS || '10' }}"
   LED_CALENDAR_PAGE_SECONDS: "${{ vars.LED_CALENDAR_PAGE_SECONDS || '5' }}"
+  LED_FOOTBALL_FIXTURE_SOURCE: "${{ vars.LED_FOOTBALL_FIXTURE_SOURCE || 'off' }}"
+  LED_FOOTBALL_FIXTURE_PARAMETER_NAME: "${{ vars.LED_FOOTBALL_FIXTURE_PARAMETER_NAME || '/led/football/calendar' }}"
+  LED_FOOTBALL_FIXTURE_CACHE_SECONDS: "${{ vars.LED_FOOTBALL_FIXTURE_CACHE_SECONDS || '900' }}"
+  LED_FOOTBALL_FIXTURE_DURATION_SECONDS: "${{ vars.LED_FOOTBALL_FIXTURE_DURATION_SECONDS || '20' }}"
+  LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: "${{ vars.LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS || '45' }}"
   LED_CHESSINGTON_CACHE_SECONDS: "${{ vars.LED_CHESSINGTON_CACHE_SECONDS || '300' }}"
   LED_CHESSINGTON_RIDES: "${{ vars.LED_CHESSINGTON_RIDES }}"
 
@@ -134,6 +139,11 @@ jobs:
           calendar_source = os.environ.get("LED_CALENDAR_SOURCE", "off").strip()
           if calendar_source not in ("off", "todoist"):
               raise SystemExit("LED_CALENDAR_SOURCE must be off or todoist")
+          football_source = os.environ.get("LED_FOOTBALL_FIXTURE_SOURCE", "off").strip()
+          if football_source not in ("off", "google_calendar"):
+              raise SystemExit("LED_FOOTBALL_FIXTURE_SOURCE must be off or google_calendar")
+          if not re.fullmatch(r"/led/football/[A-Za-z0-9_/-]+", os.environ.get("LED_FOOTBALL_FIXTURE_PARAMETER_NAME", "")):
+              raise SystemExit("football fixture SSM parameter must be under /led/football/")
           PY
 
       - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
