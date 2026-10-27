@@ -794,7 +794,7 @@ while True:
     fetch_due = ticks_ms() >= next_fetch
     boundary = last_visible_screen != candidate.get("id")
     task_unready = (candidate.get("kind") == "calendar_agenda"
-                    and candidate.get("source") == "todoist"
+                    and candidate.get("source") in ("todoist", "cubs_ics")
                     and not display.tasks_ready(candidate, clock.date_text(now))
                     and ticks_ms() >= task_retry_at)
     # Weather is grouped by the scheduler, while the train and SL7 bus
@@ -1032,7 +1032,7 @@ while True:
         now = time.monotonic()
         if ticks_ms() >= task_retry_at:
             for task in rotation.http_screens:
-                if task.get("kind") == "calendar_agenda" and task.get("source") == "todoist":
+                if task.get("kind") == "calendar_agenda" and task.get("source") in ("todoist", "cubs_ics"):
                     try:
                         display.prepare_tasks(task, clock.text(now), clock.date_text(now))
                         prepared_task = task
