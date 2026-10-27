@@ -26,7 +26,7 @@ Parameters:
   ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
-  FootballFixtureSource: {Type: String, Default: 'off', AllowedValues: ['off', google_calendar]}
+  FootballFixtureSource: {Type: String, Default: 'off', AllowedValues: ['off', google_calendar, public_ical]}
   FootballFixtureParameterName:
     Type: String
     Default: /led/football/calendar
