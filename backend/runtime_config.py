@@ -68,6 +68,11 @@ MAX_DESTINATION_SCROLL_SPEED = 80
 MIN_CALENDAR_TASKS = 1
 MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
+MIN_CUBS_EVENTS = 1
+MAX_CUBS_EVENTS = 12
+DEFAULT_CUBS_EVENTS = 6
+MIN_CUBS_POLL_SECONDS = 3600
+MAX_CUBS_POLL_SECONDS = 604800
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
 DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
 DEFAULT_RECYCLING_DURATION_SECONDS = 20
@@ -268,6 +273,13 @@ FEED_REGISTRY = {
         "advanced_fields": ("visible_task_count",),
         "screen_duration": True,
     },
+    "cubs": {
+        "label": "Cubs",
+        "provider": "cubs_ics",
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds", "visible_event_count"),
+        "advanced_fields": ("visible_event_count",),
+        "screen_duration": True,
+    },
     "flash": {
         "label": "Flash events",
         "provider": "mqtt_pending",
@@ -459,6 +471,13 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     maximum=MAX_CALENDAR_TASKS,
                 ),
             },
+            "cubs": {
+                "enabled": False,
+                "poll_seconds": _int_env(env, "LED_CUBS_CACHE_SECONDS", 86400,
+                                         minimum=MIN_CUBS_POLL_SECONDS, maximum=MAX_CUBS_POLL_SECONDS),
+                "screen_duration_seconds": 10,
+                "visible_event_count": DEFAULT_CUBS_EVENTS,
+            },
             "flash": {
                 # This is deliberately disabled until Home Assistant issue #4
                 # and the broker path have been reviewed and enabled together.
@@ -506,8 +525,8 @@ def schema_metadata() -> dict[str, Any]:
             "enabled": {"type": "boolean"},
             "poll_seconds": {
                 "type": "integer",
-                "minimum": MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS,
-                "maximum": MAX_POLL_SECONDS,
+                "minimum": MIN_CUBS_POLL_SECONDS if feed_id == "cubs" else (MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS),
+                "maximum": MAX_CUBS_POLL_SECONDS if feed_id == "cubs" else MAX_POLL_SECONDS,
             },
         }
         if definition.get("screen_duration") and not definition.get("flash"):
@@ -554,6 +573,10 @@ def schema_metadata() -> dict[str, Any]:
                 "type": "integer",
                 "minimum": MIN_SCREEN_DURATION_SECONDS,
                 "maximum": MAX_SCREEN_DURATION_SECONDS,
+            }
+        if feed_id == "cubs":
+            fields["visible_event_count"] = {
+                "type": "integer", "minimum": MIN_CUBS_EVENTS, "maximum": MAX_CUBS_EVENTS,
             }
         if feed_id == "calendar":
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
@@ -692,8 +715,8 @@ def validate_feed_patch(
     if "poll_seconds" in patch:
         result["poll_seconds"] = _validate_integer(
             feed_id, "poll_seconds", patch["poll_seconds"],
-            MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS,
-            MAX_POLL_SECONDS
+            MIN_CUBS_POLL_SECONDS if feed_id == "cubs" else (MIN_INSULT_POLL_SECONDS if feed_id == "insult_of_hour" else MIN_POLL_SECONDS),
+            MAX_CUBS_POLL_SECONDS if feed_id == "cubs" else MAX_POLL_SECONDS
         )
     if "screen_duration_seconds" in patch:
         result["screen_duration_seconds"] = _validate_integer(
@@ -753,6 +776,10 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    if feed_id == "cubs" and "visible_event_count" in patch:
+        result["visible_event_count"] = _validate_integer(
+            feed_id, "visible_event_count", patch["visible_event_count"], MIN_CUBS_EVENTS, MAX_CUBS_EVENTS
+        )
     for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
         if field in patch:
             result[field] = _validate_integer(
