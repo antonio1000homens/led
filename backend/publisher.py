@@ -29,7 +29,9 @@ from random_facts import RandomFactProvider
 from insults import InsultProvider
 from zenquotes import MAX_QUOTE_CHOICES, ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
-from football_calendar import GoogleCalendarFixtureProvider, TEAM_NAMES as FOOTBALL_TEAM_NAMES
+from football_calendar import (
+    GoogleCalendarFixtureProvider, PublicICalFixtureProvider, TEAM_NAMES as FOOTBALL_TEAM_NAMES,
+)
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
 
@@ -140,8 +142,8 @@ class PublisherConfig:
         if calendar_source not in ("off", "todoist"):
             raise ValueError("LED_CALENDAR_SOURCE must be off or todoist")
         fixture_source = env.get("LED_FOOTBALL_FIXTURE_SOURCE", "off").strip()
-        if fixture_source not in ("off", "google_calendar"):
-            raise ValueError("LED_FOOTBALL_FIXTURE_SOURCE must be off or google_calendar")
+        if fixture_source not in ("off", "google_calendar", "public_ical"):
+            raise ValueError("LED_FOOTBALL_FIXTURE_SOURCE must be off, google_calendar or public_ical")
         fixture_parameter = env.get("LED_FOOTBALL_FIXTURE_PARAMETER_NAME", "/led/football/calendar").strip()
         if fixture_source == "google_calendar" and not fixture_parameter:
             raise ValueError("LED_FOOTBALL_FIXTURE_PARAMETER_NAME is required")
@@ -271,6 +273,8 @@ class Publisher:
         self.football_provider = football_provider
         if self.football_provider is None and config.football_fixture_source == "google_calendar":
             self.football_provider = GoogleCalendarFixtureProvider(config.football_fixture_parameter_name)
+        elif self.football_provider is None and config.football_fixture_source == "public_ical":
+            self.football_provider = PublicICalFixtureProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -344,11 +348,14 @@ class Publisher:
     def _fetch_queues(self, now, provider, park):
         return {"park": park, "source": "queue_times", "fetched_at": _iso(now), "rides": provider.fetch()}
 
-    def _fetch_football_fixtures(self, now, lookahead_days):
+    def _fetch_football_fixtures(self, now, lookahead_days, enabled_teams):
         if self.football_provider is None:
             raise RuntimeError("football fixture calendar provider is not configured")
-        return {"source": "google_calendar", "fetched_at": _iso(now),
-                "fixtures": self.football_provider.fetch(now, lookahead_days=lookahead_days)}
+        source = ("public_ical" if self.config.football_fixture_source == "public_ical"
+                  else "google_calendar")
+        return {"source": source, "fetched_at": _iso(now),
+                "fixtures": self.football_provider.fetch(
+                    now, lookahead_days=lookahead_days, enabled_teams=enabled_teams)}
 
     def _fetch_calendar(self, now):
         if self.calendar_provider is None:
@@ -674,6 +681,7 @@ class Publisher:
                 team_key = fixture.get("team_key")
                 kickoff = _parse_iso(fixture.get("kickoff"))
                 if (team_key not in FOOTBALL_TEAM_NAMES or team_key in seen_fixture_teams
+                        or not fixture_cfg.get(team_key + "_enabled", False)
                         or kickoff is None or kickoff.tzinfo is None or kickoff <= now):
                     continue
                 if not isinstance(fixture.get("match_id"), str) or not fixture["match_id"]:
@@ -695,7 +703,7 @@ class Publisher:
                     "home_away": fixture.get("home_away") if fixture.get("home_away") in ("home", "away", "unknown") else "unknown",
                     "kickoff": fixture["kickoff"],
                     "match_id": fixture["match_id"],
-                    "source": "google_calendar",
+                    "source": data.get("source") if data.get("source") in ("google_calendar", "public_ical") else "unavailable",
                     "stale": bool(fixture_state.get("stale")),
                     "duration_seconds": fixture_cfg["screen_duration_seconds"],
                 })
@@ -956,7 +964,10 @@ class Publisher:
             else:
                 feeds["football_fixtures"] = self._refresh(
                     "football_fixtures", previous, fixture_cfg["poll_seconds"],
-                    lambda: self._fetch_football_fixtures(now, fixture_cfg["lookahead_days"]), now,
+                    lambda: self._fetch_football_fixtures(
+                        now, fixture_cfg["lookahead_days"],
+                        [team for team in FOOTBALL_TEAM_NAMES if fixture_cfg.get(team + "_enabled", False)]
+                    ), now,
                 )
         if settings["dad_joke"]["enabled"]:
             feeds["dad_joke"] = self._refresh_static_pool(
