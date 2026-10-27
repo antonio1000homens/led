@@ -274,8 +274,11 @@ FEED_REGISTRY = {
         "label": "Football fixtures (Google Calendar)",
         "provider": "google_calendar",
         "display_group": "sports",
-        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds", "lookahead_days"),
-        "advanced_fields": ("lookahead_days",),
+        "mutable_fields": (
+            "enabled", "poll_seconds", "screen_duration_seconds", "lookahead_days",
+            "sporting_cp_enabled", "millwall_enabled", "portugal_enabled", "england_enabled",
+        ),
+        "advanced_fields": ("lookahead_days", "portugal_enabled", "england_enabled"),
         "screen_duration": True,
     },
     "flash": {
@@ -477,6 +480,10 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     minimum=MIN_SCREEN_DURATION_SECONDS, maximum=MAX_SCREEN_DURATION_SECONDS),
                 "lookahead_days": _int_env(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS",
                     DEFAULT_FOOTBALL_LOOKAHEAD_DAYS, minimum=1, maximum=MAX_FOOTBALL_LOOKAHEAD_DAYS),
+                "sporting_cp_enabled": True,
+                "millwall_enabled": True,
+                "portugal_enabled": False,
+                "england_enabled": False,
             },
             "flash": {
                 # This is deliberately disabled until Home Assistant issue #4
@@ -582,6 +589,8 @@ def schema_metadata() -> dict[str, Any]:
                     "maximum": metadata["maximum"],
                 }
         if feed_id == "football_fixtures":
+            for team in ("sporting_cp", "millwall", "portugal", "england"):
+                fields[team + "_enabled"] = {"type": "boolean"}
             fields["lookahead_days"] = {"type": "integer", "minimum": 1, "maximum": MAX_FOOTBALL_LOOKAHEAD_DAYS}
         if feed_id == "recycling":
             fields["slide_speed"] = {"type": "integer", "minimum": MIN_RECYCLING_SCROLL_SPEED, "maximum": MAX_RECYCLING_SCROLL_SPEED}
@@ -783,6 +792,13 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    if feed_id == "football_fixtures":
+        for team in ("sporting_cp", "millwall", "portugal", "england"):
+            field = team + "_enabled"
+            if field in patch:
+                if not isinstance(patch[field], bool):
+                    raise RuntimeConfigValidationError(f"{feed_id}.{field} must be boolean")
+                result[field] = patch[field]
     if feed_id == "football_fixtures" and "lookahead_days" in patch:
         result["lookahead_days"] = _validate_integer(
             feed_id, "lookahead_days", patch["lookahead_days"], 1, MAX_FOOTBALL_LOOKAHEAD_DAYS
@@ -904,6 +920,10 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw["upcoming_bus_count"] = min(
                 MAX_BUS_COUNT, raw.get("upcoming_bus_count", 3)
             ) if isinstance(raw.get("upcoming_bus_count"), int) and not isinstance(raw.get("upcoming_bus_count"), bool) else raw.get("upcoming_bus_count")
+        if feed_id == "football_fixtures":
+            for team in ("sporting_cp", "millwall", "portugal", "england"):
+                field = team + "_enabled"
+                raw.setdefault(field, default_feed[field])
         if feed_id == "insult_of_hour":
             # Older admins accepted a sub-hourly interval. Migrate that saved
             # setting without discarding the rest of the user configuration.
