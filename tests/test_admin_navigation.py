@@ -138,6 +138,65 @@ class AdminNavigationTests(unittest.TestCase):
         self.assertEqual(lookup["screen/weather-next-24-hours"]["view"], "weather")
         self.assertEqual(lookup["screen/future_static_feed"]["view"], "future_static_feed")
 
+    def test_queue_health_is_unavailable_when_status_cannot_be_loaded(self):
+        start = ADMIN.index("function queueMemberIds(){")
+        end = ADMIN.index("function queueParkHtml(feedId){", start)
+        functions = ADMIN[start:end]
+        result = self._run_navigation_model(
+            "const state={config:{schema:{feeds:{"
+            "thorpe_park:{provider:'queue_times'},"
+            "chessington:{provider:'queue_times'}"
+            "}}},status:null};"
+            + functions +
+            "const states=[queueHealth()];"
+            "state.status={feeds:{thorpe_park:{enabled:false},chessington:{enabled:false}}};"
+            "states.push(queueHealth());"
+            "state.status.feeds.thorpe_park={enabled:true,health:'stale'};"
+            "states.push(queueHealth());"
+            "state.status.feeds.thorpe_park.health='unavailable';"
+            "states.push(queueHealth());"
+            "state.status.feeds.thorpe_park.health='ok';"
+            "states.push(queueHealth());"
+            "console.log(JSON.stringify(states));"
+        )
+        self.assertEqual(result, ["unavailable", "disabled", "stale", "unavailable", "ok"])
+
+    def test_failed_config_refresh_discards_stale_editable_controls(self):
+        start = ADMIN.index("async function load(){")
+        end = ADMIN.index("/* Navigation is derived", start)
+        source = ADMIN[start:end]
+        output = self._run_navigation_model(
+            "const state={config:{config_version:99},status:{feeds:{}},selected:{old:['ride']}};"
+            "let navItems=[{key:'screen/old'}];"
+            "const cleared=[];"
+            "const cards={setAttribute:(key,value)=>cleared.push(key+':'+value),"
+            "replaceChildren:()=>cleared.push('cards')};"
+            "const document={getElementById:(id)=>({"
+            "replaceChildren:()=>cleared.push(id),"
+            "set textContent(value){cleared.push(id+'='+value);}})};"
+            "const health={innerHTML:''},diagnostics={textContent:''};"
+            "let notice='';"
+            "function clearNotice(){}"
+            "function showNotice(message,level){notice=level+':'+message;}"
+            "function render(){throw new Error('Stale controls must not render');}"
+            "async function api(path){"
+            "if(path==='/config')throw new Error('Config unavailable');"
+            "return {data:{feeds:{}}};}"
+            + source +
+            "load().then(()=>console.log(JSON.stringify({"
+            "config:state.config,status:state.status,selected:state.selected,"
+            "navItems,cleared,notice,health:health.innerHTML})));"
+        )
+        self.assertIsNone(output["config"])
+        self.assertIsNone(output["status"])
+        self.assertEqual(output["selected"], {})
+        self.assertEqual(output["navItems"], [])
+        self.assertIn("cards", output["cleared"])
+        self.assertIn("section-navigation", output["cleared"])
+        self.assertIn("section-title=Configuration unavailable", output["cleared"])
+        self.assertIn("Config unavailable", output["notice"])
+        self.assertIn("unavailable", output["health"])
+
     def test_fragment_mapping_and_legacy_alias(self):
         config = json.dumps(self._config_fixture())
         start = ADMIN.index("function selectedKeyFromHash(){")
