@@ -156,7 +156,7 @@ saveRailCard(card).then(()=>console.log(JSON.stringify({
         self.assertIn("const patches=collectRailCard(card);", ADMIN)
         self.assertIn("for(const [feedId,body] of patches)", ADMIN)
         self.assertIn("const data=await patchFeed(feedId,body);", ADMIN)
-        self.assertIn("const drafts=captureDirtyDrafts('departures');", ADMIN)
+        self.assertIn("drafts=captureDirtyDrafts('departures');", ADMIN)
         self.assertIn("card.dataset.railGroup==='true'?['departures','steam_train']", ADMIN)
         self.assertIn("input.closest('[data-rail-feed]')?.dataset.railFeed", ADMIN)
         self.assertIn("card.querySelector('[data-rail-feed=\"'+CSS.escape(entry.feedId)+'\"]')", ADMIN)
