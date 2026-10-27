@@ -26,7 +26,10 @@ Parameters:
   ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
+  CubsProgrammeParameterName: {Type: String, Default: /led/cubs/programme-ics-url}
+  CubsEventsParameterName: {Type: String, Default: /led/cubs/events-ics-url}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
+  CubsCacheSeconds: {Type: Number, Default: 86400, MinValue: 3600, MaxValue: 604800}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
   TodoistFilterQuery: {Type: String, Default: 'due before: tomorrow | due after: yesterday'}
   TodoistTimezone: {Type: String, Default: Europe/London}
@@ -86,6 +89,12 @@ Resources:
                 Effect: Allow
                 Action: ['ssm:GetParameter', 'ssm:PutParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
+              - Sid: ReadCubsIcsParameters
+                Effect: Allow
+                Action: ['ssm:GetParameter']
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CubsProgrammeParameterName}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CubsEventsParameterName}
               - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${PublisherLogGroup.Arn}:*'}
   PublisherLogGroup:
     Type: AWS::Logs::LogGroup
@@ -108,6 +117,9 @@ Resources:
           RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
           TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
+          CUBS_PROGRAMME_PARAMETER_NAME: !Ref CubsProgrammeParameterName
+          CUBS_EVENTS_PARAMETER_NAME: !Ref CubsEventsParameterName
+          LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
@@ -184,6 +196,7 @@ Resources:
           LED_CHESSINGTON_RIDES: !Ref ChessingtonRides
           LED_CALENDAR_SOURCE: !Ref CalendarSource
           LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
           LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
           LED_WEATHER_SOURCE: !Ref WeatherSource
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
@@ -332,6 +345,10 @@ Outputs:
     Value: !Ref ControlApi
   TodoistOAuthParameterName:
     Value: !Ref TodoistOAuthParameterName
+  CubsProgrammeParameterName:
+    Value: !Ref CubsProgrammeParameterName
+  CubsEventsParameterName:
+    Value: !Ref CubsEventsParameterName
   DistributionId:
     Value: !Ref Distribution
   DistributionDomainName:
