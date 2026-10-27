@@ -349,13 +349,16 @@ class Publisher:
         return {"park": park, "source": "queue_times", "fetched_at": _iso(now), "rides": provider.fetch()}
 
     def _fetch_football_fixtures(self, now, lookahead_days, enabled_teams):
-        if self.football_provider is None:
-            raise RuntimeError("football fixture calendar provider is not configured")
         source = ("public_ical" if self.config.football_fixture_source == "public_ical"
                   else "google_calendar")
-        return {"source": source, "fetched_at": _iso(now),
-                "fixtures": self.football_provider.fetch(
-                    now, lookahead_days=lookahead_days, enabled_teams=enabled_teams)}
+        if not enabled_teams:
+            fixtures = []  # Never request a calendar when all teams are disabled.
+        else:
+            if self.football_provider is None:
+                raise RuntimeError("football fixture calendar provider is not configured")
+            fixtures = self.football_provider.fetch(
+                now, lookahead_days=lookahead_days, enabled_teams=enabled_teams)
+        return {"source": source, "fetched_at": _iso(now), "fixtures": fixtures}
 
     def _fetch_calendar(self, now):
         if self.calendar_provider is None:
@@ -956,19 +959,36 @@ class Publisher:
         if settings["football_fixtures"]["enabled"]:
             fixture_cfg = settings["football_fixtures"]
             previous = feeds.get("football_fixtures") or {}
+            enabled_teams = [
+                team for team in FOOTBALL_TEAM_NAMES
+                if fixture_cfg.get(team + "_enabled", False)
+            ]
+            selection = {
+                "enabled_teams": enabled_teams,
+                "lookahead_days": fixture_cfg["lookahead_days"],
+                "source": self.config.football_fixture_source,
+            }
+            # Admin changes must take effect on the very next publish, even
+            # when the former selection is still within its cache TTL.
+            changed = previous.get("requested_selection") != selection
             last_attempt = _parse_iso(previous.get("last_attempt_at"))
-            # Cold failure retries are also TTL gated (unlike the generic
-            # _refresh); avoid making OAuth/Google requests every Lambda minute.
-            if previous.get("data") is None and last_attempt and (now - last_attempt).total_seconds() < fixture_cfg["poll_seconds"]:
+            cold_throttled = (
+                previous.get("data") is None and not changed and last_attempt is not None
+                and (now - last_attempt).total_seconds() < fixture_cfg["poll_seconds"]
+            )
+            if cold_throttled:
                 feeds["football_fixtures"] = previous
             else:
-                feeds["football_fixtures"] = self._refresh(
+                refreshed = self._refresh(
                     "football_fixtures", previous, fixture_cfg["poll_seconds"],
                     lambda: self._fetch_football_fixtures(
-                        now, fixture_cfg["lookahead_days"],
-                        [team for team in FOOTBALL_TEAM_NAMES if fixture_cfg.get(team + "_enabled", False)]
-                    ), now,
+                        now, fixture_cfg["lookahead_days"], enabled_teams
+                    ), now, force=changed,
                 )
+                # Record the attempted selection even if Google failed; otherwise
+                # a config edit would retry every Lambda minute despite its TTL.
+                refreshed["requested_selection"] = selection
+                feeds["football_fixtures"] = refreshed
         if settings["dad_joke"]["enabled"]:
             feeds["dad_joke"] = self._refresh_static_pool(
                 "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"], now,
