@@ -251,10 +251,10 @@ class FootballCalendarTests(unittest.TestCase):
         self.assertIn("departures", [s["id"] for s in failed["screens"]])
         now[0] = datetime(2026, 10, 25, 16, tzinfo=timezone.utc)
         aged = run()
-        self.assertNotIn("football-sporting_cp", [s["id"] for s in aged["screens"]])
         self.assertIn("football-millwall", [s["id"] for s in aged["screens"]])
         self.assertEqual(len(provider.calls), 3)
-        self.assertIn("football-sporting_cp", [s["id"] for s in aged["screens"]])
+        self.assertEqual(next(s for s in aged["screens"] if s["id"] == "football-sporting_cp")["match_id"], "third")
+        self.assertEqual(len([s for s in aged["screens"] if s["kind"] == "football_score"]), 2)
 
     def test_cold_failure_respects_ttl_and_does_not_block_rail(self):
         store = MemoryStore()
