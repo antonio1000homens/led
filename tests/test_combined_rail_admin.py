@@ -160,7 +160,7 @@ saveRailCard(card).then(()=>console.log(JSON.stringify({
         self.assertIn("card.dataset.railGroup==='true'?['departures','steam_train']", ADMIN)
         self.assertIn("input.closest('[data-rail-feed]')?.dataset.railFeed", ADMIN)
         self.assertIn("card.querySelector('[data-rail-feed=\"'+CSS.escape(entry.feedId)+'\"]')", ADMIN)
-        self.assertIn("card.querySelector('.rail-card", ADMIN)
+        self.assertIn("cards.querySelector('.rail-card", ADMIN)
 
 
 if __name__ == "__main__":
