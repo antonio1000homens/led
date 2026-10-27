@@ -515,6 +515,9 @@ class FootballCalendarTests(unittest.TestCase):
             [sanitized("portugal", "2026-11-14T19:45:00+00:00", "po")],
         ])
         runtime_store = StaticRuntimeConfigStore(runtime)
+        # The store intentionally snapshots configs, as DynamoDB does. Change
+        # its persisted copy to simulate a subsequent authenticated PATCH.
+        settings = runtime_store.config["feeds"]["football_fixtures"]
 
         def run():
             return Publisher(
@@ -565,6 +568,9 @@ class FootballCalendarTests(unittest.TestCase):
             [sanitized("portugal", "2026-11-14T19:45:00+00:00", "portugal")],
         ])
         runtime_store = StaticRuntimeConfigStore(runtime)
+        # The store intentionally snapshots configs, as DynamoDB does. Change
+        # its persisted copy to simulate a subsequent authenticated PATCH.
+        settings = runtime_store.config["feeds"]["football_fixtures"]
 
         def run():
             return Publisher(
