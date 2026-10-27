@@ -209,5 +209,5 @@ class GoogleCalendarFixtureProvider:
                     # Never silently claim "next match" if earlier pages were incomplete.
                     raise ValueError("Google Calendar page limit reached")
             if candidates:
-                fixtures.append(min(candidates, key=lambda row: row["kickoff"]))
+                fixtures.append(min(candidates, key=lambda row: datetime.fromisoformat(row["kickoff"]).astimezone(timezone.utc)))
         return fixtures
