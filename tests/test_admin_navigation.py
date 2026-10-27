@@ -51,7 +51,9 @@ class AdminNavigationTests(unittest.TestCase):
             "function captureDirtyDrafts(excludeFeedId)",
             "function restoreDirtyDrafts(drafts)",
             "card.querySelectorAll('[data-schedule-windows]')",
-            "card.dataset.queueGroup==='true'?queueMemberIds():[feedId]",
+            "card.dataset.queueGroup==='true'?queueMemberIds():card.dataset.railGroup==='true'",
+            "function collectRailCard(card)",
+            "async function saveRailCard(card)",
             "card.dataset.dirty='true'",
             "restoreDirtyDrafts(drafts)",
             "window.addEventListener('beforeunload'",
@@ -130,6 +132,7 @@ class AdminNavigationTests(unittest.TestCase):
         self.assertEqual(lookup["overview"]["feedIds"], [])
         self.assertEqual(lookup["maintenance"]["feedIds"], [])
         self.assertEqual(lookup["screen/departures"]["feedIds"], ["departures", "steam_train"])
+        self.assertNotIn("screen/steam_train", lookup)
         self.assertEqual(lookup["screen/thorpe_park"]["view"], "queue_times")
         self.assertEqual(lookup["screen/queue_times"]["feedIds"], [
             "queue_times", "thorpe_park", "chessington",
@@ -207,7 +210,7 @@ class AdminNavigationTests(unittest.TestCase):
             "const window={location:{hash:''}};"
             + fragment_parser +
             "const hashes=['#screen/today','#screen/weather-next-24-hours',"
-            "'#screen/future_static_feed','#insult-of-hour','#missing'];"
+            "'#screen/future_static_feed','#insult-of-hour','#screen/steam_train','#missing'];"
             "console.log(JSON.stringify(hashes.map(hash=>{window.location.hash=hash;"
             "return selectedKeyFromHash();})));"
         )
@@ -218,6 +221,7 @@ class AdminNavigationTests(unittest.TestCase):
                 "screen/weather-next-24-hours",
                 "screen/future_static_feed",
                 "screen/insult_of_hour",
+                "screen/departures",
                 "overview",
             ],
         )
