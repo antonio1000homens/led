@@ -101,6 +101,7 @@ class BusIntroAnimationTests(unittest.TestCase):
             "settings": types.SimpleNamespace(ANIMATE=False, DISPLAY_BACKEND="matrix"),
             "_smooth_departures": lambda screen: False,
             "_smooth_steam_train": lambda screen: False,
+            "_smooth_football_intro": lambda screen: False,
             "_smooth_queue": lambda screen: False,
             "_smooth_sun_weather": lambda screen: False,
             "_smooth_bin_collection": lambda screen: False,
