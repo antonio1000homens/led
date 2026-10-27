@@ -13,15 +13,33 @@ from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
-TEAM_NAMES = {"sporting_cp": "Sporting CP", "millwall": "Millwall FC"}
+TEAM_NAMES = {"sporting_cp": "Sporting CP", "millwall": "Millwall FC",
+              "portugal": "Portugal", "england": "England"}
 DEFAULT_ALIASES = {
-    "sporting_cp": ("Sporting CP", "Sporting Clube de Portugal"),
+    "sporting_cp": ("Sporting CP", "Sporting Clube de Portugal", "Sporting Portugal"),
     "millwall": ("Millwall FC", "Millwall"),
+    "portugal": ("Portugal",),
+    "england": ("England",),
 }
 LONDON = ZoneInfo("Europe/London")
 GOOGLE_API = "https://www.googleapis.com/calendar/v3/calendars/"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-MATCHUP = re.compile(r"^(.+?)\s+(vs?\.?|versus|@)\s+(.+?)$", re.IGNORECASE)
+MATCHUP = re.compile(
+    r"^(.+?)\s+(vs?\.?|versus|@|[-\u2013\u2014])\s+(.+?)(?:\s+\[[A-Za-z0-9 ._-]{1,16}\])?$",
+    re.IGNORECASE,
+)
+
+# Only the backend uses these public identifiers; never embed them in board
+# firmware, admin configuration responses or publicly served screen JSON.
+PUBLIC_ICAL_CALENDARS = {
+    "sporting_cp": "fd67v39hov7a8uplrk8djd818c@group.calendar.google.com",
+    "millwall": "rajefpgnm1ue0j6eae1ob9us1s@group.calendar.google.com",
+    "portugal": "c88a0605u3b1m04j217pnqfkfs@group.calendar.google.com",
+    "england": "ulqvlgdfg9ag1kuv4vlvjd1tuc@group.calendar.google.com",
+}
+DEFAULT_ENABLED_TEAMS = ("sporting_cp", "millwall")
+MAX_ICAL_BYTES = 4 * 1024 * 1024
+
 SAFE_TEXT = re.compile(r"^[^\x00-\x1f\x7f<>@/\\]+$")
 MAX_PAGES_PER_CALENDAR = 3
 
@@ -87,7 +105,7 @@ def normalize_event(event, *, calendar_id, team_key, aliases, now, window_end):
     Never infer a match from an arbitrary appointment or expose private details.
     Rescheduling keeps match_id stable: kickoff is a separate, updated field.
     """
-    if not isinstance(event, dict) or event.get("status") == "cancelled":
+    if not isinstance(event, dict) or str(event.get("status", "")).lower() == "cancelled":
         return None
     event_id = event.get("id")
     if not isinstance(event_id, str) or not event_id or len(event_id) > 512:
@@ -153,7 +171,7 @@ class GoogleCalendarFixtureProvider:
         self.settings_loader = settings_loader or (lambda: _read_ssm(parameter_name))
         self.request_json = request_json or _request_json
 
-    def fetch(self, now, lookahead_days=45):
+    def fetch(self, now, lookahead_days=45, enabled_teams=None):
         if now.tzinfo is None:
             raise ValueError("calendar fetch requires timezone-aware current time")
         if not 1 <= lookahead_days <= 180:
@@ -162,6 +180,10 @@ class GoogleCalendarFixtureProvider:
         end = now + timedelta(days=lookahead_days)
         raw = self.settings_loader()
         calendars, aliases = _credentials(raw)
+        enabled_teams = set(DEFAULT_ENABLED_TEAMS if enabled_teams is None else enabled_teams)
+        calendars = {team: ids for team, ids in calendars.items() if team in enabled_teams}
+        if not calendars:
+            return []
         token = self.request_json(
             GOOGLE_TOKEN_URL,
             data=urlencode({
@@ -211,3 +233,86 @@ class GoogleCalendarFixtureProvider:
             if candidates:
                 fixtures.append(min(candidates, key=lambda row: datetime.fromisoformat(row["kickoff"]).astimezone(timezone.utc)))
         return fixtures
+
+
+def _fetch_public_ical(url):
+    """Retrieve a bounded public ICS document, never an arbitrary user URL."""
+    req = Request(url, headers={"User-Agent": "led-fixture-calendar/1.0",
+                                "Accept": "text/calendar"})
+    with urlopen(req, timeout=12) as response:
+        payload = response.read(MAX_ICAL_BYTES + 1)
+    if len(payload) > MAX_ICAL_BYTES:
+        raise ValueError("public fixture calendar exceeds allowed size")
+    return payload
+
+
+class PublicICalFixtureProvider:
+    """Read published Google calendars without Google API keys or OAuth.
+
+    Disabled country feeds are *not* requested. Fixtures and calendar UID
+    hashes are sanitized before they enter the publisher's private cache.
+    """
+
+    def __init__(self, calendars=None, fetch_ical=None):
+        self.calendars = dict(PUBLIC_ICAL_CALENDARS if calendars is None else calendars)
+        self.fetch_ical = fetch_ical or _fetch_public_ical
+
+    def fetch(self, now, lookahead_days=45, enabled_teams=None):
+        from icalendar import Calendar
+        import recurring_ical_events
+
+        if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("calendar fetch requires timezone-aware current time")
+        if not 1 <= lookahead_days <= 180:
+            raise ValueError("invalid football calendar lookahead")
+        now = now.astimezone(timezone.utc)
+        end = now + timedelta(days=lookahead_days)
+        enabled = set(DEFAULT_ENABLED_TEAMS if enabled_teams is None else enabled_teams)
+        if enabled - set(TEAM_NAMES):
+            raise ValueError("unsupported fixture team")
+        result = []
+        for team_key in TEAM_NAMES:
+            if team_key not in enabled:
+                continue
+            calendar_id = self.calendars.get(team_key)
+            if not isinstance(calendar_id, str) or not calendar_id.endswith("@group.calendar.google.com"):
+                raise ValueError("missing or invalid public calendar ID")
+            url = "https://calendar.google.com/calendar/ical/" + quote(calendar_id, safe="") + "/public/basic.ics"
+            raw = self.fetch_ical(url)
+            if not isinstance(raw, (str, bytes)) or len(raw) > MAX_ICAL_BYTES:
+                raise ValueError("invalid public calendar response")
+            calendar = Calendar.from_ical(raw)
+            choices = []
+            # Google calendars may include recurring events, cancellations and
+            # exceptions. Expand only within the configured bounded window.
+            for component in recurring_ical_events.of(calendar).between(now, end):
+                if str(component.get("STATUS", "")).upper() == "CANCELLED":
+                    continue
+                start = component.decoded("DTSTART", None)
+                if not isinstance(start, datetime) or start.tzinfo is None:
+                    continue
+                uid = component.get("UID")
+                if uid is None:
+                    continue
+                # For recurring events, include the instance's original start
+                # to avoid colliding with the next occurrence in the series.
+                recurrence_id = component.get("RECURRENCE-ID")
+                occurrence_id = (str(uid) + "\x00" + str(recurrence_id)) if recurrence_id else str(uid)
+                event = {
+                    "id": occurrence_id,
+                    "summary": str(component.get("SUMMARY", "")),
+                    "status": "confirmed",
+                    "start": {"dateTime": start.isoformat()},
+                }
+                fixture = normalize_event(
+                    event, calendar_id=calendar_id, team_key=team_key,
+                    aliases={name.casefold() for name in DEFAULT_ALIASES[team_key]},
+                    now=now, window_end=end,
+                )
+                if fixture:
+                    choices.append(fixture)
+            if choices:
+                result.append(min(
+                    choices, key=lambda item: datetime.fromisoformat(item["kickoff"]).astimezone(timezone.utc)
+                ))
+        return result
