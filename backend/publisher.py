@@ -58,6 +58,45 @@ def _parse_iso(value):
         return None
 
 
+def _public_cubs_events(cached, now, limit):
+    """Re-select upcoming events from private 24h cache each publish minute.
+
+    Emit only known-safe display fields even if upstream parser later gains
+    description, location or attendee metadata.
+    """
+    rows = []
+    local_now = now.astimezone(ZoneInfo("Europe/London"))
+    for item in cached or ():
+        if not isinstance(item, dict):
+            continue
+        start = item.get("start")
+        title = item.get("title")
+        if not isinstance(start, str) or not isinstance(title, str) or not title.strip():
+            continue
+        try:
+            if item.get("all_day"):
+                upcoming = datetime.fromisoformat(start[:10]).date() >= local_now.date()
+            else:
+                when = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=ZoneInfo("Europe/London"))
+                upcoming = when >= local_now
+        except (TypeError, ValueError):
+            continue
+        if not upcoming:
+            continue
+        rows.append({
+            "start": start,
+            "all_day": bool(item.get("all_day")),
+            "date_text": str(item.get("date_text") or "")[:5],
+            "time_text": "" if item.get("all_day") else str(item.get("time_text") or "")[:5],
+            "title": title[:120],
+        })
+        if len(rows) >= limit:
+            break
+    return rows
+
+
 def _env_int(env, name, default, minimum=1):
     value = int(env.get(name, str(default)))
     if value < minimum:
@@ -658,7 +697,7 @@ class Publisher:
         if config_feeds["cubs"]["enabled"]:
             cubs = feeds.get("cubs") or {}
             cubs_data = cubs.get("data") or {}
-            cubs_events = copy.deepcopy((cubs_data.get("events") or [])[:config_feeds["cubs"]["visible_event_count"]])
+            cubs_events = _public_cubs_events(cubs_data.get("events"), now, config_feeds["cubs"]["visible_event_count"])
             duration = todoist_effective_duration(
                 config_feeds["cubs"]["screen_duration_seconds"],
                 cubs_events,
