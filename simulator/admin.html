@@ -8,13 +8,75 @@
 <style>
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#090d13;color:#edf3f8;--panel:#111821;--panel2:#151f2b;--line:#2a394a;--muted:#91a0b2;--accent:#74c7ff;--ok:#74df93;--warn:#f3c969;--bad:#ff8176}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0,#12243a 0,#090d13 42%);color:#edf3f8}main{max-width:1180px;margin:auto;padding:28px 18px 56px}.topbar{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:24px}.eyebrow{font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700}h1{font-size:clamp(1.8rem,4vw,3rem);margin:.18em 0 .2em}p{color:var(--muted);line-height:1.5;margin:.35rem 0}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.badge{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:#0e151e;color:var(--muted);font-size:.84rem}.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.dot.ok{background:var(--ok)}.dot.stale{background:var(--warn)}.dot.unavailable{background:var(--bad)}.dot.disabled{background:#667485}button{font:inherit;color:inherit;border:1px solid var(--line);background:#172231;border-radius:9px;padding:9px 13px;cursor:pointer}button:hover:not(:disabled){border-color:#42617d;background:#1b2a3b}button.primary{border-color:#2d789f;background:#12547a}button.primary:hover:not(:disabled){background:#16668f}button:disabled{opacity:.5;cursor:not-allowed}.notice{display:none;padding:12px 14px;border-radius:9px;margin:14px 0;border:1px solid var(--line);background:#111923}.notice.show{display:block}.notice.error{border-color:#713b3b;color:#ffc0bb}.notice.success{border-color:#2d6442;color:#a8efb9}.notice.warning{border-color:#735f2d;color:#f8d98a}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.18)}.queue-card{grid-column:1/-1}.schedule-window{display:grid;grid-template-columns:minmax(90px,1fr) 92px 112px auto;gap:8px;align-items:center;margin:8px 0}.feed-section{grid-column:1/-1}.feed-section>h2{font-size:1.15rem;margin:8px 0 4px}.section-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}.card-head{display:flex;justify-content:space-between;gap:12px;padding:17px 18px;border-bottom:1px solid var(--line)}.card h2{font-size:1.08rem;margin:0 0 4px}.provider{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.card-body{padding:18px}.field{display:grid;grid-template-columns:minmax(0,1fr) 122px;gap:12px;align-items:center;margin:12px 0}.field label{font-size:.92rem}.field small{display:block;color:var(--muted);font-size:.74rem;margin-top:3px}.switch{justify-self:end;position:relative;width:48px;height:27px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;border-radius:999px;background:#344151;transition:.16s}.slider:before{content:"";position:absolute;width:21px;height:21px;left:3px;top:3px;background:white;border-radius:50%;transition:.16s}.switch input:checked+.slider{background:#1978aa}.switch input:checked+.slider:before{transform:translateX(21px)}input[type=number],select{width:100%;background:#0b1119;border:1px solid #34475b;border-radius:8px;padding:8px 9px;color:inherit;font:inherit}input:focus,button:focus,summary:focus{outline:2px solid var(--accent);outline-offset:2px}.queue-intro{max-width:780px}.queue-parks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:20px}.queue-park{border:1px solid #26394c;border-radius:12px;background:#0d151e;padding:14px}.queue-park-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.queue-park h3{font-size:.98rem;margin:0}.rides{margin-top:18px;padding-top:15px;border-top:1px solid var(--line)}.rides h3{font-size:.9rem;margin:0 0 9px}.ride-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:210px;overflow:auto;padding:2px}.ride-choice{display:flex;gap:7px;align-items:flex-start;font-size:.82rem;color:#d8e0e8}.selected-rides{margin:12px 0 0;padding:0;list-style:none}.selected-rides li{display:flex;align-items:center;gap:7px;padding:7px 8px;border:1px solid #26394c;border-radius:8px;margin-top:6px;background:#0a1118;font-size:.82rem}.selected-rides .name{flex:1}.icon-button{padding:3px 7px;border-radius:6px;font-size:.72rem}.feed-advanced{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}.feed-advanced summary{cursor:pointer;font-size:.9rem;font-weight:600;color:#c7d4df}.feed-advanced-body{padding-top:6px}.card-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--line);padding:13px 18px;background:#0e151e}.dirty{font-size:.78rem;color:var(--warn);visibility:hidden}.card[data-dirty=true] .dirty{visibility:visible}.meta{font-size:.78rem;color:var(--muted);line-height:1.6}.advanced{margin-top:22px;border:1px solid var(--line);border-radius:12px;background:#0d141c;padding:12px 14px}summary{cursor:pointer;color:#c7d4df}pre{overflow:auto;font-size:.75rem;color:#9fb0c2;white-space:pre-wrap}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:620px){main{padding:20px 12px 40px}.topbar{display:block}.toolbar{margin-top:14px}.grid{grid-template-columns:1fr}.queue-card{grid-column:auto}.queue-parks{grid-template-columns:1fr}.ride-choices{grid-template-columns:1fr}.field{grid-template-columns:minmax(0,1fr) 108px}}
 .card-disclosure>summary{list-style:none}.card-disclosure>summary::-webkit-details-marker,.queue-park>summary::-webkit-details-marker{display:none}.card-disclosure>summary::after{content:"⌄";margin-left:auto;color:var(--muted);font-size:1.1rem}.card-disclosure:not([open])>summary::after{content:"›"}.card-disclosure:not([open])>summary{border-bottom:0}.queue-park>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none;cursor:pointer}.queue-park>summary::after{content:"⌄";color:var(--muted)}.queue-park:not([open])>summary::after{content:"›"}
+
+/* Issue #274: persistent, keyboard-accessible navigation around the existing controls. */
+[hidden]{display:none!important}
+.workspace{display:grid;grid-template-columns:248px minmax(0,1fr);gap:22px;align-items:start}
+.nav-panel{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;min-width:0;background:#111b27;border:1px solid var(--line);border-radius:14px;padding:15px}
+.nav-heading{font-weight:750;margin:0 0 12px}
+.nav-search-label{display:block;font-size:.77rem;color:var(--muted);margin-bottom:6px}
+.nav-search{width:100%;border:1px solid #34475b;border-radius:8px;background:#0b1119;color:inherit;font:inherit;padding:10px;margin-bottom:12px}
+.nav-group{border-top:1px solid var(--line);padding:9px 0}
+.nav-group>summary{font-size:.77rem;font-weight:700;letter-spacing:.04em;color:#bdccdc;padding:5px 3px}
+.nav-group-links{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.nav-link{display:flex;gap:8px;align-items:center;min-height:42px;border-radius:8px;padding:9px;text-decoration:none;color:#c9d6e5;font-size:.86rem;overflow-wrap:anywhere}
+.nav-link:hover{background:#213247;color:white}
+.nav-link[aria-current=page]{background:#183f5b;border:1px solid #3c9aca;color:#fff;font-weight:700}
+.nav-link-text{flex:1;min-width:0}.nav-health{width:8px;height:8px;flex:none;border-radius:50%;background:#657688}
+.nav-health.ok{background:var(--ok)}.nav-health.stale{background:var(--warn)}.nav-health.unavailable{background:var(--bad)}
+.nav-dirty{color:var(--warn);font-size:1.1rem;font-weight:700}.nav-empty{color:var(--muted);font-size:.81rem}
+.workspace-main{min-width:0}.content-heading{margin:0 0 15px}.content-heading h2{font-size:1.4rem;margin:5px 0}.breadcrumb{color:var(--muted);font-size:.81rem}
+.nav-view{grid-column:1/-1;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px;align-content:start}
+.nav-view>.feed-section,.nav-view>.queue-card,.nav-view>.advanced{grid-column:1/-1}
+.nav-view>.feed-section .section-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr))}
+.nav-view>.card{min-width:0}.nav-view .card-foot{flex-wrap:wrap}.nav-view .field input,.nav-view .field select{min-width:0}
+.overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px;grid-column:1/-1}
+.overview-panel{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:17px;min-width:0}
+.overview-panel h3{margin:0 0 10px;font-size:1rem}.overview-panel strong{font-size:1.1rem}
+.overview-links{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.overview-links a{color:#b5e5ff}
+.mobile-nav-toggle{display:none}.nav-scrim{display:none}
+.nav-view .schedule-window{grid-template-columns:minmax(0,1fr) 75px 104px auto}
+input[type=text]{max-width:100%;background:#0b1119;color:inherit;border:1px solid #34475b;border-radius:8px;padding:8px 9px;font:inherit}
+a:focus-visible,input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.switch input:focus-visible+.slider{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:840px){
+ .workspace{display:block}.mobile-nav-toggle{display:inline-block;min-height:44px;margin:0 0 14px}
+ .nav-panel{position:fixed;z-index:30;top:0;left:0;bottom:0;width:min(330px,88vw);max-height:100dvh;overflow-y:auto;border-radius:0;transform:translateX(-105%);transition:transform .18s ease;visibility:hidden}
+ .nav-panel.is-open{transform:translateX(0);visibility:visible}
+ .nav-scrim:not([hidden]){display:block;position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.65)}
+ .nav-drawer-open{overflow:hidden}
+}
+@media(max-width:540px){
+ .nav-view{grid-template-columns:minmax(0,1fr)}
+ .nav-view .schedule-window{grid-template-columns:minmax(0,1fr) 72px auto}
+ .nav-view .schedule-window [data-window-unit]{grid-column:2}.nav-view .schedule-window [data-window-remove]{grid-column:3;grid-row:1}
+ .nav-view .schedule-window [data-window-duration]{grid-column:2;grid-row:1}
+ .nav-view .schedule-window [data-window-cron]{grid-column:1;grid-row:1/3;align-self:stretch}
+ .nav-view .field{grid-template-columns:minmax(0,1fr) minmax(95px,36%)}
+ .nav-view .card-head{flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){.nav-panel{transition:none}}
+
 </style>
 </head>
 <body><main>
 <header class="topbar"><div><div class="eyebrow">Runtime control plane</div><h1>LED administration</h1><p>Operational settings apply without a deployment. Authentication is provided by Cloudflare Access.</p></div><div class="toolbar"><span class="badge" id="global-health"><span class="dot"></span><span>Loading</span></span><button id="refresh" type="button">Refresh</button></div></header>
 <div id="notice" class="notice" role="status" aria-live="polite"></div>
+<div class="workspace">
+<button type="button" id="nav-toggle" class="mobile-nav-toggle" aria-expanded="false" aria-controls="nav-panel">☰ Browse screens</button>
+<div id="nav-scrim" class="nav-scrim" hidden></div>
+<aside id="nav-panel" class="nav-panel" aria-label="Administration navigation">
+<div class="nav-heading">Screens &amp; settings</div>
+<label class="nav-search-label" for="nav-search">Find a screen</label>
+<input id="nav-search" class="nav-search" type="search" placeholder="Search screens" autocomplete="off">
+<nav id="section-navigation" aria-label="Screen and maintenance sections"></nav>
+<p id="nav-empty" class="nav-empty" hidden>No matching screens.</p>
+</aside>
+<div class="workspace-main">
+<div class="content-heading"><div id="breadcrumb" class="breadcrumb">Overview</div><h2 id="section-title" tabindex="-1">Overview</h2><p id="section-subtitle" class="meta"></p></div>
 <section id="cards" class="grid" aria-busy="true"></section>
-<details class="advanced"><summary>Advanced diagnostics</summary><pre id="diagnostics">Loading…</pre></details>
+<details id="maintenance-diagnostics" class="advanced" hidden><summary>Advanced diagnostics</summary><pre id="diagnostics">Loading…</pre></details>
+</div></div>
 <script>
 const API='/api/control/v1';
 const cards=document.getElementById('cards'),notice=document.getElementById('notice'),diagnostics=document.getElementById('diagnostics'),health=document.getElementById('global-health');
@@ -38,30 +100,265 @@ function cardHtml(feedId,feed,schema,status){const advanced=new Set(schema.advan
 function weatherCardHtml(feedId,feed,schema,status){const healthState=status?.health||'unavailable';return `<article class="card" data-feed="${feedId}" data-dirty="false"><details class="card-disclosure" ${panelDetailsOpen(Boolean(feed.enabled))}><summary class="card-head"><div><h2>Weather</h2><div class="provider">Open-Meteo · one shared request/cache</div></div><span class="badge"><span class="dot ${healthState}"></span>${escapeHtml(healthState)}</span></summary><div class="card-body"><p class="meta">Current weather continues to feed the shared overlay. These controls govern the three dedicated Weather screens.</p>${fieldHtml(feedId,'enabled',feed.enabled,schema)}${fieldHtml(feedId,'poll_seconds',feed.poll_seconds,schema)}<details class="queue-park" ${panelDetailsOpen(Boolean(feed.overview_enabled))}><summary class="queue-park-head"><h3>7-day overview</h3></summary>${fieldHtml(feedId,'overview_enabled',feed.overview_enabled,schema)}${fieldHtml(feedId,'screen_duration_seconds',feed.screen_duration_seconds,schema)}</details><details class="queue-park" ${panelDetailsOpen(Boolean(feed.today_enabled))}><summary class="queue-park-head"><h3>Next 24 hours</h3></summary><p class="meta">Six rolling snapshots starting with Now, then every four hours.</p>${fieldHtml(feedId,'today_enabled',feed.today_enabled,schema)}${fieldHtml(feedId,'today_duration_seconds',feed.today_duration_seconds,schema)}</details><details class="queue-park" ${panelDetailsOpen(Boolean(feed.sun_enabled))}><summary class="queue-park-head"><h3>Sunrise / sunset</h3></summary>${fieldHtml(feedId,'sun_enabled',feed.sun_enabled,schema)}${fieldHtml(feedId,'sun_duration_seconds',feed.sun_duration_seconds,schema)}</details><details class="feed-advanced"><summary>Advanced</summary><div class="feed-advanced-body">${fieldHtml(feedId,'schedule_windows',feed.schedule_windows,schema)}</div></details><div class="meta" style="margin-top:14px">Last success: ${escapeHtml(formatTime(status?.last_successful_refresh))}<br>Last attempt: ${escapeHtml(formatTime(status?.last_attempted_refresh))}</div></div><div class="card-foot"><span class="dirty">Unsaved changes</span><button class="primary" data-save type="button" disabled>Apply changes</button></div></details></article>`;}
 function departuresSectionHtml(config,status){const departures=config.feeds.departures,departuresSchema=config.schema.feeds.departures,train=config.feeds.steam_train,trainSchema=config.schema.feeds.steam_train;if(!departures||!departuresSchema||!train||!trainSchema)return '';return '<section class="feed-section"><h2>Departures &amp; Steam Train</h2><p class="meta">Manage the station screen and its steam-train introduction together.</p><div class="section-cards">'+cardHtml('departures',departures,departuresSchema,status?.feeds?.departures)+cardHtml('steam_train',train,trainSchema,status?.feeds?.steam_train)+'</div></section>';}
 function queueMemberIds(){return Object.entries(state.config.schema.feeds).filter(([,schema])=>schema.provider==='queue_times').map(([feedId])=>feedId);}
-function queueHealth(){const memberIds=queueMemberIds();const enabled=memberIds.map(id=>state.status?.feeds?.[id]).filter(item=>item?.enabled);const states=enabled.map(item=>item.health);return states.includes('unavailable')?'unavailable':states.includes('stale')?'stale':states.length?'ok':'disabled';}
+function queueHealth(){if(!state.status?.feeds)return 'unavailable';const memberIds=queueMemberIds();const enabled=memberIds.map(id=>state.status.feeds[id]).filter(item=>item?.enabled);const states=enabled.map(item=>item.health);return states.includes('unavailable')?'unavailable':states.includes('stale')?'stale':states.length?'ok':'disabled';}
 function queueParkHtml(feedId){const feed=state.config.feeds[feedId],schema=state.config.schema.feeds[feedId],status=state.status?.feeds?.[feedId],healthState=status?.health||'unavailable';const fields=['enabled','poll_seconds'].filter(field=>schema.mutable_fields.includes(field));return `<details class="queue-park" data-park-feed="${feedId}" ${panelDetailsOpen(Boolean(feed.enabled))}><summary class="queue-park-head"><h3>${escapeHtml(schema.label)}</h3><span class="badge"><span class="dot ${healthState}"></span>${escapeHtml(healthState)}</span></summary>${fields.map(field=>fieldHtml(feedId,field,feed[field],schema)).join('')}${ridesHtml(feedId,feed,schema)}<div class="meta" style="margin-top:14px">Last success: ${escapeHtml(formatTime(status?.last_successful_refresh))}<br>Last attempt: ${escapeHtml(formatTime(status?.last_attempted_refresh))}</div></details>`;}
 function queueCardHtml(){const feedId='queue_times',feed=state.config.feeds[feedId],schema=state.config.schema.feeds[feedId];if(!feed||!schema)return '';const healthState=queueHealth(),hasEnabledPark=queueMemberIds().some(id=>Boolean(state.config.feeds[id]?.enabled));return `<article class="card queue-card" data-feed="queue_times" data-queue-group="true" data-dirty="false"><details class="card-disclosure" ${panelDetailsOpen(hasEnabledPark)}><summary class="card-head"><div><h2>Queue Times</h2><div class="provider">Queue-Times.com · combined parks</div></div><span class="badge"><span class="dot ${healthState}"></span>${escapeHtml(healthState)}</span></summary><div class="card-body"><p class="queue-intro meta">One screen duration covers every enabled park. Each park finishes its configured queue cycle before the next park takes over; future Queue-Times parks automatically join this section.</p>${fieldHtml(feedId,'screen_duration_seconds',feed.screen_duration_seconds,schema)}${advancedHtml(feedId,feed,schema)}<div class="queue-parks">${queueMemberIds().map(queueParkHtml).join('')}</div></div><div class="card-foot"><span class="dirty">Unsaved changes</span><button class="primary" data-save-queue type="button" disabled>Apply queue changes</button></div></details></article>`;}
 function staticFeedsHtml(config,status){const card=(id)=>{const feed=config.feeds[id],schema=config.schema.feeds[id];return feed&&schema?cardHtml(id,feed,schema,status?.feeds?.[id]):'';};const insultCard=card('insult_of_hour').replace('data-feed="insult_of_hour"','id="insult-of-hour" data-feed="insult_of_hour"');return '<section class="static-feeds" style="grid-column:1/-1"><h2>Static feeds</h2><h2>Joke</h2><p class="meta">Dad jokes and the hourly insult screen. The board chooses from cached content and keeps the last valid item when a provider fails.</p><div class="cards">'+card('dad_joke')+insultCard+'</div><h2 style="margin-top:24px">Fact &amp; Quotes</h2><p class="meta">Facts are here, and Insult of the Hour is shared with the Joke section: <a href="#insult-of-hour">open its controls</a>.</p><div class="cards">'+card('random_fact')+card('quotes')+'</div><p class="meta">Inspirational quotes provided by <a href="https://zenquotes.io/" target="_blank" rel="noreferrer">ZenQuotes API</a>. Quotes are disabled by default; confirm that the visible on-device ZenQuotes.io credit is sufficient for a non-clickable LED display before enabling the free-tier feed.</p><div class="card" style="margin-top:16px"><div class="card-body"><h3>Maintenance</h3><p class="meta">Garbage collection is safe to request after confirmation. It is queued through the authenticated control plane and does not alter feed configuration.</p><button class="primary" id="gc-action" type="button">Run garbage collection</button></div></div></section>';}
-function render(){const config=state.config,status=state.status;if(!config)return;cards.innerHTML=departuresSectionHtml(config,status)+Object.entries(config.feeds).map(([feedId,feed])=>{const schema=config.schema.feeds[feedId];if(feedId==='departures'||feedId==='steam_train')return '';if(feedId==='queue_times')return queueCardHtml();if(feedId==='weather')return weatherCardHtml(feedId,feed,schema,status?.feeds?.[feedId]);if(feedId==='today')return cardHtml(feedId,feed,schema,status?.feeds?.[feedId]);if(schema.provider==='queue_times'||schema.display_group==='static_feeds')return '';return cardHtml(feedId,feed,schema,status?.feeds?.[feedId]);}).join('')+staticFeedsHtml(config,status);cards.setAttribute('aria-busy','false');for(const card of cards.querySelectorAll('.card')){const queueGroup=card.dataset.queueGroup==='true';const defaultFeedId=card.dataset.feed;if(queueGroup){for(const feedId of queueMemberIds())renderSelected(card,feedId);}else renderSelected(card,defaultFeedId);card.addEventListener('change',event=>{if(event.target.matches('[data-window-unit]')){const row=event.target.closest('.schedule-window'),amount=row.querySelector('[data-window-duration]'),factor=WINDOW_UNITS.find(([name])=>name===event.target.value)?.[1];amount.max=String(Math.floor(44640/factor));}});card.addEventListener('input',event=>{const park=event.target.closest('[data-park-feed]');const feedId=park?.dataset.parkFeed||defaultFeedId;if(event.target.matches('[data-ride]')){const name=event.target.dataset.ride;const values=selectedFor(feedId);const existing=values.findIndex(v=>v.toLocaleLowerCase()===name.toLocaleLowerCase());if(event.target.checked&&existing<0)values.push(name);if(!event.target.checked&&existing>=0)values.splice(existing,1);renderSelected(card,feedId);}markDirty(card);});card.addEventListener('click',event=>{const addWindow=event.target.closest('[data-window-add]');if(addWindow){const root=addWindow.closest('[data-schedule-windows]');const row=document.createElement('div');row.className='schedule-window';row.innerHTML='<input aria-label="Cron expression" data-window-cron placeholder="0 18 * * 3">'+windowDurationControl(60)+'<button class="icon-button" data-window-remove type="button" aria-label="Remove window">x</button>';root.insertBefore(row,addWindow);markDirty(card);return;}if(event.target.closest('[data-window-remove]')){event.target.closest('.schedule-window').remove();markDirty(card);return;}const move=event.target.closest('[data-move]');if(move){const park=move.closest('[data-park-feed]');const feedId=park?.dataset.parkFeed||defaultFeedId;const index=Number(move.dataset.index),values=selectedFor(feedId),next=move.dataset.move==='up'?index-1:index+1;if(next>=0&&next<values.length){[values[index],values[next]]=[values[next],values[index]];renderSelected(card,feedId);markDirty(card);}return;}if(event.target.closest('[data-save-queue]'))saveQueueCard(card);else if(event.target.closest('[data-save]'))saveCard(card);});}
-updateGlobalHealth();diagnostics.textContent=JSON.stringify({config_version:config.config_version,updated_at:config.updated_at,updated_by:config.updated_by,status},null,2);}
-function markDirty(card){card.dataset.dirty='true';const button=card.querySelector('[data-save],[data-save-queue]');if(button)button.disabled=false;}
+function render(){const config=state.config,status=state.status;if(!config)return;cards.innerHTML=departuresSectionHtml(config,status)+Object.entries(config.feeds).map(([feedId,feed])=>{const schema=config.schema.feeds[feedId];if(feedId==='departures'||feedId==='steam_train')return '';if(feedId==='queue_times')return queueCardHtml();if(feedId==='weather')return weatherCardHtml(feedId,feed,schema,status?.feeds?.[feedId]);if(feedId==='today')return cardHtml(feedId,feed,schema,status?.feeds?.[feedId]);if(schema.provider==='queue_times'||(schema.display_group==='static_feeds'&&['dad_joke','insult_of_hour','random_fact','quotes'].includes(feedId)))return '';return cardHtml(feedId,feed,schema,status?.feeds?.[feedId]);}).join('')+staticFeedsHtml(config,status);cards.setAttribute('aria-busy','false');for(const card of cards.querySelectorAll('.card')){const queueGroup=card.dataset.queueGroup==='true';const defaultFeedId=card.dataset.feed;if(queueGroup){for(const feedId of queueMemberIds())renderSelected(card,feedId);}else renderSelected(card,defaultFeedId);card.addEventListener('change',event=>{if(event.target.matches('[data-window-unit]')){const row=event.target.closest('.schedule-window'),amount=row.querySelector('[data-window-duration]'),factor=WINDOW_UNITS.find(([name])=>name===event.target.value)?.[1];amount.max=String(Math.floor(44640/factor));}});card.addEventListener('input',event=>{const park=event.target.closest('[data-park-feed]');const feedId=park?.dataset.parkFeed||defaultFeedId;if(event.target.matches('[data-ride]')){const name=event.target.dataset.ride;const values=selectedFor(feedId);const existing=values.findIndex(v=>v.toLocaleLowerCase()===name.toLocaleLowerCase());if(event.target.checked&&existing<0)values.push(name);if(!event.target.checked&&existing>=0)values.splice(existing,1);renderSelected(card,feedId);}markDirty(card);});card.addEventListener('click',event=>{const addWindow=event.target.closest('[data-window-add]');if(addWindow){const root=addWindow.closest('[data-schedule-windows]');const row=document.createElement('div');row.className='schedule-window';row.innerHTML='<input aria-label="Cron expression" data-window-cron placeholder="0 18 * * 3">'+windowDurationControl(60)+'<button class="icon-button" data-window-remove type="button" aria-label="Remove window">x</button>';root.insertBefore(row,addWindow);markDirty(card);return;}if(event.target.closest('[data-window-remove]')){event.target.closest('.schedule-window').remove();markDirty(card);return;}const move=event.target.closest('[data-move]');if(move){const park=move.closest('[data-park-feed]');const feedId=park?.dataset.parkFeed||defaultFeedId;const index=Number(move.dataset.index),values=selectedFor(feedId),next=move.dataset.move==='up'?index-1:index+1;if(next>=0&&next<values.length){[values[index],values[next]]=[values[next],values[index]];renderSelected(card,feedId);markDirty(card);}return;}if(event.target.closest('[data-save-queue]'))saveQueueCard(card);else if(event.target.closest('[data-save]'))saveCard(card);});}
+organiseNavigation();updateGlobalHealth();diagnostics.textContent=JSON.stringify({config_version:config.config_version,updated_at:config.updated_at,updated_by:config.updated_by,status},null,2);}
+function markDirty(card){card.dataset.dirty='true';const button=card.querySelector('[data-save],[data-save-queue]');if(button)button.disabled=false;updateDirtyNavigation();}
 function collect(card){const feedId=card.dataset.feed,schema=state.config.schema.feeds[feedId],result={};for(const field of schema.mutable_fields){if(field==='schedule_windows'){const root=card.querySelector('[data-schedule-windows="'+feedId+'"]');result.schedule_windows=[...root.querySelectorAll('.schedule-window')].map(row=>{const cron=row.querySelector('[data-window-cron]').value.trim(),amount=Number(row.querySelector('[data-window-duration]').value),unit=row.querySelector('[data-window-unit]').value,factor=WINDOW_UNITS.find(([name])=>name===unit)?.[1],duration=amount*factor;if(!cron||!Number.isInteger(amount)||amount<1||!factor||!Number.isInteger(duration)||duration>44640)throw new Error(schema.label+': each window needs a whole duration from 1 minute to 31 days.');return {cron,duration_minutes:duration};});continue;}if(field==='rides'){result.rides=[...selectedFor(feedId)];continue;}const input=card.querySelector(`[data-field="${field}"]`);if(!input)continue;const meta=schema.fields[field]||{};if(meta.type==='boolean')result[field]=input.checked;else if(meta.type==='string'){const value=input.value.trim();if(meta.maximumLength&&value.length>meta.maximumLength)throw new Error(`${schema.label}: ${field.replaceAll('_',' ')} must be at most ${meta.maximumLength} characters.`);result[field]=value;}else if(meta.type==='select'){const value=meta.values.every(option=>typeof option==='number')?Number(input.value):input.value;if(!meta.values.includes(value))throw new Error(`${schema.label}: choose one of ${meta.values.join(', ')}.`);result[field]=value;}else{const value=Number(input.value);if(!Number.isInteger(value)||value<meta.minimum||value>meta.maximum)throw new Error(`${schema.label}: ${field.replaceAll('_',' ')} must be ${meta.minimum}–${meta.maximum}.`);result[field]=value;}}return result;}
-function collectQueueCard(card){const patches=[];const groupSchema=state.config.schema.feeds.queue_times;const groupPatch={};for(const field of ['screen_duration_seconds',...(groupSchema.advanced_fields||[])]){if(field==='schedule_windows'){const root=card.querySelector('[data-schedule-windows="queue_times"]');groupPatch.schedule_windows=[...root.querySelectorAll('.schedule-window')].map(row=>{const cron=row.querySelector('[data-window-cron]').value.trim(),duration=Number(row.querySelector('[data-window-duration]').value);if(!cron||!Number.isInteger(duration)||duration<1||duration>44640)throw new Error('Queue Times: each window needs cron text and a duration from 1 to 44640 minutes.');return {cron,duration_minutes:duration};});continue;}const input=card.querySelector(`:scope > .card-body [data-field="${field}"]`);if(!input)continue;const meta=groupSchema.fields[field]||{};if(meta.type==='boolean')groupPatch[field]=input.checked;else if(meta.type==='string')groupPatch[field]=input.value.trim();else{const value=Number(input.value);if(!Number.isInteger(value)||value<meta.minimum||value>meta.maximum)throw new Error(`Queue Times: ${field.replaceAll('_',' ')} must be ${meta.minimum}–${meta.maximum}.`);groupPatch[field]=value;}}patches.push(['queue_times',groupPatch]);for(const feedId of queueMemberIds()){const park=card.querySelector(`[data-park-feed="${feedId}"]`),schema=state.config.schema.feeds[feedId],patch={rides:[...selectedFor(feedId)]};for(const field of ['enabled','poll_seconds']){const input=park.querySelector(`[data-field="${field}"]`),meta=schema.fields[field]||{};if(meta.type==='boolean')patch[field]=input.checked;else{const value=Number(input.value);if(!Number.isInteger(value)||value<meta.minimum||value>meta.maximum)throw new Error(`${schema.label}: ${field.replaceAll('_',' ')} must be ${meta.minimum}–${meta.maximum}.`);patch[field]=value;}}patches.push([feedId,patch]);}return patches;}
-function captureDirtyDrafts(excludeFeedId){const drafts={};for(const card of cards.querySelectorAll('.card[data-dirty="true"]')){const feedId=card.dataset.feed;if(feedId===excludeFeedId||card.dataset.queueGroup==='true')continue;const fields={};for(const input of card.querySelectorAll('[data-field]'))fields[input.dataset.field]=input.type==='checkbox'?input.checked:input.value;drafts[feedId]={fields,rides:[...selectedFor(feedId)]};}return drafts;}
-function restoreDirtyDrafts(drafts){for(const [feedId,draft] of Object.entries(drafts)){const card=cards.querySelector(`.card[data-feed="${feedId}"]`);if(!card)continue;for(const [field,value] of Object.entries(draft.fields||{})){const input=card.querySelector(`[data-field="${field}"]`);if(!input)continue;if(input.type==='checkbox')input.checked=Boolean(value);else input.value=value;}if(Array.isArray(draft.rides)){state.selected[feedId]=[...draft.rides];for(const input of card.querySelectorAll('[data-ride]'))input.checked=draft.rides.some(name=>name.toLocaleLowerCase()===input.dataset.ride.toLocaleLowerCase());renderSelected(card,feedId);}markDirty(card);}}
+function collectQueueCard(card){const patches=[];const groupSchema=state.config.schema.feeds.queue_times;const groupPatch={};for(const field of ['screen_duration_seconds',...(groupSchema.advanced_fields||[])]){if(field==='schedule_windows'){const root=card.querySelector('[data-schedule-windows="queue_times"]');groupPatch.schedule_windows=[...root.querySelectorAll('.schedule-window')].map(row=>{const cron=row.querySelector('[data-window-cron]').value.trim(),amount=Number(row.querySelector('[data-window-duration]').value),factor=WINDOW_UNITS.find(([name])=>name===row.querySelector('[data-window-unit]').value)?.[1],duration=amount*factor;if(!cron||!Number.isInteger(duration)||duration<1||duration>44640)throw new Error('Queue Times: each window needs cron text and a duration from 1 to 44640 minutes.');return {cron,duration_minutes:duration};});continue;}const input=card.querySelector(`.card-disclosure > .card-body [data-field="${field}"]`);if(!input)continue;const meta=groupSchema.fields[field]||{};if(meta.type==='boolean')groupPatch[field]=input.checked;else if(meta.type==='string')groupPatch[field]=input.value.trim();else{const value=Number(input.value);if(!Number.isInteger(value)||value<meta.minimum||value>meta.maximum)throw new Error(`Queue Times: ${field.replaceAll('_',' ')} must be ${meta.minimum}–${meta.maximum}.`);groupPatch[field]=value;}}patches.push(['queue_times',groupPatch]);for(const feedId of queueMemberIds()){const park=card.querySelector(`[data-park-feed="${feedId}"]`),schema=state.config.schema.feeds[feedId],patch={rides:[...selectedFor(feedId)]};for(const field of ['enabled','poll_seconds']){const input=park.querySelector(`[data-field="${field}"]`),meta=schema.fields[field]||{};if(meta.type==='boolean')patch[field]=input.checked;else{const value=Number(input.value);if(!Number.isInteger(value)||value<meta.minimum||value>meta.maximum)throw new Error(`${schema.label}: ${field.replaceAll('_',' ')} must be ${meta.minimum}–${meta.maximum}.`);patch[field]=value;}}patches.push([feedId,patch]);}return patches;}
+
+function hasUnsavedChanges(){return Boolean(cards.querySelector('.card[data-dirty="true"]'));}
+function captureDirtyDrafts(excludeFeedId){
+ const drafts={};
+ for(const card of cards.querySelectorAll('.card[data-dirty="true"]')){
+  const feedId=card.dataset.feed;
+  if(!feedId||feedId===excludeFeedId)continue;
+  const memberIds=card.dataset.queueGroup==='true'?queueMemberIds():[feedId];
+  drafts[feedId]={
+   fields:[...card.querySelectorAll('[data-field]')].map(input=>({feedId:input.closest('[data-park-feed]')?.dataset.parkFeed||feedId,field:input.dataset.field,value:input.type==='checkbox'?input.checked:input.value})),
+   windows:[...card.querySelectorAll('[data-schedule-windows]')].map(root=>({feedId:root.dataset.scheduleWindows,rows:[...root.querySelectorAll('.schedule-window')].map(row=>({cron:row.querySelector('[data-window-cron]').value,amount:row.querySelector('[data-window-duration]').value,unit:row.querySelector('[data-window-unit]').value}))})),
+   rides:Object.fromEntries(memberIds.map(id=>[id,[...selectedFor(id)]])),
+   open:[...card.querySelectorAll('details')].map(details=>details.open)
+  };
+ }
+ return drafts;
+}
+function restoreDirtyDrafts(drafts){
+ for(const [feedId,draft] of Object.entries(drafts)){
+  const card=[...cards.querySelectorAll('.card[data-feed]')].find(element=>element.dataset.feed===feedId);
+  if(!card)continue;
+  for(const entry of draft.fields||[]){
+   const parent=entry.feedId===feedId?card:card.querySelector('[data-park-feed="'+CSS.escape(entry.feedId)+'"]');
+   const input=parent?.querySelector('[data-field="'+CSS.escape(entry.field)+'"]');
+   if(!input)continue;
+   if(input.type==='checkbox')input.checked=Boolean(entry.value);else input.value=entry.value;
+  }
+  for(const entry of draft.windows||[]){
+   const root=card.querySelector('[data-schedule-windows="'+CSS.escape(entry.feedId)+'"]');
+   if(!root)continue;
+   root.querySelectorAll('.schedule-window').forEach(row=>row.remove());
+   const add=root.querySelector('[data-window-add]');
+   for(const row of entry.rows){
+    const element=document.createElement('div');element.className='schedule-window';
+    element.innerHTML='<input aria-label="Cron expression" data-window-cron value="'+escapeHtml(row.cron)+'" placeholder="0 18 * * 3">'+windowDurationControl(60)+'<button class="icon-button" data-window-remove type="button" aria-label="Remove window">x</button>';
+    element.querySelector('[data-window-duration]').value=row.amount;
+    element.querySelector('[data-window-unit]').value=row.unit;
+    root.insertBefore(element,add);
+   }
+  }
+  for(const [id,rides] of Object.entries(draft.rides||{})){
+   state.selected[id]=[...rides];
+   const parent=id===feedId?card:card.querySelector('[data-park-feed="'+CSS.escape(id)+'"]');
+   for(const input of parent?.querySelectorAll('[data-ride]')||[])input.checked=rides.some(name=>name.toLocaleLowerCase()===input.dataset.ride.toLocaleLowerCase());
+   renderSelected(card,id);
+  }
+  [...card.querySelectorAll('details')].forEach((details,i)=>{if(i<draft.open.length)details.open=draft.open[i];});
+  markDirty(card);
+ }
+}
 async function patchFeed(feedId,body){const endpoint=feedId==='display'?'/display':`/feeds/${encodeURIComponent(feedId)}`;const {data}=await api(endpoint,{method:'PATCH',headers:{'Content-Type':'application/json','If-Match':`"${state.config.config_version}"`},body:JSON.stringify(body)});state.config=data;return data;}
-async function saveCard(card){clearNotice();const feedId=card.dataset.feed,button=card.querySelector('[data-save]'),drafts=captureDirtyDrafts(feedId);try{const body=collect(card);button.disabled=true;button.textContent='Applying…';const data=await patchFeed(feedId,body);const label=feedId==='display'?data.schema.display.label:data.schema.feeds[feedId].label;const rebuildDelayed=data.rebuild_triggered===false;showNotice(rebuildDelayed?`${label} updated. The immediate screen rebuild could not be triggered; the scheduled publisher will apply it on its next run.`:`${label} updated. A screen rebuild has been triggered.`,rebuildDelayed?'warning':'success');await loadStatus();render();restoreDirtyDrafts(drafts);}catch(error){showNotice(error.message,'error');button.disabled=false;}finally{button.textContent='Apply changes';}}
-async function saveQueueCard(card){clearNotice();const button=card.querySelector('[data-save-queue]'),drafts=captureDirtyDrafts('queue_times');let applied=0;try{const patches=collectQueueCard(card);button.disabled=true;button.textContent='Applying…';let rebuildDelayed=false;for(const [feedId,body] of patches){const data=await patchFeed(feedId,body);applied+=1;rebuildDelayed=rebuildDelayed||data.rebuild_triggered===false;}showNotice(rebuildDelayed?'Queue Times updated. One or more immediate rebuild triggers were delayed; the scheduled publisher will apply the saved configuration.':'Queue Times and all park settings updated. A screen rebuild has been triggered.',rebuildDelayed?'warning':'success');await loadStatus();render();restoreDirtyDrafts(drafts);}catch(error){showNotice((applied?'Some queue settings were saved before the error. ':'')+error.message,'error');button.disabled=false;}finally{button.textContent='Apply queue changes';}}
-function updateGlobalHealth(){const entries=Object.entries(state.status?.feeds||{}).filter(([feedId,feed])=>!state.config?.schema?.feeds?.[feedId]?.virtual&&feed.enabled);const states=entries.map(([,feed])=>feed.health);const current=states.includes('unavailable')?'unavailable':states.includes('stale')?'stale':states.length?'ok':'disabled';health.innerHTML=`<span class="dot ${current}"></span><span>${current==='ok'?'All enabled feeds healthy':current}</span>`;}
+async function saveCard(card){clearNotice();const feedId=card.dataset.feed,button=card.querySelector('[data-save]'),drafts=captureDirtyDrafts(feedId);try{const body=collect(card);button.disabled=true;button.textContent='Applying…';const data=await patchFeed(feedId,body);const label=feedId==='display'?data.schema.display.label:data.schema.feeds[feedId].label;const rebuildDelayed=data.rebuild_triggered===false;showNotice(rebuildDelayed?`${label} updated. The immediate screen rebuild could not be triggered; the scheduled publisher will apply it on its next run.`:`${label} updated. A screen rebuild has been triggered.`,rebuildDelayed?'warning':'success');const statusOk=await statusAfterSave();render();restoreDirtyDrafts(drafts);if(!statusOk)showNotice('Settings saved, but live status is unavailable. Refresh to retry.','warning');}catch(error){showNotice(error.message,'error');button.disabled=false;}finally{button.textContent='Apply changes';}}
+async function saveQueueCard(card){clearNotice();const button=card.querySelector('[data-save-queue]'),drafts=captureDirtyDrafts('queue_times');let applied=0;try{const patches=collectQueueCard(card);button.disabled=true;button.textContent='Applying…';let rebuildDelayed=false;for(const [feedId,body] of patches){const data=await patchFeed(feedId,body);applied+=1;rebuildDelayed=rebuildDelayed||data.rebuild_triggered===false;}showNotice(rebuildDelayed?'Queue Times updated. One or more immediate rebuild triggers were delayed; the scheduled publisher will apply the saved configuration.':'Queue Times and all park settings updated. A screen rebuild has been triggered.',rebuildDelayed?'warning':'success');const statusOk=await statusAfterSave();render();restoreDirtyDrafts(drafts);if(!statusOk)showNotice('Settings saved, but live status is unavailable. Refresh to retry.','warning');}catch(error){showNotice((applied?'Some queue settings were saved before the error. ':'')+error.message,'error');button.disabled=false;}finally{button.textContent='Apply queue changes';}}
+function updateGlobalHealth(){const entries=Object.entries(state.status?.feeds||{}).filter(([feedId,feed])=>!state.config?.schema?.feeds?.[feedId]?.virtual&&feed.enabled);const states=entries.map(([,feed])=>feed.health);const current=!state.status?'unavailable':states.includes('unavailable')?'unavailable':states.includes('stale')?'stale':states.length?'ok':'disabled';health.innerHTML=`<span class="dot ${current}"></span><span>${current==='ok'?'All enabled feeds healthy':current}</span>`;}
 async function runGarbageCollection(){if(!window.confirm('Run garbage collection now? This sends a maintenance request to the publisher.'))return;clearNotice();const button=document.getElementById('gc-action');button.disabled=true;button.textContent='Requesting…';try{const result=await api('/maintenance/gc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})});showNotice(result.data.message||'Garbage collection requested.','success');}catch(error){showNotice(error.message,'error');}finally{button.disabled=false;button.textContent='Run garbage collection';}}
 async function loadStatus(){const result=await api('/status');state.status=result.data;return result.data;}
-async function load(){cards.setAttribute('aria-busy','true');clearNotice();try{const [configResult,statusResult]=await Promise.all([api('/config'),api('/status')]);state.config=configResult.data;state.status=statusResult.data;state.selected={};render();}catch(error){cards.innerHTML='';showNotice(error.message,'error');health.innerHTML='<span class="dot unavailable"></span><span>Unavailable</span>';diagnostics.textContent=error.message;}}
+async function statusAfterSave(){try{await loadStatus();return true;}catch(error){state.status=null;return false;}}
+async function load(){cards.setAttribute('aria-busy','true');clearNotice();try{const [configResult,statusResult]=await Promise.allSettled([api('/config'),api('/status')]);if(configResult.status==='rejected')throw configResult.reason;state.config=configResult.value.data;state.status=statusResult.status==='fulfilled'?statusResult.value.data:null;state.selected={};render();if(statusResult.status==='rejected')showNotice('Configuration loaded, but live status is unavailable: '+statusResult.reason.message,'warning');}catch(error){state.config=null;state.status=null;state.selected={};navItems=[];cards.replaceChildren();document.getElementById('section-navigation').replaceChildren();document.getElementById('section-title').textContent='Configuration unavailable';document.getElementById('section-subtitle').textContent='Refresh to retry loading the control plane.';document.getElementById('breadcrumb').textContent='Administration';showNotice(error.message,'error');health.innerHTML='<span class="dot unavailable"></span><span>Unavailable</span>';diagnostics.textContent=error.message;}finally{cards.setAttribute('aria-busy','false');}}
+
+/* Navigation is derived from live config; changing views moves (not recreates) form nodes. */
+let navItems=[],navOpen=false;
+const navPanel=document.getElementById('nav-panel'),navToggle=document.getElementById('nav-toggle');
+const navScrim=document.getElementById('nav-scrim'),navSearch=document.getElementById('nav-search');
+const narrowViewport=window.matchMedia('(max-width: 840px)');
+function navigationModel(config){
+ const feeds=config.feeds||{},schemas=config.schema?.feeds||{},available=id=>Object.hasOwn(feeds,id)&&Object.hasOwn(schemas,id);
+ const mapped=new Set(),groups=[];
+ const push=(group,label,items)=>{if(items.length)groups.push({group,label,items});};
+ const item=(id,label,view=id,feedIds=(id==='overview'||id==='maintenance'?[]:[id]))=>({key:id==='overview'||id==='maintenance'?id:'screen/'+id,label,view,feedIds});
+ const known=(ids)=>ids.filter(available);
+ const rail=known(['departures','steam_train']);rail.forEach(id=>mapped.add(id));
+ const transport=[];
+ if(rail.length){transport.push(item(rail.includes('departures')?'departures':'steam_train','Rail departures & steam train','rail',rail));if(rail.includes('steam_train')&&rail.includes('departures'))transport.push(item('steam_train','Steam Train introduction','rail',rail));}
+ if(available('sl7_bus')){mapped.add('sl7_bus');transport.push(item('sl7_bus','SL7 Bus'));}
+ push('transport','Transport',transport);
+ const weather=[];
+ if(available('weather')){mapped.add('weather');weather.push(item('weather','Weather · 7-day overview'));weather.push(item('weather-next-24-hours','Weather · Next 24 hours','weather',['weather']));weather.push(item('weather-sunrise-sunset','Weather · Sunrise / sunset','weather',['weather']));}if(available('today')){mapped.add('today');weather.push(item('today','Today · current conditions'));}
+ push('weather','Weather',weather);
+ const queue=Object.keys(schemas).filter(id=>schemas[id]?.provider==='queue_times'&&available(id));
+ const parks=[];
+ if(available('queue_times')){
+  mapped.add('queue_times');
+  parks.push(item('queue_times','Queue Times · all parks','queue_times',['queue_times',...queue]));
+  for(const id of queue){mapped.add(id);parks.push(item(id,schemas[id].label||id,'queue_times',['queue_times',...queue]));}
+ }else for(const id of queue){mapped.add(id);parks.push(item(id,schemas[id].label||id));}
+ push('parks','Theme parks',parks);
+ const calendar=[];
+ for(const [id,label] of [['calendar','Todoist / calendar'],['todoist','Todoist'],['christmas','Christmas tracker'],['christmas_tracker','Christmas tracker']])if(available(id)){mapped.add(id);calendar.push(item(id,label));}
+ push('calendar','Calendar & events',calendar);
+ const fun=[];
+ for(const [id,label] of [['dad_joke','Dad Joke'],['insult_of_hour','Insult of the Hour'],['random_fact','Random Fact'],['quotes','Quotes']])if(available(id)){mapped.add(id);fun.push(item(id,label));}
+ push('fun','Fun & content',fun);
+ const mqtt=[];
+ for(const [id,label] of [['flash','Flash & reminders'],['recycling','Recycling']])if(available(id)){mapped.add(id);mqtt.push(item(id,label));}
+ push('mqtt','MQTT & notifications',mqtt);
+ const other=Object.keys(feeds).filter(id=>available(id)&&!mapped.has(id)).map(id=>item(id,schemas[id].label||id));
+ push('other','Other screens',other);
+ groups.unshift({group:'overview',label:'Overview',items:[item('overview','Overview')]});
+ groups.push({group:'maintenance',label:'Maintenance & diagnostics',items:[item('maintenance','Maintenance & diagnostics')]});
+ return groups;
+}
+function navigationHealth(entry){
+ if(!entry.feedIds.length)return '';
+ if(entry.view==='queue_times')return queueHealth();
+ const status=state.status?.feeds?.[entry.feedIds[0]];
+ return status?.enabled===false?'disabled':status?.health||'unavailable';
+}
+function overviewHtml(){
+ const entries=Object.entries(state.status?.feeds||{}).filter(([id,feed])=>state.config?.schema?.feeds?.[id]&&!state.config.schema.feeds[id].virtual&&feed.enabled);
+ const unhealthy=entries.filter(([,feed])=>feed.health!=='ok');
+ const config=state.config;
+ const published=state.status?.published_at||state.status?.last_publish_at||state.status?.last_published_at;
+ return '<div class="overview-grid"><div class="overview-panel"><h3>Enabled feeds</h3><strong>'+entries.length+'</strong><p class="meta">'+(state.status?'From current API status':'Status unavailable; configuration remains editable')+'</p></div>'+
+  '<div class="overview-panel"><h3>Feeds needing attention</h3><strong>'+(state.status?unhealthy.length:'Unknown')+'</strong><p class="meta">Stale and unavailable feeds</p></div>'+
+  '<div class="overview-panel"><h3>Configuration version</h3><strong>'+escapeHtml(config?.config_version||'Unknown')+'</strong><p class="meta">Updated '+escapeHtml(formatTime(config?.updated_at))+'</p></div>'+
+  '<div class="overview-panel"><h3>Published</h3><strong>'+escapeHtml(formatTime(published))+'</strong><p class="meta">As reported by the control API</p></div></div>'+
+  '<div class="overview-panel" style="grid-column:1/-1"><h3>Quick access</h3><p>Choose a screen from the navigation or open a common section:</p><div class="overview-links">'+navItems.filter(entry=>['screen/departures','screen/weather','screen/queue_times','maintenance'].includes(entry.key)).map(entry=>'<a href="#'+escapeHtml(entry.key)+'">'+escapeHtml(entry.label)+'</a>').join('')+'</div></div>';
+}
+function organiseNavigation(){
+ const groups=navigationModel(state.config);navItems=groups.flatMap(group=>group.items.map(entry=>({...entry,group:group.label})));
+ const nodes=new Map([...cards.querySelectorAll('.card[data-feed]')].map(card=>[card.dataset.feed,card]));
+ const rail=cards.querySelector('.feed-section'),staticFeeds=cards.querySelector('.static-feeds');
+ const maintenance=staticFeeds?.querySelector('.card:not([data-feed])');
+ const quotesCredit=[...(staticFeeds?.querySelectorAll('p')||[])].find(p=>p.textContent.includes('Inspirational quotes provided by'));
+ const views=[],seen=new Set();
+ for(const entry of navItems){
+  if(seen.has(entry.view))continue;seen.add(entry.view);
+  const section=document.createElement('section');section.className='nav-view';section.dataset.navView=entry.view;section.hidden=true;
+  if(entry.view==='overview')section.innerHTML=overviewHtml();
+  else if(entry.view==='maintenance'){
+   if(maintenance)section.appendChild(maintenance);
+   const hint=document.createElement('p');hint.className='meta';hint.textContent='Diagnostics are below. These tools do not edit individual screen settings.';section.appendChild(hint);
+  }else if(entry.view==='rail'&&rail)section.appendChild(rail);
+  else{
+   const card=nodes.get(entry.view);
+   if(card)section.appendChild(card);
+   if(entry.view==='quotes'&&quotesCredit)section.appendChild(quotesCredit);
+   if(entry.view==='random_fact'){
+    const hint=document.createElement('p');hint.className='meta';hint.innerHTML='Insult of the Hour is configured under Joke and Fun: <a href="#insult-of-hour">open its controls</a>.';section.appendChild(hint);
+   }
+  }
+  views.push(section);
+ }
+ cards.replaceChildren(...views);
+ const navigation=document.getElementById('section-navigation');
+ navigation.innerHTML=groups.map(group=>'<details class="nav-group" data-nav-group="'+escapeHtml(group.group)+'" open><summary>'+escapeHtml(group.label)+'</summary><div class="nav-group-links">'+group.items.map(entry=>{
+  const healthState=navigationHealth(entry);
+  return '<a class="nav-link" href="#'+escapeHtml(entry.key)+'" data-nav-key="'+escapeHtml(entry.key)+'"><span class="nav-link-text">'+escapeHtml(entry.label)+'</span>'+(healthState?'<span class="nav-health '+escapeHtml(healthState)+'" title="'+escapeHtml(healthState)+'" aria-label="'+escapeHtml(healthState)+'"></span>':'')+'<span class="nav-dirty" hidden title="Unsaved changes" aria-label="Unsaved changes">●</span></a>';
+ }).join('')+'</div></details>').join('');
+ filterNavigation();updateDirtyNavigation();selectFromHash(false);
+}
+function updateDirtyNavigation(){
+ for(const link of document.querySelectorAll('[data-nav-key]')){
+  const item=navItems.find(entry=>entry.key===link.dataset.navKey);
+  if(!item)continue;
+  const dirty=item.feedIds.some(id=>{
+   const card=[...cards.querySelectorAll('.card[data-dirty="true"]')].find(card=>card.dataset.feed===id);
+   return Boolean(card)||item.view==='queue_times'&&Boolean(cards.querySelector('.queue-card[data-dirty="true"]'));
+  });
+  const indicator=link.querySelector('.nav-dirty');
+  if(indicator)indicator.hidden=!dirty;
+ }
+}
+function selectedKeyFromHash(){
+ let hash='';
+ try{hash=decodeURIComponent(window.location.hash.slice(1));}catch(e){return 'overview';}
+ if(hash==='insult-of-hour')return 'screen/insult_of_hour';
+ return navItems.some(item=>item.key===hash)?hash:'overview';
+}
+function selectFromHash(focusHeading){
+ const key=selectedKeyFromHash();
+ const item=navItems.find(entry=>entry.key===key)||navItems[0];
+ if(!item)return;
+ for(const view of cards.querySelectorAll('[data-nav-view]'))view.hidden=view.dataset.navView!==item.view;
+ const currentView=[...cards.querySelectorAll('[data-nav-view]')].find(view=>view.dataset.navView===item.view);
+ if(currentView)for(const details of currentView.querySelectorAll('.card-disclosure'))details.open=true;
+ if(item.view==='weather'&&key==='screen/weather-next-24-hours'){const detail=currentView?.querySelectorAll('.queue-park')[1];if(detail)detail.open=true;}
+ if(item.view==='weather'&&key==='screen/weather-sunrise-sunset'){const detail=currentView?.querySelectorAll('.queue-park')[2];if(detail)detail.open=true;}
+ for(const link of document.querySelectorAll('[data-nav-key]')){
+  if(link.dataset.navKey===key)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
+ }
+ document.getElementById('breadcrumb').textContent=item.group+' / '+item.label;
+ const heading=document.getElementById('section-title');heading.textContent=item.label;
+ document.getElementById('section-subtitle').textContent=item.view==='rail'?'Rail departures and the Steam Train introduction share this section.':item.view==='queue_times'?'Park selection and ordering save together.':'';
+ document.getElementById('maintenance-diagnostics').hidden=item.view!=='maintenance';
+ if(item.view==='queue_times'&&key!=='screen/queue_times'){
+  const park=cards.querySelector('[data-park-feed="'+CSS.escape(key.slice(7))+'"]');
+  if(park)park.open=true;
+ }
+ if(focusHeading)heading.focus({preventScroll:true});
+ closeNavigation(false);
+}
+function filterNavigation(){
+ const query=navSearch.value.trim().toLocaleLowerCase();let matches=0;
+ for(const group of document.querySelectorAll('.nav-group')){
+  let count=0;
+  for(const link of group.querySelectorAll('.nav-link')){
+   const matchesQuery=link.textContent.toLocaleLowerCase().includes(query)||link.dataset.navKey.toLocaleLowerCase().includes(query)||group.querySelector('summary').textContent.toLocaleLowerCase().includes(query);
+   link.hidden=!matchesQuery;if(matchesQuery){count++;matches++;}
+  }
+  group.hidden=count===0;
+  if(query&&count)group.open=true;
+ }
+ document.getElementById('nav-empty').hidden=matches!==0;
+}
+function closeNavigation(returnFocus){
+ if(!navOpen)return;
+ navOpen=false;navPanel.classList.remove('is-open');navScrim.hidden=true;
+ navToggle.setAttribute('aria-expanded','false');document.documentElement.classList.remove('nav-drawer-open');
+ if(narrowViewport.matches)navPanel.inert=true;
+ if(returnFocus)navToggle.focus();
+}
+function openNavigation(){
+ navOpen=true;navPanel.inert=false;navPanel.classList.add('is-open');navScrim.hidden=false;
+ navToggle.setAttribute('aria-expanded','true');document.documentElement.classList.add('nav-drawer-open');navSearch.focus();
+}
+function syncNavigationViewport(){
+ if(!narrowViewport.matches){closeNavigation(false);navPanel.inert=false;}
+ else if(!navOpen)navPanel.inert=true;
+}
+navToggle.addEventListener('click',()=>navOpen?closeNavigation(true):openNavigation());
+navScrim.addEventListener('click',()=>closeNavigation(true));
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&navOpen){event.preventDefault();closeNavigation(true);}});
+document.getElementById('section-navigation').addEventListener('click',event=>{
+ const link=event.target.closest('a[data-nav-key]');if(!link)return;
+ event.preventDefault();const hash='#'+link.dataset.navKey;
+ if(window.location.hash===hash)selectFromHash(true);else window.location.hash=hash;
+ closeNavigation(false);
+});
+navSearch.addEventListener('input',filterNavigation);
+window.addEventListener('hashchange',()=>selectFromHash(true));
+narrowViewport.addEventListener('change',syncNavigationViewport);
+syncNavigationViewport();
+window.addEventListener('beforeunload',event=>{if(hasUnsavedChanges()){event.preventDefault();event.returnValue='';}});
+function refreshWithWarning(){
+ if(hasUnsavedChanges()&&!window.confirm('Discard unsaved screen changes and refresh configuration?'))return;
+ load();
+}
+
 const accessReady=new URLSearchParams(window.location.search).get('access')==='1';
 if(!accessReady){
+  // Cloudflare's session redirect cannot carry a URL fragment; keep the bookmark locally.
+  if(window.location.hash)window.sessionStorage.setItem('led-admin-return-hash',window.location.hash);
   window.location.replace(`${API}/session`);
 }else{
-  window.history.replaceState(null,'','/admin');
-  document.getElementById('refresh').addEventListener('click',load);
+  const savedHash=window.sessionStorage.getItem('led-admin-return-hash');
+  window.sessionStorage.removeItem('led-admin-return-hash');
+  const restoredHash=window.location.hash||(savedHash&&savedHash.startsWith('#')?savedHash:'');
+  window.history.replaceState(null,'','/admin'+restoredHash);
+  document.getElementById('refresh').addEventListener('click',refreshWithWarning);
   document.addEventListener('click',event=>{if(event.target.id==='gc-action')runGarbageCollection();});
   load();
 }

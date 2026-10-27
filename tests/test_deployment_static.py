@@ -257,7 +257,8 @@ class DeploymentStaticTests(unittest.TestCase):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn('<link rel="icon" href="data:,">', admin)
         self.assertIn("window.location.replace(`${API}/session`);", admin)
-        self.assertIn("window.history.replaceState(null,'','/admin');", admin)
+        self.assertIn("window.history.replaceState(null,'','/admin'+restoredHash);", admin)
+        self.assertIn("window.sessionStorage.setItem('led-admin-return-hash'", admin)
         self.assertIn('<details class="feed-advanced"><summary>Advanced</summary>', admin)
 
 

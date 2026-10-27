@@ -77,6 +77,12 @@ class FootballScreenTests(unittest.TestCase):
         self.assertIn("bin_collection", kinds)
         self.assertEqual(kinds.count("football_score"), 2)
         self.assertEqual(kinds.count("football_intro"), 2)
+        for index, screen in enumerate(rotation.screens):
+            if screen["kind"] == "football_intro":
+                self.assertLess(index + 1, len(rotation.screens))
+                followup = rotation.screens[index + 1]
+                self.assertEqual(followup["kind"], "football_score")
+                self.assertEqual(followup["team_key"], screen["team_key"])
         self.assertEqual(
             {screen["id"] for screen in rotation.screens if screen["kind"] == "football_score"},
             {"football-sporting_cp", "football-millwall"},
