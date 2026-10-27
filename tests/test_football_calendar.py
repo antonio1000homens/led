@@ -469,5 +469,151 @@ class FootballCalendarTests(unittest.TestCase):
         self.assertTrue(all("opponent_long_name" in x for x in cards))
 
 
+    def test_at_separator_maps_selected_club_to_correct_home_away_side(self):
+        cases = (
+            ("sporting_cp", "Porto @ Sporting CP", "Porto", "home"),
+            ("sporting_cp", "Sporting CP @ Porto", "Porto", "away"),
+            ("millwall", "Derby County @ Millwall FC", "Derby County", "home"),
+            ("millwall", "Millwall FC @ Derby County", "Derby County", "away"),
+            ("portugal", "Denmark @ Portugal", "Denmark", "home"),
+            ("england", "England @ Spain", "Spain", "away"),
+        )
+        for team, title, opponent, home_away in cases:
+            with self.subTest(team=team, title=title):
+                data = normalize_event(
+                    event("game", title, "2026-10-31T15:00:00Z"),
+                    calendar_id="calendar", team_key=team,
+                    aliases={alias.casefold() for alias in DEFAULT_ALIASES[team]},
+                    now=NOW, window_end=NOW + timedelta(days=45),
+                )
+                self.assertIsNotNone(data)
+                self.assertEqual(data["opponent_long_name"], opponent)
+                self.assertEqual(data["home_away"], home_away)
+
+    def test_calendar_source_selection_does_not_enable_feed_before_admin_opt_in(self):
+        for source in ("off", "google_calendar", "public_ical"):
+            with self.subTest(source=source):
+                runtime = default_runtime_config({"LED_FOOTBALL_FIXTURE_SOURCE": source})
+                self.assertFalse(runtime["feeds"]["football_fixtures"]["enabled"])
+                self.assertFalse(runtime["feeds"]["football_fixtures"]["portugal_enabled"])
+                self.assertFalse(runtime["feeds"]["football_fixtures"]["england_enabled"])
+
+    def test_team_changes_refresh_before_ttl_and_never_fetch_disabled_teams(self):
+        store = MemoryStore()
+        config = PublisherConfig(
+            bucket="test", national_rail_token="test",
+            thorpe_park_source="off", weather_source="off",
+            football_fixture_source="public_ical",
+        )
+        runtime = default_runtime_config({})
+        settings = runtime["feeds"]["football_fixtures"]
+        settings["enabled"] = True
+        now = [NOW]
+        football = FakeFootball([
+            [sanitized("sporting_cp", "2026-10-30T20:15:00+00:00", "sp"),
+             sanitized("millwall", "2026-10-31T15:00:00+00:00", "mi")],
+            [sanitized("portugal", "2026-11-14T19:45:00+00:00", "po")],
+        ])
+        runtime_store = StaticRuntimeConfigStore(runtime)
+
+        def run():
+            return Publisher(
+                config, store, rail_provider=FakeRail(), football_provider=football,
+                utcnow=lambda: now[0], runtime_config_store=runtime_store,
+            ).run()
+
+        first = run()
+        self.assertEqual(
+            [s["team_key"] for s in first["screens"] if s["kind"] == "football_score"],
+            ["sporting_cp", "millwall"],
+        )
+        self.assertEqual(football.calls[0][2], ["sporting_cp", "millwall"])
+        now[0] += timedelta(minutes=1)
+        run()
+        self.assertEqual(len(football.calls), 1)  # unchanged team selection, cache hit
+
+        settings["sporting_cp_enabled"] = False
+        settings["millwall_enabled"] = False
+        settings["portugal_enabled"] = True
+        updated = run()
+        self.assertEqual(football.calls[1][2], ["portugal"])
+        self.assertEqual(
+            [s["team_key"] for s in updated["screens"] if s["kind"] == "football_score"],
+            ["portugal"],
+        )
+        self.assertEqual(len(football.calls), 2)  # change bypasses original TTL
+
+        settings["portugal_enabled"] = False
+        empty = run()
+        self.assertFalse([s for s in empty["screens"] if s["kind"] == "football_score"])
+        self.assertEqual(len(football.calls), 2)  # no calendar requests when all off
+
+    def test_failed_selection_change_respects_retry_interval(self):
+        store = MemoryStore()
+        config = PublisherConfig(
+            bucket="test", national_rail_token="test",
+            thorpe_park_source="off", weather_source="off",
+            football_fixture_source="public_ical",
+        )
+        runtime = default_runtime_config({})
+        settings = runtime["feeds"]["football_fixtures"]
+        settings["enabled"] = True
+        now = [NOW]
+        football = FakeFootball([
+            [sanitized("sporting_cp", "2026-10-30T20:15:00+00:00", "sporting")],
+            OSError("private HTTP failure"),
+            [sanitized("portugal", "2026-11-14T19:45:00+00:00", "portugal")],
+        ])
+        runtime_store = StaticRuntimeConfigStore(runtime)
+
+        def run():
+            return Publisher(
+                config, store, rail_provider=FakeRail(), football_provider=football,
+                utcnow=lambda: now[0], runtime_config_store=runtime_store,
+            ).run()
+
+        run()
+        settings["sporting_cp_enabled"] = False
+        settings["millwall_enabled"] = False
+        settings["portugal_enabled"] = True
+        now[0] += timedelta(minutes=1)
+        failed = run()
+        self.assertEqual(len(football.calls), 2)
+        self.assertFalse([s for s in failed["screens"] if s["kind"] == "football_score"])
+        now[0] += timedelta(minutes=1)
+        run()
+        self.assertEqual(len(football.calls), 2)  # no runaway retry on config mismatch
+        now[0] += timedelta(minutes=16)
+        result = run()
+        self.assertEqual(len(football.calls), 3)
+        self.assertEqual(
+            [s["team_key"] for s in result["screens"] if s["kind"] == "football_score"],
+            ["portugal"],
+        )
+
+    def test_google_calendar_request_count_is_capped(self):
+        private = secret()
+        private["calendars"] = {
+            "sporting_cp": ["cal-1", "cal-2", "cal-3", "cal-4"],
+            "millwall": ["cal-5", "cal-6", "cal-7", "cal-8"],
+        }
+        requests = []
+
+        def fake_request(url, data=None, headers=None):
+            requests.append(url)
+            if "oauth2.googleapis.com" in url:
+                return {"access_token": "test-access-token"}
+            return {"items": []}
+
+        provider = GoogleCalendarFixtureProvider(
+            "/led/football/calendar", settings_loader=lambda: private,
+            request_json=fake_request,
+        )
+        with self.assertRaisesRegex(ValueError, "request budget exceeded"):
+            provider.fetch(NOW, enabled_teams=("sporting_cp", "millwall"))
+        self.assertEqual(len(requests), 7)  # one token plus at most six event queries
+        self.assertTrue(all("googleapis.com" in url for url in requests))
+
+
 if __name__ == "__main__":
     unittest.main()
