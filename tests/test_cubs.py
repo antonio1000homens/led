@@ -183,7 +183,8 @@ END:VCALENDAR"""
         store = MemoryStore()
         events = [{
             "start": (NOW + timedelta(days=n)).date().isoformat(),
-            "all_day": True, "date_text": "01/11", "time_text": "", "title": f"Meeting {n}"
+            "all_day": True, "date_text": "01/11", "time_text": "", "title": f"Meeting {n}",
+            "location": "Private meeting place", "description": "Private agenda content",
         } for n in range(8)]
         provider = FakeProvider(events)
         current = [NOW]
@@ -205,8 +206,13 @@ END:VCALENDAR"""
         self.assertNotIn("calendar", store.state["feeds"])
         self.assertEqual(provider.calls, 1)
         current[0] += timedelta(hours=23)
-        Publisher(**kwargs).run()
+        updated = Publisher(**kwargs).run()
+        updated_rows = next(s for s in updated["screens"] if s["id"] == "cubs")["events"]
         self.assertEqual(provider.calls, 1)
+        self.assertEqual(len(updated_rows), 5)
+        self.assertNotIn("Meeting 0", [e["title"] for e in updated_rows])
+        self.assertNotIn("Private meeting place", str(updated_rows))
+        self.assertNotIn("Private agenda content", str(updated_rows))
         current[0] += timedelta(hours=2)
         Publisher(**kwargs).run()
         self.assertEqual(provider.calls, 2)
