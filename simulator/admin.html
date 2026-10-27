@@ -177,7 +177,7 @@ function navigationModel(config){
  const feeds=config.feeds||{},schemas=config.schema?.feeds||{},available=id=>Object.hasOwn(feeds,id)&&Object.hasOwn(schemas,id);
  const mapped=new Set(),groups=[];
  const push=(group,label,items)=>{if(items.length)groups.push({group,label,items});};
- const item=(id,label,view=id,feedIds=[id])=>({key:id==='overview'||id==='maintenance'?id:'screen/'+id,label,view,feedIds});
+ const item=(id,label,view=id,feedIds=(id==='overview'||id==='maintenance'?[]:[id]))=>({key:id==='overview'||id==='maintenance'?id:'screen/'+id,label,view,feedIds});
  const known=(ids)=>ids.filter(available);
  const rail=known(['departures','steam_train']);rail.forEach(id=>mapped.add(id));
  const transport=[];
@@ -222,7 +222,7 @@ function overviewHtml(){
  const config=state.config;
  const published=state.status?.published_at||state.status?.last_publish_at||state.status?.last_published_at;
  return '<div class="overview-grid"><div class="overview-panel"><h3>Enabled feeds</h3><strong>'+entries.length+'</strong><p class="meta">'+(state.status?'From current API status':'Status unavailable; configuration remains editable')+'</p></div>'+
-  '<div class="overview-panel"><h3>Feeds needing attention</h3><strong>'+unhealthy.length+'</strong><p class="meta">Stale and unavailable feeds</p></div>'+
+  '<div class="overview-panel"><h3>Feeds needing attention</h3><strong>'+(state.status?unhealthy.length:'Unknown')+'</strong><p class="meta">Stale and unavailable feeds</p></div>'+
   '<div class="overview-panel"><h3>Configuration version</h3><strong>'+escapeHtml(config?.config_version||'Unknown')+'</strong><p class="meta">Updated '+escapeHtml(formatTime(config?.updated_at))+'</p></div>'+
   '<div class="overview-panel"><h3>Published</h3><strong>'+escapeHtml(formatTime(published))+'</strong><p class="meta">As reported by the control API</p></div></div>'+
   '<div class="overview-panel" style="grid-column:1/-1"><h3>Quick access</h3><p>Choose a screen from the navigation or open a common section:</p><div class="overview-links">'+navItems.filter(entry=>['screen/departures','screen/weather','screen/queue_times','maintenance'].includes(entry.key)).map(entry=>'<a href="#'+escapeHtml(entry.key)+'">'+escapeHtml(entry.label)+'</a>').join('')+'</div></div>';
@@ -350,9 +350,14 @@ function refreshWithWarning(){
 
 const accessReady=new URLSearchParams(window.location.search).get('access')==='1';
 if(!accessReady){
+  // Cloudflare's session redirect cannot carry a URL fragment; keep the bookmark locally.
+  if(window.location.hash)window.sessionStorage.setItem('led-admin-return-hash',window.location.hash);
   window.location.replace(`${API}/session`);
 }else{
-  window.history.replaceState(null,'','/admin'+window.location.hash);
+  const savedHash=window.sessionStorage.getItem('led-admin-return-hash');
+  window.sessionStorage.removeItem('led-admin-return-hash');
+  const restoredHash=window.location.hash||(savedHash&&savedHash.startsWith('#')?savedHash:'');
+  window.history.replaceState(null,'','/admin'+restoredHash);
   document.getElementById('refresh').addEventListener('click',refreshWithWarning);
   document.addEventListener('click',event=>{if(event.target.id==='gc-action')runGarbageCollection();});
   load();
