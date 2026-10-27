@@ -440,13 +440,17 @@ class ScreenRotation:
                         if key in old:
                             item[key] = old[key]
                 next_screens.append(item)
-        # A poll may remove a departures page halfway through a cycle.
-        # Never retain its now-orphaned bus introduction.
+        # A poll may remove a departures/football score page halfway through
+        # a cycle. Drop its now-orphaned intro, not the whole rotation.
         next_screens = [
             item for index, item in enumerate(next_screens)
-            if item.get("kind") != "bus_intro"
-            or (index + 1 < len(next_screens)
-                and self.is_bus_followup(item, next_screens[index + 1]))
+            if ((item.get("kind") != "bus_intro"
+                 or (index + 1 < len(next_screens)
+                     and self.is_bus_followup(item, next_screens[index + 1])))
+                and (item.get("kind") != "football_intro"
+                     or (index + 1 < len(next_screens)
+                         and self.is_paired_transition(item.get("id", ""),
+                                                       next_screens[index + 1]))))
         ]
         if not next_screens:
             next_screens = self._cycle_plan(available)
@@ -628,12 +632,23 @@ class ScreenRotation:
             or (index + 1 < len(normal)
                 and self.is_bus_followup(item, normal[index + 1]))
         ]
-        normal = [
-            item for index, item in enumerate(normal)
-            if item.get("kind") != "football_intro"
-            or (index + 1 < len(normal)
-                and self.is_paired_transition(item.get("id", ""), normal[index + 1]))
-        ]
+        # MQTT item IDs are sorted for stable ingestion, so football intros
+        # do not necessarily arrive immediately before their matching score.
+        # Pair by team, then shuffle the combined block as one atomic unit.
+        football_intros = {
+            item.get("team_key"): item for item in normal
+            if item.get("kind") == "football_intro"
+        }
+        paired = []
+        for item in normal:
+            if item.get("kind") == "football_intro":
+                continue
+            if item.get("kind") == "football_score":
+                intro = football_intros.get(item.get("team_key"))
+                if intro is not None and self.is_paired_transition(intro.get("id", ""), item):
+                    paired.append(intro)
+            paired.append(item)
+        normal = paired
         static = [self._choose(item) for item in screens if self.is_static(item)]
         # Do not separate the train from departures. Queue Times is already
         # represented by one atomic screen.
