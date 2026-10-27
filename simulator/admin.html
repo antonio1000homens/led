@@ -286,7 +286,7 @@ function overviewHtml(){
 function organiseNavigation(){
  const groups=navigationModel(state.config);navItems=groups.flatMap(group=>group.items.map(entry=>({...entry,group:group.label})));
  const nodes=new Map([...cards.querySelectorAll('.card[data-feed]')].map(card=>[card.dataset.feed,card]));
- const rail=cards.querySelector('.feed-section'),staticFeeds=cards.querySelector('.static-feeds');
+ const rail=cards.querySelector('.rail-card, .feed-section, .card[data-feed="departures"], .card[data-feed="steam_train"]'),staticFeeds=cards.querySelector('.static-feeds');
  const maintenance=staticFeeds?.querySelector('.card:not([data-feed])');
  const quotesCredit=[...(staticFeeds?.querySelectorAll('p')||[])].find(p=>p.textContent.includes('Inspirational quotes provided by'));
  const views=[],seen=new Set();
