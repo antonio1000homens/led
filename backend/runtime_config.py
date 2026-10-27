@@ -357,7 +357,6 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
     thorpe_enabled = env.get("LED_THORPE_PARK_SOURCE", "queue_times").strip() != "off"
     weather_enabled = env.get("LED_WEATHER_SOURCE", "open_meteo").strip() != "off"
     calendar_enabled = env.get("LED_CALENDAR_SOURCE", "off").strip() != "off"
-    football_enabled = env.get("LED_FOOTBALL_FIXTURE_SOURCE", "off").strip() == "google_calendar"
     thorpe_poll = _int_env(env, "LED_THORPE_PARK_CACHE_SECONDS", 300)
     result = {
         "config_version": 0,
@@ -474,7 +473,9 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 ),
             },
             "football_fixtures": {
-                "enabled": football_enabled,
+                # Provider source selection does not implicitly opt in to publishing.
+                # Keep migration/first deploy safe until the admin enables it.
+                "enabled": False,
                 "poll_seconds": _int_env(env, "LED_FOOTBALL_FIXTURE_CACHE_SECONDS", 900),
                 "screen_duration_seconds": _int_env(env, "LED_FOOTBALL_FIXTURE_DURATION_SECONDS", 20,
                     minimum=MIN_SCREEN_DURATION_SECONDS, maximum=MAX_SCREEN_DURATION_SECONDS),
