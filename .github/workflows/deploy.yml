@@ -140,8 +140,8 @@ jobs:
           if calendar_source not in ("off", "todoist"):
               raise SystemExit("LED_CALENDAR_SOURCE must be off or todoist")
           football_source = os.environ.get("LED_FOOTBALL_FIXTURE_SOURCE", "off").strip()
-          if football_source not in ("off", "google_calendar"):
-              raise SystemExit("LED_FOOTBALL_FIXTURE_SOURCE must be off or google_calendar")
+          if football_source not in ("off", "google_calendar", "public_ical"):
+              raise SystemExit("LED_FOOTBALL_FIXTURE_SOURCE must be off, google_calendar or public_ical")
           if not re.fullmatch(r"/led/football/[A-Za-z0-9_/-]+", os.environ.get("LED_FOOTBALL_FIXTURE_PARAMETER_NAME", "")):
               raise SystemExit("football fixture SSM parameter must be under /led/football/")
           PY
