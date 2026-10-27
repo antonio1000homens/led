@@ -279,5 +279,49 @@ class FootballCalendarTests(unittest.TestCase):
         self.assertEqual(len(football.calls), 2)
 
 
+    def test_cached_expired_fixture_does_not_reappear_during_provider_outage(self):
+        store = MemoryStore()
+        now = [NOW]
+        config = PublisherConfig(bucket="test", national_rail_token="test",
+                                 thorpe_park_source="off", weather_source="off")
+        runtime = default_runtime_config({})
+        runtime["feeds"]["football_fixtures"]["enabled"] = True
+        football = FakeFootball([
+            [sanitized("sporting_cp", "2026-10-24T13:00:00+00:00", "past-soon"),
+             sanitized("millwall", "2026-10-30T19:45:00+00:00", "next-millwall")],
+            RuntimeError("provider outage"),
+        ])
+
+        def run():
+            return Publisher(config, store, rail_provider=FakeRail(),
+                             football_provider=football, utcnow=lambda: now[0],
+                             runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
+
+        run()
+        now[0] += timedelta(hours=2)
+        payload = run()
+        cards = [s for s in payload["screens"] if s["kind"] == "football_score"]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["team_key"], "millwall")
+        self.assertTrue(cards[0]["stale"])
+        self.assertEqual(len(football.calls), 2)
+
+    def test_duplicate_fixture_entries_never_make_duplicate_public_cards(self):
+        store = MemoryStore()
+        config = PublisherConfig(bucket="test", national_rail_token="test",
+                                 thorpe_park_source="off", weather_source="off")
+        runtime = default_runtime_config({})
+        runtime["feeds"]["football_fixtures"]["enabled"] = True
+        repeated = sanitized("millwall", "2026-10-30T20:00:00+00:00")
+        football = FakeFootball([[repeated, repeated]])
+        payload = Publisher(config, store, rail_provider=FakeRail(),
+                            football_provider=football, utcnow=lambda: NOW,
+                            runtime_config_store=StaticRuntimeConfigStore(runtime)).run()
+        cards = [s for s in payload["screens"] if s["kind"] == "football_score"]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]["id"], "football-millwall")
+
+
+
 if __name__ == "__main__":
     unittest.main()
