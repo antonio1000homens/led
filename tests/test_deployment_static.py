@@ -136,9 +136,9 @@ class DeploymentStaticTests(unittest.TestCase):
         display = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text(encoding="utf-8")
         self.assertIn("function todoistDueLabel(event, now = new Date())", simulator)
         self.assertIn("return 'TODAY';", simulator)
-        self.assertIn("screen.source === 'todoist'", simulator)
+        self.assertIn("['todoist', 'cubs_ics'].includes(screen.source)", simulator)
         self.assertIn("todoist_due_label(events[event_index], clock_date)", display)
-        self.assertIn('screen.get("source") == "todoist"', display)
+        self.assertIn('screen.get("source") in ("todoist", "cubs_ics")', display)
 
     def test_simulator_does_not_pretruncate_agenda_rows(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
