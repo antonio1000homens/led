@@ -5,7 +5,8 @@ import unittest
 from urllib.parse import unquote
 
 from football_calendar import (
-    DEFAULT_ALIASES, GoogleCalendarFixtureProvider, normalize_event,
+    DEFAULT_ALIASES, GoogleCalendarFixtureProvider, PublicICalFixtureProvider,
+    PUBLIC_ICAL_CALENDARS, normalize_event,
 )
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
 from runtime_config import (
@@ -83,8 +84,8 @@ class FakeFootball:
         self.results = iter(results)
         self.calls = []
 
-    def fetch(self, now, lookahead_days=45):
-        self.calls.append((now, lookahead_days))
+    def fetch(self, now, lookahead_days=45, enabled_teams=None):
+        self.calls.append((now, lookahead_days, enabled_teams))
         value = next(self.results)
         if isinstance(value, Exception):
             raise value
@@ -321,6 +322,151 @@ class FootballCalendarTests(unittest.TestCase):
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0]["id"], "football-millwall")
 
+
+
+    def test_real_calendar_title_format_and_competition_suffix(self):
+        samples = (
+            ("sporting_cp", "Casa Pia - Sporting Portugal", "Casa Pia", "away"),
+            ("sporting_cp", "Shakhtar Donetsk - Sporting Portugal [CL]", "Shakhtar Donetsk", "away"),
+            ("sporting_cp", "Sporting Portugal - Moreirense", "Moreirense", "home"),
+            ("millwall", "Millwall FC - Derby County", "Derby County", "home"),
+            ("millwall", "Birmingham City - Millwall FC", "Birmingham City", "away"),
+            ("portugal", "Portugal - Denmark", "Denmark", "home"),
+            ("england", "Spain - England", "Spain", "away"),
+        )
+        for team_key, summary, opponent, home_away in samples:
+            with self.subTest(team=team_key, summary=summary):
+                result = normalize_event(
+                    event("uid", summary, "2026-11-01T16:00:00Z"),
+                    calendar_id="test", team_key=team_key,
+                    aliases={a.casefold() for a in DEFAULT_ALIASES[team_key]},
+                    now=NOW, window_end=NOW + timedelta(days=45),
+                )
+                self.assertIsNotNone(result)
+                self.assertEqual(result["opponent_long_name"], opponent)
+                self.assertEqual(result["home_away"], home_away)
+        unrelated = normalize_event(
+            event("bad", "Meet with Millwall FC - fundraising", "2026-11-01T16:00:00Z"),
+            calendar_id="test", team_key="millwall",
+            aliases={a.casefold() for a in DEFAULT_ALIASES["millwall"]},
+            now=NOW, window_end=NOW + timedelta(days=45),
+        )
+        self.assertIsNone(unrelated)
+
+    def test_public_ical_provider_uses_supplied_links_and_skips_disabled_teams(self):
+        expected = {
+            "sporting_cp": "fd67v39hov7a8uplrk8djd818c@group.calendar.google.com",
+            "millwall": "rajefpgnm1ue0j6eae1ob9us1s@group.calendar.google.com",
+            "portugal": "c88a0605u3b1m04j217pnqfkfs@group.calendar.google.com",
+            "england": "ulqvlgdfg9ag1kuv4vlvjd1tuc@group.calendar.google.com",
+        }
+        self.assertEqual(PUBLIC_ICAL_CALENDARS, expected)
+        feeds = {
+            "sporting_cp": (
+                "Casa Pia - Sporting Portugal", "20261030T201500Z",
+            ),
+            "millwall": (
+                "Millwall FC - Derby County", "20261031T150000Z",
+            ),
+            "portugal": (
+                "Portugal - Denmark", "20261114T194500Z",
+            ),
+            "england": (
+                "England - Croatia", "20261112T194500Z",
+            ),
+        }
+        requests = []
+
+        def fake_ical(url):
+            requests.append(url)
+            key = next(k for k, value in expected.items() if value.replace("@", "%40") in url)
+            title, timestamp = feeds[key]
+            text = (
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TEST//EN\r\n"
+                "BEGIN:VEVENT\r\nUID:unique-" + key + "\r\n"
+                "DTSTAMP:20261020T120000Z\r\nDTSTART:" + timestamp + "\r\n"
+                "DTEND:" + timestamp + "\r\n"
+                "SUMMARY:" + title + "\r\n"
+                "STATUS:CONFIRMED\r\nDESCRIPTION:SECRET\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+            )
+            return text.encode("utf-8")
+
+        provider = PublicICalFixtureProvider(fetch_ical=fake_ical)
+        fixtures = provider.fetch(NOW)
+        self.assertEqual([x["team_key"] for x in fixtures], ["sporting_cp", "millwall"])
+        self.assertEqual([x["opponent_long_name"] for x in fixtures], ["Casa Pia", "Derby County"])
+        self.assertEqual(len(requests), 2)
+        self.assertNotIn("portugal", str(requests))
+        self.assertNotIn("england", str(requests))
+        self.assertNotIn("SECRET", str(fixtures))
+        tests = provider.fetch(NOW, enabled_teams=("portugal", "england"))
+        self.assertEqual([x["team_key"] for x in tests], ["portugal", "england"])
+        self.assertEqual([x["opponent_long_name"] for x in tests], ["Denmark", "Croatia"])
+
+    def test_public_ical_ignores_all_day_cancelled_and_expired_fixtures(self):
+        def fake_ical(_url):
+            return (
+                "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
+                "BEGIN:VEVENT\r\nUID:all-day\r\nDTSTAMP:20261020T120000Z\r\n"
+                "DTSTART;VALUE=DATE:20261030\r\nDTEND;VALUE=DATE:20261031\r\n"
+                "SUMMARY:Millwall FC - Bad\r\nEND:VEVENT\r\n"
+                "BEGIN:VEVENT\r\nUID:cancelled\r\nDTSTAMP:20261020T120000Z\r\n"
+                "DTSTART:20261030T150000Z\r\nDTEND:20261030T160000Z\r\n"
+                "SUMMARY:Millwall FC - Cancelled\r\nSTATUS:CANCELLED\r\nEND:VEVENT\r\n"
+                "BEGIN:VEVENT\r\nUID:past\r\nDTSTAMP:20261020T120000Z\r\n"
+                "DTSTART:20261001T150000Z\r\nDTEND:20261001T160000Z\r\n"
+                "SUMMARY:Millwall FC - Old\r\nEND:VEVENT\r\n"
+                "BEGIN:VEVENT\r\nUID:valid\r\nDTSTAMP:20261020T120000Z\r\n"
+                "DTSTART:20261031T150000Z\r\nDTEND:20261031T160000Z\r\n"
+                "SUMMARY:Millwall FC - Derby County\r\nEND:VEVENT\r\n"
+                "END:VCALENDAR\r\n"
+            ).encode()
+        provider = PublicICalFixtureProvider(fetch_ical=fake_ical)
+        result = provider.fetch(NOW, enabled_teams=("millwall",))
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["opponent_long_name"], "Derby County")
+
+    def test_team_enablement_flags_default_migrate_validate_and_filter_output(self):
+        default = default_runtime_config({})
+        expected = {
+            "sporting_cp_enabled": True, "millwall_enabled": True,
+            "portugal_enabled": False, "england_enabled": False,
+        }
+        for field, value in expected.items():
+            self.assertEqual(default["feeds"]["football_fixtures"][field], value)
+            self.assertEqual(
+                validate_feed_patch("football_fixtures", {field: not value})[field],
+                not value,
+            )
+            with self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("football_fixtures", {field: "true"})
+        old = copy.deepcopy(default)
+        for field in expected:
+            del old["feeds"]["football_fixtures"][field]
+        upgraded = validate_runtime_config(old)
+        for field, value in expected.items():
+            self.assertEqual(upgraded["feeds"]["football_fixtures"][field], value)
+
+        store = MemoryStore()
+        config = PublisherConfig(bucket="test", national_rail_token="test",
+                                 thorpe_park_source="off", weather_source="off",
+                                 football_fixture_source="public_ical")
+        runtime = default_runtime_config({})
+        runtime["feeds"]["football_fixtures"]["enabled"] = True
+        fixture = [
+            sanitized("sporting_cp", "2026-10-30T20:15:00+00:00", "s"),
+            sanitized("millwall", "2026-10-31T15:00:00+00:00", "m"),
+            sanitized("portugal", "2026-11-14T19:45:00+00:00", "p"),
+            sanitized("england", "2026-11-12T19:45:00+00:00", "e"),
+        ]
+        publisher = Publisher(config, store, rail_provider=FakeRail(),
+                              football_provider=FakeFootball([fixture]), utcnow=lambda: NOW,
+                              runtime_config_store=StaticRuntimeConfigStore(runtime))
+        payload = publisher.run()
+        cards = [x for x in payload["screens"] if x["kind"] == "football_score"]
+        self.assertEqual([x["team_key"] for x in cards], ["sporting_cp", "millwall"])
+        self.assertTrue(all(x["source"] == "public_ical" for x in cards))
+        self.assertTrue(all("opponent_long_name" in x for x in cards))
 
 
 if __name__ == "__main__":
