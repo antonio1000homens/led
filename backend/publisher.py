@@ -667,13 +667,14 @@ class Publisher:
             data = fixture_state.get("data") or {}
             # Only publish explicitly selected, sanitized fixture fields. Expired
             # cached fixtures disappear immediately, even during calendar outages.
+            seen_fixture_teams = set()
             for fixture in data.get("fixtures") or []:
                 if not isinstance(fixture, dict):
                     continue
                 team_key = fixture.get("team_key")
                 kickoff = _parse_iso(fixture.get("kickoff"))
-                if (team_key not in FOOTBALL_TEAM_NAMES or kickoff is None
-                        or kickoff.tzinfo is None or kickoff <= now):
+                if (team_key not in FOOTBALL_TEAM_NAMES or team_key in seen_fixture_teams
+                        or kickoff is None or kickoff.tzinfo is None or kickoff <= now):
                     continue
                 if not isinstance(fixture.get("match_id"), str) or not fixture["match_id"]:
                     continue
@@ -681,6 +682,7 @@ class Publisher:
                 if not isinstance(opponent, str) or not opponent:
                     continue
                 team_name = FOOTBALL_TEAM_NAMES[team_key]
+                seen_fixture_teams.add(team_key)
                 screens.append({
                     "id": "football-" + team_key,
                     "kind": "football_score",
