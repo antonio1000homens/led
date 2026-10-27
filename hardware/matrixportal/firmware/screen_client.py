@@ -408,7 +408,17 @@ class ScreenRotation:
             and not str(item.get("id") or "").startswith("sl7-")
         }
         available = [mqtt.pop(item.get("id"), item) for item in self.http_screens]
-        available.extend(mqtt[key] for key in sorted(mqtt))
+        # Keep each football sweep immediately before its own scoreboard.
+        # Sorting raw MQTT IDs puts all football-intro-* IDs before the
+        # football-* score IDs and silently drops the orphaned introductions
+        # in _cycle_plan(). Non-football screens retain their ID ordering.
+        def mqtt_sort_key(key):
+            name = str(key)
+            if name.startswith("football-intro-"):
+                return ("football-" + name[len("football-intro-"):], 0)
+            return (name, 1)
+
+        available.extend(mqtt[key] for key in sorted(mqtt, key=mqtt_sort_key))
         return available
 
     def _rebuild(self, now):
