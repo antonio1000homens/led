@@ -635,7 +635,7 @@
       const visible = Math.max(1, Number(screen.viewport_size) || AGENDA_VISIBLE_ROWS);
       if (eventCount <= visible) return { start: 0, progress: 0, visible };
       const safePhase = Math.max(0, Number(phase) || 0);
-      if (screen.source === 'todoist') {
+      if (['todoist', 'cubs_ics'].includes(screen.source)) {
         const starts = todoistPageStarts(screen, eventCount);
         let remaining = safePhase;
         for (let index = 0; index < starts.length; index += 1) {
@@ -1297,7 +1297,7 @@
       });
     }
     function drawCalendarDue(events, now, stale, clockX, source) {
-      if (events.length === 0 || source === 'todoist') return;
+      if (events.length === 0 || ['todoist', 'cubs_ics'].includes(source)) return;
       if (!events.length) return;
       const text = calendarDueText(events[0], now);
       if (!text) return;
@@ -1428,7 +1428,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
+      const phase = hardwarePreview && !['todoist', 'cubs_ics'].includes(screen.source) && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1739,7 +1739,7 @@
             if (!event) break;
             const parts = calendarParts(event);
             const y = AGENDA_FIRST_Y + slot * CONTENT_ROW_HEIGHT - yOffset;
-            const todoist = screen.source === 'todoist';
+            const todoist = ['todoist', 'cubs_ics'].includes(screen.source);
             const due = todoist ? todoistDueLabel(event, wallClock) : '';
             const dueWidth = due ? measureLedText(due).width : 0;
             const dueX = 1024 - dueWidth;
