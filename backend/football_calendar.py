@@ -39,9 +39,14 @@ PUBLIC_ICAL_CALENDARS = {
 }
 DEFAULT_ENABLED_TEAMS = ("sporting_cp", "millwall")
 MAX_ICAL_BYTES = 4 * 1024 * 1024
+MAX_ICAL_SOURCE_EVENTS = 2000
 
 SAFE_TEXT = re.compile(r"^[^\x00-\x1f\x7f<>@/\\]+$")
 MAX_PAGES_PER_CALENDAR = 3
+# A publisher Lambda runs alongside the other LED feeds on a one-minute timer.
+# Bound worst-case OAuth requests and their cumulative network time.
+MAX_GOOGLE_EVENT_REQUESTS = 6
+HTTP_TIMEOUT_SECONDS = 5
 
 
 def _clean_name(value):
@@ -55,7 +60,7 @@ def _clean_name(value):
 
 def _request_json(url, data=None, headers=None):
     req = Request(url, data=data, headers=headers or {})
-    with urlopen(req, timeout=10) as response:
+    with urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -144,8 +149,10 @@ def normalize_event(event, *, calendar_id, team_key, aliases, now, window_end):
             if left and right:
                 if left.casefold() in aliases and right.casefold() not in aliases:
                     opponent, home_away = right, "away" if connector == "@" else "home"
-                elif right.casefold() in aliases and left.casefold() not in aliases and connector != "@":
-                    opponent, home_away = left, "away"
+                elif right.casefold() in aliases and left.casefold() not in aliases:
+                    # In "Porto @ Sporting CP" the opponent is travelling
+                    # to the selected club, so Sporting CP plays at home.
+                    opponent, home_away = left, "home" if connector == "@" else "away"
     if not opponent or opponent.casefold() in aliases:
         return None
     match_id = hashlib.sha256(
@@ -181,6 +188,8 @@ class GoogleCalendarFixtureProvider:
         raw = self.settings_loader()
         calendars, aliases = _credentials(raw)
         enabled_teams = set(DEFAULT_ENABLED_TEAMS if enabled_teams is None else enabled_teams)
+        if enabled_teams - set(TEAM_NAMES):
+            raise ValueError("unsupported fixture team")
         calendars = {team: ids for team, ids in calendars.items() if team in enabled_teams}
         if not calendars:
             return []
@@ -198,6 +207,7 @@ class GoogleCalendarFixtureProvider:
             raise ValueError("Google Calendar OAuth refresh did not provide an access token")
         headers = {"Authorization": "Bearer " + token["access_token"]}
         fixtures = []
+        request_count = 0
         for team_key, ids in calendars.items():
             candidates = []
             for calendar_id in ids:
@@ -213,6 +223,10 @@ class GoogleCalendarFixtureProvider:
                     }
                     if page_token:
                         params["pageToken"] = page_token
+                    if request_count >= MAX_GOOGLE_EVENT_REQUESTS:
+                        # Incomplete pagination must not be treated as the next fixture.
+                        raise ValueError("Google Calendar fixture request budget exceeded")
+                    request_count += 1
                     url = GOOGLE_API + quote(calendar_id, safe="") + "/events?" + urlencode(params)
                     response = self.request_json(url, headers=headers)
                     if not isinstance(response, dict) or not isinstance(response.get("items"), list):
@@ -239,7 +253,7 @@ def _fetch_public_ical(url):
     """Retrieve a bounded public ICS document, never an arbitrary user URL."""
     req = Request(url, headers={"User-Agent": "led-fixture-calendar/1.0",
                                 "Accept": "text/calendar"})
-    with urlopen(req, timeout=12) as response:
+    with urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as response:
         payload = response.read(MAX_ICAL_BYTES + 1)
     if len(payload) > MAX_ICAL_BYTES:
         raise ValueError("public fixture calendar exceeds allowed size")
@@ -282,6 +296,8 @@ class PublicICalFixtureProvider:
             if not isinstance(raw, (str, bytes)) or len(raw) > MAX_ICAL_BYTES:
                 raise ValueError("invalid public calendar response")
             calendar = Calendar.from_ical(raw)
+            if len(calendar.walk("VEVENT")) > MAX_ICAL_SOURCE_EVENTS:
+                raise ValueError("public fixture calendar exceeds event limit")
             choices = []
             # Google calendars may include recurring events, cancellations and
             # exceptions. Expand only within the configured bounded window.
