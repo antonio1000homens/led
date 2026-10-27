@@ -82,6 +82,59 @@ class FootballScreenTests(unittest.TestCase):
             {"football-sporting_cp", "football-millwall"},
         )
 
+    def test_sorted_mqtt_football_intros_stay_paired_with_scores(self):
+        for seed in range(25):
+            with self.subTest(seed=seed):
+                state = FootballScreenState()
+                state.accept("led/football/sporting_cp", snapshot())
+                state.accept("led/football/millwall",
+                             snapshot("millwall", team_name="Millwall FC"))
+                rotation = ScreenRotation(rng=random.Random(seed))
+                rotation.update_sources([
+                    {"id": "rail", "kind": "rail_combined", "duration_seconds": 30},
+                    {"id": "joke", "kind": "dad_joke", "duration_seconds": 5},
+                    {"id": "fact", "kind": "random_fact", "duration_seconds": 5},
+                ], state.screens(self.now), 1000)
+                ids = [item["id"] for item in rotation.screens]
+                for team in ("sporting_cp", "millwall"):
+                    self.assertEqual(
+                        ids.index("football-" + team),
+                        ids.index("football-intro-" + team) + 1,
+                    )
+
+    def test_football_intro_orphan_is_removed_after_score_disappears(self):
+        state = FootballScreenState()
+        state.accept("led/football/sporting_cp", snapshot())
+        state.accept("led/football/millwall",
+                     snapshot("millwall", team_name="Millwall FC"))
+        rotation = ScreenRotation(rng=random.Random(1))
+        http = [{"id": "rail", "kind": "rail_combined", "duration_seconds": 30}]
+        mqtt = state.screens(self.now)
+        rotation.update_sources(http, mqtt, 1000)
+        self.assertEqual(sum(x["kind"] == "football_intro" for x in rotation.screens), 2)
+
+        # A payload update may remove a team's score before the next cycle.
+        # Its orphaned intro must not linger, but the other pair stays intact.
+        remaining = [x for x in mqtt if x.get("team_key") != "sporting_cp"
+                     or x.get("kind") == "football_intro"]
+        rotation.update_sources(http, remaining, 1001)
+        ids = [x["id"] for x in rotation.screens]
+        self.assertNotIn("football-intro-sporting_cp", ids)
+        self.assertNotIn("football-sporting_cp", ids)
+        self.assertEqual(
+            ids.index("football-millwall"),
+            ids.index("football-intro-millwall") + 1,
+        )
+
+    def test_football_intro_with_no_matching_score_is_omitted(self):
+        rotation = ScreenRotation(rng=random.Random(1))
+        bad = {"id": "football-intro-sporting_cp", "kind": "football_intro",
+               "team_key": "sporting_cp", "duration_seconds": 6}
+        other_score = {"id": "football-millwall", "kind": "football_score",
+                       "team_key": "millwall", "duration_seconds": 20}
+        rotation.update_sources([], [bad, other_score], 1000)
+        self.assertEqual([x["id"] for x in rotation.screens], ["football-millwall"])
+
     def test_validates_topic_team_schema_shape_and_timestamps(self):
         valid = snapshot()
         cases = [
