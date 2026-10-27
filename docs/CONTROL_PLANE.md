@@ -242,3 +242,8 @@ The DynamoDB table is retained across stack replacement/deletion. The control pl
 To seed a new installation, deploy the stack and perform an authenticated `GET /api/control/v1/config`; the control Lambda conditionally writes version 1 from deployment defaults.
 
 Reset is intentionally not exposed through the control API. An operator with separate AWS administration rights can delete only the `runtime` item from the `led-runtime-config` table, then perform an authenticated configuration GET to reseed it. Take care: this discards the current runtime settings and ride selections.
+
+
+## Public Google Calendar football fixtures
+
+The `football_fixtures` feed is separate from Todoist `calendar`. Its normal versioned `PATCH /api/control/v1/feeds/football_fixtures` accepts `enabled`, `poll_seconds` (default 900), `screen_duration_seconds` (default 20), `lookahead_days` (1–180, default 45), and per-team `sporting_cp_enabled` / `millwall_enabled` (true initially) and `portugal_enabled` / `england_enabled` (false initially). When the backend is configured with `LED_FOOTBALL_FIXTURE_SOURCE=public_ical`, no OAuth credentials are required and disabled teams are not fetched. Control status shows health/staleness but never exposes IDs or raw calendar events. See [the football source contract](football-mqtt.md#backend-sourced-pre-football-fixtures-275) for the four subscriptions and staged deployment.
