@@ -23,6 +23,7 @@ from runtime_config import (
 )
 from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
+from cubs import CubsCalendarProvider
 from weather import OpenMeteoProvider
 from dad_jokes import DadJokeProvider
 from random_facts import RandomFactProvider
@@ -57,6 +58,45 @@ def _parse_iso(value):
         return None
 
 
+def _public_cubs_events(cached, now, limit):
+    """Re-select upcoming events from private 24h cache each publish minute.
+
+    Emit only known-safe display fields even if upstream parser later gains
+    description, location or attendee metadata.
+    """
+    rows = []
+    local_now = now.astimezone(ZoneInfo("Europe/London"))
+    for item in cached or ():
+        if not isinstance(item, dict):
+            continue
+        start = item.get("start")
+        title = item.get("title")
+        if not isinstance(start, str) or not isinstance(title, str) or not title.strip():
+            continue
+        try:
+            if item.get("all_day"):
+                upcoming = datetime.fromisoformat(start[:10]).date() >= local_now.date()
+            else:
+                when = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                if when.tzinfo is None:
+                    when = when.replace(tzinfo=ZoneInfo("Europe/London"))
+                upcoming = when >= local_now
+        except (TypeError, ValueError):
+            continue
+        if not upcoming:
+            continue
+        rows.append({
+            "start": start,
+            "all_day": bool(item.get("all_day")),
+            "date_text": str(item.get("date_text") or "")[:5],
+            "time_text": "" if item.get("all_day") else str(item.get("time_text") or "")[:5],
+            "title": title[:120],
+        })
+        if len(rows) >= limit:
+            break
+    return rows
+
+
 def _env_int(env, name, default, minimum=1):
     value = int(env.get(name, str(default)))
     if value < minimum:
@@ -82,7 +122,8 @@ class PublisherConfig:
                  todoist_oauth_secret_arn="", calendar_ttl=300, calendar_max_events=6,
                  calendar_filter_query=DEFAULT_FILTER_QUERY, calendar_timezone=DEFAULT_TIMEZONE,
                  calendar_duration=10, calendar_page_seconds=5, runtime_config_table="",
-                 chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES):
+                 chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES,
+                 cubs_programme_parameter="", cubs_events_parameter=""):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
         self.station = station
@@ -106,6 +147,8 @@ class PublisherConfig:
         self.runtime_config_table = runtime_config_table
         self.chessington_ttl = chessington_ttl
         self.chessington_rides = tuple(chessington_rides)
+        self.cubs_programme_parameter = cubs_programme_parameter
+        self.cubs_events_parameter = cubs_events_parameter
 
     @classmethod
     def from_env(cls, env=None):
@@ -152,6 +195,7 @@ class PublisherConfig:
             env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
             calendar_duration, calendar_page_seconds, env.get("RUNTIME_CONFIG_TABLE", "").strip(),
             _env_int(env, "LED_CHESSINGTON_CACHE_SECONDS", 300), chessington_rides,
+            env.get("CUBS_PROGRAMME_PARAMETER_NAME", ""), env.get("CUBS_EVENTS_PARAMETER_NAME", ""),
         )
 
 
@@ -168,6 +212,7 @@ def _runtime_defaults(config: PublisherConfig):
         "LED_CALENDAR_SOURCE": config.calendar_source,
         "LED_TODOIST_CACHE_SECONDS": str(config.calendar_ttl),
         "LED_CALENDAR_DURATION_SECONDS": str(config.calendar_duration),
+        "LED_CUBS_CACHE_SECONDS": "86400",
     }
     return default_runtime_config(env)
 
@@ -222,7 +267,8 @@ class S3StateStore:
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
-                 fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None):
+                 fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None,
+                 cubs_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -245,6 +291,11 @@ class Publisher:
         self.insult_provider = insult_provider or InsultProvider()
         self.quotes_provider = quotes_provider or ZenQuotesProvider()
         self.bus_provider = bus_provider or TransitousBusProvider()
+        self.cubs_provider = cubs_provider
+        if self.cubs_provider is None:
+            self.cubs_provider = CubsCalendarProvider(
+                config.cubs_programme_parameter, config.cubs_events_parameter, utcnow=self.utcnow
+            )
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -322,6 +373,19 @@ class Publisher:
         if self.calendar_provider is None:
             raise RuntimeError("calendar provider is not configured")
         return {"source": "todoist", "fetched_at": _iso(now), "events": self.calendar_provider.fetch()}
+
+    def _fetch_cubs(self, now):
+        return {"source": "cubs_ics", "fetched_at": _iso(now), "events": self.cubs_provider.fetch()}
+
+    def _refresh_cubs(self, previous, ttl, now):
+        # Retry a stale/empty feed after an hour, not on every scheduled minute.
+        previous = previous or {}
+        last = _parse_iso(previous.get("last_attempt_at"))
+        if last is not None and (now - last).total_seconds() < (
+            min(ttl, 3600) if previous.get("stale") or previous.get("data") is None else ttl
+        ):
+            return copy.deepcopy(previous)
+        return self._refresh("cubs", previous, ttl, lambda: self._fetch_cubs(now), now, force=True)
 
     def _fetch_joke(self, now, previous=None):
         # Persist a bounded history in the existing S3 feed cache, so API
@@ -630,6 +694,25 @@ class Publisher:
                 "events": copy.deepcopy(calendar_events[:task_count]),
             })
         joke_cfg = config_feeds["dad_joke"]
+        if config_feeds["cubs"]["enabled"]:
+            cubs = feeds.get("cubs") or {}
+            cubs_data = cubs.get("data") or {}
+            cubs_events = _public_cubs_events(cubs_data.get("events"), now, config_feeds["cubs"]["visible_event_count"])
+            duration = todoist_effective_duration(
+                config_feeds["cubs"]["screen_duration_seconds"],
+                cubs_events,
+                page_seconds=self.config.calendar_page_seconds,
+                current_date=now.astimezone(ZoneInfo("Europe/London")).date().isoformat(),
+                visible_rows=3,
+                step_rows=1,
+            )
+            screens.append({
+                "id": "cubs", "kind": "calendar_agenda", "source": "cubs_ics",
+                "title": "CUBS", "stale": bool(cubs.get("stale")) or not cubs_data,
+                "duration_seconds": duration, "viewport_size": 3,
+                "page_step": 1, "page_seconds": self.config.calendar_page_seconds,
+                "events": cubs_events,
+            })
         if joke_cfg["enabled"]:
             cached_joke = feeds.get("dad_joke") or {}
             joke_data = cached_joke.get("data") or {}
@@ -873,6 +956,10 @@ class Publisher:
             feeds["calendar"] = self._refresh(
                 "calendar", feeds.get("calendar"), settings["calendar"]["poll_seconds"],
                 lambda: self._fetch_calendar(now), now,
+            )
+        if settings["cubs"]["enabled"]:
+            feeds["cubs"] = self._refresh_cubs(
+                feeds.get("cubs"), settings["cubs"]["poll_seconds"], now
             )
         if settings["dad_joke"]["enabled"]:
             feeds["dad_joke"] = self._refresh_static_pool(

@@ -484,7 +484,7 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_football_intro(screen):
         return phase
-    if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
+    if screen.get("kind") == "calendar_agenda" and screen.get("source") in ("todoist", "cubs_ics"):
         return phase
     if _smooth_queue(screen):
         return phase
@@ -502,7 +502,7 @@ def _smooth_todoist(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "calendar_agenda"
-        and screen.get("source") == "todoist"
+        and screen.get("source") in ("todoist", "cubs_ics")
     )
 
 
@@ -794,7 +794,7 @@ while True:
     fetch_due = ticks_ms() >= next_fetch
     boundary = last_visible_screen != candidate.get("id")
     task_unready = (candidate.get("kind") == "calendar_agenda"
-                    and candidate.get("source") == "todoist"
+                    and candidate.get("source") in ("todoist", "cubs_ics")
                     and not display.tasks_ready(candidate, clock.date_text(now))
                     and ticks_ms() >= task_retry_at)
     # Weather is grouped by the scheduler, while the train and SL7 bus
@@ -1032,7 +1032,7 @@ while True:
         now = time.monotonic()
         if ticks_ms() >= task_retry_at:
             for task in rotation.http_screens:
-                if task.get("kind") == "calendar_agenda" and task.get("source") == "todoist":
+                if task.get("kind") == "calendar_agenda" and task.get("source") in ("todoist", "cubs_ics"):
                     try:
                         display.prepare_tasks(task, clock.text(now), clock.date_text(now))
                         prepared_task = task
@@ -1263,7 +1263,7 @@ while True:
             print("RAIL GC EXIT duration={:.3f}s heap_free={}".format(
                 elapsed_seconds(gc_exit_started), _memory_free()
             ))
-    if (screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist"
+    if (screen.get("kind") == "calendar_agenda" and screen.get("source") in ("todoist", "cubs_ics")
             and not display.tasks_ready(screen, clock.date_text(now))):
         # Never trigger an unexpected heavy build after entering an animated
         # task slot. Failed preparation is retried in a later static window.
@@ -1271,7 +1271,7 @@ while True:
             screen = prepared_task
         else:
             screen = {"id": screen.get("id"), "kind": "message",
-                      "title": "Tasks unavailable", "empty_state": "Tasks unavailable",
+                      "title": "Agenda unavailable", "empty_state": "Agenda unavailable",
                       "duration_seconds": screen.get("duration_seconds", 8), "stale": True}
     frame_started = ticks_ms()
     current_preframe_ms = elapsed_seconds(loop_started, frame_started) * 1000.0
