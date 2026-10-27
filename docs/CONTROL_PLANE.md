@@ -14,14 +14,14 @@ The `led-control-api` Lambda is reached through the same public LED hostname at 
 
 The authenticated control plane is served at **/admin**. On desktop, its sticky left sidebar groups settings into Overview, Transport, Weather, Theme parks, Calendar & events, Fun & content, MQTT & notifications, Other screens (when applicable), and Maintenance & diagnostics. On phones and smaller tablets, **Browse screens** opens a dismissible drawer; Escape or the backdrop closes it, and focus returns to the menu button. The **Find a screen** box filters the navigation, including entries below the fold. Keyboard Tab/Enter/Space work throughout.
 
-Only the selected screen section is visible. Individual cards, their Advanced options, cron/schedule windows, on/off controls, ordered queue rides and the existing Apply actions remain unchanged. National Rail and Steam Train share a Transport section; Queue Times retains a single grouped Apply action for all its parks. **Weather → Next 24 hours** is a forecast sub-screen, while **Weather → Today · current conditions** is a separate feed. Maintenance contains garbage collection and advanced status diagnostics rather than mixing them with screen configuration. Navigation entries reflect the currently returned configuration/schema, so future supported feeds appear under Other screens when no specific category exists.
+Only the selected screen section is visible. Individual cards, their Advanced options, cron/schedule windows, on/off controls, ordered queue rides and the existing Apply actions remain unchanged. National Rail and Steam Train now share **one Rail Departures & Steam Train card** (like SL7's introduction options): the animation enable switch, speed and trailing text appear beneath the departures settings, with one **Apply rail changes** action. The application still saves two independent backend feeds sequentially using the existing versioned PATCH API: both are validated before saving, and a partial success or `412` keeps the unsaved controls available for review and retry. Queue Times retains a single grouped Apply action for all its parks. **Weather → Next 24 hours** is a forecast sub-screen, while **Weather → Today · current conditions** is a separate feed. Maintenance contains garbage collection and advanced status diagnostics rather than mixing them with screen configuration. Navigation entries reflect the currently returned configuration/schema, so future supported feeds appear under Other screens when no specific category exists.
 
 ### Direct links and navigation history
 
 Navigation uses URL fragments without changing the /admin pathname or API contract. Examples:
 
 - **/admin#overview** — overall configuration/status and shortcuts.
-- **/admin#screen/departures** — National Rail plus the Steam Train introduction.
+- **/admin#screen/departures** — unified Rail Departures + Steam Train settings and one Apply button (old **/admin#screen/steam_train** bookmarks also open this panel).
 - **/admin#screen/sl7_bus** — SL7 bus settings.
 - **/admin#screen/weather-next-24-hours** — Weather's rolling forecast blocks.
 - **/admin#screen/today** — the **standalone** Today/current conditions feed.
