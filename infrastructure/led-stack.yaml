@@ -26,6 +26,344 @@ Parameters:
   ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
+  FootballFixtureSource: {Type: String, Default: 'off', AllowedValues: ['off', google_calendar]}
+  FootballFixtureParameterName:
+    Type: String
+    Default: /led/football/calendar
+    AllowedPattern: '^/led/football/[A-Za-z0-9_/-]+
+  TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
+  TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
+  TodoistFilterQuery: {Type: String, Default: 'due before: tomorrow | due after: yesterday'}
+  TodoistTimezone: {Type: String, Default: Europe/London}
+  CalendarDurationSeconds: {Type: Number, Default: 10, MinValue: 2, MaxValue: 300}
+  CalendarPageSeconds: {Type: Number, Default: 5, MinValue: 1}
+  WeatherSource: {Type: String, Default: open_meteo, AllowedValues: ['off', open_meteo]}
+  WeatherCacheSeconds: {Type: Number, Default: 600, MinValue: 60}
+  WeatherLatitude: {Type: String, Default: '51.4039'}
+  WeatherLongitude: {Type: String, Default: '-0.256'}
+Resources:
+  HostingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub led-alf-broadcast-prod-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+
+  RuntimeConfigTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: led-runtime-config
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: config_id, AttributeType: S}
+      KeySchema:
+        - {AttributeName: config_id, KeyType: HASH}
+      SSESpecification: {SSEEnabled: true}
+
+  PublisherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-publisher-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: led-publisher-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - {Sid: ReadStateBucket, Effect: Allow, Action: ['s3:ListBucket'], Resource: !GetAtt HostingBucket.Arn}
+              - Sid: ReadWritePublisherObjects
+                Effect: Allow
+                Action: ['s3:GetObject', 's3:PutObject']
+                Resource:
+                  - !Sub ${HostingBucket.Arn}/state/feed-cache.json
+                  - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: ReadRuntimeConfiguration
+                Effect: Allow
+                Action: ['dynamodb:GetItem']
+                Resource: !GetAtt RuntimeConfigTable.Arn
+              - Sid: ReadWriteTodoistOAuthParameter
+                Effect: Allow
+                Action: ['ssm:GetParameter', 'ssm:PutParameter']
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
+              - Sid: ReadFootballCalendarCredentials
+                Effect: Allow
+                Action: ['ssm:GetParameter']
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FootballFixtureParameterName}
+              - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${PublisherLogGroup.Arn}:*'}
+  PublisherLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: /aws/lambda/led-publisher, RetentionInDays: 14}
+  PublisherFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: PublisherLogGroup
+    Properties:
+      FunctionName: led-publisher
+      Runtime: python3.12
+      Handler: publisher.lambda_handler
+      Role: !GetAtt PublisherRole.Arn
+      Timeout: 60
+      MemorySize: 256
+      ReservedConcurrentExecutions: 1
+      Code: {S3Bucket: !Ref CodeBucket, S3Key: !Ref CodeKey}
+      Environment:
+        Variables:
+          STATE_BUCKET: !Ref HostingBucket
+          RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
+          NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
+          TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
+          LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
+          LED_FOOTBALL_FIXTURE_PARAMETER_NAME: !Ref FootballFixtureParameterName
+          LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
+          LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
+          LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
+          LED_STATION_CRS: !Ref StationCrs
+          LED_MAX_ROWS: !Ref MaxRows
+          LED_CACHE_SECONDS: !Ref RailCacheSeconds
+          LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
+          LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
+          LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_CHESSINGTON_CACHE_SECONDS: !Ref ChessingtonCacheSeconds
+          LED_CHESSINGTON_RIDES: !Ref ChessingtonRides
+          LED_CALENDAR_SOURCE: !Ref CalendarSource
+          LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_TODOIST_MAX_EVENTS: !Ref TodoistMaxEvents
+          LED_TODOIST_FILTER_QUERY: !Ref TodoistFilterQuery
+          LED_TODOIST_TIMEZONE: !Ref TodoistTimezone
+          LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_CALENDAR_PAGE_SECONDS: !Ref CalendarPageSeconds
+          LED_WEATHER_SOURCE: !Ref WeatherSource
+          LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
+          LED_WEATHER_LATITUDE: !Ref WeatherLatitude
+          LED_WEATHER_LONGITUDE: !Ref WeatherLongitude
+
+  ControlRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-control-api-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: led-control-api-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadWriteRuntimeConfiguration
+                Effect: Allow
+                Action: ['dynamodb:GetItem', 'dynamodb:PutItem']
+                Resource: !GetAtt RuntimeConfigTable.Arn
+              - Sid: ReadPublisherStatus
+                Effect: Allow
+                Action: ['s3:GetObject']
+                Resource:
+                  - !Sub ${HostingBucket.Arn}/state/feed-cache.json
+                  - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: TriggerPublisher
+                Effect: Allow
+                Action: ['lambda:InvokeFunction']
+                Resource: !GetAtt PublisherFunction.Arn
+              - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${ControlLogGroup.Arn}:*'}
+  ControlLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: /aws/lambda/led-control-api, RetentionInDays: 14}
+  ControlFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ControlLogGroup
+    Properties:
+      FunctionName: led-control-api
+      Runtime: python3.12
+      Handler: config_api.lambda_handler
+      Role: !GetAtt ControlRole.Arn
+      Timeout: 15
+      MemorySize: 256
+      Code: {S3Bucket: !Ref CodeBucket, S3Key: !Ref CodeKey}
+      Environment:
+        Variables:
+          STATE_BUCKET: !Ref HostingBucket
+          RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
+          PUBLISHER_FUNCTION_NAME: !Ref PublisherFunction
+          CF_ACCESS_TEAM_DOMAIN: !Ref CloudflareAccessTeamDomain
+          CF_ACCESS_AUD: !Ref CloudflareAccessAudience
+          LED_CACHE_SECONDS: !Ref RailCacheSeconds
+          LED_THORPE_PARK_SOURCE: !Ref ThorpeParkSource
+          LED_THORPE_PARK_CACHE_SECONDS: !Ref ThorpeParkCacheSeconds
+          LED_THORPE_PARK_RIDES: !Ref ThorpeParkRides
+          LED_CHESSINGTON_CACHE_SECONDS: !Ref ChessingtonCacheSeconds
+          LED_CHESSINGTON_RIDES: !Ref ChessingtonRides
+          LED_CALENDAR_SOURCE: !Ref CalendarSource
+          LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
+          LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
+          LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
+          LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
+          LED_WEATHER_SOURCE: !Ref WeatherSource
+          LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
+
+  ControlApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties: {Name: led-control-api, ProtocolType: HTTP}
+  ControlApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties: {ApiId: !Ref ControlApi, IntegrationType: AWS_PROXY, IntegrationMethod: POST, IntegrationUri: !GetAtt ControlFunction.Arn, PayloadFormatVersion: '2.0'}
+  ControlSessionRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/session', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlConfigRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/config', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlStatusRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/status', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlOptionsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'GET /api/control/v1/feeds/{feed_id}/options', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'PATCH /api/control/v1/feeds/{feed_id}', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlDisplayPatchRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref ControlApi, RouteKey: 'PATCH /api/control/v1/display', Target: !Sub 'integrations/${ControlApiIntegration}'}
+  ControlApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties: {ApiId: !Ref ControlApi, StageName: '$default', AutoDeploy: true}
+  ControlInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ControlFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ControlApi}/*/*/api/control/v1/*
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: led-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: scheduler.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: invoke-led-publisher
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: [{Effect: Allow, Action: 'lambda:InvokeFunction', Resource: !GetAtt PublisherFunction.Arn}]
+  PublisherSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: led-publisher-minute
+      Description: Refresh and publish LED screen data every minute.
+      FlexibleTimeWindow: {Mode: 'OFF'}
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Target: {Arn: !GetAtt PublisherFunction.Arn, RoleArn: !GetAtt SchedulerRole.Arn, RetryPolicy: {MaximumEventAgeInSeconds: 60, MaximumRetryAttempts: 1}}
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig: {Name: led-private-s3-oac, Description: CloudFront access to LED static/data objects in the private bucket., OriginAccessControlOriginType: s3, SigningBehavior: always, SigningProtocol: sigv4}
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: LED information board
+        Aliases: [!Ref DomainName]
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        Origins:
+          - {Id: led-s3-origin, DomainName: !GetAtt HostingBucket.RegionalDomainName, OriginAccessControlId: !Ref OriginAccessControl, S3OriginConfig: {OriginAccessIdentity: ''}}
+          - Id: led-control-api-origin
+            DomainName: !Sub ${ControlApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig: {HTTPSPort: 443, OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2]}
+        DefaultCacheBehavior:
+          TargetOriginId: led-s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CacheBehaviors:
+          - PathPattern: api/control/v1/*
+            TargetOriginId: led-control-api-origin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          - PathPattern: api/screens
+            TargetOriginId: led-s3-origin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+        ViewerCertificate: {AcmCertificateArn: !Ref CertificateArn, SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021}
+
+  HostingBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref HostingBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt HostingBucket.Arn
+              - !Sub ${HostingBucket.Arn}/*
+            Condition: {Bool: {aws:SecureTransport: false}}
+          - Sid: AllowCloudFrontPublicObjectsOnly
+            Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource:
+              - !Sub ${HostingBucket.Arn}/index.html
+              - !Sub ${HostingBucket.Arn}/admin
+              - !Sub ${HostingBucket.Arn}/admin.html
+              - !Sub ${HostingBucket.Arn}/api/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+Outputs:
+  HostingBucketName:
+    Value: !Ref HostingBucket
+  RuntimeConfigTableName:
+    Value: !Ref RuntimeConfigTable
+  PublisherFunctionName:
+    Value: !Ref PublisherFunction
+  PublisherFunctionArn:
+    Value: !GetAtt PublisherFunction.Arn
+  ControlFunctionName:
+    Value: !Ref ControlFunction
+  ControlApiId:
+    Value: !Ref ControlApi
+  TodoistOAuthParameterName:
+    Value: !Ref TodoistOAuthParameterName
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+  PublicUrl:
+    Value: !Sub https://${DomainName}
+  ScreensUrl:
+    Value: !Sub https://${DomainName}/api/screens
+  AdminUrl:
+    Value: !Sub https://${DomainName}/admin
+
+  FootballFixtureCacheSeconds: {Type: Number, Default: 900, MinValue: 60, MaxValue: 86400}
+  FootballFixtureDurationSeconds: {Type: Number, Default: 20, MinValue: 2, MaxValue: 300}
+  FootballFixtureLookaheadDays: {Type: Number, Default: 45, MinValue: 1, MaxValue: 180}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
   TodoistFilterQuery: {Type: String, Default: 'due before: tomorrow | due after: yesterday'}
