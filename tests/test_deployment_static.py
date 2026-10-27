@@ -11,7 +11,12 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("function departuresSectionHtml", admin)
         self.assertIn("Departures &amp; Steam Train", admin)
         self.assertIn("cardHtml('departures'", admin)
-        self.assertIn("cardHtml('steam_train'", admin)
+        self.assertIn("cardHtml('steam_train'", admin)  # Safe fallback if Rail schema is missing
+        self.assertIn('data-rail-group="true"', admin)
+        self.assertIn('data-rail-feed="', admin)
+        self.assertIn("data-save-rail", admin)
+        self.assertIn("railFeedFields('steam_train'", admin)
+        self.assertIn("collectRailCard(card)", admin)
         self.assertNotIn("function displayCardHtml", admin)
         self.assertNotIn("displayCardHtml(config.display", admin)
 
