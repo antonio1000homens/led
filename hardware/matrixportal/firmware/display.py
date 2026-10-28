@@ -1084,6 +1084,7 @@ class MatrixDisplay:
         self._football_info_group = None
         self._football_ball_grid = None
         self._football_slots = None
+        self._football_rotation_bitmaps = None
         self._football_current = None
         self._football_outgoing = None
         self._football_screen_id = None
@@ -1988,10 +1989,9 @@ class MatrixDisplay:
         import displayio
 
         group = displayio.Group()
-        bitmap = displayio.Bitmap(
-            FOOTBALL_BALL_WIDTH, FOOTBALL_BALL_HEIGHT,
-            len(FOOTBALL_BALL_PALETTE_INDEX),
-        )
+        # All eight indexed poses are precomputed once and shared across both
+        # scenes. Switching TileGrid.bitmap avoids 256 pixel writes and the
+        # resulting temporary integer objects during every moving frame.
         palette = displayio.Palette(len(FOOTBALL_BALL_PALETTE_INDEX))
         palette[0] = 0
         palette.make_transparent(0)
@@ -1999,10 +1999,11 @@ class MatrixDisplay:
             if name != ".":
                 red, green, blue = FOOTBALL_BALL_PALETTE[name]
                 palette[index] = (red << 16) | (green << 8) | blue
-        draw_football_rolling_indexed(bitmap, 0)
-        group.append(displayio.TileGrid(
-            bitmap, pixel_shader=palette, x=FOOTBALL_RENDER_END_X, y=8
-        ))
+        ball_grid = displayio.TileGrid(
+            self._football_rotation_bitmaps[0],
+            pixel_shader=palette, x=FOOTBALL_RENDER_END_X, y=8,
+        )
+        group.append(ball_grid)
         text_group = displayio.Group(x=FOOTBALL_TEXT_X, y=0)
         labels = [
             self._label(text_group, "", 0xFFFFFF, 0, index * 8)
@@ -2014,7 +2015,7 @@ class MatrixDisplay:
         countdown = self._label(due_group, "", 0xFFFFFF, 256, 18)
         group.append(due_group)
         return {
-            "group": group, "bitmap": bitmap, "frame": 0,
+            "group": group, "ball_grid": ball_grid, "frame": 0,
             "labels": labels, "text_group": text_group,
             "due_group": due_group, "heading": heading,
             "countdown": countdown, "countdown_text": None,
@@ -2059,6 +2060,14 @@ class MatrixDisplay:
             import displayio
 
             self._football_group = displayio.Group()
+            self._football_rotation_bitmaps = []
+            for pose in range(8):
+                bitmap = displayio.Bitmap(
+                    FOOTBALL_BALL_WIDTH, FOOTBALL_BALL_HEIGHT,
+                    len(FOOTBALL_BALL_PALETTE_INDEX),
+                )
+                draw_football_rolling_indexed(bitmap, pose)
+                self._football_rotation_bitmaps.append(bitmap)
             self._football_slots = (self._new_football_scene(), self._new_football_scene())
             for item in self._football_slots:
                 item["group"].hidden = True
@@ -2119,7 +2128,7 @@ class MatrixDisplay:
             changed = True
         frame = football_roll_frame(phase)
         if scene["frame"] != frame:
-            draw_football_rolling_indexed(scene["bitmap"], frame)
+            scene["ball_grid"].bitmap = self._football_rotation_bitmaps[frame]
             scene["frame"] = frame
             changed = True
 
