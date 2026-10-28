@@ -145,6 +145,16 @@ def football_due_in(kickoff, now_epoch):
     return "{:02d}M {:02d}S".format(minutes, seconds)
 
 
+def football_countdown_x(value, width=256, cell_width=6):
+    """Right-align countdown glyphs without a fixed x minimum.
+
+    Character cell width matches the display's 5x7 label font with its
+    one-pixel spacing. A large day count may reach further left, but must
+    never be clipped at the right edge.
+    """
+    return max(0, int(width) - len(str(value)) * int(cell_width))
+
+
 def football_slide_offset(phase):
     """Translate whole 256x32 match scene from the right to x=0."""
     x, settled = football_presentation_position(phase, animate=True)
