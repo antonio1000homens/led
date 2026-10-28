@@ -22,9 +22,28 @@ over 3.2 seconds. The fixture and local kickoff time slide **with** the ball,
 not after it. The ball freezes at x=2 when the scene arrives. If another
 football fixture immediately follows, the incoming scene pushes the complete
 outgoing fixture/ball/countdown off the left, with no blank interstitial frame.
-Two persistent displayio scenes and two reusable indexed sprite bitmaps avoid
-per-frame scene allocation; ordinary API polls and 1 Hz clock updates do not
-restart the entry. After the prompt presentation,
+Two persistent displayio scenes share **eight precomputed 16×16 indexed
+sprite poses** (around 512 bytes of bitmap pixels before object overhead);
+the renderer changes only TileGrid bitmap references and Group positions while
+moving. Fixture text and label objects remain cached when only the clock
+changes. This avoids allocating/drawing the sprite bitmap per animation frame.
+Ordinary API polls and 1 Hz clock updates do not restart the entry.
+
+### Garbage collection
+
+The firmware's rail departures scene has a special GC-suppressed animation
+window. On leaving rail, the existing runtime restores automatic GC. Football
+does **not** disable automatic GC. After each football screen settles and has
+shown its first countdown frame, a one-shot `gc.collect()` is scheduled no
+earlier than 3.7 seconds into the scene, while it is stationary. Collection is
+never scheduled during the rolling/pushing motion or the live goal highlight.
+The collect operation explicitly restores **automatic GC enabled** on success
+or failure. Its completion key is `(screen id, rotation cycle)`, so a 1 Hz
+countdown update or HTTP feed refresh cannot cause repeated GC pauses. The
+existing startup/maintenance/rail GC paths remain unchanged. When heap
+diagnostics are enabled, `FOOTBALL GC settled` reports collector duration
+and free heap before/after; track those alongside `FRAME PACE` during the
+physical board soak test. After the prompt presentation,
 football screens remain in the ordinary rotation as a fallback. A flash
 reminder keeps priority; football updates wait behind it. Pending updates are
 coalesced to one item per club so bursts cannot build an unbounded queue.
