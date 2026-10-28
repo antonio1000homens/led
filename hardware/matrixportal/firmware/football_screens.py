@@ -94,11 +94,11 @@ def kickoff_local_label(kickoff):
         weekdays = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
         months = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
-        return "KO: {} {:02d} {} {:02d}:{:02d}".format(
+        return "{} {:02d} {} {:02d}:{:02d}".format(
             weekdays[weekday], day, months[month - 1], hour, minute
         )
     except (TypeError, ValueError, IndexError, OverflowError):
-        return "KO: TBC"
+        return "TIME TBC"
 
 
 def football_presentation_position(phase, animate=True):
@@ -112,6 +112,55 @@ def football_presentation_position(phase, animate=True):
     travel = FOOTBALL_START_X - FOOTBALL_END_X
     x = max(FOOTBALL_END_X, FOOTBALL_START_X - int(travel * elapsed / FOOTBALL_SLIDE_SECONDS))
     return x, x == FOOTBALL_END_X
+
+
+
+def football_due_in(kickoff, now_epoch):
+    """Compact absolute-time PRE countdown for the right side of the board.
+
+    Show seconds only when more than 60 seconds remain, as requested.
+    Use total hours/minutes at each threshold (60M / 24H) to avoid hiding
+    units that are still needed for a meaningful countdown.
+    """
+    if not kickoff or now_epoch is None:
+        return "TBC"
+    try:
+        remaining = max(0, (_epoch(kickoff) // 1000) - int(now_epoch))
+    except (ValueError, TypeError):
+        return "TBC"
+    if remaining == 0:
+        return "DUE NOW"
+    if remaining <= 60:
+        return "UNDER 1 MIN"
+    if remaining > 86400:
+        days, rest = divmod(remaining, 86400)
+        hours, rest = divmod(rest, 3600)
+        minutes, seconds = divmod(rest, 60)
+        return "{:02d}D {:02d}H {:02d}M {:02d}S".format(days, hours, minutes, seconds)
+    if remaining > 3600:
+        hours, rest = divmod(remaining, 3600)
+        minutes, seconds = divmod(rest, 60)
+        return "{:02d}H {:02d}M {:02d}S".format(hours, minutes, seconds)
+    minutes, seconds = divmod(remaining, 60)
+    return "{:02d}M {:02d}S".format(minutes, seconds)
+
+
+def football_slide_offset(phase):
+    """Translate whole 256x32 match scene from the right to x=0."""
+    x, settled = football_presentation_position(phase, animate=True)
+    return x - FOOTBALL_END_X, settled
+
+
+def football_roll_frame(phase):
+    """Eight orientations, about 1.75 turns during the slide; frozen on arrival."""
+    _, settled = football_slide_offset(phase)
+    if settled:
+        return 0
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (ValueError, TypeError):
+        elapsed = 0.0
+    return int(elapsed * 14 / FOOTBALL_SLIDE_SECONDS) % 8
 
 
 def football_screen_lines(screen, now_epoch):
