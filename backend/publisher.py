@@ -29,6 +29,9 @@ from random_facts import RandomFactProvider
 from insults import InsultProvider
 from zenquotes import MAX_QUOTE_CHOICES, ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
+from football_calendar import (
+    GoogleCalendarFixtureProvider, PublicICalFixtureProvider, TEAM_NAMES as FOOTBALL_TEAM_NAMES,
+)
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
 
@@ -82,7 +85,9 @@ class PublisherConfig:
                  todoist_oauth_secret_arn="", calendar_ttl=300, calendar_max_events=6,
                  calendar_filter_query=DEFAULT_FILTER_QUERY, calendar_timezone=DEFAULT_TIMEZONE,
                  calendar_duration=10, calendar_page_seconds=5, runtime_config_table="",
-                 chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES):
+                 chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES,
+                 football_fixture_source="off", football_fixture_parameter_name="/led/football/calendar",
+                 football_fixture_ttl=900, football_fixture_duration=20, football_fixture_lookahead_days=45):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
         self.station = station
@@ -106,6 +111,11 @@ class PublisherConfig:
         self.runtime_config_table = runtime_config_table
         self.chessington_ttl = chessington_ttl
         self.chessington_rides = tuple(chessington_rides)
+        self.football_fixture_source = football_fixture_source
+        self.football_fixture_parameter_name = football_fixture_parameter_name
+        self.football_fixture_ttl = football_fixture_ttl
+        self.football_fixture_duration = football_fixture_duration
+        self.football_fixture_lookahead_days = football_fixture_lookahead_days
 
     @classmethod
     def from_env(cls, env=None):
@@ -131,6 +141,12 @@ class PublisherConfig:
         calendar_source = env.get("LED_CALENDAR_SOURCE", "off").strip()
         if calendar_source not in ("off", "todoist"):
             raise ValueError("LED_CALENDAR_SOURCE must be off or todoist")
+        fixture_source = env.get("LED_FOOTBALL_FIXTURE_SOURCE", "off").strip()
+        if fixture_source not in ("off", "google_calendar", "public_ical"):
+            raise ValueError("LED_FOOTBALL_FIXTURE_SOURCE must be off, google_calendar or public_ical")
+        fixture_parameter = env.get("LED_FOOTBALL_FIXTURE_PARAMETER_NAME", "/led/football/calendar").strip()
+        if fixture_source == "google_calendar" and not fixture_parameter:
+            raise ValueError("LED_FOOTBALL_FIXTURE_PARAMETER_NAME is required")
         todoist_secret = env.get("TODOIST_OAUTH_SECRET_ARN", "").strip()
         if calendar_source == "todoist" and not todoist_secret:
             raise ValueError("TODOIST_OAUTH_SECRET_ARN is required when LED_CALENDAR_SOURCE=todoist")
@@ -152,6 +168,10 @@ class PublisherConfig:
             env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
             calendar_duration, calendar_page_seconds, env.get("RUNTIME_CONFIG_TABLE", "").strip(),
             _env_int(env, "LED_CHESSINGTON_CACHE_SECONDS", 300), chessington_rides,
+            fixture_source, fixture_parameter,
+            _env_int(env, "LED_FOOTBALL_FIXTURE_CACHE_SECONDS", 900),
+            _env_int(env, "LED_FOOTBALL_FIXTURE_DURATION_SECONDS", 20, 2),
+            _env_int(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS", 45),
         )
 
 
@@ -168,6 +188,10 @@ def _runtime_defaults(config: PublisherConfig):
         "LED_CALENDAR_SOURCE": config.calendar_source,
         "LED_TODOIST_CACHE_SECONDS": str(config.calendar_ttl),
         "LED_CALENDAR_DURATION_SECONDS": str(config.calendar_duration),
+        "LED_FOOTBALL_FIXTURE_SOURCE": config.football_fixture_source,
+        "LED_FOOTBALL_FIXTURE_CACHE_SECONDS": str(config.football_fixture_ttl),
+        "LED_FOOTBALL_FIXTURE_DURATION_SECONDS": str(config.football_fixture_duration),
+        "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS": str(config.football_fixture_lookahead_days),
     }
     return default_runtime_config(env)
 
@@ -222,7 +246,8 @@ class S3StateStore:
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
-                 fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None):
+                 fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None,
+                 football_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -245,6 +270,11 @@ class Publisher:
         self.insult_provider = insult_provider or InsultProvider()
         self.quotes_provider = quotes_provider or ZenQuotesProvider()
         self.bus_provider = bus_provider or TransitousBusProvider()
+        self.football_provider = football_provider
+        if self.football_provider is None and config.football_fixture_source == "google_calendar":
+            self.football_provider = GoogleCalendarFixtureProvider(config.football_fixture_parameter_name)
+        elif self.football_provider is None and config.football_fixture_source == "public_ical":
+            self.football_provider = PublicICalFixtureProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -317,6 +347,18 @@ class Publisher:
 
     def _fetch_queues(self, now, provider, park):
         return {"park": park, "source": "queue_times", "fetched_at": _iso(now), "rides": provider.fetch()}
+
+    def _fetch_football_fixtures(self, now, lookahead_days, enabled_teams):
+        source = ("public_ical" if self.config.football_fixture_source == "public_ical"
+                  else "google_calendar")
+        if not enabled_teams:
+            fixtures = []  # Never request a calendar when all teams are disabled.
+        else:
+            if self.football_provider is None:
+                raise RuntimeError("football fixture calendar provider is not configured")
+            fixtures = self.football_provider.fetch(
+                now, lookahead_days=lookahead_days, enabled_teams=enabled_teams)
+        return {"source": source, "fetched_at": _iso(now), "fixtures": fixtures}
 
     def _fetch_calendar(self, now):
         if self.calendar_provider is None:
@@ -629,6 +671,45 @@ class Publisher:
                 "page_seconds": self.config.calendar_page_seconds,
                 "events": copy.deepcopy(calendar_events[:task_count]),
             })
+        fixture_cfg = config_feeds["football_fixtures"]
+        if fixture_cfg["enabled"]:
+            fixture_state = feeds.get("football_fixtures") or {}
+            data = fixture_state.get("data") or {}
+            # Only publish explicitly selected, sanitized fixture fields. Expired
+            # cached fixtures disappear immediately, even during calendar outages.
+            seen_fixture_teams = set()
+            for fixture in data.get("fixtures") or []:
+                if not isinstance(fixture, dict):
+                    continue
+                team_key = fixture.get("team_key")
+                kickoff = _parse_iso(fixture.get("kickoff"))
+                if (team_key not in FOOTBALL_TEAM_NAMES or team_key in seen_fixture_teams
+                        or not fixture_cfg.get(team_key + "_enabled", False)
+                        or kickoff is None or kickoff.tzinfo is None or kickoff <= now):
+                    continue
+                if not isinstance(fixture.get("match_id"), str) or not fixture["match_id"]:
+                    continue
+                opponent = fixture.get("opponent_long_name")
+                if not isinstance(opponent, str) or not opponent:
+                    continue
+                team_name = FOOTBALL_TEAM_NAMES[team_key]
+                seen_fixture_teams.add(team_key)
+                screens.append({
+                    "id": "football-" + team_key,
+                    "kind": "football_score",
+                    "title": team_name,
+                    "team_key": team_key,
+                    "team_name": team_name,
+                    "status": "PRE",
+                    "opponent_long_name": opponent,
+                    "display_fixture": team_name + " vs " + opponent,
+                    "home_away": fixture.get("home_away") if fixture.get("home_away") in ("home", "away", "unknown") else "unknown",
+                    "kickoff": fixture["kickoff"],
+                    "match_id": fixture["match_id"],
+                    "source": data.get("source") if data.get("source") in ("google_calendar", "public_ical") else "unavailable",
+                    "stale": bool(fixture_state.get("stale")),
+                    "duration_seconds": fixture_cfg["screen_duration_seconds"],
+                })
         joke_cfg = config_feeds["dad_joke"]
         if joke_cfg["enabled"]:
             cached_joke = feeds.get("dad_joke") or {}
@@ -797,6 +878,7 @@ class Publisher:
             "bus_intro": "sl7_bus",
             "bus_departures": "sl7_bus",
             "bus_departures_combined": "sl7_bus",
+            "football_score": "football_fixtures",
             "christmas_tracker_intro": "christmas",
             "christmas_tracker": "christmas",
         }
@@ -874,6 +956,39 @@ class Publisher:
                 "calendar", feeds.get("calendar"), settings["calendar"]["poll_seconds"],
                 lambda: self._fetch_calendar(now), now,
             )
+        if settings["football_fixtures"]["enabled"]:
+            fixture_cfg = settings["football_fixtures"]
+            previous = feeds.get("football_fixtures") or {}
+            enabled_teams = [
+                team for team in FOOTBALL_TEAM_NAMES
+                if fixture_cfg.get(team + "_enabled", False)
+            ]
+            selection = {
+                "enabled_teams": enabled_teams,
+                "lookahead_days": fixture_cfg["lookahead_days"],
+                "source": self.config.football_fixture_source,
+            }
+            # Admin changes must take effect on the very next publish, even
+            # when the former selection is still within its cache TTL.
+            changed = previous.get("requested_selection") != selection
+            last_attempt = _parse_iso(previous.get("last_attempt_at"))
+            cold_throttled = (
+                previous.get("data") is None and not changed and last_attempt is not None
+                and (now - last_attempt).total_seconds() < fixture_cfg["poll_seconds"]
+            )
+            if cold_throttled:
+                feeds["football_fixtures"] = previous
+            else:
+                refreshed = self._refresh(
+                    "football_fixtures", previous, fixture_cfg["poll_seconds"],
+                    lambda: self._fetch_football_fixtures(
+                        now, fixture_cfg["lookahead_days"], enabled_teams
+                    ), now, force=changed,
+                )
+                # Record the attempted selection even if Google failed; otherwise
+                # a config edit would retry every Lambda minute despite its TTL.
+                refreshed["requested_selection"] = selection
+                feeds["football_fixtures"] = refreshed
         if settings["dad_joke"]["enabled"]:
             feeds["dad_joke"] = self._refresh_static_pool(
                 "dad_joke", feeds.get("dad_joke"), settings["dad_joke"]["poll_seconds"], now,

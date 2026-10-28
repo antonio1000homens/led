@@ -10,6 +10,34 @@ The `led-control-api` Lambda is reached through the same public LED hostname at 
 
 `/api/screens` and the public simulator remain outside Cloudflare Access. `/admin*` and `/api/control/v1/*` are the protected control plane.
 
+## Admin navigation
+
+The authenticated control plane is served at **/admin**. On desktop, its sticky left sidebar groups settings into Overview, Transport, Weather, Theme parks, Calendar & events, Fun & content, MQTT & notifications, Other screens (when applicable), and Maintenance & diagnostics. On phones and smaller tablets, **Browse screens** opens a dismissible drawer; Escape or the backdrop closes it, and focus returns to the menu button. The **Find a screen** box filters the navigation, including entries below the fold. Keyboard Tab/Enter/Space work throughout.
+
+Only the selected screen section is visible. Individual cards, their Advanced options, cron/schedule windows, on/off controls, ordered queue rides and the existing Apply actions remain unchanged. National Rail and Steam Train now share **one Rail Departures & Steam Train card** (like SL7's introduction options): the animation enable switch, speed and trailing text appear beneath the departures settings, with one **Apply rail changes** action. The application still saves two independent backend feeds sequentially using the existing versioned PATCH API: both are validated before saving, and a partial success or `412` keeps the unsaved controls available for review and retry. Queue Times retains a single grouped Apply action for all its parks. **Weather → Next 24 hours** is a forecast sub-screen, while **Weather → Today · current conditions** is a separate feed. Maintenance contains garbage collection and advanced status diagnostics rather than mixing them with screen configuration. Navigation entries reflect the currently returned configuration/schema, so future supported feeds appear under Other screens when no specific category exists.
+
+### Direct links and navigation history
+
+Navigation uses URL fragments without changing the /admin pathname or API contract. Examples:
+
+- **/admin#overview** — overall configuration/status and shortcuts.
+- **/admin#screen/departures** — unified Rail Departures + Steam Train settings and one Apply button (old **/admin#screen/steam_train** bookmarks also open this panel).
+- **/admin#screen/sl7_bus** — SL7 bus settings.
+- **/admin#screen/weather-next-24-hours** — Weather's rolling forecast blocks.
+- **/admin#screen/today** — the **standalone** Today/current conditions feed.
+- **/admin#screen/queue_times** — combined Queue Times and ordered park rides.
+- **/admin#screen/thorpe_park** — Queue Times opened on Thorpe Park.
+- **/admin#screen/recycling** — MQTT recycling display policy.
+- **/admin#maintenance** — garbage collection and diagnostics.
+
+The Cloudflare session hand-off preserves an incoming fragment. Browser Back/Forward and refresh restore the selected item. The legacy **#insult-of-hour** fragment still navigates to the Insult settings.
+
+### Unsaved changes and error handling
+
+Changing a field or ride order marks the relevant card **Unsaved changes** and adds a marker to its sidebar link. Switching sections or closing the mobile drawer *does not recreate the form*, so unsaved values persist. Saving a different card retains drafts across the rerender, including Queue Times ride order, park values and schedule-window rows. The **Refresh** button asks before discarding pending edits, and navigating away/reloading the document prompts with the browser's standard unsaved-changes warning.
+
+Saves still send **If-Match** against the current config version, and a **412** reports an external concurrent edit instead of overwriting it. Expired Cloudflare Access authentication is reported as an authentication error. If only the status request fails, configuration remains editable, while feed status is shown as unavailable rather than incorrectly healthy. Recycling status refers solely to the control API, not local MQTT broker telemetry.
+
 ## Runtime versus deployment configuration
 
 DynamoDB contains only non-secret settings that are safe to change at runtime. The stable v1 feeds are:
@@ -214,3 +242,8 @@ The DynamoDB table is retained across stack replacement/deletion. The control pl
 To seed a new installation, deploy the stack and perform an authenticated `GET /api/control/v1/config`; the control Lambda conditionally writes version 1 from deployment defaults.
 
 Reset is intentionally not exposed through the control API. An operator with separate AWS administration rights can delete only the `runtime` item from the `led-runtime-config` table, then perform an authenticated configuration GET to reseed it. Take care: this discards the current runtime settings and ride selections.
+
+
+## Public Google Calendar football fixtures
+
+The `football_fixtures` feed is separate from Todoist `calendar`. Its normal versioned `PATCH /api/control/v1/feeds/football_fixtures` accepts `enabled`, `poll_seconds` (default 900), `screen_duration_seconds` (default 20), `lookahead_days` (1–180, default 45), and per-team `sporting_cp_enabled` / `millwall_enabled` (true initially) and `portugal_enabled` / `england_enabled` (false initially). When the backend is configured with `LED_FOOTBALL_FIXTURE_SOURCE=public_ical`, no OAuth credentials are required and disabled teams are not fetched. Control status shows health/staleness but never exposes IDs or raw calendar events. See [the football source contract](football-mqtt.md#backend-sourced-pre-football-fixtures-275) for the four subscriptions and staged deployment.

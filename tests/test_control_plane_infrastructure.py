@@ -59,10 +59,14 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
         self.assertIn("const API='/api/control/v1';", self.admin)
         self.assertIn("credentials:'same-origin'", self.admin)
         self.assertIn("window.location.replace(`${API}/session`);", self.admin)
-        self.assertIn("window.history.replaceState(null,'','/admin');", self.admin)
+        self.assertIn("window.history.replaceState(null,'','/admin'+restoredHash);", self.admin)
+        self.assertIn("window.sessionStorage.setItem('led-admin-return-hash',window.location.hash);", self.admin)
+        self.assertIn("window.sessionStorage.getItem('led-admin-return-hash');", self.admin)
+        self.assertIn("window.sessionStorage.removeItem('led-admin-return-hash');", self.admin)
+        self.assertIn("savedHash.startsWith('#')", self.admin)
         self.assertIn("'If-Match'", self.admin)
         self.assertNotIn("Admin token", self.admin)
-        self.assertNotIn("sessionStorage", self.admin)
+        self.assertNotIn("sessionStorage.setItem('token'", self.admin)
         self.assertNotIn("Bearer ", self.admin)
 
     def test_docs_keep_admin_human_only_and_scope_service_auth_to_control_api(self):
