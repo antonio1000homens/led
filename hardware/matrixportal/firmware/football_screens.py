@@ -16,17 +16,12 @@ FOOTBALL_TEAM_COLOUR_NAMES = {
     "england": "England", "portugal": "Portugal",
 }
 # Full-intensity RGB primaries survive the MatrixPortal's one-bit-per-channel
-# output. Each entry assigns one color to each non-space letter in the name.
-_GREEN = (0, 255, 0)
-_WHITE = (255, 255, 255)
-_RED = (255, 0, 0)
-_YELLOW = (255, 255, 0)
-_BLUE = (0, 0, 255)
-FOOTBALL_TEAM_LETTER_COLORS = {
-    "sporting_cp": (_GREEN, _GREEN, _GREEN, _WHITE, _WHITE, _WHITE, _WHITE, _GREEN, _GREEN, _GREEN),
-    "england": (_WHITE, _WHITE, _RED, _RED, _BLUE, _BLUE, _BLUE),
-    "millwall": (_WHITE, _WHITE, _WHITE, _WHITE, _BLUE, _BLUE, _BLUE, _BLUE),
-    "portugal": (_RED, _RED, _RED, _YELLOW, _YELLOW, _GREEN, _GREEN, _GREEN),
+# output. Only the tracked team's name receives this color; the rest is white.
+FOOTBALL_TEAM_COLORS = {
+    "sporting_cp": (0, 255, 0),
+    "england": (255, 255, 255),
+    "millwall": (0, 0, 255),
+    "portugal": (255, 0, 0),
 }
 FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
@@ -56,7 +51,7 @@ def football_team_name_span(screen, line):
     for candidate in candidates:
         start = row_upper.find(candidate)
         if start >= 0:
-            return start, candidate, FOOTBALL_TEAM_LETTER_COLORS.get(team_key, ())
+            return start, candidate, FOOTBALL_TEAM_COLORS.get(team_key)
     return None
 
 

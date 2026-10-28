@@ -214,11 +214,11 @@
       sporting_cp: 'SPORTING CP', millwall: 'MILLWALL',
       england: 'ENGLAND', portugal: 'PORTUGAL'
     };
-    const FOOTBALL_TEAM_LETTER_COLORS = {
-      sporting_cp: ['#00ff00', '#00ff00', '#00ff00', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#00ff00', '#00ff00', '#00ff00'],
-      england: ['#ffffff', '#ffffff', '#ff0000', '#ff0000', '#0000ff', '#0000ff', '#0000ff'],
-      millwall: ['#ffffff', '#ffffff', '#ffffff', '#ffffff', '#0000ff', '#0000ff', '#0000ff', '#0000ff'],
-      portugal: ['#ff0000', '#ff0000', '#ff0000', '#ffff00', '#ffff00', '#00ff00', '#00ff00', '#00ff00']
+    const FOOTBALL_TEAM_COLORS = {
+      sporting_cp: '#00ff00',
+      england: '#ffffff',
+      millwall: '#0000ff',
+      portugal: '#ff0000'
     };
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
@@ -1277,15 +1277,14 @@
     function drawFootballTeamLine(screen, value, x, y, color) {
       const text = String(value ?? '');
       const key = screen.team_key;
-      const colors = FOOTBALL_TEAM_LETTER_COLORS[key] || [];
+      const teamColor = FOOTBALL_TEAM_COLORS[key];
       let name = String(FOOTBALL_TEAM_COLOUR_NAMES[key]
         || screen.team_name || FOOTBALL_TEAM_NAMES[key] || '').trim().toUpperCase();
       let start = name ? text.toUpperCase().indexOf(name) : -1;
-      let letterIndex = 0;
       [...text].forEach((character, index) => {
-        const inName = colors.length && start >= 0 && index >= start && index < start + name.length;
+        const inName = teamColor && start >= 0 && index >= start && index < start + name.length;
         context.fillStyle = inName && character !== ' '
-          ? colors[letterIndex++] : color;
+          ? teamColor : color;
         drawLedText(character, x + index * FONT_CELL_WIDTH, y);
       });
     }
@@ -1305,10 +1304,10 @@
       }));
       const rows = footballLines(screen);
       const isPre = screen.status === 'PRE';
-      context.fillStyle = '#ffaa00';
+      context.fillStyle = '#ffffff';
       if (isPre) {
         // Match and scheduled local date travel with the ball; no KO: prefix.
-        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, '#ffaa00');
+        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, '#ffffff');
         context.fillStyle = '#ffffff';
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
         if (settled) {
@@ -1321,10 +1320,10 @@
         }
       } else {
         rows.slice(0, 4).forEach((line, index) => {
-          context.fillStyle = index === 0 ? '#ffaa00' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
+          context.fillStyle = index === 0 ? '#ffffff' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
           const value = String(line).slice(0, 38);
           if (index === 0) {
-            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, '#ffaa00');
+            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, '#ffffff');
           } else {
             drawLedText(value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
           }

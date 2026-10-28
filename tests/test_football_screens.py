@@ -13,7 +13,7 @@ from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_presentation_position,
     football_screen_lines, kickoff_countdown, kickoff_local_label,
     football_due_in, football_slide_offset, football_roll_frame,
-    football_countdown_x, FOOTBALL_TEAM_LETTER_COLORS,
+    football_countdown_x, FOOTBALL_TEAM_COLORS,
     football_team_name_span,
 )
 from screen_client import ScreenRotation
@@ -389,42 +389,34 @@ process.stdout.write(JSON.stringify(output));
             self.assertIn(("football-a", "football-b"), neighbors)
             self.assertEqual(len(sequence), 4)
 
-    def test_team_letter_colours_are_applied_to_the_team_name(self):
-        green, white, red, yellow, blue = (
-            (0, 255, 0), (255, 255, 255), (255, 0, 0),
-            (255, 255, 0), (0, 0, 255),
-        )
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["sporting_cp"],
-                         (green, green, green, white, white, white, white,
-                          green, green, green))
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["millwall"],
-                         (white, white, white, white, blue, blue, blue, blue))
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["england"],
-                         (white, white, red, red, blue, blue, blue))
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["portugal"],
-                         (red, red, red, yellow, yellow, green, green, green))
+    def test_team_name_uses_one_team_color_and_fixture_rest_is_white(self):
+        self.assertEqual(FOOTBALL_TEAM_COLORS, {
+            "sporting_cp": (0, 255, 0), "england": (255, 255, 255),
+            "millwall": (0, 0, 255), "portugal": (255, 0, 0),
+        })
         names = {
             "sporting_cp": "SPORTING CP",
             "millwall": "MILLWALL",
             "england": "ENGLAND",
             "portugal": "PORTUGAL",
         }
-        for team, colours in FOOTBALL_TEAM_LETTER_COLORS.items():
+        for team, colour in FOOTBALL_TEAM_COLORS.items():
             with self.subTest(team=team):
                 screen = {
                     "kind": "football_score", "status": "PRE",
                     "team_key": team, "team_name": names[team],
                 }
                 span = football_team_name_span(screen, names[team] + " VS OPPONENT")
-                self.assertEqual(span, (0, names[team], colours))
+                self.assertEqual(span, (0, names[team], colour))
 
-    def test_simulator_renders_team_letter_colours_with_the_moving_scene(self):
+    def test_simulator_uses_solid_team_colors_and_white_fixture_text(self):
         html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
-        self.assertIn("const FOOTBALL_TEAM_LETTER_COLORS = {", html)
+        self.assertIn("const FOOTBALL_TEAM_COLORS = {", html)
         self.assertIn("function drawFootballTeamLine(screen, value, x, y, color)", html)
-        self.assertIn("FOOTBALL_TEAM_LETTER_COLORS[key]", html)
+        self.assertIn("FOOTBALL_TEAM_COLORS[key]", html)
         self.assertIn("sporting_cp: 'SPORTING CP'", html)
-        self.assertNotIn("FOOTBALL_TEAM_STRIPES", html)
+        self.assertIn("'#ffffff'", html)
+        self.assertNotIn("FOOTBALL_TEAM_LETTER_COLORS", html)
 
     def test_simulator_keeps_ball_pinned_and_pregame_text_to_its_right(self):
         display = CapturingFootballFixture()
@@ -462,8 +454,8 @@ const context = {fillStyle: '', fillRect() {}};
 const drawn = [];
 function drawLedText(value, x, y) { drawn.push([value, x / FONT_PIXEL_SCALE, y / FONT_PIXEL_SCALE]); }
 """ + functions + """
-// Keep this layout-contract test focused on coordinates. Team-letter colors
-// are checked separately by test_simulator_renders_team_letter_colours_with_the_moving_scene.
+// Keep this layout-contract test focused on coordinates. Solid team colors
+// are checked separately by test_simulator_uses_solid_team_colors_and_white_fixture_text.
 function drawFootballTeamLine(screen, value, x, y) { drawLedText(value, x, y); }
 function drawFootballPregameText(value, x, y) { drawLedText(value, x * FONT_PIXEL_SCALE, y * FONT_PIXEL_SCALE); }
 const sample = {status:'PRE', team_key:'millwall', team_name:'Millwall FC',

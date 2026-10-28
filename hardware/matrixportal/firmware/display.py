@@ -2056,11 +2056,11 @@ class MatrixDisplay:
                 label.y = 8 * index
                 label.text = _clip(str(rows[index]), 38) if index < len(rows) else ""
                 label.color = colors[index]
+        labels[0].color = 0xFFFFFF
         span = football_team_name_span(screen, rows[0]) if rows else None
         team_letters = scene["team_letters"]
-        letter_index = 0
-        start, name, team_colors = span if span else (0, "", ())
-        if team_colors:
+        start, name, team_color = span if span else (0, "", None)
+        if team_color:
             labels[0].text = labels[0].text[:start] + (" " * len(name)) + labels[0].text[start + len(name):]
             for index, character in enumerate(name):
                 letter = team_letters[index]
@@ -2069,10 +2069,9 @@ class MatrixDisplay:
                 if character == " ":
                     letter.text = ""
                     continue
-                red, green, blue = team_colors[letter_index]
                 letter.text = character
+                red, green, blue = team_color
                 letter.color = (red << 16) | (green << 8) | blue
-                letter_index += 1
         for index in range(len(name), len(team_letters)):
             team_letters[index].text = ""
         scene["due_group"].hidden = status != "PRE"
@@ -4874,7 +4873,7 @@ class FixtureDisplay:
                     rows = rows[:3] + ("GOAL {}".format(str(team or "SCORED").upper()),)
                 for index, line in enumerate(rows):
                     line_text = _clip(str(line), max_chars)
-                    base_color = (255, 170, 0) if index == 0 else (255, 255, 255)
+                    base_color = (255, 255, 255)
                     if screen.get("status") == "PRE" and index < 2:
                         y = 5 + index * 13
                     else:
@@ -4883,16 +4882,13 @@ class FixtureDisplay:
                     if index == 0:
                         span = football_team_name_span(screen, line_text)
                         if span:
-                            start, name, team_colors = span
-                            if team_colors:
-                                positions = {}
-                                colour_index = 0
-                                for char_index, character in enumerate(name):
-                                    if character != " ":
-                                        positions[start + char_index] = team_colors[
-                                            colour_index % len(team_colors)
-                                        ]
-                                        colour_index += 1
+                            start, name, team_color = span
+                            if team_color:
+                                positions = {
+                                    char_index: team_color
+                                    for char_index, character in enumerate(name, start=start)
+                                    if character != " "
+                                }
 
                                 def color(px, _py, positions=positions, base=base_color):
                                     char_index = int(px) // 6 - FOOTBALL_TEXT_X // 6
