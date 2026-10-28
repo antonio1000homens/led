@@ -62,6 +62,7 @@ from football_screens import (
     football_slide_offset,
     football_roll_frame,
     football_due_in,
+    football_countdown_x,
     football_screen_lines,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
@@ -2173,7 +2174,7 @@ class MatrixDisplay:
             if scene["countdown_text"] != countdown:
                 label = scene["countdown"]
                 label.text = countdown
-                label.x = max(166, 255 - len(countdown) * 6)
+                label.x = football_countdown_x(countdown)
                 scene["countdown_text"] = countdown
                 changed = True
 
