@@ -465,7 +465,10 @@
       }
     }
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
-    function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
+    function serviceCancelled(service) {
+      return Boolean(service.cancelled) || String(service.status || '').toUpperCase().includes('CANCELLED');
+    }
+    function serviceStatus(service) { return serviceCancelled(service) ? 'CANCELLED' : String(service.status || ''); }
     function ordinalLabel(number) {
       const value = Number(number) || 1;
       const suffix = value % 100 > 10 && value % 100 < 14 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
@@ -476,14 +479,15 @@
         ordinal: ordinalLabel(ordinal),
         time: clip(service.time || '--:--', 5),
         destination: String(service.destination || 'Unknown'),
-        platform: ('P' + String(service.platform || '-')).slice(0, 3),
+        platform: serviceCancelled(service) ? '' : ('P' + String(service.platform || '-')).slice(0, 3),
         status: serviceStatus(service)
       };
     }
     function row(service) {
       const state = serviceStatus(service);
       const prefix = clip(service.time, 5) + ' ';
-      const suffix = ' ' + ('P' + String(service.platform || '-')).slice(0, 3) + ' ' + state;
+      const platform = serviceCancelled(service) ? '' : ('P' + String(service.platform || '-')).slice(0, 3);
+      const suffix = ' ' + platform + ' ' + state;
       const destinationWidth = Math.max(1, 32 - prefix.length - suffix.length);
       return (prefix + clip(service.destination, destinationWidth) + suffix).slice(0, 32);
     }

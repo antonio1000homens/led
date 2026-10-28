@@ -98,6 +98,7 @@ from formatting import (
     format_row,
     queue_scroll_state,
     row_slide_phase,
+    service_is_cancelled,
     service_status_text,
 )
 
@@ -804,7 +805,7 @@ def _rail_columns(service, ordinal=1):
         ordinal_label(ordinal),
         _clip(service.get("time", "--:--"), 5),
         str(service.get("destination") or "Unknown"),
-        ("P" + str(service.get("platform", "-")))[:3],
+        "" if service_is_cancelled(service) else ("P" + str(service.get("platform", "-")))[:3],
         service_status_text(service),
     )
 
