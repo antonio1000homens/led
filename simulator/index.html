@@ -193,6 +193,12 @@
     const FOOTBALL_START_X = 256;
     const FOOTBALL_END_X = 2;
     const FOOTBALL_TEXT_X = 22;
+    const FOOTBALL_TEAM_STRIPES = {
+      sporting_cp: ['#007a33', '#ffffff', '#007a33'],
+      england: ['#ffffff', '#ce1126', '#ffffff'],
+      millwall: ['#0033a0', '#ffffff', '#0033a0'],
+      portugal: ['#ff0000', '#ffcc00', '#006600']
+    };
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -1204,6 +1210,11 @@
         context.fillRect((x + column) * FONT_PIXEL_SCALE, (8 + y) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
       }));
       if (!infoVisible) return;
+      (FOOTBALL_TEAM_STRIPES[screen.team_key] || []).forEach((color, index) => {
+        context.fillStyle = color;
+        context.fillRect(2 * FONT_PIXEL_SCALE, index * 3 * FONT_PIXEL_SCALE,
+          16 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
+      });
       footballLines(screen).slice(0, 4).forEach((line, index) => {
         context.fillStyle = index === 0 ? '#ffaa00' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
         if (screen.status === 'PRE' && index < 2) {

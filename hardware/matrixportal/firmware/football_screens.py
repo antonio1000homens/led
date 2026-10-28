@@ -8,6 +8,12 @@ from mqtt_screens import _epoch
 FOOTBALL_TEAMS = ("sporting_cp", "millwall")
 FOOTBALL_STATUSES = ("PRE", "IN", "POST", "BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")
 FOOTBALL_TEAM_NAMES = {"sporting_cp": "Sporting CP", "millwall": "Millwall FC"}
+FOOTBALL_TEAM_STRIPES = {
+    "sporting_cp": ((0, 122, 51), (255, 255, 255), (0, 122, 51)),
+    "england": ((255, 255, 255), (206, 17, 38), (255, 255, 255)),
+    "millwall": ((0, 51, 160), (255, 255, 255), (0, 51, 160)),
+    "portugal": ((255, 0, 0), (255, 204, 0), (0, 102, 0)),
+}
 LIVE_STALE_SECONDS = 600
 GOAL_FLASH_SECONDS = 8
 SCREEN_DURATION_SECONDS = 20
@@ -16,6 +22,10 @@ FOOTBALL_START_X = 256
 FOOTBALL_END_X = 2
 FOOTBALL_BALL_WIDTH = 16
 FOOTBALL_TEXT_X = FOOTBALL_END_X + FOOTBALL_BALL_WIDTH + 4
+FOOTBALL_FLAG_X = 2
+FOOTBALL_FLAG_Y = 0
+FOOTBALL_FLAG_WIDTH = 16
+FOOTBALL_FLAG_HEIGHT = 8
 
 
 def kickoff_countdown(kickoff, now_epoch):

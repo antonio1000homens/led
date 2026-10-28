@@ -55,7 +55,12 @@ from football_ball import (
 )
 from football_screens import (
     FOOTBALL_END_X as FOOTBALL_RENDER_END_X,
+    FOOTBALL_FLAG_HEIGHT,
+    FOOTBALL_FLAG_WIDTH,
+    FOOTBALL_FLAG_X,
+    FOOTBALL_FLAG_Y,
     FOOTBALL_START_X,
+    FOOTBALL_TEAM_STRIPES,
     FOOTBALL_TEXT_X,
     football_presentation_position,
     football_screen_lines,
@@ -1080,6 +1085,10 @@ class MatrixDisplay:
         self._football_key = None
         self._football_info_group = None
         self._football_ball_grid = None
+        self._football_flag_bitmap = None
+        self._football_flag_palette = None
+        self._football_flag_tile = None
+        self._football_flag_team = None
 
         # Weather pages are static while visible. Keep their displayio trees
         # alive instead of allocating new icon bitmaps and palettes on every
@@ -1976,6 +1985,8 @@ class MatrixDisplay:
     def _show_football(self, screen, phase, now_epoch):
         update_started = ticks_ms()
         rows = list(football_screen_lines(screen, now_epoch))
+        team_key = screen.get("team_key")
+        team_stripes = FOOTBALL_TEAM_STRIPES.get(team_key)
         goal_active = screen.get("goal_flash_active") and screen.get("status") == "IN"
         if goal_active:
             team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
@@ -1986,7 +1997,7 @@ class MatrixDisplay:
         ball_x, info_visible = football_presentation_position(
             phase, screen.get("ball_animation", False)
         )
-        key = (screen.get("status"), tuple(rows), tuple(colors), info_visible)
+        key = (team_key, screen.get("status"), tuple(rows), tuple(colors), info_visible)
         changed = self._football_key != key
         if self._football_group is None:
             import displayio
@@ -2008,6 +2019,18 @@ class MatrixDisplay:
                 bitmap, pixel_shader=palette, x=FOOTBALL_START_X, y=8
             )
             self._football_group.append(self._football_ball_grid)
+            flag_bitmap = displayio.Bitmap(FOOTBALL_FLAG_WIDTH, FOOTBALL_FLAG_HEIGHT, 4)
+            flag_palette = displayio.Palette(4)
+            flag_palette[0] = 0x000000
+            flag_palette.make_transparent(0)
+            self._football_flag_tile = displayio.TileGrid(
+                flag_bitmap, pixel_shader=flag_palette,
+                x=FOOTBALL_FLAG_X, y=FOOTBALL_FLAG_Y,
+            )
+            self._football_flag_tile.hidden = True
+            self._football_group.append(self._football_flag_tile)
+            self._football_flag_bitmap = flag_bitmap
+            self._football_flag_palette = flag_palette
             self._football_info_group = displayio.Group(x=FOOTBALL_TEXT_X, y=0)
             self._football_info_group.hidden = True
             self._football_labels = [
@@ -2027,6 +2050,18 @@ class MatrixDisplay:
                 self._football_pregame_tiles.append(tile)
                 self._football_pregame_palettes.append(palette)
             self._football_group.append(self._football_info_group)
+        if self._football_flag_team != team_key:
+            if team_stripes:
+                for index, color in enumerate(team_stripes):
+                    self._football_flag_palette[index + 1] = (
+                        (color[0] << 16) | (color[1] << 8) | color[2]
+                    )
+                    stripe_y = index * 3
+                    for y in range(stripe_y, stripe_y + 2):
+                        for x in range(FOOTBALL_FLAG_WIDTH):
+                            self._football_flag_bitmap[x, y] = index + 1
+            self._football_flag_team = team_key
+        self._football_flag_tile.hidden = not (bool(team_stripes) and info_visible)
         if self._football_ball_grid.x != ball_x:
             self._football_ball_grid.x = ball_x
             changed = True
@@ -4723,6 +4758,13 @@ class FixtureDisplay:
             ball_x, info_visible = football_presentation_position(
                 phase, screen.get("ball_animation", False)
             )
+            team_stripes = FOOTBALL_TEAM_STRIPES.get(screen.get("team_key"))
+            if info_visible and team_stripes:
+                for index, color in enumerate(team_stripes):
+                    self._fill_rect(
+                        FOOTBALL_FLAG_X, FOOTBALL_FLAG_Y + index * 3,
+                        FOOTBALL_FLAG_WIDTH, 2, color,
+                    )
             for row, pixels in enumerate(BALL_ROWS):
                 for column, pixel in enumerate(pixels):
                     if pixel == "W":
