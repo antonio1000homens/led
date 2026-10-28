@@ -160,7 +160,7 @@ def football_roll_frame(phase):
         elapsed = max(0.0, float(phase or 0))
     except (ValueError, TypeError):
         elapsed = 0.0
-    return int(elapsed * 14 / FOOTBALL_SLIDE_SECONDS) % 8
+    return int(elapsed * 16 / FOOTBALL_SLIDE_SECONDS) % 8
 
 
 def football_screen_lines(screen, now_epoch):
