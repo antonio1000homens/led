@@ -407,7 +407,17 @@ class ScreenRotation:
             if item.get("kind") != "bus_departures"
             and not str(item.get("id") or "").startswith("sl7-")
         }
-        available = [mqtt.pop(item.get("id"), item) for item in self.http_screens]
+        available = []
+        for item in self.http_screens:
+            selected = mqtt.pop(item.get("id"), None)
+            if selected is None:
+                selected = item
+            elif (item.get("kind") == "football_score"
+                  and selected.get("kind") == "football_score"
+                  and "animation_speed" in item):
+                selected = dict(selected)
+                selected.setdefault("animation_speed", item["animation_speed"])
+            available.append(selected)
         available.extend(mqtt[key] for key in sorted(mqtt))
         return available
 

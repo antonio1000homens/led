@@ -103,6 +103,27 @@ def _first_location_name(value):
     return "Unknown"
 
 
+def _platform_number(value):
+    """Return the compact platform value used by the LED renderer.
+
+    Darwin normally sends a string such as ``"4"``, but serialized SOAP
+    responses can also include a label (``"Platform 4"``) or a small object.
+    The renderer adds the visible ``P`` prefix itself, so keep only the value.
+    """
+    if isinstance(value, dict):
+        value = (value.get("platformNumber") or value.get("number")
+                 or value.get("platform") or value.get("value"))
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else None
+    text = str(value or "").strip()
+    if not text:
+        return "-"
+    lowered = text.lower()
+    if lowered.startswith("platform"):
+        text = text[len("platform"):].strip(" :#")
+    return text or "-"
+
+
 def _reason_text(value):
     if isinstance(value, str):
         return value
@@ -167,7 +188,9 @@ def normalize_darwin_board(board, max_rows=10):
             {
                 "time": scheduled,
                 "destination": _first_location_name(item.get("destination")),
-                "platform": str(item.get("platform") or "-"),
+                "platform": _platform_number(
+                    item.get("platform") or item.get("platformNumber")
+                ),
                 "status": status,
                 "cancelled": cancelled,
                 "delay_reason": _reason_text(item.get("delayReason") or item.get("cancelReason")),

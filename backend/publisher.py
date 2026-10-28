@@ -710,6 +710,7 @@ class Publisher:
                     "source": data.get("source") if data.get("source") in ("google_calendar", "public_ical") else "unavailable",
                     "stale": bool(fixture_state.get("stale")),
                     "duration_seconds": fixture_cfg["screen_duration_seconds"],
+                    "animation_speed": fixture_cfg["animation_speed"],
                 })
         joke_cfg = config_feeds["dad_joke"]
         if joke_cfg["enabled"]:

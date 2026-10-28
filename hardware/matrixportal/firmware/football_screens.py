@@ -7,26 +7,51 @@ from mqtt_screens import _epoch
 
 FOOTBALL_TEAMS = ("sporting_cp", "millwall")
 FOOTBALL_STATUSES = ("PRE", "IN", "POST", "BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")
-FOOTBALL_TEAM_NAMES = {"sporting_cp": "Sporting CP", "millwall": "Millwall FC"}
-# Three short team-colour bands, also used by the simulator and fixture renderer.
-FOOTBALL_TEAM_STRIPES = {
+FOOTBALL_TEAM_NAMES = {
+    "sporting_cp": "Sporting CP", "millwall": "Millwall FC",
+    "england": "England", "portugal": "Portugal",
+}
+FOOTBALL_TEAM_COLOUR_NAMES = {
+    "sporting_cp": "Sporting", "millwall": "Millwall",
+    "england": "England", "portugal": "Portugal",
+}
+# Letter colours cycle across the tracked team's name, ignoring spaces.
+FOOTBALL_TEAM_LETTER_COLORS = {
     "sporting_cp": ((0, 122, 51), (255, 255, 255), (0, 122, 51)),
     "england": ((255, 255, 255), (206, 17, 38), (255, 255, 255)),
     "millwall": ((0, 51, 160), (255, 255, 255), (0, 51, 160)),
     "portugal": ((255, 0, 0), (255, 204, 0), (0, 102, 0)),
 }
+FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
 GOAL_FLASH_SECONDS = 8
 SCREEN_DURATION_SECONDS = 20
-FOOTBALL_SLIDE_SECONDS = 3.2
+FOOTBALL_DEFAULT_ANIMATION_SPEED = 80
+FOOTBALL_MIN_ANIMATION_SPEED = 20
+FOOTBALL_MAX_ANIMATION_SPEED = 160
 FOOTBALL_START_X = 256
 FOOTBALL_END_X = 2
 FOOTBALL_BALL_WIDTH = 16
 FOOTBALL_TEXT_X = FOOTBALL_END_X + FOOTBALL_BALL_WIDTH + 4
-FOOTBALL_FLAG_X = 2
-FOOTBALL_FLAG_Y = 0
-FOOTBALL_FLAG_WIDTH = 16
-FOOTBALL_FLAG_HEIGHT = 8
+
+
+def football_team_name_span(screen, line):
+    """Return the tracked team-name span in a row, or None if absent."""
+    team_key = screen.get("team_key")
+    name = FOOTBALL_TEAM_COLOUR_NAMES.get(
+        team_key, screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(team_key, "")
+    )
+    if not isinstance(name, str) or not name.strip():
+        return None
+    row = str(line)
+    row_upper = row.upper()
+    name = name.strip().upper()
+    candidates = (name,)
+    for candidate in candidates:
+        start = row_upper.find(candidate)
+        if start >= 0:
+            return start, candidate, FOOTBALL_TEAM_LETTER_COLORS.get(team_key, ())
+    return None
 
 
 def kickoff_countdown(kickoff, now_epoch):
@@ -112,7 +137,18 @@ def kickoff_local_label(kickoff):
         return "TIME TBC"
 
 
-def football_presentation_position(phase, animate=True):
+def football_slide_seconds(animation_speed=None):
+    """Return slide duration from the configured pixel-per-second speed."""
+    try:
+        speed = int(animation_speed)
+    except (TypeError, ValueError, OverflowError):
+        speed = FOOTBALL_DEFAULT_ANIMATION_SPEED
+    if not FOOTBALL_MIN_ANIMATION_SPEED <= speed <= FOOTBALL_MAX_ANIMATION_SPEED:
+        speed = FOOTBALL_DEFAULT_ANIMATION_SPEED
+    return FOOTBALL_START_X / float(speed)
+
+
+def football_presentation_position(phase, animate=True, animation_speed=None):
     """Return the ball x coordinate and whether match text can be shown."""
     if not animate:
         return FOOTBALL_END_X, True
@@ -121,7 +157,8 @@ def football_presentation_position(phase, animate=True):
     except (TypeError, ValueError):
         elapsed = 0.0
     travel = FOOTBALL_START_X - FOOTBALL_END_X
-    x = max(FOOTBALL_END_X, FOOTBALL_START_X - int(travel * elapsed / FOOTBALL_SLIDE_SECONDS))
+    duration = football_slide_seconds(animation_speed)
+    x = max(FOOTBALL_END_X, FOOTBALL_START_X - int(travel * elapsed / duration))
     return x, x == FOOTBALL_END_X
 
 
@@ -166,22 +203,24 @@ def football_countdown_x(value, width=256, cell_width=6):
     return max(0, int(width) - len(str(value)) * int(cell_width))
 
 
-def football_slide_offset(phase):
+def football_slide_offset(phase, animation_speed=None):
     """Translate whole 256x32 match scene from the right to x=0."""
-    x, settled = football_presentation_position(phase, animate=True)
+    x, settled = football_presentation_position(
+        phase, animate=True, animation_speed=animation_speed,
+    )
     return x - FOOTBALL_END_X, settled
 
 
-def football_roll_frame(phase):
+def football_roll_frame(phase, animation_speed=None):
     """Eight orientations, two full turns during the slide; frozen on arrival."""
-    _, settled = football_slide_offset(phase)
+    _, settled = football_slide_offset(phase, animation_speed)
     if settled:
         return 0
     try:
         elapsed = max(0.0, float(phase or 0))
     except (ValueError, TypeError):
         elapsed = 0.0
-    return int(elapsed * 16 / FOOTBALL_SLIDE_SECONDS) % 8
+    return int(elapsed * 16 / football_slide_seconds(animation_speed)) % 8
 
 
 def football_screen_lines(screen, now_epoch):

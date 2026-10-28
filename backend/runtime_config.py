@@ -70,6 +70,9 @@ MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
 DEFAULT_FOOTBALL_LOOKAHEAD_DAYS = 45
 MAX_FOOTBALL_LOOKAHEAD_DAYS = 180
+MIN_FOOTBALL_ANIMATION_SPEED = 20
+MAX_FOOTBALL_ANIMATION_SPEED = 160
+DEFAULT_FOOTBALL_ANIMATION_SPEED = 80
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
 DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
 DEFAULT_RECYCLING_DURATION_SECONDS = 20
@@ -275,10 +278,10 @@ FEED_REGISTRY = {
         "provider": "google_calendar",
         "display_group": "sports",
         "mutable_fields": (
-            "enabled", "poll_seconds", "screen_duration_seconds", "lookahead_days",
+            "enabled", "poll_seconds", "screen_duration_seconds", "lookahead_days", "animation_speed",
             "sporting_cp_enabled", "millwall_enabled", "portugal_enabled", "england_enabled",
         ),
-        "advanced_fields": ("lookahead_days",),
+        "advanced_fields": ("lookahead_days", "animation_speed"),
         "screen_duration": True,
     },
     "flash": {
@@ -481,6 +484,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     minimum=MIN_SCREEN_DURATION_SECONDS, maximum=MAX_SCREEN_DURATION_SECONDS),
                 "lookahead_days": _int_env(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS",
                     DEFAULT_FOOTBALL_LOOKAHEAD_DAYS, minimum=1, maximum=MAX_FOOTBALL_LOOKAHEAD_DAYS),
+                "animation_speed": DEFAULT_FOOTBALL_ANIMATION_SPEED,
                 "sporting_cp_enabled": True,
                 "millwall_enabled": True,
                 "portugal_enabled": False,
@@ -593,6 +597,10 @@ def schema_metadata() -> dict[str, Any]:
             for team in ("sporting_cp", "millwall", "portugal", "england"):
                 fields[team + "_enabled"] = {"type": "boolean"}
             fields["lookahead_days"] = {"type": "integer", "minimum": 1, "maximum": MAX_FOOTBALL_LOOKAHEAD_DAYS}
+            fields["animation_speed"] = {
+                "type": "integer", "minimum": MIN_FOOTBALL_ANIMATION_SPEED,
+                "maximum": MAX_FOOTBALL_ANIMATION_SPEED,
+            }
         if feed_id == "recycling":
             fields["slide_speed"] = {"type": "integer", "minimum": MIN_RECYCLING_SCROLL_SPEED, "maximum": MAX_RECYCLING_SCROLL_SPEED}
         if feed_id == "sl7_bus":
@@ -735,12 +743,17 @@ def validate_feed_patch(
             MAX_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MAX_SCREEN_DURATION_SECONDS,
         )
     if "animation_speed" in patch:
+        minimum, maximum = (
+            (MIN_FOOTBALL_ANIMATION_SPEED, MAX_FOOTBALL_ANIMATION_SPEED)
+            if feed_id == "football_fixtures"
+            else (MIN_STEAM_TRAIN_SPEED, MAX_STEAM_TRAIN_SPEED)
+        )
         result["animation_speed"] = _validate_integer(
             feed_id,
             "animation_speed",
             patch["animation_speed"],
-            MIN_STEAM_TRAIN_SPEED,
-            MAX_STEAM_TRAIN_SPEED,
+            minimum,
+            maximum,
         )
     if "words" in patch:
         words = patch["words"]

@@ -203,14 +203,18 @@
     ];
     const FOOTBALL_COS = [1024, 724, 0, -724, -1024, -724, 0, 724];
     const FOOTBALL_SIN = [0, 724, 1024, 724, 0, -724, -1024, -724];
-    const FOOTBALL_SLIDE_SECONDS = 3.2;
     const FOOTBALL_START_X = 256;
     const FOOTBALL_END_X = 2;
     const FOOTBALL_TEXT_X = 22;
-    const FOOTBALL_FLAG_X = 2;
-    const FOOTBALL_FLAG_Y = 0;
-    const FOOTBALL_FLAG_WIDTH = 16;
-    const FOOTBALL_TEAM_STRIPES = {
+    const FOOTBALL_TEAM_NAMES = {
+      sporting_cp: 'SPORTING CP', millwall: 'MILLWALL FC',
+      england: 'ENGLAND', portugal: 'PORTUGAL'
+    };
+    const FOOTBALL_TEAM_COLOUR_NAMES = {
+      sporting_cp: 'SPORTING', millwall: 'MILLWALL',
+      england: 'ENGLAND', portugal: 'PORTUGAL'
+    };
+    const FOOTBALL_TEAM_LETTER_COLORS = {
       sporting_cp: ['#007a33', '#ffffff', '#007a33'],
       england: ['#ffffff', '#ce1126', '#ffffff'],
       millwall: ['#0033a0', '#ffffff', '#0033a0'],
@@ -1220,10 +1224,17 @@
       return [team, fixture, detail, footer];
     }
 
-    function footballBallPosition(phase, animate = true) {
+    function footballSlideSeconds(screen) {
+      let speed = Number(screen?.animation_speed);
+      if (!Number.isFinite(speed) || speed < 20 || speed > 160) speed = 80;
+      return FOOTBALL_START_X / speed;
+    }
+
+    function footballBallPosition(phase, animate = true, screen = null) {
       if (!animate) return { x: FOOTBALL_END_X, infoVisible: true };
       const elapsed = Math.max(0, Number(phase) || 0);
-      const x = Math.max(FOOTBALL_END_X, FOOTBALL_START_X - Math.floor((FOOTBALL_START_X - FOOTBALL_END_X) * elapsed / FOOTBALL_SLIDE_SECONDS));
+      const duration = footballSlideSeconds(screen);
+      const x = Math.max(FOOTBALL_END_X, FOOTBALL_START_X - Math.floor((FOOTBALL_START_X - FOOTBALL_END_X) * elapsed / duration));
       return { x, infoVisible: x === FOOTBALL_END_X };
     }
 
@@ -1263,18 +1274,25 @@
       });
     }
 
-    function drawFootballScene(screen, phase, offset, settled, now = Date.now()) {
-      const roll = settled ? 0 : Math.floor(Math.max(0, phase) * 16 / FOOTBALL_SLIDE_SECONDS) % 8;
-      const cosine = FOOTBALL_COS[roll], sine = FOOTBALL_SIN[roll];
-      // Team colours are part of the same moving scene as the rolling ball.
-      (FOOTBALL_TEAM_STRIPES[screen.team_key] || []).forEach((color, index) => {
-        context.fillStyle = color;
-        context.fillRect(
-          (offset + FOOTBALL_FLAG_X) * FONT_PIXEL_SCALE,
-          (FOOTBALL_FLAG_Y + index * 3) * FONT_PIXEL_SCALE,
-          FOOTBALL_FLAG_WIDTH * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE
-        );
+    function drawFootballTeamLine(screen, value, x, y, color) {
+      const text = String(value ?? '');
+      const key = screen.team_key;
+      const colors = FOOTBALL_TEAM_LETTER_COLORS[key] || [];
+      let name = String(FOOTBALL_TEAM_COLOUR_NAMES[key]
+        || screen.team_name || FOOTBALL_TEAM_NAMES[key] || '').trim().toUpperCase();
+      let start = name ? text.toUpperCase().indexOf(name) : -1;
+      let letterIndex = 0;
+      [...text].forEach((character, index) => {
+        const inName = colors.length && start >= 0 && index >= start && index < start + name.length;
+        context.fillStyle = inName && character !== ' '
+          ? colors[letterIndex++ % colors.length] : color;
+        drawLedText(character, x + index * FONT_CELL_WIDTH, y);
       });
+    }
+
+    function drawFootballScene(screen, phase, offset, settled, now = Date.now()) {
+      const roll = settled ? 0 : Math.floor(Math.max(0, phase) * 16 / footballSlideSeconds(screen)) % 8;
+      const cosine = FOOTBALL_COS[roll], sine = FOOTBALL_SIN[roll];
       FOOTBALL_BALL_ROWS.forEach((row, y) => [...row].forEach((pixel, column) => {
         if (pixel === '.') return;
         const dx = 2 * column - 15, dy = 2 * y - 15;
@@ -1290,7 +1308,7 @@
       context.fillStyle = '#ffaa00';
       if (isPre) {
         // Match and scheduled local date travel with the ball; no KO: prefix.
-        drawLedText(String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, '#ffaa00');
         context.fillStyle = '#ffffff';
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
         if (settled) {
@@ -1304,18 +1322,23 @@
       } else {
         rows.slice(0, 4).forEach((line, index) => {
           context.fillStyle = index === 0 ? '#ffaa00' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
-          drawLedText(String(line).slice(0, 38), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
+          const value = String(line).slice(0, 38);
+          if (index === 0) {
+            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, '#ffaa00');
+          } else {
+            drawLedText(value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
+          }
         });
       }
     }
 
     function drawFootball(screen, phase) {
-      const { x, infoVisible } = footballBallPosition(phase);
+      const { x, infoVisible } = footballBallPosition(phase, true, screen);
       const offset = x - FOOTBALL_END_X;
       const previous = typeof cyclePlan !== 'undefined' && typeof rotationIndex !== 'undefined'
         && rotationIndex > 0 ? cyclePlan[rotationIndex - 1] : null;
       if (previous && previous.kind === 'football_score' && !infoVisible) {
-        drawFootballScene(previous, FOOTBALL_SLIDE_SECONDS, offset - (FOOTBALL_START_X - FOOTBALL_END_X), true);
+        drawFootballScene(previous, footballSlideSeconds(previous), offset - (FOOTBALL_START_X - FOOTBALL_END_X), true);
       }
       drawFootballScene(screen, phase, offset, infoVisible);
     }
