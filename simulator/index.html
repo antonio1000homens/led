@@ -1422,9 +1422,9 @@
       const columns = railColumns(service, ordinal);
       const statusX = columns.status ? Math.max(0, rightEdge - measureLedText(columns.status).width) : rightEdge;
       const platformWidth = measureLedText(columns.platform).width;
-      const platformX = RAIL_PLATFORM_X;
+      let platformX = RAIL_PLATFORM_X;
       if (columns.status && statusX < platformX + platformWidth + RAIL_COLUMN_GAP) {
-        columns.status = '';
+        platformX = Math.max(RAIL_DESTINATION_X, statusX - platformWidth - RAIL_COLUMN_GAP);
       }
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;

@@ -2118,11 +2118,11 @@ class MatrixDisplay:
         status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
         platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
         platform_x = RAIL_PLATFORM_X
-        # Keep the platform column fixed across refreshes and rows. Moving it
-        # left to make room for a long status also cuts the station name, and
-        # the available status area changes when the feed is marked stale.
         if status and status_x < platform_x + platform_width + HEADER_GAP:
-            status = ""
+            platform_x = max(
+                RAIL_DESTINATION_X,
+                status_x - platform_width - HEADER_GAP,
+            )
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
             group,
@@ -4556,7 +4556,10 @@ class FixtureDisplay:
         platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
         platform_x = RAIL_PLATFORM_X
         if status and status_x < platform_x + platform_width + HEADER_GAP:
-            status = ""
+            platform_x = max(
+                RAIL_DESTINATION_X,
+                status_x - platform_width - HEADER_GAP,
+            )
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         self._text(ordinal_text, RAIL_ORDINAL_X + x_offset, y, color)
         self._text(time_text, RAIL_TIME_X + x_offset, y, color)
