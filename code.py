@@ -46,6 +46,7 @@ from animation_scheduler import (
 )
 from matrix_runtime import (
     RuntimeMode, collect_gc_with_state, enter_rail_gc_window,
+    football_gc_safe_to_collect,
     christmas_gc_action, enter_christmas_gc_window,
     leave_christmas_gc_window, prepare_christmas_scene_gc,
 )
@@ -475,6 +476,7 @@ christmas_gc_suspended = False
 rail_gc_pause_active = False
 rail_gc_last_pressure_collect = None
 sun_gc_completed_key = None
+football_gc_last_key = None
 rail_prebuild_last_slot = None
 previous_rail_frame_started = None
 last_rail_sleep_requested_ms = 0.0
@@ -1482,6 +1484,40 @@ while True:
                     ))
     else:
         sun_gc_completed_key = None
+    # Automatic GC is enabled outside the rail-only GC suppression window.
+    # The settled football countdown is a safe time for one *explicit*
+    # collection: both scene groups are stationary and the countdown has been
+    # rendered. Do not collect during the 3.2 s roll/push or while a goal
+    # highlight is animating. Key by rotation cycle/event ID, not phase or
+    # countdown text, to avoid collecting on each one-second tick.
+    if (settings.DISPLAY_BACKEND == "matrix"
+            and gc is not None and hasattr(gc, "collect")
+            and football_gc_safe_to_collect(
+                screen, phase, display.animation_active(screen, phase)
+            )):
+        football_gc_key = (screen.get("id"), rotation.cycle_number)
+        if football_gc_key != football_gc_last_key:
+            # Record before collection: an unexpected failure should not
+            # trigger an expensive retry every second on the visible screen.
+            football_gc_last_key = football_gc_key
+            try:
+                _checkpoint_board_health("gc", screen, time.monotonic())
+                football_gc_before = _memory_free()
+                football_gc_started = ticks_ms()
+                # Restore automatic collection even if gc.collect raises.
+                collect_gc_with_state(gc, enabled_after=True)
+                if HEAP_DIAGNOSTICS_ENABLED:
+                    print(
+                        "FOOTBALL GC settled id={} duration={:.3f}s "
+                        "heap_free_before={} heap_free_after={} automatic_gc=enabled".format(
+                            screen.get("id"),
+                            elapsed_seconds(football_gc_started),
+                            football_gc_before,
+                            _memory_free(),
+                        )
+                    )
+            except Exception as error:
+                print("FOOTBALL GC FAILED; automatic GC restored:", error)
     if log_screen_change:
         base_display = getattr(display, "base", display)
         hardware_display = getattr(base_display, "display", None)
