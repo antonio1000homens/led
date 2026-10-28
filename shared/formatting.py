@@ -55,28 +55,23 @@ def _clip(value, width):
     return _pad_right(value, width)
 
 
-def service_is_cancelled(service):
-    """Recognize cancellations from the explicit flag or status text."""
-    return bool(service.get("cancelled")) or "CANCELLED" in str(service.get("status") or "").upper()
-
-
 def service_status_text(service):
     """Return the normalized status text shown at the right of a rail row."""
-    return "CANCELLED" if service_is_cancelled(service) else str(service.get("status", ""))
+    return "CANCELLED" if service.get("cancelled") else str(service.get("status", ""))
 
 
 def rail_row_parts(service):
     """Return the left rail content and independently rendered status text."""
     time = _clip(service.get("time", "--:--"), 5)
     destination = str(service.get("destination") or "Unknown")
-    platform = "" if service_is_cancelled(service) else ("P" + str(service.get("platform", "-")))[:3]
+    platform = ("P" + str(service.get("platform", "-")))[:3]
     return "{} {} {}".format(time, destination, platform), service_status_text(service)
 
 
 def format_row(service, width=32):
     # Keep platform and status intact, using all remaining room for a station.
     time = _clip(service.get("time", "--:--"), 5)
-    platform = "" if service_is_cancelled(service) else ("P" + str(service.get("platform", "-")))[:3]
+    platform = ("P" + str(service.get("platform", "-")))[:3]
     status = service_status_text(service)
     prefix = time + " "
     suffix = " " + platform + " " + status

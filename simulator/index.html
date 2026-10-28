@@ -184,15 +184,32 @@
     const BUS_TEXT_GAP = 8 * FONT_PIXEL_SCALE;
     const BUS_VERTICAL_OFFSET = 1;
     const FOOTBALL_BALL_ROWS = [
-      '......WWWW......', '....WWWWWWWW....', '...WWWWDDWWWW...', '..WWWDDDDDDWWW..',
-      '.WWWWDDDDDDWWWW.', 'WWWWDDWWWWDDWWWW', 'WWWWDWWWWWWDWWWW', 'WWWWWWWWWWWWWWWW',
-      'WWWWWWWWWWWWWWWW', 'WWWWDWWWWWWDWWWW', 'WWWWDDWWWWDDWWWW', '.WWWWDDDDDDWWWW.',
-      '..WWWDDDDDDWWW..', '...WWWWDDWWWW...', '....WWWWWWWW....', '......WWWW......'
+      '......DWWW......',
+      '....DDDWWWWW....',
+      '...DDDDWWWWWD...',
+      '..DDDDWWWWWWDD..',
+      '.WWWDWWWDWWDDDD.',
+      'WWWWWDDDDDWWDDDW',
+      'WWWWWDDDDDDWWWDW',
+      'WWWWDDDDDDDWWWWW',
+      'WWWWDDDDDDWWWWWW',
+      'WWWDWDDDDDWWWWWW',
+      'WDDDDWDWWWWWDWWW',
+      '.DDDDWWWWWWDDDD.',
+      '..DDDDWWWWDDDD..',
+      '...DDWWWWWDDD...',
+      '....DWWWWWWD....',
+      '......WWWW......'
     ];
+    const FOOTBALL_COS = [1024, 724, 0, -724, -1024, -724, 0, 724];
+    const FOOTBALL_SIN = [0, 724, 1024, 724, 0, -724, -1024, -724];
     const FOOTBALL_SLIDE_SECONDS = 3.2;
     const FOOTBALL_START_X = 256;
     const FOOTBALL_END_X = 2;
     const FOOTBALL_TEXT_X = 22;
+    const FOOTBALL_FLAG_X = 2;
+    const FOOTBALL_FLAG_Y = 0;
+    const FOOTBALL_FLAG_WIDTH = 16;
     const FOOTBALL_TEAM_STRIPES = {
       sporting_cp: ['#007a33', '#ffffff', '#007a33'],
       england: ['#ffffff', '#ce1126', '#ffffff'],
@@ -471,10 +488,7 @@
       }
     }
     function clip(value, width) { return String(value || '').slice(0, width).padEnd(width, ' '); }
-    function serviceCancelled(service) {
-      return Boolean(service.cancelled) || String(service.status || '').toUpperCase().includes('CANCELLED');
-    }
-    function serviceStatus(service) { return serviceCancelled(service) ? 'CANCELLED' : String(service.status || ''); }
+    function serviceStatus(service) { return service.cancelled ? 'CANCELLED' : String(service.status || ''); }
     function ordinalLabel(number) {
       const value = Number(number) || 1;
       const suffix = value % 100 > 10 && value % 100 < 14 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[value % 10] || 'th');
@@ -485,15 +499,14 @@
         ordinal: ordinalLabel(ordinal),
         time: clip(service.time || '--:--', 5),
         destination: String(service.destination || 'Unknown'),
-        platform: serviceCancelled(service) ? '' : ('P' + String(service.platform || '-')).slice(0, 3),
+        platform: ('P' + String(service.platform || '-')).slice(0, 3),
         status: serviceStatus(service)
       };
     }
     function row(service) {
       const state = serviceStatus(service);
       const prefix = clip(service.time, 5) + ' ';
-      const platform = serviceCancelled(service) ? '' : ('P' + String(service.platform || '-')).slice(0, 3);
-      const suffix = ' ' + platform + ' ' + state;
+      const suffix = ' ' + ('P' + String(service.platform || '-')).slice(0, 3) + ' ' + state;
       const destinationWidth = Math.max(1, 32 - prefix.length - suffix.length);
       return (prefix + clip(service.destination, destinationWidth) + suffix).slice(0, 32);
     }
@@ -708,14 +721,26 @@
     const christmasFollowup = (intro, tracker) =>
       intro.kind === 'christmas_tracker_intro' && tracker.kind === 'christmas_tracker';
     function makeCyclePlan() {
+      let normal = screens.filter(screen => !staticScreen(screen));
+      const football = normal.filter(screen => screen.kind === 'football_score');
+      const firstFootball = normal.findIndex(screen => screen.kind === 'football_score');
+      // Extract football before matching intros, so an interleaved football
+      // cannot separate a train/bus intro from its departures (or Christmas/
+      // weather follow-ups). Reinsert fixtures only at a block boundary.
+      const anchor = firstFootball < 0 ? null
+        : normal.slice(0, firstFootball).filter(screen => screen.kind !== 'football_score').at(-1) || null;
+      normal = normal.filter(screen => screen.kind !== 'football_score');
       const blocks = [];
-      const normal = screens.filter(screen => !staticScreen(screen));
       for (let index = 0; index < normal.length; index++) {
         const screen = normal[index];
         if (screen.kind === 'bus_intro' && !busFollowup(screen, normal[index + 1] || {})) continue;
         const last = blocks[blocks.length - 1];
         if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
         else blocks.push([screen]);
+      }
+      if (football.length) {
+        const anchorIndex = blocks.findIndex(block => block.includes(anchor));
+        blocks.splice(anchorIndex < 0 ? 0 : anchorIndex + 1, 0, football);
       }
       const pages = screens.filter(staticScreen).map(chooseStatic);
       for (let i = pages.length - 1; i > 0; i--) {
@@ -1163,12 +1188,12 @@
 
     function footballKickoffLabel(value) {
       const timestamp = Date.parse(String(value || ''));
-      if (!Number.isFinite(timestamp)) return 'KO: TBC';
+      if (!Number.isFinite(timestamp)) return 'TIME TBC';
       const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Europe/London', weekday: 'short', day: '2-digit', month: 'short',
         hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
       }).formatToParts(new Date(timestamp)).map(part => [part.type, part.value]));
-      return `KO: ${parts.weekday.toUpperCase()} ${parts.day} ${parts.month.toUpperCase()} ${parts.hour}:${parts.minute}`;
+      return `${parts.weekday.toUpperCase()} ${parts.day} ${parts.month.toUpperCase()} ${parts.hour}:${parts.minute}`;
     }
 
     function footballLines(screen) {
@@ -1202,48 +1227,97 @@
       return { x, infoVisible: x === FOOTBALL_END_X };
     }
 
-    function drawFootball(screen, phase) {
-      const { x, infoVisible } = footballBallPosition(phase, Boolean(screen.ball_animation));
-      FOOTBALL_BALL_ROWS.forEach((row, y) => [...row].forEach((pixel, column) => {
-        if (pixel === '.') return;
-        context.fillStyle = pixel === 'W' ? '#f5f5f5' : '#303030';
-        context.fillRect((x + column) * FONT_PIXEL_SCALE, (8 + y) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-      }));
-      if (!infoVisible) return;
-      (FOOTBALL_TEAM_STRIPES[screen.team_key] || []).forEach((color, index) => {
-        context.fillStyle = color;
-        context.fillRect(2 * FONT_PIXEL_SCALE, index * 3 * FONT_PIXEL_SCALE,
-          16 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
-      });
-      footballLines(screen).slice(0, 4).forEach((line, index) => {
-        context.fillStyle = index === 0 ? '#ffaa00' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
-        if (screen.status === 'PRE' && index < 2) {
-          drawFootballPregameText(String(line), FOOTBALL_TEXT_X, 5 + index * 13, context.fillStyle);
-        } else if (screen.status !== 'PRE') {
-          drawLedText(String(line).slice(0, Math.floor((256 - FOOTBALL_TEXT_X) / 6)), FOOTBALL_TEXT_X * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
-        }
-      });
+    function footballDueIn(kickoff, now = Date.now()) {
+      const target = Date.parse(String(kickoff || ''));
+      if (!Number.isFinite(target) || !Number.isFinite(now)) return 'TBC';
+      const remaining = Math.max(0, Math.floor(target / 1000) - Math.floor(now / 1000));
+      if (remaining === 0) return 'DUE NOW';
+      if (remaining <= 60) return 'UNDER 1 MIN';
+      const pad = value => String(value).padStart(2, '0');
+      if (remaining > 86400) {
+        const days = Math.floor(remaining / 86400), hours = Math.floor(remaining % 86400 / 3600);
+        const minutes = Math.floor(remaining % 3600 / 60), seconds = remaining % 60;
+        return `${pad(days)}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S`;
+      }
+      if (remaining > 3600) {
+        const hours = Math.floor(remaining / 3600), minutes = Math.floor(remaining % 3600 / 60);
+        return `${pad(hours)}H ${pad(minutes)}M ${pad(remaining % 60)}S`;
+      }
+      return `${pad(Math.floor(remaining / 60))}M ${pad(remaining % 60)}S`;
     }
 
-    function drawFootballPregameText(value, x, y, color) {
-      const text = String(value).toUpperCase().slice(0, Math.floor((256 - FOOTBALL_TEXT_X) / 7));
+    function drawFootballCompactText(value, x, y, color) {
+      const text = String(value).toUpperCase();
+      context.fillStyle = color;
       [...text].forEach((character, index) => {
-        const rows = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT] || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
-        rows.forEach((rowBits, row) => {
-          for (let column = 0; column < 5; column += 1) {
-            if (rowBits & (1 << (4 - column))) {
-              const dx = Math.floor(column * 6 / 5);
-              for (let dy = 0; dy < 9; dy += 1) {
-                if (row === Math.floor(dy * 7 / 9)) {
-                  context.fillStyle = color;
-                  context.fillRect((x + index * 7 + dx) * FONT_PIXEL_SCALE,
-                    (y + dy) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-                }
-              }
+        const glyph = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT]
+          || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
+        glyph.forEach((bits, row) => {
+          for (let column = 0; column < 5; column++) {
+            if (bits & (1 << (4 - column))) {
+              context.fillRect((x + index * 5 + column) * FONT_PIXEL_SCALE,
+                (y + row) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
             }
           }
         });
       });
+    }
+
+    function drawFootballScene(screen, phase, offset, settled, now = Date.now()) {
+      const roll = settled ? 0 : Math.floor(Math.max(0, phase) * 16 / FOOTBALL_SLIDE_SECONDS) % 8;
+      const cosine = FOOTBALL_COS[roll], sine = FOOTBALL_SIN[roll];
+      // Team colours are part of the same moving scene as the rolling ball.
+      (FOOTBALL_TEAM_STRIPES[screen.team_key] || []).forEach((color, index) => {
+        context.fillStyle = color;
+        context.fillRect(
+          (offset + FOOTBALL_FLAG_X) * FONT_PIXEL_SCALE,
+          (FOOTBALL_FLAG_Y + index * 3) * FONT_PIXEL_SCALE,
+          FOOTBALL_FLAG_WIDTH * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE
+        );
+      });
+      FOOTBALL_BALL_ROWS.forEach((row, y) => [...row].forEach((pixel, column) => {
+        if (pixel === '.') return;
+        const dx = 2 * column - 15, dy = 2 * y - 15;
+        const sx = Math.floor((15 * 1024 + dx * cosine + dy * sine + 1024) / 2048);
+        const sy = Math.floor((15 * 1024 - dx * sine + dy * cosine + 1024) / 2048);
+        context.fillStyle = sx >= 0 && sx < 16 && sy >= 0 && sy < 16 &&
+          FOOTBALL_BALL_ROWS[sy][sx] === 'D' ? '#303030' : '#f5f5f5';
+        context.fillRect((offset + FOOTBALL_END_X + column) * FONT_PIXEL_SCALE,
+          (8 + y) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+      }));
+      const rows = footballLines(screen);
+      const isPre = screen.status === 'PRE';
+      context.fillStyle = '#ffaa00';
+      if (isPre) {
+        // Match and scheduled local date travel with the ball; no KO: prefix.
+        drawLedText(String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+        context.fillStyle = '#ffffff';
+        drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
+        if (settled) {
+          context.fillStyle = '#ffaa00';
+          drawLedText('DUE IN', (offset + 214) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+          const due = footballDueIn(screen.kickoff, now);
+          // The compact 5px glyph pitch keeps the shortest countdown right
+          // aligned without shifting its column when units disappear.
+          drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 18, '#ffffff');
+        }
+      } else {
+        rows.slice(0, 4).forEach((line, index) => {
+          context.fillStyle = index === 0 ? '#ffaa00' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
+          drawLedText(String(line).slice(0, 38), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
+        });
+      }
+    }
+
+    function drawFootball(screen, phase) {
+      const { x, infoVisible } = footballBallPosition(phase);
+      const offset = x - FOOTBALL_END_X;
+      const previous = typeof cyclePlan !== 'undefined' && typeof rotationIndex !== 'undefined'
+        && rotationIndex > 0 ? cyclePlan[rotationIndex - 1] : null;
+      if (previous && previous.kind === 'football_score' && !infoVisible) {
+        drawFootballScene(previous, FOOTBALL_SLIDE_SECONDS, offset - (FOOTBALL_START_X - FOOTBALL_END_X), true);
+      }
+      drawFootballScene(screen, phase, offset, infoVisible);
     }
 
     function drawBinLorry(x) {
@@ -1965,13 +2039,18 @@
       status.dataset.detail = 'Recycling fixture preview (ignores admin enable and schedule windows; local MQTT is not observable here)';
     });
     document.getElementById('football-preview').addEventListener('click', () => {
-      screens = [{
-        id: 'football-preview', kind: 'football_score', title: 'Millwall FC', ball_animation: true,
-        duration_seconds: 20, source: 'simulator', team_key: 'millwall', team_name: 'Millwall FC',
-        opponent: 'Derby County', opponent_long_name: 'Derby County',
-        display_fixture: 'Millwall vs Derby County', status: 'PRE',
-        kickoff: '2026-10-31T15:00:00Z', home_score: null, away_score: null, competition: 'League'
-      }];
+      screens = [
+        {id:'football-millwall', kind:'football_score', title:'Millwall FC',
+          duration_seconds: 8, source:'simulator', team_key:'millwall', team_name:'Millwall FC',
+          opponent:'Derby County', opponent_long_name:'Derby County',
+          display_fixture:'Millwall vs Derby County', status:'PRE',
+          kickoff:new Date(Date.now() + 2*86400000 + 5*3600000 + 14*60000).toISOString()},
+        {id:'football-sporting_cp', kind:'football_score', title:'Sporting CP',
+          duration_seconds: 8, source:'simulator', team_key:'sporting_cp', team_name:'Sporting CP',
+          opponent:'Casa Pia', opponent_long_name:'Casa Pia',
+          display_fixture:'Sporting CP vs Casa Pia', status:'PRE',
+          kickoff:new Date(Date.now() + 5*3600000 + 14*60000).toISOString()}
+      ];
       screenOffset = 0;
       paused = false;
       pauseStarted = performance.now();

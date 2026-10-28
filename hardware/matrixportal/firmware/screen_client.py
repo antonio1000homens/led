@@ -575,6 +575,8 @@ class ScreenRotation:
                 and previous_id == "sl7-{}-intro".format(stop))
             or (current.get("kind") == "bus_departures_combined"
                 and previous_id == "sl7-combined-intro")
+            or (current.get("kind") == "football_score"
+                and str(previous_id or "").startswith("football-"))
         )
 
     def next_paired_rail_screen(self):
@@ -618,8 +620,23 @@ class ScreenRotation:
             and (item.get("kind") not in ("bus_departures", "bus_departures_combined", "bus_intro")
                  or self.cycle_number % max(1, int(item.get("display_every_cycles", 1))) == 0)
         ]
-        # Keep the Beep! Beep! introduction only when its matching stop's
-        # departures page is present and eligible for this rotation.
+        # Pull football entries aside *before* pairing screens. The provider
+        # may interleave a calendar fixture between an intro and its follow-up.
+        # Removing football first restores those pairs and prevents losing a
+        # bus intro to the orphan check. Insert the complete football block
+        # only at an existing block boundary.
+        football = [item for item in normal if item.get("kind") == "football_score"]
+        first_football = next(
+            (index for index, item in enumerate(normal)
+             if item.get("kind") == "football_score"), None
+        )
+        anchor = None
+        if first_football is not None:
+            for item in normal[:first_football]:
+                if item.get("kind") != "football_score":
+                    anchor = item
+        normal = [item for item in normal if item.get("kind") != "football_score"]
+        # Keep Beep! Beep! only when its follow-up is still eligible.
         normal = [
             item for index, item in enumerate(normal)
             if item.get("kind") != "bus_intro"
@@ -627,19 +644,28 @@ class ScreenRotation:
                 and self.is_bus_followup(item, normal[index + 1]))
         ]
         static = [self._choose(item) for item in screens if self.is_static(item)]
-        # Do not separate the train from departures. Queue Times is already
-        # represented by one atomic screen.
+        # Build atomic train/bus/Christmas/weather pairs first.
         blocks = []
         for item in normal:
             if blocks and (
-                (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
-                or (blocks[-1][-1].get("kind") == "christmas_tracker_intro" and item.get("kind") == "christmas_tracker")
+                (blocks[-1][-1].get("kind") == "steam_train_intro"
+                 and item.get("kind") == "rail_combined")
+                or (blocks[-1][-1].get("kind") == "christmas_tracker_intro"
+                    and item.get("kind") == "christmas_tracker")
                 or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
             ):
                 blocks[-1].append(item)
             else:
                 blocks.append([item])
+        if football:
+            insert_at = 0
+            if anchor is not None:
+                for index, block in enumerate(blocks):
+                    if any(item is anchor for item in block):
+                        insert_at = index + 1
+                        break
+            blocks.insert(insert_at, football)
         for i in range(len(static) - 1, 0, -1):
             j = self.rng.randrange(i + 1)
             static[i], static[j] = static[j], static[i]

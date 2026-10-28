@@ -12,6 +12,8 @@ import ast
 from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_presentation_position,
     football_screen_lines, kickoff_countdown, kickoff_local_label,
+    football_due_in, football_slide_offset, football_roll_frame,
+    football_countdown_x, FOOTBALL_TEAM_STRIPES,
 )
 from screen_client import ScreenRotation
 
@@ -139,7 +141,7 @@ class FootballScreenTests(unittest.TestCase):
         self.assertIsNotNone(screen)
         self.assertEqual(
             football_screen_lines(screen, self.now),
-            ("MILLWALL VS DERBY COUNTY", "KO: SAT 31 OCT 15:00"),
+            ("MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"),
         )
 
     def test_out_of_order_and_duplicate_retained_replays_do_not_replace_snapshot(self):
@@ -191,7 +193,7 @@ class FootballScreenTests(unittest.TestCase):
         screen = self.state.screen_for_team("millwall", self.now)
         self.assertEqual(screen["status"], "PRE")
         self.assertEqual(football_screen_lines(screen, self.now), (
-            "MILLWALL VS DERBY COUNTY", "KO: MON 26 OCT 22:00"
+            "MILLWALL VS DERBY COUNTY", "MON 26 OCT 22:00"
         ))
         no_fixture = snapshot(
             "millwall", published="2026-10-26T20:01:00Z",
@@ -241,24 +243,24 @@ class FootballScreenTests(unittest.TestCase):
                 self.assertTrue(state.accept("led/football/millwall", value))
                 screen = score_screen(state, self.now)
                 rows = football_screen_lines(screen, self.now)
-                self.assertEqual(rows, ("MILLWALL VS DERBY COUNTY", "KO: SAT 31 OCT 15:00"))
+                self.assertEqual(rows, ("MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"))
                 self.assertEqual(screen["home_score"], scores[0])
                 self.assertEqual(screen["away_score"], scores[1])
 
     def test_kickoff_uses_london_bst_and_gmt_rules_and_invalid_falls_back(self):
         self.assertEqual(kickoff_local_label("2026-07-15T14:00:00Z"),
-                         "KO: WED 15 JUL 15:00")
+                         "WED 15 JUL 15:00")
         self.assertEqual(kickoff_local_label("2026-01-15T14:00:00Z"),
-                         "KO: THU 15 JAN 14:00")
+                         "THU 15 JAN 14:00")
         self.assertEqual(kickoff_local_label("2026-03-29T00:59:00Z"),
-                         "KO: SUN 29 MAR 00:59")
+                         "SUN 29 MAR 00:59")
         self.assertEqual(kickoff_local_label("2026-03-29T01:00:00Z"),
-                         "KO: SUN 29 MAR 02:00")
+                         "SUN 29 MAR 02:00")
         self.assertEqual(kickoff_local_label("2026-10-25T00:59:00Z"),
-                         "KO: SUN 25 OCT 01:59")
+                         "SUN 25 OCT 01:59")
         self.assertEqual(kickoff_local_label("2026-10-25T01:00:00Z"),
-                         "KO: SUN 25 OCT 01:00")
-        self.assertEqual(kickoff_local_label("invalid"), "KO: TBC")
+                         "SUN 25 OCT 01:00")
+        self.assertEqual(kickoff_local_label("invalid"), "TIME TBC")
 
     def test_pre_fixture_fallback_respects_home_away_order(self):
         screen = {
@@ -276,6 +278,146 @@ class FootballScreenTests(unittest.TestCase):
         self.assertEqual(football_presentation_position(20), (2, True))
         self.assertEqual(football_presentation_position(0, animate=False), (2, True))
 
+    def test_adaptive_due_in_thresholds_and_unsynchronised_clock(self):
+        base = epoch("2026-10-31T15:00:00Z")
+        kickoff = "2026-10-31T15:00:00Z"
+        self.assertEqual(football_due_in(kickoff, base - (2*86400 + 5*3600 + 14*60 + 9)),
+                         "02D 05H 14M 09S")
+        self.assertEqual(football_due_in(kickoff, base - 86401), "01D 00H 00M 01S")
+        self.assertEqual(football_due_in(kickoff, base - 86400), "24H 00M 00S")
+        self.assertEqual(football_due_in(kickoff, base - 3601), "01H 00M 01S")
+        self.assertEqual(football_due_in(kickoff, base - 3600), "60M 00S")
+        self.assertEqual(football_due_in(kickoff, base - 61), "01M 01S")
+        self.assertEqual(football_due_in(kickoff, base - 60), "UNDER 1 MIN")
+        self.assertEqual(football_due_in(kickoff, base - 1), "UNDER 1 MIN")
+        self.assertEqual(football_due_in(kickoff, base), "DUE NOW")
+        self.assertEqual(football_due_in(kickoff, base + 100), "DUE NOW")
+        self.assertEqual(football_due_in("invalid", base), "TBC")
+        self.assertEqual(football_due_in(kickoff, None), "TBC")
+
+    def test_rolling_scene_positions_and_frames(self):
+        self.assertEqual(football_slide_offset(0), (254, False))
+        self.assertEqual(football_slide_offset(1.6), (127, False))
+        self.assertEqual(football_slide_offset(3.2), (0, True))
+        self.assertEqual(football_slide_offset(20), (0, True))
+        self.assertEqual(football_roll_frame(0), 0)
+        self.assertNotEqual(football_roll_frame(1.0), football_roll_frame(2.0))
+        self.assertEqual(football_roll_frame(3.2), 0)
+
+    def test_club_schedules_remain_adjacent_after_static_shuffle(self):
+        rotation = ScreenRotation(rng=random.Random(3))
+        screens = [
+            {"id": "football-sporting_cp", "kind": "football_score", "team_key": "sporting_cp"},
+            {"id": "fact", "kind": "random_fact", "display_group": "static_feeds"},
+            {"id": "rail", "kind": "rail_combined"},
+            {"id": "football-millwall", "kind": "football_score", "team_key": "millwall"},
+            {"id": "today", "kind": "today", "display_group": "static_feeds"},
+        ]
+        plan = rotation._cycle_plan(screens)
+        pairs = [(a["id"], b["id"]) for a, b in zip(plan, plan[1:])]
+        self.assertIn(("football-sporting_cp", "football-millwall"), pairs)
+
+    def test_countdown_right_aligns_even_when_day_count_grows(self):
+        for value in ("02D 05H 14M 09S", "123D 05H 14M 09S",
+                      "12345D 05H 14M 09S", "UNDER 1 MIN"):
+            with self.subTest(value=value):
+                x = football_countdown_x(value)
+                self.assertEqual(x, 256 - len(value) * 6)
+                self.assertLessEqual(x + len(value) * 6, 256)
+        self.assertEqual(football_countdown_x("X" * 50), 0)
+
+    def test_club_group_preserves_rail_bus_and_christmas_pairs(self):
+        football_a = {"id": "football-a", "kind": "football_score"}
+        football_b = {"id": "football-b", "kind": "football_score"}
+        cases = [
+            ([{"id": "steam-train", "kind": "steam_train_intro"},
+              football_a, {"id": "rail", "kind": "rail_combined"},
+              football_b], ("steam-train", "rail")),
+            ([{"id": "sl7-combined-intro", "kind": "bus_intro", "stop_key": "combined"},
+              football_a, {"id": "sl7", "kind": "bus_departures_combined"},
+              football_b], ("sl7-combined-intro", "sl7")),
+            ([{"id": "christmas-tracker-intro", "kind": "christmas_tracker_intro"},
+              football_a, {"id": "christmas-tracker", "kind": "christmas_tracker"},
+              football_b], ("christmas-tracker-intro", "christmas-tracker")),
+            ([{"id": "weather-sun", "kind": "weather_sun"},
+              football_a, {"id": "weather-today", "kind": "weather_today"},
+              football_b], ("weather-sun", "weather-today")),
+        ]
+        for normal, protected in cases:
+            with self.subTest(protected=protected):
+                rotation = ScreenRotation(rng=random.Random(17))
+                plan = rotation._cycle_plan(normal)
+                pairs = list(zip(
+                    [item["id"] for item in plan[:-1]],
+                    [item["id"] for item in plan[1:]],
+                ))
+                self.assertIn(protected, pairs)
+                self.assertIn(("football-a", "football-b"), pairs)
+                self.assertEqual(len(plan), len(normal))
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js needed for simulator rotation parity")
+    def test_browser_simulator_preserves_interleaved_train_and_bus_pairs(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        rotation_js = html[html.index("    const staticScreen = screen =>"):
+                           html.index("    function cronFieldMatches(", html.index("    const staticScreen = screen =>"))]
+        harness = "let screens = [];\n" + rotation_js + """
+const footballA = {id:'football-a',kind:'football_score'};
+const footballB = {id:'football-b',kind:'football_score'};
+const cases = [
+  [{id:'steam-train',kind:'steam_train_intro'}, footballA,
+   {id:'rail',kind:'rail_combined'}, footballB],
+  [{id:'sl7-combined-intro',kind:'bus_intro',stop_key:'combined'}, footballA,
+   {id:'sl7',kind:'bus_departures_combined'}, footballB],
+  [{id:'christmas-tracker-intro',kind:'christmas_tracker_intro'}, footballA,
+   {id:'christmas-tracker',kind:'christmas_tracker'}, footballB],
+  [{id:'weather-sun',kind:'weather_sun'}, footballA,
+   {id:'weather-today',kind:'weather_today'}, footballB]
+];
+const output = cases.map(items => { screens = items; return makeCyclePlan().map(x => x.id); });
+process.stdout.write(JSON.stringify(output));
+"""
+        result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+        sequences = json.loads(result.stdout)
+        for sequence, pair in zip(sequences, [
+            ("steam-train", "rail"), ("sl7-combined-intro", "sl7"),
+            ("christmas-tracker-intro", "christmas-tracker"),
+            ("weather-sun", "weather-today")
+        ]):
+            neighbors = list(zip(sequence, sequence[1:]))
+            self.assertIn(pair, neighbors)
+            self.assertIn(("football-a", "football-b"), neighbors)
+            self.assertEqual(len(sequence), 4)
+
+    def test_team_colour_stripes_survive_the_football_intro(self):
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["sporting_cp"], (
+            (0, 122, 51), (255, 255, 255), (0, 122, 51)))
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["millwall"][0], (0, 51, 160))
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["england"][1], (206, 17, 38))
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["portugal"][1], (255, 204, 0))
+        for team, colours in FOOTBALL_TEAM_STRIPES.items():
+            with self.subTest(team=team):
+                display = CapturingFootballFixture()
+                screen = {
+                    "kind": "football_score", "status": "PRE",
+                    "team_key": team, "team_name": team.upper(),
+                    "kickoff": "2026-10-31T15:00:00Z",
+                    "ball_animation": True,
+                }
+                # During the entry the stripes remain off-screen with the
+                # ball; after arrival they appear directly above it.
+                display._draw_screen(screen, phase=0)
+                self.assertFalse(display.pixels)
+                display._draw_screen(screen, phase=3.2)
+                for i, colour in enumerate(colours):
+                    self.assertIn((2, i * 3, colour), display.pixels)
+                    self.assertIn((17, i * 3 + 1, colour), display.pixels)
+
+    def test_simulator_renders_flag_with_the_same_moving_scene(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        self.assertIn("const FOOTBALL_TEAM_STRIPES = {", html)
+        self.assertIn("(offset + FOOTBALL_FLAG_X) * FONT_PIXEL_SCALE", html)
+        self.assertIn("FOOTBALL_TEAM_STRIPES[screen.team_key]", html)
+
     def test_simulator_keeps_ball_pinned_and_pregame_text_to_its_right(self):
         display = CapturingFootballFixture()
         screen = {
@@ -292,7 +434,7 @@ class FootballScreenTests(unittest.TestCase):
         self.assertTrue(display.pixels)
         self.assertTrue(all(2 <= x < 18 for x, _, _ in display.pixels))
         self.assertEqual([row[0] for row in display.text], [
-            "MILLWALL VS DERBY COUNTY", "KO: SAT 31 OCT 15:00",
+            "MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00",
         ])
         self.assertTrue(all(x >= 22 for _, x, _, _ in display.text))
         self.assertEqual([row[2] for row in display.text], [5, 18])
@@ -306,6 +448,8 @@ class FootballScreenTests(unittest.TestCase):
                          html.index("    function drawBinLorry", html.index("    function footballKickoffLabel"))]
         harness = constants + """
 const FONT_PIXEL_SCALE = 4;
+const FONT_FIRST_CODEPOINT = 32;
+const FONT_5X7 = Array.from({length: 95}, () => [0, 0, 0, 0, 0, 0, 0]);
 const context = {fillStyle: '', fillRect() {}};
 const drawn = [];
 function drawLedText(value, x, y) { drawn.push([value, x / FONT_PIXEL_SCALE, y / FONT_PIXEL_SCALE]); }
@@ -318,7 +462,8 @@ const results = [
   footballLines(sample), footballKickoffLabel('bad'),
   footballKickoffLabel('2026-03-29T01:30:00Z'),
   footballKickoffLabel('2026-10-25T01:30:00Z'),
-  footballBallPosition(0), footballBallPosition(3.2), footballBallPosition(20)
+  footballBallPosition(0), footballBallPosition(3.2), footballBallPosition(20),
+  footballDueIn(sample.kickoff, Date.parse('2026-10-28T09:45:51Z'))
 ];
 drawFootball(sample, 0); results.push(drawn.slice());
 drawFootball(sample, 3.2); results.push(drawn.slice());
@@ -326,18 +471,26 @@ process.stdout.write(JSON.stringify(results));
 """
         result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
         output = json.loads(result.stdout)
-        self.assertEqual(output[0], ["MILLWALL VS DERBY COUNTY", "KO: SAT 31 OCT 15:00"])
-        self.assertEqual(output[1], "KO: TBC")
-        self.assertEqual(output[2], "KO: SUN 29 MAR 02:30")
-        self.assertEqual(output[3], "KO: SUN 25 OCT 01:30")
+        self.assertEqual(output[0], ["MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"])
+        self.assertEqual(output[1], "TIME TBC")
+        self.assertEqual(output[2], "SUN 29 MAR 02:30")
+        self.assertEqual(output[3], "SUN 25 OCT 01:30")
         self.assertEqual(output[4], {"x": 256, "infoVisible": False})
         self.assertEqual(output[5], {"x": 2, "infoVisible": True})
         self.assertEqual(output[6], {"x": 2, "infoVisible": True})
-        self.assertEqual(output[7], [])
+        self.assertEqual(output[7], "03D 05H 14M 09S")
+        # Both rows are laid out while entering; their x is initially off
+        # screen and then reaches the original left-column coordinates.
         self.assertEqual(output[8], [
-            ["MILLWALL VS DERBY COUNTY", 22, 5],
-            ["KO: SAT 31 OCT 15:00", 22, 18],
+            ["MILLWALL VS DERBY COUNTY", 276, 5],
+            ["SAT 31 OCT 15:00", 276, 18],
         ])
+        self.assertEqual(output[9][:3], [
+            ["MILLWALL VS DERBY COUNTY", 276, 5],
+            ["SAT 31 OCT 15:00", 276, 18],
+            ["MILLWALL VS DERBY COUNTY", 22, 5],
+        ])
+        self.assertIn(["DUE IN", 214, 5], output[9])
         self.assertIn("screen.kind === 'football_score'", html)
         self.assertIn("document.getElementById('football-preview')", html)
 
