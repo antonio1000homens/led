@@ -13,6 +13,7 @@ from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_presentation_position,
     football_screen_lines, kickoff_countdown, kickoff_local_label,
     football_due_in, football_slide_offset, football_roll_frame,
+    football_countdown_x,
 )
 from screen_client import ScreenRotation
 
@@ -315,6 +316,77 @@ class FootballScreenTests(unittest.TestCase):
         plan = rotation._cycle_plan(screens)
         pairs = [(a["id"], b["id"]) for a, b in zip(plan, plan[1:])]
         self.assertIn(("football-sporting_cp", "football-millwall"), pairs)
+
+    def test_countdown_right_aligns_even_when_day_count_grows(self):
+        for value in ("02D 05H 14M 09S", "123D 05H 14M 09S",
+                      "12345D 05H 14M 09S", "UNDER 1 MIN"):
+            with self.subTest(value=value):
+                x = football_countdown_x(value)
+                self.assertEqual(x, 256 - len(value) * 6)
+                self.assertLessEqual(x + len(value) * 6, 256)
+        self.assertEqual(football_countdown_x("X" * 50), 0)
+
+    def test_club_group_preserves_rail_bus_and_christmas_pairs(self):
+        football_a = {"id": "football-a", "kind": "football_score"}
+        football_b = {"id": "football-b", "kind": "football_score"}
+        cases = [
+            ([{"id": "steam-train", "kind": "steam_train_intro"},
+              football_a, {"id": "rail", "kind": "rail_combined"},
+              football_b], ("steam-train", "rail")),
+            ([{"id": "sl7-combined-intro", "kind": "bus_intro", "stop_key": "combined"},
+              football_a, {"id": "sl7", "kind": "bus_departures_combined"},
+              football_b], ("sl7-combined-intro", "sl7")),
+            ([{"id": "christmas-tracker-intro", "kind": "christmas_tracker_intro"},
+              football_a, {"id": "christmas-tracker", "kind": "christmas_tracker"},
+              football_b], ("christmas-tracker-intro", "christmas-tracker")),
+            ([{"id": "weather-sun", "kind": "weather_sun"},
+              football_a, {"id": "weather-today", "kind": "weather_today"},
+              football_b], ("weather-sun", "weather-today")),
+        ]
+        for normal, protected in cases:
+            with self.subTest(protected=protected):
+                rotation = ScreenRotation(rng=random.Random(17))
+                plan = rotation._cycle_plan(normal)
+                pairs = list(zip(
+                    [item["id"] for item in plan[:-1]],
+                    [item["id"] for item in plan[1:]],
+                ))
+                self.assertIn(protected, pairs)
+                self.assertIn(("football-a", "football-b"), pairs)
+                self.assertEqual(len(plan), len(normal))
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js needed for simulator rotation parity")
+    def test_browser_simulator_preserves_interleaved_train_and_bus_pairs(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        rotation_js = html[html.index("    const staticScreen = screen =>"):
+                           html.index("    function cronFieldMatches(", html.index("    const staticScreen = screen =>"))]
+        harness = "let screens = [];\n" + rotation_js + """
+const footballA = {id:'football-a',kind:'football_score'};
+const footballB = {id:'football-b',kind:'football_score'};
+const cases = [
+  [{id:'steam-train',kind:'steam_train_intro'}, footballA,
+   {id:'rail',kind:'rail_combined'}, footballB],
+  [{id:'sl7-combined-intro',kind:'bus_intro',stop_key:'combined'}, footballA,
+   {id:'sl7',kind:'bus_departures_combined'}, footballB],
+  [{id:'christmas-tracker-intro',kind:'christmas_tracker_intro'}, footballA,
+   {id:'christmas-tracker',kind:'christmas_tracker'}, footballB],
+  [{id:'weather-sun',kind:'weather_sun'}, footballA,
+   {id:'weather-today',kind:'weather_today'}, footballB]
+];
+const output = cases.map(items => { screens = items; return makeCyclePlan().map(x => x.id); });
+process.stdout.write(JSON.stringify(output));
+"""
+        result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+        sequences = json.loads(result.stdout)
+        for sequence, pair in zip(sequences, [
+            ("steam-train", "rail"), ("sl7-combined-intro", "sl7"),
+            ("christmas-tracker-intro", "christmas-tracker"),
+            ("weather-sun", "weather-today")
+        ]):
+            neighbors = list(zip(sequence, sequence[1:]))
+            self.assertIn(pair, neighbors)
+            self.assertIn(("football-a", "football-b"), neighbors)
+            self.assertEqual(len(sequence), 4)
 
     def test_simulator_keeps_ball_pinned_and_pregame_text_to_its_right(self):
         display = CapturingFootballFixture()
