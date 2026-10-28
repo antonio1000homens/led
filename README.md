@@ -142,6 +142,8 @@ BWS_NATIONAL_RAIL_TOKEN_SECRET_ID=<bitwarden-secret-uuid>
 
 The process requires an authenticated `bws` CLI, normally through `BWS_ACCESS_TOKEN`. It resolves the token at startup and never sends it to the MatrixPortal or browser. This is a local-development path only; the production GitHub deployment no longer depends on a Bitwarden machine account.
 
+Departure platform numbers use the National Rail Darwin value when present. If Darwin omits a platform, the backend makes a best-effort lookup against the public RailInfo New Malden board and fills only unambiguous matches by scheduled departure time. If neither source has a value, the display continues to show `-`; failures from the secondary lookup do not interrupt departures.
+
 ### Thorpe Park queue times
 
 The backend can append a Thorpe Park screen sourced from Queue-Times.com park ID `2`. No Queue-Times credential is required. The default cache is 300 seconds to match the source's approximate refresh cadence.

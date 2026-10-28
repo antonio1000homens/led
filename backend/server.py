@@ -19,6 +19,8 @@ import re
 import subprocess
 import threading
 import time
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
@@ -29,6 +31,7 @@ from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable, weat
 
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
+RAILINFO_BOARD_URL = "https://api.railinfo.uk/boards/{}/departures"
 SECRET_ID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SIMULATOR_ROOT = PROJECT_ROOT / "simulator"
@@ -200,6 +203,62 @@ def normalize_darwin_board(board, max_rows=10):
     return services
 
 
+def _departure_clock_key(value):
+    """Normalize HH:MM and HHMM service times for cross-feed matching."""
+    text = re.sub(r"\D", "", str(value or ""))
+    return text if len(text) == 4 else None
+
+
+def _railinfo_platforms(station):
+    """Read best-effort platform allocations from the public RailInfo board."""
+    request = Request(
+        RAILINFO_BOARD_URL.format(station),
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "LED-departure-platform-enrichment/1.0",
+        },
+    )
+    with urlopen(request, timeout=5) as response:
+        payload = json.load(response)
+    if not isinstance(payload, dict) or payload.get("crs") != station:
+        return {}
+
+    candidates = {}
+    ambiguous = set()
+    for item in payload.get("departures") or ():
+        if not isinstance(item, dict):
+            continue
+        key = _departure_clock_key(item.get("public_dep"))
+        platform = _platform_number(
+            item.get("live_platform") or item.get("sched_platform")
+        )
+        if key is None or platform == "-":
+            continue
+        if key in candidates and candidates[key] != platform:
+            ambiguous.add(key)
+        else:
+            candidates[key] = platform
+    for key in ambiguous:
+        candidates.pop(key, None)
+    return candidates
+
+
+def _enrich_missing_platforms(services, platforms):
+    """Fill only unambiguous missing Darwin platforms using scheduled time."""
+    service_counts = {}
+    for item in services:
+        key = _departure_clock_key(item.get("time"))
+        if key is not None:
+            service_counts[key] = service_counts.get(key, 0) + 1
+    for item in services:
+        if _platform_number(item.get("platform")) != "-":
+            continue
+        key = _departure_clock_key(item.get("time"))
+        if key is not None and service_counts.get(key) == 1 and key in platforms:
+            item["platform"] = platforms[key]
+    return services
+
+
 class FixtureProvider:
     source = "fixture"
 
@@ -308,7 +367,14 @@ class NationalRailProvider:
             crs=self.station,
             _soapheaders=[self._header],
         )
-        return normalize_darwin_board(self._serialize(board), self.max_rows)
+        services = normalize_darwin_board(self._serialize(board), self.max_rows)
+        try:
+            _enrich_missing_platforms(services, _railinfo_platforms(self.station))
+        except (HTTPError, URLError, OSError, ValueError, TypeError):
+            # A secondary platform source must never make the primary live
+            # departure board unavailable.
+            pass
+        return services
 
 
 class DepartureFeed:
