@@ -278,7 +278,7 @@ FEED_REGISTRY = {
             "enabled", "poll_seconds", "screen_duration_seconds", "lookahead_days",
             "sporting_cp_enabled", "millwall_enabled", "portugal_enabled", "england_enabled",
         ),
-        "advanced_fields": ("lookahead_days", "portugal_enabled", "england_enabled"),
+        "advanced_fields": ("lookahead_days",),
         "screen_duration": True,
     },
     "flash": {
