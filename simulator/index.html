@@ -1270,9 +1270,12 @@
         context.fillStyle = '#ffffff';
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
         if (settled) {
+          context.fillStyle = '#ffaa00';
           drawLedText('DUE IN', (offset + 214) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
           const due = footballDueIn(screen.kickoff, now);
-          drawFootballCompactText(due, offset + Math.max(166, 255 - due.length * 6), 18, '#ffffff');
+          // The compact 5px glyph pitch keeps the shortest countdown right
+          // aligned without shifting its column when units disappear.
+          drawFootballCompactText(due, offset + Math.max(166, 255 - due.length * 5), 18, '#ffffff');
         }
       } else {
         rows.slice(0, 4).forEach((line, index) => {
