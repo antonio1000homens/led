@@ -15,11 +15,16 @@ snapshots leave the last accepted screen untouched.
 
 ## Screen behavior
 
-Every accepted, newer snapshot immediately queues that club's match screen for
-presentation. Its palette-indexed football enters from the right, settles at
-the left edge, and stays there beside the match information for the 20-second
-presentation. The same cached bitmap and display group are reused; the slide
-is paced by the MatrixPortal refresh loop. After the prompt presentation,
+A new accepted fixture is eligible for a prompt presentation. Every football
+screen entry (including calendar-sourced PRE in the ordinary screen rotation)
+animates the 16×16 football with visible rotation from the right to the left
+over 3.2 seconds. The fixture and local kickoff time slide **with** the ball,
+not after it. The ball freezes at x=2 when the scene arrives. If another
+football fixture immediately follows, the incoming scene pushes the complete
+outgoing fixture/ball/countdown off the left, with no blank interstitial frame.
+Two persistent displayio scenes and two reusable indexed sprite bitmaps avoid
+per-frame scene allocation; ordinary API polls and 1 Hz clock updates do not
+restart the entry. After the prompt presentation,
 football screens remain in the ordinary rotation as a fallback. A flash
 reminder keeps priority; football updates wait behind it. Pending updates are
 coalesced to one item per club so bursts cannot build an unbounded queue.
@@ -31,10 +36,25 @@ other subscriptions continue to work.
 
 The display uses `display_fixture` when supplied. For PRE fixtures without it,
 the board builds the home-versus-away order from team names and the Team
-Tracker home/away fields. PRE shows only the fixture and `KO: DAY DD MON HH:MM`
+Tracker home/away fields. PRE shows the fixture and `DAY DD MON HH:MM` (without `KO:`) on the left,
 in Europe/London local time, including automatic GMT/BST conversion. Invalid
-or missing kick-off data shows `KO: TBC`. Long lines are clipped to the area
-beside the ball. No status, competition, countdown or score is shown for PRE.
+or missing kickoff shows `TIME TBC`. After the ball stops, `DUE IN` appears
+at the top right and the compact remaining countdown at the bottom right.
+Its units depend on the **total time until kickoff**:
+
+| Time remaining | Display |
+| --- | --- |
+| Over 24 hours | `02D 05H 14M 09S` |
+| Over 60 minutes, up to 24 hours | `05H 14M 09S` |
+| Over 60 seconds, up to 60 minutes | `14M 09S` |
+| 1–60 seconds | `UNDER 1 MIN` |
+| At or past kickoff | `DUE NOW` |
+| No kickoff / clock unsynchronised | `TBC` |
+
+Values are calculated locally from the absolute timestamp (not via MQTT or
+an API request per second). The display refreshes only the changed glyphs.
+Long names are clipped before the right column; no competition/status/score
+lines are added to the PRE view.
 
 IN and POST screens show normalized home/away scores when both are present.
 BYE, NOT_FOUND, UNKNOWN, and UNAVAILABLE each have a distinct safe label. A
