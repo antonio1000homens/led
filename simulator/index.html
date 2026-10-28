@@ -712,20 +712,26 @@
     const christmasFollowup = (intro, tracker) =>
       intro.kind === 'christmas_tracker_intro' && tracker.kind === 'christmas_tracker';
     function makeCyclePlan() {
-      const blocks = [];
       let normal = screens.filter(screen => !staticScreen(screen));
       const football = normal.filter(screen => screen.kind === 'football_score');
-      if (football.length > 1) {
-        const first = normal.findIndex(screen => screen.kind === 'football_score');
-        normal = normal.filter(screen => screen.kind !== 'football_score');
-        normal.splice(first, 0, ...football);
-      }
+      const firstFootball = normal.findIndex(screen => screen.kind === 'football_score');
+      // Extract football before matching intros, so an interleaved football
+      // cannot separate a train/bus intro from its departures (or Christmas/
+      // weather follow-ups). Reinsert fixtures only at a block boundary.
+      const anchor = firstFootball < 0 ? null
+        : normal.slice(0, firstFootball).filter(screen => screen.kind !== 'football_score').at(-1) || null;
+      normal = normal.filter(screen => screen.kind !== 'football_score');
+      const blocks = [];
       for (let index = 0; index < normal.length; index++) {
         const screen = normal[index];
         if (screen.kind === 'bus_intro' && !busFollowup(screen, normal[index + 1] || {})) continue;
         const last = blocks[blocks.length - 1];
-        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen) || (last[last.length - 1].kind === 'football_score' && screen.kind === 'football_score'))) last.push(screen);
+        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
         else blocks.push([screen]);
+      }
+      if (football.length) {
+        const anchorIndex = blocks.findIndex(block => block.includes(anchor));
+        blocks.splice(anchorIndex < 0 ? 0 : anchorIndex + 1, 0, football);
       }
       const pages = screens.filter(staticScreen).map(chooseStatic);
       for (let i = pages.length - 1; i > 0; i--) {
