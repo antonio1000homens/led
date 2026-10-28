@@ -12,15 +12,21 @@ FOOTBALL_TEAM_NAMES = {
     "england": "England", "portugal": "Portugal",
 }
 FOOTBALL_TEAM_COLOUR_NAMES = {
-    "sporting_cp": "Sporting", "millwall": "Millwall",
+    "sporting_cp": "Sporting CP", "millwall": "Millwall",
     "england": "England", "portugal": "Portugal",
 }
-# Letter colours cycle across the tracked team's name, ignoring spaces.
+# Full-intensity RGB primaries survive the MatrixPortal's one-bit-per-channel
+# output. Each entry assigns one color to each non-space letter in the name.
+_GREEN = (0, 255, 0)
+_WHITE = (255, 255, 255)
+_RED = (255, 0, 0)
+_YELLOW = (255, 255, 0)
+_BLUE = (0, 0, 255)
 FOOTBALL_TEAM_LETTER_COLORS = {
-    "sporting_cp": ((0, 122, 51), (255, 255, 255), (0, 122, 51)),
-    "england": ((255, 255, 255), (206, 17, 38), (255, 255, 255)),
-    "millwall": ((0, 51, 160), (255, 255, 255), (0, 51, 160)),
-    "portugal": ((255, 0, 0), (255, 204, 0), (0, 102, 0)),
+    "sporting_cp": (_GREEN, _GREEN, _GREEN, _WHITE, _WHITE, _WHITE, _WHITE, _GREEN, _GREEN, _GREEN),
+    "england": (_WHITE, _WHITE, _RED, _RED, _BLUE, _BLUE, _BLUE),
+    "millwall": (_WHITE, _WHITE, _WHITE, _WHITE, _BLUE, _BLUE, _BLUE, _BLUE),
+    "portugal": (_RED, _RED, _RED, _YELLOW, _YELLOW, _GREEN, _GREEN, _GREEN),
 }
 FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600

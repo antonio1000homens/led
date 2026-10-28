@@ -390,13 +390,21 @@ process.stdout.write(JSON.stringify(output));
             self.assertEqual(len(sequence), 4)
 
     def test_team_letter_colours_are_applied_to_the_team_name(self):
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["sporting_cp"], (
-            (0, 122, 51), (255, 255, 255), (0, 122, 51)))
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["millwall"][0], (0, 51, 160))
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["england"][1], (206, 17, 38))
-        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["portugal"][1], (255, 204, 0))
+        green, white, red, yellow, blue = (
+            (0, 255, 0), (255, 255, 255), (255, 0, 0),
+            (255, 255, 0), (0, 0, 255),
+        )
+        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["sporting_cp"],
+                         (green, green, green, white, white, white, white,
+                          green, green, green))
+        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["millwall"],
+                         (white, white, white, white, blue, blue, blue, blue))
+        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["england"],
+                         (white, white, red, red, blue, blue, blue))
+        self.assertEqual(FOOTBALL_TEAM_LETTER_COLORS["portugal"],
+                         (red, red, red, yellow, yellow, green, green, green))
         names = {
-            "sporting_cp": "SPORTING",
+            "sporting_cp": "SPORTING CP",
             "millwall": "MILLWALL",
             "england": "ENGLAND",
             "portugal": "PORTUGAL",
@@ -415,6 +423,7 @@ process.stdout.write(JSON.stringify(output));
         self.assertIn("const FOOTBALL_TEAM_LETTER_COLORS = {", html)
         self.assertIn("function drawFootballTeamLine(screen, value, x, y, color)", html)
         self.assertIn("FOOTBALL_TEAM_LETTER_COLORS[key]", html)
+        self.assertIn("sporting_cp: 'SPORTING CP'", html)
         self.assertNotIn("FOOTBALL_TEAM_STRIPES", html)
 
     def test_simulator_keeps_ball_pinned_and_pregame_text_to_its_right(self):

@@ -211,14 +211,14 @@
       england: 'ENGLAND', portugal: 'PORTUGAL'
     };
     const FOOTBALL_TEAM_COLOUR_NAMES = {
-      sporting_cp: 'SPORTING', millwall: 'MILLWALL',
+      sporting_cp: 'SPORTING CP', millwall: 'MILLWALL',
       england: 'ENGLAND', portugal: 'PORTUGAL'
     };
     const FOOTBALL_TEAM_LETTER_COLORS = {
-      sporting_cp: ['#007a33', '#ffffff', '#007a33'],
-      england: ['#ffffff', '#ce1126', '#ffffff'],
-      millwall: ['#0033a0', '#ffffff', '#0033a0'],
-      portugal: ['#ff0000', '#ffcc00', '#006600']
+      sporting_cp: ['#00ff00', '#00ff00', '#00ff00', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#00ff00', '#00ff00', '#00ff00'],
+      england: ['#ffffff', '#ffffff', '#ff0000', '#ff0000', '#0000ff', '#0000ff', '#0000ff'],
+      millwall: ['#ffffff', '#ffffff', '#ffffff', '#ffffff', '#0000ff', '#0000ff', '#0000ff', '#0000ff'],
+      portugal: ['#ff0000', '#ff0000', '#ff0000', '#ffff00', '#ffff00', '#00ff00', '#00ff00', '#00ff00']
     };
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
@@ -1285,7 +1285,7 @@
       [...text].forEach((character, index) => {
         const inName = colors.length && start >= 0 && index >= start && index < start + name.length;
         context.fillStyle = inName && character !== ' '
-          ? colors[letterIndex++ % colors.length] : color;
+          ? colors[letterIndex++] : color;
         drawLedText(character, x + index * FONT_CELL_WIDTH, y);
       });
     }
@@ -1440,8 +1440,8 @@
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
       // Keep the message beyond the sleigh's 84px edge; extra digits grow right.
-      drawLedTextScaled(`${days} DAYS`, 103 * px, 2 * px, 2);
-      drawLedText('UNTIL CHRISTMAS', 103 * px, 18 * px);
+      drawLedTextScaled(`${days} DAYS`, 103 * px, 4 * px, 2);
+      drawLedText('UNTIL CHRISTMAS', 103 * px, 20 * px);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {

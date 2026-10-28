@@ -2069,7 +2069,7 @@ class MatrixDisplay:
                 if character == " ":
                     letter.text = ""
                     continue
-                red, green, blue = team_colors[letter_index % len(team_colors)]
+                red, green, blue = team_colors[letter_index]
                 letter.text = character
                 letter.color = (red << 16) | (green << 8) | blue
                 letter_index += 1
@@ -3781,9 +3781,9 @@ class MatrixDisplay:
         # Keep the message to the right of the 84px sleigh. The count's left
         # edge stays fixed so any extra digit grows to the right.
         countdown = self._scaled_label(
-            root, "{} DAYS".format(count_text), 0xFFFFFF, 103, 2, scale=2,
+            root, "{} DAYS".format(count_text), 0xFFFFFF, 103, 4, scale=2,
         )
-        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 103, 18, scale=1)
+        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 103, 20, scale=1)
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
@@ -4675,8 +4675,8 @@ class FixtureDisplay:
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
-        self._text("{} DAYS".format(count), 103, 2, white, scale=2)
-        self._text("UNTIL CHRISTMAS", 103, 18, white)
+        self._text("{} DAYS".format(count), 103, 4, white, scale=2)
+        self._text("UNTIL CHRISTMAS", 103, 20, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
