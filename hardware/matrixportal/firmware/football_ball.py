@@ -1,4 +1,4 @@
-"""Tiny transparent football sprite for the firmware's match intro."""
+"""Tiny transparent football sprite for the match presentation."""
 
 
 WIDTH = 16

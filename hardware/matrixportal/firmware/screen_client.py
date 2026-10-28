@@ -570,8 +570,6 @@ class ScreenRotation:
         return (
             (previous_id == "steam-train" and current.get("kind") == "rail_combined")
             or (previous_id == "christmas-tracker-intro" and current.get("kind") == "christmas_tracker")
-            or (current.get("kind") == "football_score"
-                and previous_id == "football-intro-" + str(current.get("team_key") or ""))
             or (current.get("kind") == "bus_departures"
                 and stop in ("heathrow", "new-malden")
                 and previous_id == "sl7-{}-intro".format(stop))
@@ -628,12 +626,6 @@ class ScreenRotation:
             or (index + 1 < len(normal)
                 and self.is_bus_followup(item, normal[index + 1]))
         ]
-        normal = [
-            item for index, item in enumerate(normal)
-            if item.get("kind") != "football_intro"
-            or (index + 1 < len(normal)
-                and self.is_paired_transition(item.get("id", ""), normal[index + 1]))
-        ]
         static = [self._choose(item) for item in screens if self.is_static(item)]
         # Do not separate the train from departures. Queue Times is already
         # represented by one atomic screen.
@@ -642,7 +634,6 @@ class ScreenRotation:
             if blocks and (
                 (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
                 or (blocks[-1][-1].get("kind") == "christmas_tracker_intro" and item.get("kind") == "christmas_tracker")
-                or self.is_paired_transition(blocks[-1][-1].get("id", ""), item)
                 or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
             ):

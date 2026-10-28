@@ -15,21 +15,31 @@ snapshots leave the last accepted screen untouched.
 
 ## Screen behavior
 
-Football screens enter the same normal rotation as HTTP screens and
-`led/screens/+` screens as soon as a valid snapshot for that club arrives.
-Each screen lasts 20 seconds and is inserted into the existing mixed rotation;
-it does not interrupt an active flash event. Set `MQTT_FOOTBALL_ENABLED = False`
-in board-local `settings_local.py` to hide both football screens. The MQTT
-connection and other subscriptions continue to work.
+Every accepted, newer snapshot immediately queues that club's match screen for
+presentation. Its palette-indexed football enters from the right, settles at
+the left edge, and stays there beside the match information for the 20-second
+presentation. The same cached bitmap and display group are reused; the slide
+is paced by the MatrixPortal refresh loop. After the prompt presentation,
+football screens remain in the ordinary rotation as a fallback. A flash
+reminder keeps priority; football updates wait behind it. Pending updates are
+coalesced to one item per club so bursts cannot build an unbounded queue.
+Duplicate or out-of-order snapshots are rejected before they can request a
+slide. The first valid retained snapshot after boot hydrates that team and
+requests one presentation. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
+`settings_local.py` to hide both football screens; the MQTT connection and its
+other subscriptions continue to work.
 
-The display uses `display_fixture` when supplied, otherwise it builds the
-fixture line from team and opponent names. PRE screens calculate their
-countdown locally from the timezone-aware `kickoff`; after kickoff they show
-“AWAITING LIVE UPDATE” until Team Tracker changes state. IN and POST screens
-show normalized home/away scores when both are present. BYE, NOT_FOUND, UNKNOWN,
-and UNAVAILABLE each have a distinct safe label. A live snapshot whose
-`source_updated_at` is missing or more than ten minutes old is shown as
-UNAVAILABLE and its score and clock are hidden.
+The display uses `display_fixture` when supplied. For PRE fixtures without it,
+the board builds the home-versus-away order from team names and the Team
+Tracker home/away fields. PRE shows only the fixture and `KO: DAY DD MON HH:MM`
+in Europe/London local time, including automatic GMT/BST conversion. Invalid
+or missing kick-off data shows `KO: TBC`. Long lines are clipped to the area
+beside the ball. No status, competition, countdown or score is shown for PRE.
+
+IN and POST screens show normalized home/away scores when both are present.
+BYE, NOT_FOUND, UNKNOWN, and UNAVAILABLE each have a distinct safe label. A
+live snapshot whose `source_updated_at` is missing or more than ten minutes
+old is shown as UNAVAILABLE and its score and clock are hidden.
 
 Score changes are considered for a short goal highlight only when both
 snapshots are IN for the same non-empty `match_id`, both prior and current
@@ -51,5 +61,5 @@ MQTT_FOOTBALL_TOPIC = "led/football/+"
 MQTT_FOOTBALL_ENABLED = True
 ```
 
-The board checks the source timestamps locally; it does not poll Home Assistant
-or make additional network requests for a countdown.
+The board checks source timestamps and formats kick-off locally; it does not
+poll Home Assistant or make additional network requests for a countdown.

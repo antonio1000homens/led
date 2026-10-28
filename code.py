@@ -54,7 +54,7 @@ from screen_client import ClockState, ScreenClient, ScreenRotation
 from christmas_tracker import with_christmas_tracker
 from cron_schedule import cron_matches_local
 from mqtt_screens import MqttScreenState, recycling_policy
-from football_screens import FootballScreenState
+from football_screens import FootballPresentationQueue, FootballScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
@@ -283,6 +283,12 @@ football_screens = FootballScreenState(
     getattr(settings, "MQTT_FOOTBALL_TOPIC", "led/football/+"),
     enabled=getattr(settings, "MQTT_FOOTBALL_ENABLED", True),
 )
+football_presentations = FootballPresentationQueue()
+active_football_screen = None
+active_football_started = None
+football_rotation_resume = None
+football_pause_started = None
+football_presentation_sequence = 0
 last_recycling_date = None
 
 
@@ -304,10 +310,16 @@ def _reminder_epoch(now):
 
 
 def _flash_started(now):
-    global flash_resume, last_render_key, flash_started_ticks
+    global flash_resume, last_render_key, flash_started_ticks, football_pause_started
     flash_started_ticks = ticks_ms()
     if flash_resume is None:
-        flash_resume = rotation.freeze(ticks_ms())
+        active_presentation = globals().get("active_football_screen")
+        resume_state = globals().get("football_rotation_resume")
+        if active_presentation is not None and resume_state is not None:
+            flash_resume = resume_state
+            football_pause_started = flash_started_ticks
+        else:
+            flash_resume = rotation.freeze(ticks_ms())
     last_render_key = None
     print("FLASH START id={}".format(flash.event["id"]))
 
@@ -319,6 +331,30 @@ def _service_reminder_clock(now):
         _flash_started(now)
         return True
     return False
+
+
+def _cancel_active_football():
+    """Cancel a football prompt whose retained snapshot is no longer presentable."""
+    global active_football_screen, active_football_started
+    global football_rotation_resume, football_pause_started, flash_resume
+    global last_render_key
+    if active_football_screen is None:
+        return False
+    team_key = active_football_screen.get("team_key")
+    if football_rotation_resume is not None:
+        rotation.resume(
+            ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
+        )
+    active_football_screen = None
+    active_football_started = None
+    football_rotation_resume = None
+    football_pause_started = None
+    flash_resume = None
+    last_render_key = None
+    print("FOOTBALL PRESENTATION CANCEL team={} reason=fixture_unavailable".format(
+        team_key
+    ))
+    return True
 
 
 if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_train_test:
@@ -341,8 +377,13 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             return
         football_prefix = football_screens.prefix
         if topic.startswith(football_prefix):
-            if football_screens.accept(topic, payload):
-                epoch_now = _reminder_epoch(now)
+            epoch_now = _reminder_epoch(now)
+            if football_presentations.accept_snapshot(
+                    football_screens, topic, payload, epoch_now):
+                team_key = topic[len(football_prefix):]
+                print("FOOTBALL UPDATE ACCEPTED team={} pending={}".format(
+                    team_key, len(football_presentations)
+                ))
                 rotation.update_sources(
                     rotation.http_screens,
                     _effective_mqtt_screens(epoch_now),
@@ -482,7 +523,7 @@ def _display_phase(screen, phase):
         return phase
     if _smooth_bus_intro(screen):
         return phase
-    if _smooth_football_intro(screen):
+    if _smooth_football(screen):
         return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
@@ -545,10 +586,10 @@ def _smooth_bus_intro(screen):
     )
 
 
-def _smooth_football_intro(screen):
+def _smooth_football(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
-        and screen.get("kind") == "football_intro"
+        and screen.get("kind") == "football_score"
     )
 
 
@@ -743,6 +784,11 @@ while True:
                 and not mqtt_animation_active
                 and mqtt_screen.get("kind") != "rail_combined"
             )
+        if active_football_screen is not None and not flash.active(now):
+            football_phase = elapsed_seconds(active_football_started)
+            if display.animation_active(active_football_screen, football_phase):
+                mqtt_animation_active = True
+                mqtt_allow_connect = False
         # MiniMQTT's nominal socket timeout does not bound the complete
         # CircuitPython/Wi-Fi path. Do not interrupt visible animation with
         # keepalive/reconnect work; service the connection in an idle window.
@@ -790,7 +836,52 @@ while True:
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     maintenance_resume = None
     maintenance_active = False
-    candidate, candidate_phase = rotation.current(ticks_ms())
+    if not flash.active(now) and flash.event is None:
+        if active_football_screen is not None:
+            latest_football = football_screens.screen_for_team(
+                active_football_screen.get("team_key"), _reminder_epoch(now)
+            )
+            if latest_football is None:
+                _cancel_active_football()
+            elif latest_football.get("published_at") == active_football_screen.get("published_at"):
+                latest_football["id"] = active_football_screen.get("id")
+                active_football_screen = latest_football
+            if (active_football_screen is not None
+                    and elapsed_seconds(active_football_started) >= float(
+                        active_football_screen.get("duration_seconds") or 20
+                    )):
+                print("FOOTBALL PRESENTATION END team={}".format(
+                    active_football_screen.get("team_key")
+                ))
+                active_football_screen = None
+                active_football_started = None
+                if football_rotation_resume is not None:
+                    rotation.resume(
+                        ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
+                    )
+                football_rotation_resume = None
+        if active_football_screen is None:
+            team_key = football_presentations.pop()
+            if team_key is not None:
+                epoch_now = _reminder_epoch(now)
+                next_screen = football_screens.screen_for_team(team_key, epoch_now)
+                if next_screen is not None:
+                    football_presentation_sequence += 1
+                    next_screen["id"] = "football-event-{}".format(
+                        football_presentation_sequence
+                    )
+                    next_screen["ball_animation"] = True
+                    football_rotation_resume = rotation.freeze(ticks_ms())
+                    active_football_screen = next_screen
+                    active_football_started = ticks_ms()
+                    print("FOOTBALL PRESENTATION START team={} pending={}".format(
+                        team_key, len(football_presentations)
+                    ))
+    if active_football_screen is not None and not flash.active(now):
+        candidate = active_football_screen
+        candidate_phase = elapsed_seconds(active_football_started)
+    else:
+        candidate, candidate_phase = rotation.current(ticks_ms())
     fetch_due = ticks_ms() >= next_fetch
     boundary = last_visible_screen != candidate.get("id")
     task_unready = (candidate.get("kind") == "calendar_agenda"
@@ -811,7 +902,8 @@ while True:
             if gc is not None and hasattr(gc, "enable"):
                 gc.enable()
         christmas_gc_suspended = False
-    if (rotation.screens and not steam_train_test and not flash.active(now)
+    if (rotation.screens and active_football_screen is None
+            and not steam_train_test and not flash.active(now)
             and boundary and not paired_followup and (fetch_due or task_unready)
             and not rotation.is_maintenance_screen(candidate)):
         rotation.maintenance_slot(ticks_ms())
@@ -962,7 +1054,7 @@ while True:
                 for intro in screens:
                     if (not isinstance(intro, dict)
                             or intro.get("kind") not in (
-                                "steam_train_intro", "bus_intro", "football_intro",
+                                "steam_train_intro", "bus_intro",
                                 "christmas_tracker_intro", "christmas_tracker"
                             )):
                         continue
@@ -1103,13 +1195,26 @@ while True:
         if flash.event is not None:
             flash.clear()
             if flash_resume is not None:
-                rotation.resume(ticks_ms(), flash_resume[0], flash_resume[1])
+                if football_rotation_resume is None:
+                    rotation.resume(ticks_ms(), flash_resume[0], flash_resume[1])
                 flash_resume = None
+            if football_pause_started is not None and active_football_screen is not None:
+                active_football_started += ticks_ms() - football_pause_started
+                football_pause_started = None
             last_render_key = None
             print("FLASH END")
-        rotation.set_schedule_time(clock.date_text(now), clock.text(now))
-        rotation.set_schedule_epoch(clock.epoch(now))
-        screen, phase = rotation.current(ticks_ms())
+            if (active_football_screen is not None
+                    and football_screens.screen_for_team(
+                        active_football_screen.get("team_key"), _reminder_epoch(now)
+                    ) is None):
+                _cancel_active_football()
+        if active_football_screen is not None:
+            screen = active_football_screen
+            phase = elapsed_seconds(active_football_started)
+        else:
+            rotation.set_schedule_time(clock.date_text(now), clock.text(now))
+            rotation.set_schedule_epoch(clock.epoch(now))
+            screen, phase = rotation.current(ticks_ms())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["screen_select"] = elapsed_seconds(stage_started)
     screen = hardware_safe_screen(screen)
@@ -1414,7 +1519,7 @@ while True:
         or _smooth_queue(screen)
         or _smooth_steam_train(screen)
         or _smooth_bus_intro(screen)
-        or _smooth_football_intro(screen)
+        or _smooth_football(screen)
         or _smooth_sun_weather(screen)
         or _smooth_today(screen)
         or _smooth_bin_collection(screen)

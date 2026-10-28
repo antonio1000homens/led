@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from mqtt_screens import MqttScreenState
+from mqtt_screens import MqttScreenState, _epoch
 from screen_client import ScreenRotation
 
 
@@ -29,6 +29,16 @@ class MqttScreenStateTests(unittest.TestCase):
         value = snapshot()
         self.assertTrue(self.state.accept("led/screens/recycling", value, self.now))
         self.assertEqual(self.state.screens(self.now), [value["screen"]])
+
+    def test_iso_timestamp_variants_used_by_home_assistant(self):
+        self.assertEqual(
+            _epoch("2026-10-31T15:00Z"),
+            _epoch("2026-10-31T15:00:00+00:00"),
+        )
+        self.assertEqual(
+            _epoch("2026-10-26 22:17:27+00:00"),
+            _epoch("2026-10-26T22:17:27Z"),
+        )
 
     def test_retained_active_snapshot_recovers_into_a_fresh_state(self):
         retained = snapshot()

@@ -95,7 +95,7 @@ class BusIntroAnimationTests(unittest.TestCase):
         functions = [
             node for node in tree.body
             if isinstance(node, ast.FunctionDef)
-            and node.name in ("_display_phase", "_smooth_bus_intro")
+            and node.name in ("_display_phase", "_smooth_bus_intro", "_smooth_football")
         ]
         scope = {
             "settings": types.SimpleNamespace(ANIMATE=False, DISPLAY_BACKEND="matrix"),

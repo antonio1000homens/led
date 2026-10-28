@@ -134,7 +134,7 @@ MATRIX_ANIMATION_PROFILES = {
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
         "christmas_tracker": MATRIX_REFRESH_FPS,
         "football_goal": 4,
-        "football_countdown": 1,
+        "football_entry": MATRIX_REFRESH_FPS,
     },
     "adaptive": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
@@ -146,7 +146,7 @@ MATRIX_ANIMATION_PROFILES = {
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
         "christmas_tracker": MATRIX_REFRESH_FPS,
         "football_goal": 4,
-        "football_countdown": 1,
+        "football_entry": DEPARTURES_CALLING_FPS,
     },
     "departures_12": {
         "todoist_marquee": MATRIX_REFRESH_FPS,
@@ -158,7 +158,7 @@ MATRIX_ANIMATION_PROFILES = {
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
         "christmas_tracker": MATRIX_REFRESH_FPS,
         "football_goal": 4,
-        "football_countdown": 1,
+        "football_entry": MATRIX_REFRESH_FPS,
     },
     "departures_15": {
         "todoist_marquee": MATRIX_REFRESH_FPS,
@@ -170,7 +170,7 @@ MATRIX_ANIMATION_PROFILES = {
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
         "christmas_tracker": MATRIX_REFRESH_FPS,
         "football_goal": 4,
-        "football_countdown": 1,
+        "football_entry": MATRIX_REFRESH_FPS,
     },
     "transition_15": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
@@ -182,7 +182,7 @@ MATRIX_ANIMATION_PROFILES = {
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
         "christmas_tracker": MATRIX_REFRESH_FPS,
         "football_goal": 4,
-        "football_countdown": 1,
+        "football_entry": MATRIX_REFRESH_FPS,
     },
     "transition_20": {
         "todoist_marquee": TODOIST_MARQUEE_FPS,
@@ -194,7 +194,7 @@ MATRIX_ANIMATION_PROFILES = {
         "weather_sun_slide": WEATHER_SUN_SLIDE_FPS,
         "christmas_tracker": MATRIX_REFRESH_FPS,
         "football_goal": 4,
-        "football_countdown": 1,
+        "football_entry": MATRIX_REFRESH_FPS,
     },
 }
 
