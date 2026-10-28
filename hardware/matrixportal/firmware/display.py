@@ -52,12 +52,16 @@ from football_ball import (
     PALETTE_INDEX as FOOTBALL_BALL_PALETTE_INDEX,
     WIDTH as FOOTBALL_BALL_WIDTH,
     draw_indexed as draw_football_ball_indexed,
+    draw_rolling_indexed as draw_football_rolling_indexed,
 )
 from football_screens import (
     FOOTBALL_END_X as FOOTBALL_RENDER_END_X,
     FOOTBALL_START_X,
     FOOTBALL_TEXT_X,
     football_presentation_position,
+    football_slide_offset,
+    football_roll_frame,
+    football_due_in,
     football_screen_lines,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
@@ -1079,6 +1083,11 @@ class MatrixDisplay:
         self._football_key = None
         self._football_info_group = None
         self._football_ball_grid = None
+        self._football_slots = None
+        self._football_current = None
+        self._football_outgoing = None
+        self._football_screen_id = None
+        self._football_previous_phase = None
 
         # Weather pages are static while visible. Keep their displayio trees
         # alive instead of allocating new icon bitmaps and palettes on every
@@ -1714,6 +1723,8 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "today":
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
+        if kind == "football_score" and screen.get("status") == "PRE":
+            return 1.0  # Wake for the next real-second countdown tick after arrival.
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
             lines = _quote_lines(screen) if kind == "quotes" else _novelty_lines(screen)
             pages = max(1, (len(lines) + 2) // 3)
@@ -1972,8 +1983,125 @@ class MatrixDisplay:
         # display refresh scheduler rather than swapping a frame mid-cycle.
         self._last_present_refresh = self._refresh()
 
+    def _new_football_scene(self):
+        """Allocate one persistent scene; two scenes support an in-place push."""
+        import displayio
+
+        group = displayio.Group()
+        bitmap = displayio.Bitmap(
+            FOOTBALL_BALL_WIDTH, FOOTBALL_BALL_HEIGHT,
+            len(FOOTBALL_BALL_PALETTE_INDEX),
+        )
+        palette = displayio.Palette(len(FOOTBALL_BALL_PALETTE_INDEX))
+        palette[0] = 0
+        palette.make_transparent(0)
+        for name, index in FOOTBALL_BALL_PALETTE_INDEX.items():
+            if name != ".":
+                red, green, blue = FOOTBALL_BALL_PALETTE[name]
+                palette[index] = (red << 16) | (green << 8) | blue
+        draw_football_rolling_indexed(bitmap, 0)
+        group.append(displayio.TileGrid(
+            bitmap, pixel_shader=palette, x=FOOTBALL_RENDER_END_X, y=8
+        ))
+        text_group = displayio.Group(x=FOOTBALL_TEXT_X, y=0)
+        labels = [
+            self._label(text_group, "", 0xFFFFFF, 0, index * 8)
+            for index in range(4)
+        ]
+        group.append(text_group)
+        due_group = displayio.Group()
+        heading = self._label(due_group, "DUE IN", 0xFFAA00, 214, 5)
+        countdown = self._label(due_group, "", 0xFFFFFF, 256, 18)
+        group.append(due_group)
+        return {
+            "group": group, "bitmap": bitmap, "frame": 0,
+            "labels": labels, "text_group": text_group,
+            "due_group": due_group, "heading": heading,
+            "countdown": countdown, "countdown_text": None,
+            "key": None,
+        }
+
+    def _set_football_content(self, scene, screen, rows, colors):
+        """Update labels only when their source data changes (not on each tick)."""
+        status = screen.get("status")
+        goal_active = screen.get("goal_flash_active") and status == "IN"
+        key = (status, tuple(rows), tuple(colors))
+        if scene["key"] == key:
+            return False
+        labels = scene["labels"]
+        if status == "PRE":
+            scene["text_group"].y = 5
+            # Preserve the original two-row fixture/date layout; reserve the
+            # right-hand countdown column and omit the former 'KO:' prefix.
+            titles = (_clip(str(rows[0]), 29), _clip(str(rows[1]), 22), "", "")
+            for index, label in enumerate(labels):
+                label.y = 13 * index if index < 2 else 0
+                label.text = titles[index]
+                label.color = colors[index]
+        else:
+            scene["text_group"].y = 0
+            for index, label in enumerate(labels):
+                label.y = 8 * index
+                label.text = _clip(str(rows[index]), 38) if index < len(rows) else ""
+                label.color = colors[index]
+        scene["due_group"].hidden = status != "PRE"
+        scene["key"] = key
+        return True
+
     def _show_football(self, screen, phase, now_epoch):
+        """Roll the ball and fixture together; push the prior match to the left.
+
+        Two reusable displayio scenes are allocated once. Each entry reuses a
+        scene and changes only group coordinates and the 16x16 bitmap pixels.
+        """
         update_started = ticks_ms()
+        if self._football_group is None:
+            import displayio
+
+            self._football_group = displayio.Group()
+            self._football_slots = (self._new_football_scene(), self._new_football_scene())
+            for item in self._football_slots:
+                item["group"].hidden = True
+                self._football_group.append(item["group"])
+
+        screen_id = screen.get("id")
+        previous = self._football_current
+        root_visible = self.display.root_group is self._football_group
+        phase_reset = (
+            self._football_previous_phase is not None
+            and phase + 0.25 < self._football_previous_phase
+        )
+        entering = (
+            previous is None or screen_id != self._football_screen_id
+            or not root_visible or phase_reset
+        )
+        offset, settled = football_slide_offset(phase)
+        changed = False
+
+        if entering:
+            use_first = previous is None or previous is self._football_slots[1]
+            scene = self._football_slots[0 if use_first else 1]
+            # Only a directly consecutive football screen pushes the previous
+            # one. A flash/other screen uses a fresh independent entry.
+            pushing = (
+                previous is not None and root_visible
+                and screen_id != self._football_screen_id
+                and self._football_previous_phase is not None
+                and self._football_previous_phase >= 3.2
+            )
+            self._football_outgoing = previous if pushing else None
+            for item in self._football_slots:
+                item["group"].hidden = item is not scene and item is not self._football_outgoing
+            scene["key"] = None
+            scene["countdown_text"] = None
+            scene["frame"] = -1
+            scene["due_group"].hidden = True
+            self._football_current = scene
+            self._football_screen_id = screen_id
+            changed = True
+        scene = self._football_current
+        self._football_previous_phase = phase
+
         rows = list(football_screen_lines(screen, now_epoch))
         goal_active = screen.get("goal_flash_active") and screen.get("status") == "IN"
         if goal_active:
@@ -1982,111 +2110,53 @@ class MatrixDisplay:
         colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
         if goal_active:
             colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
-        ball_x, info_visible = football_presentation_position(
-            phase, screen.get("ball_animation", False)
-        )
-        key = (screen.get("status"), tuple(rows), tuple(colors), info_visible)
-        changed = self._football_key != key
-        if self._football_group is None:
-            import displayio
+        changed = self._set_football_content(scene, screen, rows, colors) or changed
 
-            self._football_group = displayio.Group()
-            bitmap = displayio.Bitmap(
-                FOOTBALL_BALL_WIDTH, FOOTBALL_BALL_HEIGHT,
-                len(FOOTBALL_BALL_PALETTE_INDEX),
-            )
-            palette = displayio.Palette(len(FOOTBALL_BALL_PALETTE_INDEX))
-            palette[0] = 0x000000
-            palette.make_transparent(0)
-            for key_name, index in FOOTBALL_BALL_PALETTE_INDEX.items():
-                if key_name != ".":
-                    red, green, blue = FOOTBALL_BALL_PALETTE[key_name]
-                    palette[index] = (red << 16) | (green << 8) | blue
-            draw_football_ball_indexed(bitmap)
-            self._football_ball_grid = displayio.TileGrid(
-                bitmap, pixel_shader=palette, x=FOOTBALL_START_X, y=8
-            )
-            self._football_group.append(self._football_ball_grid)
-            self._football_info_group = displayio.Group(x=FOOTBALL_TEXT_X, y=0)
-            self._football_info_group.hidden = True
-            self._football_labels = [
-                self._label(self._football_info_group, "", colors[index], 0, index * 8)
-                for index in range(4)
-            ]
-            for _ in range(2):
-                bitmap = displayio.Bitmap(
-                    DISPLAY_WIDTH - FOOTBALL_TEXT_X, 9, 2
-                )
-                palette = displayio.Palette(2)
-                palette[0] = 0x000000
-                palette.make_transparent(0)
-                tile = displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=0)
-                tile.hidden = True
-                self._football_info_group.append(tile)
-                self._football_pregame_tiles.append(tile)
-                self._football_pregame_palettes.append(palette)
-            self._football_group.append(self._football_info_group)
-        if self._football_ball_grid.x != ball_x:
-            self._football_ball_grid.x = ball_x
+        # The fixture and date are *already populated* while their whole scene
+        # translates from x=254 to zero; only the Due In text waits to appear.
+        if scene["group"].x != offset:
+            scene["group"].x = offset
             changed = True
-        if self._football_info_group.hidden == info_visible:
-            self._football_info_group.hidden = not info_visible
+        frame = football_roll_frame(phase)
+        if scene["frame"] != frame:
+            draw_football_rolling_indexed(scene["bitmap"], frame)
+            scene["frame"] = frame
             changed = True
-        if changed:
-            if screen.get("status") == "PRE":
-                self._football_info_group.y = 5
-                for label in self._football_labels:
-                    label.text = ""
-                self._draw_football_pregame(rows, colors)
-            else:
-                self._football_info_group.y = 0
-                for tile in self._football_pregame_tiles:
-                    tile.hidden = True
-                max_chars = max(0, (DISPLAY_WIDTH - FOOTBALL_TEXT_X) // 6)
-                for index, label in enumerate(self._football_labels):
-                    text = _clip(str(rows[index]), max_chars) if index < len(rows) else ""
-                    label.text = text
-                    label.color = colors[index]
-            self._football_key = key
-            if self.display.root_group is self._football_group:
-                self._refresh(animation_class=self._animation_class(screen, phase))
+
+        outgoing = self._football_outgoing
+        if outgoing is not None:
+            old_x = offset - (FOOTBALL_START_X - FOOTBALL_RENDER_END_X)
+            if outgoing["group"].x != old_x:
+                outgoing["group"].x = old_x
+                changed = True
+            if settled:
+                outgoing["group"].hidden = True
+                self._football_outgoing = None
+                changed = True
+
+        due_visible = screen.get("status") == "PRE" and settled
+        if scene["due_group"].hidden == due_visible:
+            scene["due_group"].hidden = not due_visible
+            changed = True
+        if due_visible:
+            # Absolute UTC epoch arithmetic; update the glyphs only when the
+            # displayed value changes. The football scene never restarts.
+            countdown = football_due_in(screen.get("kickoff"), now_epoch)
+            if scene["countdown_text"] != countdown:
+                label = scene["countdown"]
+                label.text = countdown
+                label.x = max(166, 255 - len(countdown) * 6)
+                scene["countdown_text"] = countdown
+                changed = True
+
         animation_class = self._animation_class(screen, phase)
         self._record_animation_update(
             "football", changed, elapsed_seconds(update_started), animation_class,
         )
-        if self.display.root_group is not self._football_group:
+        if not root_visible:
             self._present(self._football_group)
-
-    def _draw_football_pregame(self, rows, colors):
-        """Draw the two PRE lines 5 px lower with a readable 6x9 glyph cell."""
-        import displayio
-
-        if not hasattr(self.font, "get_glyph"):
-            for index, label in enumerate(self._football_labels[:2]):
-                label.text = str(rows[index])
-                label.color = colors[index]
-                label.y = index * 13
-            return
-        for index in range(2):
-            text = str(rows[index]).upper()
-            self.font.load_glyphs(set(ord(character) for character in text))
-            width = min(DISPLAY_WIDTH - FOOTBALL_TEXT_X, len(text) * 7)
-            bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_TEXT_X, 9, 2)
-            tile = self._football_pregame_tiles[index]
-            tile.bitmap = bitmap
-            self._football_pregame_palettes[index][1] = colors[index]
-            for char_index, character in enumerate(text):
-                glyph = self.font.get_glyph(ord(character))
-                if glyph is None or glyph.width <= 0 or glyph.height <= 0:
-                    continue
-                for dy in range(9):
-                    gy = min(glyph.height - 1, dy * glyph.height // 9)
-                    for dx in range(6):
-                        gx = min(glyph.width - 1, dx * glyph.width // 6)
-                        if char_index * 7 + dx < width and glyph.bitmap[gx, gy]:
-                            bitmap[char_index * 7 + dx, dy] = 1
-            tile.y = index * 13
-            tile.hidden = False
+        elif changed:
+            self._refresh(animation_class=animation_class)
 
     def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         """Show a cheap transition card before building a heavy screen."""
