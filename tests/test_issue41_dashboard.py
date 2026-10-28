@@ -82,10 +82,11 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*164')
         self.assertIn('platform_x = RAIL_PLATFORM_X', self.display_source)
         self.assertRegex(self.simulator_source, r'const RAIL_PLATFORM_X\s*=\s*656;')
-        # The column starts fixed but may shift left when a service status
-        # would otherwise overlap it; the implementation correctly uses let.
-        self.assertIn('let platformX = RAIL_PLATFORM_X;', self.simulator_source)
-        self.assertIn('platformX = Math.max(RAIL_DESTINATION_X, statusX - platformWidth - RAIL_COLUMN_GAP);',
+        # Service status is right-aligned independently, leaving the platform
+        # column fixed even when a cancellation label is present.
+        self.assertIn('const platformX = RAIL_PLATFORM_X;', self.simulator_source)
+        self.assertIn('_right_aligned_x(status, DISPLAY_WIDTH)', self.display_source)
+        self.assertIn('logicalCanvas.width - measureLedText(columns.status).width',
                       self.simulator_source)
 
 

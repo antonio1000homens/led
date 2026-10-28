@@ -12,7 +12,7 @@ FOOTBALL_TEAM_NAMES = {
     "england": "England", "portugal": "Portugal",
 }
 FOOTBALL_TEAM_COLOUR_NAMES = {
-    "sporting_cp": "Sporting CP", "millwall": "Millwall",
+    "sporting_cp": "Sporting CP", "millwall": "Millwall FC",
     "england": "England", "portugal": "Portugal",
 }
 # Full-intensity RGB primaries survive the MatrixPortal's one-bit-per-channel
@@ -23,6 +23,7 @@ FOOTBALL_TEAM_COLORS = {
     "millwall": (0, 0, 255),
     "portugal": (255, 0, 0),
 }
+FOOTBALL_FIXTURE_TEXT_COLOR = (255, 255, 0)
 FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
 GOAL_FLASH_SECONDS = 8
@@ -47,7 +48,7 @@ def football_team_name_span(screen, line):
     row = str(line)
     row_upper = row.upper()
     name = name.strip().upper()
-    candidates = (name,)
+    candidates = (name, name.split(" ", 1)[0]) if " " in name else (name,)
     for candidate in candidates:
         start = row_upper.find(candidate)
         if start >= 0:
@@ -231,6 +232,7 @@ def football_screen_lines(screen, now_epoch):
     fixture = screen.get("display_fixture")
     if not isinstance(fixture, str) or not fixture.strip():
         fixture = "{} VS {}".format(team, opponent) if opponent else team
+    fixture = fixture.upper().replace(" VS ", "  VS  ")
     status = screen.get("status")
     competition = str(screen.get("competition") or "")
     if status == "PRE":
@@ -241,7 +243,7 @@ def football_screen_lines(screen, now_epoch):
                            else "{} VS {}".format(team, opponent))
             else:
                 fixture = team
-        return fixture.upper(), kickoff_local_label(screen.get("kickoff"))
+        return fixture.upper().replace(" VS ", "  VS  "), kickoff_local_label(screen.get("kickoff"))
     elif status in ("IN", "POST"):
         home = str(screen.get("home_team") or "HOME").upper()
         away = str(screen.get("away_team") or "AWAY").upper()

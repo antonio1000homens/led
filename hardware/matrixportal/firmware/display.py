@@ -66,6 +66,7 @@ from football_screens import (
     football_countdown_x,
     football_screen_lines,
     football_team_name_span,
+    FOOTBALL_FIXTURE_TEXT_COLOR,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
 from weather_sprites import PALETTE_RGB as WEATHER_SPRITE_PALETTE_RGB
@@ -2056,10 +2057,22 @@ class MatrixDisplay:
                 label.y = 8 * index
                 label.text = _clip(str(rows[index]), 38) if index < len(rows) else ""
                 label.color = colors[index]
-        labels[0].color = 0xFFFFFF
+        fixture_color = (FOOTBALL_FIXTURE_TEXT_COLOR[0] << 16
+                         | FOOTBALL_FIXTURE_TEXT_COLOR[1] << 8
+                         | FOOTBALL_FIXTURE_TEXT_COLOR[2])
         span = football_team_name_span(screen, rows[0]) if rows else None
+        if status == "PRE":
+            labels[0].color = fixture_color
+        else:
+            labels[0].color = (
+                (span[2][0] << 16) | (span[2][1] << 8) | span[2][2]
+                if span and span[2] else 0xFFFFFF
+            )
+            fixture_span = football_team_name_span(screen, rows[1]) if len(rows) > 1 else None
+            if fixture_span:
+                labels[1].color = fixture_color
         team_letters = scene["team_letters"]
-        start, name, team_color = span if span else (0, "", None)
+        start, name, team_color = span if status == "PRE" and span else (0, "", None)
         if team_color:
             labels[0].text = labels[0].text[:start] + (" " * len(name)) + labels[0].text[start + len(name):]
             for index, character in enumerate(name):
@@ -2248,14 +2261,8 @@ class MatrixDisplay:
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
-        status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
-        platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
+        status_x = _right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge)
         platform_x = RAIL_PLATFORM_X
-        if status and status_x < platform_x + platform_width + HEADER_GAP:
-            platform_x = max(
-                RAIL_DESTINATION_X,
-                status_x - platform_width - HEADER_GAP,
-            )
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
             group,
@@ -4685,14 +4692,8 @@ class FixtureDisplay:
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
-        status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
-        platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
+        status_x = _right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge)
         platform_x = RAIL_PLATFORM_X
-        if status and status_x < platform_x + platform_width + HEADER_GAP:
-            platform_x = max(
-                RAIL_DESTINATION_X,
-                status_x - platform_width - HEADER_GAP,
-            )
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         self._text(ordinal_text, RAIL_ORDINAL_X + x_offset, y, color)
         self._text(time_text, RAIL_TIME_X + x_offset, y, color)
@@ -4878,8 +4879,11 @@ class FixtureDisplay:
                         y = 5 + index * 13
                     else:
                         y = index * 8
+                    if ((screen.get("status") == "PRE" and index == 0)
+                            or (screen.get("status") != "PRE" and index == 1)):
+                        base_color = FOOTBALL_FIXTURE_TEXT_COLOR
                     color = base_color
-                    if index == 0:
+                    if index in (0, 1):
                         span = football_team_name_span(screen, line_text)
                         if span:
                             start, name, team_color = span

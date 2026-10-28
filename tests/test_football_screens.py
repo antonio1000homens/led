@@ -142,7 +142,7 @@ class FootballScreenTests(unittest.TestCase):
         self.assertIsNotNone(screen)
         self.assertEqual(
             football_screen_lines(screen, self.now),
-            ("MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"),
+            ("MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"),
         )
 
     def test_out_of_order_and_duplicate_retained_replays_do_not_replace_snapshot(self):
@@ -194,7 +194,7 @@ class FootballScreenTests(unittest.TestCase):
         screen = self.state.screen_for_team("millwall", self.now)
         self.assertEqual(screen["status"], "PRE")
         self.assertEqual(football_screen_lines(screen, self.now), (
-            "MILLWALL VS DERBY COUNTY", "MON 26 OCT 22:00"
+            "MILLWALL  VS  DERBY COUNTY", "MON 26 OCT 22:00"
         ))
         no_fixture = snapshot(
             "millwall", published="2026-10-26T20:01:00Z",
@@ -244,7 +244,7 @@ class FootballScreenTests(unittest.TestCase):
                 self.assertTrue(state.accept("led/football/millwall", value))
                 screen = score_screen(state, self.now)
                 rows = football_screen_lines(screen, self.now)
-                self.assertEqual(rows, ("MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"))
+                self.assertEqual(rows, ("MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"))
                 self.assertEqual(screen["home_score"], scores[0])
                 self.assertEqual(screen["away_score"], scores[1])
 
@@ -270,7 +270,7 @@ class FootballScreenTests(unittest.TestCase):
             "kickoff": "2026-10-31T15:00:00Z",
         }
         self.assertEqual(football_screen_lines(screen, self.now)[0],
-                         "DERBY COUNTY VS MILLWALL FC")
+                         "DERBY COUNTY  VS  MILLWALL FC")
 
     def test_ball_slides_from_offscreen_to_left_and_stays_pinned(self):
         self.assertEqual(football_presentation_position(0), (256, False))
@@ -396,7 +396,7 @@ process.stdout.write(JSON.stringify(output));
         })
         names = {
             "sporting_cp": "SPORTING CP",
-            "millwall": "MILLWALL",
+            "millwall": "MILLWALL FC",
             "england": "ENGLAND",
             "portugal": "PORTUGAL",
         }
@@ -415,7 +415,8 @@ process.stdout.write(JSON.stringify(output));
         self.assertIn("function drawFootballTeamLine(screen, value, x, y, color)", html)
         self.assertIn("FOOTBALL_TEAM_COLORS[key]", html)
         self.assertIn("sporting_cp: 'SPORTING CP'", html)
-        self.assertIn("'#ffffff'", html)
+        self.assertIn("millwall: 'MILLWALL FC'", html)
+        self.assertIn("'#ffff00'", html)
         self.assertNotIn("FOOTBALL_TEAM_LETTER_COLORS", html)
 
     def test_simulator_keeps_ball_pinned_and_pregame_text_to_its_right(self):
@@ -434,7 +435,7 @@ process.stdout.write(JSON.stringify(output));
         self.assertTrue(display.pixels)
         self.assertTrue(all(2 <= x < 18 for x, _, _ in display.pixels))
         self.assertEqual([row[0] for row in display.text], [
-            "MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00",
+            "MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00",
         ])
         self.assertTrue(all(x >= 22 for _, x, _, _ in display.text))
         self.assertEqual([row[2] for row in display.text], [5, 18])
@@ -474,7 +475,7 @@ process.stdout.write(JSON.stringify(results));
 """
         result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
         output = json.loads(result.stdout)
-        self.assertEqual(output[0], ["MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"])
+        self.assertEqual(output[0], ["MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"])
         self.assertEqual(output[1], "TIME TBC")
         self.assertEqual(output[2], "SUN 29 MAR 02:30")
         self.assertEqual(output[3], "SUN 25 OCT 01:30")
@@ -485,13 +486,13 @@ process.stdout.write(JSON.stringify(results));
         # Both rows are laid out while entering; their x is initially off
         # screen and then reaches the original left-column coordinates.
         self.assertEqual(output[8], [
-            ["MILLWALL VS DERBY COUNTY", 276, 5],
+            ["MILLWALL  VS  DERBY COUNTY", 276, 5],
             ["SAT 31 OCT 15:00", 276, 18],
         ])
         self.assertEqual(output[9][:3], [
-            ["MILLWALL VS DERBY COUNTY", 276, 5],
+            ["MILLWALL  VS  DERBY COUNTY", 276, 5],
             ["SAT 31 OCT 15:00", 276, 18],
-            ["MILLWALL VS DERBY COUNTY", 22, 5],
+            ["MILLWALL  VS  DERBY COUNTY", 22, 5],
         ])
         self.assertIn(["DUE IN", 214, 5], output[9])
         self.assertIn("screen.kind === 'football_score'", html)

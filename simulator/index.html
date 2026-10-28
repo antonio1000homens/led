@@ -211,7 +211,7 @@
       england: 'ENGLAND', portugal: 'PORTUGAL'
     };
     const FOOTBALL_TEAM_COLOUR_NAMES = {
-      sporting_cp: 'SPORTING CP', millwall: 'MILLWALL',
+      sporting_cp: 'SPORTING CP', millwall: 'MILLWALL FC',
       england: 'ENGLAND', portugal: 'PORTUGAL'
     };
     const FOOTBALL_TEAM_COLORS = {
@@ -220,6 +220,7 @@
       millwall: '#0000ff',
       portugal: '#ff0000'
     };
+    const FOOTBALL_FIXTURE_TEXT_COLOR = '#ffff00';
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -1208,7 +1209,8 @@
         const away = ['away', 'a'].includes(String(screen.team_homeaway || screen.homeaway || 'home').toLowerCase());
         fixture = opponent ? (away ? `${opponent} VS ${team}` : `${team} VS ${opponent}`) : team;
       }
-      if (screen.status === 'PRE') return [fixture.toUpperCase(), footballKickoffLabel(screen.kickoff)];
+      fixture = fixture.toUpperCase().replace(/ VS /g, '  VS  ');
+      if (screen.status === 'PRE') return [fixture, footballKickoffLabel(screen.kickoff)];
       let detail;
       if (['IN', 'POST'].includes(screen.status)) {
         detail = screen.home_score == null || screen.away_score == null
@@ -1304,10 +1306,9 @@
       }));
       const rows = footballLines(screen);
       const isPre = screen.status === 'PRE';
-      context.fillStyle = '#ffffff';
       if (isPre) {
         // Match and scheduled local date travel with the ball; no KO: prefix.
-        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, '#ffffff');
+        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, FOOTBALL_FIXTURE_TEXT_COLOR);
         context.fillStyle = '#ffffff';
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
         if (settled) {
@@ -1320,10 +1321,12 @@
         }
       } else {
         rows.slice(0, 4).forEach((line, index) => {
-          context.fillStyle = index === 0 ? '#ffffff' : index === 3 && screen.stale ? '#ff5555' : '#ffffff';
           const value = String(line).slice(0, 38);
-          if (index === 0) {
-            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, '#ffffff');
+          const fixtureLine = index === 1;
+          const baseColor = fixtureLine ? FOOTBALL_FIXTURE_TEXT_COLOR : '#ffffff';
+          context.fillStyle = index === 3 && screen.stale ? '#ff5555' : baseColor;
+          if (index < 2 && value.includes(FOOTBALL_TEAM_COLOUR_NAMES[screen.team_key] || '\u0000')) {
+            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, baseColor);
           } else {
             drawLedText(value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
           }
@@ -1531,12 +1534,8 @@
     }
     function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1) {
       const columns = railColumns(service, ordinal);
-      const statusX = columns.status ? Math.max(0, rightEdge - measureLedText(columns.status).width) : rightEdge;
-      const platformWidth = measureLedText(columns.platform).width;
-      let platformX = RAIL_PLATFORM_X;
-      if (columns.status && statusX < platformX + platformWidth + RAIL_COLUMN_GAP) {
-        platformX = Math.max(RAIL_DESTINATION_X, statusX - platformWidth - RAIL_COLUMN_GAP);
-      }
+      const statusX = columns.status ? Math.max(0, logicalCanvas.width - measureLedText(columns.status).width) : rightEdge;
+      const platformX = RAIL_PLATFORM_X;
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;
       drawLedText(columns.ordinal, RAIL_ORDINAL_X + xOffset, y);
