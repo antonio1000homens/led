@@ -221,7 +221,7 @@ BUS_VERTICAL_OFFSET = 1
 BUS_TEXT_GAP = 8
 SL7_TIME_COLUMN_X = 2
 SL7_DUE_COLUMN_X = 42
-CLOCK_X = 226
+CLOCK_X = 231
 HEADER_SLOT_X = 224
 STALE_X = 190
 QUEUE_FIRST_Y = 11
@@ -884,7 +884,7 @@ def _today_compact_date_label(clock_date):
 def _today_date_position(date_label, clock_time):
     date_width = _today_date_width(len(date_label))
     left = TODAY_HEADER_ICON_X + TODAY_HEADER_ICON_SIZE + 1
-    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 5)
+    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 10)
     return left + max(0, (right - left - date_width) // 2)
 
 
@@ -2261,7 +2261,11 @@ class MatrixDisplay:
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
-        status_x = _right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge)
+        status_x = (
+            max(0, CLOCK_X - HEADER_GAP - len(status) * WEATHER_FONT_WIDTH)
+            if status and ordinal == 1
+            else (_right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge))
+        )
         platform_x = RAIL_PLATFORM_X
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
@@ -4354,7 +4358,7 @@ class MatrixDisplay:
                         bitmap, pixel_shader=palette,
                         x=TODAY_HEADER_ICON_X, y=TODAY_HEADER_ICON_Y,
                     ))
-                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 5)
+                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 10)
                     self._scaled_label(group, clock_time, 0xFFAA00, time_x,
                                        TODAY_TIME_Y, scale=TODAY_TIME_SCALE)
                     temperature_x = max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE)
@@ -4692,7 +4696,11 @@ class FixtureDisplay:
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
-        status_x = _right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge)
+        status_x = (
+            max(0, CLOCK_X - HEADER_GAP - len(status) * WEATHER_FONT_WIDTH)
+            if status and ordinal == 1
+            else (_right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge))
+        )
         platform_x = RAIL_PLATFORM_X
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         self._text(ordinal_text, RAIL_ORDINAL_X + x_offset, y, color)
@@ -4820,7 +4828,7 @@ class FixtureDisplay:
                             )
                 temperature = _weather_text(weather) or "--C"
                 self._text(clock_time,
-                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 5),
+                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 10),
                            TODAY_TIME_Y, (255, 170, 0), scale=TODAY_TIME_SCALE)
                 self._text(temperature,
                            max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE),

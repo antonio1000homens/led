@@ -221,7 +221,7 @@
       portugal: '#ff0000'
     };
     const FOOTBALL_FIXTURE_TEXT_COLOR = '#ffff00';
-    const CLOCK_X = 226 * FONT_PIXEL_SCALE;
+    const CLOCK_X = 231 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
     const STALE_HEADER_CONTENT_RIGHT = 186 * FONT_PIXEL_SCALE;
@@ -1534,7 +1534,11 @@
     }
     function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1) {
       const columns = railColumns(service, ordinal);
-      const statusX = columns.status ? Math.max(0, logicalCanvas.width - measureLedText(columns.status).width) : rightEdge;
+      const statusX = columns.status
+        ? (ordinal === 1
+          ? Math.max(0, CLOCK_X - 4 * FONT_PIXEL_SCALE - measureLedText(columns.status).width)
+          : Math.max(0, logicalCanvas.width - measureLedText(columns.status).width))
+        : rightEdge;
       const platformX = RAIL_PLATFORM_X;
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;
@@ -1654,7 +1658,7 @@
         const weather = screen.weather || {};
         const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
-        const timeX = Math.max(0, 256 - nowText.length * 12 + 5);
+        const timeX = Math.max(0, 256 - nowText.length * 12 + 10);
         const dateLeft = TODAY_HEADER_ICON_SIZE + 1;
         const dateX = dateLeft + Math.max(0, Math.floor((timeX - dateLeft - todayDateWidth(date.length)) / 2));
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
