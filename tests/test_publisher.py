@@ -269,11 +269,11 @@ class PublisherTests(unittest.TestCase):
         weekly=next(screen for screen in second["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(len(weekly["days"]),7)
         self.assertEqual([day["date"] for day in weekly["days"]],[day["date"] for day in weather_forecast()])
-        for screen in second["screens"]:
-            self.assertEqual(screen["weather"]["temperature_c"],17.4)
-            self.assertNotIn("forecast",screen["weather"])
-            self.assertNotIn("today_blocks",screen["weather"])
-            self.assertNotIn("sunrise_time",screen["weather"])
+        self.assertEqual(second["weather"]["temperature_c"],17.4)
+        self.assertNotIn("forecast",second["weather"])
+        self.assertNotIn("today_blocks",second["weather"])
+        self.assertNotIn("sunrise_time",second["weather"])
+        self.assertTrue(all("weather" not in screen for screen in second["screens"]))
     def test_all_closed_queue_pages_are_omitted_per_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
@@ -361,7 +361,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(weather.calls,1)
         weekly=next(screen for screen in payload["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(weekly["days"],weather_forecast())
-        self.assertEqual(screen_by_id(payload, "departures")["weather"]["temperature_c"],18.0)
+        self.assertEqual(payload["weather"]["temperature_c"],18.0)
 
     def test_legacy_weather_cache_is_retained_stale_if_forced_upgrade_fails(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
@@ -382,8 +382,8 @@ class PublisherTests(unittest.TestCase):
         ).run()
 
         self.assertEqual(weather.calls,1)
-        self.assertTrue(screen_by_id(payload, "departures")["weather"]["stale"])
-        self.assertEqual(screen_by_id(payload, "departures")["weather"]["temperature_c"],17.4)
+        self.assertTrue(payload["weather"]["stale"])
+        self.assertEqual(payload["weather"]["temperature_c"],17.4)
         weekly=payload["screens"][-1]
         self.assertTrue(weekly["stale"])
         self.assertEqual(weekly["days"],[])
@@ -435,7 +435,7 @@ class PublisherTests(unittest.TestCase):
             runtime_config_store=StaticRuntimeConfigStore(runtime),
         ).run()
         self.assertFalse(any(screen["kind"].startswith("weather_") for screen in payload["screens"]))
-        self.assertIn("weather", screen_by_id(payload, "departures"))
+        self.assertIn("weather", payload)
 
     def test_standalone_today_toggle_preserves_weather_forecast_screens(self):
         config = PublisherConfig(
@@ -459,7 +459,7 @@ class PublisherTests(unittest.TestCase):
         enabled = publish()
         standalone = screen_by_id(enabled, "today")
         self.assertEqual((standalone["kind"], standalone["duration_seconds"]), ("today", 23))
-        self.assertEqual(standalone["weather"]["temperature_c"], 17.4)
+        self.assertEqual(enabled["weather"]["temperature_c"], 17.4)
         forecast_ids = [screen["id"] for screen in enabled["screens"] if screen["kind"].startswith("weather_")]
         self.assertEqual(forecast_ids, ["weather-sun", "weather-today", "weather-weekly"])
         self.assertEqual(screen_by_id(enabled, "weather-today")["duration_seconds"], 12)
@@ -473,7 +473,7 @@ class PublisherTests(unittest.TestCase):
         )
         self.assertEqual(screen_by_id(disabled, "weather-today")["duration_seconds"], 12)
         self.assertEqual(weather.calls, 1)  # Today visibility does not reset the shared cache.
-        self.assertIn("weather", screen_by_id(disabled, "departures"))
+        self.assertIn("weather", disabled)
 
     def test_standalone_today_uses_shared_weather_poll_when_forecast_is_disabled(self):
         config = PublisherConfig(

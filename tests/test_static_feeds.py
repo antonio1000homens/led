@@ -96,7 +96,8 @@ class StaticFeedTests(unittest.TestCase):
         payload = self.publisher(weather_provider=weather).run()
         self.assertEqual(weather.calls,1)
         self.assertEqual([screen["kind"] for screen in payload["screens"]],["today"])
-        self.assertEqual(payload["screens"][0]["weather"]["temperature_c"],17.4)
+        self.assertEqual(payload["weather"]["temperature_c"],17.4)
+        self.assertNotIn("weather", payload["screens"][0])
         self.assertEqual(payload["screens"][0]["display_group"],"static_feeds")
 
     def test_admin_group_and_retired_frequency_migration(self):

@@ -34,6 +34,8 @@
 .overview-panel{border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:17px;min-width:0}
 .overview-panel h3{margin:0 0 10px;font-size:1rem}.overview-panel strong{font-size:1.1rem}
 .overview-links{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.overview-links a{color:#b5e5ff}
+.screen-preview-panel{grid-column:1/-1}
+.screen-preview-frame{display:block;width:100%;height:clamp(360px,58vh,620px);border:1px solid var(--line);border-radius:10px;background:#07090c}
 .mobile-nav-toggle{display:none}.nav-scrim{display:none}
 .nav-view .schedule-window{grid-template-columns:minmax(0,1fr) 75px 104px auto}
 input[type=text]{max-width:100%;background:#0b1119;color:inherit;border:1px solid #34475b;border-radius:8px;padding:8px 9px;font:inherit}
@@ -263,6 +265,7 @@ function navigationModel(config){
  const other=Object.keys(feeds).filter(id=>available(id)&&!mapped.has(id)).map(id=>item(id,schemas[id].label||id));
  push('other','Other screens',other);
  groups.unshift({group:'overview',label:'Overview',items:[item('overview','Overview')]});
+ groups.splice(1,0,{group:'preview',label:'Board preview',items:[item('live-preview','Live screen preview','live_preview',[])]});
  groups.push({group:'maintenance',label:'Maintenance & diagnostics',items:[item('maintenance','Maintenance & diagnostics')]});
  return groups;
 }
@@ -281,7 +284,7 @@ function overviewHtml(){
   '<div class="overview-panel"><h3>Feeds needing attention</h3><strong>'+(state.status?unhealthy.length:'Unknown')+'</strong><p class="meta">Stale and unavailable feeds</p></div>'+
   '<div class="overview-panel"><h3>Configuration version</h3><strong>'+escapeHtml(config?.config_version||'Unknown')+'</strong><p class="meta">Updated '+escapeHtml(formatTime(config?.updated_at))+'</p></div>'+
   '<div class="overview-panel"><h3>Published</h3><strong>'+escapeHtml(formatTime(published))+'</strong><p class="meta">As reported by the control API</p></div></div>'+
-  '<div class="overview-panel" style="grid-column:1/-1"><h3>Quick access</h3><p>Choose a screen from the navigation or open a common section:</p><div class="overview-links">'+navItems.filter(entry=>['screen/departures','screen/weather','screen/queue_times','maintenance'].includes(entry.key)).map(entry=>'<a href="#'+escapeHtml(entry.key)+'">'+escapeHtml(entry.label)+'</a>').join('')+'</div></div>';
+  '<div class="overview-panel" style="grid-column:1/-1"><h3>Quick access</h3><p>Choose a screen from the navigation or open a common section:</p><div class="overview-links">'+navItems.filter(entry=>['screen/live-preview','screen/departures','screen/weather','screen/queue_times','maintenance'].includes(entry.key)).map(entry=>'<a href="#'+escapeHtml(entry.key)+'">'+escapeHtml(entry.label)+'</a>').join('')+'</div></div>';
 }
 function organiseNavigation(){
  const groups=navigationModel(state.config);navItems=groups.flatMap(group=>group.items.map(entry=>({...entry,group:group.label})));
@@ -294,6 +297,7 @@ function organiseNavigation(){
   if(seen.has(entry.view))continue;seen.add(entry.view);
   const section=document.createElement('section');section.className='nav-view';section.dataset.navView=entry.view;section.hidden=true;
   if(entry.view==='overview')section.innerHTML=overviewHtml();
+  else if(entry.view==='live_preview')section.innerHTML='<div class="overview-panel screen-preview-panel"><h3>Live screen preview</h3><p>The simulator reads the same <code>/api/screens</code> feed as the MatrixPortal and cycles through its screen content. Use Previous and Next to inspect each screen, or Pause to hold one in place.</p><iframe id="live-screen-preview" class="screen-preview-frame" data-src="/?admin-preview=1" src="about:blank" title="Live preview of MatrixPortal screens"></iframe><p class="meta">The preview refreshes from the API every 30 seconds. Firmware-only animations are included where the simulator mirrors them; MQTT messages that the board receives separately are not part of the HTTP screen payload.</p></div>';
   else if(entry.view==='maintenance'){
    if(maintenance)section.appendChild(maintenance);
    const hint=document.createElement('p');hint.className='meta';hint.textContent='Diagnostics are below. These tools do not edit individual screen settings.';section.appendChild(hint);
@@ -341,6 +345,12 @@ function selectFromHash(focusHeading){
  if(!item)return;
  for(const view of cards.querySelectorAll('[data-nav-view]'))view.hidden=view.dataset.navView!==item.view;
  const currentView=[...cards.querySelectorAll('[data-nav-view]')].find(view=>view.dataset.navView===item.view);
+ const previewFrame=document.getElementById('live-screen-preview');
+ if(previewFrame){
+  const previewActive=previewFrame.getAttribute('src')!=='about:blank';
+  if(item.view==='live_preview'&&!previewActive)previewFrame.setAttribute('src',previewFrame.dataset.src);
+  else if(item.view!=='live_preview'&&previewActive)previewFrame.setAttribute('src','about:blank');
+ }
  if(currentView)for(const details of currentView.querySelectorAll('.card-disclosure'))details.open=true;
  if(item.view==='weather'&&key==='screen/weather-next-24-hours'){const detail=currentView?.querySelectorAll('.queue-park')[1];if(detail)detail.open=true;}
  if(item.view==='weather'&&key==='screen/weather-sunrise-sunset'){const detail=currentView?.querySelectorAll('.queue-park')[2];if(detail)detail.open=true;}

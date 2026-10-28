@@ -50,7 +50,7 @@ from matrix_runtime import (
     leave_christmas_gc_window, prepare_christmas_scene_gc,
 )
 from wifi_isolation_window import WifiIsolationWindow
-from screen_client import ClockState, ScreenClient, ScreenRotation
+from screen_client import ClockState, ScreenClient, ScreenRotation, attach_shared_weather
 from christmas_tracker import with_christmas_tracker
 from cron_schedule import cron_matches_local
 from mqtt_screens import MqttScreenState, recycling_policy
@@ -1008,6 +1008,7 @@ while True:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = with_christmas_tracker(payload.get("screens"))
+            attach_shared_weather(screens, payload.get("weather"))
             christmas_policy = payload.get("christmas") or {}
             for scheduled_screen in screens:
                 if scheduled_screen.get("kind") in ("christmas_tracker_intro", "christmas_tracker"):

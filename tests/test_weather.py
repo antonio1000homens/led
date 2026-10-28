@@ -240,11 +240,11 @@ class WeatherFeedTests(unittest.TestCase):
         self.assertEqual(weather_screens[1]["blocks"], sample_blocks())
         self.assertEqual(weather_screens[0]["sunrise_time"], "07:08")
         self.assertEqual(weather_screens[0]["sunset_time"], "18:29")
-        for screen in payload["screens"]:
-            self.assertEqual(screen["weather"]["temperature_c"], 17.4)
-            self.assertNotIn("forecast", screen["weather"])
-            self.assertNotIn("today_blocks", screen["weather"])
-            self.assertNotIn("sunrise_time", screen["weather"])
+        self.assertEqual(payload["weather"]["temperature_c"], 17.4)
+        self.assertNotIn("forecast", payload["weather"])
+        self.assertNotIn("today_blocks", payload["weather"])
+        self.assertNotIn("sunrise_time", payload["weather"])
+        self.assertTrue(all("weather" not in screen for screen in payload["screens"]))
 
     def test_screen_feed_cold_weather_failure_only_adds_unavailable_weekly_screen(self):
         weather_feed = WeatherFeed(FakeWeatherProvider([RuntimeError("upstream down")]), 600, self.clock)

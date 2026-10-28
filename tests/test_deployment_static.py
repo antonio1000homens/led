@@ -111,6 +111,11 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("drawClock(clock);", simulator)
         self.assertNotIn("weatherIcons", simulator)
 
+    def test_simulator_reuses_top_level_shared_weather_for_screens(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("const sharedWeather = payload.weather", simulator)
+        self.assertIn("screen.weather = sharedWeather", simulator)
+
     def test_simulator_has_three_fullscreen_weather_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawWeeklyWeather(screen)", simulator)

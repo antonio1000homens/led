@@ -484,7 +484,52 @@ class FakeSession:
         return self.response
 
 
+class MemoryRetrySession(FakeSession):
+    def __init__(self, response):
+        super().__init__(response)
+        self.fail_first_request = True
+        self._connection_manager = type("Manager", (), {
+            "_free_sockets": lambda manager, force=False: setattr(
+                manager, "closed_sockets", getattr(manager, "closed_sockets", 0) + 1
+            )
+        })()
+
+
 class ClientTests(unittest.TestCase):
+    def test_shared_weather_is_attached_by_reference_and_legacy_values_are_kept(self):
+        shared = {"temperature_c": 17.4, "stale": False}
+        screens = [
+            {"id": "departures", "kind": "rail_combined"},
+            {"id": "legacy", "weather": {"temperature_c": 12}},
+        ]
+
+        result = screen_client.attach_shared_weather(screens, shared)
+
+        self.assertIs(result, screens)
+        self.assertIs(screens[0]["weather"], shared)
+        self.assertEqual(screens[1]["weather"], {"temperature_c": 12})
+
+    def test_request_memoryerror_closes_cached_http_sockets_and_retries_once(self):
+        response = CircuitPythonResponse({"screens": []})
+        session = MemoryRetrySession(response)
+
+        def get_with_one_memory_error(url):
+            session.urls.append(url)
+            if session.fail_first_request:
+                session.fail_first_request = False
+                raise MemoryError("simulated response setup allocation")
+            return response
+
+        session.get = get_with_one_memory_error
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+
+        payload = ScreenClient(settings, session=session).fetch()
+
+        self.assertEqual(payload["screens"], [])
+        self.assertEqual(len(session.urls), 2)
+        self.assertEqual(session._connection_manager.closed_sockets, 1)
+        self.assertTrue(response.closed)
+
     def test_current_http_date_sets_clock_without_changing_data_age(self):
         response = CircuitPythonResponse({"fetched_at": "2026-10-04T21:30:00Z", "screens": []})
         response.headers = {"date": "Sun, 04 Oct 2026 21:31:05 GMT"}

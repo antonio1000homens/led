@@ -373,6 +373,7 @@ class ScreenFeed:
 
     def get(self):
         screens = []
+        shared_weather = None
         try:
             departures = self.departure_feed.get()
             services = filter_train_services(
@@ -495,6 +496,7 @@ class ScreenFeed:
             today_blocks = copy.deepcopy(overlay.pop("today_blocks", []))
             sunrise_time = overlay.pop("sunrise_time", None)
             sunset_time = overlay.pop("sunset_time", None)
+            shared_weather = overlay
             if sunrise_time and sunset_time:
                 screens.append({
                     "id": "weather-sun",
@@ -525,13 +527,13 @@ class ScreenFeed:
                 "stale": bool(weather.get("stale")),
                 "days": forecast,
             })
-            for screen in screens:
-                screen["weather"] = copy.deepcopy(overlay)
-
-        return {
+        payload = {
             "fetched_at": self.utcnow().isoformat().replace("+00:00", "Z"),
             "screens": screens,
         }
+        if shared_weather is not None:
+            payload["weather"] = shared_weather
+        return payload
 
 
 class SimulatorHandler(SimpleHTTPRequestHandler):

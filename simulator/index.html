@@ -22,12 +22,21 @@
     .status { margin-left: auto; color: #a8b1bd; font-size: .82rem; }
     .credit { margin-top: 12px; margin-bottom: 0; font-size: .78rem; }
     @media (max-width: 720px) { main { padding: 14px; } .status { width: 100%; margin-left: 0; } }
+    body.admin-preview { min-height: 0; display: block; background: transparent; }
+    body.admin-preview main { padding: 12px; }
+    body.admin-preview h1, body.admin-preview .simulator-description, body.admin-preview .credit { display: none; }
+    body.admin-preview .board-shell { padding: 8px; border-radius: 9px; box-shadow: none; }
+    body.admin-preview canvas { min-width: 0; }
+    body.admin-preview .controls { margin-top: 10px; gap: 6px; }
+    body.admin-preview .controls button { padding: 6px 8px; font-size: .82rem; }
+    body.admin-preview #bin-preview, body.admin-preview #football-preview,
+    body.admin-preview #sl7-preview, body.admin-preview #flash-preview { display: none; }
   </style>
 </head>
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels. Hardware preview mirrors the MatrixPortal's 5×7 font, 1-bit RGB palette, panel seams and 7 FPS application refresh; switch it off for a clean content view.</p>
+    <p class="simulator-description">Four 64 × 32 panels. Hardware preview mirrors the MatrixPortal's 5×7 font, 1-bit RGB palette, panel seams and 7 FPS application refresh; switch it off for a clean content view.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
     <p class="credit">Theme park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>. Inspirational quotes, when enabled, are provided by <a href="https://zenquotes.io/" target="_blank" rel="noreferrer">ZenQuotes API</a>.</p>
     <div class="controls" aria-label="Simulator controls">
@@ -44,6 +53,8 @@
     </div>
   </main>
   <script>
+    const adminPreview = new URLSearchParams(window.location.search).get('admin-preview') === '1';
+    if (adminPreview) document.body.classList.add('admin-preview');
     const canvas = document.getElementById('board');
     const displayContext = canvas.getContext('2d');
     displayContext.imageSmoothingEnabled = false;
@@ -1979,6 +1990,13 @@
           ? mqttPolicy.recycling : payload.recycling;
         if (nextRecyclingPolicy && typeof nextRecyclingPolicy === 'object') recyclingPolicy = nextRecyclingPolicy;
         const nextScreens = withChristmasTracker(Array.isArray(payload.screens) ? payload.screens : []);
+        const sharedWeather = payload.weather && typeof payload.weather === 'object'
+          ? payload.weather : null;
+        if (sharedWeather) {
+          for (const screen of nextScreens) {
+            if (!screen.weather || typeof screen.weather !== 'object') screen.weather = sharedWeather;
+          }
+        }
         const christmasPolicy = payload.christmas || {};
         for (const screen of nextScreens) if (screen.kind === 'christmas_tracker' || screen.kind === 'christmas_tracker_intro') {
           screen.schedule_windows = christmasPolicy.schedule_windows || [];

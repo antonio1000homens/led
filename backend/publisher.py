@@ -546,6 +546,7 @@ class Publisher:
 
     def _screens(self, feeds, now, runtime):
         screens = []
+        shared_weather = None
         config_feeds = runtime["feeds"]
         departures_config = config_feeds["departures"]
         if departures_config["enabled"]:
@@ -771,8 +772,6 @@ class Publisher:
                 "id": "today", "kind": "today", "title": "TODAY",
                 "duration_seconds": config_feeds["today"]["screen_duration_seconds"],
                 "source": "open_meteo", "stale": bool(current_weather.get("stale", True)),
-                "weather": {key: value for key, value in (current_weather.get("data") or {}).items()
-                            if key in ("temperature_c", "weather_code", "icon", "is_day", "fetched_at")},
             })
         weather_config = config_feeds["weather"]
         if weather_config["enabled"]:
@@ -800,6 +799,7 @@ class Publisher:
                 source = "unavailable"
                 stale = True
             overlay["stale"] = stale
+            shared_weather = overlay
 
             if weather_config["sun_enabled"] and sunrise_time and sunset_time:
                 screens.append({
@@ -832,8 +832,14 @@ class Publisher:
                     "stale": stale,
                     "days": forecast,
                 })
-            for screen in screens:
-                screen["weather"] = copy.deepcopy(overlay)
+        elif config_feeds["today"]["enabled"]:
+            current_weather = feeds.get("weather") or {}
+            data = current_weather.get("data") or {}
+            if data:
+                shared_weather = {
+                    key: copy.deepcopy(value) for key, value in data.items()
+                    if key in ("temperature_c", "weather_code", "icon", "is_day", "fetched_at")
+                }
         for screen in screens:
             feed_id = screen.get("kind")
             if FEED_REGISTRY.get(feed_id, {}).get("display_group"):
@@ -886,7 +892,7 @@ class Publisher:
             feed_id = schedule_feed_for_kind.get(screen.get("kind"))
             if feed_id:
                 screen["schedule_windows"] = copy.deepcopy(config_feeds[feed_id].get("schedule_windows", []))
-        return {
+        payload = {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
             "display": copy.deepcopy(runtime["display"]),
@@ -897,6 +903,9 @@ class Publisher:
             "christmas": copy.deepcopy(config_feeds["christmas"]),
             "screens": screens,
         }
+        if shared_weather is not None:
+            payload["weather"] = shared_weather
+        return payload
 
     def _runtime(self):
         try:

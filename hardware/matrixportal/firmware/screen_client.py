@@ -747,6 +747,16 @@ class ScreenRotation:
                 return
 
 
+def attach_shared_weather(screens, weather):
+    """Attach one payload-level weather dictionary to screens that need it."""
+    if not isinstance(screens, list) or not isinstance(weather, dict):
+        return screens
+    for screen in screens:
+        if isinstance(screen, dict) and not isinstance(screen.get("weather"), dict):
+            screen["weather"] = weather
+    return screens
+
+
 class ScreenClient:
     """Fetch `/api/screens` from the LAN backend using CircuitPython Wi-Fi."""
 
@@ -788,6 +798,25 @@ class ScreenClient:
                 print("GTS Root R4 certificate unavailable:", error)
             self.session = adafruit_requests.Session(pool, ssl_context)
 
+    def _recover_request_memory_error(self):
+        """Release cached HTTP sockets and collect before one request retry."""
+        manager = getattr(self.session, "_connection_manager", None)
+        close_sockets = getattr(manager, "_free_sockets", None)
+        if close_sockets is not None:
+            try:
+                try:
+                    close_sockets(force=True)
+                except TypeError:
+                    close_sockets()
+            except Exception as error:
+                print("SCREEN FETCH SOCKET CLEANUP FAILED:", error)
+        try:
+            import gc
+
+            gc.collect()
+        except (ImportError, AttributeError):
+            pass
+
     def fetch(self):
         self._ensure_session()
         base = str(self.settings.SCREEN_API_URL).rstrip("/")
@@ -797,7 +826,13 @@ class ScreenClient:
         stage = "request"
         try:
             print("SCREEN FETCH REQUEST heap_free={}".format(_free_heap_bytes()))
-            response = self.session.get(base + "/api/screens")
+            url = base + "/api/screens"
+            try:
+                response = self.session.get(url)
+            except MemoryError:
+                print("SCREEN FETCH REQUEST MEMORYERROR; clearing HTTP sockets and retrying")
+                self._recover_request_memory_error()
+                response = self.session.get(url)
             status_code = getattr(response, "status_code", None)
             headers = getattr(response, "headers", {}) or {}
             print("SCREEN FETCH RESPONSE status={} bytes={} heap_free={}".format(
