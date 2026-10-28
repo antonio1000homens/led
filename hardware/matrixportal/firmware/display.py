@@ -342,7 +342,7 @@ BIN_LORRY_SECONDS = 4.0
 BIN_LORRY_SPEED = 64.0
 BIN_LORRY_WIDTH = 84
 BIN_LORRY_HEIGHT = 28
-BIN_LORRY_Y = 2
+BIN_LORRY_Y = 4
 RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
 RAIL_DESTINATION_X = 63
@@ -876,7 +876,7 @@ def _today_compact_date_label(clock_date):
 def _today_date_position(date_label, clock_time):
     date_width = _today_date_width(len(date_label))
     left = TODAY_HEADER_ICON_X + TODAY_HEADER_ICON_SIZE + 1
-    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
+    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 5)
     return left + max(0, (right - left - date_width) // 2)
 
 
@@ -3591,7 +3591,7 @@ class MatrixDisplay:
         draw_christmas_sleigh_indexed(bitmap, 0, 0,
                                       CHRISTMAS_SLEIGH_WIDTH, CHRISTMAS_SLEIGH_HEIGHT)
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 88, 10)
+        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 88, 6)
         root.append(motion)
         self._christmas_intro_group = root
         self._christmas_intro_motion = motion
@@ -4214,7 +4214,7 @@ class MatrixDisplay:
                         bitmap, pixel_shader=palette,
                         x=TODAY_HEADER_ICON_X, y=TODAY_HEADER_ICON_Y,
                     ))
-                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
+                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 5)
                     self._scaled_label(group, clock_time, 0xFFAA00, time_x,
                                        TODAY_TIME_Y, scale=TODAY_TIME_SCALE)
                     temperature_x = max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE)
@@ -4548,7 +4548,7 @@ class FixtureDisplay:
         elapsed = max(0.0, float(phase or 0))
         x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
         draw_christmas_sleigh(self._pixel, x, 4, DISPLAY_WIDTH, 32)
-        self._text("HO HO HO...", x + 88, 9, (255, 170, 0))
+        self._text("HO HO HO...", x + 88, 5, (255, 170, 0))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
@@ -4683,7 +4683,7 @@ class FixtureDisplay:
                             )
                 temperature = _weather_text(weather) or "--C"
                 self._text(clock_time,
-                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3),
+                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 5),
                            TODAY_TIME_Y, (255, 170, 0), scale=TODAY_TIME_SCALE)
                 self._text(temperature,
                            max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE),

@@ -1232,6 +1232,8 @@
     }
 
     function drawBinLorry(x) {
+      context.save();
+      context.translate(0, 2 * FONT_PIXEL_SCALE);
       context.fillStyle = '#22aa44';
       context.fillRect(x + 2 * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, 32 * FONT_PIXEL_SCALE, 10 * FONT_PIXEL_SCALE);
       context.fillRect(x, 8 * FONT_PIXEL_SCALE, 4 * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE);
@@ -1256,6 +1258,7 @@
         context.fillStyle = '#8c959c';
         context.fillRect(x + (center - 1) * FONT_PIXEL_SCALE, 16 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
       }
+      context.restore();
     }
 
     function drawBinCollection(screen, phase) {
@@ -1309,7 +1312,7 @@
       drawChristmasSleigh(x, 4);
       const px = FONT_PIXEL_SCALE;
       context.fillStyle = '#ffaa00';
-      drawLedText('HO HO HO...', (x + 88) * px, 9 * px);
+      drawLedText('HO HO HO...', (x + 88) * px, 5 * px);
       status.dataset.detail = 'Christmas Tracker · HO HO HO sleigh intro';
     }
     function drawChristmasTracker(screen, phase, wallClock) {
@@ -1541,7 +1544,7 @@
         const weather = screen.weather || {};
         const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
-        const timeX = Math.max(0, 256 - nowText.length * 12 + 3);
+        const timeX = Math.max(0, 256 - nowText.length * 12 + 5);
         const dateLeft = TODAY_HEADER_ICON_SIZE + 1;
         const dateX = dateLeft + Math.max(0, Math.floor((timeX - dateLeft - todayDateWidth(date.length)) / 2));
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
