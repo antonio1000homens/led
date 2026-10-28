@@ -152,7 +152,7 @@ def football_slide_offset(phase):
 
 
 def football_roll_frame(phase):
-    """Eight orientations, about 1.75 turns during the slide; frozen on arrival."""
+    """Eight orientations, two full turns during the slide; frozen on arrival."""
     _, settled = football_slide_offset(phase)
     if settled:
         return 0
