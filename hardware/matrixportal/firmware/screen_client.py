@@ -626,10 +626,11 @@ class ScreenRotation:
         # bus intro to the orphan check. Insert the complete football block
         # only at an existing block boundary.
         football = [item for item in normal if item.get("kind") == "football_score"]
-        first_football = next(
-            (index for index, item in enumerate(normal)
-             if item.get("kind") == "football_score"), None
-        )
+        first_football = None
+        for index, item in enumerate(normal):
+            if item.get("kind") == "football_score":
+                first_football = index
+                break
         anchor = None
         if first_football is not None:
             for item in normal[:first_football]:
