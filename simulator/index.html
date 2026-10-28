@@ -1281,7 +1281,7 @@
           const due = footballDueIn(screen.kickoff, now);
           // The compact 5px glyph pitch keeps the shortest countdown right
           // aligned without shifting its column when units disappear.
-          drawFootballCompactText(due, offset + Math.max(166, 255 - due.length * 5), 18, '#ffffff');
+          drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 18, '#ffffff');
         }
       } else {
         rows.slice(0, 4).forEach((line, index) => {
