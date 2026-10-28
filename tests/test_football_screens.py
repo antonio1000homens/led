@@ -370,7 +370,7 @@ process.stdout.write(JSON.stringify(results));
         result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
         output = json.loads(result.stdout)
         self.assertEqual(output[0], ["MILLWALL VS DERBY COUNTY", "SAT 31 OCT 15:00"])
-        self.assertEqual(output[1], "TBC")
+        self.assertEqual(output[1], "TIME TBC")
         self.assertEqual(output[2], "SUN 29 MAR 02:30")
         self.assertEqual(output[3], "SUN 25 OCT 01:30")
         self.assertEqual(output[4], {"x": 256, "infoVisible": False})
