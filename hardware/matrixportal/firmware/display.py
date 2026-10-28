@@ -56,6 +56,11 @@ from football_ball import (
 )
 from football_screens import (
     FOOTBALL_END_X as FOOTBALL_RENDER_END_X,
+    FOOTBALL_FLAG_HEIGHT,
+    FOOTBALL_FLAG_WIDTH,
+    FOOTBALL_FLAG_X,
+    FOOTBALL_FLAG_Y,
+    FOOTBALL_TEAM_STRIPES,
     FOOTBALL_START_X,
     FOOTBALL_TEXT_X,
     football_presentation_position,
@@ -2005,6 +2010,19 @@ class MatrixDisplay:
             pixel_shader=palette, x=FOOTBALL_RENDER_END_X, y=8,
         )
         group.append(ball_grid)
+        # Each scene owns its own palette/bitmap so an outgoing team's
+        # colours remain stable while the incoming team's stripes slide in.
+        # Flag pixels are populated only on a team change, never per frame.
+        flag_bitmap = displayio.Bitmap(FOOTBALL_FLAG_WIDTH, FOOTBALL_FLAG_HEIGHT, 4)
+        flag_palette = displayio.Palette(4)
+        flag_palette[0] = 0x000000
+        flag_palette.make_transparent(0)
+        flag_tile = displayio.TileGrid(
+            flag_bitmap, pixel_shader=flag_palette,
+            x=FOOTBALL_FLAG_X, y=FOOTBALL_FLAG_Y,
+        )
+        flag_tile.hidden = True
+        group.append(flag_tile)
         text_group = displayio.Group(x=FOOTBALL_TEXT_X, y=0)
         labels = [
             self._label(text_group, "", 0xFFFFFF, 0, index * 8)
@@ -2017,11 +2035,31 @@ class MatrixDisplay:
         group.append(due_group)
         return {
             "group": group, "ball_grid": ball_grid, "frame": 0,
+            "flag_bitmap": flag_bitmap, "flag_palette": flag_palette,
+            "flag_tile": flag_tile, "flag_team": None,
             "labels": labels, "text_group": text_group,
             "due_group": due_group, "heading": heading,
             "countdown": countdown, "countdown_text": None,
             "key": None, "content_signature": None,
         }
+
+    def _set_football_team_colours(self, scene, team_key):
+        """Update a cached team flag only when its identity changes."""
+        if scene["flag_team"] == team_key:
+            return False
+        stripes = FOOTBALL_TEAM_STRIPES.get(team_key)
+        if stripes:
+            palette = scene["flag_palette"]
+            bitmap = scene["flag_bitmap"]
+            for index, color in enumerate(stripes):
+                red, green, blue = color
+                palette[index + 1] = (red << 16) | (green << 8) | blue
+                for y in range(index * 3, index * 3 + 2):
+                    for x in range(FOOTBALL_FLAG_WIDTH):
+                        bitmap[x, y] = index + 1
+        scene["flag_tile"].hidden = not bool(stripes)
+        scene["flag_team"] = team_key
+        return True
 
     def _set_football_content(self, scene, screen, rows, colors):
         """Update labels only when their source data changes (not on each tick)."""
@@ -2112,6 +2150,9 @@ class MatrixDisplay:
             changed = True
         scene = self._football_current
         self._football_previous_phase = phase
+        changed = self._set_football_team_colours(
+            scene, screen.get("team_key")
+        ) or changed
 
         goal_active = screen.get("goal_flash_active") and screen.get("status") == "IN"
         # A PRE countdown changes independently of the fixture. Avoid
@@ -4821,6 +4862,15 @@ class FixtureDisplay:
             ball_x, info_visible = football_presentation_position(
                 phase, screen.get("ball_animation", False)
             )
+            # Fixture/non-Matrix parity: the small coloured strip follows the
+            # ball's position rather than popping in after the slide.
+            team_stripes = FOOTBALL_TEAM_STRIPES.get(screen.get("team_key"))
+            if team_stripes:
+                for index, color in enumerate(team_stripes):
+                    self._fill_rect(
+                        ball_x, FOOTBALL_FLAG_Y + index * 3,
+                        FOOTBALL_FLAG_WIDTH, 2, color,
+                    )
             for row, pixels in enumerate(BALL_ROWS):
                 for column, pixel in enumerate(pixels):
                     if pixel == "W":

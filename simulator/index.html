@@ -207,6 +207,15 @@
     const FOOTBALL_START_X = 256;
     const FOOTBALL_END_X = 2;
     const FOOTBALL_TEXT_X = 22;
+    const FOOTBALL_FLAG_X = 2;
+    const FOOTBALL_FLAG_Y = 0;
+    const FOOTBALL_FLAG_WIDTH = 16;
+    const FOOTBALL_TEAM_STRIPES = {
+      sporting_cp: ['#007a33', '#ffffff', '#007a33'],
+      england: ['#ffffff', '#ce1126', '#ffffff'],
+      millwall: ['#0033a0', '#ffffff', '#0033a0'],
+      portugal: ['#ff0000', '#ffcc00', '#006600']
+    };
     const CLOCK_X = 226 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -1257,6 +1266,15 @@
     function drawFootballScene(screen, phase, offset, settled, now = Date.now()) {
       const roll = settled ? 0 : Math.floor(Math.max(0, phase) * 16 / FOOTBALL_SLIDE_SECONDS) % 8;
       const cosine = FOOTBALL_COS[roll], sine = FOOTBALL_SIN[roll];
+      // Team colours are part of the same moving scene as the rolling ball.
+      (FOOTBALL_TEAM_STRIPES[screen.team_key] || []).forEach((color, index) => {
+        context.fillStyle = color;
+        context.fillRect(
+          (offset + FOOTBALL_FLAG_X) * FONT_PIXEL_SCALE,
+          (FOOTBALL_FLAG_Y + index * 3) * FONT_PIXEL_SCALE,
+          FOOTBALL_FLAG_WIDTH * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE
+        );
+      });
       FOOTBALL_BALL_ROWS.forEach((row, y) => [...row].forEach((pixel, column) => {
         if (pixel === '.') return;
         const dx = 2 * column - 15, dy = 2 * y - 15;

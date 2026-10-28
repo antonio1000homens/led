@@ -13,7 +13,7 @@ from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_presentation_position,
     football_screen_lines, kickoff_countdown, kickoff_local_label,
     football_due_in, football_slide_offset, football_roll_frame,
-    football_countdown_x,
+    football_countdown_x, FOOTBALL_TEAM_STRIPES,
 )
 from screen_client import ScreenRotation
 
@@ -387,6 +387,36 @@ process.stdout.write(JSON.stringify(output));
             self.assertIn(pair, neighbors)
             self.assertIn(("football-a", "football-b"), neighbors)
             self.assertEqual(len(sequence), 4)
+
+    def test_team_colour_stripes_survive_the_football_intro(self):
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["sporting_cp"], (
+            (0, 122, 51), (255, 255, 255), (0, 122, 51)))
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["millwall"][0], (0, 51, 160))
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["england"][1], (206, 17, 38))
+        self.assertEqual(FOOTBALL_TEAM_STRIPES["portugal"][1], (255, 204, 0))
+        for team, colours in FOOTBALL_TEAM_STRIPES.items():
+            with self.subTest(team=team):
+                display = CapturingFootballFixture()
+                screen = {
+                    "kind": "football_score", "status": "PRE",
+                    "team_key": team, "team_name": team.upper(),
+                    "kickoff": "2026-10-31T15:00:00Z",
+                    "ball_animation": True,
+                }
+                # During the entry the stripes remain off-screen with the
+                # ball; after arrival they appear directly above it.
+                display._draw_screen(screen, phase=0)
+                self.assertFalse(display.pixels)
+                display._draw_screen(screen, phase=3.2)
+                for i, colour in enumerate(colours):
+                    self.assertIn((2, i * 3, colour), display.pixels)
+                    self.assertIn((17, i * 3 + 1, colour), display.pixels)
+
+    def test_simulator_renders_flag_with_the_same_moving_scene(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        self.assertIn("const FOOTBALL_TEAM_STRIPES = {", html)
+        self.assertIn("(offset + FOOTBALL_FLAG_X) * FONT_PIXEL_SCALE", html)
+        self.assertIn("FOOTBALL_TEAM_STRIPES[screen.team_key]", html)
 
     def test_simulator_keeps_ball_pinned_and_pregame_text_to_its_right(self):
         display = CapturingFootballFixture()
