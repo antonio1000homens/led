@@ -2019,7 +2019,7 @@ class MatrixDisplay:
             "labels": labels, "text_group": text_group,
             "due_group": due_group, "heading": heading,
             "countdown": countdown, "countdown_text": None,
-            "key": None,
+            "key": None, "content_signature": None,
         }
 
     def _set_football_content(self, scene, screen, rows, colors):
@@ -2102,6 +2102,7 @@ class MatrixDisplay:
             for item in self._football_slots:
                 item["group"].hidden = item is not scene and item is not self._football_outgoing
             scene["key"] = None
+            scene["content_signature"] = None
             scene["countdown_text"] = None
             scene["frame"] = -1
             scene["due_group"].hidden = True
@@ -2111,15 +2112,33 @@ class MatrixDisplay:
         scene = self._football_current
         self._football_previous_phase = phase
 
-        rows = list(football_screen_lines(screen, now_epoch))
         goal_active = screen.get("goal_flash_active") and screen.get("status") == "IN"
-        if goal_active:
-            team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
-            rows[3] = "GOAL {}".format(str(team or "SCORED").upper())
-        colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
-        if goal_active:
-            colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
-        changed = self._set_football_content(scene, screen, rows, colors) or changed
+        # A PRE countdown changes independently of the fixture. Avoid
+        # reconstructing the fixture/score strings, row list and colour list
+        # on every 7 FPS animation tick or every 1 Hz countdown wakeup. An
+        # immutable key also handles MQTT snapshots replaced between frames.
+        content_signature = (
+            screen.get("status"), screen.get("team_key"),
+            screen.get("team_name"), screen.get("display_fixture"),
+            screen.get("opponent_long_name"), screen.get("opponent"),
+            screen.get("team_homeaway"), screen.get("homeaway"),
+            screen.get("kickoff"), screen.get("home_team"),
+            screen.get("away_team"), screen.get("home_score"),
+            screen.get("away_score"), screen.get("clock"),
+            screen.get("competition"), bool(screen.get("stale")),
+            bool(goal_active), screen.get("goal_side"),
+            int(phase * 4) % 2 if goal_active else 0,
+        )
+        if scene["content_signature"] != content_signature:
+            rows = list(football_screen_lines(screen, now_epoch))
+            if goal_active:
+                team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
+                rows[3] = "GOAL {}".format(str(team or "SCORED").upper())
+            colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
+            if goal_active:
+                colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
+            changed = self._set_football_content(scene, screen, rows, colors) or changed
+            scene["content_signature"] = content_signature
 
         # The fixture and date are *already populated* while their whole scene
         # translates from x=254 to zero; only the Due In text waits to appear.
