@@ -1,6 +1,7 @@
 """Validation and rotation snapshots for retained Team Tracker football MQTT."""
 
 import json
+import re
 
 from mqtt_screens import _epoch
 
@@ -232,7 +233,7 @@ def football_screen_lines(screen, now_epoch):
     fixture = screen.get("display_fixture")
     if not isinstance(fixture, str) or not fixture.strip():
         fixture = "{} VS {}".format(team, opponent) if opponent else team
-    fixture = fixture.upper().replace(" VS ", "  VS  ")
+    fixture = re.sub(r"\s+VS\s+", "  VS  ", fixture.upper())
     status = screen.get("status")
     competition = str(screen.get("competition") or "")
     if status == "PRE":
@@ -243,7 +244,7 @@ def football_screen_lines(screen, now_epoch):
                            else "{} VS {}".format(team, opponent))
             else:
                 fixture = team
-        return fixture.upper().replace(" VS ", "  VS  "), kickoff_local_label(screen.get("kickoff"))
+        return re.sub(r"\s+VS\s+", "  VS  ", fixture.upper()), kickoff_local_label(screen.get("kickoff"))
     elif status in ("IN", "POST"):
         home = str(screen.get("home_team") or "HOME").upper()
         away = str(screen.get("away_team") or "AWAY").upper()
