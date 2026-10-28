@@ -575,6 +575,8 @@ class ScreenRotation:
                 and previous_id == "sl7-{}-intro".format(stop))
             or (current.get("kind") == "bus_departures_combined"
                 and previous_id == "sl7-combined-intro")
+            or (current.get("kind") == "football_score"
+                and str(previous_id or "").startswith("football-"))
         )
 
     def next_paired_rail_screen(self):
@@ -626,6 +628,14 @@ class ScreenRotation:
             or (index + 1 < len(normal)
                 and self.is_bus_followup(item, normal[index + 1]))
         ]
+        # Keep all club fixtures together for one push handover, regardless of
+        # other normal pages' provider order. Never disrupt train/bus pairs.
+        football = [item for item in normal if item.get("kind") == "football_score"]
+        if len(football) > 1:
+            first = next(i for i, item in enumerate(normal)
+                         if item.get("kind") == "football_score")
+            normal = [item for item in normal if item.get("kind") != "football_score"]
+            normal[first:first] = football
         static = [self._choose(item) for item in screens if self.is_static(item)]
         # Do not separate the train from departures. Queue Times is already
         # represented by one atomic screen.
@@ -636,6 +646,8 @@ class ScreenRotation:
                 or (blocks[-1][-1].get("kind") == "christmas_tracker_intro" and item.get("kind") == "christmas_tracker")
                 or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
+                or (blocks[-1][-1].get("kind") == "football_score"
+                    and item.get("kind") == "football_score")
             ):
                 blocks[-1].append(item)
             else:
