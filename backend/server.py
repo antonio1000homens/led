@@ -327,6 +327,24 @@ class NationalRailProvider:
                 "sample_service_fields": sorted(raw_services[0].keys())
                 if raw_services and isinstance(raw_services[0], dict) else [],
             }, sort_keys=True))
+            service_id = (raw_services[0].get("serviceID")
+                          if raw_services and isinstance(raw_services[0], dict) else None)
+            if service_id:
+                try:
+                    detail = self._client.service.GetServiceDetails(
+                        serviceID=service_id, _soapheaders=[self._header],
+                    )
+                    detail_data = self._serialize(detail) or {}
+                    print(json.dumps({
+                        "event": "rail_platform_detail_probe",
+                        "platform": detail_data.get("platform"),
+                        "detail_fields": sorted(detail_data.keys()),
+                    }, sort_keys=True))
+                except Exception as error:
+                    print(json.dumps({
+                        "event": "rail_platform_detail_probe_failed",
+                        "error_type": type(error).__name__,
+                    }, sort_keys=True))
         return normalize_darwin_board(serialized, self.max_rows)
 
 
