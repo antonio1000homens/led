@@ -542,7 +542,7 @@ class ClientTests(unittest.TestCase):
         manager_module.connection_manager_close_all = lambda **kwargs: calls.append(kwargs)
         with mock.patch.dict("sys.modules", {"adafruit_connection_manager": manager_module}):
             client._recover_request_memory_error()
-        self.assertEqual(calls, [{"socket_pool": pool}])
+        self.assertEqual(calls, [{"socket_pool": pool, "release_references": True}])
         self.assertIsNone(client.session)
         self.assertIs(client._socket_pool, pool)
         self.assertIsNone(client._ssl_context)
@@ -565,6 +565,11 @@ class ClientTests(unittest.TestCase):
         class SSLContext:
             def load_verify_locations(self, **_kwargs):
                 return None
+
+            def wrap_socket(self, *args, **_kwargs):
+                if args and args[0] == "fail":
+                    raise MemoryError("private allocation detail")
+                return "wrapped"
 
         class Session:
             def __init__(self, pool, context):
@@ -589,10 +594,15 @@ class ClientTests(unittest.TestCase):
             client._ensure_session()
             self.assertIs(client.session.pool, screen_pool)
             self.assertIsNot(client.session.pool, shared_mqtt_pool)
+            with self.assertRaises(MemoryError):
+                client._ssl_context.wrap_socket("fail")
+            self.assertEqual(client._fetch_stage, "tls_setup")
+            self.assertEqual(client._ssl_context.wrap_socket("socket"), "wrapped")
+            self.assertEqual(client._fetch_stage, "connection_setup")
             manager.get_socket()
             self.assertEqual(client._fetch_stage, "response_headers")
             client._recover_request_memory_error()
-            self.assertEqual(closed_pools, [{"socket_pool": screen_pool}])
+            self.assertEqual(closed_pools, [{"socket_pool": screen_pool, "release_references": True}])
             client._ensure_session()
             manager.get_socket()
         self.assertEqual(len(base_calls), 2)
@@ -603,8 +613,10 @@ class ClientTests(unittest.TestCase):
         session.get = lambda _url: (_ for _ in ()).throw(MemoryError("allocation"))
         settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
         client = ScreenClient(settings, session=session)
-        with self.assertRaises(MemoryError):
-            client.fetch()
+        with mock.patch.object(client, "_recover_request_memory_error", wraps=client._recover_request_memory_error) as recover:
+            with self.assertRaises(MemoryError):
+                client.fetch()
+        self.assertEqual(recover.call_count, 2)
         self.assertEqual(client.last_error_class, "MemoryError")
         self.assertEqual(client.last_error_stage, "connection_setup")
 

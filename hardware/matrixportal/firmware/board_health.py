@@ -145,7 +145,7 @@ class BoardHealth:
             self.state["last_fetch_error_stage"] = (
                 _text(error_stage, 24) if error_stage in (
                     "session_setup", "connection_setup", "response_headers",
-                    "response_body", "publisher",
+                    "tls_setup", "response_body", "publisher",
                 ) else "unknown"
             )
             self.failure("fetch")
