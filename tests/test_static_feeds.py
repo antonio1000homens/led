@@ -197,6 +197,14 @@ class StaticFeedTests(unittest.TestCase):
         self.assertNotIn("display.show_loading",source)
         ast.parse(source)
 
+    def test_idle_rotation_keeps_the_configured_screen_refresh_cadence(self):
+        source = (ROOT / "code.py").read_text()
+        block = source[source.index("    should_fetch = ("):source.index("    if MATRIX_TELEMETRY_ENABLED:", source.index("    should_fetch = ("))]
+        self.assertIn("fetch_due", block)
+        self.assertIn("rotation_idle", block)
+        self.assertIn('candidate.get("id") == "schedule-idle"', source)
+        self.assertIn('"ROTATION STATE http=', source)
+
     @unittest.skipUnless(shutil.which("node"),"Node is required for browser scheduler tests")
     def test_browser_scripts_parse_and_pool_selection_allows_repeats(self):
         for filename in ("index.html","admin.html"):

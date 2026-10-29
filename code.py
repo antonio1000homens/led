@@ -232,6 +232,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
 
 next_fetch = 0
 last_maintenance_slot = None
+last_rotation_state_log = None
 last_visible_screen = None
 last_logged_screen_started = None
 screen_heap_low_water = None
@@ -884,6 +885,20 @@ while True:
         candidate_phase = elapsed_seconds(active_football_started)
     else:
         candidate, candidate_phase = rotation.current(ticks_ms())
+    rotation_idle = candidate.get("id") == "schedule-idle"
+    rotation_state_now = ticks_ms()
+    if (last_rotation_state_log is None
+            or rotation_state_now - last_rotation_state_log >= 60000):
+        schedule_state = rotation.schedule_state()
+        print(
+            "ROTATION STATE http={} mqtt={} cycle={} active={} disabled={} windowed={} idle={} clock={}".format(
+                schedule_state["http"], schedule_state["mqtt"],
+                schedule_state["cycle"], schedule_state["active"],
+                schedule_state["disabled"], schedule_state["windowed"],
+                schedule_state["idle"], "ready" if clock.epoch(now) is not None else "unset",
+            )
+        )
+        last_rotation_state_log = rotation_state_now
     fetch_due = ticks_ms() >= next_fetch
     boundary = last_visible_screen != candidate.get("id")
     task_unready = (candidate.get("kind") == "calendar_agenda"
@@ -973,7 +988,8 @@ while True:
     # animations; the next static slot is soon enough to apply new data.
     should_fetch = (
         fetch_due
-        and (maintenance_visible or (steam_train_test and not rotation.screens))
+        and (maintenance_visible or rotation_idle
+             or (steam_train_test and not rotation.screens))
         and not flash.active(now)
     )
     if MATRIX_TELEMETRY_ENABLED:
