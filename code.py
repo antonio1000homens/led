@@ -1092,6 +1092,15 @@ while True:
                 if epoch_now is not None else [],
                 ticks_ms(),
             )
+            schedule_state = rotation.schedule_state()
+            print(
+                "ROTATION STATE http={} mqtt={} cycle={} active={} disabled={} windowed={} idle={}".format(
+                    schedule_state["http"], schedule_state["mqtt"],
+                    schedule_state["cycle"], schedule_state["active"],
+                    schedule_state["disabled"], schedule_state["windowed"],
+                    schedule_state["idle"],
+                )
+            )
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
             _apply_flash_config(payload, fetch_completed)

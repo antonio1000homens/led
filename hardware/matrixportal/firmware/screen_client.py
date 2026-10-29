@@ -329,6 +329,21 @@ class ScreenRotation:
             return followup is not None and self.is_bus_followup(screen, followup) and self._schedule_active(followup)
         return True
 
+    def schedule_state(self):
+        """Return bounded counts for diagnosing an idle post-fetch rotation."""
+        disabled = sum(1 for screen in self.screens if screen.get("schedule_enabled") is False)
+        windowed = sum(1 for screen in self.screens if bool(screen.get("schedule_windows")))
+        active = sum(1 for screen in self.screens if self._schedule_active(screen))
+        return {
+            "http": len(self.http_screens),
+            "mqtt": len(self.mqtt_screens),
+            "cycle": len(self.screens),
+            "active": active,
+            "disabled": disabled,
+            "windowed": windowed,
+            "idle": bool(self._schedule_idle),
+        }
+
     def _first_scheduled_index(self, start=0):
         for offset in range(len(self.screens)):
             index = (start + offset) % len(self.screens)
