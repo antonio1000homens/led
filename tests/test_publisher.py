@@ -1,7 +1,10 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import unittest
+from contextlib import redirect_stdout
+import io
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
+from feed_errors import ProviderFailure
 from runtime_config import default_runtime_config
 from server import DepartureFeed, ScreenFeed
 
@@ -89,6 +92,40 @@ class PublisherTests(unittest.TestCase):
         self.assertTrue(screen["stale"])
         self.assertEqual(screen["services"], [])
         self.assertEqual(screen["empty_state"], "No Services")
+
+    def test_refresh_failure_keeps_last_good_cache_and_records_safe_diagnostics(self):
+        publisher = Publisher(self.config, self.store, rail_provider=FakeProvider([]),
+                              utcnow=self.utcnow)
+        error = ProviderFailure("http_rejection", "millwall", 503)
+        error.__cause__ = RuntimeError("token=SECRET provider body=PRIVATE")
+        previous = {
+            "data": {"fixtures": ["last-good"]},
+            "last_success_at": "2026-09-13T06:00:00Z",
+            "stale": False,
+        }
+        output = io.StringIO()
+        with redirect_stdout(output):
+            failed = publisher._refresh(
+                "football_fixtures", previous, 900,
+                lambda: (_ for _ in ()).throw(error), self.now,
+            )
+        self.assertEqual(failed["data"], previous["data"])
+        self.assertEqual(failed["last_success_at"], previous["last_success_at"])
+        self.assertTrue(failed["stale"])
+        self.assertEqual(failed["error_class"], "RuntimeError")
+        self.assertEqual(failed["error_stage"], "http_rejection")
+        self.assertEqual(failed["http_status"], 503)
+        self.assertEqual(failed["error_source"], "millwall")
+        self.assertNotIn("SECRET", output.getvalue())
+        self.assertNotIn("PRIVATE", output.getvalue())
+
+        recovered = publisher._refresh(
+            "football_fixtures", failed, 900,
+            lambda: {"fixtures": []}, self.now, force=True,
+        )
+        self.assertFalse(recovered["stale"])
+        self.assertNotIn("error_class", recovered)
+        self.assertNotIn("error_stage", recovered)
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
         payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=screen_by_id(payload, "departures")
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])

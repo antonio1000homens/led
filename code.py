@@ -1105,9 +1105,13 @@ while True:
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             if board_health is not None:
                 board_health.fetch_result(
-                    fetch_completed, fetch_duration, error=type(error).__name__
+                    fetch_completed, fetch_duration, error=type(error).__name__,
+                    error_stage=(client.last_error_stage if client is not None else "publisher"),
                 )
-            print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
+            failed_stage = client.last_error_stage if client is not None else "publisher"
+            print("Screen fetch failed duration={:.3f} class={} stage={}".format(
+                fetch_duration, type(error).__name__, failed_stage,
+            ))
             _publish_board_health(fetch_completed, force=True)
             transport_stale = bool(rotation.screens)
             if fetch_resume is not None:

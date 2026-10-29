@@ -10,8 +10,10 @@ import hashlib
 import json
 import re
 from urllib.parse import urlencode, quote
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
+from feed_errors import ProviderFailure
 
 TEAM_NAMES = {"sporting_cp": "Sporting CP", "millwall": "Millwall FC",
               "portugal": "Portugal", "england": "England"}
@@ -285,6 +287,7 @@ class PublicICalFixtureProvider:
         if enabled - set(TEAM_NAMES):
             raise ValueError("unsupported fixture team")
         result = []
+        failures = []
         for team_key in TEAM_NAMES:
             if team_key not in enabled:
                 continue
@@ -292,43 +295,62 @@ class PublicICalFixtureProvider:
             if not isinstance(calendar_id, str) or not calendar_id.endswith("@group.calendar.google.com"):
                 raise ValueError("missing or invalid public calendar ID")
             url = "https://calendar.google.com/calendar/ical/" + quote(calendar_id, safe="") + "/public/basic.ics"
-            raw = self.fetch_ical(url)
-            if not isinstance(raw, (str, bytes)) or len(raw) > MAX_ICAL_BYTES:
-                raise ValueError("invalid public calendar response")
-            calendar = Calendar.from_ical(raw)
-            if len(calendar.walk("VEVENT")) > MAX_ICAL_SOURCE_EVENTS:
-                raise ValueError("public fixture calendar exceeds event limit")
-            choices = []
-            # Google calendars may include recurring events, cancellations and
-            # exceptions. Expand only within the configured bounded window.
-            for component in recurring_ical_events.of(calendar).between(now, end):
-                if str(component.get("STATUS", "")).upper() == "CANCELLED":
-                    continue
-                start = component.decoded("DTSTART", None)
-                if not isinstance(start, datetime) or start.tzinfo is None:
-                    continue
-                uid = component.get("UID")
-                if uid is None:
-                    continue
-                # For recurring events, include the instance's original start
-                # to avoid colliding with the next occurrence in the series.
-                recurrence_id = component.get("RECURRENCE-ID")
-                occurrence_id = (str(uid) + "\x00" + str(recurrence_id)) if recurrence_id else str(uid)
-                event = {
-                    "id": occurrence_id,
-                    "summary": str(component.get("SUMMARY", "")),
-                    "status": "confirmed",
-                    "start": {"dateTime": start.isoformat()},
-                }
-                fixture = normalize_event(
-                    event, calendar_id=calendar_id, team_key=team_key,
-                    aliases={name.casefold() for name in DEFAULT_ALIASES[team_key]},
-                    now=now, window_end=end,
-                )
-                if fixture:
-                    choices.append(fixture)
-            if choices:
-                result.append(min(
-                    choices, key=lambda item: datetime.fromisoformat(item["kickoff"]).astimezone(timezone.utc)
-                ))
+            try:
+                try:
+                    raw = self.fetch_ical(url)
+                except HTTPError as error:
+                    raise ProviderFailure("http_rejection", team_key, error.code) from error
+                except Exception as error:
+                    raise ProviderFailure("download", team_key) from error
+                try:
+                    if not isinstance(raw, (str, bytes)) or len(raw) > MAX_ICAL_BYTES:
+                        raise ValueError("invalid bounded calendar response")
+                    calendar = Calendar.from_ical(raw)
+                    if calendar.name != "VCALENDAR":
+                        raise ValueError("response is not an iCalendar document")
+                    components = calendar.walk("VEVENT")
+                    if len(components) > MAX_ICAL_SOURCE_EVENTS:
+                        raise ValueError("public fixture calendar exceeds event limit")
+                except Exception as error:
+                    raise ProviderFailure("parse", team_key) from error
+                try:
+                    choices = []
+                    # Expand only within the configured bounded window.
+                    for component in recurring_ical_events.of(calendar).between(now, end):
+                        if str(component.get("STATUS", "")).upper() == "CANCELLED":
+                            continue
+                        start = component.decoded("DTSTART", None)
+                        if not isinstance(start, datetime) or start.tzinfo is None:
+                            continue
+                        uid = component.get("UID")
+                        if uid is None:
+                            continue
+                        recurrence_id = component.get("RECURRENCE-ID")
+                        occurrence_id = (str(uid) + "\x00" + str(recurrence_id)) if recurrence_id else str(uid)
+                        event = {
+                            "id": occurrence_id,
+                            "summary": str(component.get("SUMMARY", "")),
+                            "status": "confirmed",
+                            "start": {"dateTime": start.isoformat()},
+                        }
+                        fixture = normalize_event(
+                            event, calendar_id=calendar_id, team_key=team_key,
+                            aliases={name.casefold() for name in DEFAULT_ALIASES[team_key]},
+                            now=now, window_end=end,
+                        )
+                        if fixture:
+                            choices.append(fixture)
+                    if choices:
+                        result.append(min(
+                            choices, key=lambda item: datetime.fromisoformat(item["kickoff"]).astimezone(timezone.utc)
+                        ))
+                except Exception as error:
+                    raise ProviderFailure("normalize", team_key) from error
+            except ProviderFailure as failure:
+                failures.append(failure)
+        if failures:
+            # Try every enabled team source, then mark the feed failed as a
+            # whole so a partial calendar set cannot be labelled fresh.
+            failure = failures[0]
+            raise failure from failure.__cause__
         return result

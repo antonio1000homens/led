@@ -1,9 +1,11 @@
 import copy
 import unittest
+from publisher import Publisher, PublisherConfig
 
 from runtime_config import (
     DEFAULT_BUS_INTRO_WORDS,
     DEFAULT_CHESSINGTON_RIDES,
+    DEFAULT_FOOTBALL_ANIMATION_SPEED,
     DEFAULT_NO_SERVICES_DURATION_SECONDS,
     DEFAULT_STEAM_TRAIN_SPEED,
     DEFAULT_STEAM_TRAIN_WORDS,
@@ -353,6 +355,50 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(updated["config_version"], 18)
         self.assertTrue(store.load()["feeds"]["insult_of_hour"]["enabled"])
         self.assertEqual(table.item["feeds"]["departures"]["screen_duration_seconds"], 23)
+
+    def test_version_100_football_config_backfills_only_missing_animation_speed(self):
+        saved = default_runtime_config({})
+        football = saved["feeds"]["football_fixtures"]
+        football.update({
+            "enabled": True,
+            "poll_seconds": 900,
+            "schedule_windows": [{"cron": "*/5 * * * *", "duration_minutes": 2}],
+            "sporting_cp_enabled": True,
+            "millwall_enabled": True,
+        })
+        football.pop("animation_speed")
+        saved.update(config_version=100, updated_by="human:admin@example.com")
+        table = FakeTable()
+        table.item = {"config_id": "runtime", **copy.deepcopy(saved)}
+        store = RuntimeConfigStore("table", table=table, defaults=default_runtime_config({}))
+
+        loaded = store.load()
+
+        self.assertEqual(loaded["config_version"], 100)
+        self.assertEqual(loaded["feeds"]["football_fixtures"]["animation_speed"], DEFAULT_FOOTBALL_ANIMATION_SPEED)
+        self.assertTrue(loaded["feeds"]["football_fixtures"]["enabled"])
+        self.assertEqual(loaded["feeds"]["football_fixtures"]["poll_seconds"], 900)
+        self.assertEqual(loaded["feeds"]["football_fixtures"]["schedule_windows"], football["schedule_windows"])
+        self.assertTrue(loaded["feeds"]["football_fixtures"]["sporting_cp_enabled"])
+        self.assertEqual(table.item, {"config_id": "runtime", **saved})
+
+        publisher = Publisher(
+            PublisherConfig(bucket="test", national_rail_token=""), object(),
+            runtime_config_store=store,
+        )
+        publisher_runtime = publisher._runtime()
+        control_api_runtime = store.ensure()
+        self.assertEqual(publisher_runtime, control_api_runtime)
+        self.assertEqual(publisher_runtime["config_version"], 100)
+        self.assertTrue(publisher_runtime["feeds"]["football_fixtures"]["enabled"])
+        self.assertEqual(publisher_runtime["feeds"]["football_fixtures"]["poll_seconds"], 900)
+
+        explicit = copy.deepcopy(saved)
+        explicit["feeds"]["football_fixtures"]["animation_speed"] = 64
+        self.assertEqual(validate_runtime_config(explicit)["feeds"]["football_fixtures"]["animation_speed"], 64)
+        explicit["feeds"]["football_fixtures"]["animation_speed"] = 19
+        with self.assertRaises(RuntimeConfigValidationError):
+            validate_runtime_config(explicit)
 
     def test_missing_original_or_unknown_feed_still_fails_validation(self):
         config = default_runtime_config({})

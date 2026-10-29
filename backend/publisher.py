@@ -18,6 +18,7 @@ from runtime_config import (
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
     MIN_INSULT_POLL_SECONDS,
     RuntimeConfigStore,
+    RuntimeConfigValidationError,
     default_runtime_config,
     validate_runtime_config,
 )
@@ -58,6 +59,37 @@ def _parse_iso(value):
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
+
+
+_SAFE_ERROR_CLASSES = {
+    "TimeoutError", "HTTPError", "URLError", "ConnectionError", "OSError",
+    "SSLError", "JSONDecodeError", "ValueError", "TypeError", "KeyError",
+    "RuntimeError", "ProviderFailure",
+}
+_SAFE_ERROR_STAGES = {
+    "download", "http_rejection", "parse", "normalize", "soap_connect",
+    "soap_request", "soap_normalize", "provider",
+}
+
+
+def _safe_failure_metadata(error, now):
+    cause = error.__cause__ or error
+    error_class = type(cause).__name__
+    if error_class not in _SAFE_ERROR_CLASSES:
+        error_class = "ProviderError"
+    stage = getattr(error, "stage", "provider")
+    if stage not in _SAFE_ERROR_STAGES:
+        stage = "provider"
+    status = getattr(error, "status_code", None)
+    if isinstance(status, bool) or not isinstance(status, int) or not 100 <= status <= 599:
+        status = None
+    source = getattr(error, "source", None)
+    metadata = {"error_class": error_class, "error_stage": stage, "error_at": _iso(now)}
+    if status is not None:
+        metadata["http_status"] = status
+    if source in ("sporting_cp", "millwall", "portugal", "england", "soap"):
+        metadata["error_source"] = source
+    return metadata
 
 
 def _env_int(env, name, default, minimum=1):
@@ -299,13 +331,16 @@ class Publisher:
         attempted = _iso(now)
         try:
             data = fetcher()
-        except Exception:
+        except Exception as error:
             had_cache = previous.get("data") is not None
-            print(json.dumps({"event": "feed_refresh_failed", "feed": name, "had_cache": had_cache}))
+            diagnostics = _safe_failure_metadata(error, now)
+            print(json.dumps({"event": "feed_refresh_failed", "feed": name,
+                              "had_cache": had_cache, **diagnostics}))
             if had_cache:
-                previous.update(last_attempt_at=attempted, stale=True)
+                previous.update(last_attempt_at=attempted, stale=True, **diagnostics)
                 return previous
-            return {"last_attempt_at": attempted, "last_success_at": None, "stale": True, "data": None}
+            return {"last_attempt_at": attempted, "last_success_at": None,
+                    "stale": True, "data": None, **diagnostics}
         return {"last_attempt_at": attempted, "last_success_at": attempted, "stale": False, "data": data}
 
     def _fetch_rail(self, now):
@@ -917,8 +952,14 @@ class Publisher:
             ):
                 runtime["feeds"]["chessington"]["rides"] = list(DEFAULT_CHESSINGTON_RIDES)
             return runtime
-        except Exception:
-            print(json.dumps({"event": "runtime_config_invalid", "fallback": "deployment_defaults"}))
+        except Exception as error:
+            validation_failed = isinstance(error, RuntimeConfigValidationError)
+            print(json.dumps({
+                "event": "runtime_config_invalid" if validation_failed else "runtime_config_access_failed",
+                "failure": "validation" if validation_failed else "access",
+                "reason": "invalid_config" if validation_failed else "store_unavailable",
+                "fallback": "deployment_defaults",
+            }))
             return _runtime_defaults(self.config)
 
     def run(self):

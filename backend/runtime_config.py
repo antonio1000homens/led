@@ -935,6 +935,9 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
                 MAX_BUS_COUNT, raw.get("upcoming_bus_count", 3)
             ) if isinstance(raw.get("upcoming_bus_count"), int) and not isinstance(raw.get("upcoming_bus_count"), bool) else raw.get("upcoming_bus_count")
         if feed_id == "football_fixtures":
+            # Version 100 predates this required field. Backfill only the new
+            # field; supplied values still pass normal strict validation.
+            raw.setdefault("animation_speed", DEFAULT_FOOTBALL_ANIMATION_SPEED)
             for team in ("sporting_cp", "millwall", "portugal", "england"):
                 field = team + "_enabled"
                 raw.setdefault(field, default_feed[field])

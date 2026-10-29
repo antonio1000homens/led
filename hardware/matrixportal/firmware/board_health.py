@@ -3,7 +3,8 @@
 HEARTBEAT_SECONDS = 30
 ERROR_CLASSES = frozenset({
     "OSError", "RuntimeError", "ValueError", "TypeError", "MemoryError",
-    "ImportError", "AssertionError", "other",
+    "ImportError", "AssertionError", "HTTPError", "URLError", "ConnectionError",
+    "TimeoutError", "JSONDecodeError", "other",
 })
 
 
@@ -62,6 +63,7 @@ class BoardHealth:
             "last_fetch_success_uptime_seconds": None,
             "last_fetch_successful": None,
             "last_fetch_error_class": "",
+            "last_fetch_error_stage": "",
             "feed_health": [],
             "cycle_number": 0,
             "brightness_percent": None,
@@ -133,18 +135,25 @@ class BoardHealth:
             "source": self.state["attempted_source"],
         })
 
-    def fetch_result(self, uptime, duration, feeds=None, error=None):
+    def fetch_result(self, uptime, duration, feeds=None, error=None, error_stage=None):
         self.state["fetch_duration_seconds"] = round(float(duration), 3)
         self.state["last_fetch_error_class"] = (
             str(error) if str(error) in ERROR_CLASSES else "other"
         )
         if error:
             self.state["last_fetch_successful"] = False
+            self.state["last_fetch_error_stage"] = (
+                _text(error_stage, 24) if error_stage in (
+                    "session_setup", "connection_setup", "response_headers",
+                    "response_body", "publisher",
+                ) else "unknown"
+            )
             self.failure("fetch")
             return
         self.state["last_fetch_successful"] = True
         self.state["last_fetch_success_uptime_seconds"] = int(uptime)
         self.state["last_fetch_error_class"] = ""
+        self.state["last_fetch_error_stage"] = ""
         summary = []
         if isinstance(feeds, dict):
             for name, value in feeds.items():

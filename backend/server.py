@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 from fixtures import CALENDAR_EVENTS, PAGES
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
+from feed_errors import ProviderFailure
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
 from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable, weather_icon
 
@@ -361,13 +362,24 @@ class NationalRailProvider:
         self._header = header(TokenValue=self.token)
 
     def fetch(self):
-        self._connect()
-        board = self._client.service.GetDepBoardWithDetails(
-            numRows=self.max_rows,
-            crs=self.station,
-            _soapheaders=[self._header],
-        )
-        services = normalize_darwin_board(self._serialize(board), self.max_rows)
+        try:
+            self._connect()
+        except Exception as error:
+            raise ProviderFailure("soap_connect", "soap") from error
+        try:
+            board = self._client.service.GetDepBoardWithDetails(
+                numRows=self.max_rows,
+                crs=self.station,
+                _soapheaders=[self._header],
+            )
+        except Exception as error:
+            response = getattr(error, "response", None)
+            status = getattr(response, "status_code", None)
+            raise ProviderFailure("soap_request", "soap", status) from error
+        try:
+            services = normalize_darwin_board(self._serialize(board), self.max_rows)
+        except Exception as error:
+            raise ProviderFailure("soap_normalize", "soap") from error
         try:
             _enrich_missing_platforms(services, _railinfo_platforms(self.station))
         except (HTTPError, URLError, OSError, ValueError, TypeError):

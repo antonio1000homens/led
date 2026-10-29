@@ -8,7 +8,7 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 import config_api
-from runtime_config import default_runtime_config
+from runtime_config import RuntimeConfigStore, default_runtime_config
 
 
 class FakeSigningKey:
@@ -38,6 +38,14 @@ class FakeStatusStore:
 
     def screens_state(self):
         return {"fetched_at": "2026-09-13T18:00:00Z", "config_version": 4}
+
+
+class FakeDynamoTable:
+    def __init__(self, item):
+        self.item = copy.deepcopy(item)
+
+    def get_item(self, **_kwargs):
+        return {"Item": copy.deepcopy(self.item)}
 
 
 class FakeRuntimeStore:
@@ -248,13 +256,51 @@ class ConfigApiTests(unittest.TestCase):
             "last_success_at": None,
             "stale": True,
             "data": None,
-            "provider_error": "SECRET upstream body",
+            "error_class": "HTTPError",
+            "error_stage": "soap_request",
+            "error_at": "2026-09-13T17:59:00Z",
+            "http_status": 503,
+            "error_source": "soap",
+            "provider_error": "SECRET upstream body and credentials",
         }
         payload = config_api._status_payload(config, store)
         encoded = json.dumps(payload)
         self.assertNotIn("SECRET", encoded)
         self.assertEqual(payload["feeds"]["departures"]["health"], "unavailable")
+        self.assertEqual(payload["feeds"]["departures"]["last_error_class"], "HTTPError")
+        self.assertEqual(payload["feeds"]["departures"]["last_error_stage"], "soap_request")
+        self.assertEqual(payload["feeds"]["departures"]["last_http_status"], 503)
+        self.assertEqual(payload["feeds"]["departures"]["last_error_source"], "soap")
         self.assertEqual(payload["feeds"]["steam_train"]["health"], "ok")
+
+    def test_control_config_reads_version_100_with_legacy_football_field(self):
+        saved = default_runtime_config({})
+        football = saved["feeds"]["football_fixtures"]
+        football.update(enabled=True, poll_seconds=900, sporting_cp_enabled=True)
+        football.pop("animation_speed")
+        saved.update(config_version=100, updated_by="human:admin@example.com")
+        table = FakeDynamoTable({"config_id": "runtime", **saved})
+        event = {
+            "rawPath": "/api/control/v1/config",
+            "requestContext": {"http": {"method": "GET"}},
+            "headers": {},
+        }
+        env = {"RUNTIME_CONFIG_TABLE": "table", "STATE_BUCKET": "bucket",
+               "PUBLISHER_FUNCTION_NAME": "publisher"}
+        with patch.dict(config_api.os.environ, env, clear=True), \
+             patch.object(config_api, "authenticate_access", return_value=("human:admin@example.com", {})), \
+             patch.object(config_api, "RuntimeConfigStore", side_effect=lambda *_a, **_kw: RuntimeConfigStore(
+                 "table", table=table, defaults=default_runtime_config({})
+             )), \
+             patch.object(config_api, "StatusStore", return_value=FakeStatusStore()):
+            response = config_api.lambda_handler(event, None)
+        self.assertEqual(response["statusCode"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["config_version"], 100)
+        self.assertTrue(payload["feeds"]["football_fixtures"]["enabled"])
+        self.assertEqual(payload["feeds"]["football_fixtures"]["poll_seconds"], 900)
+        self.assertEqual(payload["feeds"]["football_fixtures"]["animation_speed"], 80)
+        self.assertNotIn("animation_speed", table.item["feeds"]["football_fixtures"])
 
 
 if __name__ == "__main__":

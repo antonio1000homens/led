@@ -801,6 +801,11 @@ class ScreenClient:
         self.settings = settings
         self.session = session
         self._managed_session = session is None
+        self._socket_pool = None
+        self._ssl_context = None
+        self._fetch_stage = "session_setup"
+        self.last_error_stage = ""
+        self.last_error_class = ""
 
     def _ensure_session(self):
         if not self._managed_session:
@@ -817,6 +822,8 @@ class ScreenClient:
             import adafruit_connection_manager
             import adafruit_ntp
             import adafruit_requests
+            import socketpool
+            import ssl
 
             pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
             # ESP32-S3 RTC time is lost on power removal. Set it before TLS
@@ -826,27 +833,49 @@ class ScreenClient:
                 print("Setting system time from NTP")
                 ntp = adafruit_ntp.NTP(pool, tz_offset=0, cache_seconds=3600)
                 rtc.RTC().datetime = ntp.datetime
-            ssl_context = adafruit_connection_manager.get_radio_ssl_context(wifi.radio)
+            # Do not share the HTTP manager's pool with MQTT. A forced HTTP
+            # recovery must never close sockets owned by the MQTT client.
+            pool = self._socket_pool or socketpool.SocketPool(wifi.radio)
+            ssl_context = ssl.create_default_context()
             try:
                 with open("/gtsr4.pem", "r") as certificate:
                     ssl_context.load_verify_locations(cadata=certificate.read())
                 print("Loaded GTS Root R4 certificate")
             except (AttributeError, OSError, TypeError) as error:
-                print("GTS Root R4 certificate unavailable:", error)
+                print("GTS Root R4 certificate unavailable:", type(error).__name__)
+            self._socket_pool = pool
+            self._ssl_context = ssl_context
             self.session = adafruit_requests.Session(pool, ssl_context)
+            manager = adafruit_connection_manager.get_connection_manager(pool)
+            if not getattr(manager, "_led_screen_instrumented", False):
+                original_get_socket = manager.get_socket
+
+                def tracked_get_socket(*args, **kwargs):
+                    self._fetch_stage = "connection_setup"
+                    result = original_get_socket(*args, **kwargs)
+                    self._fetch_stage = "response_headers"
+                    return result
+
+                manager.get_socket = tracked_get_socket
+                manager._led_screen_instrumented = True
+            print("SCREEN HTTP LIBRARIES requests={} connection_manager={}".format(
+                getattr(adafruit_requests, "__version__", "unknown"),
+                getattr(adafruit_connection_manager, "__version__", "unknown"),
+            ))
 
     def _recover_request_memory_error(self):
-        """Release cached HTTP sockets and collect before one request retry."""
-        manager = getattr(self.session, "_connection_manager", None)
-        close_sockets = getattr(manager, "_free_sockets", None)
-        if close_sockets is not None:
+        """Recreate only this client's pool, TLS context and HTTP session."""
+        if self._managed_session and self._socket_pool is not None:
             try:
-                try:
-                    close_sockets(force=True)
-                except TypeError:
-                    close_sockets()
+                import adafruit_connection_manager
+
+                adafruit_connection_manager.connection_manager_close_all(
+                    socket_pool=self._socket_pool,
+                )
             except Exception as error:
-                print("SCREEN FETCH SOCKET CLEANUP FAILED:", error)
+                print("SCREEN FETCH OWNED SOCKET CLEANUP FAILED:", type(error).__name__)
+            self.session = None
+            self._ssl_context = None
         try:
             import gc
 
@@ -855,21 +884,25 @@ class ScreenClient:
             pass
 
     def fetch(self):
-        self._ensure_session()
         base = str(self.settings.SCREEN_API_URL).rstrip("/")
         if not base:
             raise ValueError("SCREEN_API_URL is required for api mode")
         response = None
-        stage = "request"
+        self._fetch_stage = "session_setup"
         try:
+            self._ensure_session()
+            self._fetch_stage = "connection_setup"
             print("SCREEN FETCH REQUEST heap_free={}".format(_free_heap_bytes()))
             url = base + "/api/screens"
             try:
                 response = self.session.get(url)
             except MemoryError:
-                print("SCREEN FETCH REQUEST MEMORYERROR; clearing HTTP sockets and retrying")
+                print("SCREEN FETCH REQUEST MEMORYERROR; rebuilding owned HTTP session and retrying")
                 self._recover_request_memory_error()
+                self._ensure_session()
+                self._fetch_stage = "connection_setup"
                 response = self.session.get(url)
+            self._fetch_stage = "response_headers"
             status_code = getattr(response, "status_code", None)
             headers = getattr(response, "headers", {}) or {}
             print("SCREEN FETCH RESPONSE status={} bytes={} heap_free={}".format(
@@ -883,7 +916,7 @@ class ScreenClient:
                 # Keep compatibility with the CPython test double and
                 # requests-like sessions that expose raise_for_status().
                 response.raise_for_status()
-            stage = "json"
+            self._fetch_stage = "response_body"
             payload = response.json()
             print("SCREEN FETCH JSON OK heap_free={}".format(_free_heap_bytes()))
             if not isinstance(payload, dict) or not isinstance(payload.get("screens"), list):
@@ -894,12 +927,22 @@ class ScreenClient:
             clock_at = _http_date_timestamp(headers.get("date") or headers.get("Date"))
             if clock_at:
                 payload["clock_at"] = clock_at
+            self.last_error_stage = ""
+            self.last_error_class = ""
             return payload
-        except MemoryError:
-            print("SCREEN FETCH MEMORYERROR stage={} heap_free={}".format(
-                stage, _free_heap_bytes(),
-            ))
+        except Exception as error:
+            self.last_error_stage = self._fetch_stage
+            self.last_error_class = type(error).__name__
+            if isinstance(error, MemoryError):
+                print("SCREEN FETCH MEMORYERROR stage={} heap_free={}".format(
+                    self.last_error_stage, _free_heap_bytes(),
+                ))
             raise
         finally:
             if response is not None:
-                response.close()
+                try:
+                    response.close()
+                except Exception as error:
+                    print("SCREEN FETCH RESPONSE CLOSE FAILED class={}".format(
+                        type(error).__name__,
+                    ))

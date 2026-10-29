@@ -15,6 +15,7 @@ from server import (
     FixtureCalendarProvider,
     FixtureWeatherProvider,
     FixtureProvider,
+    NationalRailProvider,
     ScreenFeed,
     create_server,
     normalize_darwin_board,
@@ -28,6 +29,42 @@ class SourceLayoutTests(unittest.TestCase):
         self.assertEqual(server_module.PROJECT_ROOT, repository_root)
         self.assertEqual(server_module.SIMULATOR_ROOT, repository_root / "simulator")
         self.assertEqual(server_module.load_dotenv.__defaults__[0], repository_root / ".env")
+
+
+class NationalRailDiagnosticTests(unittest.TestCase):
+    def test_soap_setup_and_request_failures_have_safe_stages(self):
+        provider = NationalRailProvider("secret-token", "NEM")
+        provider._connect = lambda: (_ for _ in ()).throw(RuntimeError("secret config detail"))
+        with self.assertRaises(RuntimeError) as caught:
+            provider.fetch()
+        self.assertEqual(caught.exception.stage, "soap_connect")
+        self.assertEqual(caught.exception.source, "soap")
+        self.assertNotIn("secret config detail", str(caught.exception))
+
+        provider = NationalRailProvider("secret-token", "NEM")
+        provider._connect = lambda: None
+        provider._client = type("Client", (), {"service": type("Service", (), {
+            "GetDepBoardWithDetails": lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                RuntimeError("private SOAP body")
+            ),
+        })()})()
+        with self.assertRaises(RuntimeError) as caught:
+            provider.fetch()
+        self.assertEqual(caught.exception.stage, "soap_request")
+        self.assertNotIn("private SOAP body", str(caught.exception))
+
+    def test_soap_normalization_failure_has_safe_stage(self):
+        provider = NationalRailProvider("secret-token", "NEM")
+        provider._connect = lambda: None
+        provider._client = type("Client", (), {"service": type("Service", (), {
+            "GetDepBoardWithDetails": lambda *_args, **_kwargs: object(),
+        })()})()
+        provider._serialize = lambda _board: {}
+        with unittest.mock.patch.object(server_module, "normalize_darwin_board", side_effect=ValueError("private response")):
+            with self.assertRaises(RuntimeError) as caught:
+                provider.fetch()
+        self.assertEqual(caught.exception.stage, "soap_normalize")
+        self.assertNotIn("private response", str(caught.exception))
 
 
 class FakeProvider:
