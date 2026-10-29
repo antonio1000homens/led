@@ -871,6 +871,45 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertEqual(platform[2], cancelled[2])
         self.assertGreaterEqual(cancelled[1], platform[1] + 3 * led_display.WEATHER_FONT_WIDTH)
 
+    def test_matrix_departure_cancelled_status_fits_after_left_shifted_platform(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.drawn = []
+        display.font = object()
+        display._text = lambda value, x, y, color: display.drawn.append(
+            (str(value), int(x), int(y), color)
+        )
+        display._label = lambda group, value, color, x, y: display.drawn.append(
+            (str(value), int(x), int(y), color)
+        )
+        service = {
+            "scheduled": "12:00", "destination": "London Waterloo",
+            "platform": "2", "cancelled": True, "status": "CANCELLED",
+        }
+        on_time = {
+            "scheduled": "12:10", "destination": "Wimbledon",
+            "platform": "3", "cancelled": False, "status": "On time",
+        }
+
+        with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", False):
+            display._rail_service([], service, (255, 255, 255), 0, 12, 250)
+            display._rail_service([], on_time, (255, 255, 255), 0, 20, 250, ordinal=2)
+
+        platforms = {item[0]: item for item in display.drawn if item[0] in ("P2", "P3")}
+        statuses = {item[0]: item for item in display.drawn if item[0] in ("CANCELLED", "On time")}
+        self.assertEqual(platforms["P2"][1], 154)
+        self.assertEqual(platforms["P3"][1], 154)
+        for status_name, platform_name in (("CANCELLED", "P2"), ("On time", "P3")):
+            self.assertEqual(platforms[platform_name][2], statuses[status_name][2])
+            self.assertGreaterEqual(
+                statuses[status_name][1],
+                platforms[platform_name][1] + 3 * led_display.WEATHER_FONT_WIDTH,
+            )
+        status_right_edges = {
+            statuses[name][1] + len(name) * led_display.WEATHER_FONT_WIDTH
+            for name in statuses
+        }
+        self.assertEqual(len(status_right_edges), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
