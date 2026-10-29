@@ -145,6 +145,22 @@ class FootballScreenTests(unittest.TestCase):
             ("MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"),
         )
 
+    def test_fixture_separator_keeps_space_before_vs_for_club_names(self):
+        fixtures = (
+            ("millwall", "Millwall FC", "Millwall FCVS Derby County",
+             "MILLWALL FC  VS  DERBY COUNTY"),
+            ("sporting_cp", "Sporting CP", "Sporting CPVS Benfica",
+             "SPORTING CP  VS  BENFICA"),
+        )
+        for team_key, team_name, display_fixture, expected in fixtures:
+            with self.subTest(team_key=team_key):
+                screen = {
+                    "kind": "football_score", "status": "PRE", "team_key": team_key,
+                    "team_name": team_name, "display_fixture": display_fixture,
+                    "opponent": "Unused", "kickoff": "2026-10-31T15:00:00Z",
+                }
+                self.assertEqual(football_screen_lines(screen, self.now)[0], expected)
+
     def test_out_of_order_and_duplicate_retained_replays_do_not_replace_snapshot(self):
         newer = snapshot(published="2026-10-26T20:01:00Z", team_name="New name")
         self.assertTrue(self.state.accept("led/football/sporting_cp", newer))
@@ -440,6 +456,24 @@ process.stdout.write(JSON.stringify(output));
         self.assertTrue(all(x >= 22 for _, x, _, _ in display.text))
         self.assertEqual([row[2] for row in display.text], [5, 18])
 
+    def test_matrix_display_keeps_space_before_vs_for_both_clubs(self):
+        cases = (
+            ("millwall", "Millwall FC", "Millwall FCvs Derby County",
+             "MILLWALL FC  VS  DERBY COUNTY"),
+            ("sporting_cp", "Sporting CP", "Sporting CPvs Benfica",
+             "SPORTING CP  VS  BENFICA"),
+        )
+        for team_key, team_name, display_fixture, expected in cases:
+            with self.subTest(team_key=team_key):
+                display = CapturingFootballFixture()
+                screen = {
+                    "kind": "football_score", "status": "PRE", "team_key": team_key,
+                    "team_name": team_name, "display_fixture": display_fixture,
+                    "kickoff": "2026-10-31T15:00:00Z", "ball_animation": False,
+                }
+                display._draw_screen(screen, phase=3.2)
+                self.assertEqual(display.text[0][0], expected)
+
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
     def test_browser_simulator_football_presentation_matches_firmware_contract(self):
         html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
@@ -471,6 +505,9 @@ const results = [
 ];
 drawFootball(sample, 0); results.push(drawn.slice());
 drawFootball(sample, 3.2); results.push(drawn.slice());
+results.push(footballLines({...sample, display_fixture:'Millwall FCvs Derby County'}));
+results.push(footballLines({...sample, team_key:'sporting_cp', team_name:'Sporting CP',
+  display_fixture:'Sporting CPvs Benfica'}));
 process.stdout.write(JSON.stringify(results));
 """
         result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
@@ -495,6 +532,8 @@ process.stdout.write(JSON.stringify(results));
             ["MILLWALL  VS  DERBY COUNTY", 22, 5],
         ])
         self.assertIn(["DUE IN", 214, 5], output[9])
+        self.assertEqual(output[10][0], "MILLWALL FC  VS  DERBY COUNTY")
+        self.assertEqual(output[11][0], "SPORTING CP  VS  BENFICA")
         self.assertIn("screen.kind === 'football_score'", html)
         self.assertIn("document.getElementById('football-preview')", html)
 

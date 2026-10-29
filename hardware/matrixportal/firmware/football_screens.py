@@ -226,6 +226,11 @@ def football_roll_frame(phase, animation_speed=None):
     return int(elapsed * 16 / football_slide_seconds(animation_speed)) % 8
 
 
+def _normalize_fixture_separator(fixture):
+    """Keep a visible gap around VS even if a provider omits its left space."""
+    return re.sub(r"\s*VS\s*", "  VS  ", fixture.upper())
+
+
 def football_screen_lines(screen, now_epoch):
     """Return status-specific text rows for the 256x32 display."""
     team = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
@@ -233,7 +238,7 @@ def football_screen_lines(screen, now_epoch):
     fixture = screen.get("display_fixture")
     if not isinstance(fixture, str) or not fixture.strip():
         fixture = "{} VS {}".format(team, opponent) if opponent else team
-    fixture = re.sub(r"\s+VS\s+", "  VS  ", fixture.upper())
+    fixture = _normalize_fixture_separator(fixture)
     status = screen.get("status")
     competition = str(screen.get("competition") or "")
     if status == "PRE":
@@ -244,7 +249,7 @@ def football_screen_lines(screen, now_epoch):
                            else "{} VS {}".format(team, opponent))
             else:
                 fixture = team
-        return re.sub(r"\s+VS\s+", "  VS  ", fixture.upper()), kickoff_local_label(screen.get("kickoff"))
+        return _normalize_fixture_separator(fixture), kickoff_local_label(screen.get("kickoff"))
     elif status in ("IN", "POST"):
         home = str(screen.get("home_team") or "HOME").upper()
         away = str(screen.get("away_team") or "AWAY").upper()
