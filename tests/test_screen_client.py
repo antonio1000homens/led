@@ -71,6 +71,8 @@ class RotationTests(unittest.TestCase):
         }
         rotation.update_sources([], [recycling], 0)
         self.assertEqual(len(rotation.screens), 1)
+        rotation.maintenance_slot(1000)
+        self.assertIn("static-maintenance", [screen["id"] for screen in rotation.screens])
 
         recycling["schedule_windows"] = [{
             "cron": "0 18 * * 0,1,2,3", "duration_minutes": 1440,
@@ -78,12 +80,12 @@ class RotationTests(unittest.TestCase):
         rotation.update_sources([
             {"id": "today", "kind": "today"},
             {"id": "rail", "kind": "rail_combined"},
-        ], [recycling], 1000)
+        ], [recycling], 2000)
 
         self.assertGreater(len(rotation.screens), 1)
         self.assertIn("today", [screen["id"] for screen in rotation.screens])
         self.assertIn("rail", [screen["id"] for screen in rotation.screens])
-        screen, _ = rotation.current(1000)
+        screen, _ = rotation.current(2000)
         self.assertNotEqual(screen["id"], "schedule-idle")
         self.assertFalse(rotation.schedule_state()["idle"])
 
