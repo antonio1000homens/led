@@ -1,6 +1,7 @@
 import unittest
 from unittest import mock
 from types import SimpleNamespace
+from datetime import datetime, timezone
 
 import screen_client
 from formatting import prepare_rail_presentation
@@ -58,6 +59,34 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_rebuild_replans_when_the_only_retained_mqtt_screen_expires_by_schedule(self):
+        rotation = ScreenRotation(ticks_per_second=1000)
+        thursday_evening = int(datetime.fromisoformat(
+            "2026-10-29T21:36:00+00:00"
+        ).timestamp())
+        rotation.set_schedule_epoch(thursday_evening)
+        recycling = {
+            "id": "bin-recycling", "kind": "bin_collection",
+            "schedule_windows": [],
+        }
+        rotation.update_sources([], [recycling], 0)
+        self.assertEqual(len(rotation.screens), 1)
+
+        recycling["schedule_windows"] = [{
+            "cron": "0 18 * * 0,1,2,3", "duration_minutes": 1440,
+        }]
+        rotation.update_sources([
+            {"id": "today", "kind": "today"},
+            {"id": "rail", "kind": "rail_combined"},
+        ], [recycling], 1000)
+
+        self.assertGreater(len(rotation.screens), 1)
+        self.assertIn("today", [screen["id"] for screen in rotation.screens])
+        self.assertIn("rail", [screen["id"] for screen in rotation.screens])
+        screen, _ = rotation.current(1000)
+        self.assertNotEqual(screen["id"], "schedule-idle")
+        self.assertFalse(rotation.schedule_state()["idle"])
+
     def test_schedule_state_reports_active_and_disabled_cycle_counts(self):
         rotation = ScreenRotation()
         rotation.update_sources([

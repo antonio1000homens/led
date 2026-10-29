@@ -487,6 +487,14 @@ class ScreenRotation:
             or (index + 1 < len(next_screens)
                 and self.is_bus_followup(item, next_screens[index + 1]))
         ]
+        # MQTT may populate a one-screen cycle before the first HTTP fetch.
+        # If its schedule closes, preserving that now-inactive cycle would
+        # strand newly available HTTP screens outside the current rotation.
+        if (next_screens
+                and not any(self._schedule_active(item) for item in next_screens)
+                and any(self._schedule_active(item) for item in available)):
+            next_screens = self._cycle_plan(available)
+            old_current = None
         if not next_screens:
             next_screens = self._cycle_plan(available)
         self.screens = next_screens
