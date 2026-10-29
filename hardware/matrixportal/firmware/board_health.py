@@ -6,6 +6,16 @@ ERROR_CLASSES = frozenset({
     "ImportError", "AssertionError", "HTTPError", "URLError", "ConnectionError",
     "TimeoutError", "JSONDecodeError", "other",
 })
+_SAFE_TIMESTAMP_CHARS = frozenset("0123456789TtZz:.-+ ")
+
+
+def safe_snapshot_timestamp(value):
+    """Keep publisher-time diagnostics bounded and free of arbitrary text."""
+    if not isinstance(value, str) or not value or len(value) > 32:
+        return "unknown"
+    if any(character not in _SAFE_TIMESTAMP_CHARS for character in value):
+        return "unknown"
+    return value
 
 
 def _text(value, limit=48):
@@ -21,8 +31,14 @@ def _text(value, limit=48):
 def _source_timestamp(value):
     if not isinstance(value, str):
         return None
-    value = "".join(char for char in value if "0" <= char <= "9" or char in "-:.TZ+")[:32]
+    if len(value) > 32 or not value or any(char not in "0123456789TtZz:.-+ " for char in value):
+        return None
     return value if len(value) >= 10 else None
+
+
+def safe_snapshot_timestamp(value):
+    """Keep serial freshness diagnostics bounded and free of arbitrary text."""
+    return _source_timestamp(value) or "unknown"
 
 
 class BoardHealth:

@@ -4,10 +4,16 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hardware/matrixportal/firmware"))
-from board_health import BoardHealth, HEARTBEAT_SECONDS
+from board_health import BoardHealth, HEARTBEAT_SECONDS, safe_snapshot_timestamp
 
 
 class BoardHealthTests(unittest.TestCase):
+    def test_snapshot_timestamp_is_bounded_and_accepts_publisher_time(self):
+        timestamp = "2026-10-29T21:05:36.033878Z"
+        self.assertEqual(safe_snapshot_timestamp(timestamp), timestamp)
+        self.assertEqual(safe_snapshot_timestamp("https://private.example/?token=x"), "unknown")
+        self.assertEqual(safe_snapshot_timestamp("x" * 33), "unknown")
+
     def test_heartbeat_is_due_by_progress_time_and_payload_is_compact(self):
         health = BoardHealth("matrixportal-s3-abc1", "rev_42")
         self.assertTrue(health.due(0))
