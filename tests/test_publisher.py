@@ -93,6 +93,35 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(screen["services"], [])
         self.assertEqual(screen["empty_state"], "No Services")
 
+    def test_retry_at_ttl_edge_tolerates_scheduled_invocation_jitter(self):
+        self.now = self.now.replace(microsecond=228000)
+        rail = FakeProvider([
+            [{"time": "10:01", "destination": "Waterloo"}],
+            RuntimeError("temporary upstream failure"),
+            [{"time": "10:02", "destination": "Waterloo"}],
+        ])
+
+        Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        self.now += timedelta(seconds=60)
+        failed = Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        self.assertTrue(screen_by_id(failed, "departures")["stale"])
+        self.assertEqual(rail.calls, 2)
+
+        # A call 59 seconds after the failure remains too early. The next
+        # scheduled start is 59.982 seconds later, but crosses the 60-second
+        # wall-clock second bucket and must not miss this poll.
+        self.now += timedelta(seconds=59)
+        early = Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        self.assertTrue(screen_by_id(early, "departures")["stale"])
+        self.assertEqual(rail.calls, 2)
+
+        self.now += timedelta(milliseconds=982)
+        recovered = Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        screen = screen_by_id(recovered, "departures")
+        self.assertFalse(screen["stale"])
+        self.assertEqual(screen["services"][0]["time"], "10:02")
+        self.assertEqual(rail.calls, 3)
+
     def test_refresh_failure_keeps_last_good_cache_and_records_safe_diagnostics(self):
         publisher = Publisher(self.config, self.store, rail_provider=FakeProvider([]),
                               utcnow=self.utcnow)

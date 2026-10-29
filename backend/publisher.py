@@ -322,7 +322,13 @@ class Publisher:
         if not previous or previous.get("data") is None:
             return True
         last = _parse_iso(previous.get("last_attempt_at"))
-        return last is None or (now - last).total_seconds() >= ttl
+        if last is None:
+            return True
+        # Scheduled Lambda starts vary by milliseconds. Compare whole-second
+        # buckets so a call just before the TTL edge does not skip a poll and
+        # add an entire schedule interval to the retry delay.
+        elapsed_seconds = int(now.timestamp()) - int(last.timestamp())
+        return elapsed_seconds >= ttl
 
     def _refresh(self, name, previous, ttl, fetcher, now, force=False):
         previous = copy.deepcopy(previous or {})
