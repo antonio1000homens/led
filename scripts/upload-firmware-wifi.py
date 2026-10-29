@@ -391,8 +391,6 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("pause/resume options can only be used for a firmware upload")
     host = args.host if "://" in args.host else "http://" + args.host
     if args.password_stdin:
-        if not args.follow_serial:
-            parser.error("--password-stdin requires --follow-serial")
         password = sys.stdin.readline().rstrip("\r\n")
         if not password:
             parser.error("no Web Workflow password received on stdin")
