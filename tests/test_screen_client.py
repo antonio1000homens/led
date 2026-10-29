@@ -1,5 +1,6 @@
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 import screen_client
 from formatting import prepare_rail_presentation
@@ -509,7 +510,7 @@ class ClientTests(unittest.TestCase):
         self.assertIs(screens[0]["weather"], shared)
         self.assertEqual(screens[1]["weather"], {"temperature_c": 12})
 
-    def test_request_memoryerror_closes_cached_http_sockets_and_retries_once(self):
+    def test_request_memoryerror_retries_once_without_touching_injected_socket_manager(self):
         response = CircuitPythonResponse({"screens": []})
         session = MemoryRetrySession(response)
 
@@ -527,8 +528,85 @@ class ClientTests(unittest.TestCase):
 
         self.assertEqual(payload["screens"], [])
         self.assertEqual(len(session.urls), 2)
-        self.assertEqual(session._connection_manager.closed_sockets, 1)
+        self.assertEqual(getattr(session._connection_manager, "closed_sockets", 0), 0)
         self.assertTrue(response.closed)
+
+    def test_owned_recovery_closes_only_the_screen_pool_and_rebuilds_session_tls(self):
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings)
+        pool = object()
+        client.session = object()
+        client._socket_pool = pool
+        manager_module = type("ConnectionManagerModule", (), {})()
+        calls = []
+        manager_module.connection_manager_close_all = lambda **kwargs: calls.append(kwargs)
+        with mock.patch.dict("sys.modules", {"adafruit_connection_manager": manager_module}):
+            client._recover_request_memory_error()
+        self.assertEqual(calls, [{"socket_pool": pool}])
+        self.assertIsNone(client.session)
+        self.assertIs(client._socket_pool, pool)
+        self.assertIsNone(client._ssl_context)
+
+    def test_managed_http_uses_a_dedicated_pool_and_instruments_only_once(self):
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings)
+        shared_mqtt_pool = object()
+        screen_pool = object()
+        closed_pools = []
+        base_calls = []
+
+        class Manager:
+            def get_socket(self):
+                base_calls.append(True)
+                return object()
+
+        manager = Manager()
+
+        class SSLContext:
+            def load_verify_locations(self, **_kwargs):
+                return None
+
+        class Session:
+            def __init__(self, pool, context):
+                self.pool = pool
+                self.context = context
+
+        connection_manager = SimpleNamespace(
+            get_radio_socketpool=lambda _radio: shared_mqtt_pool,
+            get_connection_manager=lambda _pool: manager,
+            connection_manager_close_all=lambda **kwargs: closed_pools.append(kwargs),
+        )
+        modules = {
+            "adafruit_connection_manager": connection_manager,
+            "adafruit_ntp": SimpleNamespace(),
+            "adafruit_requests": SimpleNamespace(Session=Session, __version__="4.1.17"),
+            "socketpool": SimpleNamespace(SocketPool=lambda _radio: screen_pool),
+            "ssl": SimpleNamespace(create_default_context=SSLContext),
+            "rtc": SimpleNamespace(),
+            "wifi": SimpleNamespace(radio=SimpleNamespace(connected=True)),
+        }
+        with mock.patch.dict("sys.modules", modules):
+            client._ensure_session()
+            self.assertIs(client.session.pool, screen_pool)
+            self.assertIsNot(client.session.pool, shared_mqtt_pool)
+            manager.get_socket()
+            self.assertEqual(client._fetch_stage, "response_headers")
+            client._recover_request_memory_error()
+            self.assertEqual(closed_pools, [{"socket_pool": screen_pool}])
+            client._ensure_session()
+            manager.get_socket()
+        self.assertEqual(len(base_calls), 2)
+
+    def test_failed_recovery_retry_returns_to_caller_and_closes_any_response(self):
+        response = CircuitPythonResponse({"screens": []})
+        session = MemoryRetrySession(response)
+        session.get = lambda _url: (_ for _ in ()).throw(MemoryError("allocation"))
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings, session=session)
+        with self.assertRaises(MemoryError):
+            client.fetch()
+        self.assertEqual(client.last_error_class, "MemoryError")
+        self.assertEqual(client.last_error_stage, "connection_setup")
 
     def test_current_http_date_sets_clock_without_changing_data_age(self):
         response = CircuitPythonResponse({"fetched_at": "2026-10-04T21:30:00Z", "screens": []})
@@ -593,6 +671,17 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ScreenClient(Settings, session=FakeSession(response)).fetch()
         self.assertTrue(response.closed)
+
+    def test_json_failure_closes_response_and_records_body_stage(self):
+        response = CircuitPythonResponse({"screens": []})
+        response.json = lambda: (_ for _ in ()).throw(ValueError("private body"))
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings, session=FakeSession(response))
+        with self.assertRaisesRegex(ValueError, "private body"):
+            client.fetch()
+        self.assertTrue(response.closed)
+        self.assertEqual(client.last_error_stage, "response_body")
+        self.assertEqual(client.last_error_class, "ValueError")
 
 
 if __name__ == "__main__":

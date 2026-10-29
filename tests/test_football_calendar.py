@@ -2,6 +2,8 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
 from urllib.parse import unquote
 
 from football_calendar import (
@@ -425,6 +427,54 @@ class FootballCalendarTests(unittest.TestCase):
         result = provider.fetch(NOW, enabled_teams=("millwall",))
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["opponent_long_name"], "Derby County")
+
+    def test_public_ical_valid_empty_calendar_is_success(self):
+        calls = []
+
+        def empty_calendar(url):
+            calls.append(url)
+            return b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
+
+        provider = PublicICalFixtureProvider(fetch_ical=empty_calendar)
+        self.assertEqual(provider.fetch(NOW, enabled_teams=("sporting_cp", "millwall")), [])
+        self.assertEqual(len(calls), 2)
+
+    def test_public_ical_checks_sources_independently_and_identifies_http_failure(self):
+        calls = []
+
+        def one_source_fails(url):
+            calls.append(url)
+            if len(calls) == 1:
+                raise HTTPError(url, 503, "private provider detail", {}, None)
+            return b"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n"
+
+        provider = PublicICalFixtureProvider(fetch_ical=one_source_fails)
+        with self.assertRaises(RuntimeError) as caught:
+            provider.fetch(NOW, enabled_teams=("sporting_cp", "millwall"))
+        self.assertEqual(caught.exception.stage, "http_rejection")
+        self.assertEqual(caught.exception.source, "sporting_cp")
+        self.assertEqual(caught.exception.status_code, 503)
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn("private provider detail", str(caught.exception))
+
+    def test_public_ical_malformed_response_is_parse_failure_not_empty_success(self):
+        provider = PublicICalFixtureProvider(fetch_ical=lambda _url: b"not a calendar")
+        with self.assertRaises(RuntimeError) as caught:
+            provider.fetch(NOW, enabled_teams=("millwall",))
+        self.assertEqual(caught.exception.stage, "parse")
+        self.assertEqual(caught.exception.source, "millwall")
+
+    def test_public_ical_normalization_error_has_its_own_stage(self):
+        raw = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:x\r\n"
+            "DTSTART:20261030T150000Z\r\nSUMMARY:Millwall FC - Derby County\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        ).encode()
+        provider = PublicICalFixtureProvider(fetch_ical=lambda _url: raw)
+        with patch("football_calendar.normalize_event", side_effect=ValueError("private normalization detail")):
+            with self.assertRaises(RuntimeError) as caught:
+                provider.fetch(NOW, enabled_teams=("millwall",))
+        self.assertEqual(caught.exception.stage, "normalize")
 
     def test_team_enablement_flags_default_migrate_validate_and_filter_output(self):
         default = default_runtime_config({})
