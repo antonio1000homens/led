@@ -25,6 +25,20 @@ def _free_heap_bytes():
         return -1
 
 
+class _ScreenTLSContext:
+    """Proxy the public TLS interface to expose bounded setup diagnostics."""
+
+    def __init__(self, context, client):
+        self._context = context
+        self._client = client
+
+    def wrap_socket(self, *args, **kwargs):
+        self._client._fetch_stage = "tls_setup"
+        result = self._context.wrap_socket(*args, **kwargs)
+        self._client._fetch_stage = "connection_setup"
+        return result
+
+
 def _valid_rail_presentation(value):
     if not isinstance(value, dict):
         return False
@@ -844,8 +858,8 @@ class ScreenClient:
             except (AttributeError, OSError, TypeError) as error:
                 print("GTS Root R4 certificate unavailable:", type(error).__name__)
             self._socket_pool = pool
-            self._ssl_context = ssl_context
-            self.session = adafruit_requests.Session(pool, ssl_context)
+            self._ssl_context = _ScreenTLSContext(ssl_context, self)
+            self.session = adafruit_requests.Session(pool, self._ssl_context)
             manager = adafruit_connection_manager.get_connection_manager(pool)
             if not getattr(manager, "_led_screen_instrumented", False):
                 original_get_socket = manager.get_socket
@@ -871,6 +885,7 @@ class ScreenClient:
 
                 adafruit_connection_manager.connection_manager_close_all(
                     socket_pool=self._socket_pool,
+                    release_references=True,
                 )
             except Exception as error:
                 print("SCREEN FETCH OWNED SOCKET CLEANUP FAILED:", type(error).__name__)
@@ -931,6 +946,10 @@ class ScreenClient:
             self.last_error_class = ""
             return payload
         except Exception as error:
+            if isinstance(error, MemoryError):
+                # The one retry has failed (or setup failed before a request).
+                # Release only this HTTP client's pool before returning to rotation.
+                self._recover_request_memory_error()
             self.last_error_stage = self._fetch_stage
             self.last_error_class = type(error).__name__
             if isinstance(error, MemoryError):
