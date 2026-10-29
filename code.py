@@ -13,7 +13,7 @@ for source_path in ("/hardware/matrixportal/firmware", "/shared", "hardware/matr
         sys.path.append(source_path)
 
 from monotonic_clock import elapsed_seconds, ticks_ms
-from board_health import BoardHealth
+from board_health import BoardHealth, safe_snapshot_timestamp
 
 try:
     import gc
@@ -1028,7 +1028,10 @@ while True:
             telemetry_fetches += 1
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
-            print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
+            print("FETCH OK screens={} duration={:.3f} fetched_at={}".format(
+                len(screens or []), fetch_duration,
+                safe_snapshot_timestamp(payload.get("fetched_at")),
+            ))
             for candidate in screens or ():
                 if (not isinstance(candidate, dict)
                         or candidate.get("id") != "departures"
