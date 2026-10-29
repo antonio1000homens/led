@@ -355,7 +355,7 @@ RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
 RAIL_DESTINATION_X = 63
 RAIL_DESTINATION_TRACKING = 1
-RAIL_PLATFORM_X = 164
+RAIL_PLATFORM_X = 154
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
 WEATHER_SPRITE_ALIASES = {
@@ -2262,9 +2262,8 @@ class MatrixDisplay:
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
         status_x = (
-            max(0, CLOCK_X - HEADER_GAP - len(status) * WEATHER_FONT_WIDTH)
-            if status and ordinal == 1
-            else (_right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge))
+            max(0, CLOCK_X - HEADER_GAP - 10 - len(status) * WEATHER_FONT_WIDTH)
+            if status else int(right_edge)
         )
         platform_x = RAIL_PLATFORM_X
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
@@ -4697,9 +4696,8 @@ class FixtureDisplay:
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
         status_x = (
-            max(0, CLOCK_X - HEADER_GAP - len(status) * WEATHER_FONT_WIDTH)
-            if status and ordinal == 1
-            else (_right_aligned_x(status, DISPLAY_WIDTH) if status else int(right_edge))
+            max(0, CLOCK_X - HEADER_GAP - 10 - len(status) * WEATHER_FONT_WIDTH)
+            if status else int(right_edge)
         )
         platform_x = RAIL_PLATFORM_X
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
