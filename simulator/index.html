@@ -453,7 +453,7 @@
     const RAIL_ORDINAL_X = 0;
     const RAIL_TIME_X = 96;
     const RAIL_DESTINATION_X = 252;
-    const RAIL_PLATFORM_X = 656;
+    const RAIL_PLATFORM_X = 616;
     const RAIL_COLUMN_GAP = 16;
     const DEPARTURE_SLIDE_SECONDS = 0.8;
     const AGENDA_VISIBLE_ROWS = 3;
@@ -1535,9 +1535,7 @@
     function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1) {
       const columns = railColumns(service, ordinal);
       const statusX = columns.status
-        ? (ordinal === 1
-          ? Math.max(0, CLOCK_X - 4 * FONT_PIXEL_SCALE - measureLedText(columns.status).width)
-          : Math.max(0, logicalCanvas.width - measureLedText(columns.status).width))
+        ? Math.max(0, CLOCK_X - 4 * FONT_PIXEL_SCALE - 10 * FONT_PIXEL_SCALE - measureLedText(columns.status).width)
         : rightEdge;
       const platformX = RAIL_PLATFORM_X;
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);

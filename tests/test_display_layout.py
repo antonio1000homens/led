@@ -851,10 +851,25 @@ class DisplayLayoutTests(unittest.TestCase):
 
         status_x = [x for text, x, _y, _color in display.drawn if text == "On time"]
         self.assertEqual(len(status_x), 4)
-        self.assertLess(status_x[0], status_x[1])
-        self.assertEqual(len(set(status_x[1:])), 1)
+        self.assertEqual(len(set(status_x)), 1)
         ordinals = [text for text, _x, _y, _color in display.drawn if text in ("1st", "2nd", "3rd", "4th")]
         self.assertEqual(ordinals[:4], ["1st", "2nd", "3rd", "4th"])
+
+    def test_departure_cancelled_status_fits_after_left_shifted_platform(self):
+        display = CapturingFixture()
+        display._draw_screen({
+            "kind": "rail_combined",
+            "services": [{
+                "time": "12:00", "destination": "Millwall FC", "platform": "2",
+                "cancelled": True, "status": "CANCELLED",
+            }],
+        }, phase=0, clock_date="2026-09-15")
+
+        platform = next(item for item in display.drawn if item[0] == "P2")
+        cancelled = next(item for item in display.drawn if item[0] == "CANCELLED")
+        self.assertEqual(platform[1], 154)
+        self.assertEqual(platform[2], cancelled[2])
+        self.assertGreaterEqual(cancelled[1], platform[1] + 3 * led_display.WEATHER_FONT_WIDTH)
 
 
 if __name__ == "__main__":
