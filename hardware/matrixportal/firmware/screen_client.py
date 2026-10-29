@@ -870,7 +870,9 @@ class ScreenClient:
             import socketpool
             import ssl
 
-            pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
+            # Keep HTTP and MQTT sockets in separate pools. The HTTP-owned
+            # pool can be force-closed during recovery without touching MQTT.
+            pool = self._socket_pool or socketpool.SocketPool(wifi.radio)
             # ESP32-S3 RTC time is lost on power removal. Set it before TLS
             # certificate validation, otherwise HTTPS fails with an mbedTLS
             # certificate-time error on a freshly powered board.
@@ -878,9 +880,6 @@ class ScreenClient:
                 print("Setting system time from NTP")
                 ntp = adafruit_ntp.NTP(pool, tz_offset=0, cache_seconds=3600)
                 rtc.RTC().datetime = ntp.datetime
-            # Do not share the HTTP manager's pool with MQTT. A forced HTTP
-            # recovery must never close sockets owned by the MQTT client.
-            pool = self._socket_pool or socketpool.SocketPool(wifi.radio)
             ssl_context = ssl.create_default_context()
             try:
                 with open("/gtsr4.pem", "r") as certificate:
@@ -916,8 +915,9 @@ class ScreenClient:
 
                 adafruit_connection_manager.connection_manager_close_all(
                     socket_pool=self._socket_pool,
-                    release_references=True,
+                    release_references=False,
                 )
+                print("SCREEN FETCH OWNED SOCKETS CLOSED")
             except Exception as error:
                 print("SCREEN FETCH OWNED SOCKET CLEANUP FAILED:", type(error).__name__)
             self.session = None

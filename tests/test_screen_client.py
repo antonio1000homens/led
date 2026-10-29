@@ -588,10 +588,15 @@ class ClientTests(unittest.TestCase):
         client._socket_pool = pool
         manager_module = type("ConnectionManagerModule", (), {})()
         calls = []
-        manager_module.connection_manager_close_all = lambda **kwargs: calls.append(kwargs)
+        def close_all(**kwargs):
+            if kwargs.get("release_references"):
+                raise KeyError(pool)
+            calls.append(kwargs)
+
+        manager_module.connection_manager_close_all = close_all
         with mock.patch.dict("sys.modules", {"adafruit_connection_manager": manager_module}):
             client._recover_request_memory_error()
-        self.assertEqual(calls, [{"socket_pool": pool, "release_references": True}])
+        self.assertEqual(calls, [{"socket_pool": pool, "release_references": False}])
         self.assertIsNone(client.session)
         self.assertIs(client._socket_pool, pool)
         self.assertIsNone(client._ssl_context)
@@ -610,6 +615,7 @@ class ClientTests(unittest.TestCase):
                 return object()
 
         manager = Manager()
+        shared_pool_lookups = []
 
         class SSLContext:
             def load_verify_locations(self, **_kwargs):
@@ -626,7 +632,7 @@ class ClientTests(unittest.TestCase):
                 self.context = context
 
         connection_manager = SimpleNamespace(
-            get_radio_socketpool=lambda _radio: shared_mqtt_pool,
+            get_radio_socketpool=lambda radio: shared_pool_lookups.append(radio) or shared_mqtt_pool,
             get_connection_manager=lambda _pool: manager,
             connection_manager_close_all=lambda **kwargs: closed_pools.append(kwargs),
         )
@@ -651,10 +657,11 @@ class ClientTests(unittest.TestCase):
             manager.get_socket()
             self.assertEqual(client._fetch_stage, "response_headers")
             client._recover_request_memory_error()
-            self.assertEqual(closed_pools, [{"socket_pool": screen_pool, "release_references": True}])
+            self.assertEqual(closed_pools, [{"socket_pool": screen_pool, "release_references": False}])
             client._ensure_session()
             manager.get_socket()
         self.assertEqual(len(base_calls), 2)
+        self.assertEqual(shared_pool_lookups, [])
 
     def test_failed_recovery_retry_returns_to_caller_and_closes_any_response(self):
         response = CircuitPythonResponse({"screens": []})
