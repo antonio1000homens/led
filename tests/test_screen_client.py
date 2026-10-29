@@ -58,6 +58,24 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_schedule_state_reports_active_and_disabled_cycle_counts(self):
+        rotation = ScreenRotation()
+        rotation.update_sources([
+            {"id": "active", "kind": "message"},
+            {"id": "disabled", "kind": "message", "schedule_enabled": False},
+            {"id": "active-two", "kind": "message", "schedule_windows": []},
+        ], [], 0)
+
+        self.assertEqual(rotation.schedule_state(), {
+            "http": 3,
+            "mqtt": 0,
+            "cycle": 3,
+            "active": 2,
+            "disabled": 1,
+            "windowed": 0,
+            "idle": False,
+        })
+
     def test_next_paired_rail_screen_finds_future_train_pair(self):
         rotation = ScreenRotation()
         rotation.update([
