@@ -206,6 +206,8 @@
     const FOOTBALL_START_X = 256;
     const FOOTBALL_END_X = 2;
     const FOOTBALL_TEXT_X = 22;
+    const FOOTBALL_LIVE_RIGHT_X = 184;
+    const FOOTBALL_LIVE_TEXT_MAX_CHARS = Math.floor((FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X) / 6);
     const FOOTBALL_TEAM_NAMES = {
       sporting_cp: 'SPORTING CP', millwall: 'MILLWALL FC',
       england: 'ENGLAND', portugal: 'PORTUGAL'
@@ -220,8 +222,14 @@
       millwall: '#0000ff',
       portugal: '#ff0000'
     };
+    const FOOTBALL_TEAM_COLOR_CYCLES = {
+      sporting_cp: ['#00ff00', '#ffffff'],
+      england: ['#ffffff', '#ff0000'],
+      millwall: ['#0000ff', '#ffffff'],
+      portugal: ['#ff0000', '#00ff00']
+    };
     const FOOTBALL_FIXTURE_TEXT_COLOR = '#ffff00';
-    const FOOTBALL_VS_COLUMN = 14;
+    const FOOTBALL_VS_COLUMN = 10;
     const CLOCK_X = 231 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -1216,7 +1224,7 @@
         const left = fixture.slice(0, separator.index).trim();
         const right = fixture.slice(separator.index + separator[0].length).trim();
         const padding = Math.max(1, FOOTBALL_VS_COLUMN - left.length);
-        fixture = `${left}${' '.repeat(padding)}VS  ${right}`;
+        fixture = `${left}${' '.repeat(padding)}VS ${right}`;
       }
       if (screen.status === 'PRE') return [fixture, footballKickoffLabel(screen.kickoff)];
       let detail;
@@ -1246,6 +1254,12 @@
       const duration = footballSlideSeconds(screen);
       const x = Math.max(FOOTBALL_END_X, FOOTBALL_START_X - Math.floor((FOOTBALL_START_X - FOOTBALL_END_X) * elapsed / duration));
       return { x, infoVisible: x === FOOTBALL_END_X };
+    }
+
+    function footballTeamColor(screen, phase) {
+      const colors = FOOTBALL_TEAM_COLOR_CYCLES[screen.team_key];
+      if (!colors) return FOOTBALL_TEAM_COLORS[screen.team_key] || '#ffffff';
+      return colors[Math.floor(Math.max(0, Number(phase) || 0) / 2) % colors.length];
     }
 
     function footballDueIn(kickoff, now = Date.now()) {
@@ -1283,10 +1297,11 @@
       });
     }
 
-    function drawFootballTeamLine(screen, value, x, y, color) {
+    function drawFootballTeamLine(screen, value, x, y, color, phase = 0) {
       const text = String(value ?? '');
       const key = screen.team_key;
-      const teamColor = FOOTBALL_TEAM_COLORS[key];
+      const teamColor = screen.status === 'IN'
+        ? footballTeamColor(screen, phase) : FOOTBALL_TEAM_COLORS[key];
       let name = String(FOOTBALL_TEAM_COLOUR_NAMES[key]
         || screen.team_name || FOOTBALL_TEAM_NAMES[key] || '').trim().toUpperCase();
       let start = name ? text.toUpperCase().indexOf(name) : -1;
@@ -1298,7 +1313,7 @@
       });
     }
 
-    function drawFootballLargeTeamLine(screen, value, x, y, color) {
+    function drawFootballLargeTeamLine(screen, value, x, y, color, phase = 0) {
       const text = String(value ?? '');
       const key = screen.team_key;
       const teamColor = FOOTBALL_TEAM_COLORS[key];
@@ -1306,20 +1321,46 @@
         || screen.team_name || FOOTBALL_TEAM_NAMES[key] || '').trim().toUpperCase();
       const start = name ? text.toUpperCase().indexOf(name) : -1;
       [...text].forEach((character, index) => {
-        context.fillStyle = teamColor && start >= 0 && index >= start
+        const trackedColor = teamColor && start >= 0 && index >= start
           && index < start + name.length && character !== ' ' ? teamColor : color;
         const rows = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT]
           || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
         rows.forEach((bits, row) => {
-          const top = Math.floor(row * 9 / 7);
-          const bottom = Math.floor((row + 1) * 9 / 7);
+          const top = Math.floor(row * 11 / 7);
+          const bottom = Math.floor((row + 1) * 11 / 7);
           for (let column = 0; column < 5; column += 1) {
             if (!(bits & (1 << (4 - column)))) continue;
             for (let enlargedRow = top; enlargedRow < bottom; enlargedRow += 1) {
+              if (screen.status === 'IN') {
+                const gradientX = index * 6 + column;
+                const gradientY = index * 14 + enlargedRow;
+                const gradientColor = todayDatePixelColor(
+                  todayDateColumnColor(phase, FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X, gradientX),
+                  gradientX, gradientY);
+                context.fillStyle = `#${gradientColor.toString(16).padStart(6, '0')}`;
+              } else {
+                context.fillStyle = trackedColor;
+              }
               context.fillRect((x + index * 6 + column) * FONT_PIXEL_SCALE,
                 (y + enlargedRow) * FONT_PIXEL_SCALE,
                 FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
             }
+          }
+        });
+      });
+    }
+
+    function drawFootballLargeScore(value, x, y, color) {
+      [...String(value ?? '')].forEach((character, index) => {
+        const rows = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT]
+          || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
+        context.fillStyle = color;
+        rows.forEach((bits, row) => {
+          for (let column = 0; column < 5; column += 1) {
+            if (!(bits & (1 << (4 - column)))) continue;
+            context.fillRect((x + index * 12 + column * 2) * FONT_PIXEL_SCALE,
+              (y + row * 2) * FONT_PIXEL_SCALE,
+              2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
           }
         });
       });
@@ -1342,7 +1383,7 @@
       const isPre = screen.status === 'PRE';
       if (isPre) {
         // Match and scheduled local date travel with the ball; no KO: prefix.
-        drawFootballLargeTeamLine(screen, String(rows[0]).slice(0, 29),
+        drawFootballLargeTeamLine(screen, String(rows[0]).slice(0, 39),
           offset + FOOTBALL_TEXT_X, 5, FOOTBALL_FIXTURE_TEXT_COLOR);
         context.fillStyle = '#ffffff';
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE);
@@ -1354,6 +1395,27 @@
           // aligned without shifting its column when units disappear.
           drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 25, '#ffffff');
         }
+      } else if (screen.status === 'IN') {
+        const tracked = String(screen.team_name || screen.team_key || 'FOOTBALL').toUpperCase();
+        const opponent = String(screen.opponent_long_name || screen.opponent || 'OPPONENT').toUpperCase();
+        const side = String(screen.team_homeaway || screen.homeaway || 'home').toLowerCase();
+        const home = String(screen.home_team || (['away', 'a'].includes(side) ? opponent : tracked)).toUpperCase();
+        const away = String(screen.away_team || (['away', 'a'].includes(side) ? tracked : opponent)).toUpperCase();
+        drawFootballLargeTeamLine(screen, home.slice(0, FOOTBALL_LIVE_TEXT_MAX_CHARS),
+          FOOTBALL_TEXT_X, 2, '#ffffff', phase);
+        drawFootballLargeTeamLine(screen, away.slice(0, FOOTBALL_LIVE_TEXT_MAX_CHARS),
+          FOOTBALL_TEXT_X, 16, '#ffffff', phase);
+        const clock = String(screen.clock || 'LIVE').toUpperCase().slice(0, 12);
+        context.fillStyle = '#ffaa00';
+        drawLedText(clock,
+          (FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - clock.length * 6)) * FONT_PIXEL_SCALE,
+          2 * FONT_PIXEL_SCALE);
+        const score = screen.home_score == null || screen.away_score == null
+          ? '--' : `${screen.home_score}-${screen.away_score}`;
+        const scoreX = FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - (score.length * 12 - 2));
+        const scoreColor = screen.goal_flash_active && Math.floor(Math.max(0, phase) * 4) % 2
+          ? '#ff3300' : '#ffffff';
+        drawFootballLargeScore(score, scoreX, 17, scoreColor);
       } else {
         rows.slice(0, 4).forEach((line, index) => {
           const value = String(line).slice(0, 38);
@@ -1361,7 +1423,7 @@
           const baseColor = fixtureLine ? FOOTBALL_FIXTURE_TEXT_COLOR : '#ffffff';
           context.fillStyle = index === 3 && screen.stale ? '#ff5555' : baseColor;
           if (index < 2 && value.includes(FOOTBALL_TEAM_COLOUR_NAMES[screen.team_key] || '\u0000')) {
-            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, baseColor);
+            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, baseColor, phase);
           } else {
             drawLedText(value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
           }
@@ -1370,11 +1432,12 @@
     }
 
     function drawFootball(screen, phase) {
-      const { x, infoVisible } = footballBallPosition(phase, true, screen);
+      const animate = screen.status !== 'IN';
+      const { x, infoVisible } = footballBallPosition(phase, animate, screen);
       const offset = x - FOOTBALL_END_X;
       const previous = typeof cyclePlan !== 'undefined' && typeof rotationIndex !== 'undefined'
         && rotationIndex > 0 ? cyclePlan[rotationIndex - 1] : null;
-      if (previous && previous.kind === 'football_score' && !infoVisible) {
+      if (animate && previous && previous.kind === 'football_score' && !infoVisible) {
         drawFootballScene(previous, footballSlideSeconds(previous), offset - (FOOTBALL_START_X - FOOTBALL_END_X), true);
       }
       drawFootballScene(screen, phase, offset, infoVisible);

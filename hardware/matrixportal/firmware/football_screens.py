@@ -36,7 +36,9 @@ FOOTBALL_START_X = 256
 FOOTBALL_END_X = 2
 FOOTBALL_BALL_WIDTH = 16
 FOOTBALL_TEXT_X = FOOTBALL_END_X + FOOTBALL_BALL_WIDTH + 4
-FOOTBALL_VS_COLUMN = 14
+FOOTBALL_LIVE_RIGHT_X = 184
+FOOTBALL_LIVE_TEXT_MAX_CHARS = (FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X) // 6
+FOOTBALL_VS_COLUMN = 10
 
 
 def football_team_name_span(screen, line):
@@ -233,7 +235,7 @@ def _normalize_fixture_separator(fixture):
     left = fixture[:separator.start()].strip()
     right = fixture[separator.end():].strip()
     padding = max(1, FOOTBALL_VS_COLUMN - len(left))
-    return "{}{}VS  {}".format(left, " " * padding, right)
+    return "{}{}VS {}".format(left, " " * padding, right)
 
 
 def football_screen_lines(screen, now_epoch):

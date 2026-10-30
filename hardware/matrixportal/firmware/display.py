@@ -58,6 +58,8 @@ from football_screens import (
     FOOTBALL_END_X as FOOTBALL_RENDER_END_X,
     FOOTBALL_START_X,
     FOOTBALL_TEXT_X,
+    FOOTBALL_LIVE_RIGHT_X,
+    FOOTBALL_LIVE_TEXT_MAX_CHARS,
     football_presentation_position,
     football_slide_offset,
     football_roll_frame,
@@ -65,6 +67,7 @@ from football_screens import (
     football_countdown_x,
     football_screen_lines,
     football_team_name_span,
+    FOOTBALL_TEAM_COLORS,
     FOOTBALL_FIXTURE_TEXT_COLOR,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
@@ -1038,6 +1041,7 @@ class MatrixDisplay:
                 "today_date",
                 "football_goal",
                 "football_entry",
+                "football_team_color",
             )
         }
         print(
@@ -1634,12 +1638,15 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "football_score":
             x, _ = football_presentation_position(
-                phase, animation_speed=screen.get("animation_speed")
+                phase, animate=screen.get("status") != "IN",
+                animation_speed=screen.get("animation_speed")
             )
             if x > FOOTBALL_RENDER_END_X:
                 return "football_entry"
             if screen.get("goal_flash_active") and screen.get("status") == "IN":
                 return "football_goal"
+            if screen.get("status") == "IN":
+                return "football_team_color"
         if kind == "flash":
             return "queue_rows"
         if kind == "today":
@@ -1712,9 +1719,11 @@ class MatrixDisplay:
             and self._animation_class(screen, phase) is None
         ):
             return 0
+        animation_class = self._animation_class(screen, phase)
+        if animation_class == "football_team_color":
+            return min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS)
         if MATRIX_ANIMATION_PROFILE == "baseline":
             return MATRIX_REFRESH_FPS
-        animation_class = self._animation_class(screen, phase)
         if animation_class is None:
             return 0
         return MATRIX_ANIMATION_PROFILES[MATRIX_ANIMATION_PROFILE][animation_class]
@@ -1732,6 +1741,8 @@ class MatrixDisplay:
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
         if kind == "football_score" and screen.get("status") == "PRE":
             return 1.0  # Wake for the next real-second countdown tick after arrival.
+        if kind == "football_score" and screen.get("status") == "IN":
+            return 1.0 / TODAY_DATE_ANIMATION_FPS
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
             lines = _quote_lines(screen) if kind == "quotes" else _novelty_lines(screen)
             pages = max(1, (len(lines) + 2) // 3)
@@ -2015,7 +2026,7 @@ class MatrixDisplay:
             self._label(text_group, "", 0xFFFFFF, 0, index * 8)
             for index in range(4)
         ]
-        fixture_bitmap = displayio.Bitmap(29 * 6, 9, 3)
+        fixture_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_TEXT_X, 27, 3)
         fixture_palette = displayio.Palette(3)
         fixture_palette[0] = 0x000000
         fixture_palette.make_transparent(0)
@@ -2025,86 +2036,188 @@ class MatrixDisplay:
             fixture_bitmap, pixel_shader=fixture_palette
         )
         text_group.append(fixture_grid)
+        live_names_width = FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X
+        live_names_bitmap = displayio.Bitmap(live_names_width, 27, 1 + live_names_width * 4)
+        live_names_palette = displayio.Palette(1 + live_names_width * 4)
+        live_names_palette.make_transparent(0)
+        live_names_grid = displayio.TileGrid(live_names_bitmap, pixel_shader=live_names_palette)
+        text_group.append(live_names_grid)
         group.append(text_group)
         due_group = displayio.Group()
         heading = self._label(due_group, "KICK-OFF IN", 0xFFAA00, 190, 18)
         countdown = self._label(due_group, "", 0xFFFFFF, 256, 25)
         group.append(due_group)
+        live_group = displayio.Group(x=FOOTBALL_LIVE_RIGHT_X, y=0, hidden=True)
+        clock_label = self._label(live_group, "", 0xFFAA00, 0, 2)
+        score_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X, 16, 2)
+        score_palette = displayio.Palette(2)
+        score_palette[0] = 0x000000
+        score_palette.make_transparent(0)
+        score_palette[1] = 0xFFFFFF
+        score_grid = displayio.TileGrid(score_bitmap, pixel_shader=score_palette, x=0, y=15)
+        live_group.append(score_grid)
+        group.append(live_group)
         return {
             "group": group, "ball_grid": ball_grid, "frame": 0,
             "labels": labels,
             "fixture_bitmap": fixture_bitmap,
             "fixture_palette": fixture_palette,
+            "fixture_grid": fixture_grid,
+            "live_names_bitmap": live_names_bitmap,
+            "live_names_palette": live_names_palette,
+            "live_names_grid": live_names_grid,
+            "live_color_states": [-1] * live_names_width,
             "text_group": text_group,
             "due_group": due_group, "heading": heading,
             "countdown": countdown, "countdown_text": None,
+            "live_group": live_group, "clock_label": clock_label,
+            "score_bitmap": score_bitmap, "score_palette": score_palette,
+            "score_text": None,
             "key": None, "content_signature": None,
         }
 
-    def _set_football_content(self, scene, screen, rows, colors):
-        """Update labels only when their source data changes (not on each tick)."""
+    def _set_football_content(self, scene, screen, rows, colors, phase=0):
+        """Update cached PRE, live, or terminal football content."""
         status = screen.get("status")
         goal_active = screen.get("goal_flash_active") and status == "IN"
-        key = (status, tuple(rows), tuple(colors))
+        team_color = FOOTBALL_TEAM_COLORS.get(screen.get("team_key"))
+        key = (status, tuple(rows), tuple(colors), team_color)
         if scene["key"] == key:
             return False
         labels = scene["labels"]
+        fixture_bitmap = scene["fixture_bitmap"]
+        fixture_bitmap.fill(0)
+        fixture_color = (FOOTBALL_FIXTURE_TEXT_COLOR[0] << 16
+                         | FOOTBALL_FIXTURE_TEXT_COLOR[1] << 8
+                         | FOOTBALL_FIXTURE_TEXT_COLOR[2])
         if status == "PRE":
             scene["text_group"].y = 5
+            scene["fixture_grid"].hidden = False
+            scene["live_names_grid"].hidden = True
+            scene["live_group"].hidden = True
             # Enlarge the full fixture vertically while retaining its compact
             # six-pixel character advance. The date sits lower on row two.
-            titles = (_clip(str(rows[0]), 29), _clip(str(rows[1]), 22), "", "")
+            fixture_chars = (DISPLAY_WIDTH - FOOTBALL_TEXT_X) // 6
+            titles = (_clip(str(rows[0]), fixture_chars), _clip(str(rows[1]), 22), "", "")
             for index, label in enumerate(labels):
                 label.y = 17 if index == 1 else 0
                 label.text = "" if index == 0 else titles[index]
                 label.color = colors[index]
-        else:
-            scene["text_group"].y = 0
-            for index, label in enumerate(labels):
-                label.y = 8 * index
-                label.text = _clip(str(rows[index]), 38) if index < len(rows) else ""
-                label.color = colors[index]
-        fixture_color = (FOOTBALL_FIXTURE_TEXT_COLOR[0] << 16
-                         | FOOTBALL_FIXTURE_TEXT_COLOR[1] << 8
-                         | FOOTBALL_FIXTURE_TEXT_COLOR[2])
-        span = football_team_name_span(screen, rows[0]) if rows else None
-        fixture_bitmap = scene["fixture_bitmap"]
-        fixture_bitmap.fill(0)
-        if status == "PRE":
-            fixture = _clip(str(rows[0]), 29) if rows else ""
+            span = football_team_name_span(screen, rows[0]) if rows else None
+            team_start, team_name, fixture_team_color = span if span else (-1, "", None)
+            fixture_team_color = fixture_team_color or team_color
+            scene["fixture_palette"][1] = fixture_color & 0xFFFFFF
+            scene["fixture_palette"][2] = (
+                ((fixture_team_color[0] << 16) | (fixture_team_color[1] << 8) | fixture_team_color[2])
+                if fixture_team_color else fixture_color
+            )
+            fixture = _clip(str(rows[0]), fixture_chars) if rows else ""
             load_glyphs = getattr(self.font, "load_glyphs", None)
             if load_glyphs is not None:
                 load_glyphs(fixture)
-            team_start, team_name, team_color = span if span else (-1, "", None)
-            scene["fixture_palette"][1] = fixture_color & 0xFFFFFF
-            scene["fixture_palette"][2] = (
-                ((team_color[0] << 16) | (team_color[1] << 8) | team_color[2])
-                if team_color else fixture_color
-            )
             for char_index, character in enumerate(fixture):
                 glyph = self.font.get_glyph(ord(character))
                 if glyph is None:
                     continue
                 color_index = (
-                    2 if team_color and team_start <= char_index < team_start + len(team_name)
+                    2 if fixture_team_color and team_start <= char_index < team_start + len(team_name)
                     and character != " " else 1
                 )
                 for glyph_y in range(glyph.height):
-                    scaled_top = glyph_y * 9 // glyph.height
-                    scaled_bottom = (glyph_y + 1) * 9 // glyph.height
+                    scaled_top = glyph_y * 11 // glyph.height
+                    scaled_bottom = (glyph_y + 1) * 11 // glyph.height
                     for glyph_x in range(min(glyph.width, 5)):
                         if glyph.bitmap[glyph_x, glyph_y] <= 0:
                             continue
                         target_x = char_index * 6 + glyph_x
                         for target_y in range(scaled_top, max(scaled_top + 1, scaled_bottom)):
-                            if 0 <= target_y < 9:
+                            if 0 <= target_y < 11:
                                 fixture_bitmap[target_x, target_y] = color_index
-        if status == "PRE":
             labels[0].color = fixture_color
+            scene["live_group"].hidden = True
+        elif status == "IN":
+            scene["text_group"].y = 2
+            for label in labels:
+                label.text = ""
+            scene["live_names_bitmap"].fill(0)
+            tracked = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
+            opponent = str(screen.get("opponent_long_name") or screen.get("opponent") or "OPPONENT").upper()
+            side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
+            home = str(screen.get("home_team") or (opponent if side in ("away", "a") else tracked)).upper()
+            away = str(screen.get("away_team") or (tracked if side in ("away", "a") else opponent)).upper()
+            live_names = (home, away)
+            load_glyphs = getattr(self.font, "load_glyphs", None)
+            if load_glyphs is not None:
+                load_glyphs("".join(live_names))
+            for row_index, line in enumerate(live_names):
+                line = _clip(line, FOOTBALL_LIVE_TEXT_MAX_CHARS)
+                for char_index, character in enumerate(line):
+                    glyph = self.font.get_glyph(ord(character))
+                    if glyph is None:
+                        continue
+                    for glyph_y in range(glyph.height):
+                        scaled_top = glyph_y * 11 // glyph.height
+                        scaled_bottom = (glyph_y + 1) * 11 // glyph.height
+                        for glyph_x in range(min(glyph.width, 5)):
+                            if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                                continue
+                            target_x = char_index * 6 + glyph_x
+                            for target_y in range(
+                                    row_index * 14 + scaled_top,
+                                    row_index * 14 + max(scaled_top + 1, scaled_bottom)):
+                                if target_x < FOOTBALL_LIVE_TEXT_MAX_CHARS * 6 and target_y < 27:
+                                    scene["live_names_bitmap"][target_x, target_y] = (
+                                        1 + target_x * 4 + (target_y & 3)
+                                    )
+            scene["fixture_grid"].hidden = True
+            scene["live_names_grid"].hidden = False
+            live_group = scene["live_group"]
+            live_group.hidden = False
+            clock = _clip(str(screen.get("clock") or "LIVE").upper(), 12)
+            scene["clock_label"].text = clock
+            scene["clock_label"].x = max(
+                0, DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X - len(clock) * 6
+            )
+            home_score, away_score = screen.get("home_score"), screen.get("away_score")
+            score = "{}-{}".format(home_score, away_score) if (
+                home_score is not None and away_score is not None
+            ) else "--"
+            scene["score_palette"][1] = colors[3] if goal_active else 0xFFFFFF
+            if scene["score_text"] != score:
+                score_bitmap = scene["score_bitmap"]
+                score_bitmap.fill(0)
+                if load_glyphs is not None:
+                    load_glyphs(score)
+                score_width = len(score) * 12 - 2
+                start_x = max(0, score_bitmap.width - score_width)
+                for char_index, character in enumerate(score):
+                    glyph = self.font.get_glyph(ord(character))
+                    if glyph is None:
+                        continue
+                    for glyph_y in range(glyph.height):
+                        for glyph_x in range(min(glyph.width, 5)):
+                            if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                                continue
+                            target_x = start_x + char_index * 12 + glyph_x * 2
+                            target_y = 1 + glyph_y * 2
+                            for dy in range(2):
+                                for dx in range(2):
+                                    if target_x + dx < score_bitmap.width and target_y + dy < score_bitmap.height:
+                                        score_bitmap[target_x + dx, target_y + dy] = 1
+                scene["score_text"] = score
         else:
+            scene["live_group"].hidden = True
+            scene["fixture_grid"].hidden = False
+            scene["live_names_grid"].hidden = True
+            scene["text_group"].y = 0
+            for index, label in enumerate(labels):
+                label.y = 8 * index
+                label.text = _clip(str(rows[index]), 38) if index < len(rows) else ""
+                label.color = colors[index]
+            span = football_team_name_span(screen, rows[0]) if rows else None
             labels[0].color = (
-                (span[2][0] << 16) | (span[2][1] << 8) | span[2][2]
-                if span and span[2] else 0xFFFFFF
+                (team_color[0] << 16) | (team_color[1] << 8) | team_color[2]
+                if team_color else 0xFFFFFF
             )
             fixture_span = football_team_name_span(screen, rows[1]) if len(rows) > 1 else None
             if fixture_span:
@@ -2112,6 +2225,26 @@ class MatrixDisplay:
         scene["due_group"].hidden = status != "PRE"
         scene["key"] = key
         return True
+
+    def _update_football_live_colors(self, scene, phase):
+        states = scene["live_color_states"]
+        width = len(states)
+        position = _today_date_sweep_position(phase, width)
+        palette = scene["live_names_palette"]
+        changed = False
+        for x in range(width):
+            state = _today_date_column_state(position, width, x)
+            if state == states[x]:
+                continue
+            states[x] = state
+            color = _today_date_blend_color(state)
+            for row in range(4):
+                index = 1 + x * 4 + row
+                value = _today_date_pixel_color(color, x, row)
+                if palette[index] != value:
+                    palette[index] = value
+                    changed = True
+        return changed
 
     def _show_football(self, screen, phase, now_epoch):
         """Roll the ball and fixture together; push the prior match to the left.
@@ -2149,7 +2282,10 @@ class MatrixDisplay:
             or not root_visible or phase_reset
         )
         animation_speed = screen.get("animation_speed")
-        offset, settled = football_slide_offset(phase, animation_speed)
+        if screen.get("status") == "IN":
+            offset, settled = 0, True
+        else:
+            offset, settled = football_slide_offset(phase, animation_speed)
         changed = False
 
         if entering:
@@ -2158,7 +2294,7 @@ class MatrixDisplay:
             # Only a directly consecutive football screen pushes the previous
             # one. A flash/other screen uses a fresh independent entry.
             pushing = (
-                previous is not None and root_visible
+                screen.get("status") != "IN" and previous is not None and root_visible
                 and screen_id != self._football_screen_id
                 and self._football_previous_phase is not None
                 and football_presentation_position(
@@ -2172,6 +2308,7 @@ class MatrixDisplay:
             scene["key"] = None
             scene["content_signature"] = None
             scene["countdown_text"] = None
+            scene["score_text"] = None
             scene["frame"] = -1
             scene["due_group"].hidden = True
             self._football_current = scene
@@ -2207,15 +2344,17 @@ class MatrixDisplay:
             colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
             if goal_active:
                 colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
-            changed = self._set_football_content(scene, screen, rows, colors) or changed
+            changed = self._set_football_content(scene, screen, rows, colors, phase) or changed
             scene["content_signature"] = content_signature
+        if screen.get("status") == "IN":
+            changed = self._update_football_live_colors(scene, phase) or changed
 
         # The fixture and date are *already populated* while their whole scene
         # translates from x=254 to zero; only the Due In text waits to appear.
         if scene["group"].x != offset:
             scene["group"].x = offset
             changed = True
-        frame = football_roll_frame(phase, animation_speed)
+        frame = 0 if screen.get("status") == "IN" else football_roll_frame(phase, animation_speed)
         if scene["frame"] != frame:
             scene["ball_grid"].bitmap = self._football_rotation_bitmaps[frame]
             scene["frame"] = frame
@@ -4882,7 +5021,7 @@ class FixtureDisplay:
             from football_ball import ROWS as BALL_ROWS
 
             ball_x, info_visible = football_presentation_position(
-                phase, screen.get("ball_animation", False),
+                phase, screen.get("status") != "IN" and screen.get("ball_animation", False),
                 screen.get("animation_speed"),
             )
             for row, pixels in enumerate(BALL_ROWS):
@@ -4900,34 +5039,68 @@ class FixtureDisplay:
                 if screen.get("goal_flash_active") and screen.get("status") == "IN":
                     team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
                     rows = rows[:3] + ("GOAL {}".format(str(team or "SCORED").upper()),)
-                for index, line in enumerate(rows):
-                    line_text = _clip(str(line), max_chars)
-                    base_color = (255, 255, 255)
-                    if screen.get("status") == "PRE" and index < 2:
-                        y = 5 + index * 13
-                    else:
-                        y = index * 8
-                    if ((screen.get("status") == "PRE" and index == 0)
-                            or (screen.get("status") != "PRE" and index == 1)):
-                        base_color = FOOTBALL_FIXTURE_TEXT_COLOR
-                    color = base_color
-                    if index in (0, 1):
-                        span = football_team_name_span(screen, line_text)
-                        if span:
-                            start, name, team_color = span
-                            if team_color:
-                                positions = {
-                                    char_index: team_color
-                                    for char_index, character in enumerate(name, start=start)
-                                    if character != " "
-                                }
+                if screen.get("status") == "IN":
+                    tracked = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
+                    opponent = str(screen.get("opponent_long_name") or screen.get("opponent") or "OPPONENT").upper()
+                    side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
+                    home = str(screen.get("home_team") or (opponent if side in ("away", "a") else tracked)).upper()
+                    away = str(screen.get("away_team") or (tracked if side in ("away", "a") else opponent)).upper()
+                    width = FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X
+                    position = _today_date_sweep_position(phase, width)
+                    for index, line in enumerate((home, away)):
+                        line = _clip(line, 13)
+                        row_y = 2 + index * 14
+                        def color(px, py, position=position, width=width, row_y=row_y):
+                            column = max(0, min(width - 1, int(px) - FOOTBALL_TEXT_X))
+                            state = _today_date_column_state(position, width, column)
+                            value = _today_date_pixel_color(
+                                _today_date_blend_color(state), column, (int(py) - row_y) & 3
+                            )
+                            return _rgb_tuple(value)
 
-                                def color(px, _py, positions=positions, base=base_color):
-                                    char_index = int(px) // 6 - FOOTBALL_TEXT_X // 6
-                                    rgb = positions.get(char_index)
-                                    return rgb if rgb is not None else base
+                        self._text(line, FOOTBALL_TEXT_X, row_y, color, scale=2)
+                    clock = _clip(str(screen.get("clock") or "LIVE").upper(), 12)
+                    self._text(clock, max(FOOTBALL_LIVE_RIGHT_X,
+                               DISPLAY_WIDTH - len(clock) * 6), 2, (255, 170, 0))
+                    home_score, away_score = screen.get("home_score"), screen.get("away_score")
+                    score = "{}-{}".format(home_score, away_score) if (
+                        home_score is not None and away_score is not None
+                    ) else "--"
+                    score_color = (
+                        (255, 51, 0) if screen.get("goal_flash_active") and int(phase * 4) % 2
+                        else (255, 255, 255)
+                    )
+                    self._text(score, max(FOOTBALL_LIVE_RIGHT_X,
+                               DISPLAY_WIDTH - len(score) * 12), 17, score_color, scale=2)
+                else:
+                    for index, line in enumerate(rows):
+                        line_text = _clip(str(line), max_chars)
+                        base_color = (255, 255, 255)
+                        if screen.get("status") == "PRE" and index < 2:
+                            y = 5 + index * 13
+                        else:
+                            y = index * 8
+                        if ((screen.get("status") == "PRE" and index == 0)
+                                or (screen.get("status") != "PRE" and index == 1)):
+                            base_color = FOOTBALL_FIXTURE_TEXT_COLOR
+                        color = base_color
+                        if index in (0, 1):
+                            span = football_team_name_span(screen, line_text)
+                            if span:
+                                start, name, team_color = span
+                                if team_color:
+                                    positions = {
+                                        char_index: team_color
+                                        for char_index, character in enumerate(name, start=start)
+                                        if character != " "
+                                    }
 
-                    self._text(line_text, FOOTBALL_TEXT_X, y, color)
+                                    def color(px, _py, positions=positions, base=base_color):
+                                        char_index = int(px) // 6 - FOOTBALL_TEXT_X // 6
+                                        rgb = positions.get(char_index)
+                                        return rgb if rgb is not None else base
+
+                        self._text(line_text, FOOTBALL_TEXT_X, y, color)
         elif kind == "christmas_tracker":
             self._christmas_tracker(screen, phase, clock_date)
         elif kind == "rail_combined":
