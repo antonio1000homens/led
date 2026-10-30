@@ -1313,7 +1313,7 @@
       });
     }
 
-    function drawFootballLargeTeamLine(screen, value, x, y, color, phase = 0) {
+    function drawFootballLargeTeamLine(screen, value, x, y, color, phase = 0, charAdvance = 6) {
       const text = String(value ?? '');
       const key = screen.team_key;
       const teamColor = FOOTBALL_TEAM_COLORS[key];
@@ -1331,9 +1331,10 @@
           for (let column = 0; column < 5; column += 1) {
             if (!(bits & (1 << (4 - column)))) continue;
             for (let enlargedRow = top; enlargedRow < bottom; enlargedRow += 1) {
+              const targetColumn = Math.floor(column * charAdvance / 5);
               if (screen.status === 'IN' || screen.status === 'POST') {
-                const gradientX = index * 6 + column;
-                const gradientY = index * 14 + enlargedRow;
+                const gradientX = index * charAdvance + targetColumn;
+                const gradientY = y + enlargedRow;
                 const gradientColor = todayDatePixelColor(
                   todayDateColumnColor(phase, FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X, gradientX),
                   gradientX, gradientY);
@@ -1341,7 +1342,7 @@
               } else {
                 context.fillStyle = trackedColor;
               }
-              context.fillRect((x + index * 6 + column) * FONT_PIXEL_SCALE,
+              context.fillRect((x + index * charAdvance + targetColumn) * FONT_PIXEL_SCALE,
                 (y + enlargedRow) * FONT_PIXEL_SCALE,
                 FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
             }
@@ -1401,10 +1402,11 @@
         const side = String(screen.team_homeaway || screen.homeaway || 'home').toLowerCase();
         const home = String(screen.home_team || (['away', 'a'].includes(side) ? opponent : tracked)).toUpperCase();
         const away = String(screen.away_team || (['away', 'a'].includes(side) ? tracked : opponent)).toUpperCase();
-        drawFootballLargeTeamLine(screen, home.slice(0, FOOTBALL_LIVE_TEXT_MAX_CHARS),
-          FOOTBALL_TEXT_X, 2, '#ffffff', phase);
-        drawFootballLargeTeamLine(screen, away.slice(0, FOOTBALL_LIVE_TEXT_MAX_CHARS),
-          FOOTBALL_TEXT_X, 16, '#ffffff', phase);
+        const liveFixture = `${home} V ${away}`;
+        const liveWidth = FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X;
+        const charAdvance = Math.min(6, Math.max(4, Math.floor(liveWidth / liveFixture.length)));
+        drawFootballLargeTeamLine(screen, liveFixture.slice(0, Math.floor(liveWidth / charAdvance)),
+          FOOTBALL_TEXT_X, 10, '#ffffff', phase, charAdvance);
         const clock = screen.status === 'POST'
           ? 'FULL TIME' : String(screen.clock || 'LIVE').toUpperCase().slice(0, 12);
         context.fillStyle = '#ffaa00';

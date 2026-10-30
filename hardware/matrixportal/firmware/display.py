@@ -59,7 +59,6 @@ from football_screens import (
     FOOTBALL_START_X,
     FOOTBALL_TEXT_X,
     FOOTBALL_LIVE_RIGHT_X,
-    FOOTBALL_LIVE_TEXT_MAX_CHARS,
     football_presentation_position,
     football_slide_offset,
     football_roll_frame,
@@ -2146,30 +2145,33 @@ class MatrixDisplay:
             side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
             home = str(screen.get("home_team") or (opponent if side in ("away", "a") else tracked)).upper()
             away = str(screen.get("away_team") or (tracked if side in ("away", "a") else opponent)).upper()
-            live_names = (home, away)
+            # Keep the two opponents together on one horizontal line. A compact
+            # "V" separator leaves room for both full names beside the score.
+            live_fixture = "{} V {}".format(home, away)
             load_glyphs = getattr(self.font, "load_glyphs", None)
             if load_glyphs is not None:
-                load_glyphs("".join(live_names))
-            for row_index, line in enumerate(live_names):
-                line = _clip(line, FOOTBALL_LIVE_TEXT_MAX_CHARS)
-                for char_index, character in enumerate(line):
-                    glyph = self.font.get_glyph(ord(character))
-                    if glyph is None:
-                        continue
-                    for glyph_y in range(glyph.height):
-                        scaled_top = glyph_y * 11 // glyph.height
-                        scaled_bottom = (glyph_y + 1) * 11 // glyph.height
-                        for glyph_x in range(min(glyph.width, 5)):
-                            if glyph.bitmap[glyph_x, glyph_y] <= 0:
-                                continue
-                            target_x = char_index * 6 + glyph_x
-                            for target_y in range(
-                                    row_index * 14 + scaled_top,
-                                    row_index * 14 + max(scaled_top + 1, scaled_bottom)):
-                                if target_x < FOOTBALL_LIVE_TEXT_MAX_CHARS * 6 and target_y < 27:
-                                    scene["live_names_bitmap"][target_x, target_y] = (
-                                        1 + target_x * 4 + (target_y & 3)
-                                    )
+                load_glyphs(live_fixture)
+            live_width = scene["live_names_bitmap"].width
+            char_advance = min(6, max(4, live_width // max(1, len(live_fixture))))
+            live_fixture = _clip(live_fixture, live_width // char_advance)
+            for char_index, character in enumerate(live_fixture):
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                for glyph_y in range(glyph.height):
+                    scaled_top = glyph_y * 11 // glyph.height
+                    scaled_bottom = (glyph_y + 1) * 11 // glyph.height
+                    for glyph_x in range(min(glyph.width, 5)):
+                        if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                            continue
+                        target_x = char_index * char_advance + glyph_x * char_advance // 5
+                        for target_y in range(
+                                8 + scaled_top,
+                                8 + max(scaled_top + 1, scaled_bottom)):
+                            if target_x < live_width and target_y < 27:
+                                scene["live_names_bitmap"][target_x, target_y] = (
+                                    1 + target_x * 4 + (target_y & 3)
+                                )
             scene["fixture_grid"].hidden = True
             scene["live_names_grid"].hidden = False
             live_group = scene["live_group"]
@@ -4697,7 +4699,8 @@ class FixtureDisplay:
         index = y * DISPLAY_WIDTH + (x if y % 2 == 0 else DISPLAY_WIDTH - 1 - x)
         self.pixels[index] = color
 
-    def _text(self, value, x, y, color, scale=1):
+    def _text(self, value, x, y, color, scale=1, x_scale=None, y_scale=None,
+              character_advance=None):
         glyphs = {
             " ": (0, 0, 0, 0, 0), "-": (0, 0, 1, 0, 0), ":": (0, 1, 0, 0, 1),
             "0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0), "2": (1, 0, 1, 1, 1),
@@ -4706,6 +4709,8 @@ class FixtureDisplay:
         }
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         pixel_color = color if callable(color) else None
+        x_scale = scale if x_scale is None else x_scale
+        y_scale = scale if y_scale is None else y_scale
         x = int(x)
         y = int(y)
         for char in str(value).upper():
@@ -4717,11 +4722,11 @@ class FixtureDisplay:
             for column, bit in enumerate(bits):
                 if bit:
                     for row in range(5):
-                        for dx in range(scale):
-                            for dy in range(scale):
-                                px, py = x + column * scale + dx, y + row * scale + dy
+                        for dx in range(x_scale):
+                            for dy in range(y_scale):
+                                px, py = x + column * x_scale + dx, y + row * y_scale + dy
                                 self._pixel(px, py, pixel_color(px, py) if pixel_color else color)
-            x += WEATHER_FONT_WIDTH * scale
+            x += character_advance if character_advance is not None else WEATHER_FONT_WIDTH * x_scale
 
     def _text_scaled(self, value, x, y, color, scale=WEEKLY_WEATHER_TEXT_SCALE):
         for index, char in enumerate(str(value)):
@@ -5050,18 +5055,21 @@ class FixtureDisplay:
                     away = str(screen.get("away_team") or (tracked if side in ("away", "a") else opponent)).upper()
                     width = FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X
                     position = _today_date_sweep_position(phase, width)
-                    for index, line in enumerate((home, away)):
-                        line = _clip(line, 13)
-                        row_y = 2 + index * 14
-                        def color(px, py, position=position, width=width, row_y=row_y):
-                            column = max(0, min(width - 1, int(px) - FOOTBALL_TEXT_X))
-                            state = _today_date_column_state(position, width, column)
-                            value = _today_date_pixel_color(
-                                _today_date_blend_color(state), column, (int(py) - row_y) & 3
-                            )
-                            return _rgb_tuple(value)
+                    live_fixture = "{} V {}".format(home, away)
+                    char_advance = min(6, max(4, width // max(1, len(live_fixture))))
+                    live_fixture = _clip(live_fixture, width // char_advance)
+                    row_y = 10
 
-                        self._text(line, FOOTBALL_TEXT_X, row_y, color, scale=2)
+                    def color(px, py, position=position, width=width, row_y=row_y):
+                        column = max(0, min(width - 1, int(px) - FOOTBALL_TEXT_X))
+                        state = _today_date_column_state(position, width, column)
+                        value = _today_date_pixel_color(
+                            _today_date_blend_color(state), column, (int(py) - row_y) & 3
+                        )
+                        return _rgb_tuple(value)
+
+                    self._text(live_fixture, FOOTBALL_TEXT_X, row_y, color,
+                               x_scale=1, y_scale=2, character_advance=char_advance)
                     clock = ("FULL TIME" if screen.get("status") == "POST" else
                              _clip(str(screen.get("clock") or "LIVE").upper(), 12))
                     self._text(clock, max(FOOTBALL_LIVE_RIGHT_X,
