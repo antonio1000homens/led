@@ -299,9 +299,12 @@ class FootballScreenTests(unittest.TestCase):
         base = epoch("2026-10-31T15:00:00Z")
         kickoff = "2026-10-31T15:00:00Z"
         self.assertEqual(football_due_in(kickoff, base - (2*86400 + 5*3600 + 14*60 + 9)),
-                         "02D 05H 14M 09S")
-        self.assertEqual(football_due_in(kickoff, base - 86401), "01D 00H 00M 01S")
-        self.assertEqual(football_due_in(kickoff, base - 86400), "24H 00M 00S")
+                         "2 DAYS")
+        self.assertEqual(football_due_in(kickoff, base - 172800), "2 DAYS")
+        self.assertEqual(football_due_in(kickoff, base - 172799), "1 DAY")
+        self.assertEqual(football_due_in(kickoff, base - 86401), "1 DAY")
+        self.assertEqual(football_due_in(kickoff, base - 86400), "1 DAY")
+        self.assertEqual(football_due_in(kickoff, base - 86399), "23H 59M 59S")
         self.assertEqual(football_due_in(kickoff, base - 3601), "01H 00M 01S")
         self.assertEqual(football_due_in(kickoff, base - 3600), "60M 00S")
         self.assertEqual(football_due_in(kickoff, base - 61), "01M 01S")
@@ -311,6 +314,26 @@ class FootballScreenTests(unittest.TestCase):
         self.assertEqual(football_due_in(kickoff, base + 100), "DUE NOW")
         self.assertEqual(football_due_in("invalid", base), "TBC")
         self.assertEqual(football_due_in(kickoff, None), "TBC")
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
+    def test_simulator_countdown_matches_firmware_across_day_transition(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        start = html.index("    function footballDueIn")
+        function = html[start:html.index("    function drawFootballCompactText", start)]
+        kickoff = "2026-10-31T15:00:00Z"
+        base = epoch(kickoff)
+        # Advance the same fixture's clock through both day boundaries and
+        # kickoff, ensuring a days-only value becomes a clock with no days.
+        remaining = [191649, 172800, 172799, 86401, 86400, 86399,
+                     3601, 3600, 61, 60, 1, 0, -100]
+        harness = function + "\nconst remaining = " + json.dumps(remaining) + ";\n" + """
+console.log(JSON.stringify(remaining.map(seconds =>
+  footballDueIn('2026-10-31T15:00:00Z',
+    Date.parse('2026-10-31T15:00:00Z') - seconds * 1000))));
+"""
+        output = json.loads(subprocess.check_output(["node", "-e", harness], text=True))
+        self.assertEqual(output, [football_due_in(kickoff, base - seconds)
+                                  for seconds in remaining])
 
     def test_rolling_scene_positions_and_frames(self):
         self.assertEqual(football_slide_offset(0), (254, False))
@@ -335,8 +358,8 @@ class FootballScreenTests(unittest.TestCase):
         self.assertIn(("football-sporting_cp", "football-millwall"), pairs)
 
     def test_countdown_right_aligns_even_when_day_count_grows(self):
-        for value in ("02D 05H 14M 09S", "123D 05H 14M 09S",
-                      "12345D 05H 14M 09S", "UNDER 1 MIN"):
+        for value in ("1 DAY", "2 DAYS", "123 DAYS", "12345 DAYS",
+                      "23H 59M 59S", "UNDER 1 MIN"):
             with self.subTest(value=value):
                 x = football_countdown_x(value)
                 self.assertEqual(x, 256 - len(value) * 6)
@@ -519,7 +542,7 @@ process.stdout.write(JSON.stringify(results));
         self.assertEqual(output[4], {"x": 256, "infoVisible": False})
         self.assertEqual(output[5], {"x": 2, "infoVisible": True})
         self.assertEqual(output[6], {"x": 2, "infoVisible": True})
-        self.assertEqual(output[7], "03D 05H 14M 09S")
+        self.assertEqual(output[7], "3 DAYS")
         # Both rows are laid out while entering; their x is initially off
         # screen and then reaches the original left-column coordinates.
         self.assertEqual(output[8], [

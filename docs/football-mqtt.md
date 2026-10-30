@@ -63,8 +63,8 @@ Its units depend on the **total time until kickoff**:
 
 | Time remaining | Display |
 | --- | --- |
-| Over 24 hours | `02D 05H 14M 09S` |
-| Over 60 minutes, up to 24 hours | `05H 14M 09S` |
+| At least 24 hours | `2 DAYS` (or `1 DAY`), whole days only |
+| Over 60 minutes, below 24 hours | `05H 14M 09S` |
 | Over 60 seconds, up to 60 minutes | `14M 09S` |
 | 1–60 seconds | `UNDER 1 MIN` |
 | At or past kickoff | `DUE NOW` |
@@ -72,6 +72,9 @@ Its units depend on the **total time until kickoff**:
 
 Values are calculated locally from the absolute timestamp (not via MQTT or
 an API request per second). The display refreshes only the changed glyphs.
+Days count complete 24-hour periods, so 2 days 5 hours shows `2 DAYS`.
+At exactly 24 hours it shows `1 DAY`, then switches to `23H 59M 59S` one
+second later without restarting the scene.
 Long names are clipped before the right column; no competition/status/score
 lines are added to the PRE view.
 
