@@ -1412,7 +1412,7 @@
         context.fillStyle = '#ffaa00';
         drawLedText(clock,
           (FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - clock.length * 6)) * FONT_PIXEL_SCALE,
-          2 * FONT_PIXEL_SCALE);
+          5 * FONT_PIXEL_SCALE);
         const score = screen.home_score == null || screen.away_score == null
           ? '--' : `${screen.home_score}-${screen.away_score}`;
         const scoreX = FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - (score.length * 12 - 2));

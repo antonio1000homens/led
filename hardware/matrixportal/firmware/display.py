@@ -2048,7 +2048,7 @@ class MatrixDisplay:
         group.append(due_group)
         live_group = displayio.Group(x=FOOTBALL_LIVE_RIGHT_X, y=0)
         live_group.hidden = True
-        clock_label = self._label(live_group, "", 0xFFAA00, 0, 2)
+        clock_label = self._label(live_group, "", 0xFFAA00, 0, 5)
         score_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X, 16, 2)
         score_palette = displayio.Palette(2)
         score_palette[0] = 0x000000
@@ -5073,7 +5073,7 @@ class FixtureDisplay:
                     clock = ("FULL TIME" if screen.get("status") == "POST" else
                              _clip(str(screen.get("clock") or "LIVE").upper(), 12))
                     self._text(clock, max(FOOTBALL_LIVE_RIGHT_X,
-                               DISPLAY_WIDTH - len(clock) * 6), 2, (255, 170, 0))
+                               DISPLAY_WIDTH - len(clock) * 6), 5, (255, 170, 0))
                     home_score, away_score = screen.get("home_score"), screen.get("away_score")
                     score = "{}-{}".format(home_score, away_score) if (
                         home_score is not None and away_score is not None
