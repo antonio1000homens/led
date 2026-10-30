@@ -192,6 +192,84 @@ class FootballScreenTests(unittest.TestCase):
             elif status == "POST":
                 self.assertEqual(rows[3], "FULL TIME")
 
+    def test_post_matches_live_layout_but_shows_full_time(self):
+        from display import MatrixDisplay, TODAY_DATE_ANIMATION_FPS
+
+        for status in ("IN", "POST"):
+            with self.subTest(status=status):
+                screen = {"kind": "football_score", "status": status}
+                self.assertEqual(
+                    MatrixDisplay._animation_class(None, screen, 0),
+                    "football_team_color",
+                )
+                self.assertEqual(
+                    MatrixDisplay.animation_sleep_seconds(None, screen, 0),
+                    1.0 / TODAY_DATE_ANIMATION_FPS,
+                )
+        self.assertEqual(
+            MatrixDisplay._animation_class(
+                None, {"kind": "football_score", "status": "PRE"}, 0
+            ),
+            "football_entry",
+        )
+
+        def render(status):
+            display = CapturingFootballFixture()
+            display._draw_screen({
+                "kind": "football_score", "status": status,
+                "team_key": "sporting_cp", "team_name": "Sporting CP",
+                "opponent_long_name": "Benfica",
+                "home_team": "SPORTING CP", "away_team": "BENFICA",
+                "home_score": 2, "away_score": 1, "clock": "92'",
+                "ball_animation": True,
+            }, phase=0)
+            return display
+
+        live, final = render("IN"), render("POST")
+        self.assertEqual(min(pixel[0] for pixel in live.pixels), 2)
+        self.assertEqual(min(pixel[0] for pixel in final.pixels), 2)
+        for value in ("SPORTING CP", "BENFICA", "2-1"):
+            live_row = next(row for row in live.text if row[0] == value)
+            final_row = next(row for row in final.text if row[0] == value)
+            self.assertEqual(live_row[1:3], final_row[1:3])
+        self.assertIn("92'", [row[0] for row in live.text])
+        self.assertIn("FULL TIME", [row[0] for row in final.text])
+        self.assertNotIn("92'", [row[0] for row in final.text])
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js needed for simulator parity")
+    def test_post_simulator_starts_settled_and_shows_final_score(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        start = html.index("    function drawFootball(screen, phase)")
+        function = html[start:html.index("    function drawBinLorry", start)]
+        harness = """
+const FOOTBALL_END_X = 2, FOOTBALL_START_X = 256;
+const calls = [];
+function footballBallPosition(phase, animate) {
+  return animate ? {x:256, infoVisible:false} : {x:2, infoVisible:true};
+}
+function drawFootballScene(screen, phase, offset, settled) {
+  calls.push({status:screen.status, offset, settled});
+}
+function footballSlideSeconds() { return 3.2; }
+""" + function + """
+for (const status of ['PRE','IN','POST']) {
+  drawFootball({kind:'football_score', status}, 0);
+}
+console.log(JSON.stringify(calls));
+"""
+        calls = json.loads(subprocess.check_output(["node", "-e", harness], text=True))
+        self.assertEqual(calls[0], {"status": "PRE", "offset": 254, "settled": False})
+        for status, call in zip(("IN", "POST"), calls[1:]):
+            self.assertEqual(call, {"status": status, "offset": 0, "settled": True})
+
+        # The simulator renders the names, final score and FULL TIME in the same
+        # live-score branch, rather than falling back to four small text rows.
+        scene = html[html.index("    function drawFootballScene("):
+                     html.index("    function drawFootball(screen, phase)")]
+        self.assertIn("screen.status === 'IN' || screen.status === 'POST'", scene)
+        self.assertIn("? 'FULL TIME' : String(screen.clock || 'LIVE')", scene)
+        self.assertIn("drawFootballLargeScore(score,", scene)
+
     def test_non_fixture_statuses_are_retained_for_ordering_but_hidden(self):
         for index, status in enumerate(("BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")):
             value = snapshot(published="2026-10-26T20:{:02d}:00Z".format(index), status=status)
