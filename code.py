@@ -172,9 +172,9 @@ mqtt_screens_update_pending = False
 
 
 def _apply_pending_mqtt_screen_updates(now):
-    """Rebuild the screen rotation once after a batch of MQTT callbacks."""
+    """Rebuild after a batch, outside the departures GC-suspended window."""
     global mqtt_screens_update_pending
-    if not mqtt_screens_update_pending:
+    if not mqtt_screens_update_pending or rail_gc_suspended:
         return False
     epoch_now = _reminder_epoch(now)
     rotation.update_sources(
@@ -199,7 +199,7 @@ def _mqtt_connection_allowed(now):
 
 def _sleep_interruptible(seconds, service_mqtt=False):
     """Sleep without changing render cadence, servicing requested I/O while idle."""
-    global mqtt_screens_changed
+    global mqtt_screens_changed, mqtt_screens_update_pending
     seconds = max(0.0, float(seconds or 0))
     if buttons is None and not service_mqtt:
         slice_ms = (
@@ -227,8 +227,8 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
-            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
+            mqtt_screens_update_pending = True
             return
         if service_mqtt and _service_reminder_clock(now):
             return
@@ -1230,11 +1230,7 @@ while True:
     expired_mqtt = mqtt_screens.expire(epoch_now) if epoch_now is not None else []
     football_stale_changed = football_screens.staleness_changed(epoch_now)
     if epoch_now is not None and (expired_mqtt or football_stale_changed or recycling_date != last_recycling_date):
-        rotation.update_sources(
-            rotation.http_screens,
-            _effective_mqtt_screens(epoch_now),
-            ticks_ms(),
-        )
+        mqtt_screens_update_pending = True
         mqtt_screens_changed = True
     last_recycling_date = recycling_date
 

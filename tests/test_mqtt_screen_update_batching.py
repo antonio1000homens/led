@@ -82,6 +82,7 @@ class MqttScreenUpdateBatchingTests(unittest.TestCase):
         rotation = Rotation()
         namespace = {
             "mqtt_screens_update_pending": True,
+            "rail_gc_suspended": True,
             "rotation": rotation,
             "_reminder_epoch": lambda now: now + 1000,
             "_effective_mqtt_screens": lambda epoch: [{"id": "football"}],
@@ -89,6 +90,11 @@ class MqttScreenUpdateBatchingTests(unittest.TestCase):
         }
         exec(compile(ast.Module(body=[helper], type_ignores=[]), "code.py", "exec"), namespace)
 
+        self.assertFalse(namespace["_apply_pending_mqtt_screen_updates"](19))
+        self.assertTrue(namespace["mqtt_screens_update_pending"])
+        self.assertEqual(rotation.calls, [])
+
+        namespace["rail_gc_suspended"] = False
         self.assertTrue(namespace["_apply_pending_mqtt_screen_updates"](20))
         self.assertFalse(namespace["mqtt_screens_update_pending"])
         self.assertEqual(
