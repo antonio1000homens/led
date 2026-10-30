@@ -38,6 +38,7 @@ class ReminderClockLoopTests(unittest.TestCase):
             "buttons": None,
             "mqtt_screens": SimpleNamespace(expire=lambda epoch: []),
             "mqtt_screens_changed": False,
+            "_apply_pending_mqtt_screen_updates": lambda now: False,
             "_BUTTON_POLL_SECONDS": 0.05, "_MQTT_SLEEP_POLL_SECONDS": 0.25,
         }
         root = Path(__file__).resolve().parents[1]
