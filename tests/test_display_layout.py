@@ -110,6 +110,45 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_football_scene_uses_supported_group_constructor(self):
+        class Group(list):
+            def __init__(self, x=0, y=0):
+                super().__init__()
+                self.x, self.y, self.hidden = x, y, False
+
+        class Bitmap:
+            def __init__(self, width, height, colors):
+                self.width, self.height, self.colors = width, height, colors
+
+        class Palette(list):
+            def __init__(self, count):
+                super().__init__([0] * count)
+
+            def make_transparent(self, index):
+                self.transparent = index
+
+        class TileGrid:
+            def __init__(self, bitmap, pixel_shader, x=0, y=0):
+                self.bitmap, self.pixel_shader = bitmap, pixel_shader
+                self.x, self.y, self.hidden = x, y, False
+
+        class Label:
+            def __init__(self, font, **attributes):
+                self.__dict__.update(attributes)
+
+        displayio = types.SimpleNamespace(
+            Group=Group, Bitmap=Bitmap, Palette=Palette, TileGrid=TileGrid,
+        )
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.font = object()
+        display.label_type = Label
+        display._football_rotation_bitmaps = [object()]
+        with mock.patch.dict(sys.modules, {"displayio": displayio}):
+            scene = display._new_football_scene()
+
+        self.assertTrue(scene["live_group"].hidden)
+        self.assertEqual(scene["live_group"].x, led_display.FOOTBALL_LIVE_RIGHT_X)
+
     def test_combined_sl7_rows_hide_expired_departures_and_keep_upcoming_rows(self):
         now = int(datetime(2026, 10, 13, 15, 0, tzinfo=timezone.utc).timestamp())
         screen = {

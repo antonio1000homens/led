@@ -2047,7 +2047,8 @@ class MatrixDisplay:
         heading = self._label(due_group, "KICK-OFF IN", 0xFFAA00, 190, 18)
         countdown = self._label(due_group, "", 0xFFFFFF, 256, 25)
         group.append(due_group)
-        live_group = displayio.Group(x=FOOTBALL_LIVE_RIGHT_X, y=0, hidden=True)
+        live_group = displayio.Group(x=FOOTBALL_LIVE_RIGHT_X, y=0)
+        live_group.hidden = True
         clock_label = self._label(live_group, "", 0xFFAA00, 0, 2)
         score_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X, 16, 2)
         score_palette = displayio.Palette(2)
