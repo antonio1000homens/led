@@ -63,6 +63,31 @@ class MqttScreenUpdateBatchingTests(unittest.TestCase):
                 "_apply_pending_mqtt_screen_updates",
             )
 
+    def test_expiry_and_staleness_paths_do_not_rebuild_sources_directly(self):
+        update_calls = [
+            node for node in ast.walk(self.tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "rotation"
+            and node.func.attr == "update_sources"
+        ]
+        self.assertEqual(len(update_calls), 2)
+        helper = next(
+            node for node in ast.walk(self.tree)
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_apply_pending_mqtt_screen_updates"
+        )
+        self.assertEqual(
+            sum(call in ast.walk(helper) for call in update_calls),
+            1,
+        )
+        # The other direct rebuild is the complete HTTP replacement path.
+        self.assertTrue(
+            any(isinstance(call.args[0], ast.Name) and call.args[0].id == "screens"
+                for call in update_calls)
+        )
+
     def test_pending_updates_rebuild_once_and_clear_pending_state(self):
         helper = next(
             node for node in ast.walk(self.tree)
