@@ -42,12 +42,14 @@ MQTT_ENABLE_EXPERIMENTAL = True
 MQTT_TOPIC = "led/flash/reminder"
 MQTT_ASSISTANT_RESPONSE_TOPIC = "led/flash/assistant-response"
 MQTT_SCREENS_TOPIC = "led/screens/+"
+MQTT_FOOTBALL_TOPIC = "led/football/+"
+MQTT_FOOTBALL_ENABLED = True
 MQTT_BOARD_STATUS_TOPIC = "led/board/screen"
 MQTT_BOARD_HEALTH_TOPIC = "led/board/health"
 # Synchronous outbound telemetry can stall display rendering on slow broker
 # connections. Leave it off unless explicitly enabled in settings_local.py.
 MQTT_BOARD_TELEMETRY_ENABLED = False
-FIRMWARE_REVISION = "led-health-v1"
+FIRMWARE_REVISION = "led-football-v1"
 MQTT_BROKER = ""
 MQTT_PORT = 1883
 MQTT_USERNAME = ""

@@ -8,5 +8,6 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 wokwi.vcd
+payload.json
 scripts/config/bootstrap-ssm-migration.env
 .wrangler/

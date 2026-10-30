@@ -24,6 +24,7 @@ MAX_BODY_BYTES = 32768
 JWK_FETCH_TIMEOUT_SECONDS = 5
 RIDE_OPTIONS_FETCH_TIMEOUT_SECONDS = 5
 _JWK_CLIENTS: dict[str, Any] = {}
+_SAFE_ERROR_TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$")
 
 
 class AuthenticationError(RuntimeError):
@@ -297,6 +298,28 @@ def _status_payload(config: dict[str, Any], status_store: StatusStore) -> dict[s
             "stale": bool(state.get("stale")) if effective["enabled"] else False,
             "poll_seconds": effective.get("poll_seconds"),
         }
+        # These fields are private control-plane diagnostics. Project only
+        # known bounded values; never return provider exception text or cache data.
+        if state.get("error_class") in {
+            "TimeoutError", "HTTPError", "URLError", "ConnectionError", "OSError",
+            "SSLError", "JSONDecodeError", "ValueError", "TypeError", "KeyError",
+            "RuntimeError", "ProviderFailure", "ProviderError",
+        }:
+            feeds[feed_id]["last_error_class"] = state["error_class"]
+        if state.get("error_stage") in {
+            "download", "http_rejection", "parse", "normalize", "soap_connect",
+            "soap_request", "soap_normalize", "provider",
+        }:
+            feeds[feed_id]["last_error_stage"] = state["error_stage"]
+        if (isinstance(state.get("error_at"), str)
+                and _SAFE_ERROR_TIMESTAMP.fullmatch(state["error_at"])):
+            feeds[feed_id]["last_error_at"] = state["error_at"]
+        if (isinstance(state.get("http_status"), int)
+                and not isinstance(state.get("http_status"), bool)
+                and 100 <= state["http_status"] <= 599):
+            feeds[feed_id]["last_http_status"] = state["http_status"]
+        if state.get("error_source") in ("sporting_cp", "millwall", "portugal", "england", "soap"):
+            feeds[feed_id]["last_error_source"] = state["error_source"]
     screens = status_store.screens_state()
     return {
         "config_version": config["config_version"],

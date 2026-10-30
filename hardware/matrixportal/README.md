@@ -268,7 +268,11 @@ initialization before its first connection attempt. It subscribes at QoS 1 to
 the exact reminder topic and to the configured cycle-screen wildcard
 (`MQTT_SCREENS_TOPIC`, default `led/screens/+`). Cycle screens do not depend on
 the runtime Flash control from `/api/screens`; that control gates reminder
-overlays only.
+overlays only. The football integration also subscribes to
+`MQTT_FOOTBALL_TOPIC` (default `led/football/+`). Accepted newer snapshots
+prompt a pinned-ball match view; PRE shows only the fixture and Europe/London
+kick-off. See [`docs/football-mqtt.md`](../../docs/football-mqtt.md) for event,
+queue, and rotation behavior.
 
 Flash enablement and display duration are runtime values from `/api/screens`;
 they are not configured in `settings_local.py`. The board uses the safe

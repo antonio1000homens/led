@@ -13,7 +13,7 @@ for source_path in ("/hardware/matrixportal/firmware", "/shared", "hardware/matr
         sys.path.append(source_path)
 
 from monotonic_clock import elapsed_seconds, ticks_ms
-from board_health import BoardHealth
+from board_health import BoardHealth, safe_snapshot_timestamp
 
 try:
     import gc
@@ -46,14 +46,16 @@ from animation_scheduler import (
 )
 from matrix_runtime import (
     RuntimeMode, collect_gc_with_state, enter_rail_gc_window,
+    football_gc_safe_to_collect,
     christmas_gc_action, enter_christmas_gc_window,
     leave_christmas_gc_window, prepare_christmas_scene_gc,
 )
 from wifi_isolation_window import WifiIsolationWindow
-from screen_client import ClockState, ScreenClient, ScreenRotation
+from screen_client import ClockState, ScreenClient, ScreenRotation, attach_shared_weather
 from christmas_tracker import with_christmas_tracker
 from cron_schedule import cron_matches_local
-from mqtt_screens import MqttScreenState
+from mqtt_screens import MqttScreenState, recycling_policy
+from football_screens import FootballPresentationQueue, FootballScreenState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
@@ -209,7 +211,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.effective_screens(epoch_now, clock.date_text(now)), ticks_ms())
+            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
             return
         if service_mqtt and _service_reminder_clock(now):
@@ -230,6 +232,7 @@ def _sleep_interruptible(seconds, service_mqtt=False):
 
 next_fetch = 0
 last_maintenance_slot = None
+last_rotation_state_log = None
 last_visible_screen = None
 last_logged_screen_started = None
 screen_heap_low_water = None
@@ -278,7 +281,26 @@ def _checkpoint_board_health(stage, screen, now):
 mqtt_screens = MqttScreenState(
     getattr(settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
 )
+football_screens = FootballScreenState(
+    getattr(settings, "MQTT_FOOTBALL_TOPIC", "led/football/+"),
+    enabled=getattr(settings, "MQTT_FOOTBALL_ENABLED", True),
+)
+football_presentations = FootballPresentationQueue()
+active_football_screen = None
+active_football_started = None
+football_rotation_resume = None
+football_pause_started = None
+football_presentation_sequence = 0
 last_recycling_date = None
+
+
+def _effective_mqtt_screens(epoch_now):
+    football = football_screens.screens(epoch_now)
+    if epoch_now is None:
+        return football
+    return mqtt_screens.effective_screens(
+        epoch_now, clock.date_text(time.monotonic())
+    ) + football
 
 
 def _reminder_epoch(now):
@@ -290,10 +312,16 @@ def _reminder_epoch(now):
 
 
 def _flash_started(now):
-    global flash_resume, last_render_key, flash_started_ticks
+    global flash_resume, last_render_key, flash_started_ticks, football_pause_started
     flash_started_ticks = ticks_ms()
     if flash_resume is None:
-        flash_resume = rotation.freeze(ticks_ms())
+        active_presentation = globals().get("active_football_screen")
+        resume_state = globals().get("football_rotation_resume")
+        if active_presentation is not None and resume_state is not None:
+            flash_resume = resume_state
+            football_pause_started = flash_started_ticks
+        else:
+            flash_resume = rotation.freeze(ticks_ms())
     last_render_key = None
     print("FLASH START id={}".format(flash.event["id"]))
 
@@ -305,6 +333,30 @@ def _service_reminder_clock(now):
         _flash_started(now)
         return True
     return False
+
+
+def _cancel_active_football():
+    """Cancel a football prompt whose retained snapshot is no longer presentable."""
+    global active_football_screen, active_football_started
+    global football_rotation_resume, football_pause_started, flash_resume
+    global last_render_key
+    if active_football_screen is None:
+        return False
+    team_key = active_football_screen.get("team_key")
+    if football_rotation_resume is not None:
+        rotation.resume(
+            ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
+        )
+    active_football_screen = None
+    active_football_started = None
+    football_rotation_resume = None
+    football_pause_started = None
+    flash_resume = None
+    last_render_key = None
+    print("FOOTBALL PRESENTATION CANCEL team={} reason=fixture_unavailable".format(
+        team_key
+    ))
+    return True
 
 
 if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_train_test:
@@ -325,12 +377,28 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             if flash.accept(payload, now, epoch_now=epoch_now):
                 _flash_started(now)
             return
+        football_prefix = football_screens.prefix
+        if topic.startswith(football_prefix):
+            epoch_now = _reminder_epoch(now)
+            if football_presentations.accept_snapshot(
+                    football_screens, topic, payload, epoch_now):
+                team_key = topic[len(football_prefix):]
+                print("FOOTBALL UPDATE ACCEPTED team={} pending={}".format(
+                    team_key, len(football_presentations)
+                ))
+                rotation.update_sources(
+                    rotation.http_screens,
+                    _effective_mqtt_screens(epoch_now),
+                    ticks_ms(),
+                )
+                mqtt_screens_changed = True
+            return
         epoch_now = _reminder_epoch(now)
         if epoch_now is None:
             print("MQTT screen ignored: clock not synchronized")
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
-            rotation.update_sources(rotation.http_screens, mqtt_screens.effective_screens(epoch_now, clock.date_text(now)), ticks_ms())
+            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
 
     mqtt = FlashMqttClient(
@@ -409,6 +477,7 @@ christmas_gc_suspended = False
 rail_gc_pause_active = False
 rail_gc_last_pressure_collect = None
 sun_gc_completed_key = None
+football_gc_last_key = None
 rail_prebuild_last_slot = None
 previous_rail_frame_started = None
 last_rail_sleep_requested_ms = 0.0
@@ -456,6 +525,8 @@ def _display_phase(screen, phase):
     if _smooth_steam_train(screen):
         return phase
     if _smooth_bus_intro(screen):
+        return phase
+    if _smooth_football(screen):
         return phase
     if screen.get("kind") == "calendar_agenda" and screen.get("source") == "todoist":
         return phase
@@ -515,6 +586,13 @@ def _smooth_bus_intro(screen):
     return (
         settings.DISPLAY_BACKEND == "matrix"
         and screen.get("kind") == "bus_intro"
+    )
+
+
+def _smooth_football(screen):
+    return (
+        settings.DISPLAY_BACKEND == "matrix"
+        and screen.get("kind") == "football_score"
     )
 
 
@@ -709,6 +787,11 @@ while True:
                 and not mqtt_animation_active
                 and mqtt_screen.get("kind") != "rail_combined"
             )
+        if active_football_screen is not None and not flash.active(now):
+            football_phase = elapsed_seconds(active_football_started)
+            if display.animation_active(active_football_screen, football_phase):
+                mqtt_animation_active = True
+                mqtt_allow_connect = False
         # MiniMQTT's nominal socket timeout does not bound the complete
         # CircuitPython/Wi-Fi path. Do not interrupt visible animation with
         # keepalive/reconnect work; service the connection in an idle window.
@@ -756,7 +839,66 @@ while True:
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     maintenance_resume = None
     maintenance_active = False
-    candidate, candidate_phase = rotation.current(ticks_ms())
+    if not flash.active(now) and flash.event is None:
+        if active_football_screen is not None:
+            latest_football = football_screens.screen_for_team(
+                active_football_screen.get("team_key"), _reminder_epoch(now)
+            )
+            if latest_football is None:
+                _cancel_active_football()
+            elif latest_football.get("published_at") == active_football_screen.get("published_at"):
+                latest_football["id"] = active_football_screen.get("id")
+                active_football_screen = latest_football
+            if (active_football_screen is not None
+                    and elapsed_seconds(active_football_started) >= float(
+                        active_football_screen.get("duration_seconds") or 20
+                    )):
+                print("FOOTBALL PRESENTATION END team={}".format(
+                    active_football_screen.get("team_key")
+                ))
+                active_football_screen = None
+                active_football_started = None
+                if football_rotation_resume is not None:
+                    rotation.resume(
+                        ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
+                    )
+                football_rotation_resume = None
+        if active_football_screen is None:
+            team_key = football_presentations.pop()
+            if team_key is not None:
+                epoch_now = _reminder_epoch(now)
+                next_screen = football_screens.screen_for_team(team_key, epoch_now)
+                if next_screen is not None:
+                    football_presentation_sequence += 1
+                    next_screen["id"] = "football-event-{}".format(
+                        football_presentation_sequence
+                    )
+                    next_screen["ball_animation"] = True
+                    football_rotation_resume = rotation.freeze(ticks_ms())
+                    active_football_screen = next_screen
+                    active_football_started = ticks_ms()
+                    print("FOOTBALL PRESENTATION START team={} pending={}".format(
+                        team_key, len(football_presentations)
+                    ))
+    if active_football_screen is not None and not flash.active(now):
+        candidate = active_football_screen
+        candidate_phase = elapsed_seconds(active_football_started)
+    else:
+        candidate, candidate_phase = rotation.current(ticks_ms())
+    rotation_idle = candidate.get("id") == "schedule-idle"
+    rotation_state_now = ticks_ms()
+    if (last_rotation_state_log is None
+            or rotation_state_now - last_rotation_state_log >= 60000):
+        schedule_state = rotation.schedule_state()
+        print(
+            "ROTATION STATE http={} mqtt={} cycle={} active={} disabled={} windowed={} idle={} clock={}".format(
+                schedule_state["http"], schedule_state["mqtt"],
+                schedule_state["cycle"], schedule_state["active"],
+                schedule_state["disabled"], schedule_state["windowed"],
+                schedule_state["idle"], "ready" if clock.epoch(now) is not None else "unset",
+            )
+        )
+        last_rotation_state_log = rotation_state_now
     fetch_due = ticks_ms() >= next_fetch
     boundary = last_visible_screen != candidate.get("id")
     task_unready = (candidate.get("kind") == "calendar_agenda"
@@ -777,7 +919,8 @@ while True:
             if gc is not None and hasattr(gc, "enable"):
                 gc.enable()
         christmas_gc_suspended = False
-    if (rotation.screens and not steam_train_test and not flash.active(now)
+    if (rotation.screens and active_football_screen is None
+            and not steam_train_test and not flash.active(now)
             and boundary and not paired_followup and (fetch_due or task_unready)
             and not rotation.is_maintenance_screen(candidate)):
         rotation.maintenance_slot(ticks_ms())
@@ -845,7 +988,8 @@ while True:
     # animations; the next static slot is soon enough to apply new data.
     should_fetch = (
         fetch_due
-        and (maintenance_visible or (steam_train_test and not rotation.screens))
+        and (maintenance_visible or rotation_idle
+             or (steam_train_test and not rotation.screens))
         and not flash.active(now)
     )
     if MATRIX_TELEMETRY_ENABLED:
@@ -882,6 +1026,7 @@ while True:
             print("FETCH START")
             payload = fixture_payload(now) if client is None else client.fetch()
             screens = with_christmas_tracker(payload.get("screens"))
+            attach_shared_weather(screens, payload.get("weather"))
             christmas_policy = payload.get("christmas") or {}
             for scheduled_screen in screens:
                 if scheduled_screen.get("kind") in ("christmas_tracker_intro", "christmas_tracker"):
@@ -899,7 +1044,10 @@ while True:
             telemetry_fetches += 1
             telemetry_fetch_total += fetch_duration
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
-            print("FETCH OK screens={} duration={:.3f}".format(len(screens or []), fetch_duration))
+            print("FETCH OK screens={} duration={:.3f} fetched_at={}".format(
+                len(screens or []), fetch_duration,
+                safe_snapshot_timestamp(payload.get("fetched_at")),
+            ))
             for candidate in screens or ():
                 if (not isinstance(candidate, dict)
                         or candidate.get("id") != "departures"
@@ -928,7 +1076,8 @@ while True:
                 for intro in screens:
                     if (not isinstance(intro, dict)
                             or intro.get("kind") not in (
-                                "steam_train_intro", "bus_intro", "christmas_tracker_intro", "christmas_tracker"
+                                "steam_train_intro", "bus_intro",
+                                "christmas_tracker_intro", "christmas_tracker"
                             )):
                         continue
                     try:
@@ -950,14 +1099,23 @@ while True:
                         print("Intro scene preparation deferred:", error)
             rotation.set_schedule_time(clock.date_text(fetch_completed), clock.text(fetch_completed))
             rotation.set_schedule_epoch(clock.epoch(fetch_completed))
-            mqtt_screens.configure_recycling(mqtt_screens.recycling_policy(payload))
+            mqtt_screens.configure_recycling(recycling_policy(payload))
             epoch_now = _reminder_epoch(fetch_completed)
             last_recycling_date = clock.date_text(fetch_completed)
             rotation.update_sources(
                 screens,
-                mqtt_screens.effective_screens(epoch_now, last_recycling_date)
+                _effective_mqtt_screens(epoch_now)
                 if epoch_now is not None else [],
                 ticks_ms(),
+            )
+            schedule_state = rotation.schedule_state()
+            print(
+                "ROTATION STATE http={} mqtt={} cycle={} active={} disabled={} windowed={} idle={}".format(
+                    schedule_state["http"], schedule_state["mqtt"],
+                    schedule_state["cycle"], schedule_state["active"],
+                    schedule_state["disabled"], schedule_state["windowed"],
+                    schedule_state["idle"],
+                )
             )
             if fetch_resume is not None:
                 rotation.resume(ticks_ms(), fetch_resume[0], fetch_resume[1])
@@ -975,9 +1133,13 @@ while True:
             telemetry_fetch_max = max(telemetry_fetch_max, fetch_duration)
             if board_health is not None:
                 board_health.fetch_result(
-                    fetch_completed, fetch_duration, error=type(error).__name__
+                    fetch_completed, fetch_duration, error=type(error).__name__,
+                    error_stage=(client.last_error_stage if client is not None else "publisher"),
                 )
-            print("Screen fetch failed duration={:.3f}:".format(fetch_duration), error)
+            failed_stage = client.last_error_stage if client is not None else "publisher"
+            print("Screen fetch failed duration={:.3f} class={} stage={}".format(
+                fetch_duration, type(error).__name__, failed_stage,
+            ))
             _publish_board_health(fetch_completed, force=True)
             transport_stale = bool(rotation.screens)
             if fetch_resume is not None:
@@ -1051,10 +1213,11 @@ while True:
     epoch_now = _reminder_epoch(now)
     recycling_date = clock.date_text(now)
     expired_mqtt = mqtt_screens.expire(epoch_now) if epoch_now is not None else []
-    if epoch_now is not None and (expired_mqtt or recycling_date != last_recycling_date):
+    football_stale_changed = football_screens.staleness_changed(epoch_now)
+    if epoch_now is not None and (expired_mqtt or football_stale_changed or recycling_date != last_recycling_date):
         rotation.update_sources(
             rotation.http_screens,
-            mqtt_screens.effective_screens(epoch_now, recycling_date),
+            _effective_mqtt_screens(epoch_now),
             ticks_ms(),
         )
         mqtt_screens_changed = True
@@ -1067,13 +1230,26 @@ while True:
         if flash.event is not None:
             flash.clear()
             if flash_resume is not None:
-                rotation.resume(ticks_ms(), flash_resume[0], flash_resume[1])
+                if football_rotation_resume is None:
+                    rotation.resume(ticks_ms(), flash_resume[0], flash_resume[1])
                 flash_resume = None
+            if football_pause_started is not None and active_football_screen is not None:
+                active_football_started += ticks_ms() - football_pause_started
+                football_pause_started = None
             last_render_key = None
             print("FLASH END")
-        rotation.set_schedule_time(clock.date_text(now), clock.text(now))
-        rotation.set_schedule_epoch(clock.epoch(now))
-        screen, phase = rotation.current(ticks_ms())
+            if (active_football_screen is not None
+                    and football_screens.screen_for_team(
+                        active_football_screen.get("team_key"), _reminder_epoch(now)
+                    ) is None):
+                _cancel_active_football()
+        if active_football_screen is not None:
+            screen = active_football_screen
+            phase = elapsed_seconds(active_football_started)
+        else:
+            rotation.set_schedule_time(clock.date_text(now), clock.text(now))
+            rotation.set_schedule_epoch(clock.epoch(now))
+            screen, phase = rotation.current(ticks_ms())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["screen_select"] = elapsed_seconds(stage_started)
     screen = hardware_safe_screen(screen)
@@ -1340,6 +1516,40 @@ while True:
                     ))
     else:
         sun_gc_completed_key = None
+    # Automatic GC is enabled outside the rail-only GC suppression window.
+    # The settled football countdown is a safe time for one *explicit*
+    # collection: both scene groups are stationary and the countdown has been
+    # rendered. Do not collect during the 3.2 s roll/push or while a goal
+    # highlight is animating. Key by rotation cycle/event ID, not phase or
+    # countdown text, to avoid collecting on each one-second tick.
+    if (settings.DISPLAY_BACKEND == "matrix"
+            and gc is not None and hasattr(gc, "collect")
+            and football_gc_safe_to_collect(
+                screen, phase, display.animation_active(screen, phase)
+            )):
+        football_gc_key = (screen.get("id"), rotation.cycle_number)
+        if football_gc_key != football_gc_last_key:
+            # Record before collection: an unexpected failure should not
+            # trigger an expensive retry every second on the visible screen.
+            football_gc_last_key = football_gc_key
+            try:
+                _checkpoint_board_health("gc", screen, time.monotonic())
+                football_gc_before = _memory_free()
+                football_gc_started = ticks_ms()
+                # Restore automatic collection even if gc.collect raises.
+                collect_gc_with_state(gc, enabled_after=True)
+                if HEAP_DIAGNOSTICS_ENABLED:
+                    print(
+                        "FOOTBALL GC settled id={} duration={:.3f}s "
+                        "heap_free_before={} heap_free_after={} automatic_gc=enabled".format(
+                            screen.get("id"),
+                            elapsed_seconds(football_gc_started),
+                            football_gc_before,
+                            _memory_free(),
+                        )
+                    )
+            except Exception as error:
+                print("FOOTBALL GC FAILED; automatic GC restored:", error)
     if log_screen_change:
         base_display = getattr(display, "base", display)
         hardware_display = getattr(base_display, "display", None)
@@ -1378,6 +1588,7 @@ while True:
         or _smooth_queue(screen)
         or _smooth_steam_train(screen)
         or _smooth_bus_intro(screen)
+        or _smooth_football(screen)
         or _smooth_sun_weather(screen)
         or _smooth_today(screen)
         or _smooth_bin_collection(screen)

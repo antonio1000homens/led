@@ -79,10 +79,16 @@ class Issue41DashboardTests(unittest.TestCase):
         self.assertIn('function ordinalLabel(number)', self.simulator_source)
 
     def test_platforms_use_a_stable_column_in_hardware_and_simulator(self):
-        self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*164')
+        self.assertRegex(self.display_source, r'RAIL_PLATFORM_X\s*=\s*154')
         self.assertIn('platform_x = RAIL_PLATFORM_X', self.display_source)
-        self.assertRegex(self.simulator_source, r'const RAIL_PLATFORM_X\s*=\s*656;')
+        self.assertRegex(self.simulator_source, r'const RAIL_PLATFORM_X\s*=\s*616;')
+        # Service status shares a stable column and shifts left with the
+        # platform to leave room for cancellation labels.
         self.assertIn('const platformX = RAIL_PLATFORM_X;', self.simulator_source)
+        self.assertIn('CLOCK_X - HEADER_GAP - 10 - len(status) * WEATHER_FONT_WIDTH',
+                      self.display_source)
+        self.assertIn('CLOCK_X - 4 * FONT_PIXEL_SCALE - 10 * FONT_PIXEL_SCALE',
+                      self.simulator_source)
 
 
 if __name__ == "__main__":

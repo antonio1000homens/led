@@ -26,6 +26,14 @@ Parameters:
   ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
+  FootballFixtureSource: {Type: String, Default: 'off', AllowedValues: ['off', google_calendar, public_ical]}
+  FootballFixtureParameterName:
+    Type: String
+    Default: /led/football/calendar
+    AllowedPattern: '^/led/football/[A-Za-z0-9_/-]+$'
+  FootballFixtureCacheSeconds: {Type: Number, Default: 900, MinValue: 60, MaxValue: 86400}
+  FootballFixtureDurationSeconds: {Type: Number, Default: 20, MinValue: 2, MaxValue: 300}
+  FootballFixtureLookaheadDays: {Type: Number, Default: 45, MinValue: 1, MaxValue: 180}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
   TodoistFilterQuery: {Type: String, Default: 'due before: tomorrow | due after: yesterday'}
@@ -86,6 +94,10 @@ Resources:
                 Effect: Allow
                 Action: ['ssm:GetParameter', 'ssm:PutParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
+              - Sid: ReadFootballCalendarCredentials
+                Effect: Allow
+                Action: ['ssm:GetParameter']
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FootballFixtureParameterName}
               - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${PublisherLogGroup.Arn}:*'}
   PublisherLogGroup:
     Type: AWS::Logs::LogGroup
@@ -108,6 +120,11 @@ Resources:
           RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
           TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
+          LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
+          LED_FOOTBALL_FIXTURE_PARAMETER_NAME: !Ref FootballFixtureParameterName
+          LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
+          LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
+          LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
@@ -185,6 +202,10 @@ Resources:
           LED_CALENDAR_SOURCE: !Ref CalendarSource
           LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
           LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
+          LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
+          LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
+          LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
           LED_WEATHER_SOURCE: !Ref WeatherSource
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
 

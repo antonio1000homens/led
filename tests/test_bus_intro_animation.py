@@ -95,12 +95,13 @@ class BusIntroAnimationTests(unittest.TestCase):
         functions = [
             node for node in tree.body
             if isinstance(node, ast.FunctionDef)
-            and node.name in ("_display_phase", "_smooth_bus_intro")
+            and node.name in ("_display_phase", "_smooth_bus_intro", "_smooth_football")
         ]
         scope = {
             "settings": types.SimpleNamespace(ANIMATE=False, DISPLAY_BACKEND="matrix"),
             "_smooth_departures": lambda screen: False,
             "_smooth_steam_train": lambda screen: False,
+            "_smooth_football": lambda screen: True,
             "_smooth_queue": lambda screen: False,
             "_smooth_sun_weather": lambda screen: False,
             "_smooth_bin_collection": lambda screen: False,
@@ -108,6 +109,9 @@ class BusIntroAnimationTests(unittest.TestCase):
         exec(compile(ast.Module(body=functions, type_ignores=[]), "code.py", "exec"), scope)
         self.assertEqual(
             scope["_display_phase"]({"kind": "bus_intro"}, 7.5), 7.5
+        )
+        self.assertEqual(
+            scope["_display_phase"]({"kind": "football_score"}, 7.5), 7.5
         )
         self.assertEqual(
             scope["_display_phase"]({"kind": "unrelated"}, 7.5), 2

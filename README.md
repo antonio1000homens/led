@@ -42,6 +42,12 @@ and never modify reminder snapshot state. The flash extends as needed to show ev
 expires if it arrives more than 120 seconds after publication. Reminders take
 priority over assistant replies. See [LED issue #251](https://github.com/antonio1000homens/led/issues/251)
 and the [Home Assistant publisher issue #41](https://github.com/antonio1000homens/homeassistant/issues/41).
+Retained football snapshots on `led/football/sporting_cp` and
+`led/football/millwall` trigger a coalesced, prompt match presentation: the
+football slides in from the right and remains pinned at the left of the match
+text. PRE fixtures show only the teams and Europe/London kick-off time. Flash
+reminders keep priority, and football snapshots also remain in the normal
+rotation. See [football MQTT behavior](docs/football-mqtt.md).
 The first cycle-screen producer is the [Home Assistant next-recycling
 screen](https://github.com/antonio1000homens/homeassistant/issues/7). The board
 uses one MQTT connection, and broker credentials remain in board-local
@@ -135,6 +141,8 @@ BWS_NATIONAL_RAIL_TOKEN_SECRET_ID=<bitwarden-secret-uuid>
 ```
 
 The process requires an authenticated `bws` CLI, normally through `BWS_ACCESS_TOKEN`. It resolves the token at startup and never sends it to the MatrixPortal or browser. This is a local-development path only; the production GitHub deployment no longer depends on a Bitwarden machine account.
+
+Departure platform numbers use the National Rail Darwin value when present. If Darwin omits a platform, the backend makes a best-effort lookup against the public RailInfo New Malden board and fills only unambiguous matches by scheduled departure time. If neither source has a value, the display continues to show `-`; failures from the secondary lookup do not interrupt departures.
 
 ### Thorpe Park queue times
 
@@ -283,11 +291,20 @@ If a Weather refresh fails after at least one successful response, the complete 
 
 ### Screen contract
 
-`GET /api/screens` is the renderer-neutral contract. A response contains `fetched_at` plus one or more screens. The current-weather object is attached to every screen for the shared header carousel, and Weather also contributes one dedicated `weather_weekly` screen with a `days` array:
+`GET /api/screens` is the renderer-neutral contract. A response contains `fetched_at`, an optional shared `weather` object, and one or more screens. Weather is sent once at the top level instead of being copied into each screen; the board and browser simulator attach that same object to screens locally for the shared header carousel. Weather also contributes one dedicated `weather_weekly` screen with a `days` array:
+
+The authenticated admin page includes **Board preview → Live screen preview**. It embeds the same renderer as the public simulator, reads `/api/screens`, and cycles through the fetched screens; Previous, Next, and Pause let you inspect individual entries. The preview loads only while that admin section is open. It does not include retained MQTT events, which the MatrixPortal receives on a separate connection.
 
 ```json
 {
   "fetched_at": "2026-09-13T11:45:30Z",
+  "weather": {
+    "source": "open_meteo",
+    "temperature_c": 17.4,
+    "weather_code": 2,
+    "icon": "partly_cloudy_day",
+    "stale": false
+  },
   "screens": [
     {
       "id": "departures",

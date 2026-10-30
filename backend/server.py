@@ -19,16 +19,20 @@ import re
 import subprocess
 import threading
 import time
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
 from fixtures import CALENDAR_EVENTS, PAGES
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
+from feed_errors import ProviderFailure
 from queue_times import QueueFeedUnavailable, QueueTimesProvider, ThorpeParkFeed
 from weather import OpenMeteoProvider, WeatherFeed, WeatherFeedUnavailable, weather_icon
 
 
 WSDL_URL = "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01"
+RAILINFO_BOARD_URL = "https://api.railinfo.uk/boards/{}/departures"
 SECRET_ID_PATTERN = re.compile(r"^[0-9a-fA-F-]{36}$")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SIMULATOR_ROOT = PROJECT_ROOT / "simulator"
@@ -103,6 +107,27 @@ def _first_location_name(value):
     return "Unknown"
 
 
+def _platform_number(value):
+    """Return the compact platform value used by the LED renderer.
+
+    Darwin normally sends a string such as ``"4"``, but serialized SOAP
+    responses can also include a label (``"Platform 4"``) or a small object.
+    The renderer adds the visible ``P`` prefix itself, so keep only the value.
+    """
+    if isinstance(value, dict):
+        value = (value.get("platformNumber") or value.get("number")
+                 or value.get("platform") or value.get("value"))
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else None
+    text = str(value or "").strip()
+    if not text:
+        return "-"
+    lowered = text.lower()
+    if lowered.startswith("platform"):
+        text = text[len("platform"):].strip(" :#")
+    return text or "-"
+
+
 def _reason_text(value):
     if isinstance(value, str):
         return value
@@ -167,13 +192,71 @@ def normalize_darwin_board(board, max_rows=10):
             {
                 "time": scheduled,
                 "destination": _first_location_name(item.get("destination")),
-                "platform": str(item.get("platform") or "-"),
+                "platform": _platform_number(
+                    item.get("platform") or item.get("platformNumber")
+                ),
                 "status": status,
                 "cancelled": cancelled,
                 "delay_reason": _reason_text(item.get("delayReason") or item.get("cancelReason")),
                 "stops": _calling_points(item.get("subsequentCallingPoints")),
             }
         )
+    return services
+
+
+def _departure_clock_key(value):
+    """Normalize HH:MM and HHMM service times for cross-feed matching."""
+    text = re.sub(r"\D", "", str(value or ""))
+    return text if len(text) == 4 else None
+
+
+def _railinfo_platforms(station):
+    """Read best-effort platform allocations from the public RailInfo board."""
+    request = Request(
+        RAILINFO_BOARD_URL.format(station),
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "LED-departure-platform-enrichment/1.0",
+        },
+    )
+    with urlopen(request, timeout=5) as response:
+        payload = json.load(response)
+    if not isinstance(payload, dict) or payload.get("crs") != station:
+        return {}
+
+    candidates = {}
+    ambiguous = set()
+    for item in payload.get("departures") or ():
+        if not isinstance(item, dict):
+            continue
+        key = _departure_clock_key(item.get("public_dep"))
+        platform = _platform_number(
+            item.get("live_platform") or item.get("sched_platform")
+        )
+        if key is None or platform == "-":
+            continue
+        if key in candidates and candidates[key] != platform:
+            ambiguous.add(key)
+        else:
+            candidates[key] = platform
+    for key in ambiguous:
+        candidates.pop(key, None)
+    return candidates
+
+
+def _enrich_missing_platforms(services, platforms):
+    """Fill only unambiguous missing Darwin platforms using scheduled time."""
+    service_counts = {}
+    for item in services:
+        key = _departure_clock_key(item.get("time"))
+        if key is not None:
+            service_counts[key] = service_counts.get(key, 0) + 1
+    for item in services:
+        if _platform_number(item.get("platform")) != "-":
+            continue
+        key = _departure_clock_key(item.get("time"))
+        if key is not None and service_counts.get(key) == 1 and key in platforms:
+            item["platform"] = platforms[key]
     return services
 
 
@@ -279,13 +362,31 @@ class NationalRailProvider:
         self._header = header(TokenValue=self.token)
 
     def fetch(self):
-        self._connect()
-        board = self._client.service.GetDepBoardWithDetails(
-            numRows=self.max_rows,
-            crs=self.station,
-            _soapheaders=[self._header],
-        )
-        return normalize_darwin_board(self._serialize(board), self.max_rows)
+        try:
+            self._connect()
+        except Exception as error:
+            raise ProviderFailure("soap_connect", "soap") from error
+        try:
+            board = self._client.service.GetDepBoardWithDetails(
+                numRows=self.max_rows,
+                crs=self.station,
+                _soapheaders=[self._header],
+            )
+        except Exception as error:
+            response = getattr(error, "response", None)
+            status = getattr(response, "status_code", None)
+            raise ProviderFailure("soap_request", "soap", status) from error
+        try:
+            services = normalize_darwin_board(self._serialize(board), self.max_rows)
+        except Exception as error:
+            raise ProviderFailure("soap_normalize", "soap") from error
+        try:
+            _enrich_missing_platforms(services, _railinfo_platforms(self.station))
+        except (HTTPError, URLError, OSError, ValueError, TypeError):
+            # A secondary platform source must never make the primary live
+            # departure board unavailable.
+            pass
+        return services
 
 
 class DepartureFeed:
@@ -373,6 +474,7 @@ class ScreenFeed:
 
     def get(self):
         screens = []
+        shared_weather = None
         try:
             departures = self.departure_feed.get()
             services = filter_train_services(
@@ -495,6 +597,7 @@ class ScreenFeed:
             today_blocks = copy.deepcopy(overlay.pop("today_blocks", []))
             sunrise_time = overlay.pop("sunrise_time", None)
             sunset_time = overlay.pop("sunset_time", None)
+            shared_weather = overlay
             if sunrise_time and sunset_time:
                 screens.append({
                     "id": "weather-sun",
@@ -525,13 +628,13 @@ class ScreenFeed:
                 "stale": bool(weather.get("stale")),
                 "days": forecast,
             })
-            for screen in screens:
-                screen["weather"] = copy.deepcopy(overlay)
-
-        return {
+        payload = {
             "fetched_at": self.utcnow().isoformat().replace("+00:00", "Z"),
             "screens": screens,
         }
+        if shared_weather is not None:
+            payload["weather"] = shared_weather
+        return payload
 
 
 class SimulatorHandler(SimpleHTTPRequestHandler):

@@ -43,6 +43,27 @@ def enter_rail_gc_window(gc_module, allow_during_build=False, collect_at_entry=T
     return False
 
 
+FOOTBALL_GC_SETTLE_GRACE_SECONDS = 0.5
+
+
+def football_gc_safe_to_collect(screen, phase, animation_active=False):
+    """Allow a one-shot collection only after a fully rendered football entry.
+
+    A settled match is motionless; countdown text changes at most once per
+    second. The caller must separately gate once per rotation/prompt event.
+    Avoid collections while the outgoing scene is being pushed, during goal
+    flashes, or on an interrupted/non-football screen.
+    """
+    if (not isinstance(screen, dict)
+            or screen.get("kind") != "football_score"
+            or animation_active):
+        return False
+    try:
+        return float(phase) >= 3.2 + FOOTBALL_GC_SETTLE_GRACE_SECONDS
+    except (ValueError, TypeError):
+        return False
+
+
 def christmas_gc_action(screen_kind, suspended, overlay_active=False):
     """Return enter/exit only at Christmas screen boundaries, never mid-scene."""
     active = screen_kind in ("christmas_tracker_intro", "christmas_tracker") and not overlay_active

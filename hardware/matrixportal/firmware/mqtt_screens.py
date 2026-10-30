@@ -20,19 +20,30 @@ def _leap(year):
 
 
 def _epoch(value):
-    """Parse ISO-8601 with Z or an explicit offset into integer UTC milliseconds."""
-    if not isinstance(value, str) or len(value) < 20:
+    """Parse ISO-8601 timestamps with Z or an offset into UTC milliseconds.
+
+    Home Assistant's Team Tracker emits kickoff at minute precision (for
+    example ``2026-10-31T15:00Z``) and serializes ``last_update`` with a space
+    between the date and time. Both are valid source representations.
+    """
+    if not isinstance(value, str) or len(value) < 17:
         raise ValueError("timestamp")
     try:
         year, month, day = int(value[:4]), int(value[5:7]), int(value[8:10])
-        hour, minute, second = int(value[11:13]), int(value[14:16]), int(value[17:19])
-        if value[4] != "-" or value[7] != "-" or value[10] != "T" or value[13] != ":" or value[16] != ":":
+        hour, minute = int(value[11:13]), int(value[14:16])
+        if (value[4] != "-" or value[7] != "-" or value[10] not in ("T", " ")
+                or value[13] != ":"):
             raise ValueError("timestamp")
+        if len(value) >= 19 and value[16] == ":":
+            second = int(value[17:19])
+            suffix = value[19:]
+        else:
+            second = 0
+            suffix = value[16:]
         days_month = (31, 29 if _leap(year) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
         if not (1 <= year <= 9999 and 1 <= month <= 12 and 1 <= day <= days_month[month - 1]
                 and 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
             raise ValueError("timestamp")
-        suffix = value[19:]
         fraction_ms = 0
         if suffix[:1] in (".", ","):
             index = 1

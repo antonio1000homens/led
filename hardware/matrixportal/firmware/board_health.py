@@ -3,8 +3,19 @@
 HEARTBEAT_SECONDS = 30
 ERROR_CLASSES = frozenset({
     "OSError", "RuntimeError", "ValueError", "TypeError", "MemoryError",
-    "ImportError", "AssertionError", "other",
+    "ImportError", "AssertionError", "HTTPError", "URLError", "ConnectionError",
+    "TimeoutError", "JSONDecodeError", "other",
 })
+_SAFE_TIMESTAMP_CHARS = frozenset("0123456789TtZz:.-+ ")
+
+
+def safe_snapshot_timestamp(value):
+    """Keep publisher-time diagnostics bounded and free of arbitrary text."""
+    if not isinstance(value, str) or not value or len(value) > 32:
+        return "unknown"
+    if any(character not in _SAFE_TIMESTAMP_CHARS for character in value):
+        return "unknown"
+    return value
 
 
 def _text(value, limit=48):
@@ -20,8 +31,14 @@ def _text(value, limit=48):
 def _source_timestamp(value):
     if not isinstance(value, str):
         return None
-    value = "".join(char for char in value if "0" <= char <= "9" or char in "-:.TZ+")[:32]
+    if len(value) > 32 or not value or any(char not in "0123456789TtZz:.-+ " for char in value):
+        return None
     return value if len(value) >= 10 else None
+
+
+def safe_snapshot_timestamp(value):
+    """Keep serial freshness diagnostics bounded and free of arbitrary text."""
+    return _source_timestamp(value) or "unknown"
 
 
 class BoardHealth:
@@ -62,6 +79,7 @@ class BoardHealth:
             "last_fetch_success_uptime_seconds": None,
             "last_fetch_successful": None,
             "last_fetch_error_class": "",
+            "last_fetch_error_stage": "",
             "feed_health": [],
             "cycle_number": 0,
             "brightness_percent": None,
@@ -133,18 +151,25 @@ class BoardHealth:
             "source": self.state["attempted_source"],
         })
 
-    def fetch_result(self, uptime, duration, feeds=None, error=None):
+    def fetch_result(self, uptime, duration, feeds=None, error=None, error_stage=None):
         self.state["fetch_duration_seconds"] = round(float(duration), 3)
         self.state["last_fetch_error_class"] = (
             str(error) if str(error) in ERROR_CLASSES else "other"
         )
         if error:
             self.state["last_fetch_successful"] = False
+            self.state["last_fetch_error_stage"] = (
+                _text(error_stage, 24) if error_stage in (
+                    "session_setup", "connection_setup", "response_headers",
+                    "tls_setup", "response_body", "publisher",
+                ) else "unknown"
+            )
             self.failure("fetch")
             return
         self.state["last_fetch_successful"] = True
         self.state["last_fetch_success_uptime_seconds"] = int(uptime)
         self.state["last_fetch_error_class"] = ""
+        self.state["last_fetch_error_stage"] = ""
         summary = []
         if isinstance(feeds, dict):
             for name, value in feeds.items():

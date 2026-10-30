@@ -22,12 +22,21 @@
     .status { margin-left: auto; color: #a8b1bd; font-size: .82rem; }
     .credit { margin-top: 12px; margin-bottom: 0; font-size: .78rem; }
     @media (max-width: 720px) { main { padding: 14px; } .status { width: 100%; margin-left: 0; } }
+    body.admin-preview { min-height: 0; display: block; background: transparent; }
+    body.admin-preview main { padding: 12px; }
+    body.admin-preview h1, body.admin-preview .simulator-description, body.admin-preview .credit { display: none; }
+    body.admin-preview .board-shell { padding: 8px; border-radius: 9px; box-shadow: none; }
+    body.admin-preview canvas { min-width: 0; }
+    body.admin-preview .controls { margin-top: 10px; gap: 6px; }
+    body.admin-preview .controls button { padding: 6px 8px; font-size: .82rem; }
+    body.admin-preview #bin-preview, body.admin-preview #football-preview,
+    body.admin-preview #sl7-preview, body.admin-preview #flash-preview { display: none; }
   </style>
 </head>
 <body>
   <main>
     <h1>256 × 32 information board</h1>
-    <p>Four 64 × 32 panels. Hardware preview mirrors the MatrixPortal's 5×7 font, 1-bit RGB palette, panel seams and 7 FPS application refresh; switch it off for a clean content view.</p>
+    <p class="simulator-description">Four 64 × 32 panels. Hardware preview mirrors the MatrixPortal's 5×7 font, 1-bit RGB palette, panel seams and 7 FPS application refresh; switch it off for a clean content view.</p>
     <div class="board-shell"><canvas id="board" width="1024" height="128" aria-label="Animated LED information board preview"></canvas></div>
     <p class="credit">Theme park queue data, when enabled, is <a href="https://queue-times.com/" target="_blank" rel="noreferrer">Powered by Queue-Times.com</a>. Weather data is provided by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a>. Inspirational quotes, when enabled, are provided by <a href="https://zenquotes.io/" target="_blank" rel="noreferrer">ZenQuotes API</a>.</p>
     <div class="controls" aria-label="Simulator controls">
@@ -35,6 +44,7 @@
       <button id="previous" type="button">Previous screen</button>
       <button id="next" type="button">Next screen</button>
       <button id="bin-preview" type="button">Preview recycling screen</button>
+      <button id="football-preview" type="button">Preview football</button>
       <button id="sl7-preview" type="button">Preview SL7 buses</button>
       <button id="flash-preview" type="button">Preview reminder flash</button>
       <button id="stale" type="button" aria-pressed="false">Force stale</button>
@@ -43,6 +53,8 @@
     </div>
   </main>
   <script>
+    const adminPreview = new URLSearchParams(window.location.search).get('admin-preview') === '1';
+    if (adminPreview) document.body.classList.add('admin-preview');
     const canvas = document.getElementById('board');
     const displayContext = canvas.getContext('2d');
     displayContext.imageSmoothingEnabled = false;
@@ -171,7 +183,45 @@
     const BUS_WIDTH = 84 * FONT_PIXEL_SCALE;
     const BUS_TEXT_GAP = 8 * FONT_PIXEL_SCALE;
     const BUS_VERTICAL_OFFSET = 1;
-    const CLOCK_X = 226 * FONT_PIXEL_SCALE;
+    const FOOTBALL_BALL_ROWS = [
+      '......DWWW......',
+      '....DDDWWWWW....',
+      '...DDDDWWWWWD...',
+      '..DDDDWWWWWWDD..',
+      '.WWWDWWWDWWDDDD.',
+      'WWWWWDDDDDWWDDDW',
+      'WWWWWDDDDDDWWWDW',
+      'WWWWDDDDDDDWWWWW',
+      'WWWWDDDDDDWWWWWW',
+      'WWWDWDDDDDWWWWWW',
+      'WDDDDWDWWWWWDWWW',
+      '.DDDDWWWWWWDDDD.',
+      '..DDDDWWWWDDDD..',
+      '...DDWWWWWDDD...',
+      '....DWWWWWWD....',
+      '......WWWW......'
+    ];
+    const FOOTBALL_COS = [1024, 724, 0, -724, -1024, -724, 0, 724];
+    const FOOTBALL_SIN = [0, 724, 1024, 724, 0, -724, -1024, -724];
+    const FOOTBALL_START_X = 256;
+    const FOOTBALL_END_X = 2;
+    const FOOTBALL_TEXT_X = 22;
+    const FOOTBALL_TEAM_NAMES = {
+      sporting_cp: 'SPORTING CP', millwall: 'MILLWALL FC',
+      england: 'ENGLAND', portugal: 'PORTUGAL'
+    };
+    const FOOTBALL_TEAM_COLOUR_NAMES = {
+      sporting_cp: 'SPORTING CP', millwall: 'MILLWALL FC',
+      england: 'ENGLAND', portugal: 'PORTUGAL'
+    };
+    const FOOTBALL_TEAM_COLORS = {
+      sporting_cp: '#00ff00',
+      england: '#ffffff',
+      millwall: '#0000ff',
+      portugal: '#ff0000'
+    };
+    const FOOTBALL_FIXTURE_TEXT_COLOR = '#ffff00';
+    const CLOCK_X = 231 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
     const STALE_HEADER_CONTENT_RIGHT = 186 * FONT_PIXEL_SCALE;
@@ -403,7 +453,7 @@
     const RAIL_ORDINAL_X = 0;
     const RAIL_TIME_X = 96;
     const RAIL_DESTINATION_X = 252;
-    const RAIL_PLATFORM_X = 656;
+    const RAIL_PLATFORM_X = 616;
     const RAIL_COLUMN_GAP = 16;
     const DEPARTURE_SLIDE_SECONDS = 0.8;
     const AGENDA_VISIBLE_ROWS = 3;
@@ -413,7 +463,7 @@
     const NOVELTY_HEADING_Y = 5;
     const NOVELTY_FIRST_LINE_Y = 14;
 
-    const spriteData = {"weather":{"sunny":["......Y.......","..............","..Y.......Y...",".....YYY......","....YYYYY.....","...YYYYYYY....","Y..YYYYYYY..Y.","...YYYYYOY....","....YYYOO.....",".....YYY......","..Y.......Y...","..............","......Y.......",".............."],"partly_cloudy":["Y.......Y.....","...YYY........","..YYYYY.......",".YYYYYYY......",".YYYYYYY..Y...",".YYYYYOWWW....","..YYYOWWWWW...","...CCWWWWWWW..","YCCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."],"cloudy":["..............","..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","..............",".............."],"overcast":["..............","..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............",".............."],"drizzle":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...C........C.","........C.....",".............."],"rain":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...B...B...B..","..B...B...B...",".............."],"heavy_rain":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..B....B....B.",".B....B....B..","....B....B....","...B....B....."],"showers":["..YYY.........",".YYYYY........","YYYYYYY.......","YYYYYYY..Y....","YYYYYOYWWW....",".YYYOOWWWWW...","..CCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","..CCCCCWWW....","...B...B...B..","..B...B...B...",".............."],"thunderstorm":["..............","..............",".......BBB....",".....CBBCBB...","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","........Y.....",".........Y..B.","..B...Y.Y..B..",".B............","......Y......."],"snow":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...WCC.WWW....","..WWW...WWW...","...W..W..W....",".....WWW......"],"sleet":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","..BCCW.WWW....",".B..WWW..B....",".....W..B.....",".............."],"hail":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","...WC.......WC","........WC....",".............."],"windy":["..............","..............","..CCC.....CC..",".....CWWWC....","..............","..............","...CCC........","......CC..WC..","..............","..............","..CC....WCC...","....CCC.......","..............",".............."],"fog":["..............",".......BBB....",".....CBBCBBB..","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............","..............","..C.C.C.C.C.C.","..............",".C.C.C.C.C.C..",".............."],"clear_night":["..............","..............",".W....Y.......","WWW.YYY.......","...YYY........","...YY.........","..YYY.........","...YY.........","...YYY......W.","....YYY....WWW","......Y.......","..............","..............",".............."],"partly_cloudy_night":["....Y.........","..YYY.........",".YYY..........",".YY...........","YYY...........",".YY....WWW....",".YYY..WWWWW...","..YCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."]},"celestial":{"sun":["..........Y..........","..........Y..........",".....................","...Y.............Y...","....Y.....Y.....Y....",".......YYYYYYY.......","......YYYYYYYYY......",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....","YY..YYYYYYYYYYYYY..YY",".....YYYYYYYYYYY.....",".....YYYYYYYYYYO.....",".....YYYYYYYYYOY.....","......YYYYYYYOY......",".......YOOOOOY.......","....Y.....Y.....Y....","...Y.............Y...",".....................","..........Y..........","..........Y.........."],"moon":[".....................","..................W..","..........Y......W.W.",".......YYYY.......W..",".....YYYY.........W..","....YYYY.............","....WYY..............","...YYYY..............","...WYY...............","...WYY...............","..YYYY...............","...YYY...............","...YYY...............","...YYYY..............","....YYY..........W...","....YYYY........W.W..",".....YYYY........W...",".......YYYY......W...","..........Y..........",".....................","....................."]},"palette":{"Y":"#ffff00","O":"#ff0000","W":"#ffffff","C":"#00ffff","B":"#0000ff","D":"#0000ff","R":"#ff0000","M":"#ff00ff"}};
+    const spriteData = {"weather":{"sunny":["......Y.......","..............","..Y.......Y...",".....YYY......","....YYYYY.....","...YYYYYYY....","Y..YYYYYYY..Y.","...YYYYYOY....","....YYYOO.....",".....YYY......","..Y.......Y...","..............","......Y.......",".............."],"partly_cloudy":["Y.......Y.....","...YYY........","..YYYYY.......",".YYYYYYY......",".YYYYYYY..Y...",".YYYYYOWWW....","..YYYOWWWWW...","...CCWWWWWWW..","YCCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."],"cloudy":["..............","..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","..............",".............."],"overcast":["..............","..............","..............",".......WWW....",".....WWWWWW...","...WWWWWWWWW..",".WWWWWWWWWWW..",".WWWWWWWWWWWW.",".WWWWWWWWWWWW.",".WWWWWWWWWWWW.","..WWWWWWWWWWW.","..............","..............",".............."],"drizzle":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...C........C.","........C.....",".............."],"rain":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...CCC.WWW....","...B...B...B..","..B...B...B...",".............."],"heavy_rain":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..B....B....B.",".B....B....B..","....B....B....","...B....B....."],"showers":["..YYY.........",".YYYYY........","YYYYYYY.......","YYYYYYY..Y....","YYYYYOYWWW....",".YYYOOWWWWW...","..CCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","..CCCCCWWW....","...B...B...B..","..B...B...B...",".............."],"thunderstorm":["..............","..............",".......BBB....",".....CBBCBB...","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","........Y.....",".........Y..B.","..B...Y.Y..B..",".B............","......Y......."],"snow":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","...WCC.WWW....","..WWW...WWW...","...W..W..W....",".....WWW......"],"sleet":["..............","..............",".......WWW....","......WWWWW...","...CCWWWWWWW..","..CCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.","..WCCCCCCCCCW.","..BCCW.WWW....",".B..WWW..B....",".....W..B.....",".............."],"hail":["..............","..............",".......BBB....",".....CBBCBB...","...DCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","...WC.......WC","........WC....",".............."],"windy":["..............","..............","..CCC.....CC..",".....CWWWC....","..............","..............","...CCC........","......CC..WC..","..............","..............","..CC....WCC...","....CCC.......","..............",".............."],"fog":["..............",".......BBB....",".....CBBCBBB..","..DDCBBBBBBB..",".DDDDBBBBBBB..",".DBBBBBBBBBBB.","..DDDDDDDDDDB.","..............","..............","..............","..C.C.C.C.C.C.","..............",".C.C.C.C.C.C..",".............."],"clear_night":["..............","..............",".W....Y.......","WWW.YYY.......","...YYY........","...YY.........","..YYY.........","...YY.........","...YYY......W.","....YYY....WWW","......Y.......","..............","..............",".............."],"partly_cloudy_night":["....Y.........","..YYY.........",".YYY..........",".YY...........","YYY...........",".YY....WWW....",".YYY..WWWWW...","..YCCWWWWWWW..",".CCCCWWWWWWW..",".CWWWWWWWWWWW.",".CWWWWWWWWWWW.",".CWCCCCCCCCCW.","...CCC.WWW....",".............."]},"celestial":{"sun":["..........Y..........","..........Y..........",".....................","...Y.............Y...","....Y.....Y.....Y....",".......YYYYYYY.......","......YYYYYYYYY......",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....",".....YYYYYYYYYYY.....","YY..YYYYYYYYYYYYY..YY",".....YYYYYYYYYYY.....",".....YYYYYYYYYYO.....",".....YYYYYYYYYOY.....","......YYYYYYYOY......",".......YOOOOOY.......","....Y.....Y.....Y....","...Y.............Y...",".....................","..........Y..........","..........Y.........."],"moon":[".....................","..................W..","..........Y......W.W.",".......YYYY.......W..",".....YYYY.........W..","....YYYY.............","....WYY..............","...YYYY..............","...WYY...............","...WYY...............","..YYYY...............","...YYY...............","...YYY...............","...YYYY..............","....YYY..........W...","....YYYY........W.W..",".....YYYY........W...",".......YYYY......W...","..........Y..........",".....................","....................."]},"palette":{"Y":"#ffff00","O":"#ff0000","W":"#ffffff","C":"#00ffff","B":"#0000ff","D":"#0000ff","R":"#ff0000","M":"#ff00ff"}};
     const doubleDeckerBusSprite = {"width":84,"height":24,"rows":["......DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD.......","......KHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.....","......KHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.....","....RRKKKKKKKKKKKKKKKRRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDD...","....HRKKYYYKYKKKYYYKKRRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCBDDD...","....HRKKYKKKYKKKKKYKKRRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCBDDD...","...RHRKKYYYKYKKKKYKKKRRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCCCCBDRDBCCBDRR...","...RHRKKKKYKYKKKKYKKKRRDBBBBBBBDRDBBBBBBBDRDBBBBBBBDRDBBBBBBBDRDBBBBBBBDRDBBBBDRR...","..DRHRKKYYYKYYYKKYKKKRRDBBBBBBCDRDBBBBBBCDRDBBBBBBCDRDBBBBBBCDRDBBBBBBCDRDBBBCDRR...","..DRHRKKKKKKKKKKKKKKKRRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDDDDRDDDDDDRR...","..DRRRDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDRR...","..DRRKKKKKKKKKKKKDDKRHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHDRR...","..DRRKBCCCCCCCCBCDDKRRKKKKKKKKKKKRRDDDDDDDDDDRDDDDDDDDDDRDDDDDDDDDDRDDDDDDDDDDDRR...","..DRRKBCCCCCCCCBCDDKRRKBCCCKBCCBKRRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDDRR...","..DRRKBBBBBBBBBBCDDKRRKBCCCKBCCBKRRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDDRR...","..DRRKBBBBBBWBBBBDDKRRKBCCCKBCCBKRRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDRDBCCCCCCBDDRY...","..WYRKBBBBBBBBBKBDDKRRKBCCCKBCCBKRRDBBBBBBBBDRDBBBBBBBBDRDBBBBBBBBDRDBBBBBBBBDDRR...","..WWRKKKKKKKKKKKKDDKRRKBBBYKBYBBKRRDBBBBBBBCDRDBBBBBBBCDRDBBBBBBBCDRDBBBBBBBCDDRR...","..YRRRRDDDDDDDDDDDDDDDKDDDDDDDDDKDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDW...","...RSSSSSDDDDKKKKKKKKKKDDDDDDDDDKDDHHHHHHHHHHHHHHHHHHHHHHHHHHKKKKKKKKKHHHHHHDKKKK...","....SSSSSKKDKKKSSSSSKKKKKKKKKKKKKDDDDDDDDDDDDDDDDDDDDDDDDDDDKKKSSSSSKKKDDDDDDKKKK...",".....KKKKKK.KKKSGWGSKKK.........KKKKKKKKKKKKKKKKKKKKKKKKKKK.KKKSGWGSKKK.............",".............KKSGGGSKK.......................................KKSGGGSKK..............","..............KSSSSSK.........................................KSSSSSK..............."],"palette":{"K":"#000000","R":"#ff0000","D":"#ff0000","H":"#ff0000","C":"#00ffff","B":"#0000ff","W":"#ffffff","Y":"#ffff00","S":"#ffffff","G":"#000000"}};
     const weatherSpriteAliases = {clear_day:"sunny",partly_cloudy_day:"partly_cloudy",cloudy:"overcast",storm:"thunderstorm",unknown:"cloudy"};
     function weatherSpriteName(name) { const key = weatherSpriteAliases[name] || name; return spriteData.weather[key] ? key : "cloudy"; }
@@ -676,14 +726,26 @@
     const christmasFollowup = (intro, tracker) =>
       intro.kind === 'christmas_tracker_intro' && tracker.kind === 'christmas_tracker';
     function makeCyclePlan() {
+      let normal = screens.filter(screen => !staticScreen(screen));
+      const football = normal.filter(screen => screen.kind === 'football_score');
+      const firstFootball = normal.findIndex(screen => screen.kind === 'football_score');
+      // Extract football before matching intros, so an interleaved football
+      // cannot separate a train/bus intro from its departures (or Christmas/
+      // weather follow-ups). Reinsert fixtures only at a block boundary.
+      const anchor = firstFootball < 0 ? null
+        : normal.slice(0, firstFootball).filter(screen => screen.kind !== 'football_score').at(-1) || null;
+      normal = normal.filter(screen => screen.kind !== 'football_score');
       const blocks = [];
-      const normal = screens.filter(screen => !staticScreen(screen));
       for (let index = 0; index < normal.length; index++) {
         const screen = normal[index];
         if (screen.kind === 'bus_intro' && !busFollowup(screen, normal[index + 1] || {})) continue;
         const last = blocks[blocks.length - 1];
         if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
         else blocks.push([screen]);
+      }
+      if (football.length) {
+        const anchorIndex = blocks.findIndex(block => block.includes(anchor));
+        blocks.splice(anchorIndex < 0 ? 0 : anchorIndex + 1, 0, football);
       }
       const pages = screens.filter(staticScreen).map(chooseStatic);
       for (let i = pages.length - 1; i > 0; i--) {
@@ -1129,7 +1191,162 @@
       });
     }
 
+    function footballKickoffLabel(value) {
+      const timestamp = Date.parse(String(value || ''));
+      if (!Number.isFinite(timestamp)) return 'TIME TBC';
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/London', weekday: 'short', day: '2-digit', month: 'short',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).formatToParts(new Date(timestamp)).map(part => [part.type, part.value]));
+      return `${parts.weekday.toUpperCase()} ${parts.day} ${parts.month.toUpperCase()} ${parts.hour}:${parts.minute}`;
+    }
+
+    function footballLines(screen) {
+      const team = String(screen.team_name || screen.team_key || 'FOOTBALL').toUpperCase();
+      const opponent = String(screen.opponent_long_name || screen.opponent || '').toUpperCase();
+      let fixture = String(screen.display_fixture || '').trim();
+      if (!fixture) {
+        const away = ['away', 'a'].includes(String(screen.team_homeaway || screen.homeaway || 'home').toLowerCase());
+        fixture = opponent ? (away ? `${opponent} VS ${team}` : `${team} VS ${opponent}`) : team;
+      }
+      fixture = fixture.toUpperCase().replace(/\s*VS\s*/g, '  VS  ');
+      if (screen.status === 'PRE') return [fixture, footballKickoffLabel(screen.kickoff)];
+      let detail;
+      if (['IN', 'POST'].includes(screen.status)) {
+        detail = screen.home_score == null || screen.away_score == null
+          ? 'SCORE UNAVAILABLE'
+          : `${String(screen.home_team || 'HOME').toUpperCase()} ${screen.home_score} - ${screen.away_score} ${String(screen.away_team || 'AWAY').toUpperCase()}`;
+      } else if (screen.status === 'BYE') detail = 'NO FIXTURE';
+      else if (screen.status === 'NOT_FOUND') detail = 'NO FIXTURE FOUND';
+      else if (screen.status === 'UNKNOWN') detail = 'STATUS UNKNOWN';
+      else detail = 'SCORE UNAVAILABLE';
+      const footer = screen.status === 'IN' ? (screen.clock ? `LIVE ${screen.clock}` : 'LIVE')
+        : screen.status === 'POST' ? 'FULL TIME'
+          : screen.status === 'UNAVAILABLE' && screen.stale ? 'LIVE DATA STALE' : String(screen.competition || '');
+      return [team, fixture, detail, footer];
+    }
+
+    function footballSlideSeconds(screen) {
+      let speed = Number(screen?.animation_speed);
+      if (!Number.isFinite(speed) || speed < 20 || speed > 160) speed = 80;
+      return FOOTBALL_START_X / speed;
+    }
+
+    function footballBallPosition(phase, animate = true, screen = null) {
+      if (!animate) return { x: FOOTBALL_END_X, infoVisible: true };
+      const elapsed = Math.max(0, Number(phase) || 0);
+      const duration = footballSlideSeconds(screen);
+      const x = Math.max(FOOTBALL_END_X, FOOTBALL_START_X - Math.floor((FOOTBALL_START_X - FOOTBALL_END_X) * elapsed / duration));
+      return { x, infoVisible: x === FOOTBALL_END_X };
+    }
+
+    function footballDueIn(kickoff, now = Date.now()) {
+      const target = Date.parse(String(kickoff || ''));
+      if (!Number.isFinite(target) || !Number.isFinite(now)) return 'TBC';
+      const remaining = Math.max(0, Math.floor(target / 1000) - Math.floor(now / 1000));
+      if (remaining === 0) return 'DUE NOW';
+      if (remaining <= 60) return 'UNDER 1 MIN';
+      const pad = value => String(value).padStart(2, '0');
+      if (remaining >= 86400) {
+        const days = Math.floor(remaining / 86400);
+        return `${days} ${days === 1 ? 'DAY' : 'DAYS'}`;
+      }
+      if (remaining > 3600) {
+        const hours = Math.floor(remaining / 3600), minutes = Math.floor(remaining % 3600 / 60);
+        return `${pad(hours)}H ${pad(minutes)}M ${pad(remaining % 60)}S`;
+      }
+      return `${pad(Math.floor(remaining / 60))}M ${pad(remaining % 60)}S`;
+    }
+
+    function drawFootballCompactText(value, x, y, color) {
+      const text = String(value).toUpperCase();
+      context.fillStyle = color;
+      [...text].forEach((character, index) => {
+        const glyph = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT]
+          || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
+        glyph.forEach((bits, row) => {
+          for (let column = 0; column < 5; column++) {
+            if (bits & (1 << (4 - column))) {
+              context.fillRect((x + index * 5 + column) * FONT_PIXEL_SCALE,
+                (y + row) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+            }
+          }
+        });
+      });
+    }
+
+    function drawFootballTeamLine(screen, value, x, y, color) {
+      const text = String(value ?? '');
+      const key = screen.team_key;
+      const teamColor = FOOTBALL_TEAM_COLORS[key];
+      let name = String(FOOTBALL_TEAM_COLOUR_NAMES[key]
+        || screen.team_name || FOOTBALL_TEAM_NAMES[key] || '').trim().toUpperCase();
+      let start = name ? text.toUpperCase().indexOf(name) : -1;
+      [...text].forEach((character, index) => {
+        const inName = teamColor && start >= 0 && index >= start && index < start + name.length;
+        context.fillStyle = inName && character !== ' '
+          ? teamColor : color;
+        drawLedText(character, x + index * FONT_CELL_WIDTH, y);
+      });
+    }
+
+    function drawFootballScene(screen, phase, offset, settled, now = Date.now()) {
+      const roll = settled ? 0 : Math.floor(Math.max(0, phase) * 16 / footballSlideSeconds(screen)) % 8;
+      const cosine = FOOTBALL_COS[roll], sine = FOOTBALL_SIN[roll];
+      FOOTBALL_BALL_ROWS.forEach((row, y) => [...row].forEach((pixel, column) => {
+        if (pixel === '.') return;
+        const dx = 2 * column - 15, dy = 2 * y - 15;
+        const sx = Math.floor((15 * 1024 + dx * cosine + dy * sine + 1024) / 2048);
+        const sy = Math.floor((15 * 1024 - dx * sine + dy * cosine + 1024) / 2048);
+        context.fillStyle = sx >= 0 && sx < 16 && sy >= 0 && sy < 16 &&
+          FOOTBALL_BALL_ROWS[sy][sx] === 'D' ? '#303030' : '#f5f5f5';
+        context.fillRect((offset + FOOTBALL_END_X + column) * FONT_PIXEL_SCALE,
+          (8 + y) * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+      }));
+      const rows = footballLines(screen);
+      const isPre = screen.status === 'PRE';
+      if (isPre) {
+        // Match and scheduled local date travel with the ball; no KO: prefix.
+        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, FOOTBALL_FIXTURE_TEXT_COLOR);
+        context.fillStyle = '#ffffff';
+        drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
+        if (settled) {
+          context.fillStyle = '#ffaa00';
+          drawLedText('DUE IN', (offset + 214) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+          const due = footballDueIn(screen.kickoff, now);
+          // The compact 5px glyph pitch keeps the shortest countdown right
+          // aligned without shifting its column when units disappear.
+          drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 18, '#ffffff');
+        }
+      } else {
+        rows.slice(0, 4).forEach((line, index) => {
+          const value = String(line).slice(0, 38);
+          const fixtureLine = index === 1;
+          const baseColor = fixtureLine ? FOOTBALL_FIXTURE_TEXT_COLOR : '#ffffff';
+          context.fillStyle = index === 3 && screen.stale ? '#ff5555' : baseColor;
+          if (index < 2 && value.includes(FOOTBALL_TEAM_COLOUR_NAMES[screen.team_key] || '\u0000')) {
+            drawFootballTeamLine(screen, value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE, baseColor);
+          } else {
+            drawLedText(value, (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, index * 8 * FONT_PIXEL_SCALE);
+          }
+        });
+      }
+    }
+
+    function drawFootball(screen, phase) {
+      const { x, infoVisible } = footballBallPosition(phase, true, screen);
+      const offset = x - FOOTBALL_END_X;
+      const previous = typeof cyclePlan !== 'undefined' && typeof rotationIndex !== 'undefined'
+        && rotationIndex > 0 ? cyclePlan[rotationIndex - 1] : null;
+      if (previous && previous.kind === 'football_score' && !infoVisible) {
+        drawFootballScene(previous, footballSlideSeconds(previous), offset - (FOOTBALL_START_X - FOOTBALL_END_X), true);
+      }
+      drawFootballScene(screen, phase, offset, infoVisible);
+    }
+
     function drawBinLorry(x) {
+      context.save();
+      context.translate(0, 2 * FONT_PIXEL_SCALE);
       context.fillStyle = '#22aa44';
       context.fillRect(x + 2 * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, 32 * FONT_PIXEL_SCALE, 10 * FONT_PIXEL_SCALE);
       context.fillRect(x, 8 * FONT_PIXEL_SCALE, 4 * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE);
@@ -1154,6 +1371,7 @@
         context.fillStyle = '#8c959c';
         context.fillRect(x + (center - 1) * FONT_PIXEL_SCALE, 16 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE);
       }
+      context.restore();
     }
 
     function drawBinCollection(screen, phase) {
@@ -1207,7 +1425,7 @@
       drawChristmasSleigh(x, 4);
       const px = FONT_PIXEL_SCALE;
       context.fillStyle = '#ffaa00';
-      drawLedText('HO HO HO...', (x + 88) * px, 9 * px);
+      drawLedText('HO HO HO...', (x + 88) * px, 5 * px);
       status.dataset.detail = 'Christmas Tracker · HO HO HO sleigh intro';
     }
     function drawChristmasTracker(screen, phase, wallClock) {
@@ -1223,8 +1441,8 @@
       const days = christmasDaysUntil(wallClock);
       context.fillStyle = '#ffffff';
       // Keep the message beyond the sleigh's 84px edge; extra digits grow right.
-      drawLedTextScaled(`${days} DAYS`, 103 * px, 2 * px, 2);
-      drawLedText('UNTIL CHRISTMAS', 103 * px, 18 * px);
+      drawLedTextScaled(`${days} DAYS`, 103 * px, 4 * px, 2);
+      drawLedText('UNTIL CHRISTMAS', 103 * px, 20 * px);
       status.dataset.detail = 'Christmas Tracker · countdown and snowfall';
     }
     function splitSl7Due(item) {
@@ -1315,12 +1533,10 @@
     }
     function drawRailService(service, y, xOffset, rightEdge, color, ordinal = 1) {
       const columns = railColumns(service, ordinal);
-      const statusX = columns.status ? Math.max(0, rightEdge - measureLedText(columns.status).width) : rightEdge;
-      const platformWidth = measureLedText(columns.platform).width;
+      const statusX = columns.status
+        ? Math.max(0, CLOCK_X - 4 * FONT_PIXEL_SCALE - 10 * FONT_PIXEL_SCALE - measureLedText(columns.status).width)
+        : rightEdge;
       const platformX = RAIL_PLATFORM_X;
-      if (columns.status && statusX < platformX + platformWidth + RAIL_COLUMN_GAP) {
-        columns.status = '';
-      }
       const destinationWidth = Math.max(0, platformX - RAIL_COLUMN_GAP - RAIL_DESTINATION_X);
       context.fillStyle = color;
       drawLedText(columns.ordinal, RAIL_ORDINAL_X + xOffset, y);
@@ -1428,7 +1644,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'football_score' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1439,7 +1655,7 @@
         const weather = screen.weather || {};
         const date = wallClock.toLocaleDateString('en-GB',{timeZone:'Europe/London',weekday:'long',day:'2-digit',month:'short'}).replace(',', '').toUpperCase();
         const nowText = wallClock.toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
-        const timeX = Math.max(0, 256 - nowText.length * 12 + 3);
+        const timeX = Math.max(0, 256 - nowText.length * 12 + 10);
         const dateLeft = TODAY_HEADER_ICON_SIZE + 1;
         const dateX = dateLeft + Math.max(0, Math.floor((timeX - dateLeft - todayDateWidth(date.length)) / 2));
         const temp = weather.temperature_c == null ? '--C' : Math.round(weather.temperature_c)+'C';
@@ -1458,6 +1674,10 @@
           drawLedText('STALE', 0, 1 * FONT_PIXEL_SCALE);
         }
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
+      } else if (screen.kind === 'football_score') {
+        drawFootball(screen, phase);
+        suppressHeader = true;
+        status.dataset.detail = `Football ${screen.team_name || screen.team_key || ''} · ${screen.status || 'UNKNOWN'}`;
       } else if (screen.kind === 'loading') {
         context.fillStyle = '#ffaa00';
         drawLedText(String(screen.title || 'UPCOMING').slice(0, 30), 0, HEADER_TEXT_Y);
@@ -1840,6 +2060,24 @@
       pauseStarted = performance.now();
       status.dataset.detail = 'Recycling fixture preview (ignores admin enable and schedule windows; local MQTT is not observable here)';
     });
+    document.getElementById('football-preview').addEventListener('click', () => {
+      screens = [
+        {id:'football-millwall', kind:'football_score', title:'Millwall FC',
+          duration_seconds: 8, source:'simulator', team_key:'millwall', team_name:'Millwall FC',
+          opponent:'Derby County', opponent_long_name:'Derby County',
+          display_fixture:'Millwall vs Derby County', status:'PRE',
+          kickoff:new Date(Date.now() + 2*86400000 + 5*3600000 + 14*60000).toISOString()},
+        {id:'football-sporting_cp', kind:'football_score', title:'Sporting CP',
+          duration_seconds: 8, source:'simulator', team_key:'sporting_cp', team_name:'Sporting CP',
+          opponent:'Casa Pia', opponent_long_name:'Casa Pia',
+          display_fixture:'Sporting CP vs Casa Pia', status:'PRE',
+          kickoff:new Date(Date.now() + 5*3600000 + 14*60000).toISOString()}
+      ];
+      screenOffset = 0;
+      paused = false;
+      pauseStarted = performance.now();
+      status.dataset.detail = 'Football fixture preview · PRE, UK-local kick-off and pinned ball';
+    });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();
       const departure = (mins, options = {}) => {
@@ -1871,6 +2109,13 @@
           ? mqttPolicy.recycling : payload.recycling;
         if (nextRecyclingPolicy && typeof nextRecyclingPolicy === 'object') recyclingPolicy = nextRecyclingPolicy;
         const nextScreens = withChristmasTracker(Array.isArray(payload.screens) ? payload.screens : []);
+        const sharedWeather = payload.weather && typeof payload.weather === 'object'
+          ? payload.weather : null;
+        if (sharedWeather) {
+          for (const screen of nextScreens) {
+            if (!screen.weather || typeof screen.weather !== 'object') screen.weather = sharedWeather;
+          }
+        }
         const christmasPolicy = payload.christmas || {};
         for (const screen of nextScreens) if (screen.kind === 'christmas_tracker' || screen.kind === 'christmas_tracker_intro') {
           screen.schedule_windows = christmasPolicy.schedule_windows || [];
