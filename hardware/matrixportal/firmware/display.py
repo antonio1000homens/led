@@ -65,6 +65,8 @@ from football_screens import (
     football_countdown_x,
     football_screen_lines,
     football_team_name_span,
+    football_team_name_color,
+    FOOTBALL_TEAM_COLORS,
     FOOTBALL_FIXTURE_TEXT_COLOR,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
@@ -1038,6 +1040,7 @@ class MatrixDisplay:
                 "today_date",
                 "football_goal",
                 "football_entry",
+                "football_team_color",
             )
         }
         print(
@@ -1634,12 +1637,15 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "football_score":
             x, _ = football_presentation_position(
-                phase, animation_speed=screen.get("animation_speed")
+                phase, animate=screen.get("status") != "IN",
+                animation_speed=screen.get("animation_speed")
             )
             if x > FOOTBALL_RENDER_END_X:
                 return "football_entry"
             if screen.get("goal_flash_active") and screen.get("status") == "IN":
                 return "football_goal"
+            if screen.get("status") == "IN":
+                return "football_team_color"
         if kind == "flash":
             return "queue_rows"
         if kind == "today":
@@ -1712,9 +1718,11 @@ class MatrixDisplay:
             and self._animation_class(screen, phase) is None
         ):
             return 0
+        animation_class = self._animation_class(screen, phase)
+        if animation_class == "football_team_color":
+            return 1
         if MATRIX_ANIMATION_PROFILE == "baseline":
             return MATRIX_REFRESH_FPS
-        animation_class = self._animation_class(screen, phase)
         if animation_class is None:
             return 0
         return MATRIX_ANIMATION_PROFILES[MATRIX_ANIMATION_PROFILE][animation_class]
@@ -1732,6 +1740,8 @@ class MatrixDisplay:
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
         if kind == "football_score" and screen.get("status") == "PRE":
             return 1.0  # Wake for the next real-second countdown tick after arrival.
+        if kind == "football_score" and screen.get("status") == "IN":
+            return 1.0  # Keep the live clock and slow team-colour cycle current.
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
             lines = _quote_lines(screen) if kind == "quotes" else _novelty_lines(screen)
             pages = max(1, (len(lines) + 2) // 3)
@@ -2015,7 +2025,7 @@ class MatrixDisplay:
             self._label(text_group, "", 0xFFFFFF, 0, index * 8)
             for index in range(4)
         ]
-        fixture_bitmap = displayio.Bitmap(29 * 6, 9, 3)
+        fixture_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_TEXT_X, 11, 3)
         fixture_palette = displayio.Palette(3)
         fixture_palette[0] = 0x000000
         fixture_palette.make_transparent(0)
@@ -2041,11 +2051,14 @@ class MatrixDisplay:
             "key": None, "content_signature": None,
         }
 
-    def _set_football_content(self, scene, screen, rows, colors):
+    def _set_football_content(self, scene, screen, rows, colors, phase=0):
         """Update labels only when their source data changes (not on each tick)."""
         status = screen.get("status")
-        goal_active = screen.get("goal_flash_active") and status == "IN"
-        key = (status, tuple(rows), tuple(colors))
+        team_color = (
+            football_team_name_color(screen, phase)
+            if status == "IN" else FOOTBALL_TEAM_COLORS.get(screen.get("team_key"))
+        )
+        key = (status, tuple(rows), tuple(colors), team_color)
         if scene["key"] == key:
             return False
         labels = scene["labels"]
@@ -2053,7 +2066,8 @@ class MatrixDisplay:
             scene["text_group"].y = 5
             # Enlarge the full fixture vertically while retaining its compact
             # six-pixel character advance. The date sits lower on row two.
-            titles = (_clip(str(rows[0]), 29), _clip(str(rows[1]), 22), "", "")
+            fixture_chars = (DISPLAY_WIDTH - FOOTBALL_TEXT_X) // 6
+            titles = (_clip(str(rows[0]), fixture_chars), _clip(str(rows[1]), 22), "", "")
             for index, label in enumerate(labels):
                 label.y = 17 if index == 1 else 0
                 label.text = "" if index == 0 else titles[index]
@@ -2071,40 +2085,41 @@ class MatrixDisplay:
         fixture_bitmap = scene["fixture_bitmap"]
         fixture_bitmap.fill(0)
         if status == "PRE":
-            fixture = _clip(str(rows[0]), 29) if rows else ""
+            fixture = _clip(str(rows[0]), (DISPLAY_WIDTH - FOOTBALL_TEXT_X) // 6) if rows else ""
             load_glyphs = getattr(self.font, "load_glyphs", None)
             if load_glyphs is not None:
                 load_glyphs(fixture)
-            team_start, team_name, team_color = span if span else (-1, "", None)
+            team_start, team_name, fixture_team_color = span if span else (-1, "", None)
+            fixture_team_color = fixture_team_color or team_color
             scene["fixture_palette"][1] = fixture_color & 0xFFFFFF
             scene["fixture_palette"][2] = (
-                ((team_color[0] << 16) | (team_color[1] << 8) | team_color[2])
-                if team_color else fixture_color
+                ((fixture_team_color[0] << 16) | (fixture_team_color[1] << 8) | fixture_team_color[2])
+                if fixture_team_color else fixture_color
             )
             for char_index, character in enumerate(fixture):
                 glyph = self.font.get_glyph(ord(character))
                 if glyph is None:
                     continue
                 color_index = (
-                    2 if team_color and team_start <= char_index < team_start + len(team_name)
+                    2 if fixture_team_color and team_start <= char_index < team_start + len(team_name)
                     and character != " " else 1
                 )
                 for glyph_y in range(glyph.height):
-                    scaled_top = glyph_y * 9 // glyph.height
-                    scaled_bottom = (glyph_y + 1) * 9 // glyph.height
+                    scaled_top = glyph_y * 11 // glyph.height
+                    scaled_bottom = (glyph_y + 1) * 11 // glyph.height
                     for glyph_x in range(min(glyph.width, 5)):
                         if glyph.bitmap[glyph_x, glyph_y] <= 0:
                             continue
                         target_x = char_index * 6 + glyph_x
                         for target_y in range(scaled_top, max(scaled_top + 1, scaled_bottom)):
-                            if 0 <= target_y < 9:
+                            if 0 <= target_y < 11:
                                 fixture_bitmap[target_x, target_y] = color_index
         if status == "PRE":
             labels[0].color = fixture_color
         else:
             labels[0].color = (
-                (span[2][0] << 16) | (span[2][1] << 8) | span[2][2]
-                if span and span[2] else 0xFFFFFF
+                (team_color[0] << 16) | (team_color[1] << 8) | team_color[2]
+                if team_color else 0xFFFFFF
             )
             fixture_span = football_team_name_span(screen, rows[1]) if len(rows) > 1 else None
             if fixture_span:
@@ -2149,7 +2164,10 @@ class MatrixDisplay:
             or not root_visible or phase_reset
         )
         animation_speed = screen.get("animation_speed")
-        offset, settled = football_slide_offset(phase, animation_speed)
+        if screen.get("status") == "IN":
+            offset, settled = 0, True
+        else:
+            offset, settled = football_slide_offset(phase, animation_speed)
         changed = False
 
         if entering:
@@ -2158,7 +2176,7 @@ class MatrixDisplay:
             # Only a directly consecutive football screen pushes the previous
             # one. A flash/other screen uses a fresh independent entry.
             pushing = (
-                previous is not None and root_visible
+                screen.get("status") != "IN" and previous is not None and root_visible
                 and screen_id != self._football_screen_id
                 and self._football_previous_phase is not None
                 and football_presentation_position(
@@ -2198,6 +2216,7 @@ class MatrixDisplay:
             screen.get("competition"), bool(screen.get("stale")),
             bool(goal_active), screen.get("goal_side"),
             int(phase * 4) % 2 if goal_active else 0,
+            int(max(0.0, phase) / 2) if screen.get("status") == "IN" else 0,
         )
         if scene["content_signature"] != content_signature:
             rows = list(football_screen_lines(screen, now_epoch))
@@ -2207,7 +2226,7 @@ class MatrixDisplay:
             colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
             if goal_active:
                 colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
-            changed = self._set_football_content(scene, screen, rows, colors) or changed
+            changed = self._set_football_content(scene, screen, rows, colors, phase) or changed
             scene["content_signature"] = content_signature
 
         # The fixture and date are *already populated* while their whole scene
@@ -2215,7 +2234,7 @@ class MatrixDisplay:
         if scene["group"].x != offset:
             scene["group"].x = offset
             changed = True
-        frame = football_roll_frame(phase, animation_speed)
+        frame = 0 if screen.get("status") == "IN" else football_roll_frame(phase, animation_speed)
         if scene["frame"] != frame:
             scene["ball_grid"].bitmap = self._football_rotation_bitmaps[frame]
             scene["frame"] = frame
@@ -4882,7 +4901,7 @@ class FixtureDisplay:
             from football_ball import ROWS as BALL_ROWS
 
             ball_x, info_visible = football_presentation_position(
-                phase, screen.get("ball_animation", False),
+                phase, screen.get("status") != "IN" and screen.get("ball_animation", False),
                 screen.get("animation_speed"),
             )
             for row, pixels in enumerate(BALL_ROWS):
