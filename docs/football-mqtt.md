@@ -91,8 +91,10 @@ second later without restarting the scene.
 Long names are clipped before the right column; no competition/status/score
 lines are added to the PRE view.
 
-IN and POST screens use the same fixed ball, two-name gradient and score layout;
-POST replaces the clock with `FULL TIME`. Scores retain home/away ordering.
+IN and POST screens use the same fixed ball, one-line home-versus-away fixture
+with the Today-style colour gradient, and score layout; POST replaces the clock
+with `FULL TIME`. Longer fixtures are horizontally condensed to fit the left
+column without overlapping the clock or score. Scores retain home/away ordering.
 BYE, NOT_FOUND, UNKNOWN, and UNAVAILABLE each have a distinct safe label. A
 live snapshot whose `source_updated_at` is missing or more than ten minutes
 old is shown as UNAVAILABLE and its score and clock are hidden.
