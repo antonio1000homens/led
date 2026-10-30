@@ -1638,14 +1638,14 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "football_score":
             x, _ = football_presentation_position(
-                phase, animate=screen.get("status") != "IN",
+                phase, animate=screen.get("status") not in ("IN", "POST"),
                 animation_speed=screen.get("animation_speed")
             )
             if x > FOOTBALL_RENDER_END_X:
                 return "football_entry"
             if screen.get("goal_flash_active") and screen.get("status") == "IN":
                 return "football_goal"
-            if screen.get("status") == "IN":
+            if screen.get("status") in ("IN", "POST"):
                 return "football_team_color"
         if kind == "flash":
             return "queue_rows"
@@ -1741,7 +1741,7 @@ class MatrixDisplay:
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
         if kind == "football_score" and screen.get("status") == "PRE":
             return 1.0  # Wake for the next real-second countdown tick after arrival.
-        if kind == "football_score" and screen.get("status") == "IN":
+        if kind == "football_score" and screen.get("status") in ("IN", "POST"):
             return 1.0 / TODAY_DATE_ANIMATION_FPS
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
             lines = _quote_lines(screen) if kind == "quotes" else _novelty_lines(screen)
@@ -2135,7 +2135,7 @@ class MatrixDisplay:
                                 fixture_bitmap[target_x, target_y] = color_index
             labels[0].color = fixture_color
             scene["live_group"].hidden = True
-        elif status == "IN":
+        elif status in ("IN", "POST"):
             scene["text_group"].y = 2
             for label in labels:
                 label.text = ""
@@ -2173,7 +2173,8 @@ class MatrixDisplay:
             scene["live_names_grid"].hidden = False
             live_group = scene["live_group"]
             live_group.hidden = False
-            clock = _clip(str(screen.get("clock") or "LIVE").upper(), 12)
+            clock = ("FULL TIME" if status == "POST" else
+                     _clip(str(screen.get("clock") or "LIVE").upper(), 12))
             scene["clock_label"].text = clock
             scene["clock_label"].x = max(
                 0, DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X - len(clock) * 6
@@ -2282,7 +2283,7 @@ class MatrixDisplay:
             or not root_visible or phase_reset
         )
         animation_speed = screen.get("animation_speed")
-        if screen.get("status") == "IN":
+        if screen.get("status") in ("IN", "POST"):
             offset, settled = 0, True
         else:
             offset, settled = football_slide_offset(phase, animation_speed)
@@ -2294,7 +2295,7 @@ class MatrixDisplay:
             # Only a directly consecutive football screen pushes the previous
             # one. A flash/other screen uses a fresh independent entry.
             pushing = (
-                screen.get("status") != "IN" and previous is not None and root_visible
+                screen.get("status") not in ("IN", "POST") and previous is not None and root_visible
                 and screen_id != self._football_screen_id
                 and self._football_previous_phase is not None
                 and football_presentation_position(
@@ -2346,7 +2347,7 @@ class MatrixDisplay:
                 colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
             changed = self._set_football_content(scene, screen, rows, colors, phase) or changed
             scene["content_signature"] = content_signature
-        if screen.get("status") == "IN":
+        if screen.get("status") in ("IN", "POST"):
             changed = self._update_football_live_colors(scene, phase) or changed
 
         # The fixture and date are *already populated* while their whole scene
@@ -2354,7 +2355,8 @@ class MatrixDisplay:
         if scene["group"].x != offset:
             scene["group"].x = offset
             changed = True
-        frame = 0 if screen.get("status") == "IN" else football_roll_frame(phase, animation_speed)
+        frame = (0 if screen.get("status") in ("IN", "POST")
+                 else football_roll_frame(phase, animation_speed))
         if scene["frame"] != frame:
             scene["ball_grid"].bitmap = self._football_rotation_bitmaps[frame]
             scene["frame"] = frame
@@ -5021,7 +5023,7 @@ class FixtureDisplay:
             from football_ball import ROWS as BALL_ROWS
 
             ball_x, info_visible = football_presentation_position(
-                phase, screen.get("status") != "IN" and screen.get("ball_animation", False),
+                phase, screen.get("status") not in ("IN", "POST") and screen.get("ball_animation", False),
                 screen.get("animation_speed"),
             )
             for row, pixels in enumerate(BALL_ROWS):
@@ -5039,7 +5041,7 @@ class FixtureDisplay:
                 if screen.get("goal_flash_active") and screen.get("status") == "IN":
                     team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
                     rows = rows[:3] + ("GOAL {}".format(str(team or "SCORED").upper()),)
-                if screen.get("status") == "IN":
+                if screen.get("status") in ("IN", "POST"):
                     tracked = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
                     opponent = str(screen.get("opponent_long_name") or screen.get("opponent") or "OPPONENT").upper()
                     side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
@@ -5059,7 +5061,8 @@ class FixtureDisplay:
                             return _rgb_tuple(value)
 
                         self._text(line, FOOTBALL_TEXT_X, row_y, color, scale=2)
-                    clock = _clip(str(screen.get("clock") or "LIVE").upper(), 12)
+                    clock = ("FULL TIME" if screen.get("status") == "POST" else
+                             _clip(str(screen.get("clock") or "LIVE").upper(), 12))
                     self._text(clock, max(FOOTBALL_LIVE_RIGHT_X,
                                DISPLAY_WIDTH - len(clock) * 6), 2, (255, 170, 0))
                     home_score, away_score = screen.get("home_score"), screen.get("away_score")
@@ -5067,7 +5070,7 @@ class FixtureDisplay:
                         home_score is not None and away_score is not None
                     ) else "--"
                     score_color = (
-                        (255, 51, 0) if screen.get("goal_flash_active") and int(phase * 4) % 2
+                        (255, 51, 0) if screen.get("status") == "IN" and screen.get("goal_flash_active") and int(phase * 4) % 2
                         else (255, 255, 255)
                     )
                     self._text(score, max(FOOTBALL_LIVE_RIGHT_X,
