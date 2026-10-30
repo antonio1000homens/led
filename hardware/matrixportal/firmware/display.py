@@ -56,7 +56,6 @@ from football_ball import (
 )
 from football_screens import (
     FOOTBALL_END_X as FOOTBALL_RENDER_END_X,
-    FOOTBALL_TEAM_NAME_MAX_LENGTH,
     FOOTBALL_START_X,
     FOOTBALL_TEXT_X,
     football_presentation_position,
@@ -2016,10 +2015,16 @@ class MatrixDisplay:
             self._label(text_group, "", 0xFFFFFF, 0, index * 8)
             for index in range(4)
         ]
-        team_letters = [
-            self._label(text_group, "", 0xFFFFFF, 0, 0)
-            for _ in range(FOOTBALL_TEAM_NAME_MAX_LENGTH)
-        ]
+        fixture_bitmap = displayio.Bitmap(29 * 6, 9, 3)
+        fixture_palette = displayio.Palette(3)
+        fixture_palette[0] = 0x000000
+        fixture_palette.make_transparent(0)
+        fixture_palette[1] = 0xFFFFFF
+        fixture_palette[2] = 0xFFFFFF
+        fixture_grid = displayio.TileGrid(
+            fixture_bitmap, pixel_shader=fixture_palette
+        )
+        text_group.append(fixture_grid)
         group.append(text_group)
         due_group = displayio.Group()
         heading = self._label(due_group, "KICK-OFF IN", 0xFFAA00, 190, 18)
@@ -2027,7 +2032,9 @@ class MatrixDisplay:
         group.append(due_group)
         return {
             "group": group, "ball_grid": ball_grid, "frame": 0,
-            "labels": labels, "team_letters": team_letters,
+            "labels": labels,
+            "fixture_bitmap": fixture_bitmap,
+            "fixture_palette": fixture_palette,
             "text_group": text_group,
             "due_group": due_group, "heading": heading,
             "countdown": countdown, "countdown_text": None,
@@ -2044,12 +2051,12 @@ class MatrixDisplay:
         labels = scene["labels"]
         if status == "PRE":
             scene["text_group"].y = 5
-            # Preserve the original two-row fixture/date layout; reserve the
-            # right-hand countdown column and omit the former 'KO:' prefix.
+            # Enlarge the full fixture vertically while retaining its compact
+            # six-pixel character advance. The date sits lower on row two.
             titles = (_clip(str(rows[0]), 29), _clip(str(rows[1]), 22), "", "")
             for index, label in enumerate(labels):
-                label.y = 13 * index if index < 2 else 0
-                label.text = titles[index]
+                label.y = 17 if index == 1 else 0
+                label.text = "" if index == 0 else titles[index]
                 label.color = colors[index]
         else:
             scene["text_group"].y = 0
@@ -2061,6 +2068,37 @@ class MatrixDisplay:
                          | FOOTBALL_FIXTURE_TEXT_COLOR[1] << 8
                          | FOOTBALL_FIXTURE_TEXT_COLOR[2])
         span = football_team_name_span(screen, rows[0]) if rows else None
+        fixture_bitmap = scene["fixture_bitmap"]
+        fixture_bitmap.fill(0)
+        if status == "PRE":
+            fixture = _clip(str(rows[0]), 29) if rows else ""
+            load_glyphs = getattr(self.font, "load_glyphs", None)
+            if load_glyphs is not None:
+                load_glyphs(fixture)
+            team_start, team_name, team_color = span if span else (-1, "", None)
+            scene["fixture_palette"][1] = fixture_color & 0xFFFFFF
+            scene["fixture_palette"][2] = (
+                ((team_color[0] << 16) | (team_color[1] << 8) | team_color[2])
+                if team_color else fixture_color
+            )
+            for char_index, character in enumerate(fixture):
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                color_index = (
+                    2 if team_color and team_start <= char_index < team_start + len(team_name)
+                    and character != " " else 1
+                )
+                for glyph_y in range(glyph.height):
+                    scaled_top = glyph_y * 9 // glyph.height
+                    scaled_bottom = (glyph_y + 1) * 9 // glyph.height
+                    for glyph_x in range(min(glyph.width, 5)):
+                        if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                            continue
+                        target_x = char_index * 6 + glyph_x
+                        for target_y in range(scaled_top, max(scaled_top + 1, scaled_bottom)):
+                            if 0 <= target_y < 9:
+                                fixture_bitmap[target_x, target_y] = color_index
         if status == "PRE":
             labels[0].color = fixture_color
         else:
@@ -2071,22 +2109,6 @@ class MatrixDisplay:
             fixture_span = football_team_name_span(screen, rows[1]) if len(rows) > 1 else None
             if fixture_span:
                 labels[1].color = fixture_color
-        team_letters = scene["team_letters"]
-        start, name, team_color = span if status == "PRE" and span else (0, "", None)
-        if team_color:
-            labels[0].text = labels[0].text[:start] + (" " * len(name)) + labels[0].text[start + len(name):]
-            for index, character in enumerate(name):
-                letter = team_letters[index]
-                letter.x = (start + index) * 6
-                letter.y = labels[0].y
-                if character == " ":
-                    letter.text = ""
-                    continue
-                letter.text = character
-                red, green, blue = team_color
-                letter.color = (red << 16) | (green << 8) | blue
-        for index in range(len(name), len(team_letters)):
-            team_letters[index].text = ""
         scene["due_group"].hidden = status != "PRE"
         scene["key"] = key
         return True

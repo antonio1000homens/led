@@ -1298,6 +1298,33 @@
       });
     }
 
+    function drawFootballLargeTeamLine(screen, value, x, y, color) {
+      const text = String(value ?? '');
+      const key = screen.team_key;
+      const teamColor = FOOTBALL_TEAM_COLORS[key];
+      const name = String(FOOTBALL_TEAM_COLOUR_NAMES[key]
+        || screen.team_name || FOOTBALL_TEAM_NAMES[key] || '').trim().toUpperCase();
+      const start = name ? text.toUpperCase().indexOf(name) : -1;
+      [...text].forEach((character, index) => {
+        context.fillStyle = teamColor && start >= 0 && index >= start
+          && index < start + name.length && character !== ' ' ? teamColor : color;
+        const rows = FONT_5X7[character.charCodeAt(0) - FONT_FIRST_CODEPOINT]
+          || FONT_5X7['?'.charCodeAt(0) - FONT_FIRST_CODEPOINT];
+        rows.forEach((bits, row) => {
+          const top = Math.floor(row * 9 / 7);
+          const bottom = Math.floor((row + 1) * 9 / 7);
+          for (let column = 0; column < 5; column += 1) {
+            if (!(bits & (1 << (4 - column)))) continue;
+            for (let enlargedRow = top; enlargedRow < bottom; enlargedRow += 1) {
+              context.fillRect((x + index * 6 + column) * FONT_PIXEL_SCALE,
+                (y + enlargedRow) * FONT_PIXEL_SCALE,
+                FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+            }
+          }
+        });
+      });
+    }
+
     function drawFootballScene(screen, phase, offset, settled, now = Date.now()) {
       const roll = settled ? 0 : Math.floor(Math.max(0, phase) * 16 / footballSlideSeconds(screen)) % 8;
       const cosine = FOOTBALL_COS[roll], sine = FOOTBALL_SIN[roll];
@@ -1315,9 +1342,10 @@
       const isPre = screen.status === 'PRE';
       if (isPre) {
         // Match and scheduled local date travel with the ball; no KO: prefix.
-        drawFootballTeamLine(screen, String(rows[0]).slice(0, 29), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE, FOOTBALL_FIXTURE_TEXT_COLOR);
+        drawFootballLargeTeamLine(screen, String(rows[0]).slice(0, 29),
+          offset + FOOTBALL_TEXT_X, 5, FOOTBALL_FIXTURE_TEXT_COLOR);
         context.fillStyle = '#ffffff';
-        drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
+        drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE);
         if (settled) {
           context.fillStyle = '#ffaa00';
           drawLedText('KICK-OFF IN', (offset + 190) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
