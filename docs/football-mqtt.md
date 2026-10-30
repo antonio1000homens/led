@@ -57,8 +57,10 @@ The display uses `display_fixture` when supplied. For PRE fixtures without it,
 the board builds the home-versus-away order from team names and the Team
 Tracker home/away fields. PRE shows the fixture and `DAY DD MON HH:MM` (without `KO:`) on the left,
 in Europe/London local time, including automatic GMT/BST conversion. Invalid
-or missing kickoff shows `TIME TBC`. After the ball stops, `DUE IN` appears
-at the top right and the compact remaining countdown at the bottom right.
+or missing kickoff shows `TIME TBC`. After the ball stops, `KICK-OFF IN` appears
+beside the local kickoff time and the compact remaining countdown appears below.
+The `VS` separator starts at character column 15 for the tracked football
+teams, so short and multiword names line up consistently.
 Its units depend on the **total time until kickoff**:
 
 | Time remaining | Display |

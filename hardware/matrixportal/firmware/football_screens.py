@@ -36,6 +36,7 @@ FOOTBALL_START_X = 256
 FOOTBALL_END_X = 2
 FOOTBALL_BALL_WIDTH = 16
 FOOTBALL_TEXT_X = FOOTBALL_END_X + FOOTBALL_BALL_WIDTH + 4
+FOOTBALL_VS_COLUMN = 14
 
 
 def football_team_name_span(screen, line):
@@ -224,8 +225,15 @@ def football_roll_frame(phase, animation_speed=None):
 
 
 def _normalize_fixture_separator(fixture):
-    """Keep a visible gap around VS even if a provider omits its left space."""
-    return re.sub(r"\s*VS\s*", "  VS  ", fixture.upper())
+    """Align VS at one character column and preserve a clear right-side gap."""
+    fixture = fixture.upper()
+    separator = re.search(r"\s*VS\s*", fixture)
+    if separator is None:
+        return fixture
+    left = fixture[:separator.start()].strip()
+    right = fixture[separator.end():].strip()
+    padding = max(1, FOOTBALL_VS_COLUMN - len(left))
+    return "{}{}VS  {}".format(left, " " * padding, right)
 
 
 def football_screen_lines(screen, now_epoch):

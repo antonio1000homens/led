@@ -2022,8 +2022,8 @@ class MatrixDisplay:
         ]
         group.append(text_group)
         due_group = displayio.Group()
-        heading = self._label(due_group, "DUE IN", 0xFFAA00, 214, 5)
-        countdown = self._label(due_group, "", 0xFFFFFF, 256, 18)
+        heading = self._label(due_group, "KICK-OFF IN", 0xFFAA00, 190, 18)
+        countdown = self._label(due_group, "", 0xFFFFFF, 256, 25)
         group.append(due_group)
         return {
             "group": group, "ball_grid": ball_grid, "frame": 0,

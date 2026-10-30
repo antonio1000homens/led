@@ -221,6 +221,7 @@
       portugal: '#ff0000'
     };
     const FOOTBALL_FIXTURE_TEXT_COLOR = '#ffff00';
+    const FOOTBALL_VS_COLUMN = 14;
     const CLOCK_X = 231 * FONT_PIXEL_SCALE;
     const STALE_X = 190 * FONT_PIXEL_SCALE;
     const HEADER_CONTENT_RIGHT = 220 * FONT_PIXEL_SCALE;
@@ -1209,7 +1210,14 @@
         const away = ['away', 'a'].includes(String(screen.team_homeaway || screen.homeaway || 'home').toLowerCase());
         fixture = opponent ? (away ? `${opponent} VS ${team}` : `${team} VS ${opponent}`) : team;
       }
-      fixture = fixture.toUpperCase().replace(/\s*VS\s*/g, '  VS  ');
+      fixture = fixture.toUpperCase();
+      const separator = /\s*VS\s*/.exec(fixture);
+      if (separator) {
+        const left = fixture.slice(0, separator.index).trim();
+        const right = fixture.slice(separator.index + separator[0].length).trim();
+        const padding = Math.max(1, FOOTBALL_VS_COLUMN - left.length);
+        fixture = `${left}${' '.repeat(padding)}VS  ${right}`;
+      }
       if (screen.status === 'PRE') return [fixture, footballKickoffLabel(screen.kickoff)];
       let detail;
       if (['IN', 'POST'].includes(screen.status)) {
@@ -1312,11 +1320,11 @@
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
         if (settled) {
           context.fillStyle = '#ffaa00';
-          drawLedText('DUE IN', (offset + 214) * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+          drawLedText('KICK-OFF IN', (offset + 190) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
           const due = footballDueIn(screen.kickoff, now);
           // The compact 5px glyph pitch keeps the shortest countdown right
           // aligned without shifting its column when units disappear.
-          drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 18, '#ffffff');
+          drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 25, '#ffffff');
         }
       } else {
         rows.slice(0, 4).forEach((line, index) => {
