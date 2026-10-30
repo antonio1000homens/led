@@ -23,13 +23,16 @@ fixture is taller and uses more of the available width; the teams and `VS`
 remain on one line, with only one space after `VS`. The ball freezes at x=2
 when the scene arrives. If another PRE fixture immediately follows, the
 incoming scene pushes the complete outgoing fixture/ball/countdown off the
-left, with no blank interstitial frame. IN screens appear in their settled
-position immediately and do not slide or roll. The ball stays at the left;
-both full opponent names appear together in large type beside it, with the
-match clock at the top right and a large score at the bottom right. Both names
-use the same sweeping colour gradient as the Today screen. The tracked team is
-not repeated as a screen title. The live match clock and score update when
-fresh snapshots arrive. Goal highlights only change the score colour.
+left, with no blank interstitial frame. IN and POST screens appear in their
+settled position immediately and do not slide or roll. The ball stays at the
+left; both opponent names appear together in large type beside it, with the
+live match clock (IN) or `FULL TIME` (POST) at the top right and the live or
+final score at the bottom right. Both names use the same sweeping colour
+gradient as the Today screen. The tracked team is not repeated as a screen
+title. Live clocks and scores update when fresh snapshots arrive. Goal
+highlights only change the score colour while IN; POST never replays a goal
+highlight. Home Assistant controls how long a retained POST result remains
+available, not this rendering change.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
@@ -88,7 +91,8 @@ second later without restarting the scene.
 Long names are clipped before the right column; no competition/status/score
 lines are added to the PRE view.
 
-IN and POST screens show normalized home/away scores when both are present.
+IN and POST screens use the same fixed ball, two-name gradient and score layout;
+POST replaces the clock with `FULL TIME`. Scores retain home/away ordering.
 BYE, NOT_FOUND, UNKNOWN, and UNAVAILABLE each have a distinct safe label. A
 live snapshot whose `source_updated_at` is missing or more than ten minutes
 old is shown as UNAVAILABLE and its score and clock are hidden.
