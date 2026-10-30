@@ -1331,7 +1331,7 @@
           for (let column = 0; column < 5; column += 1) {
             if (!(bits & (1 << (4 - column)))) continue;
             for (let enlargedRow = top; enlargedRow < bottom; enlargedRow += 1) {
-              if (screen.status === 'IN') {
+              if (screen.status === 'IN' || screen.status === 'POST') {
                 const gradientX = index * 6 + column;
                 const gradientY = index * 14 + enlargedRow;
                 const gradientColor = todayDatePixelColor(
@@ -1395,7 +1395,7 @@
           // aligned without shifting its column when units disappear.
           drawFootballCompactText(due, offset + Math.max(0, 256 - due.length * 5), 25, '#ffffff');
         }
-      } else if (screen.status === 'IN') {
+      } else if (screen.status === 'IN' || screen.status === 'POST') {
         const tracked = String(screen.team_name || screen.team_key || 'FOOTBALL').toUpperCase();
         const opponent = String(screen.opponent_long_name || screen.opponent || 'OPPONENT').toUpperCase();
         const side = String(screen.team_homeaway || screen.homeaway || 'home').toLowerCase();
@@ -1405,7 +1405,8 @@
           FOOTBALL_TEXT_X, 2, '#ffffff', phase);
         drawFootballLargeTeamLine(screen, away.slice(0, FOOTBALL_LIVE_TEXT_MAX_CHARS),
           FOOTBALL_TEXT_X, 16, '#ffffff', phase);
-        const clock = String(screen.clock || 'LIVE').toUpperCase().slice(0, 12);
+        const clock = screen.status === 'POST'
+          ? 'FULL TIME' : String(screen.clock || 'LIVE').toUpperCase().slice(0, 12);
         context.fillStyle = '#ffaa00';
         drawLedText(clock,
           (FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - clock.length * 6)) * FONT_PIXEL_SCALE,
@@ -1413,7 +1414,8 @@
         const score = screen.home_score == null || screen.away_score == null
           ? '--' : `${screen.home_score}-${screen.away_score}`;
         const scoreX = FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - (score.length * 12 - 2));
-        const scoreColor = screen.goal_flash_active && Math.floor(Math.max(0, phase) * 4) % 2
+        const scoreColor = screen.status === 'IN' && screen.goal_flash_active
+          && Math.floor(Math.max(0, phase) * 4) % 2
           ? '#ff3300' : '#ffffff';
         drawFootballLargeScore(score, scoreX, 17, scoreColor);
       } else {
@@ -1432,7 +1434,7 @@
     }
 
     function drawFootball(screen, phase) {
-      const animate = screen.status !== 'IN';
+      const animate = screen.status !== 'IN' && screen.status !== 'POST';
       const { x, infoVisible } = footballBallPosition(phase, animate, screen);
       const offset = x - FOOTBALL_END_X;
       const previous = typeof cyclePlan !== 'undefined' && typeof rotationIndex !== 'undefined'
