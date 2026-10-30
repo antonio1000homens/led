@@ -142,15 +142,15 @@ class FootballScreenTests(unittest.TestCase):
         self.assertIsNotNone(screen)
         self.assertEqual(
             football_screen_lines(screen, self.now),
-            ("MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"),
+            ("MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00"),
         )
 
-    def test_fixture_separator_keeps_space_before_vs_for_club_names(self):
+    def test_fixture_separator_aligns_vs_for_club_names(self):
         fixtures = (
             ("millwall", "Millwall FC", "Millwall FCVS Derby County",
-             "MILLWALL FC  VS  DERBY COUNTY"),
+             "MILLWALL FC   VS  DERBY COUNTY"),
             ("sporting_cp", "Sporting CP", "Sporting CPVS Benfica",
-             "SPORTING CP  VS  BENFICA"),
+             "SPORTING CP   VS  BENFICA"),
         )
         for team_key, team_name, display_fixture, expected in fixtures:
             with self.subTest(team_key=team_key):
@@ -210,7 +210,7 @@ class FootballScreenTests(unittest.TestCase):
         screen = self.state.screen_for_team("millwall", self.now)
         self.assertEqual(screen["status"], "PRE")
         self.assertEqual(football_screen_lines(screen, self.now), (
-            "MILLWALL  VS  DERBY COUNTY", "MON 26 OCT 22:00"
+            "MILLWALL      VS  DERBY COUNTY", "MON 26 OCT 22:00"
         ))
         no_fixture = snapshot(
             "millwall", published="2026-10-26T20:01:00Z",
@@ -260,7 +260,7 @@ class FootballScreenTests(unittest.TestCase):
                 self.assertTrue(state.accept("led/football/millwall", value))
                 screen = score_screen(state, self.now)
                 rows = football_screen_lines(screen, self.now)
-                self.assertEqual(rows, ("MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"))
+                self.assertEqual(rows, ("MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00"))
                 self.assertEqual(screen["home_score"], scores[0])
                 self.assertEqual(screen["away_score"], scores[1])
 
@@ -474,17 +474,17 @@ process.stdout.write(JSON.stringify(output));
         self.assertTrue(display.pixels)
         self.assertTrue(all(2 <= x < 18 for x, _, _ in display.pixels))
         self.assertEqual([row[0] for row in display.text], [
-            "MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00",
+            "MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00",
         ])
         self.assertTrue(all(x >= 22 for _, x, _, _ in display.text))
         self.assertEqual([row[2] for row in display.text], [5, 18])
 
-    def test_matrix_display_keeps_space_before_vs_for_both_clubs(self):
+    def test_matrix_display_aligns_vs_for_both_clubs(self):
         cases = (
             ("millwall", "Millwall FC", "Millwall FCvs Derby County",
-             "MILLWALL FC  VS  DERBY COUNTY"),
+             "MILLWALL FC   VS  DERBY COUNTY"),
             ("sporting_cp", "Sporting CP", "Sporting CPvs Benfica",
-             "SPORTING CP  VS  BENFICA"),
+             "SPORTING CP   VS  BENFICA"),
         )
         for team_key, team_name, display_fixture, expected in cases:
             with self.subTest(team_key=team_key):
@@ -535,7 +535,7 @@ process.stdout.write(JSON.stringify(results));
 """
         result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
         output = json.loads(result.stdout)
-        self.assertEqual(output[0], ["MILLWALL  VS  DERBY COUNTY", "SAT 31 OCT 15:00"])
+        self.assertEqual(output[0], ["MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00"])
         self.assertEqual(output[1], "TIME TBC")
         self.assertEqual(output[2], "SUN 29 MAR 02:30")
         self.assertEqual(output[3], "SUN 25 OCT 01:30")
@@ -546,17 +546,17 @@ process.stdout.write(JSON.stringify(results));
         # Both rows are laid out while entering; their x is initially off
         # screen and then reaches the original left-column coordinates.
         self.assertEqual(output[8], [
-            ["MILLWALL  VS  DERBY COUNTY", 276, 5],
+            ["MILLWALL      VS  DERBY COUNTY", 276, 5],
             ["SAT 31 OCT 15:00", 276, 18],
         ])
         self.assertEqual(output[9][:3], [
-            ["MILLWALL  VS  DERBY COUNTY", 276, 5],
+            ["MILLWALL      VS  DERBY COUNTY", 276, 5],
             ["SAT 31 OCT 15:00", 276, 18],
-            ["MILLWALL  VS  DERBY COUNTY", 22, 5],
+            ["MILLWALL      VS  DERBY COUNTY", 22, 5],
         ])
-        self.assertIn(["DUE IN", 214, 5], output[9])
-        self.assertEqual(output[10][0], "MILLWALL FC  VS  DERBY COUNTY")
-        self.assertEqual(output[11][0], "SPORTING CP  VS  BENFICA")
+        self.assertIn(["KICK-OFF IN", 190, 18], output[9])
+        self.assertEqual(output[10][0], "MILLWALL FC   VS  DERBY COUNTY")
+        self.assertEqual(output[11][0], "SPORTING CP   VS  BENFICA")
         self.assertIn("screen.kind === 'football_score'", html)
         self.assertIn("document.getElementById('football-preview')", html)
 

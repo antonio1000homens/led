@@ -15,13 +15,21 @@ snapshots leave the last accepted screen untouched.
 
 ## Screen behavior
 
-A new accepted fixture is eligible for a prompt presentation. Every football
-screen entry (including calendar-sourced PRE in the ordinary screen rotation)
-animates the 16×16 football with visible rotation from the right to the left
-over 3.2 seconds. The fixture and local kickoff time slide **with** the ball,
-not after it. The ball freezes at x=2 when the scene arrives. If another
-football fixture immediately follows, the incoming scene pushes the complete
-outgoing fixture/ball/countdown off the left, with no blank interstitial frame.
+A new accepted fixture is eligible for a prompt presentation. PRE entries
+(including calendar-sourced fixtures in the ordinary screen rotation) animate
+the 16×16 football with visible rotation from the right to the left over 3.2
+seconds. The complete fixture and local kickoff time move with the ball. The
+fixture is taller and uses more of the available width; the teams and `VS`
+remain on one line, with only one space after `VS`. The ball freezes at x=2
+when the scene arrives. If another PRE fixture immediately follows, the
+incoming scene pushes the complete outgoing fixture/ball/countdown off the
+left, with no blank interstitial frame. IN screens appear in their settled
+position immediately and do not slide or roll. The ball stays at the left;
+both full opponent names appear together in large type beside it, with the
+match clock at the top right and a large score at the bottom right. Both names
+use the same sweeping colour gradient as the Today screen. The tracked team is
+not repeated as a screen title. The live match clock and score update when
+fresh snapshots arrive. Goal highlights only change the score colour.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
@@ -57,8 +65,10 @@ The display uses `display_fixture` when supplied. For PRE fixtures without it,
 the board builds the home-versus-away order from team names and the Team
 Tracker home/away fields. PRE shows the fixture and `DAY DD MON HH:MM` (without `KO:`) on the left,
 in Europe/London local time, including automatic GMT/BST conversion. Invalid
-or missing kickoff shows `TIME TBC`. After the ball stops, `DUE IN` appears
-at the top right and the compact remaining countdown at the bottom right.
+or missing kickoff shows `TIME TBC`. After the ball stops, `KICK-OFF IN` appears
+beside the local kickoff time and the compact remaining countdown appears below.
+The `VS` separator has a tighter gap after the left team, and the right team
+starts after one space following `VS`.
 Its units depend on the **total time until kickoff**:
 
 | Time remaining | Display |
