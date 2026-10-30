@@ -24,12 +24,6 @@ FOOTBALL_TEAM_COLORS = {
     "millwall": (0, 0, 255),
     "portugal": (255, 0, 0),
 }
-FOOTBALL_TEAM_COLOR_CYCLES = {
-    "sporting_cp": ((0, 255, 0), (255, 255, 255)),
-    "millwall": ((0, 0, 255), (255, 255, 255)),
-    "england": ((255, 255, 255), (255, 0, 0)),
-    "portugal": ((255, 0, 0), (0, 255, 0)),
-}
 FOOTBALL_FIXTURE_TEXT_COLOR = (255, 255, 0)
 FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
@@ -42,6 +36,8 @@ FOOTBALL_START_X = 256
 FOOTBALL_END_X = 2
 FOOTBALL_BALL_WIDTH = 16
 FOOTBALL_TEXT_X = FOOTBALL_END_X + FOOTBALL_BALL_WIDTH + 4
+FOOTBALL_LIVE_RIGHT_X = 184
+FOOTBALL_LIVE_TEXT_MAX_CHARS = (FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X) // 6
 FOOTBALL_VS_COLUMN = 10
 
 
@@ -62,18 +58,6 @@ def football_team_name_span(screen, line):
         if start >= 0:
             return start, candidate, FOOTBALL_TEAM_COLORS.get(team_key)
     return None
-
-
-def football_team_name_color(screen, phase):
-    """Alternate the tracked team name between club colours on a slow cycle."""
-    colors = FOOTBALL_TEAM_COLOR_CYCLES.get(screen.get("team_key"))
-    if not colors:
-        return FOOTBALL_TEAM_COLORS.get(screen.get("team_key"))
-    try:
-        elapsed = max(0.0, float(phase or 0))
-    except (TypeError, ValueError):
-        elapsed = 0.0
-    return colors[int(elapsed / 2) % len(colors)]
 
 
 def kickoff_countdown(kickoff, now_epoch):

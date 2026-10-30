@@ -24,10 +24,12 @@ remain on one line, with only one space after `VS`. The ball freezes at x=2
 when the scene arrives. If another PRE fixture immediately follows, the
 incoming scene pushes the complete outgoing fixture/ball/countdown off the
 left, with no blank interstitial frame. IN screens appear in their settled
-position immediately and do not slide or roll. While a match is IN, the tracked
-team name alternates between its team colours every two seconds; the live match
-clock and score update when fresh snapshots arrive. Goal highlights only
-change colour.
+position immediately and do not slide or roll. The ball stays at the left;
+both full opponent names appear together in large type beside it, with the
+match clock at the top right and a large score at the bottom right. Both names
+use the same sweeping colour gradient as the Today screen. The tracked team is
+not repeated as a screen title. The live match clock and score update when
+fresh snapshots arrive. Goal highlights only change the score colour.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
