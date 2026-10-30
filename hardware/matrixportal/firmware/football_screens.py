@@ -169,9 +169,8 @@ def football_presentation_position(phase, animate=True, animation_speed=None):
 def football_due_in(kickoff, now_epoch):
     """Compact absolute-time PRE countdown for the right side of the board.
 
-    Show seconds only when more than 60 seconds remain, as requested.
-    Use total hours/minutes at each threshold (60M / 24H) to avoid hiding
-    units that are still needed for a meaningful countdown.
+    Show whole days at or above 24 hours; below that, show the clock
+    countdown without days. Seconds appear only above 60 seconds.
     """
     if not kickoff or now_epoch is None:
         return "TBC"
@@ -183,11 +182,9 @@ def football_due_in(kickoff, now_epoch):
         return "DUE NOW"
     if remaining <= 60:
         return "UNDER 1 MIN"
-    if remaining > 86400:
-        days, rest = divmod(remaining, 86400)
-        hours, rest = divmod(rest, 3600)
-        minutes, seconds = divmod(rest, 60)
-        return "{:02d}D {:02d}H {:02d}M {:02d}S".format(days, hours, minutes, seconds)
+    if remaining >= 86400:
+        days = remaining // 86400
+        return "{} {}".format(days, "DAY" if days == 1 else "DAYS")
     if remaining > 3600:
         hours, rest = divmod(remaining, 3600)
         minutes, seconds = divmod(rest, 60)

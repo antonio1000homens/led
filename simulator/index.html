@@ -1247,10 +1247,9 @@
       if (remaining === 0) return 'DUE NOW';
       if (remaining <= 60) return 'UNDER 1 MIN';
       const pad = value => String(value).padStart(2, '0');
-      if (remaining > 86400) {
-        const days = Math.floor(remaining / 86400), hours = Math.floor(remaining % 86400 / 3600);
-        const minutes = Math.floor(remaining % 3600 / 60), seconds = remaining % 60;
-        return `${pad(days)}D ${pad(hours)}H ${pad(minutes)}M ${pad(seconds)}S`;
+      if (remaining >= 86400) {
+        const days = Math.floor(remaining / 86400);
+        return `${days} ${days === 1 ? 'DAY' : 'DAYS'}`;
       }
       if (remaining > 3600) {
         const hours = Math.floor(remaining / 3600), minutes = Math.floor(remaining % 3600 / 60);
