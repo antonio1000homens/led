@@ -168,6 +168,22 @@ _pending_button_events = []
 _BUTTON_POLL_SECONDS = 0.05
 _MQTT_SLEEP_POLL_SECONDS = 0.25
 mqtt_screens_changed = False
+mqtt_screens_update_pending = False
+
+
+def _apply_pending_mqtt_screen_updates(now):
+    """Rebuild after a batch, outside the departures GC-suspended window."""
+    global mqtt_screens_update_pending
+    if not mqtt_screens_update_pending or rail_gc_suspended:
+        return False
+    epoch_now = _reminder_epoch(now)
+    rotation.update_sources(
+        rotation.http_screens,
+        _effective_mqtt_screens(epoch_now),
+        ticks_ms(),
+    )
+    mqtt_screens_update_pending = False
+    return True
 
 
 def _mqtt_connection_allowed(now):
@@ -183,7 +199,7 @@ def _mqtt_connection_allowed(now):
 
 def _sleep_interruptible(seconds, service_mqtt=False):
     """Sleep without changing render cadence, servicing requested I/O while idle."""
-    global mqtt_screens_changed
+    global mqtt_screens_changed, mqtt_screens_update_pending
     seconds = max(0.0, float(seconds or 0))
     if buttons is None and not service_mqtt:
         slice_ms = (
@@ -211,13 +227,14 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
-            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
+            mqtt_screens_update_pending = True
             return
         if service_mqtt and _service_reminder_clock(now):
             return
         if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
             mqtt.poll(now, allow_connect=_mqtt_connection_allowed(now))
+            _apply_pending_mqtt_screen_updates(now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
             if mqtt_screens_changed:
                 return
@@ -363,7 +380,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
     from mqtt_client import FlashMqttClient
 
     def receive_mqtt(topic, payload):
-        global mqtt_screens_changed
+        global mqtt_screens_changed, mqtt_screens_update_pending
         now = time.monotonic()
         assistant_topic = getattr(
             settings, "MQTT_ASSISTANT_RESPONSE_TOPIC",
@@ -386,20 +403,16 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
                 print("FOOTBALL UPDATE ACCEPTED team={} pending={}".format(
                     team_key, len(football_presentations)
                 ))
-                rotation.update_sources(
-                    rotation.http_screens,
-                    _effective_mqtt_screens(epoch_now),
-                    ticks_ms(),
-                )
                 mqtt_screens_changed = True
+                mqtt_screens_update_pending = True
             return
         epoch_now = _reminder_epoch(now)
         if epoch_now is None:
             print("MQTT screen ignored: clock not synchronized")
             return
         if mqtt_screens.accept(topic, payload, epoch_now):
-            rotation.update_sources(rotation.http_screens, _effective_mqtt_screens(epoch_now), ticks_ms())
             mqtt_screens_changed = True
+            mqtt_screens_update_pending = True
 
     mqtt = FlashMqttClient(
         settings,
@@ -797,6 +810,7 @@ while True:
         # keepalive/reconnect work; service the connection in an idle window.
         if not mqtt_animation_active:
             mqtt.poll(now, allow_connect=mqtt_allow_connect)
+            _apply_pending_mqtt_screen_updates(time.monotonic())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
@@ -977,6 +991,7 @@ while True:
             # Keep the loading frame visible if the initial broker handshake
             # takes several seconds; do not move it into the animation loop.
             mqtt.poll(time.monotonic(), allow_connect=True)
+            _apply_pending_mqtt_screen_updates(time.monotonic())
         if rotation.screens:
             maintenance_resume = rotation.freeze(ticks_ms())
         if slot_key != last_maintenance_slot:
@@ -1215,11 +1230,7 @@ while True:
     expired_mqtt = mqtt_screens.expire(epoch_now) if epoch_now is not None else []
     football_stale_changed = football_screens.staleness_changed(epoch_now)
     if epoch_now is not None and (expired_mqtt or football_stale_changed or recycling_date != last_recycling_date):
-        rotation.update_sources(
-            rotation.http_screens,
-            _effective_mqtt_screens(epoch_now),
-            ticks_ms(),
-        )
+        mqtt_screens_update_pending = True
         mqtt_screens_changed = True
     last_recycling_date = recycling_date
 
