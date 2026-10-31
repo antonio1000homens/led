@@ -55,7 +55,9 @@ from screen_client import ClockState, ScreenClient, ScreenRotation, attach_share
 from christmas_tracker import with_christmas_tracker
 from cron_schedule import cron_matches_local
 from mqtt_screens import MqttScreenState, recycling_policy
-from football_screens import FootballPresentationQueue, FootballScreenState
+from football_screens import (
+    FootballPresentationQueue, FootballScreenState, football_post_expired,
+)
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
@@ -366,7 +368,7 @@ def _resume_after_football():
 
 
 def _cancel_active_football():
-    """Cancel a football prompt whose retained snapshot is no longer presentable."""
+    """Cancel a football prompt whose source is no longer presentable."""
     global active_football_screen, active_football_started
     global football_rotation_resume, football_pause_started, flash_resume
     global last_render_key
@@ -386,13 +388,20 @@ def _cancel_active_football():
     return True
 
 
-def _start_football_presentation(team_key):
-    """Interrupt the current screen with the latest football snapshot once."""
+def _start_football_presentation(pending):
+    """Interrupt the current screen with one eligible football update."""
     global active_football_screen, active_football_started
     global football_rotation_resume, football_pause_started
     global football_presentation_sequence
     epoch_now = _reminder_epoch(time.monotonic())
-    next_screen = football_screens.screen_for_team(team_key, epoch_now)
+    if isinstance(pending, dict):
+        next_screen = dict(pending)
+        team_key = next_screen.get("team_key")
+        if football_post_expired(next_screen, epoch_now):
+            return False
+    else:
+        team_key = pending
+        next_screen = football_screens.screen_for_team(team_key, epoch_now)
     if next_screen is None:
         return False
     now_ticks = ticks_ms()
@@ -432,17 +441,13 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
         if topic.startswith(football_prefix):
             epoch_now = _reminder_epoch(now)
             team_key = topic[len(football_prefix):]
-            if flash.active(now) or flash.event is not None:
-                accepted = football_presentations.accept_snapshot(
-                    football_screens, topic, payload, epoch_now
-                )
-            else:
-                accepted = football_screens.accept(topic, payload)
-                if accepted:
-                    if football_screens.screen_for_team(team_key, epoch_now) is not None:
-                        _start_football_presentation(team_key)
-                    else:
-                        football_presentations.discard(team_key)
+            accepted = football_presentations.accept_snapshot(
+                football_screens, topic, payload, epoch_now
+            )
+            if accepted and not flash.active(now) and flash.event is None:
+                pending = football_presentations.pop(epoch_now)
+                if pending is not None:
+                    _start_football_presentation(pending)
             if accepted:
                 print("FOOTBALL UPDATE ACCEPTED team={} pending={}".format(
                     team_key, len(football_presentations)
@@ -901,17 +906,22 @@ while True:
     maintenance_active = False
     if not flash.active(now) and flash.event is None:
         if active_football_screen is not None:
-            latest_football = football_screens.screen_for_team(
-                active_football_screen.get("team_key"), _reminder_epoch(now)
-            )
-            if latest_football is None:
-                _cancel_active_football()
+            epoch_now = _reminder_epoch(now)
+            if active_football_screen.get("status") == "POST":
+                if football_post_expired(active_football_screen, epoch_now):
+                    _cancel_active_football()
             else:
-                latest_football["id"] = active_football_screen.get("id")
-                latest_football["ball_animation"] = active_football_screen.get(
-                    "ball_animation", False
+                latest_football = football_screens.screen_for_team(
+                    active_football_screen.get("team_key"), epoch_now
                 )
-                active_football_screen = latest_football
+                if latest_football is None:
+                    _cancel_active_football()
+                else:
+                    latest_football["id"] = active_football_screen.get("id")
+                    latest_football["ball_animation"] = active_football_screen.get(
+                        "ball_animation", False
+                    )
+                    active_football_screen = latest_football
             active_elapsed = (elapsed_seconds(active_football_started)
                               if active_football_screen is not None else 0)
             active_duration = (float(active_football_screen.get("duration_seconds") or 20)
@@ -925,9 +935,9 @@ while True:
                 active_football_started = None
                 _resume_after_football()
         if active_football_screen is None and football_presentations:
-            team_key = football_presentations.pop()
-            if team_key is not None:
-                _start_football_presentation(team_key)
+            pending = football_presentations.pop(_reminder_epoch(now))
+            if pending is not None:
+                _start_football_presentation(pending)
     if active_football_screen is not None and not flash.active(now):
         candidate = active_football_screen
         candidate_phase = elapsed_seconds(active_football_started)
@@ -1282,11 +1292,15 @@ while True:
                 football_pause_started = None
             last_render_key = None
             print("FLASH END")
-            if (active_football_screen is not None
-                    and football_screens.screen_for_team(
-                        active_football_screen.get("team_key"), _reminder_epoch(now)
-                    ) is None):
-                _cancel_active_football()
+            if active_football_screen is not None:
+                epoch_now = _reminder_epoch(now)
+                if active_football_screen.get("status") == "POST":
+                    if football_post_expired(active_football_screen, epoch_now):
+                        _cancel_active_football()
+                elif football_screens.screen_for_team(
+                        active_football_screen.get("team_key"), epoch_now
+                ) is None:
+                    _cancel_active_football()
         if active_football_screen is not None:
             screen = active_football_screen
             phase = elapsed_seconds(active_football_started)
