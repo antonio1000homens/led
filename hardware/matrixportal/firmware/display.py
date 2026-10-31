@@ -2183,7 +2183,7 @@ class MatrixDisplay:
             scene["clock_label"].text = clock
             scene["clock_label"].x = max(
                 0, DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X - len(clock) * 6
-            ) + (2 if status == "POST" else 0)
+            )
             scene["clock_label"].y = 7 if status == "POST" else 5
             home_score, away_score = screen.get("home_score"), screen.get("away_score")
             score = "{}-{}".format(home_score, away_score) if (
