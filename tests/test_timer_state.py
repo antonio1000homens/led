@@ -18,8 +18,16 @@ class AlexaTimerStateTests(unittest.TestCase):
                          iso_epoch("2026-10-31T15:00:00Z"))
 
     def test_timer_ids_use_circuitpython_compatible_ascii_validation(self):
+        class CharacterWithoutIsalnum(str):
+            def isalnum(self):
+                raise AttributeError("CircuitPython str has no isalnum")
+
+        class TimerIdWithoutIsalnum(str):
+            def __iter__(self):
+                return (CharacterWithoutIsalnum(character) for character in str(self))
+
         running = {
-            "timer_id": "A9._:-z",
+            "timer_id": TimerIdWithoutIsalnum("A9._:-z"),
             "state": "running",
             "ends_at": "2026-10-31T15:05:00Z",
         }
