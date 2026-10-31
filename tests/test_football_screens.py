@@ -629,7 +629,7 @@ process.stdout.write(JSON.stringify(results));
             ["SAT 31 OCT 15:00", 276, 18],
             ["MILLWALL      VS  DERBY COUNTY", 22, 5],
         ])
-        self.assertIn(["KICK-OFF IN", 190, 18], output[9])
+        self.assertIn(["KICK-OFF", 208, 18], output[9])
         self.assertEqual(output[10][0], "MILLWALL FC   VS  DERBY COUNTY")
         self.assertEqual(output[11][0], "SPORTING CP   VS  BENFICA")
         self.assertIn("screen.kind === 'football_score'", html)

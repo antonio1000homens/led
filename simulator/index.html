@@ -1390,7 +1390,7 @@
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE);
         if (settled) {
           context.fillStyle = '#ffaa00';
-          drawLedText('KICK-OFF IN', (offset + 190) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
+          drawLedText('KICK-OFF', (offset + 208) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
           const due = footballDueIn(screen.kickoff, now);
           // The compact 5px glyph pitch keeps the shortest countdown right
           // aligned without shifting its column when units disappear.
