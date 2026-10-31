@@ -269,6 +269,7 @@ console.log(JSON.stringify(calls));
         self.assertIn("screen.status === 'IN' || screen.status === 'POST'", scene)
         self.assertIn("? 'FULL TIME' : String(screen.clock || 'LIVE')", scene)
         self.assertIn("drawFootballLargeScore(score,", scene)
+        self.assertIn("72 - clock.length * 5", scene)
 
     def test_non_fixture_statuses_are_retained_for_ordering_but_hidden(self):
         for index, status in enumerate(("BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")):
