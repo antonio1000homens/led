@@ -15,9 +15,14 @@ snapshots leave the last accepted screen untouched.
 
 ## Screen behavior
 
-(Every accepted, displayable MQTT snapshot is eligible for a prompt
-presentation, including score and clock updates for the same match.) PRE entries
-(including calendar-sourced fixtures in the ordinary screen rotation) animate
+Every accepted, displayable MQTT snapshot immediately interrupts the current
+screen for a football prompt, including score and clock updates for the same
+match. Each update restarts the prompt timer and animation from its latest
+snapshot. Once the prompt finishes, the board resumes the frozen normal
+rotation position. Retained football snapshots are never members of that
+rotation, so they do not reappear unless another MQTT update is received. PRE
+fixtures supplied by the calendar continue to appear in the ordinary screen
+rotation and animate
 the 16×16 football with visible rotation from the right to the left over 3.2
 seconds. The complete fixture and local kickoff time move with the ball. The
 fixture is taller and uses more of the available width; the teams and `VS`
@@ -32,14 +37,12 @@ final score at the bottom right. Both names use the same sweeping colour
 gradient as the Today screen. The tracked team is not repeated as a screen
 title. Live clocks and scores update when fresh snapshots arrive. Goal
 highlights only change the score colour while IN; POST never replays a goal
-highlight. A snapshot for the team already on the active football card updates
-that card in place. Pending snapshots are coalesced per team so bursts present
-the latest state once. Prompt presentations wait behind flash reminders. The
-already connected MQTT client continues polling during active animations every
-1.5 seconds with a 10 ms socket timeout. Connection handshakes and non-football
-rotation rebuilds wait for an idle window. A newly accepted football update
-then interrupts normal rotation for 20 seconds. Home Assistant controls how
-long a retained POST result remains available, not this rendering change.
+highlight. Prompts deferred behind a flash reminder are shown in arrival order
+after the flash finishes. The already connected MQTT client continues polling
+during active animations every 1.5 seconds with a 10 ms socket timeout.
+Connection handshakes and non-football rotation rebuilds wait for an idle
+window. Home Assistant controls how long a retained POST result remains
+available, not this rendering change.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
@@ -61,13 +64,12 @@ countdown update or HTTP feed refresh cannot cause repeated GC pauses. The
 existing startup/maintenance/rail GC paths remain unchanged. When heap
 diagnostics are enabled, `FOOTBALL GC settled` reports collector duration
 and free heap before/after; track those alongside `FRAME PACE` during the
-physical board soak test. After the prompt presentation,
-football screens remain in the ordinary rotation as a fallback. A flash
-reminder keeps priority; football updates wait behind it. Pending updates are
-coalesced to one item per club so bursts cannot build an unbounded queue.
-Duplicate or out-of-order snapshots are rejected before they can request a
-slide. The first valid retained snapshot after boot hydrates that team and
-requests one presentation. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
+physical board soak test. Football snapshots are prompt-only and never enter
+the ordinary rotation. A flash reminder keeps priority; football updates
+received during it are queued in arrival order and shown afterward. Duplicate
+or out-of-order snapshots are rejected before they can request a prompt.
+The first valid retained snapshot after boot hydrates that team and requests
+one presentation. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
 `settings_local.py` to hide both football screens; the MQTT connection and its
 other subscriptions continue to work.
 

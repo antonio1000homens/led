@@ -312,12 +312,11 @@ last_recycling_date = None
 
 
 def _effective_mqtt_screens(epoch_now):
-    football = football_screens.screens(epoch_now)
     if epoch_now is None:
-        return football
+        return []
     return mqtt_screens.effective_screens(
         epoch_now, clock.date_text(time.monotonic())
-    ) + football
+    )
 
 
 def _reminder_epoch(now):
@@ -376,6 +375,30 @@ def _cancel_active_football():
     return True
 
 
+def _start_football_presentation(team_key):
+    """Interrupt the current screen with the latest football snapshot once."""
+    global active_football_screen, active_football_started
+    global football_rotation_resume, football_pause_started
+    global football_presentation_sequence
+    epoch_now = _reminder_epoch(time.monotonic())
+    next_screen = football_screens.screen_for_team(team_key, epoch_now)
+    if next_screen is None:
+        return False
+    now_ticks = ticks_ms()
+    if active_football_screen is None:
+        football_rotation_resume = rotation.freeze(now_ticks)
+    football_presentation_sequence += 1
+    next_screen["id"] = "football-event-{}".format(football_presentation_sequence)
+    next_screen["ball_animation"] = True
+    active_football_screen = next_screen
+    active_football_started = now_ticks
+    football_pause_started = None
+    print("FOOTBALL PRESENTATION START team={} pending={}".format(
+        team_key, len(football_presentations)
+    ))
+    return True
+
+
 if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_train_test:
     from mqtt_client import FlashMqttClient
 
@@ -397,14 +420,22 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
         football_prefix = football_screens.prefix
         if topic.startswith(football_prefix):
             epoch_now = _reminder_epoch(now)
-            if football_presentations.accept_snapshot(
-                    football_screens, topic, payload, epoch_now):
-                team_key = topic[len(football_prefix):]
+            team_key = topic[len(football_prefix):]
+            if flash.active(now) or flash.event is not None:
+                accepted = football_presentations.accept_snapshot(
+                    football_screens, topic, payload, epoch_now
+                )
+            else:
+                accepted = football_screens.accept(topic, payload)
+                if accepted:
+                    if football_screens.screen_for_team(team_key, epoch_now) is not None:
+                        _start_football_presentation(team_key)
+                    else:
+                        football_presentations.discard(team_key)
+            if accepted:
                 print("FOOTBALL UPDATE ACCEPTED team={} pending={}".format(
                     team_key, len(football_presentations)
                 ))
-                mqtt_screens_changed = True
-                mqtt_screens_update_pending = True
             return
         epoch_now = _reminder_epoch(now)
         if epoch_now is None:
@@ -886,29 +917,10 @@ while True:
                         ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
                     )
                 football_rotation_resume = None
-            elif active_football_screen is not None:
-                # The newest snapshot is now on the active card; do not replay
-                # it as a second 20-second card after this one finishes.
-                football_presentations.discard(
-                    active_football_screen.get("team_key")
-                )
-        if active_football_screen is None:
+        if active_football_screen is None and football_presentations:
             team_key = football_presentations.pop()
             if team_key is not None:
-                epoch_now = _reminder_epoch(now)
-                next_screen = football_screens.screen_for_team(team_key, epoch_now)
-                if next_screen is not None:
-                    football_presentation_sequence += 1
-                    next_screen["id"] = "football-event-{}".format(
-                        football_presentation_sequence
-                    )
-                    next_screen["ball_animation"] = True
-                    football_rotation_resume = rotation.freeze(ticks_ms())
-                    active_football_screen = next_screen
-                    active_football_started = ticks_ms()
-                    print("FOOTBALL PRESENTATION START team={} pending={}".format(
-                        team_key, len(football_presentations)
-                    ))
+                _start_football_presentation(team_key)
     if active_football_screen is not None and not flash.active(now):
         candidate = active_football_screen
         candidate_phase = elapsed_seconds(active_football_started)
@@ -1243,8 +1255,7 @@ while True:
     epoch_now = _reminder_epoch(now)
     recycling_date = clock.date_text(now)
     expired_mqtt = mqtt_screens.expire(epoch_now) if epoch_now is not None else []
-    football_stale_changed = football_screens.staleness_changed(epoch_now)
-    if epoch_now is not None and (expired_mqtt or football_stale_changed or recycling_date != last_recycling_date):
+    if epoch_now is not None and (expired_mqtt or recycling_date != last_recycling_date):
         mqtt_screens_update_pending = True
         mqtt_screens_changed = True
     last_recycling_date = recycling_date
