@@ -1618,6 +1618,15 @@
         if (status) drawLedText(status, Math.max(218 * FONT_PIXEL_SCALE, 1024 - measureLedText(status).width), y);
       });
     }
+    function alexaTimerRemaining(totalSeconds, phaseSeconds) {
+      return Math.max(0, totalSeconds - Math.floor(phaseSeconds));
+    }
+    function alexaTimerCarPosition(clockLeft, carWidth, remainingSeconds, totalSeconds) {
+      const finishX = Math.max(0, clockLeft - carWidth);
+      if (remainingSeconds <= 0) return finishX;
+      return Math.min(Math.max(0, finishX - 1),
+        Math.round(finishX * (1 - remainingSeconds / totalSeconds)));
+    }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
@@ -1780,7 +1789,7 @@
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
       } else if (screen.kind === 'alexa_timer') {
         const total = Math.max(1, Number(screen.duration_seconds) || 300);
-        const remaining = Math.max(0, total - Math.floor(rawPhase));
+        const remaining = alexaTimerRemaining(total, rawPhase);
         const hours = Math.floor(remaining / 3600);
         const minutes = Math.floor((remaining % 3600) / 60);
         const seconds = remaining % 60;
@@ -1789,8 +1798,7 @@
         const clockX = Math.max(0, 256 - label.length * 6 * scale - 2);
         context.fillStyle = '#ffffff';
         drawLedTextScaled(label, clockX * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, scale, true);
-        const finishX = Math.max(0, clockX - 10);
-        const carX = Math.round(finishX * (1 - remaining / total));
+        const carX = alexaTimerCarPosition(clockX, 10, remaining, total);
         context.fillStyle = '#ff2400';
         context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 21 * FONT_PIXEL_SCALE, 6 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
         context.fillRect((carX + 1) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE, 8 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);

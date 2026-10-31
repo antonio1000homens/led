@@ -1,3 +1,6 @@
+import json
+import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -82,6 +85,23 @@ class AlexaTimerStateTests(unittest.TestCase):
         self.assertTrue(accepted)
         self.assertLess(state.selected(start + 604800 - 0.01)["progress"], 1.0)
         self.assertEqual(state.selected(start + 604800)["state"], "complete")
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
+    def test_browser_simulator_keeps_car_before_finish_until_zero(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        functions = html[html.index("function alexaTimerRemaining"):
+                         html.index("function drawCalendarDue")]
+        harness = functions + """
+process.stdout.write(JSON.stringify([
+  alexaTimerRemaining(300, 299.9),
+  alexaTimerRemaining(300, 300),
+  alexaTimerCarPosition(100, 10, 1, 300),
+  alexaTimerCarPosition(100, 10, 0, 300)
+]));
+"""
+        result = subprocess.run(["node", "-e", harness], check=True,
+                                capture_output=True, text=True)
+        self.assertEqual(json.loads(result.stdout), [1, 0, 89, 90])
 
     def test_paused_timer_uses_fixed_remaining_and_resume_keeps_identity(self):
         state = TimerState()
