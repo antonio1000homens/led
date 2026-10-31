@@ -51,6 +51,15 @@ class FlashMqttClient:
             self._discard_client()
             self.next_attempt = 0
 
+    def _handle_message(self, client, topic, message):
+        """Keep application callback failures from tearing down MQTT transport."""
+        try:
+            self.on_message(topic, message)
+        except Exception as error:
+            # Do not log the payload: timer messages can contain user labels.
+            print("MQTT message handler failed type={}".format(
+                type(error).__name__))
+
     def _connect(self, now):
         if self.client is not None and self.connected:
             return
@@ -83,7 +92,7 @@ class FlashMqttClient:
                 )
             else:
                 self.client = self.mqtt_factory(self.settings)
-            self.client.on_message = lambda client, topic, message: self.on_message(topic, message)
+            self.client.on_message = self._handle_message
             self.client.connect()
             self.client.subscribe(self.settings.MQTT_TOPIC, qos=1)
             assistant_topic = getattr(
@@ -191,4 +200,4 @@ class FlashMqttClient:
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 5
-            print("MQTT disconnected:", error)
+            print("MQTT disconnected type={}".format(type(error).__name__))
