@@ -1390,7 +1390,7 @@
         drawLedText(String(rows[1]).slice(0, 22), (offset + FOOTBALL_TEXT_X) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE);
         if (settled) {
           context.fillStyle = '#ffaa00';
-          drawLedText('KICK-OFF IN', (offset + 190) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
+          drawLedText('KICK-OFF', (offset + 208) * FONT_PIXEL_SCALE, 18 * FONT_PIXEL_SCALE);
           const due = footballDueIn(screen.kickoff, now);
           // The compact 5px glyph pitch keeps the shortest countdown right
           // aligned without shifting its column when units disappear.
@@ -1410,9 +1410,10 @@
         const clock = screen.status === 'POST'
           ? 'FULL TIME' : String(screen.clock || 'LIVE').toUpperCase().slice(0, 12);
         context.fillStyle = '#ffaa00';
+        const postOffset = screen.status === 'POST' ? 2 : 0;
         drawLedText(clock,
-          (FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - clock.length * 6)) * FONT_PIXEL_SCALE,
-          5 * FONT_PIXEL_SCALE);
+          (FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - clock.length * 6) + postOffset) * FONT_PIXEL_SCALE,
+          (5 + postOffset) * FONT_PIXEL_SCALE);
         const score = screen.home_score == null || screen.away_score == null
           ? '--' : `${screen.home_score}-${screen.away_score}`;
         const scoreX = FOOTBALL_LIVE_RIGHT_X + Math.max(0, 72 - (score.length * 12 - 2));

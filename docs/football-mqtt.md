@@ -68,8 +68,9 @@ The display uses `display_fixture` when supplied. For PRE fixtures without it,
 the board builds the home-versus-away order from team names and the Team
 Tracker home/away fields. PRE shows the fixture and `DAY DD MON HH:MM` (without `KO:`) on the left,
 in Europe/London local time, including automatic GMT/BST conversion. Invalid
-or missing kickoff shows `TIME TBC`. After the ball stops, `KICK-OFF IN` appears
-beside the local kickoff time and the compact remaining countdown appears below.
+or missing kickoff shows `TIME TBC`. After the ball stops, a right-aligned
+`KICK-OFF` heading appears beside the local kickoff time and the compact
+remaining countdown appears below.
 The `VS` separator has a tighter gap after the left team, and the right team
 starts after one space following `VS`.
 Its units depend on the **total time until kickoff**:
@@ -93,8 +94,9 @@ lines are added to the PRE view.
 
 IN and POST screens use the same fixed ball, one-line home-versus-away fixture
 with the Today-style colour gradient, and score layout; POST replaces the clock
-with `FULL TIME`. Longer fixtures are horizontally condensed to fit the left
-column without overlapping the clock or score. Scores retain home/away ordering.
+with `FULL TIME`, positioned 2 pixels lower and farther right. Longer fixtures
+are horizontally condensed to fit the left column without overlapping the clock
+or score. Scores retain home/away ordering.
 BYE, NOT_FOUND, UNKNOWN, and UNAVAILABLE each have a distinct safe label. A
 live snapshot whose `source_updated_at` is missing or more than ten minutes
 old is shown as UNAVAILABLE and its score and clock are hidden.

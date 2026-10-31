@@ -2043,7 +2043,9 @@ class MatrixDisplay:
         text_group.append(live_names_grid)
         group.append(text_group)
         due_group = displayio.Group()
-        heading = self._label(due_group, "KICK-OFF IN", 0xFFAA00, 190, 18)
+        heading_text = "KICK-OFF"
+        heading_x = DISPLAY_WIDTH - len(heading_text) * 6
+        heading = self._label(due_group, heading_text, 0xFFAA00, heading_x, 18)
         countdown = self._label(due_group, "", 0xFFFFFF, 256, 25)
         group.append(due_group)
         live_group = displayio.Group(x=FOOTBALL_LIVE_RIGHT_X, y=0)
@@ -2181,7 +2183,8 @@ class MatrixDisplay:
             scene["clock_label"].text = clock
             scene["clock_label"].x = max(
                 0, DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X - len(clock) * 6
-            )
+            ) + (2 if status == "POST" else 0)
+            scene["clock_label"].y = 7 if status == "POST" else 5
             home_score, away_score = screen.get("home_score"), screen.get("away_score")
             score = "{}-{}".format(home_score, away_score) if (
                 home_score is not None and away_score is not None
@@ -5072,8 +5075,10 @@ class FixtureDisplay:
                                x_scale=1, y_scale=2, character_advance=char_advance)
                     clock = ("FULL TIME" if screen.get("status") == "POST" else
                              _clip(str(screen.get("clock") or "LIVE").upper(), 12))
+                    post_offset = 2 if screen.get("status") == "POST" else 0
                     self._text(clock, max(FOOTBALL_LIVE_RIGHT_X,
-                               DISPLAY_WIDTH - len(clock) * 6), 5, (255, 170, 0))
+                               DISPLAY_WIDTH - len(clock) * 6) + post_offset,
+                               5 + post_offset, (255, 170, 0))
                     home_score, away_score = screen.get("home_score"), screen.get("away_score")
                     score = "{}-{}".format(home_score, away_score) if (
                         home_score is not None and away_score is not None
