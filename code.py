@@ -809,8 +809,12 @@ while True:
         # frames. Its 10 ms loop timeout stays below one frame; never start a
         # Wi-Fi/broker connection handshake in the middle of an animation.
         mqtt.poll(now, allow_connect=mqtt_allow_connect)
-        if not mqtt_animation_active:
-            _apply_pending_mqtt_screen_updates(time.monotonic())
+        # Apply accepted updates during animations too. The update callback only
+        # stages payloads; rebuilding is guarded against the rail GC window by
+        # _apply_pending_mqtt_screen_updates. This lets the main loop select a
+        # newly requested football card on its next frame instead of waiting
+        # for the current animation to finish.
+        _apply_pending_mqtt_screen_updates(time.monotonic())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
