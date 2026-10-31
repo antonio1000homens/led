@@ -8,6 +8,7 @@ MAX_DURATION_SECONDS = 7 * 24 * 60 * 60
 COMPLETION_HOLD_SECONDS = 3
 UPSTREAM_STALE_AFTER_SECONDS = 600
 MAX_PAYLOAD_CHARACTERS = 4096
+TIMER_ID_PUNCTUATION_CODES = (45, 46, 58, 95)  # - . : _
 
 
 def format_countdown(remaining_seconds):
@@ -32,6 +33,17 @@ def _number(value, minimum, maximum, name):
     if value != value or value < minimum or value > maximum:
         raise ValueError("{} outside bounds".format(name))
     return value
+
+
+def _timer_id_character_allowed(character):
+    """Validate timer ID characters using operations available in CircuitPython."""
+    codepoint = ord(character)
+    return (
+        48 <= codepoint <= 57
+        or 65 <= codepoint <= 90
+        or 97 <= codepoint <= 122
+        or codepoint in TIMER_ID_PUNCTUATION_CODES
+    )
 
 
 def iso_epoch(value):
@@ -113,8 +125,7 @@ def validate_snapshot(payload, topic_device):
         timer_id = item.get("timer_id")
         if not isinstance(timer_id, str) or not timer_id or len(timer_id) > MAX_ID_LENGTH:
             raise ValueError("invalid timer id")
-        if any(ord(character) > 127 or not (character.isalnum() or character in "._:-")
-               for character in timer_id):
+        if any(not _timer_id_character_allowed(character) for character in timer_id):
             raise ValueError("timer id contains unsupported characters")
         if timer_id in seen:
             raise ValueError("duplicate timer id")
