@@ -1385,7 +1385,7 @@ while True:
             if timer_visible_id != active_timer["timer_id"]:
                 timer_visible_id = active_timer["timer_id"]
                 print("TIMER SELECT id={}".format(timer_visible_id))
-            remaining = int(active_timer.get("remaining_seconds", 0))
+            remaining = active_timer.get("remaining_seconds", 0)
             duration = active_timer.get("duration_seconds")
             screen = {
                 "id": "alexa-timer-{}".format(active_timer["timer_id"]),

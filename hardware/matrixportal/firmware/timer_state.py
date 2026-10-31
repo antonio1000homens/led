@@ -12,7 +12,8 @@ TIMER_ID_PUNCTUATION_CODES = (45, 46, 58, 95)  # - . : _
 
 
 def format_countdown(remaining_seconds):
-    remaining = max(0, int(remaining_seconds))
+    from math import ceil
+    remaining = max(0, int(ceil(remaining_seconds)))
     hours, tail = divmod(remaining, 3600)
     minutes, seconds = divmod(tail, 60)
     if hours:
@@ -23,7 +24,11 @@ def format_countdown(remaining_seconds):
 def car_position(clock_left, car_width, progress):
     progress = min(1.0, max(0.0, float(progress or 0)))
     finish_x = max(0, int(clock_left) - int(car_width))
-    return int(round(finish_x * progress))
+    if progress >= 1.0:
+        return finish_x
+    # Pixel rounding must not place the car at the clock before completion.
+    # Reserve the finish pixel for TimerState's explicit complete state.
+    return min(max(0, finish_x - 1), int(round(finish_x * progress)))
 
 
 def _number(value, minimum, maximum, name):
@@ -296,7 +301,12 @@ class TimerState:
         result["state"] = timer["state"]
         result["remaining_seconds"] = remaining
         result["duration_seconds"] = duration
-        result["progress"] = min(1.0, max(0.0, 1.0 - remaining / duration))
+        progress = min(1.0, max(0.0, 1.0 - remaining / duration))
+        if timer["state"] == "running" and remaining > 0:
+            # Keep sub-second time from floating-point rounding at the finish
+            # before TimerState has entered its explicit completion state.
+            progress = min(progress, 0.999999)
+        result["progress"] = progress
         result["label"] = timer.get("label", "")
         result["stale"] = stale
         return result

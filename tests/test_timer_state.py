@@ -46,10 +46,13 @@ class AlexaTimerStateTests(unittest.TestCase):
     def test_countdown_format_and_finish_position(self):
         self.assertEqual(format_countdown(3599), "59:59")
         self.assertEqual(format_countdown(3600), "1:00:00")
+        self.assertEqual(format_countdown(0.1), "00:01")
+        self.assertEqual(format_countdown(0), "00:00")
         self.assertEqual(format_countdown(-1), "00:00")
         self.assertEqual(car_position(100, 10, 0), 0)
         self.assertEqual(car_position(100, 10, 1), 90)
         self.assertEqual(car_position(100, 10, 0.5), 45)
+        self.assertEqual(car_position(100, 10, 0.999), 89)
         self.assertEqual(iso_epoch("2026-10-31T15:00:00.125Z"),
                          iso_epoch("2026-10-31T15:00:00Z"))
 
@@ -67,6 +70,18 @@ class AlexaTimerStateTests(unittest.TestCase):
         self.assertEqual(state.selected(now + 150)["progress"], 0.5)
         self.assertIs(state.selected(now + 150), selected)
         self.assertIs(state.selected(now + 150), selected)
+
+    def test_running_car_progress_stays_before_finish_until_expiry(self):
+        state = TimerState()
+        start = iso_epoch("2026-10-31T15:00:00Z")
+        end = "2026-11-07T15:00:00Z"
+        accepted, _ = state.accept(self.snapshot("2026-10-31T15:00:01Z", [
+            {"timer_id": "week", "state": "running", "ends_at": end,
+             "duration_seconds": 604800},
+        ]), start + 604800 - 0.01)
+        self.assertTrue(accepted)
+        self.assertLess(state.selected(start + 604800 - 0.01)["progress"], 1.0)
+        self.assertEqual(state.selected(start + 604800)["state"], "complete")
 
     def test_paused_timer_uses_fixed_remaining_and_resume_keeps_identity(self):
         state = TimerState()
