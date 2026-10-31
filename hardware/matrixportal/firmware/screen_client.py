@@ -441,6 +441,19 @@ class ScreenRotation:
             selected = mqtt.pop(item.get("id"), None)
             if selected is None:
                 selected = item
+            elif (
+                item.get("kind") == "football_score"
+                and selected.get("kind") == "football_score"
+                and selected.get("status") == "POST"
+                and item.get("status") == "PRE"
+                and selected.get("match_id")
+                and item.get("match_id")
+                and selected.get("match_id") != item.get("match_id")
+            ):
+                # Keep a final MQTT result available for its immediate event
+                # presentation, but let the separate fixtures feed put the
+                # team's next match back into the normal rotation.
+                selected = item
             elif (item.get("kind") == "football_score"
                   and selected.get("kind") == "football_score"
                   and "animation_speed" in item):
