@@ -1,4 +1,4 @@
-"""Validation and rotation snapshots for retained Team Tracker football MQTT."""
+"""Validation and prompt snapshots for retained Team Tracker football MQTT."""
 
 import json
 import re
@@ -478,52 +478,39 @@ class FootballScreenState:
 
 
 class FootballPresentationQueue:
-    """Bound pending event presentations to one coalesced item per club."""
+    """Queue one prompt for each accepted snapshot deferred behind a flash."""
 
     def __init__(self):
         self._pending = []
-        self._queued = set()
-        self._shown_fixture = {}
 
     def accept_snapshot(self, state, topic, payload, now_epoch=None):
-        """Queue only accepted updates that currently have a displayable screen."""
+        """Queue every accepted update that currently has a displayable screen."""
         if not state.accept(topic, payload):
             return False
         team_key = topic[len(state.prefix):]
         screen = state.screen_for_team(team_key, now_epoch)
         if screen is None:
             self.discard(team_key)
-            self._shown_fixture.pop(team_key, None)
         else:
-            fixture_key = (screen.get("match_id") or
-                           (screen.get("kickoff"), screen.get("display_fixture"),
-                            screen.get("opponent")))
-            if self._shown_fixture.get(team_key) != fixture_key:
-                self._shown_fixture[team_key] = fixture_key
-                self.schedule(team_key)
+            self.schedule(team_key)
         return True
 
     def discard(self, team_key):
-        """Remove one club's pending presentation after its fixture disappears."""
-        if team_key not in self._queued:
-            return False
+        """Remove deferred prompts for a club whose fixture is unavailable."""
+        before = len(self._pending)
         self._pending = [pending for pending in self._pending if pending != team_key]
-        self._queued.discard(team_key)
-        return True
+        return len(self._pending) != before
 
     def schedule(self, team_key):
-        if team_key not in FOOTBALL_TEAMS or team_key in self._queued:
+        if team_key not in FOOTBALL_TEAMS:
             return False
         self._pending.append(team_key)
-        self._queued.add(team_key)
         return True
 
     def pop(self):
         if not self._pending:
             return None
-        team_key = self._pending.pop(0)
-        self._queued.discard(team_key)
-        return team_key
+        return self._pending.pop(0)
 
     def __len__(self):
         return len(self._pending)

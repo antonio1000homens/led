@@ -90,22 +90,18 @@ class FootballScreenTests(unittest.TestCase):
         self.assertTrue(rebooted.accept("led/football/sporting_cp", sporting))
         self.assertEqual(len(rebooted.screens(self.now)), 1)
 
-    def test_both_clubs_join_the_existing_http_and_mqtt_rotation(self):
+    def test_football_snapshots_are_not_part_of_the_normal_screen_rotation(self):
         self.state.accept("led/football/sporting_cp", snapshot())
         self.state.accept("led/football/millwall", snapshot("millwall", team_name="Millwall FC"))
         http = [{"id": "departures", "kind": "rail_combined", "duration_seconds": 30}]
         mqtt = [{"id": "recycling", "kind": "bin_collection", "duration_seconds": 20}]
         rotation = ScreenRotation(rng=random.Random(1))
-        rotation.update_sources(http, mqtt + self.state.screens(self.now), 1000)
+        rotation.update_sources(http, mqtt, 1000)
         kinds = [screen["kind"] for screen in rotation.screens]
         self.assertIn("rail_combined", kinds)
         self.assertIn("bin_collection", kinds)
-        self.assertEqual(kinds.count("football_score"), 2)
+        self.assertEqual(kinds.count("football_score"), 0)
         self.assertEqual(kinds.count("football_intro"), 0)
-        self.assertEqual(
-            {screen["id"] for screen in rotation.screens if screen["kind"] == "football_score"},
-            {"football-sporting_cp", "football-millwall"},
-        )
 
     def test_validates_topic_team_schema_shape_and_timestamps(self):
         valid = snapshot()
@@ -269,6 +265,7 @@ console.log(JSON.stringify(calls));
         self.assertIn("screen.status === 'IN' || screen.status === 'POST'", scene)
         self.assertIn("? 'FULL TIME' : String(screen.clock || 'LIVE')", scene)
         self.assertIn("drawFootballLargeScore(score,", scene)
+        self.assertIn("72 - clock.length * 5", scene)
 
     def test_non_fixture_statuses_are_retained_for_ordering_but_hidden(self):
         for index, status in enumerate(("BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")):
@@ -638,20 +635,21 @@ process.stdout.write(JSON.stringify(results));
         self.assertIn("screen.kind === 'football_score'", html)
         self.assertIn("document.getElementById('football-preview')", html)
 
-    def test_prompt_presentation_queue_is_per_team_and_coalesces_bursts(self):
+    def test_prompt_presentation_queue_preserves_each_deferred_update(self):
         queue = FootballPresentationQueue()
         self.assertTrue(queue.schedule("millwall"))
-        self.assertFalse(queue.schedule("millwall"))
+        self.assertTrue(queue.schedule("millwall"))
         self.assertTrue(queue.schedule("sporting_cp"))
         self.assertFalse(queue.schedule("unknown"))
-        self.assertEqual(len(queue), 2)
+        self.assertEqual(len(queue), 3)
         self.assertEqual(queue.pop(), "millwall")
         self.assertTrue(queue.schedule("millwall"))
+        self.assertEqual(queue.pop(), "millwall")
         self.assertEqual(queue.pop(), "sporting_cp")
         self.assertEqual(queue.pop(), "millwall")
         self.assertIsNone(queue.pop())
 
-    def test_only_accepted_newer_snapshots_request_prompt_presentation(self):
+    def test_each_accepted_newer_snapshot_requests_prompt_presentation(self):
         queue = FootballPresentationQueue()
         first = snapshot("millwall", team_name="Millwall FC")
         self.assertTrue(queue.accept_snapshot(
@@ -671,7 +669,7 @@ process.stdout.write(JSON.stringify(results));
         self.assertTrue(queue.accept_snapshot(
             self.state, "led/football/millwall", newer
         ))
-        self.assertEqual(len(queue), 1)
+        self.assertEqual(len(queue), 2)
         self.assertEqual(queue.pop(), "millwall")
         same_fixture_update = snapshot(
             "millwall", published="2026-10-26T20:02:00Z", team_name="Millwall FC"
@@ -679,7 +677,8 @@ process.stdout.write(JSON.stringify(results));
         self.assertTrue(queue.accept_snapshot(
             self.state, "led/football/millwall", same_fixture_update
         ))
-        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(queue), 2)
+        self.assertEqual(queue.pop(), "millwall")
         next_fixture = snapshot(
             "millwall", published="2026-10-26T20:03:00Z", team_name="Millwall FC",
             match_id="event-456", kickoff="2026-11-07T15:00:00Z",
@@ -731,11 +730,18 @@ process.stdout.write(JSON.stringify(results));
         class Rotation:
             def __init__(self):
                 self.resumed = []
+                self.advanced = []
 
             def resume(self, *args):
                 self.resumed.append(args)
 
+            def next(self, *args):
+                self.advanced.append(args)
+
         rotation = Rotation()
+        resume_function = next(node for node in tree.body
+                               if isinstance(node, ast.FunctionDef)
+                               and node.name == "_resume_after_football")
         namespace = {
             "active_football_screen": {"team_key": "millwall"},
             "active_football_started": 200,
@@ -746,9 +752,11 @@ process.stdout.write(JSON.stringify(results));
             "rotation": rotation,
             "ticks_ms": lambda: 400,
         }
-        exec(compile(ast.Module(body=[function], type_ignores=[]), "code.py", "exec"), namespace)
+        exec(compile(ast.Module(body=[resume_function, function], type_ignores=[]),
+                     "code.py", "exec"), namespace)
         self.assertTrue(namespace["_cancel_active_football"]())
         self.assertEqual(rotation.resumed, [(400, 100, 3.5)])
+        self.assertEqual(rotation.advanced, [(400,)])
         self.assertIsNone(namespace["active_football_screen"])
         self.assertIsNone(namespace["active_football_started"])
         self.assertIsNone(namespace["football_rotation_resume"])

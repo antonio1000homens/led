@@ -58,10 +58,18 @@ class MqttScreenUpdateBatchingTests(unittest.TestCase):
 
         self.assertEqual(len(poll_locations), 3)
         for body, index in poll_locations:
-            self.assertEqual(
-                _call_name(body[index + 1]),
-                "_apply_pending_mqtt_screen_updates",
-            )
+            next_statement = body[index + 1]
+            if isinstance(next_statement, ast.If):
+                self.assertIn("mqtt_animation_active", ast.unparse(next_statement.test))
+                self.assertEqual(
+                    _call_name(next_statement.body[0]),
+                    "_apply_pending_mqtt_screen_updates",
+                )
+            else:
+                self.assertEqual(
+                    _call_name(next_statement),
+                    "_apply_pending_mqtt_screen_updates",
+                )
 
     def test_expiry_and_staleness_paths_do_not_rebuild_sources_directly(self):
         update_calls = [
