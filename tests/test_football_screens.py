@@ -730,11 +730,18 @@ process.stdout.write(JSON.stringify(results));
         class Rotation:
             def __init__(self):
                 self.resumed = []
+                self.advanced = []
 
             def resume(self, *args):
                 self.resumed.append(args)
 
+            def next(self, *args):
+                self.advanced.append(args)
+
         rotation = Rotation()
+        resume_function = next(node for node in tree.body
+                               if isinstance(node, ast.FunctionDef)
+                               and node.name == "_resume_after_football")
         namespace = {
             "active_football_screen": {"team_key": "millwall"},
             "active_football_started": 200,
@@ -745,9 +752,11 @@ process.stdout.write(JSON.stringify(results));
             "rotation": rotation,
             "ticks_ms": lambda: 400,
         }
-        exec(compile(ast.Module(body=[function], type_ignores=[]), "code.py", "exec"), namespace)
+        exec(compile(ast.Module(body=[resume_function, function], type_ignores=[]),
+                     "code.py", "exec"), namespace)
         self.assertTrue(namespace["_cancel_active_football"]())
         self.assertEqual(rotation.resumed, [(400, 100, 3.5)])
+        self.assertEqual(rotation.advanced, [(400,)])
         self.assertIsNone(namespace["active_football_screen"])
         self.assertIsNone(namespace["active_football_started"])
         self.assertIsNone(namespace["football_rotation_resume"])

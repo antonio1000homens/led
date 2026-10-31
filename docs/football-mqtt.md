@@ -18,8 +18,8 @@ snapshots leave the last accepted screen untouched.
 Every accepted, displayable MQTT snapshot immediately interrupts the current
 screen for a football prompt, including score and clock updates for the same
 match. Each update restarts the prompt timer and animation from its latest
-snapshot. Once the prompt finishes, the board resumes the frozen normal
-rotation position. Retained football snapshots are never members of that
+snapshot. Once the prompt finishes, the board starts the next normal rotation
+screen with its full duration. Retained football snapshots are never members of that
 rotation, so they do not reappear unless another MQTT update is received. PRE
 fixtures supplied by the calendar continue to appear in the ordinary screen
 rotation and animate

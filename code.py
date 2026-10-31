@@ -351,6 +351,20 @@ def _service_reminder_clock(now):
     return False
 
 
+def _resume_after_football():
+    """Start the next rotation slot at full duration after a prompt."""
+    global football_rotation_resume
+    if football_rotation_resume is None:
+        return False
+    now_ticks = ticks_ms()
+    rotation.resume(
+        now_ticks, football_rotation_resume[0], football_rotation_resume[1]
+    )
+    rotation.next(now_ticks)
+    football_rotation_resume = None
+    return True
+
+
 def _cancel_active_football():
     """Cancel a football prompt whose retained snapshot is no longer presentable."""
     global active_football_screen, active_football_started
@@ -359,10 +373,7 @@ def _cancel_active_football():
     if active_football_screen is None:
         return False
     team_key = active_football_screen.get("team_key")
-    if football_rotation_resume is not None:
-        rotation.resume(
-            ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
-        )
+    _resume_after_football()
     active_football_screen = None
     active_football_started = None
     football_rotation_resume = None
@@ -912,11 +923,7 @@ while True:
                 ))
                 active_football_screen = None
                 active_football_started = None
-                if football_rotation_resume is not None:
-                    rotation.resume(
-                        ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
-                    )
-                football_rotation_resume = None
+                _resume_after_football()
         if active_football_screen is None and football_presentations:
             team_key = football_presentations.pop()
             if team_key is not None:
