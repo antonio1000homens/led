@@ -80,8 +80,20 @@ retained snapshot restores the timer after reconnect; no per-second MQTT
 messages are needed. Refresh a still-active retained snapshot at least every
 ten minutes; the board marks the timer `STALE` after ten minutes without an
 accepted snapshot. Reminder flashes may cover the timer briefly, after which
-the current timer state is rendered again. Timer snapshots are not yet enabled
-by the Home Assistant producer. Live running, paused, and natural-completion
-records have now been observed; deploy and read back this consumer before
-enabling the HA publisher. Resume and cancellation transitions, MQTT delivery,
-and physical panel acceptance remain unverified.
+the current timer state is rendered again.
+
+## Deployment and live acceptance
+
+The LED consumer is deployed and was verified on the physical MatrixPortal
+with a retained synthetic 60-second timer: the user confirmed the countdown
+and racing car appeared and updated; expiry cleared the retained message and
+returned the board to normal rotation. This validates the consumer and display
+path, but not Alexa-to-Home-Assistant delivery.
+
+The Home Assistant publisher is enabled after the LED deployment gate. Its
+package is deployed with the native-mapping payload-guard fix. A live broker
+read at 2026-10-31 23:51 UTC confirmed that Home Assistant publishes a fresh
+retained `clear` snapshot. That proves the clear publication path only. A
+fresh Alexa timer is still needed to verify a live `upsert` reaches MQTT and
+the board; Alexa resume, edit, cancellation, concurrent timer handoff, and
+arrival exactly at zero also remain unverified.
