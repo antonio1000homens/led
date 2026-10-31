@@ -430,8 +430,9 @@ class MqttTransportTests(unittest.TestCase):
         self.assertEqual(client.disconnect_calls, 0)
         self.assertIn("MQTT message handler failed type=ValueError", output.getvalue())
         self.assertNotIn(payload, output.getvalue())
+        self.assertNotIn("bad timer", output.getvalue())
 
-    def test_mqtt_disconnect_log_includes_exception_type_and_repr(self):
+    def test_mqtt_disconnect_log_includes_exception_type_only(self):
         client = FakeMqtt(fail_loop=True)
         transport = FlashMqttClient(
             FakeSettings, lambda topic, message: None,
@@ -444,6 +445,7 @@ class MqttTransportTests(unittest.TestCase):
 
         self.assertFalse(transport.connected)
         self.assertIn("MQTT disconnected type=OSError", output.getvalue())
+        self.assertNotIn("broker disconnected", output.getvalue())
 
     def test_idle_loop_is_bounded_but_not_run_on_every_frame(self):
         client = FakeMqtt()
