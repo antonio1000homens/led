@@ -923,18 +923,23 @@ class ScreenClient:
     def _recover_request_memory_error(self):
         """Recreate only this client's pool, TLS context and HTTP session."""
         if self._managed_session and self._socket_pool is not None:
+            socket_pool = self._socket_pool
+            pool_released = False
             try:
                 import adafruit_connection_manager
 
                 adafruit_connection_manager.connection_manager_close_all(
-                    socket_pool=self._socket_pool,
-                    release_references=False,
+                    socket_pool=socket_pool,
+                    release_references=True,
                 )
-                print("SCREEN FETCH OWNED SOCKETS CLOSED")
+                pool_released = True
+                print("SCREEN FETCH OWNED SOCKETS CLOSED AND REFERENCES RELEASED")
             except Exception as error:
                 print("SCREEN FETCH OWNED SOCKET CLEANUP FAILED:", type(error).__name__)
             self.session = None
             self._ssl_context = None
+            if pool_released:
+                self._socket_pool = None
         try:
             import gc
 

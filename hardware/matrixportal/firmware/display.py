@@ -60,6 +60,7 @@ from football_screens import (
     FOOTBALL_TEXT_X,
     FOOTBALL_LIVE_RIGHT_X,
     football_presentation_position,
+    football_entry_phase,
     football_slide_offset,
     football_roll_frame,
     football_due_in,
@@ -1637,7 +1638,8 @@ class MatrixDisplay:
         kind = screen.get("kind")
         if kind == "football_score":
             x, _ = football_presentation_position(
-                phase, animate=screen.get("status") not in ("IN", "POST"),
+                football_entry_phase(phase, screen.get("status")),
+                animate=screen.get("status") not in ("IN", "POST"),
                 animation_speed=screen.get("animation_speed")
             )
             if x > FOOTBALL_RENDER_END_X:
@@ -2260,6 +2262,7 @@ class MatrixDisplay:
         scene and changes only group coordinates and the 16x16 bitmap pixels.
         """
         update_started = ticks_ms()
+        phase = football_entry_phase(phase, screen.get("status"))
         if self._football_group is None:
             import displayio
 
@@ -2310,6 +2313,10 @@ class MatrixDisplay:
                 )[1]
             )
             self._football_outgoing = previous if pushing else None
+            if self._football_outgoing is not None:
+                # Clear a PRE kickoff label before the outgoing match starts
+                # moving, then slide the match scene by itself.
+                self._football_outgoing["due_group"].hidden = True
             for item in self._football_slots:
                 item["group"].hidden = item is not scene and item is not self._football_outgoing
             scene["key"] = None
@@ -5032,7 +5039,8 @@ class FixtureDisplay:
             from football_ball import ROWS as BALL_ROWS
 
             ball_x, info_visible = football_presentation_position(
-                phase, screen.get("status") not in ("IN", "POST") and screen.get("ball_animation", False),
+                football_entry_phase(phase, screen.get("status")),
+                screen.get("status") not in ("IN", "POST") and screen.get("ball_animation", False),
                 screen.get("animation_speed"),
             )
             for row, pixels in enumerate(BALL_ROWS):

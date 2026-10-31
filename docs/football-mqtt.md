@@ -7,11 +7,90 @@ The board subscribes to the retained Home Assistant Team Tracker snapshots at
 
 The producer contract, field meanings, and upstream freshness behavior are
 documented in the [Home Assistant football LED contract](https://github.com/antonio1000homens/homeassistant/blob/master/docs/football-led-mqtt.md).
-The board accepts schema version 1 snapshots with `source: homeassistant`,
-`provider: teamtracker`, matching `team_key`, a supported lifecycle status, and
-valid ISO-8601 timestamps. Each topic has independent state. A retained
-snapshot is accepted at boot or reconnect; malformed and out-of-order
-snapshots leave the last accepted screen untouched.
+The board accepts schema version 1 snapshots from either Home Assistant
+Team Tracker (`source: homeassistant`, `provider: teamtracker`) or Node-RED
+Goal API (`source: nrwindsor`, `provider: goalapi`). The topic's final segment
+must match `team_key`. Home Assistant remains limited to the tracked club keys;
+Node-RED may use any lowercase topic-safe key. Each topic has independent
+state. A retained snapshot is accepted at boot or reconnect; malformed and
+out-of-order snapshots leave the last accepted screen untouched.
+
+## Goal API to Node-RED MQTT
+
+Use a match-specific topic of the form
+`led/football/goalapi_<fixtureId>`, with the exact suffix copied to
+`payload.team_key`. This avoids restricting matches to a team allowlist and
+keeps simultaneous fixtures in separate state slots. Each accepted update
+interrupts the current screen to show that fixture/score.
+
+In a Node-RED **Change** node, add these rules:
+
+1. Set `msg.payload` (JSONata) to the expression below. It maps the
+   `event` / `data` body observed in the Goal API test delivery into the board's
+   snapshot contract.
+
+2. Then set `msg.topic` (JSONata) to this expression. Put this rule **after**
+   the payload rule so it reads the normalized `payload.match_id`:
+
+   ```jsonata
+   (
+     $id := $substring($replace($lowercase($string(payload.match_id)), /[^a-z0-9_-]/, "_"), 0, 40);
+     "led/football/goalapi_" & $id
+   )
+   ```
+
+```jsonata
+(
+  $d := payload.data;
+  $homeRaw := $exists($d.homeTeam) ? $d.homeTeam : $d.home_team;
+  $awayRaw := $exists($d.awayTeam) ? $d.awayTeam : $d.away_team;
+  $home := $exists($homeRaw.name) ? $string($homeRaw.name) :
+           ($exists($homeRaw) ? $string($homeRaw) : "HOME");
+  $away := $exists($awayRaw.name) ? $string($awayRaw.name) :
+           ($exists($awayRaw) ? $string($awayRaw) : "AWAY");
+  $score := $d.score;
+  $fixtureId := $d.fixtureId;
+  $id := $exists($fixtureId)
+    ? $substring($replace($lowercase($string($fixtureId)), /[^a-z0-9_-]/, "_"), 0, 40)
+    : "unknown";
+  $homeScoreRaw := $score.home;
+  $awayScoreRaw := $score.away;
+  $finished := payload.event = "match.finished" or
+               ($exists($d.status) and $lowercase($string($d.status)) = "finished");
+  $stamp := $now();
+  {
+    "schema_version": 1,
+    "source": "nrwindsor",
+    "provider": "goalapi",
+    "team_key": "goalapi_" & $id,
+    "status": $finished ? "POST" : "IN",
+    "match_id": $exists($fixtureId) ? $string($fixtureId) : null,
+    "team_name": $home,
+    "opponent": $away,
+    "opponent_long_name": $away,
+    "display_fixture": $home & " VS " & $away,
+    "home_team": $home,
+    "away_team": $away,
+    "home_score": $exists($homeScoreRaw) ? $number($homeScoreRaw) : null,
+    "away_score": $exists($awayScoreRaw) ? $number($awayScoreRaw) : null,
+    "homeaway": "home",
+    "team_homeaway": "home",
+    "clock": $exists($d.clock.minute) ? $string($d.clock.minute) : null,
+    "competition": $exists($d.league.name) ? $string($d.league.name) : "",
+    "published_at": $stamp,
+    "source_updated_at": $stamp
+  }
+)
+```
+
+The test delivery confirms `payload.event`, `payload.createdAt`, and
+`payload.data.{fixtureId,homeTeam,awayTeam,score:{home,away},league.name,status}`.
+The normalized `match_id` uses `data.fixtureId`, not the outer webhook delivery
+`id`, so all updates for the same fixture share a topic. The board allows Goal API live
+snapshots to remain current for up to four hours between event-driven updates;
+the ten-minute stale limit remains in place for Home Assistant's polling
+snapshots. The official [Goal API webhook docs](https://goal-api.com/documentation)
+describe the signed event/data envelope and delivery types.
 
 ## Screen behavior
 

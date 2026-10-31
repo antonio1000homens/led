@@ -1,4 +1,4 @@
-"""Validation and prompt snapshots for retained Team Tracker football MQTT."""
+"""Validation and prompt snapshots for football MQTT providers."""
 
 import json
 import re
@@ -27,9 +27,11 @@ FOOTBALL_TEAM_COLORS = {
 FOOTBALL_FIXTURE_TEXT_COLOR = (255, 255, 0)
 FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
+GOALAPI_LIVE_STALE_SECONDS = 4 * 60 * 60
 GOAL_FLASH_SECONDS = 8
 SCREEN_DURATION_SECONDS = 20
 FOOTBALL_DEFAULT_ANIMATION_SPEED = 80
+FOOTBALL_PRE_CLEAR_SECONDS = 0.5
 FOOTBALL_MIN_ANIMATION_SPEED = 20
 FOOTBALL_MAX_ANIMATION_SPEED = 160
 FOOTBALL_START_X = 256
@@ -168,6 +170,17 @@ def football_presentation_position(phase, animate=True, animation_speed=None):
     return x, x == FOOTBALL_END_X
 
 
+def football_entry_phase(phase, status):
+    """Leave a short clear gap before a PRE card starts sliding in."""
+    if status != "PRE":
+        return phase
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    return max(0.0, elapsed - FOOTBALL_PRE_CLEAR_SECONDS)
+
+
 
 def football_due_in(kickoff, now_epoch):
     """Compact absolute-time PRE countdown for the right side of the board.
@@ -289,6 +302,15 @@ def _short_text(value, maximum=100):
     return isinstance(value, str) and 0 < len(value.strip()) <= maximum
 
 
+def _valid_team_key(value):
+    if not isinstance(value, str) or not 1 <= len(value) <= 48:
+        return False
+    for char in value:
+        if not ("a" <= char <= "z" or "0" <= char <= "9" or char in "_-"):
+            return False
+    return True
+
+
 def _score(value):
     return (value is None or
             (type(value) is int and 0 <= value <= 99))
@@ -305,6 +327,18 @@ def _has_fixture_data(screen):
     )
 
 
+def _live_stale(snapshot, now_ms):
+    if now_ms is None:
+        return True
+    source_updated = snapshot.get("_source_epoch")
+    if source_updated is None:
+        return True
+    stale_after = LIVE_STALE_SECONDS
+    if snapshot.get("source") == "nrwindsor" and snapshot.get("provider") == "goalapi":
+        stale_after = GOALAPI_LIVE_STALE_SECONDS
+    return now_ms - source_updated > stale_after * 1000
+
+
 def _normalize(topic, payload, prefix="led/football/"):
     if isinstance(payload, (bytes, bytearray)):
         try:
@@ -318,14 +352,20 @@ def _normalize(topic, payload, prefix="led/football/"):
             return None
     if not isinstance(payload, dict) or type(payload.get("schema_version")) is not int:
         return None
-    if payload.get("schema_version") != 1 or payload.get("source") != "homeassistant":
+    if payload.get("schema_version") != 1:
         return None
-    if payload.get("provider") != "teamtracker":
+    source = payload.get("source")
+    provider = payload.get("provider")
+    homeassistant_teamtracker = source == "homeassistant" and provider == "teamtracker"
+    nrwindsor_goalapi = source == "nrwindsor" and provider == "goalapi"
+    if not (homeassistant_teamtracker or nrwindsor_goalapi):
         return None
     if not isinstance(topic, str) or not topic.startswith(prefix):
         return None
     team_key = topic[len(prefix):]
-    if team_key not in FOOTBALL_TEAMS or payload.get("team_key") != team_key:
+    if not _valid_team_key(team_key) or payload.get("team_key") != team_key:
+        return None
+    if homeassistant_teamtracker and team_key not in FOOTBALL_TEAMS:
         return None
     status = payload.get("status")
     if status not in FOOTBALL_STATUSES:
@@ -361,7 +401,7 @@ def _normalize(topic, payload, prefix="led/football/"):
 
 
 class FootballScreenState:
-    """Keep each club's latest valid snapshot without affecting MQTT cycle screens."""
+    """Keep each topic's latest valid snapshot without affecting MQTT cycle screens."""
 
     def __init__(self, topic_filter="led/football/+", enabled=True):
         if (not isinstance(topic_filter, str) or not topic_filter.endswith("/+")
@@ -372,12 +412,24 @@ class FootballScreenState:
         self._teams = {}
         self._dynamic_flags = {}
 
+    def _prune_goalapi(self, now_ms):
+        if now_ms is None:
+            return
+        for team_key, snapshot in tuple(self._teams.items()):
+            if snapshot.get("source") != "nrwindsor" or snapshot.get("provider") != "goalapi":
+                continue
+            updated = snapshot.get("_source_epoch") or snapshot.get("_published_epoch")
+            if updated is not None and now_ms - updated > GOALAPI_LIVE_STALE_SECONDS * 1000:
+                del self._teams[team_key]
+                self._dynamic_flags.pop(team_key, None)
+
     def accept(self, topic, payload):
         if not self.enabled or not isinstance(topic, str) or not topic.startswith(self.prefix):
             return False
         item = _normalize(topic, payload, self.prefix)
         if item is None:
             return False
+        self._prune_goalapi(item["_published_epoch"])
         team_key = item["team_key"]
         previous = self._teams.get(team_key)
         if previous is not None:
@@ -414,19 +466,15 @@ class FootballScreenState:
             return []
         result = []
         now_ms = int(now_epoch * 1000) if now_epoch is not None else None
-        for team_key in FOOTBALL_TEAMS:
-            snapshot = self._teams.get(team_key)
-            if snapshot is None:
-                continue
+        self._prune_goalapi(now_ms)
+        for team_key, snapshot in self._teams.items():
             status = snapshot["status"]
             if status not in ("PRE", "IN", "POST"):
                 continue
             if status == "PRE" and not _has_fixture_data(snapshot):
                 continue
             screen = {key: value for key, value in snapshot.items() if not key.startswith("_")}
-            source_epoch = snapshot.get("_source_epoch")
-            stale_live = (status == "IN" and (now_ms is None or source_epoch is None
-                          or now_ms - source_epoch > LIVE_STALE_SECONDS * 1000))
+            stale_live = status == "IN" and _live_stale(snapshot, now_ms)
             if stale_live:
                 screen["status"] = "UNAVAILABLE"
                 screen["home_score"] = None
@@ -445,7 +493,7 @@ class FootballScreenState:
                 "kind": "football_score",
                 "title": screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(team_key, "FOOTBALL"),
                 "duration_seconds": SCREEN_DURATION_SECONDS,
-                "source": "homeassistant_teamtracker",
+                "source": "{}_{}".format(screen.get("source"), screen.get("provider")),
             })
             result.append(screen)
         return result
@@ -461,13 +509,12 @@ class FootballScreenState:
         if not self.enabled or now_epoch is None:
             return False
         now_ms = int(now_epoch * 1000)
+        self._prune_goalapi(now_ms)
         current = {}
         for team_key, snapshot in self._teams.items():
             stale = False
             if snapshot.get("status") == "IN":
-                source_epoch = snapshot.get("_source_epoch")
-                stale = (source_epoch is None
-                         or now_ms - source_epoch > LIVE_STALE_SECONDS * 1000)
+                stale = _live_stale(snapshot, now_ms)
             goal_until = snapshot.get("_goal_until")
             goal_active = goal_until is not None and now_ms < goal_until
             current[team_key] = (stale, goal_active)
@@ -502,7 +549,7 @@ class FootballPresentationQueue:
         return len(self._pending) != before
 
     def schedule(self, team_key):
-        if team_key not in FOOTBALL_TEAMS:
+        if not _valid_team_key(team_key):
             return False
         self._pending.append(team_key)
         return True
