@@ -805,11 +805,11 @@ while True:
             if display.animation_active(active_football_screen, football_phase):
                 mqtt_animation_active = True
                 mqtt_allow_connect = False
-        # MiniMQTT's nominal socket timeout does not bound the complete
-        # CircuitPython/Wi-Fi path. Do not interrupt visible animation with
-        # keepalive/reconnect work; service the connection in an idle window.
+        # Keep the already-connected MiniMQTT client serviced between animation
+        # frames. Its 10 ms loop timeout stays below one frame; never start a
+        # Wi-Fi/broker connection handshake in the middle of an animation.
+        mqtt.poll(now, allow_connect=mqtt_allow_connect)
         if not mqtt_animation_active:
-            mqtt.poll(now, allow_connect=mqtt_allow_connect)
             _apply_pending_mqtt_screen_updates(time.monotonic())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)

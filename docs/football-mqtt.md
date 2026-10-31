@@ -34,10 +34,12 @@ title. Live clocks and scores update when fresh snapshots arrive. Goal
 highlights only change the score colour while IN; POST never replays a goal
 highlight. A snapshot for the team already on the active football card updates
 that card in place. Pending snapshots are coalesced per team so bursts present
-the latest state once. Prompt presentations wait behind flash reminders and
-MQTT polling is deferred during active animations; otherwise the football card
-interrupts normal rotation for 20 seconds. Home Assistant controls how long a
-retained POST result remains available, not this rendering change.
+the latest state once. Prompt presentations wait behind flash reminders. The
+already connected MQTT client continues polling during active animations every
+1.5 seconds with a 10 ms socket timeout. Connection handshakes and non-football
+rotation rebuilds wait for an idle window. A newly accepted football update
+then interrupts normal rotation for 20 seconds. Home Assistant controls how
+long a retained POST result remains available, not this rendering change.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
