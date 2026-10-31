@@ -44,6 +44,7 @@
       <button id="previous" type="button">Previous screen</button>
       <button id="next" type="button">Next screen</button>
       <button id="bin-preview" type="button">Preview recycling screen</button>
+      <button id="timer-preview" type="button">Preview Alexa timer</button>
       <button id="football-preview" type="button">Preview football</button>
       <button id="sl7-preview" type="button">Preview SL7 buses</button>
       <button id="flash-preview" type="button">Preview reminder flash</button>
@@ -1747,7 +1748,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'football_score' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
+      const phase = hardwarePreview && screen.source !== 'todoist' && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'football_score' && screen.kind !== 'alexa_timer' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -1777,6 +1778,34 @@
           drawLedText('STALE', 0, 1 * FONT_PIXEL_SCALE);
         }
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
+      } else if (screen.kind === 'alexa_timer') {
+        const total = Math.max(1, Number(screen.duration_seconds) || 300);
+        const remaining = Math.max(0, total - Math.floor(rawPhase));
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const seconds = remaining % 60;
+        const label = hours ? `${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}` : `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        const scale = label.length <= 5 ? 3 : 2;
+        const clockX = Math.max(0, 256 - label.length * 6 * scale - 2);
+        context.fillStyle = '#ffffff';
+        drawLedTextScaled(label, clockX * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, scale, true);
+        const finishX = Math.max(0, clockX - 10);
+        const carX = Math.round(finishX * (1 - remaining / total));
+        context.fillStyle = '#ff2400';
+        context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 21 * FONT_PIXEL_SCALE, 6 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillRect((carX + 1) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE, 8 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 23 * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillStyle = '#111';
+        context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 24 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillRect((carX + 7) * FONT_PIXEL_SCALE, 24 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        context.fillStyle = '#ffd000';
+        context.fillRect((carX + 9) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        if (Math.floor(rawPhase * 4) % 2) {
+          context.fillStyle = '#ff9a00';
+          context.fillRect(carX * FONT_PIXEL_SCALE, 23 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        }
+        suppressHeader = true;
+        status.dataset.detail = `Alexa timer · ${screen.state || 'running'} · ${label}`;
       } else if (screen.kind === 'football_score') {
         drawFootball(screen, phase);
         suppressHeader = true;
@@ -2180,6 +2209,15 @@
       paused = false;
       pauseStarted = performance.now();
       status.dataset.detail = 'Football fixture preview · PRE, UK-local kick-off and pinned ball';
+    });
+    document.getElementById('timer-preview').addEventListener('click', () => {
+      screens = [{id:'alexa-timer-preview', kind:'alexa_timer', source:'simulator',
+        timer_id:'preview-timer', state:'running', title:'Alexa timer',
+        duration_seconds:300}];
+      screenOffset = 0;
+      paused = false;
+      pauseStarted = performance.now();
+      status.dataset.detail = 'Alexa timer contract preview · 5:00';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();

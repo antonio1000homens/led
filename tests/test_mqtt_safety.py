@@ -12,6 +12,7 @@ class MqttSafetyTests(unittest.TestCase):
         self.assertEqual(settings.MQTT_TOPIC, "led/flash/reminder")
         self.assertEqual(settings.MQTT_SCREENS_TOPIC, "led/screens/+")
         self.assertEqual(settings.MQTT_FOOTBALL_TOPIC, "led/football/+")
+        self.assertEqual(settings.MQTT_TIMER_TOPIC, "led/timer/+")
         self.assertTrue(settings.MQTT_FOOTBALL_ENABLED)
 
     def test_flash_duration_is_not_a_local_setting(self):

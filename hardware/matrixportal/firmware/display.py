@@ -29,6 +29,7 @@ from brightness import BrightnessState, pixel_is_blocked
 from bus_departures import normalise_bus_screen
 from flash_events import assistant_message_page
 from mqtt_screens import _epoch
+from timer_state import car_position, format_countdown
 from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
@@ -1636,6 +1637,8 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "alexa_timer":
+            return "timer_car" if screen.get("state") == "running" else None
         if kind == "football_score":
             x, _ = football_presentation_position(
                 football_entry_phase(phase, screen.get("status")),
@@ -1696,6 +1699,8 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
+        if screen.get("kind") == "alexa_timer":
+            return MATRIX_REFRESH_FPS if screen.get("state") == "running" else 0
         if screen.get("kind") == "today":
             return min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS)
         if screen.get("kind") == "christmas_tracker":
@@ -1738,6 +1743,8 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "alexa_timer":
+            return 1.0 / max(1, MATRIX_REFRESH_FPS) if screen.get("state") == "running" else 1.0
         if kind == "today":
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
         if kind == "football_score" and screen.get("status") == "PRE":
@@ -3429,6 +3436,64 @@ class MatrixDisplay:
         if changed:
             self._refresh(self._animation_class(screen, phase))
 
+    def _show_alexa_timer(self, screen, phase):
+        import displayio
+        text = format_countdown(screen.get("remaining_seconds", 0))
+        scale = 3 if len(text) <= 5 else 2
+        clock_x = max(0, DISPLAY_WIDTH - len(text) * 6 * scale - 2)
+        car_x = car_position(clock_x, 10, screen.get("progress"))
+        key = (screen.get("timer_id"), screen.get("state"), scale,
+               bool(screen.get("upstream_stale")))
+        changed = False
+        if getattr(self, "_timer_scene_key", None) != key:
+            group = displayio.Group()
+            if screen.get("upstream_stale"):
+                self._label(group, "STALE", 0x888888, 0, 7)
+            label = self._scaled_label(group, text, 0xFFFFFF, clock_x, 7, scale=scale)
+            bitmap = displayio.Bitmap(10, 6, 4)
+            palette = displayio.Palette(4)
+            palette[0] = 0x000000
+            palette.make_transparent(0)
+            palette[1], palette[2], palette[3] = 0xFF2400, 0x111111, 0xFFD000
+            rows = ("..........", "..RRRRR...", ".RRRRRRRR.", "..RRRRRYYY", "WW..WW....", "WW..WW....")
+            for y, row in enumerate(rows):
+                for x, char in enumerate(row):
+                    bitmap[x, y] = 1 if char == "R" else 2 if char == "W" else 3 if char == "Y" else 0
+            car = displayio.TileGrid(bitmap, pixel_shader=palette, x=car_x, y=16)
+            group.append(car)
+            self._timer_scene_key = key
+            self._timer_group, self._timer_label, self._timer_car = group, label, car
+            self._timer_palette, self._timer_bitmap = palette, bitmap
+            self._timer_text, self._timer_x = text, car_x
+            self._timer_wheel_pose = None
+            self._timer_exhaust_pose = None
+            self._present(group)
+            return
+        if text != self._timer_text:
+            self._timer_label.text = text
+            self._timer_label.x = clock_x
+            self._timer_text = text
+            changed = True
+        if car_x != self._timer_x:
+            self._timer_car.x = car_x
+            self._timer_x = car_x
+            changed = True
+        if screen.get("state") == "running":
+            wheel_pose = int(max(0.0, float(phase)) * 4) % 2
+            if wheel_pose != self._timer_wheel_pose:
+                self._timer_palette[2] = 0x666666 if wheel_pose else 0x111111
+                self._timer_wheel_pose = wheel_pose
+                changed = True
+            exhaust_pose = int(max(0.0, float(phase)) * 6) % 2
+            if exhaust_pose != self._timer_exhaust_pose:
+                self._timer_bitmap[0, 2] = 3 if exhaust_pose else 0
+                self._timer_exhaust_pose = exhaust_pose
+                changed = True
+        if self.display.root_group is not self._timer_group:
+            self._present(self._timer_group)
+        elif changed:
+            self._refresh("timer_car")
+
     def _todoist_cache_matches(self, screen, clock_date):
         weather = screen.get("weather")
         weather_icon = weather.get("icon") if isinstance(weather, dict) else None
@@ -4481,6 +4546,9 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
+        if not empty_state and kind == "alexa_timer":
+            self._show_alexa_timer(screen, phase)
+            return
         presentation_mode = getattr(self, "presentation_mode", MATRIX_PRESENTATION_MODE)
         if presentation_mode != "auto_refresh":
             use_rail_auto_refresh = (
@@ -4970,6 +5038,24 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--", now_epoch=None):
         kind = screen.get("kind")
+        if kind == "alexa_timer":
+            text = format_countdown(screen.get("remaining_seconds", 0))
+            scale = 3 if len(text) <= 5 else 2
+            clock_x = max(0, DISPLAY_WIDTH - len(text) * 6 * scale - 2)
+            car_x = car_position(clock_x, 10, screen.get("progress"))
+            self._text(text, clock_x, 5, (255, 255, 255), scale=scale)
+            if screen.get("upstream_stale"):
+                self._text("STALE", 0, 2, (136, 136, 136))
+            for dx, dy in ((2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0),
+                           (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1), (8, 1),
+                           (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2)):
+                self._pixel(car_x + dx, 21 + dy, (255, 36, 0))
+            for dx in (2, 7):
+                self._pixel(car_x + dx, 24, (15, 15, 15))
+            self._pixel(car_x + 9, 22, (255, 208, 0))
+            if int(max(0.0, float(phase)) * 6) % 2:
+                self._pixel(car_x, 23, (255, 154, 0))
+            return
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
                 weather = screen.get("weather") or {}

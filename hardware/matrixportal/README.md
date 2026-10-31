@@ -274,6 +274,14 @@ prompt a pinned-ball match view; PRE shows only the fixture and Europe/London
 kick-off. See [`docs/football-mqtt.md`](../../docs/football-mqtt.md) for event,
 queue, and rotation behavior.
 
+Issue #52 adds a dedicated timer consumer on `MQTT_TIMER_TOPIC` (default
+`led/timer/+`). It validates complete retained per-device snapshots and pins
+the earliest running timer in a right-aligned countdown with a moving car.
+Reminder flash remains the only overlay above the timer. The contract is in
+[`docs/alexa-timer-mqtt.md`](../../docs/alexa-timer-mqtt.md). Keep the HA
+publisher disabled until the installed Alexa timer entities and lifecycle
+signals are verified, and deploy this consumer before enabling that publisher.
+
 Flash enablement and display duration are runtime values from `/api/screens`;
 they are not configured in `settings_local.py`. The board uses the safe
 five-second default until its first successful runtime-config refresh.
