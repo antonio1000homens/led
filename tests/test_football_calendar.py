@@ -259,6 +259,39 @@ class FootballCalendarTests(unittest.TestCase):
         self.assertEqual(next(s for s in aged["screens"] if s["id"] == "football-sporting_cp")["match_id"], "third")
         self.assertEqual(len([s for s in aged["screens"] if s["kind"] == "football_score"]), 1)
 
+    def test_kickoff_refreshes_next_fixture_before_ttl_and_throttles_failure(self):
+        now = [NOW]
+        store = MemoryStore()
+        runtime = default_runtime_config({})
+        runtime["feeds"]["football_fixtures"]["enabled"] = True
+        provider = FakeFootball([
+            [sanitized("sporting_cp", "2026-10-24T12:05:00+00:00", "first")],
+            [sanitized("sporting_cp", "2026-10-24T12:10:00+00:00", "second")],
+            RuntimeError("calendar unavailable"),
+        ])
+        publisher = Publisher(
+            PublisherConfig(bucket="test", national_rail_token="test", thorpe_park_source="off",
+                            weather_source="off", football_fixture_source="google_calendar"),
+            store, rail_provider=FakeRail(), football_provider=provider,
+            utcnow=lambda: now[0], runtime_config_store=StaticRuntimeConfigStore(runtime),
+        )
+        def fixture_ids():
+            return [s["match_id"] for s in publisher.run()["screens"] if s["kind"] == "football_score"]
+
+        self.assertEqual(fixture_ids(), ["first"])
+        now[0] += timedelta(minutes=4)
+        self.assertEqual(fixture_ids(), ["first"])
+        self.assertEqual(len(provider.calls), 1)
+        now[0] += timedelta(minutes=1)
+        self.assertEqual(fixture_ids(), ["second"])
+        self.assertEqual(len(provider.calls), 2)
+        now[0] += timedelta(minutes=5)
+        self.assertEqual(fixture_ids(), [])
+        self.assertEqual(len(provider.calls), 3)
+        now[0] += timedelta(minutes=1)
+        self.assertEqual(fixture_ids(), [])
+        self.assertEqual(len(provider.calls), 3)
+
     def test_cold_failure_respects_ttl_and_does_not_block_rail(self):
         store = MemoryStore()
         now = [NOW]

@@ -1029,6 +1029,20 @@ class Publisher:
             # when the former selection is still within its cache TTL.
             changed = previous.get("requested_selection") != selection
             last_attempt = _parse_iso(previous.get("last_attempt_at"))
+            # Refresh as soon as a cached fixture reaches kickoff, instead of
+            # waiting for the regular calendar TTL to select the next match.
+            # A failed rollover is attempted only once until the normal retry,
+            # so an outage cannot trigger a request on every publisher run.
+            cached = (previous.get("data") or {}).get("fixtures") or []
+            rollover = False
+            for fixture in cached:
+                if not isinstance(fixture, dict) or fixture.get("team_key") not in enabled_teams:
+                    continue
+                kickoff = _parse_iso(fixture.get("kickoff"))
+                if (kickoff is not None and kickoff.tzinfo is not None and kickoff <= now
+                        and (last_attempt is None or last_attempt < kickoff)):
+                    rollover = True
+                    break
             cold_throttled = (
                 previous.get("data") is None and not changed and last_attempt is not None
                 and (now - last_attempt).total_seconds() < fixture_cfg["poll_seconds"]
@@ -1040,7 +1054,7 @@ class Publisher:
                     "football_fixtures", previous, fixture_cfg["poll_seconds"],
                     lambda: self._fetch_football_fixtures(
                         now, fixture_cfg["lookahead_days"], enabled_teams
-                    ), now, force=changed,
+                    ), now, force=changed or rollover,
                 )
                 # Record the attempted selection even if Google failed; otherwise
                 # a config edit would retry every Lambda minute despite its TTL.

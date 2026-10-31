@@ -271,8 +271,12 @@ opponent, display title, home/away, timezone-aware kickoff, opaque match ID,
 source and stale status enter the S3 cached result or public screen JSON.
 No calendar IDs, raw descriptions, attendees, locations or token material are
 published. Cached matches stop displaying when their kickoff has passed,
-even if the calendar is temporarily unreachable; last-good fetches are kept
-and marked stale after failures. Public Google Calendar ICS caching upstream
+and the publisher requests the next fixture at the first run at or after
+kickoff, without waiting for the normal polling interval. If that request
+fails, expired fixtures remain hidden and retries follow the normal interval.
+The publisher and board polling schedules can delay the visible rollover;
+the calendar kickoff, rather than live match status, determines it. Last-good
+fetches are kept and marked stale after failures. Public Google Calendar ICS caching upstream
 may add some additional delay beyond our 900-second polling interval.
 
 ### Enablement and staged rollout
