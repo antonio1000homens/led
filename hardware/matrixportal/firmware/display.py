@@ -3470,8 +3470,22 @@ class MatrixDisplay:
             self._present(group)
             return
         if text != self._timer_text:
-            self._timer_label.text = text
-            self._timer_label.x = clock_x
+            group = self._timer_group
+            old_label = self._timer_label
+            label_index = None
+            for index in range(len(group)):
+                if group[index] is old_label:
+                    label_index = index
+                    break
+            if label_index is None:
+                raise RuntimeError("Alexa timer countdown layer is missing")
+            label = self._scaled_label(
+                group, text, 0xFFFFFF, clock_x, 7, scale=scale,
+            )
+            group.remove(label)
+            group.remove(old_label)
+            group.insert(label_index, label)
+            self._timer_label = label
             self._timer_text = text
             changed = True
         if car_x != self._timer_x:
@@ -5402,7 +5416,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time, now_epoch)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "christmas_tracker_intro", "bus_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes", "christmas_tracker", "football_score"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "christmas_tracker_intro", "bus_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes", "christmas_tracker", "football_score", "alexa_timer"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):

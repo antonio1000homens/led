@@ -100,12 +100,6 @@ class AlexaTimerStateTests(unittest.TestCase):
         ])
         self.assertEqual(state.accept(too_far, now)[1], "timer_end_outside_bounds")
         self.assertEqual(state.accept(" " * 4097, now)[1], "payload_too_large")
-        too_far = self.snapshot("2026-10-31T15:00:04Z", [
-            {"timer_id": "far", "state": "running", "ends_at": "2026-11-09T15:00:00Z"},
-        ])
-        self.assertEqual(state.accept(too_far, now)[1], "timer_end_outside_bounds")
-        self.assertEqual(state.accept(" " * 4097, now)[1], "payload_too_large")
-
     def test_clear_cancels_completion_hold_immediately(self):
         state = TimerState()
         now = iso_epoch("2026-10-31T15:00:00Z")
@@ -138,28 +132,6 @@ class AlexaTimerStateTests(unittest.TestCase):
         ]), now, 100.0)[0])
         self.assertFalse(state.selected(now, 699.0)["stale"])
         self.assertTrue(state.selected(now, 700.0)["stale"])
-
-    def test_marks_upstream_stale_after_bounded_refresh_window(self):
-        state = TimerState()
-        now = iso_epoch("2026-10-31T15:00:00Z")
-        self.assertTrue(state.accept(self.snapshot("2026-10-31T15:00:01Z", [
-            {"timer_id": "stale", "state": "running", "ends_at": "2026-10-31T16:00:00Z"},
-        ]), now, 100.0)[0])
-        self.assertFalse(state.selected(now, 699.0)["stale"])
-        self.assertTrue(state.selected(now, 700.0)["stale"])
-
-    def test_unsynchronized_clock_accepts_paused_but_not_unanchored_running_timers(self):
-        state = TimerState()
-        paused = self.snapshot("2026-10-31T15:00:01Z", [
-            {"timer_id": "paused", "state": "paused", "remaining_seconds": 45},
-        ])
-        self.assertTrue(state.accept(paused, None, 1.0)[0])
-        self.assertEqual(state.selected(None, 1.0)["remaining_seconds"], 45)
-        running_state = TimerState()
-        running = self.snapshot("2026-10-31T15:00:01Z", [
-            {"timer_id": "running", "state": "running", "ends_at": "2026-10-31T15:01:00Z"},
-        ])
-        self.assertEqual(running_state.accept(running, None, 1.0)[1], "clock_not_synchronized")
 
     def test_unsynchronized_clock_accepts_paused_but_not_unanchored_running_timers(self):
         state = TimerState()

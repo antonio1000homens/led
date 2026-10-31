@@ -273,7 +273,9 @@ class TimerState:
         if duration is None:
             duration = self.observed_durations.get(timer["timer_id"])
             if duration is None:
-                duration = remaining
+                # A zero-second paused snapshot has no historical duration;
+                # use a one-second visual baseline so progress stays defined.
+                duration = max(1, remaining)
                 self.observed_durations[timer["timer_id"]] = duration
         else:
             self.observed_durations[timer["timer_id"]] = duration

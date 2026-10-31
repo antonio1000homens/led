@@ -338,15 +338,16 @@ def _flash_started(now):
     global flash_resume, last_render_key, flash_started_ticks, football_pause_started
     global timer_pause_started, active_football_started
     flash_started_ticks = ticks_ms()
-    if timer_pause_started is not None and active_football_started is not None:
-        active_football_started += flash_started_ticks - timer_pause_started
-        timer_pause_started = None
     if flash_resume is None:
         active_presentation = globals().get("active_football_screen")
         resume_state = globals().get("football_rotation_resume")
         if active_presentation is not None and resume_state is not None:
             flash_resume = resume_state
-            football_pause_started = flash_started_ticks
+            # A timer already pauses football. Avoid a second overlapping
+            # marker; the timer end path extends the pause if this flash lasts
+            # longer than the timer.
+            if timer_pause_started is None:
+                football_pause_started = flash_started_ticks
         else:
             flash_resume = rotation.freeze(ticks_ms())
     last_render_key = None
@@ -966,7 +967,10 @@ while True:
     active_timer = timer_state.selected(timer_epoch_now, now)
     if active_timer is None and timer_pause_started is not None:
         if active_football_started is not None:
-            active_football_started += ticks_ms() - timer_pause_started
+            pause_ended = ticks_ms()
+            active_football_started += pause_ended - timer_pause_started
+            if flash.active(now) and football_pause_started is None:
+                football_pause_started = pause_ended
         timer_pause_started = None
     elif (active_timer is not None and active_football_screen is not None
           and timer_pause_started is None and football_pause_started is None):
