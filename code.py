@@ -58,6 +58,7 @@ from mqtt_screens import MqttScreenState, recycling_policy
 from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_post_expired,
 )
+from timer_state import TimerState
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
@@ -311,6 +312,10 @@ football_rotation_resume = None
 football_pause_started = None
 football_presentation_sequence = 0
 last_recycling_date = None
+timer_state = TimerState()
+timer_rotation_resume = None
+timer_visible_id = None
+timer_pause_started = None
 
 
 def _effective_mqtt_screens(epoch_now):
@@ -331,13 +336,18 @@ def _reminder_epoch(now):
 
 def _flash_started(now):
     global flash_resume, last_render_key, flash_started_ticks, football_pause_started
+    global timer_pause_started, active_football_started
     flash_started_ticks = ticks_ms()
     if flash_resume is None:
         active_presentation = globals().get("active_football_screen")
         resume_state = globals().get("football_rotation_resume")
         if active_presentation is not None and resume_state is not None:
             flash_resume = resume_state
-            football_pause_started = flash_started_ticks
+            # A timer already pauses football. Avoid a second overlapping
+            # marker; the timer end path extends the pause if this flash lasts
+            # longer than the timer.
+            if timer_pause_started is None:
+                football_pause_started = flash_started_ticks
         else:
             flash_resume = rotation.freeze(ticks_ms())
     last_render_key = None
@@ -424,6 +434,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
 
     def receive_mqtt(topic, payload):
         global mqtt_screens_changed, mqtt_screens_update_pending
+        global timer_rotation_resume, timer_visible_id, timer_pause_started
         now = time.monotonic()
         assistant_topic = getattr(
             settings, "MQTT_ASSISTANT_RESPONSE_TOPIC",
@@ -436,6 +447,34 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
                 return
             if flash.accept(payload, now, epoch_now=epoch_now):
                 _flash_started(now)
+            return
+        timer_topic = str(getattr(settings, "MQTT_TIMER_TOPIC", "led/timer/+"))
+        timer_prefix = timer_topic[:-1] if timer_topic.endswith("/+") else ""
+        if not timer_prefix:
+            print("TIMER ignored: subscription must end in /+")
+            return
+        if topic.startswith(timer_prefix):
+            epoch_now = _reminder_epoch(now)
+            device = topic[len(timer_prefix):]
+            if device != timer_state.device or "/" in device:
+                print("TIMER ignored: unsupported device")
+                return
+            accepted, reason = timer_state.accept(payload, epoch_now, now)
+            if not accepted:
+                print("TIMER snapshot rejected reason={}".format(reason))
+                return
+            selected = timer_state.selected(epoch_now, now)
+            if selected is not None and timer_rotation_resume is None:
+                timer_rotation_resume = rotation.freeze(ticks_ms())
+                timer_visible_id = selected["timer_id"]
+                if active_football_screen is not None and timer_pause_started is None:
+                    timer_pause_started = ticks_ms()
+                print("TIMER START id={}".format(timer_visible_id))
+            elif selected is None and timer_rotation_resume is not None:
+                rotation.resume(ticks_ms(), timer_rotation_resume[0], timer_rotation_resume[1])
+                timer_rotation_resume = None
+                timer_visible_id = None
+                print("TIMER CLEAR")
             return
         football_prefix = football_screens.prefix
         if topic.startswith(football_prefix):
@@ -467,7 +506,9 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
         startup_delay_seconds=settings.MQTT_STARTUP_DELAY_SECONDS,
         on_connecting=lambda: _checkpoint_board_health(
             "mqtt",
-            rotation.current(ticks_ms())[0] if rotation.screens else None,
+            ({"id": "alexa-timer", "kind": "alexa_timer"}
+             if timer_rotation_resume is not None
+             else rotation.current(ticks_ms())[0] if rotation.screens else None),
             time.monotonic(),
         ),
     )
@@ -852,6 +893,24 @@ while True:
             if display.animation_active(active_football_screen, football_phase):
                 mqtt_animation_active = True
                 mqtt_allow_connect = False
+        if flash.active(now):
+            flash_screen = flash.screen()
+            if display.animation_active(flash_screen, elapsed_seconds(flash_started_ticks)):
+                mqtt_animation_active = True
+                mqtt_allow_connect = False
+        timer_state_for_mqtt = timer_state.selected(_reminder_epoch(now), now)
+        if (timer_state_for_mqtt is not None
+                and timer_state_for_mqtt.get("state") in ("running", "complete")):
+            mqtt_animation_active = True
+            mqtt_allow_connect = False
+        if flash.active(now):
+            flash_screen = flash.screen()
+            if display.animation_active(flash_screen, elapsed_seconds(flash_started_ticks)):
+                mqtt_animation_active = True
+                mqtt_allow_connect = False
+        if timer_rotation_resume is not None:
+            mqtt_animation_active = True
+            mqtt_allow_connect = False
         # Keep the already-connected MiniMQTT client serviced between animation
         # frames. Its 10 ms loop timeout stays below one frame; never start a
         # Wi-Fi/broker connection handshake in the middle of an animation.
@@ -904,7 +963,19 @@ while True:
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
     maintenance_resume = None
     maintenance_active = False
-    if not flash.active(now) and flash.event is None:
+    timer_epoch_now = _reminder_epoch(now)
+    active_timer = timer_state.selected(timer_epoch_now, now)
+    if active_timer is None and timer_pause_started is not None:
+        if active_football_started is not None:
+            pause_ended = ticks_ms()
+            active_football_started += pause_ended - timer_pause_started
+            if flash.active(now) and football_pause_started is None:
+                football_pause_started = pause_ended
+        timer_pause_started = None
+    elif (active_timer is not None and active_football_screen is not None
+          and timer_pause_started is None and football_pause_started is None):
+        timer_pause_started = ticks_ms()
+    if not flash.active(now) and flash.event is None and active_timer is None:
         if active_football_screen is not None:
             epoch_now = _reminder_epoch(now)
             if active_football_screen.get("status") == "POST":
@@ -938,7 +1009,14 @@ while True:
             pending = football_presentations.pop(_reminder_epoch(now))
             if pending is not None:
                 _start_football_presentation(pending)
-    if active_football_screen is not None and not flash.active(now):
+    if active_timer is not None:
+        candidate = {
+            "id": "alexa-timer-{}".format(active_timer["timer_id"]),
+            "kind": "alexa_timer",
+            "state": active_timer["state"],
+        }
+        candidate_phase = float(now) if active_timer["state"] == "running" else 0.0
+    elif active_football_screen is not None and not flash.active(now):
         candidate = active_football_screen
         candidate_phase = elapsed_seconds(active_football_started)
     else:
@@ -977,7 +1055,7 @@ while True:
             if gc is not None and hasattr(gc, "enable"):
                 gc.enable()
         christmas_gc_suspended = False
-    if (rotation.screens and active_football_screen is None
+    if (active_timer is None and rotation.screens and active_football_screen is None
             and not steam_train_test and not flash.active(now)
             and boundary and not paired_followup and (fetch_due or task_unready)
             and not rotation.is_maintenance_screen(candidate)):
@@ -1016,7 +1094,7 @@ while True:
             print("SCREEN GC EXIT FAILED id={} kind={}:".format(
                 last_logged_screen_key[0], last_logged_screen_key[1]
             ), error)
-    if not rotation.screens:
+    if not rotation.screens and active_timer is None:
         # Do not make the startup placeholder look like the disabled standalone
         # Today screen or the Next 24H forecast. The feed may still be loading.
         candidate = {"id": "startup-loading", "kind": "startup",
@@ -1301,10 +1379,36 @@ while True:
                         active_football_screen.get("team_key"), epoch_now
                 ) is None:
                     _cancel_active_football()
-        if active_football_screen is not None:
+        if active_timer is not None:
+            if timer_rotation_resume is None:
+                timer_rotation_resume = rotation.freeze(ticks_ms())
+            if timer_visible_id != active_timer["timer_id"]:
+                timer_visible_id = active_timer["timer_id"]
+                print("TIMER SELECT id={}".format(timer_visible_id))
+            remaining = int(active_timer.get("remaining_seconds", 0))
+            duration = active_timer.get("duration_seconds")
+            screen = {
+                "id": "alexa-timer-{}".format(active_timer["timer_id"]),
+                "kind": "alexa_timer",
+                "timer_id": active_timer["timer_id"],
+                "remaining_seconds": remaining,
+                "duration_seconds": duration,
+                "progress": active_timer.get("progress"),
+                "state": active_timer["state"],
+                "upstream_stale": active_timer.get("stale", False),
+                "label": active_timer.get("label", ""),
+            }
+            phase = float(now) if active_timer["state"] == "running" else 0.0
+        elif timer_rotation_resume is not None:
+            rotation.resume(ticks_ms(), timer_rotation_resume[0], timer_rotation_resume[1])
+            timer_rotation_resume = None
+            timer_visible_id = None
+            last_render_key = None
+            print("TIMER END")
+        if active_timer is None and active_football_screen is not None:
             screen = active_football_screen
             phase = elapsed_seconds(active_football_started)
-        else:
+        elif active_timer is None:
             rotation.set_schedule_time(clock.date_text(now), clock.text(now))
             rotation.set_schedule_epoch(clock.epoch(now))
             screen, phase = rotation.current(ticks_ms())
@@ -1651,6 +1755,7 @@ while True:
         or _smooth_today(screen)
         or _smooth_bin_collection(screen)
         or _smooth_christmas(screen)
+        or (screen.get("kind") == "alexa_timer" and screen.get("state") == "running")
     )
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)

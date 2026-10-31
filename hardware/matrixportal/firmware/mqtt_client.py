@@ -93,8 +93,10 @@ class FlashMqttClient:
             self.client.subscribe(assistant_topic, qos=1)
             screen_topic = getattr(self.settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
             football_topic = getattr(self.settings, "MQTT_FOOTBALL_TOPIC", "led/football/+")
+            timer_topic = getattr(self.settings, "MQTT_TIMER_TOPIC", "led/timer/+")
             self.client.subscribe(screen_topic, qos=1)
             self.client.subscribe(football_topic, qos=1)
+            self.client.subscribe(timer_topic, qos=1)
             self.connected = True
             self.next_loop = now
             if self.pending_screen_status is not None:
@@ -113,8 +115,8 @@ class FlashMqttClient:
                     qos=0,
                 )
                 self.pending_health = None
-            print("MQTT subscribed reminder={} assistant={} screens={} football={}".format(
-                self.settings.MQTT_TOPIC, assistant_topic, screen_topic, football_topic))
+            print("MQTT subscribed reminder={} assistant={} screens={} football={} timer={}".format(
+                self.settings.MQTT_TOPIC, assistant_topic, screen_topic, football_topic, timer_topic))
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 30
