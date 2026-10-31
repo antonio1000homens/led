@@ -1,6 +1,6 @@
 # Football screens over MQTT
 
-The board subscribes to the retained Home Assistant Team Tracker snapshots at
+The board subscribes to non-retained Home Assistant Team Tracker snapshots at
 
 - `led/football/sporting_cp`
 - `led/football/millwall`
@@ -12,8 +12,9 @@ Team Tracker (`source: homeassistant`, `provider: teamtracker`) or Node-RED
 Goal API (`source: nrwindsor`, `provider: goalapi`). The topic's final segment
 must match `team_key`. Home Assistant remains limited to the tracked club keys;
 Node-RED may use any lowercase topic-safe key. Each topic has independent
-state. A retained snapshot is accepted at boot or reconnect; malformed and
-out-of-order snapshots leave the last accepted screen untouched.
+live state. MQTT does not replay snapshots on boot or reconnect; an incoming
+update requests a presentation, and malformed or out-of-order live snapshots
+leave the current state untouched.
 
 ## Goal API to Node-RED MQTT
 
@@ -98,8 +99,9 @@ Every accepted, displayable MQTT snapshot immediately interrupts the current
 screen for a football prompt, including score and clock updates for the same
 match. Each update restarts the prompt timer and animation from its latest
 snapshot. Once the prompt finishes, the board starts the next normal rotation
-screen with its full duration. Retained football snapshots are never members of that
-rotation, so they do not reappear unless another MQTT update is received. PRE
+screen with its full duration. POST is never retained in firmware state or made
+a member of the normal rotation, so it does not reappear unless a later MQTT
+update requests another prompt. PRE
 fixtures supplied by the calendar continue to appear in the ordinary screen
 rotation and animate
 the 16×16 football with visible rotation from the right to the left over 3.2
@@ -120,8 +122,13 @@ highlight. Prompts deferred behind a flash reminder are shown in arrival order
 after the flash finishes. The already connected MQTT client continues polling
 during active animations every 1.5 seconds with a 10 ms socket timeout.
 Connection handshakes and non-football rotation rebuilds wait for an idle
-window. Home Assistant controls how long a retained POST result remains
-available, not this rendering change.
+window. Home Assistant republishes POST during the finish-day window. Each POST
+is a one-shot event: the firmware does not store it in per-team football state
+or put it in the normal rotation. It is displayed when eligible, then discarded.
+If a flash reminder delays it, the firmware keeps at most the newest queued
+snapshot for that team and match, and drops it if `post_expires_at` has passed.
+The five-minute producer update can request another prompt while the match-day
+window remains active; a reconnect does not replay missed messages.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
@@ -145,10 +152,12 @@ diagnostics are enabled, `FOOTBALL GC settled` reports collector duration
 and free heap before/after; track those alongside `FRAME PACE` during the
 physical board soak test. Football snapshots are prompt-only and never enter
 the ordinary rotation. A flash reminder keeps priority; football updates
-received during it are queued in arrival order and shown afterward. Duplicate
-or out-of-order snapshots are rejected before they can request a prompt.
-The first valid retained snapshot after boot hydrates that team and requests
-one presentation. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
+received during it are queued and shown afterward. Pending POSTs are deduplicated
+per team/match and expire locally. POST is removed from per-team state as soon
+as it is queued; after display, only a later MQTT message can request another
+prompt. Live IN state remains available for score/clock refresh and stale-live
+handling. Since messages are non-retained, no snapshot hydrates football state
+at boot or reconnect. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
 `settings_local.py` to hide both football screens; the MQTT connection and its
 other subscriptions continue to work.
 

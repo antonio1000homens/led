@@ -378,6 +378,9 @@ def _normalize(topic, payload, prefix="led/football/"):
         kickoff = payload.get("kickoff")
         if kickoff is not None:
             _epoch(kickoff)
+        post_expires_at = payload.get("post_expires_at")
+        if post_expires_at is not None:
+            _epoch(post_expires_at)
     except (TypeError, ValueError):
         return None
     match_id = payload.get("match_id")
@@ -398,6 +401,17 @@ def _normalize(topic, payload, prefix="led/football/"):
     result["_source_epoch"] = _epoch(source_updated) if source_updated is not None else None
     result["_kickoff_epoch"] = _epoch(kickoff) if kickoff is not None else None
     return result
+
+
+def football_post_expired(screen, now_epoch):
+    """Return whether a POST event has passed its optional local expiry."""
+    expiry = screen.get("post_expires_at")
+    if screen.get("status") != "POST" or expiry is None or now_epoch is None:
+        return False
+    try:
+        return int(now_epoch * 1000) >= _epoch(expiry)
+    except (TypeError, ValueError):
+        return True
 
 
 class FootballScreenState:
@@ -435,6 +449,12 @@ class FootballScreenState:
         if previous is not None:
             if item["_published_epoch"] <= previous["_published_epoch"]:
                 return False
+        if item.get("status") == "POST":
+            # POST is a one-shot display event. Keep no per-team copy after
+            # handing it to the presentation queue.
+            self._teams.pop(team_key, None)
+            self._dynamic_flags.pop(team_key, None)
+            return True
         item["_goal_until"] = None
         item["_goal_side"] = None
         if previous is not None and (
@@ -461,6 +481,49 @@ class FootballScreenState:
         self._teams[team_key] = item
         return True
 
+    def accept_for_presentation(self, topic, payload, now_epoch=None):
+        """Accept a snapshot and return its display event without storing POST."""
+        item = _normalize(topic, payload, self.prefix)
+        if item is None or not self.accept(topic, payload):
+            return False, None
+        if item.get("status") == "POST":
+            screen = self._screen_from_snapshot(item, now_epoch)
+            return True, screen
+        return True, self.screen_for_team(item["team_key"], now_epoch)
+
+    @staticmethod
+    def _screen_from_snapshot(snapshot, now_epoch):
+        status = snapshot["status"]
+        if status not in ("PRE", "IN", "POST"):
+            return None
+        if status == "PRE" and not _has_fixture_data(snapshot):
+            return None
+        if football_post_expired(snapshot, now_epoch):
+            return None
+        now_ms = int(now_epoch * 1000) if now_epoch is not None else None
+        screen = {key: value for key, value in snapshot.items() if not key.startswith("_")}
+        stale_live = status == "IN" and _live_stale(snapshot, now_ms)
+        if stale_live:
+            screen["status"] = "UNAVAILABLE"
+            screen["home_score"] = None
+            screen["away_score"] = None
+            screen["clock"] = None
+            screen["stale"] = True
+            return None
+        screen["stale"] = False
+        goal_until = snapshot.get("_goal_until")
+        if goal_until is not None and now_ms is not None and now_ms < goal_until:
+            screen["goal_side"] = snapshot.get("_goal_side")
+            screen["goal_flash_active"] = True
+        screen.update({
+            "id": "football-" + snapshot["team_key"],
+            "kind": "football_score",
+            "title": screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(snapshot["team_key"], "FOOTBALL"),
+            "duration_seconds": SCREEN_DURATION_SECONDS,
+            "source": "{}_{}".format(screen.get("source"), screen.get("provider")),
+        })
+        return screen
+
     def screens(self, now_epoch):
         if not self.enabled:
             return []
@@ -468,34 +531,9 @@ class FootballScreenState:
         now_ms = int(now_epoch * 1000) if now_epoch is not None else None
         self._prune_goalapi(now_ms)
         for team_key, snapshot in self._teams.items():
-            status = snapshot["status"]
-            if status not in ("PRE", "IN", "POST"):
-                continue
-            if status == "PRE" and not _has_fixture_data(snapshot):
-                continue
-            screen = {key: value for key, value in snapshot.items() if not key.startswith("_")}
-            stale_live = status == "IN" and _live_stale(snapshot, now_ms)
-            if stale_live:
-                screen["status"] = "UNAVAILABLE"
-                screen["home_score"] = None
-                screen["away_score"] = None
-                screen["clock"] = None
-                screen["stale"] = True
-                continue
-            else:
-                screen["stale"] = False
-            goal_until = snapshot.get("_goal_until")
-            if goal_until is not None and now_ms is not None and now_ms < goal_until:
-                screen["goal_side"] = snapshot.get("_goal_side")
-                screen["goal_flash_active"] = True
-            screen.update({
-                "id": "football-" + team_key,
-                "kind": "football_score",
-                "title": screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(team_key, "FOOTBALL"),
-                "duration_seconds": SCREEN_DURATION_SECONDS,
-                "source": "{}_{}".format(screen.get("source"), screen.get("provider")),
-            })
-            result.append(screen)
+            screen = self._screen_from_snapshot(snapshot, now_epoch)
+            if screen is not None:
+                result.append(screen)
         return result
 
     def screen_for_team(self, team_key, now_epoch):
@@ -525,19 +563,21 @@ class FootballScreenState:
 
 
 class FootballPresentationQueue:
-    """Queue one prompt for each accepted snapshot deferred behind a flash."""
+    """Queue live team refreshes and one-shot POST screens deferred by a flash."""
 
     def __init__(self):
         self._pending = []
 
     def accept_snapshot(self, state, topic, payload, now_epoch=None):
-        """Queue every accepted update that currently has a displayable screen."""
-        if not state.accept(topic, payload):
+        """Accept updates, retaining POST only until it is displayed or expires."""
+        accepted, screen = state.accept_for_presentation(topic, payload, now_epoch)
+        if not accepted:
             return False
         team_key = topic[len(state.prefix):]
-        screen = state.screen_for_team(team_key, now_epoch)
         if screen is None:
             self.discard(team_key)
+        elif screen.get("status") == "POST":
+            self.schedule_screen(screen)
         else:
             self.schedule(team_key)
         return True
@@ -545,8 +585,32 @@ class FootballPresentationQueue:
     def discard(self, team_key):
         """Remove deferred prompts for a club whose fixture is unavailable."""
         before = len(self._pending)
-        self._pending = [pending for pending in self._pending if pending != team_key]
+        self._pending = [
+            pending for pending in self._pending
+            if (pending.get("team_key") if isinstance(pending, dict) else pending) != team_key
+        ]
         return len(self._pending) != before
+
+    def schedule_screen(self, screen):
+        """Keep the latest pending result once per team/match until eligible."""
+        team_key = screen.get("team_key")
+        if not _valid_team_key(team_key):
+            return False
+        match_id = screen.get("match_id")
+        for index, pending in enumerate(self._pending):
+            if (isinstance(pending, dict)
+                    and pending.get("team_key") == team_key
+                    and pending.get("match_id") == match_id):
+                try:
+                    pending_epoch = _epoch(pending.get("published_at"))
+                    incoming_epoch = _epoch(screen.get("published_at"))
+                except (TypeError, ValueError):
+                    return False
+                if incoming_epoch >= pending_epoch:
+                    self._pending[index] = screen
+                return True
+        self._pending.append(screen)
+        return True
 
     def schedule(self, team_key):
         if not _valid_team_key(team_key):
@@ -554,10 +618,13 @@ class FootballPresentationQueue:
         self._pending.append(team_key)
         return True
 
-    def pop(self):
-        if not self._pending:
-            return None
-        return self._pending.pop(0)
+    def pop(self, now_epoch=None):
+        while self._pending:
+            pending = self._pending.pop(0)
+            if isinstance(pending, dict) and football_post_expired(pending, now_epoch):
+                continue
+            return pending
+        return None
 
     def __len__(self):
         return len(self._pending)
