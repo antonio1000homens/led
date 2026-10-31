@@ -334,17 +334,6 @@ def _reminder_epoch(now):
     return epoch_now
 
 
-def _timer_callback_step(stage, callback, *args):
-    """Name timer callback failures without exposing payloads or labels."""
-    try:
-        return callback(*args)
-    except Exception as error:
-        print("TIMER callback failed stage={} type={}".format(
-            stage, type(error).__name__
-        ))
-        raise
-
-
 def _flash_started(now):
     global flash_resume, last_render_key, flash_started_ticks, football_pause_started
     global timer_pause_started, active_football_started
@@ -470,19 +459,13 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             if device != timer_state.device or "/" in device:
                 print("TIMER ignored: unsupported device")
                 return
-            accepted, reason = _timer_callback_step(
-                "accept", timer_state.accept, payload, epoch_now, now
-            )
+            accepted, reason = timer_state.accept(payload, epoch_now, now)
             if not accepted:
                 print("TIMER snapshot rejected reason={}".format(reason))
                 return
-            selected = _timer_callback_step(
-                "select", timer_state.selected, epoch_now, now
-            )
+            selected = timer_state.selected(epoch_now, now)
             if selected is not None and timer_rotation_resume is None:
-                timer_rotation_resume = _timer_callback_step(
-                    "freeze_rotation", rotation.freeze, ticks_ms()
-                )
+                timer_rotation_resume = rotation.freeze(ticks_ms())
                 timer_visible_id = selected["timer_id"]
                 if active_football_screen is not None and timer_pause_started is None:
                     timer_pause_started = ticks_ms()

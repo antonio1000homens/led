@@ -17,6 +17,24 @@ class AlexaTimerStateTests(unittest.TestCase):
         self.assertEqual(iso_epoch("2026-10-31T16:00:00+01:00"),
                          iso_epoch("2026-10-31T15:00:00Z"))
 
+    def test_timer_ids_use_circuitpython_compatible_ascii_validation(self):
+        running = {
+            "timer_id": "A9._:-z",
+            "state": "running",
+            "ends_at": "2026-10-31T15:05:00Z",
+        }
+        validate_snapshot(self.snapshot("2026-10-31T15:00:01Z", [running]),
+                          "living-room-alexa")
+        for invalid_id in ("timer/id", "timer café", "timer id"):
+            invalid = dict(running, timer_id=invalid_id)
+            with self.subTest(timer_id=invalid_id):
+                self.assertRaises(
+                    ValueError,
+                    validate_snapshot,
+                    self.snapshot("2026-10-31T15:00:01Z", [invalid]),
+                    "living-room-alexa",
+                )
+
     def test_countdown_format_and_finish_position(self):
         self.assertEqual(format_countdown(3599), "59:59")
         self.assertEqual(format_countdown(3600), "1:00:00")
