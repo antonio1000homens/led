@@ -278,9 +278,9 @@ Issue #52 adds a dedicated timer consumer on `MQTT_TIMER_TOPIC` (default
 `led/timer/+`). It validates complete retained per-device snapshots and pins
 the earliest running timer in a right-aligned countdown with a moving car.
 Reminder flash remains the only overlay above the timer. The contract is in
-[`docs/alexa-timer-mqtt.md`](../../docs/alexa-timer-mqtt.md). Keep the HA
-publisher disabled until the installed Alexa timer entities and lifecycle
-signals are verified, and deploy this consumer before enabling that publisher.
+[`docs/alexa-timer-mqtt.md`](../../docs/alexa-timer-mqtt.md). The live source
+shape is verified for running, paused, and natural completion; deploy and read
+back this consumer before enabling the HA publisher.
 
 Flash enablement and display duration are runtime values from `/api/screens`;
 they are not configured in `settings_local.py`. The board uses the safe

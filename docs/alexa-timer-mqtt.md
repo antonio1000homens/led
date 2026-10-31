@@ -81,5 +81,7 @@ messages are needed. Refresh a still-active retained snapshot at least every
 ten minutes; the board marks the timer `STALE` after ten minutes without an
 accepted snapshot. Reminder flashes may cover the timer briefly, after which
 the current timer state is rendered again. Timer snapshots are not yet enabled
-by the Home Assistant producer; that remains gated on live Alexa integration
-discovery and consumer-first deployment.
+by the Home Assistant producer. Live running, paused, and natural-completion
+records have now been observed; deploy and read back this consumer before
+enabling the HA publisher. Resume and cancellation transitions, MQTT delivery,
+and physical panel acceptance remain unverified.
