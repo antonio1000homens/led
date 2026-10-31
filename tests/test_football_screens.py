@@ -651,7 +651,7 @@ process.stdout.write(JSON.stringify(results));
         self.assertEqual(queue.pop(), "millwall")
         self.assertIsNone(queue.pop())
 
-    def test_only_accepted_newer_snapshots_request_prompt_presentation(self):
+    def test_each_accepted_newer_snapshot_requests_prompt_presentation(self):
         queue = FootballPresentationQueue()
         first = snapshot("millwall", team_name="Millwall FC")
         self.assertTrue(queue.accept_snapshot(
@@ -679,7 +679,8 @@ process.stdout.write(JSON.stringify(results));
         self.assertTrue(queue.accept_snapshot(
             self.state, "led/football/millwall", same_fixture_update
         ))
-        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(queue), 1)
+        self.assertEqual(queue.pop(), "millwall")
         next_fixture = snapshot(
             "millwall", published="2026-10-26T20:03:00Z", team_name="Millwall FC",
             match_id="event-456", kickoff="2026-11-07T15:00:00Z",

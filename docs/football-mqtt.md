@@ -15,7 +15,8 @@ snapshots leave the last accepted screen untouched.
 
 ## Screen behavior
 
-A new accepted fixture is eligible for a prompt presentation. PRE entries
+(Every accepted, displayable MQTT snapshot is eligible for a prompt
+presentation, including score and clock updates for the same match.) PRE entries
 (including calendar-sourced fixtures in the ordinary screen rotation) animate
 the 16×16 football with visible rotation from the right to the left over 3.2
 seconds. The complete fixture and local kickoff time move with the ball. The
@@ -31,8 +32,12 @@ final score at the bottom right. Both names use the same sweeping colour
 gradient as the Today screen. The tracked team is not repeated as a screen
 title. Live clocks and scores update when fresh snapshots arrive. Goal
 highlights only change the score colour while IN; POST never replays a goal
-highlight. Home Assistant controls how long a retained POST result remains
-available, not this rendering change.
+highlight. A snapshot for the team already on the active football card updates
+that card in place. Pending snapshots are coalesced per team so bursts present
+the latest state once. Prompt presentations wait behind flash reminders and
+MQTT polling is deferred during active animations; otherwise the football card
+interrupts normal rotation for 20 seconds. Home Assistant controls how long a
+retained POST result remains available, not this rendering change.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while

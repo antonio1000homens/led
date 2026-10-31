@@ -860,13 +860,18 @@ while True:
             )
             if latest_football is None:
                 _cancel_active_football()
-            elif latest_football.get("published_at") == active_football_screen.get("published_at"):
+            else:
                 latest_football["id"] = active_football_screen.get("id")
+                latest_football["ball_animation"] = active_football_screen.get(
+                    "ball_animation", False
+                )
                 active_football_screen = latest_football
+            active_elapsed = (elapsed_seconds(active_football_started)
+                              if active_football_screen is not None else 0)
+            active_duration = (float(active_football_screen.get("duration_seconds") or 20)
+                               if active_football_screen is not None else 0)
             if (active_football_screen is not None
-                    and elapsed_seconds(active_football_started) >= float(
-                        active_football_screen.get("duration_seconds") or 20
-                    )):
+                    and active_elapsed >= active_duration):
                 print("FOOTBALL PRESENTATION END team={}".format(
                     active_football_screen.get("team_key")
                 ))
@@ -877,6 +882,12 @@ while True:
                         ticks_ms(), football_rotation_resume[0], football_rotation_resume[1]
                     )
                 football_rotation_resume = None
+            elif active_football_screen is not None:
+                # The newest snapshot is now on the active card; do not replay
+                # it as a second 20-second card after this one finishes.
+                football_presentations.discard(
+                    active_football_screen.get("team_key")
+                )
         if active_football_screen is None:
             team_key = football_presentations.pop()
             if team_key is not None:

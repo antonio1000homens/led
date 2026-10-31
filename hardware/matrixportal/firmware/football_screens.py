@@ -478,29 +478,22 @@ class FootballScreenState:
 
 
 class FootballPresentationQueue:
-    """Bound pending event presentations to one coalesced item per club."""
+    """Bound pending snapshot presentations to one coalesced item per club."""
 
     def __init__(self):
         self._pending = []
         self._queued = set()
-        self._shown_fixture = {}
 
     def accept_snapshot(self, state, topic, payload, now_epoch=None):
-        """Queue only accepted updates that currently have a displayable screen."""
+        """Queue every accepted update that currently has a displayable screen."""
         if not state.accept(topic, payload):
             return False
         team_key = topic[len(state.prefix):]
         screen = state.screen_for_team(team_key, now_epoch)
         if screen is None:
             self.discard(team_key)
-            self._shown_fixture.pop(team_key, None)
         else:
-            fixture_key = (screen.get("match_id") or
-                           (screen.get("kickoff"), screen.get("display_fixture"),
-                            screen.get("opponent")))
-            if self._shown_fixture.get(team_key) != fixture_key:
-                self._shown_fixture[team_key] = fixture_key
-                self.schedule(team_key)
+            self.schedule(team_key)
         return True
 
     def discard(self, team_key):
