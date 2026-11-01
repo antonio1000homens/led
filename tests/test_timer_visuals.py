@@ -68,6 +68,10 @@ class TimerVisualTests(unittest.TestCase):
                     rotated = rotate_sprite(rows, turn)
                     self.assertEqual(len(rotated), len(rows[0]) if turn % 2 else len(rows))
 
+    def test_rotate_sprite_pads_ragged_rows_without_string_ljust(self):
+        self.assertEqual(rotate_sprite(("AB", "C"), 0), ("AB", "C."))
+        self.assertEqual(rotate_sprite(("AB", "C"), 1), ("CA", ".B"))
+
     def test_running_state_has_no_scenery_or_completion_words(self):
         display = (ROOT / "hardware/matrixportal/firmware/display.py").read_text()
         render = display[display.index("    def _show_alexa_timer("):

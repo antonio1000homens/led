@@ -64,7 +64,7 @@ def rotate_sprite(rows, turns):
     """Rotate compact ASCII sprite frames without allocating full screen buffers."""
     rows = tuple(rows)
     width = max(len(row) for row in rows)
-    rows = tuple(row.ljust(width, ".") for row in rows)
+    rows = tuple(row + "." * (width - len(row)) for row in rows)
     for _ in range(turns % 4):
         rows = tuple("".join(row[x] for row in rows[::-1])
                      for x in range(len(rows[0])))
