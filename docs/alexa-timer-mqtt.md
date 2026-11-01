@@ -138,10 +138,23 @@ Alexa timer named `Stars` produced an `upsert` at 12:11:53.162 UTC with
 updating countdown animation. The deployed label map selects the `stars`
 theme for this exact normalized label. HA later published a retained `clear`
 and the timer topics read `clear`, but the exact-zero frame and return to
-rotation were not observed. The MQTT capture contained a `clear` at 12:12:08,
+rotation were not observed in that run. The MQTT capture contained a `clear` at 12:12:08,
 before the then-current `ends_at`, followed by a fresh `Stars` timer at
 12:12:42; the cause of that early clear and second start is unknown. A later
 `clear` followed the refreshed timer's `ends_at` by about 20.5 seconds. See
 the HA repository's `docs/alexa-timer-led-mqtt.md` for the corresponding
 producer timestamps. Pause/resume, duration edit, timer replacement, and a
 live Hall Alexa timer remain unverified against current device selection.
+
+On 2026-11-01, an unlabelled three-minute Living Room timer was published at
+19:40:07.803 UTC. Serial recorded `TIMER START` and `SCREEN OK` for the pinned
+timer scene at 19:40:09. The board's then-deployed timer-ID fallback selected
+the race theme for this ID; the user confirmed that the unnamed timer used a
+different theme from `Stars`. HA published `clear` at 19:43:13.200, and serial
+recorded `TIMER END` and return to rotation at 19:43:14 after 185 seconds in
+the timer scene. The user confirmed that the physical board showed `00:00`
+with the car at the clock before rotation. This verifies natural completion,
+the visible finish pose, and release back to rotation. The timer's retained
+MQTT payload had no label, so this run does not verify named-label forwarding.
+Pause/resume, duration edit, timer replacement, and a live Hall Alexa timer
+remain unverified against current device selection.
