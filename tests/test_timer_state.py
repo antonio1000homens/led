@@ -8,7 +8,8 @@ from pathlib import Path
 FIRMWARE = Path(__file__).resolve().parents[1] / "hardware" / "matrixportal" / "firmware"
 sys.path.insert(0, str(FIRMWARE))
 
-from timer_state import TimerState, car_position, format_countdown, iso_epoch, validate_snapshot
+from timer_state import (TimerState, caterpillar_position, timer_apples_eaten,
+                         timer_apple_center, format_countdown, iso_epoch, validate_snapshot)
 
 
 class AlexaTimerStateTests(unittest.TestCase):
@@ -52,10 +53,17 @@ class AlexaTimerStateTests(unittest.TestCase):
         self.assertEqual(format_countdown(0.1), "00:01")
         self.assertEqual(format_countdown(0), "00:00")
         self.assertEqual(format_countdown(-1), "00:00")
-        self.assertEqual(car_position(100, 10, 0), 0)
-        self.assertEqual(car_position(100, 10, 1), 90)
-        self.assertEqual(car_position(100, 10, 0.5), 45)
-        self.assertEqual(car_position(100, 10, 0.999), 89)
+        self.assertEqual(caterpillar_position(164, 0), 12)
+        self.assertEqual(caterpillar_position(164, 1), 142)
+        self.assertEqual(caterpillar_position(164, 0.5), 77)
+        self.assertEqual(caterpillar_position(164, 0.999), 141)
+        self.assertEqual(timer_apples_eaten(0), 0)
+        self.assertEqual(timer_apples_eaten(0.1), 1)
+        self.assertEqual(timer_apples_eaten(0.5), 5)
+        self.assertEqual(timer_apples_eaten(0.999999), 9)
+        self.assertEqual(timer_apples_eaten(1), 10)
+        self.assertEqual(timer_apple_center(164, 9), 142)
+        self.assertRaises(ValueError, timer_apple_center, 164, 10)
         self.assertEqual(iso_epoch("2026-10-31T15:00:00.125Z"),
                          iso_epoch("2026-10-31T15:00:00Z"))
 
@@ -74,7 +82,7 @@ class AlexaTimerStateTests(unittest.TestCase):
         self.assertIs(state.selected(now + 150), selected)
         self.assertIs(state.selected(now + 150), selected)
 
-    def test_running_car_progress_stays_before_finish_until_expiry(self):
+    def test_running_caterpillar_holds_last_apple_until_expiry(self):
         state = TimerState()
         start = iso_epoch("2026-10-31T15:00:00Z")
         end = "2026-11-07T15:00:00Z"
@@ -83,11 +91,16 @@ class AlexaTimerStateTests(unittest.TestCase):
              "duration_seconds": 604800},
         ]), start + 604800 - 0.01)
         self.assertTrue(accepted)
-        self.assertLess(state.selected(start + 604800 - 0.01)["progress"], 1.0)
+        progress = state.selected(start + 604800 - 0.01)["progress"]
+        self.assertLess(progress, 1.0)
+        self.assertEqual(timer_apples_eaten(progress), 9)
+        self.assertLess(caterpillar_position(164, progress),
+                        caterpillar_position(164, 1))
         self.assertEqual(state.selected(start + 604800)["state"], "complete")
+        self.assertEqual(timer_apples_eaten(state.selected(start + 604800)["progress"]), 10)
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
-    def test_browser_simulator_keeps_car_before_finish_until_zero(self):
+    def test_browser_simulator_keeps_last_apple_until_zero(self):
         html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
         functions = html[html.index("function alexaTimerRemaining"):
                          html.index("function drawCalendarDue")]
@@ -95,13 +108,16 @@ class AlexaTimerStateTests(unittest.TestCase):
 process.stdout.write(JSON.stringify([
   alexaTimerRemaining(300, 299.9),
   alexaTimerRemaining(300, 300),
-  alexaTimerCarPosition(100, 10, 1, 300),
-  alexaTimerCarPosition(100, 10, 0, 300)
+  alexaTimerCaterpillarPosition(164, 1, 300),
+  alexaTimerCaterpillarPosition(164, 0, 300),
+  alexaTimerApplesEaten(1, 300),
+  alexaTimerApplesEaten(0, 300),
+  alexaTimerAppleCenter(164, 9)
 ]));
 """
         result = subprocess.run(["node", "-e", harness], check=True,
                                 capture_output=True, text=True)
-        self.assertEqual(json.loads(result.stdout), [1, 0, 89, 90])
+        self.assertEqual(json.loads(result.stdout), [1, 0, 141, 142, 9, 10, 142])
 
     def test_paused_timer_uses_fixed_remaining_and_resume_keeps_identity(self):
         state = TimerState()
@@ -119,7 +135,7 @@ process.stdout.write(JSON.stringify([
         self.assertTrue(accepted)
         self.assertEqual(state.selected(now)["timer_id"], "same")
 
-    def test_duration_edit_recalculates_car_progress_without_changing_identity(self):
+    def test_duration_edit_recalculates_caterpillar_progress_without_changing_identity(self):
         state = TimerState()
         now = iso_epoch("2026-10-31T15:00:00Z")
         self.assertTrue(state.accept(self.snapshot("2026-10-31T15:00:01Z", [
