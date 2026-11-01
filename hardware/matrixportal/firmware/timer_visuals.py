@@ -66,8 +66,15 @@ def rotate_sprite(rows, turns):
     width = max(len(row) for row in rows)
     rows = tuple(row + "." * (width - len(row)) for row in rows)
     for _ in range(turns % 4):
-        rows = tuple("".join(row[x] for row in rows[::-1])
-                     for x in range(len(rows[0])))
+        height = len(rows)
+        width = len(rows[0])
+        rotated = []
+        for x in range(width):
+            line = ""
+            for y in range(height):
+                line += rows[height - 1 - y][x]
+            rotated.append(line)
+        rows = tuple(rotated)
     return rows
 
 

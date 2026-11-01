@@ -72,6 +72,15 @@ class TimerVisualTests(unittest.TestCase):
         self.assertEqual(rotate_sprite(("AB", "C"), 0), ("AB", "C."))
         self.assertEqual(rotate_sprite(("AB", "C"), 1), ("CA", ".B"))
 
+    def test_completion_sprite_rotations_use_positive_indexing(self):
+        rows = ("ABC", "DEF")
+        self.assertEqual(rotate_sprite(rows, 0), ("ABC", "DEF"))
+        self.assertEqual(rotate_sprite(rows, 1), ("DA", "EB", "FC"))
+        self.assertEqual(rotate_sprite(rows, 2), ("FED", "CBA"))
+        self.assertEqual(rotate_sprite(rows, 3), ("CF", "BE", "AD"))
+        source = (ROOT / "hardware/matrixportal/firmware/timer_visuals.py").read_text()
+        self.assertNotIn("[::-1]", source)
+
     def test_running_state_has_no_scenery_or_completion_words(self):
         display = (ROOT / "hardware/matrixportal/firmware/display.py").read_text()
         render = display[display.index("    def _show_alexa_timer("):
