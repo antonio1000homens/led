@@ -70,6 +70,7 @@ class TimerVisualTests(unittest.TestCase):
                     self.assertEqual(len(rotated), len(rows[0]) if turn % 2 else len(rows))
 
     def test_large_icons_use_most_of_panel_and_fit_all_rotated_frames(self):
+        sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
         from display import TIMER_CATERPILLAR_ROWS, TIMER_APPLE_ROWS
         self.assertEqual(TIMER_ACTOR_SCALE, 2)
         self.assertEqual(TIMER_APPLE_SCALE, 2)
