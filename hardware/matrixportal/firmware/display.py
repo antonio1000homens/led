@@ -33,6 +33,7 @@ from timer_state import (caterpillar_position, timer_apples_eaten,
                          timer_apple_center, TIMER_APPLE_COUNT, format_countdown)
 from timer_visuals import (
     TIMER_THEMES, CLOCK_FONT, SCENE_WIDTH,
+    TIMER_ACTOR_SCALE, TIMER_APPLE_SCALE, actor_position,
     theme_for_timer, clock_layout, finish_pose, rotate_sprite,
     SPRITE_ROWS, SPRITE_COLORS, SPRITE_SYMBOLS,
     BACKGROUND_COLORS, background_index,
@@ -140,7 +141,6 @@ TIMER_CATERPILLAR_ROWS = (
     "DDDDDGGGGGGGDDDDDDGGGGGGGGG.",
     ".DDDDDGGGGGGDDDDDDDGGGGGGG..",
     "...D.....D...DDDGDDD..G.....",
-    "................D...........",
 )
 TIMER_APPLE_ROWS = (
     "...G....",
@@ -3481,18 +3481,26 @@ class MatrixDisplay:
         if changed:
             self._refresh(self._animation_class(screen, phase))
 
-    def _timer_sprite(self, rows, colors, symbols, x=0, y=0):
-        """Allocate one compact TileGrid; several markers may share its bitmap."""
+    def _timer_sprite(self, rows, colors, symbols, x=0, y=0, scale=1):
+        """Rasterize each sprite once at integer LED-pixel size.
+
+        The bitmap is shared by reused TileGrids; moving the sprite never
+        creates new pixels or asks DisplayIO to scale the entire scene.
+        """
         import displayio
-        width = max(len(row) for row in rows)
-        bitmap = displayio.Bitmap(width, len(rows), len(colors))
+        width = max(len(row) for row in rows) * scale
+        bitmap = displayio.Bitmap(width, len(rows) * scale, len(colors))
         palette = displayio.Palette(len(colors))
         for index, color in enumerate(colors):
             palette[index] = color
         palette.make_transparent(0)
         for dy, row in enumerate(rows):
             for dx, char in enumerate(row):
-                bitmap[dx, dy] = symbols[char]
+                code = symbols[char]
+                if code:
+                    for yy in range(scale):
+                        for xx in range(scale):
+                            bitmap[dx * scale + xx, dy * scale + yy] = code
         return displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=y)
 
     def _timer_clock_bitmap_fill(self, text):
@@ -3575,7 +3583,8 @@ class MatrixDisplay:
             if not complete:
                 if theme == "caterpillar":
                     marker = self._timer_sprite(
-                        TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE)
+                        TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE,
+                        scale=TIMER_APPLE_SCALE)
                 else:
                     rows = ("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..") if theme == "stars" else ("YYYYYYY", "YYYYYYY")
                     marker = self._timer_sprite(rows, (0, 0xFFE36A),
@@ -3598,7 +3607,7 @@ class MatrixDisplay:
             for turns in range(4 if complete and theme != "caterpillar" else 1):
                 tile = self._timer_sprite(
                     rotate_sprite(actor_rows, turns), actor_colors, actor_symbols,
-                    x=-100, y=0)
+                    x=-100, y=0, scale=TIMER_ACTOR_SCALE)
                 group.append(tile)
                 actor_frames.append(tile)
             self._timer_scene_key = key
@@ -3621,29 +3630,23 @@ class MatrixDisplay:
             if eaten != self._timer_markers_eaten:
                 for i, tile in enumerate(self._timer_markers):
                     x = (timer_apple_center(clock_x, i) -
-                         (4 if theme == "caterpillar" else 3)) if i >= eaten else -20
-                    y = 17 if theme == "caterpillar" else (21 if theme == "stars" else 28)
+                         (4 * TIMER_APPLE_SCALE if theme == "caterpillar" else 3)
+                         if i >= eaten else -20)
+                    y = 12 if theme == "caterpillar" else (21 if theme == "stars" else 28)
                     if tile.x != x or tile.y != y:
                         tile.x, tile.y = x, y
                         changed = True
                 self._timer_markers_eaten = eaten
             head_x = caterpillar_position(clock_x, progress)
-            x = head_x - (22 if theme == "caterpillar" else 11)
-            y = (14 + int(max(0.0, float(phase)) * 3) % 2 if theme == "caterpillar" and running
-                 else (14 if theme == "caterpillar" else 14 if theme == "race" else 10))
+            bob = (int(max(0.0, float(phase)) * 3) % 2
+                   if theme == "caterpillar" and running else 0)
             frame_index = 0
+            x, y = actor_position(theme, clock_x, head_x, bob=bob)
         else:
             frame_index, xshift, yshift = finish_pose(theme, elapsed)
-            if theme == "caterpillar":
-                x, y = clock_x - 44, 14 + yshift
-            elif theme == "race":
-                x, y = clock_x - (37 if frame_index % 2 == 0 else 30), (
-                    16 if frame_index % 2 == 0 else 8) + yshift
-            elif theme == "rocket":
-                x, y = clock_x - (47 if frame_index == 0 else 35), (
-                    11 if frame_index == 0 else 2) + yshift
-            else:
-                x, y = clock_x - 34, 12
+            x, y = actor_position(
+                theme, clock_x, 0, complete=True, turns=frame_index,
+                vertical_offset=yshift)
             x += xshift
             positions = accent_positions(theme, elapsed)
             for tile, pos in zip(self._timer_accents, positions):
@@ -5247,35 +5250,33 @@ class FixtureDisplay:
                     if theme == "caterpillar":
                         rows, symbols, colors = (TIMER_APPLE_ROWS, TIMER_APPLE_PALETTE,
                                                  TIMER_APPLE_COLORS)
-                        mark_x, mark_y = timer_apple_center(clock_x, i) - 4, 17
+                        mark_x, mark_y = timer_apple_center(clock_x, i) - 4 * TIMER_APPLE_SCALE, 12
                     else:
                         rows = (("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..")
                                 if theme == "stars" else ("YYYYYYY", "YYYYYYY"))
                         symbols, colors = {".": 0, "Y": 1}, (0, 0xFFE36A)
                         mark_x, mark_y = timer_apple_center(clock_x, i) - 3, (
                             21 if theme == "stars" else 28)
+                    marker_scale = TIMER_APPLE_SCALE if theme == "caterpillar" else 1
                     for dy, row in enumerate(rows):
                         for dx, letter in enumerate(row):
                             index = symbols[letter]
                             if index:
-                                self._pixel(mark_x + dx, mark_y + dy, _rgb_tuple(colors[index]))
+                                for yy in range(marker_scale):
+                                    for xx in range(marker_scale):
+                                        self._pixel(
+                                            mark_x + dx * marker_scale + xx,
+                                            mark_y + dy * marker_scale + yy,
+                                            _rgb_tuple(colors[index]))
                 head = caterpillar_position(clock_x, progress)
-                pose, x, y = 0, head - (22 if theme == "caterpillar" else 11), (
-                    14 + int(max(0.0, float(phase)) * 3) % 2
-                    if theme == "caterpillar" and screen.get("state") == "running"
-                    else 14 if theme in ("caterpillar", "race") else 10)
+                bob = (int(max(0.0, float(phase)) * 3) % 2
+                       if theme == "caterpillar" and screen.get("state") == "running" else 0)
+                pose = 0
+                x, y = actor_position(theme, clock_x, head, bob=bob)
             else:
                 pose, xshift, yshift = finish_pose(theme, elapsed)
-                if theme == "caterpillar":
-                    x, y = clock_x - 44, 14 + yshift
-                elif theme == "race":
-                    x, y = clock_x - (37 if pose % 2 == 0 else 30), (
-                        16 if pose % 2 == 0 else 8) + yshift
-                elif theme == "rocket":
-                    x, y = clock_x - (47 if pose == 0 else 35), (
-                        11 if pose == 0 else 2) + yshift
-                else:
-                    x, y = clock_x - 34, 12
+                x, y = actor_position(theme, clock_x, 0, complete=True,
+                                      turns=pose, vertical_offset=yshift)
                 x += xshift
             rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
                     else rotate_sprite(SPRITE_ROWS[theme], pose))
@@ -5287,7 +5288,12 @@ class FixtureDisplay:
                 for dx, char in enumerate(row):
                     index = symbols[char]
                     if index:
-                        self._pixel(x + dx, y + dy, _rgb_tuple(colors[index]))
+                        for yy in range(TIMER_ACTOR_SCALE):
+                            for xx in range(TIMER_ACTOR_SCALE):
+                                self._pixel(
+                                    x + dx * TIMER_ACTOR_SCALE + xx,
+                                    y + dy * TIMER_ACTOR_SCALE + yy,
+                                    _rgb_tuple(colors[index]))
             return
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
