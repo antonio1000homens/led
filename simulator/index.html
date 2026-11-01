@@ -1618,6 +1618,39 @@
         if (status) drawLedText(status, Math.max(218 * FONT_PIXEL_SCALE, 1024 - measureLedText(status).width), y);
       });
     }
+    function alexaTimerRemaining(totalSeconds, phaseSeconds) {
+      return Math.max(0, totalSeconds - Math.floor(phaseSeconds));
+    }
+    const ALEXA_CATERPILLAR_ROWS = [".....................D......",".....................DG...D.","...................GGGGGGD..",".........G........GGGGGGGGG.","......GGGGGGG...DGGGGGGGGGGG","...D.GGGGGGGGDDDDGGGGGGGGEGG",".DDDDGGGGGGGDDDDDGGGGGGGGEEG","DDDDDGGGGGGGDDDDGGGGGGGGGGGG","DDDDGGGGGGGGDDDDDGGGGGGGGGGG","DDDDDGGGGGGDDDDDDGGGGGGGGGDG","DDDDDGGGGGGGDDDDDGGGGGGGGDGG","DDDDDGGGGGGGDDDDDDGGGGGGGGG.",".DDDDDGGGGGGDDDDDDDGGGGGGG..","...D.....D...DDDGDDD..G.....","................D..........."];
+    const ALEXA_APPLE_ROWS = ["...G....","...GG...","...RRG..","..RRRR..",".RRRRRR.",".DRRRRR.",".RDRRRR.",".RRRRRR.","..RRRR.."];
+    function alexaTimerCaterpillarPosition(clockLeft, remainingSeconds, totalSeconds) {
+      const finishX = Math.max(12, clockLeft - 22);
+      const progress = Math.max(0, Math.min(1, 1 - remainingSeconds / totalSeconds));
+      if (remainingSeconds <= 0) return finishX;
+      return Math.min(Math.max(12, finishX - 1), Math.round(12 + (finishX - 12) * progress));
+    }
+    function alexaTimerApplesEaten(remainingSeconds, totalSeconds) {
+      if (remainingSeconds <= 0) return 10;
+      const progress = Math.max(0, Math.min(1, 1 - remainingSeconds / totalSeconds));
+      return Math.min(9, Math.floor(10 * progress));
+    }
+    function alexaTimerAppleCenter(clockLeft, index) {
+      const finishX = Math.max(12, clockLeft - 22);
+      return Math.round(12 + (finishX - 12) * ((index + 1) / 10));
+    }
+    function drawAlexaTimerSprite(rows, colors, x, y) {
+      rows.forEach((row, dy) => {
+        for (let dx = 0; dx < row.length; dx++) {
+          const color = colors[row[dx]];
+          if (color) {
+            context.fillStyle = color;
+            context.fillRect((x + dx) * FONT_PIXEL_SCALE,
+                             (y + dy) * FONT_PIXEL_SCALE,
+                             FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+          }
+        }
+      });
+    }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
@@ -1780,7 +1813,9 @@
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
       } else if (screen.kind === 'alexa_timer') {
         const total = Math.max(1, Number(screen.duration_seconds) || 300);
-        const remaining = Math.max(0, total - Math.floor(rawPhase));
+        const remaining = screen.state === 'complete' ? 0 :
+          screen.state === 'paused' ? Math.max(0, Number(screen.remaining_seconds) || 0) :
+          alexaTimerRemaining(total, rawPhase);
         const hours = Math.floor(remaining / 3600);
         const minutes = Math.floor((remaining % 3600) / 60);
         const seconds = remaining % 60;
@@ -1789,20 +1824,19 @@
         const clockX = Math.max(0, 256 - label.length * 6 * scale - 2);
         context.fillStyle = '#ffffff';
         drawLedTextScaled(label, clockX * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, scale, true);
-        const finishX = Math.max(0, clockX - 10);
-        const carX = Math.round(finishX * (1 - remaining / total));
-        context.fillStyle = '#ff2400';
-        context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 21 * FONT_PIXEL_SCALE, 6 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-        context.fillRect((carX + 1) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE, 8 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-        context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 23 * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-        context.fillStyle = '#111';
-        context.fillRect((carX + 2) * FONT_PIXEL_SCALE, 24 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-        context.fillRect((carX + 7) * FONT_PIXEL_SCALE, 24 * FONT_PIXEL_SCALE, 2 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-        context.fillStyle = '#ffd000';
-        context.fillRect((carX + 9) * FONT_PIXEL_SCALE, 22 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
-        if (Math.floor(rawPhase * 4) % 2) {
-          context.fillStyle = '#ff9a00';
-          context.fillRect(carX * FONT_PIXEL_SCALE, 23 * FONT_PIXEL_SCALE, FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+        const eaten = alexaTimerApplesEaten(remaining, total);
+        for (let i = eaten; i < 10; i++) {
+          drawAlexaTimerSprite(ALEXA_APPLE_ROWS,
+            {R:'#f4514a',D:'#ac2c37',G:'#6ce573'},
+            alexaTimerAppleCenter(clockX, i) - 4, 17);
+        }
+        const headX = alexaTimerCaterpillarPosition(clockX, remaining, total);
+        const bob = screen.state === 'paused' || screen.state === 'complete' ? 0 : Math.floor(rawPhase * 3) % 2;
+        drawAlexaTimerSprite(ALEXA_CATERPILLAR_ROWS,
+          {G:'#8cee63',D:'#3da94a',E:'#172e29'}, headX - 22, 14 + bob);
+        if (screen.state === 'complete') {
+          context.fillStyle = '#ffe66a';
+          drawLedText('YUM!', 7 * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
         }
         suppressHeader = true;
         status.dataset.detail = `Alexa timer · ${screen.state || 'running'} · ${label}`;

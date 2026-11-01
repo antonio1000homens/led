@@ -12,7 +12,8 @@ TIMER_ID_PUNCTUATION_CODES = (45, 46, 58, 95)  # - . : _
 
 
 def format_countdown(remaining_seconds):
-    remaining = max(0, int(remaining_seconds))
+    from math import ceil
+    remaining = max(0, int(ceil(remaining_seconds)))
     hours, tail = divmod(remaining, 3600)
     minutes, seconds = divmod(tail, 60)
     if hours:
@@ -20,10 +21,41 @@ def format_countdown(remaining_seconds):
     return "{:02d}:{:02d}".format(minutes, seconds)
 
 
-def car_position(clock_left, car_width, progress):
-    progress = min(1.0, max(0.0, float(progress or 0)))
-    finish_x = max(0, int(clock_left) - int(car_width))
-    return int(round(finish_x * progress))
+# Ten apples are eaten at evenly spaced milestones of the actual timer.
+# The final apple is reserved for the explicit completed state.
+TIMER_APPLE_COUNT = 10
+TIMER_CATERPILLAR_START_X = 12
+TIMER_CATERPILLAR_CLOCK_GAP = 22
+
+
+def _timer_progress(progress):
+    return min(1.0, max(0.0, float(progress or 0)))
+
+
+def caterpillar_position(clock_left, progress):
+    progress = _timer_progress(progress)
+    start_x = TIMER_CATERPILLAR_START_X
+    finish_x = max(start_x, int(clock_left) - TIMER_CATERPILLAR_CLOCK_GAP)
+    if progress >= 1.0:
+        return finish_x
+    # Never allow pixel rounding to display the finish before expiry.
+    return min(max(start_x, finish_x - 1),
+               int(round(start_x + (finish_x - start_x) * progress)))
+
+
+def timer_apples_eaten(progress):
+    progress = _timer_progress(progress)
+    return min(TIMER_APPLE_COUNT, int(progress * TIMER_APPLE_COUNT))
+
+
+def timer_apple_center(clock_left, index):
+    # Each apple is located where the head reaches its next 10% milestone.
+    if not 0 <= index < TIMER_APPLE_COUNT:
+        raise ValueError("apple index outside range")
+    start_x = TIMER_CATERPILLAR_START_X
+    finish_x = max(start_x, int(clock_left) - TIMER_CATERPILLAR_CLOCK_GAP)
+    return int(round(start_x + (finish_x - start_x)
+                     * ((index + 1) / TIMER_APPLE_COUNT)))
 
 
 def _number(value, minimum, maximum, name):
@@ -296,7 +328,12 @@ class TimerState:
         result["state"] = timer["state"]
         result["remaining_seconds"] = remaining
         result["duration_seconds"] = duration
-        result["progress"] = min(1.0, max(0.0, 1.0 - remaining / duration))
+        progress = min(1.0, max(0.0, 1.0 - remaining / duration))
+        if timer["state"] == "running" and remaining > 0:
+            # Keep sub-second time from floating-point rounding at the finish
+            # before TimerState has entered its explicit completion state.
+            progress = min(progress, 0.999999)
+        result["progress"] = progress
         result["label"] = timer.get("label", "")
         result["stale"] = stale
         return result
