@@ -13,8 +13,8 @@ Alexa device:
 Each `upsert` publication is a complete snapshot for that Alexa device. Use a
 stable native Alexa timer ID. The board chooses the earliest running timer
 across both devices; when none are running, it displays the paused timer with
-the least remaining time. When one finishes, it holds `00:00` briefly and then
-selects the next timer. A `clear` publication removes only that device's
+the least remaining time. When one finishes, it holds `00:00` for five seconds
+and then selects the next timer. A `clear` publication removes only that device's
 snapshot. The separate Office Alexa is not supported.
 
 Running timers require an offset-bearing `ends_at`. Supply
@@ -86,9 +86,9 @@ Example pause and clear snapshots:
 
 The board derives wall time from the screen API's HTTP `Date` header, then
 anchors `ends_at` to its monotonic clock when a timer snapshot arrives. The
-clock-anchor correction in progress captures the monotonic time at response
-header receipt, before parsing the screen body, so download and parse time do
-not make the timer clock lag. The board animates the car at the configured
+merged clock-anchor fix captures the monotonic time at response-header receipt,
+before parsing the screen body, so download and parse time do not make the timer
+clock lag. The board animates the car at the configured
 refresh cadence. If original duration is absent, it uses the first observed
 remaining time as the race baseline. A retained snapshot restores the timer
 after reconnect; no per-second MQTT messages are needed. Refresh a still-active
@@ -130,3 +130,17 @@ scene ended about 9.7 seconds after `ends_at`, the timer's final-second timing
 still needs physical confirmation. LED #324 fixed the render crash, but this
 run does not by itself prove exact-zero alignment or the visible completion
 hold.
+
+After HA PR #63 and LED PR #326 were merged, a live 60-second Living room
+Alexa timer named `Stars` produced an `upsert` at 12:11:53.162 UTC with
+`label: "Stars"`; the user confirmed that the physical display showed an
+updating countdown animation. The deployed label map selects the `stars`
+theme for this exact normalized label. HA later published a retained `clear`
+and the timer topics read `clear`, but the exact-zero frame and return to
+rotation were not observed. The MQTT capture contained a `clear` at 12:12:08,
+before the then-current `ends_at`, followed by a fresh `Stars` timer at
+12:12:42; the cause of that early clear and second start is unknown. A later
+`clear` followed the refreshed timer's `ends_at` by about 20.5 seconds. See
+the HA repository's `docs/alexa-timer-led-mqtt.md` for the corresponding
+producer timestamps. Pause/resume, duration edit, timer replacement, and a
+live Hall Alexa timer remain unverified against current device selection.
