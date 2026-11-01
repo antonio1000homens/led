@@ -4246,7 +4246,8 @@ class MatrixDisplay:
                     self._label(root, "NO UPCOMING", 0xFFFFFF, x, 16)
                     self._label(root, "EVENTS", 0xFFFFFF, x, 25)
             if screen.get("stale"):
-                self._label(root, "STALE", 0xFF3300, 85, 5)
+                # The header is full with dates; show a compact indicator.
+                self._label(root, "!", 0xFF3300, 127, 5)
             self._scouts_events_key = key
             self._scouts_events_group = root
         if self.display.root_group is not self._scouts_events_group:

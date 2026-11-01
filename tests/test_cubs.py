@@ -98,6 +98,30 @@ class FakeResponse:
 
 
 class CubsTests(unittest.TestCase):
+    def test_scouts_header_date_and_two_line_event_title(self):
+        from display import (
+            scouts_event_when, scouts_event_title_lines, SCOUTS_INTRO_SLIDE_SECONDS
+        )
+        self.assertEqual(SCOUTS_INTRO_SLIDE_SECONDS, 2.4)
+        event = {
+            "date_text": "05/11", "time_text": "18:30", "all_day": False,
+            "title": "Forest Adventure and Nature Games",
+        }
+        self.assertEqual(scouts_event_when(event), "05/11 18:30")
+        self.assertEqual(scouts_event_title_lines(event["title"]),
+                         ("FOREST ADVENTURE AND", "NATURE GAMES"))
+        self.assertEqual(scouts_event_when({
+            "date_text": "07/11", "all_day": True,
+        }), "07/11 ALL DAY")
+        first, second = scouts_event_title_lines(
+            "This super long pack event name is intentionally much too big"
+        )
+        self.assertLessEqual(len(first), 21)
+        self.assertLessEqual(len(second), 21)
+        self.assertTrue(second.endswith("..."))
+        self.assertEqual(scouts_event_title_lines("Short hike"), ("SHORT HIKE", ""))
+        self.assertEqual(scouts_event_title_lines(None), ("", ""))
+
     def test_ics_normalisation_and_privacy(self):
         rows = parse_cubs_events(ICS, now=NOW)
         self.assertEqual([row["title"] for row in rows], [

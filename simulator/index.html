@@ -1568,7 +1568,7 @@
         drawLedText(heading, x*px, 5*px);
         context.save();
         context.beginPath();
-        context.rect(x*px, 8*px, 120*px, 24*px);
+        context.rect(x*px, 0, 120*px, 32*px);
         context.clip();
         context.fillStyle = '#ffffff';
         const event = screen[key] && typeof screen[key] === 'object' ? screen[key] : null;
@@ -1587,7 +1587,7 @@
       }
       if (screen.stale) {
         context.fillStyle = '#ff3300';
-        drawLedText('STALE', 85*px, 5*px);
+        drawLedText('!', 127*px, 5*px);
       }
       status.dataset.detail = 'Next Beavers and Cubs events from independent ICS feeds';
     }

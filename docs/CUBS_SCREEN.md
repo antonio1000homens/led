@@ -35,12 +35,13 @@ Using the standard SSM-managed key needs no additional customer-managed key gran
 
 The screen is a **paired transition** in the normal board rotation:
 
-1. A camping tent slides in from the right, following the Christmas intro's
-   animation timing. The editable message defaults to **Be Prepared for...**.
+1. A camping tent and its tagline slide in from the right over 2.4
+   seconds, then hold for 1.6 seconds before the next-events screen. The editable message defaults to **Be prepared...**.
    It accepts a non-empty printable ASCII string of up to 48 characters.
 2. The next screen displays **two equally sized columns**: **Beavers** on the
-   left, **Cubs** on the right. Each shows its own next upcoming event's date,
-   time (or ALL DAY), and truncated title.
+   left, **Cubs** on the right. Each heading shares its top row with the
+   upcoming event's date/time (or ALL DAY), leaving two rows for a word-wrapped
+   event title. Longer titles end with an ellipsis.
 
 Unlike the old Todoist-style scrolling agenda, this shows **one next event per
 group**. Missing feeds display **Calendar unavailable**, and calendars with
@@ -60,7 +61,7 @@ once the event titles have been approved for public display.
 | Enabled | No | Both groups together |
 | Provider refresh | 86,400 seconds (24 hours) | 3,600–604,800 seconds (1 hour–7 days) |
 | Screen duration | 10 seconds | 2–300 seconds (intro is additional) |
-| Scouts intro message | `Be Prepared for...` | 1–48 printable ASCII characters |
+| Scouts intro message | `Be prepared...` | 1–48 printable ASCII characters |
 | Schedule windows | Always | Optional Europe/London cron windows |
 
 The shared **polling interval** applies to both groups but each source is
