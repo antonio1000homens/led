@@ -86,9 +86,9 @@ class TimerVisualTests(unittest.TestCase):
                           len(TIMER_APPLE_ROWS) * TIMER_APPLE_SCALE), (16, 18))
         for theme in TIMER_THEMES:
             rows = TIMER_CATERPILLAR_ROWS if theme == "caterpillar" else SPRITE_ROWS[theme]
-            # The renderer keeps the wide caterpillar horizontal and rotates
-            # only the compact themed actors during their completion pose.
-            turns_to_check = range(1) if theme == "caterpillar" else range(4)
+            # Caterpillars bob and lift but never rotate in the renderer.
+            # The other themes emit all four quarter-turn frames at finish.
+            turns_to_check = (range(1) if theme == "caterpillar" else range(4))
             for turns in turns_to_check:
                 rotated = rotate_sprite(rows, turns)
                 width, height = actor_size(theme, turns)

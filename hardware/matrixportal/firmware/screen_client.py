@@ -327,6 +327,10 @@ class ScreenRotation:
             index = self.screens.index(screen)
             followup = self.screens[index + 1] if index + 1 < len(self.screens) else None
             return followup is not None and self.is_bus_followup(screen, followup) and self._schedule_active(followup)
+        if kind == "scouts_intro":
+            index = self.screens.index(screen)
+            followup = self.screens[index + 1] if index + 1 < len(self.screens) else None
+            return followup is not None and followup.get("kind") == "scouts_next_events" and self._schedule_active(followup)
         return True
 
     def schedule_state(self):
@@ -638,6 +642,7 @@ class ScreenRotation:
         return (
             (previous_id == "steam-train" and current.get("kind") == "rail_combined")
             or (previous_id == "christmas-tracker-intro" and current.get("kind") == "christmas_tracker")
+            or (previous_id == "scouts-intro" and current.get("kind") == "scouts_next_events")
             or (current.get("kind") == "bus_departures"
                 and stop in ("heathrow", "new-malden")
                 and previous_id == "sl7-{}-intro".format(stop))
@@ -705,12 +710,15 @@ class ScreenRotation:
                 if item.get("kind") != "football_score":
                     anchor = item
         normal = [item for item in normal if item.get("kind") != "football_score"]
-        # Keep Beep! Beep! only when its follow-up is still eligible.
+        # Keep intros only when the matching follow-up is still eligible.
         normal = [
             item for index, item in enumerate(normal)
-            if item.get("kind") != "bus_intro"
-            or (index + 1 < len(normal)
-                and self.is_bus_followup(item, normal[index + 1]))
+            if (item.get("kind") != "bus_intro"
+                or (index + 1 < len(normal)
+                    and self.is_bus_followup(item, normal[index + 1])))
+            and (item.get("kind") != "scouts_intro"
+                or (index + 1 < len(normal)
+                    and normal[index + 1].get("kind") == "scouts_next_events"))
         ]
         static = [self._choose(item) for item in screens if self.is_static(item)]
         # Build atomic train/bus/Christmas/weather pairs first.
@@ -721,6 +729,8 @@ class ScreenRotation:
                  and item.get("kind") == "rail_combined")
                 or (blocks[-1][-1].get("kind") == "christmas_tracker_intro"
                     and item.get("kind") == "christmas_tracker")
+                or (blocks[-1][-1].get("kind") == "scouts_intro"
+                    and item.get("kind") == "scouts_next_events")
                 or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
             ):

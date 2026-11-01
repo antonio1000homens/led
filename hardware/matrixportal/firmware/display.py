@@ -878,7 +878,7 @@ def _agenda_state(screen, phase):
 
 def _calendar_due_layout(screen, clock_date, clock_time):
     """Keep the legacy header countdown for non-Todoist calendar feeds."""
-    if screen.get("kind") != "calendar_agenda" or screen.get("source") == "todoist":
+    if screen.get("kind") != "calendar_agenda" or screen.get("source") in ("todoist", "cubs_ics"):
         return "", 0
     events = screen.get("events") or []
     if not events:
@@ -1199,6 +1199,11 @@ class MatrixDisplay:
         self._bus_intro_speed = None
         self._christmas_intro_group = None
         self._christmas_intro_motion = None
+        self._scouts_intro_group = None
+        self._scouts_intro_motion = None
+        self._scouts_intro_text = None
+        self._scouts_events_group = None
+        self._scouts_events_key = None
         self._christmas_group = None
         self._christmas_snow_grid = None
         self._christmas_snow_bitmap = None
@@ -1699,7 +1704,7 @@ class MatrixDisplay:
             return "queue_rows"
         if kind == "today":
             return "today_date"
-        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+        if kind == "calendar_agenda" and screen.get("source") in ("todoist", "cubs_ics"):
             if self._todoist_rows and self._todoist_page_slide_active(phase):
                 return "todoist_page_slide"
             if _header_slide_active(phase, screen.get("weather")):
@@ -1714,6 +1719,8 @@ class MatrixDisplay:
         if kind == "christmas_tracker":
             return "christmas_tracker"
         if kind == "christmas_tracker_intro":
+            return "steam_train"
+        if kind == "scouts_intro":
             return "steam_train"
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
@@ -1808,7 +1815,7 @@ class MatrixDisplay:
                 return gap_remaining
             if gap_remaining is None:
                 return max(0.05, _header_next_boundary_seconds(phase, screen.get("weather")))
-        if kind == "calendar_agenda" and screen.get("source") == "todoist":
+        if kind == "calendar_agenda" and screen.get("source") in ("todoist", "cubs_ics"):
             if self._todoist_rows:
                 try:
                     phase = max(0.0, float(phase or 0))
@@ -3394,7 +3401,7 @@ class MatrixDisplay:
                 event = events[event_index]
                 when, title = calendar_row_parts(event)
                 y = AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset
-                due = todoist_due_label(event, clock_date) if screen.get("source") == "todoist" else ""
+                due = todoist_due_label(event, clock_date) if screen.get("source") in ("todoist", "cubs_ics") else ""
                 if due:
                     due_x = _right_aligned_x(due, DISPLAY_WIDTH)
                     title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
@@ -4128,7 +4135,122 @@ class MatrixDisplay:
                 return False
             self._build_christmas_intro_scene()
             return True
+        if kind == "scouts_intro":
+            intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+            if self._scouts_intro_group is not None and self._scouts_intro_text == intro_text:
+                return False
+            self._build_scouts_intro_scene(screen)
+            return True
         return False
+
+
+    def _build_scouts_intro_scene(self, screen):
+        """Christmas-style entrance with a compact Scouts camping-tent sprite."""
+        import displayio
+
+        root = displayio.Group()
+        motion = displayio.Group(x=DISPLAY_WIDTH, y=2)
+        bitmap = displayio.Bitmap(40, 26, 5)
+        palette = displayio.Palette(5)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = 0x65C367
+        palette[2] = 0x22683F
+        palette[3] = 0x946237
+        palette[4] = 0xF5CC58
+        for y in range(2, 24):
+            half_width = (y - 2) * 17 // 21
+            for x in range(18 - half_width, 19 + half_width):
+                if 0 <= x < 40:
+                    bitmap[x, y] = 1 if x < 18 else 2
+        for x in range(2, 37):
+            bitmap[x, 24] = 3
+        for y in range(17, 24):
+            half_width = (y - 17) // 2
+            for x in range(18 - half_width, 19 + half_width):
+                bitmap[x, y] = 0
+        for y in range(0, 5):
+            bitmap[18, y] = 4
+        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+        intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+        # Two compact lines ensure a configurable slogan fits the 256px bar.
+        self._label(motion, intro_text[:30], 0xF5CC58, 48, 12)
+        if len(intro_text) > 30:
+            self._label(motion, intro_text[30:], 0xF5CC58, 48, 22)
+        root.append(motion)
+        self._scouts_intro_group = root
+        self._scouts_intro_motion = motion
+        self._scouts_intro_text = intro_text
+
+    def _show_scouts_intro(self, screen, phase):
+        intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+        if self._scouts_intro_group is None or self._scouts_intro_text != intro_text:
+            self._build_scouts_intro_scene(screen)
+        update_started = ticks_ms()
+        elapsed = max(0.0, float(phase or 0))
+        x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
+        changed = self._scouts_intro_motion.x != x
+        self._scouts_intro_motion.x = x
+        self._attach_brightness_overlay(self._scouts_intro_group)
+        if self.display.root_group is not self._scouts_intro_group:
+            self.display.root_group = self._scouts_intro_group
+            changed = True
+        self._record_animation_update(
+            "scouts_intro", changed, elapsed_seconds(update_started), "steam_train"
+        )
+        if changed:
+            self._refresh("steam_train")
+
+    def _show_scouts_events(self, screen):
+        """Retain a compact split scene; independently display Beavers and Cubs."""
+        import displayio
+
+        beavers = screen.get("beavers")
+        if not isinstance(beavers, dict):
+            beavers = None
+        cubs = screen.get("cubs")
+        if not isinstance(cubs, dict):
+            cubs = None
+        key = (
+            screen.get("beavers_status"), screen.get("cubs_status"),
+            tuple((event.get("start"), event.get("title")) if event else (None, None)
+                  for event in (beavers, cubs)),
+            bool(screen.get("stale")),
+        )
+        if key != self._scouts_events_key:
+            root = displayio.Group()
+            divider = displayio.Bitmap(1, 32, 2)
+            divider_palette = displayio.Palette(2)
+            divider_palette[0] = 0x000000
+            divider_palette.make_transparent(0)
+            divider_palette[1] = 0x2E6E49
+            for y in range(32):
+                divider[0, y] = 1
+            root.append(displayio.TileGrid(divider, pixel_shader=divider_palette, x=127, y=0))
+            for x, heading, event, status in (
+                (3, "BEAVERS", beavers, screen.get("beavers_status")),
+                (132, "CUBS", cubs, screen.get("cubs_status")),
+            ):
+                self._label(root, heading, 0xF5CC58, x, 5)
+                if event is not None:
+                    date_text = str(event.get("date_text") or "")[:5]
+                    time_text = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
+                    self._label(root, _fit_text_pixels((date_text + " " + time_text).strip(), 119),
+                                0xFFFFFF, x, 16)
+                    self._label(root, _fit_text_pixels(str(event.get("title") or "").upper(), 119),
+                                0xFFFFFF, x, 25)
+                elif status == "unavailable":
+                    self._label(root, "CALENDAR", 0xFFFFFF, x, 16)
+                    self._label(root, "UNAVAILABLE", 0xFFFFFF, x, 25)
+                else:
+                    self._label(root, "NO UPCOMING", 0xFFFFFF, x, 16)
+                    self._label(root, "EVENTS", 0xFFFFFF, x, 25)
+            if screen.get("stale"):
+                self._label(root, "STALE", 0xFF3300, 85, 5)
+            self._scouts_events_key = key
+            self._scouts_events_group = root
+        if self.display.root_group is not self._scouts_events_group:
+            self._present(self._scouts_events_group)
 
     def _build_christmas_intro_scene(self):
         import displayio
@@ -4829,6 +4951,14 @@ class MatrixDisplay:
             self._show_christmas_intro(phase)
             return
 
+        if not empty_state and kind == "scouts_intro":
+            self._show_scouts_intro(screen, phase)
+            return
+
+        if not empty_state and kind == "scouts_next_events":
+            self._show_scouts_events(screen)
+            return
+
         if not empty_state and kind == "bus_intro":
             self._show_bus_intro(screen, phase)
             return
@@ -4859,7 +4989,7 @@ class MatrixDisplay:
         if (
             not empty_state
             and kind == "calendar_agenda"
-            and screen.get("source") == "todoist"
+            and screen.get("source") in ("todoist", "cubs_ics")
         ):
             self._show_todoist(screen, clock_time, clock_date, phase)
             return
@@ -5350,6 +5480,20 @@ class FixtureDisplay:
             self._steam_train(screen, phase)
         elif kind == "christmas_tracker_intro":
             self._christmas_tracker_intro(screen, phase)
+        elif kind == "scouts_intro":
+            self._text(str(screen.get("intro_text") or "Be Prepared for..."), 0, 12, (245, 204, 88))
+        elif kind == "scouts_next_events":
+            for x, heading, field in ((0, "BEAVERS", "beavers"), (132, "CUBS", "cubs")):
+                self._text(heading, x, 3, (245, 204, 88))
+                event = screen.get(field)
+                if isinstance(event, dict):
+                    date = str(event.get("date_text") or "")[:5]
+                    time = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
+                    self._text(_fit_text_pixels(date + " " + time, 119), x, 13, (255, 255, 255))
+                    self._text(_fit_text_pixels(str(event.get("title") or ""), 119), x, 23, (255, 255, 255))
+                else:
+                    self._text("NO UPCOMING" if screen.get(field + "_status") != "unavailable" else "UNAVAILABLE",
+                               x, 13, (255, 255, 255))
         elif kind == "bus_intro":
             self._bus_intro(screen, phase)
         elif kind == "weather_weekly":
@@ -5587,7 +5731,7 @@ class FixtureDisplay:
                         break
                     when, title = calendar_row_parts(events[event_index])
                     y = AGENDA_FIRST_Y + slot * AGENDA_ROW_HEIGHT - y_offset
-                    due = todoist_due_label(events[event_index], clock_date) if screen.get("source") == "todoist" else ""
+                    due = todoist_due_label(events[event_index], clock_date) if screen.get("source") in ("todoist", "cubs_ics") else ""
                     if due:
                         due_x = _right_aligned_x(due, DISPLAY_WIDTH)
                         title_width = max(0, due_x - HEADER_GAP - AGENDA_TITLE_X)
@@ -5661,6 +5805,12 @@ class FixtureDisplay:
             print("STEAM TRAIN {}".format(screen.get("words") or ""))
         elif kind == "christmas_tracker_intro":
             print("CHRISTMAS INTRO HO HO HO...")
+        elif kind == "scouts_intro":
+            print("SCOUTS INTRO " + str(screen.get("intro_text") or ""))
+        elif kind == "scouts_next_events":
+            for group in ("beavers", "cubs"):
+                print(group.upper() + ": " +
+                      str((screen.get(group) or {}).get("title") or screen.get(group + "_status")))
         elif kind == "bus_intro":
             print("BUS {}".format(screen.get("words") or ""))
         elif kind == "bin_collection":

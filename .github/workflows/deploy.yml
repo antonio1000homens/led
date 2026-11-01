@@ -21,6 +21,7 @@ on:
       - '.env.example'
       - 'tests/test_combined_queue_admin.py'
       - 'tests/test_config_api.py'
+      - 'tests/test_cubs.py'
       - 'tests/test_control_plane_infrastructure.py'
       - 'tests/test_formatting.py'
       - 'tests/test_infrastructure.py'
