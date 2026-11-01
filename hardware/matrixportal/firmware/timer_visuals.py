@@ -12,6 +12,14 @@ FINISH_MOTION_SECONDS = 1.5
 TIMER_ACTOR_SCALE = 2
 TIMER_APPLE_SCALE = 2
 TIMER_THEMES = ("caterpillar", "race", "rocket", "stars")
+# Labels can pin a timer to a named theme. Add exact normalized Alexa labels
+# here when a household label should select a specific animation.
+TIMER_LABEL_THEME_MAP = {
+    "caterpillar": "caterpillar",
+    "race": "race",
+    "rocket": "rocket",
+    "stars": "stars",
+}
 # A compact 3x7 font, scaled to fill 21 pixels vertically for MM:SS.
 CLOCK_FONT = {
     "0": ("111", "101", "101", "101", "101", "101", "111"),
@@ -28,9 +36,13 @@ CLOCK_FONT = {
 }
 
 
-def theme_for_timer(timer_id):
-    """Stable pseudo-random theme: no theme switch on MQTT refresh or resume."""
-    value = str(timer_id or "")
+def theme_for_timer(timer_id, label=None):
+    """Choose a stable theme from a label, falling back to native timer ID."""
+    normalized_label = str(label or "").strip().lower()
+    mapped_theme = TIMER_LABEL_THEME_MAP.get(normalized_label)
+    if mapped_theme in TIMER_THEMES:
+        return mapped_theme
+    value = normalized_label or str(timer_id or "")
     checksum = sum((index + 1) * ord(character) for index, character in enumerate(value))
     return TIMER_THEMES[checksum % len(TIMER_THEMES)]
 
