@@ -3533,7 +3533,7 @@ class MatrixDisplay:
         running = state == "running"
         theme = screen.get("theme")
         if theme not in TIMER_THEMES:
-            theme = theme_for_timer(screen.get("timer_id"))
+            theme = theme_for_timer(screen.get("timer_id"), screen.get("label"))
         text = format_countdown(screen.get("remaining_seconds", 0))
         clock_x, clock_y, scale, clock_width = clock_layout(text)
         progress = screen.get("progress") or 0
@@ -5349,7 +5349,7 @@ class FixtureDisplay:
             complete = screen.get("state") == "complete"
             theme = screen.get("theme")
             if theme not in TIMER_THEMES:
-                theme = theme_for_timer(screen.get("timer_id"))
+                theme = theme_for_timer(screen.get("timer_id"), screen.get("label"))
             elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
             if complete:
                 colors = BACKGROUND_COLORS[theme]

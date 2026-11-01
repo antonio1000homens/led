@@ -168,7 +168,7 @@ END:VCALENDAR"""
         self.assertEqual(validate_feed_patch("cubs", {
             "intro_text": "Be Prepared for Adventure", "poll_seconds": 3600,
         }), {"intro_text": "Be Prepared for Adventure", "poll_seconds": 3600})
-        for invalid in ("", "bad\\ntext", "x" * 49, True):
+        for invalid in ("", "bad\ntext", "x" * 49, True):
             with self.assertRaises(RuntimeConfigValidationError):
                 validate_feed_patch("cubs", {"intro_text": invalid})
         for invalid in (0, 3599, 604801, True):

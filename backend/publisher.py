@@ -161,7 +161,8 @@ class PublisherConfig:
                  football_fixture_source="off", football_fixture_parameter_name="/led/football/calendar",
                  football_fixture_ttl=900, football_fixture_duration=20, football_fixture_lookahead_days=45,
                  cubs_programme_parameter="", cubs_events_parameter="",
-                 beavers_programme_parameter="", beavers_events_parameter=""):
+                 beavers_programme_parameter="", beavers_events_parameter="",
+                 cubs_ttl=86400):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
         self.station = station
@@ -194,6 +195,7 @@ class PublisherConfig:
         self.cubs_events_parameter = cubs_events_parameter
         self.beavers_programme_parameter = beavers_programme_parameter
         self.beavers_events_parameter = beavers_events_parameter
+        self.cubs_ttl = cubs_ttl
 
     @classmethod
     def from_env(cls, env=None):
@@ -252,6 +254,7 @@ class PublisherConfig:
             _env_int(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS", 45),
             env.get("CUBS_PROGRAMME_PARAMETER_NAME", ""), env.get("CUBS_EVENTS_PARAMETER_NAME", ""),
             env.get("BEAVERS_PROGRAMME_PARAMETER_NAME", ""), env.get("BEAVERS_EVENTS_PARAMETER_NAME", ""),
+            _env_int(env, "LED_CUBS_CACHE_SECONDS", 86400, 3600),
         )
 
 
@@ -272,7 +275,7 @@ def _runtime_defaults(config: PublisherConfig):
         "LED_FOOTBALL_FIXTURE_CACHE_SECONDS": str(config.football_fixture_ttl),
         "LED_FOOTBALL_FIXTURE_DURATION_SECONDS": str(config.football_fixture_duration),
         "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS": str(config.football_fixture_lookahead_days),
-        "LED_CUBS_CACHE_SECONDS": "86400",
+        "LED_CUBS_CACHE_SECONDS": str(config.cubs_ttl),
     }
     return default_runtime_config(env)
 
