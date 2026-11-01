@@ -91,9 +91,24 @@ returned the board to normal rotation. This validates the consumer and display
 path, but not Alexa-to-Home-Assistant delivery.
 
 The Home Assistant publisher is enabled after the LED deployment gate. Its
-package is deployed with the native-mapping payload-guard fix. A live broker
-read at 2026-10-31 23:51 UTC confirmed that Home Assistant publishes a fresh
-retained `clear` snapshot. That proves the clear publication path only. A
-fresh Alexa timer is still needed to verify a live `upsert` reaches MQTT and
-the board; Alexa resume, edit, cancellation, concurrent timer handoff, and
-arrival exactly at zero also remain unverified.
+package is deployed with the native-mapping payload-guard fix. On 2026-11-01,
+a live Alexa timer created at 08:23:53.652 UTC produced a retained `upsert` at
+08:24:09.332 UTC. The user confirmed that the physical MatrixPortal showed the
+countdown and racing car, and that both updated. This verifies an Alexa
+start-to-board path; the first physical frame was not timestamped independently.
+
+Pausing that timer produced a `paused` snapshot with 75 seconds remaining. A
+snapshot one minute later still showed 75 seconds. A later three-minute timer
+had a new creation time, so it did not establish a same-ID resume. At natural
+expiry (`ends_at` 08:29:28.110 UTC), HA published a retained `clear` at
+08:29:35.947 UTC. During the completion observation the user said the animation
+had not started; the exact-zero screen and return to rotation are therefore not
+accepted as verified. In a later run, a new timer was published running at
+08:30:07.959 and paused at 08:30:23.335 with 175 seconds remaining; both
+snapshots had the same timer identity. HA published `clear` at 08:30:29.209
+while that timer had over two minutes remaining. The user has not confirmed
+whether they canceled or otherwise removed it. Alexa resume after pause,
+duration edit, concurrent timer handoff, and out-of-order recovery remain
+unverified. PR #319 holds the car one pixel short of the clock until
+completion; it must be reviewed, merged, and deployed before validating the
+corrected exact-zero behavior on hardware.
