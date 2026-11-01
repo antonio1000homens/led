@@ -31,6 +31,13 @@ from flash_events import assistant_message_page
 from mqtt_screens import _epoch
 from timer_state import (caterpillar_position, timer_apples_eaten,
                          timer_apple_center, TIMER_APPLE_COUNT, format_countdown)
+from timer_visuals import (
+    TIMER_THEMES, CLOCK_FONT, SCENE_WIDTH,
+    theme_for_timer, clock_layout, finish_pose, rotate_sprite,
+    SPRITE_ROWS, SPRITE_COLORS, SPRITE_SYMBOLS,
+    BACKGROUND_COLORS, background_index,
+    ACCENT_ROWS, ACCENT_COLORS, accent_positions,
+)
 from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
@@ -1675,7 +1682,7 @@ class MatrixDisplay:
             return None
         kind = screen.get("kind")
         if kind == "alexa_timer":
-            return "timer_car" if screen.get("state") == "running" else None
+            return "timer_car" if screen.get("state") in ("running", "complete") else None
         if kind == "football_score":
             x, _ = football_presentation_position(
                 football_entry_phase(phase, screen.get("status")),
@@ -1737,7 +1744,7 @@ class MatrixDisplay:
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
         if screen.get("kind") == "alexa_timer":
-            return MATRIX_REFRESH_FPS if screen.get("state") == "running" else 0
+            return MATRIX_REFRESH_FPS if screen.get("state") in ("running", "complete") else 0
         if screen.get("kind") == "today":
             return min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS)
         if screen.get("kind") == "christmas_tracker":
@@ -1781,7 +1788,8 @@ class MatrixDisplay:
             return None
         kind = screen.get("kind")
         if kind == "alexa_timer":
-            return 1.0 / max(1, MATRIX_REFRESH_FPS) if screen.get("state") == "running" else 1.0
+            return (1.0 / max(1, MATRIX_REFRESH_FPS)
+                    if screen.get("state") in ("running", "complete") else 1.0)
         if kind == "today":
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
         if kind == "football_score" and screen.get("status") == "PRE":
@@ -3473,100 +3481,181 @@ class MatrixDisplay:
         if changed:
             self._refresh(self._animation_class(screen, phase))
 
-    def _show_alexa_timer(self, screen, phase):
-        """Update small shared sprites rather than repaint the matrix each tick."""
+    def _timer_sprite(self, rows, colors, symbols, x=0, y=0):
+        """Allocate one compact TileGrid; several markers may share its bitmap."""
         import displayio
+        width = max(len(row) for row in rows)
+        bitmap = displayio.Bitmap(width, len(rows), len(colors))
+        palette = displayio.Palette(len(colors))
+        for index, color in enumerate(colors):
+            palette[index] = color
+        palette.make_transparent(0)
+        for dy, row in enumerate(rows):
+            for dx, char in enumerate(row):
+                bitmap[dx, dy] = symbols[char]
+        return displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=y)
+
+    def _timer_clock_bitmap_fill(self, text):
+        """Reuse a single 3x7 bitmap throughout the countdown."""
+        bitmap = self._timer_clock_bitmap
+        bitmap.fill(0)
+        scale = self._timer_clock_scale
+        for position, char in enumerate(text):
+            glyph = CLOCK_FONT[char]
+            for dy, row in enumerate(glyph):
+                for dx, pixel in enumerate(row):
+                    if pixel == "1":
+                        for sy in range(scale):
+                            for sx in range(scale):
+                                bitmap[position * 4 * scale + dx * scale + sx,
+                                       dy * scale + sy] = 1
+
+    def _show_alexa_timer(self, screen, phase):
+        """Only complete timers allocate animated scenery; no per-frame bitmaps."""
+        import displayio
+        state = screen.get("state")
+        complete = state == "complete"
+        running = state == "running"
+        theme = screen.get("theme")
+        if theme not in TIMER_THEMES:
+            theme = theme_for_timer(screen.get("timer_id"))
         text = format_countdown(screen.get("remaining_seconds", 0))
-        scale = 3 if len(text) <= 5 else 2
-        clock_x = max(0, DISPLAY_WIDTH - len(text) * 6 * scale - 2)
-        progress = screen.get("progress", 0)
-        head_x = caterpillar_position(clock_x, progress)
-        eaten = timer_apples_eaten(progress)
-        running = screen.get("state") == "running"
-        key = (screen.get("timer_id"), screen.get("state"), scale,
-               bool(screen.get("upstream_stale")))
+        clock_x, clock_y, scale, clock_width = clock_layout(text)
+        progress = screen.get("progress") or 0
+        elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
+        key = (screen.get("timer_id"), state, theme, scale, bool(screen.get("upstream_stale")))
         changed = False
         if getattr(self, "_timer_scene_key", None) != key:
             group = displayio.Group()
+            accent_tiles = []
+            if complete:
+                # Static 194x32 background, built once when timer reaches zero.
+                bitmap = displayio.Bitmap(SCENE_WIDTH, 32, 8)
+                colors = BACKGROUND_COLORS[theme]
+                palette = displayio.Palette(8)
+                for i, color in enumerate(colors):
+                    palette[i] = color
+                for y in range(32):
+                    for x in range(SCENE_WIDTH):
+                        bitmap[x, y] = background_index(theme, x, y)
+                group.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+                # Moving only two small sprites keeps refresh/GC bounded.
+                rows = ACCENT_ROWS[theme]
+                symbols = {".": 0, "S": 1, "R": 2, "W": 1}
+                colors = (0, ACCENT_COLORS[theme], 0xF46464)
+                prototype = self._timer_sprite(rows, colors, symbols)
+                for i in range(2):
+                    pos = accent_positions(theme, elapsed)[i]
+                    if i == 0:
+                        tile = prototype
+                    else:
+                        tile = displayio.TileGrid(prototype.bitmap,
+                                                   pixel_shader=prototype.pixel_shader)
+                    tile.x, tile.y = pos
+                    group.append(tile)
+                    accent_tiles.append(tile)
             if screen.get("upstream_stale"):
-                self._label(group, "STALE", 0x888888, 0, 7)
-            label = self._scaled_label(group, text, 0xFFFFFF, clock_x, 7, scale=scale)
-
-            def sprite(rows, color_values, color_indices):
-                bitmap = displayio.Bitmap(len(rows[0]), len(rows), 4)
-                palette = displayio.Palette(4)
-                for index, color in enumerate(color_values):
-                    palette[index] = color
-                palette.make_transparent(0)
-                for y, row in enumerate(rows):
-                    for x, char in enumerate(row):
-                        bitmap[x, y] = color_indices[char]
-                return bitmap, palette
-
-            apple_bitmap, apple_palette = sprite(
-                TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE)
-            apples = []
-            for index in range(TIMER_APPLE_COUNT):
-                x = timer_apple_center(clock_x, index) - 4 if index >= eaten else -10
-                apple = displayio.TileGrid(apple_bitmap, pixel_shader=apple_palette,
-                                           x=x, y=17)
-                group.append(apple)
-                apples.append(apple)
-
-            body_bitmap, body_palette = sprite(
-                TIMER_CATERPILLAR_ROWS, TIMER_CATERPILLAR_COLORS,
-                TIMER_CATERPILLAR_PALETTE)
-            body = displayio.TileGrid(body_bitmap, pixel_shader=body_palette,
-                                      x=head_x - 22, y=14)
-            group.append(body)
-            if screen.get("state") == "complete":
-                self._label(group, "YUM!", 0xFFE66A, 7, 5)
+                self._label(group, "STALE", 0x888888, 0, 1)
+            palette = displayio.Palette(2)
+            palette[0], palette[1] = 0, (0xB2FFBD if complete else 0xFFFFFF)
+            palette.make_transparent(0)
+            clock_bitmap = displayio.Bitmap(clock_width, 7 * scale, 2)
+            clock_grid = displayio.TileGrid(clock_bitmap, pixel_shader=palette,
+                                             x=clock_x, y=clock_y)
+            group.append(clock_grid)
+            self._timer_clock_bitmap = clock_bitmap
+            self._timer_clock_scale = scale
+            self._timer_clock_text = text
+            self._timer_clock_grid = clock_grid
+            self._timer_clock_bitmap_fill(text)
+            marker_tiles = []
+            if not complete:
+                if theme == "caterpillar":
+                    marker = self._timer_sprite(
+                        TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE)
+                else:
+                    rows = ("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..") if theme == "stars" else ("YYYYYYY", "YYYYYYY")
+                    marker = self._timer_sprite(rows, (0, 0xFFE36A),
+                                                {".": 0, "Y": 1})
+                for i in range(TIMER_APPLE_COUNT):
+                    if i == 0:
+                        tile = marker
+                    else:
+                        tile = displayio.TileGrid(marker.bitmap,
+                                                   pixel_shader=marker.pixel_shader)
+                    group.append(tile)
+                    marker_tiles.append(tile)
+            actor_rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
+                          else SPRITE_ROWS[theme])
+            actor_colors = (TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                            else SPRITE_COLORS[theme])
+            actor_symbols = (TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
+                             else SPRITE_SYMBOLS[theme])
+            actor_frames = []
+            for turns in range(4 if complete and theme != "caterpillar" else 1):
+                tile = self._timer_sprite(
+                    rotate_sprite(actor_rows, turns), actor_colors, actor_symbols,
+                    x=-100, y=0)
+                group.append(tile)
+                actor_frames.append(tile)
             self._timer_scene_key = key
             self._timer_group = group
-            self._timer_label = label
-            self._timer_body = body
-            self._timer_apples = apples
-            self._timer_text = text
-            self._timer_x = head_x
-            self._timer_apples_eaten = eaten
-            self._timer_bob = 0
+            self._timer_actor_frames = actor_frames
+            self._timer_markers = marker_tiles
+            self._timer_accents = accent_tiles
+            self._timer_markers_eaten = None
+            self._timer_pose = None
             self._present(group)
-            return
-        if text != self._timer_text:
-            group = self._timer_group
-            old_label = self._timer_label
-            label_index = None
-            for index in range(len(group)):
-                if group[index] is old_label:
-                    label_index = index
-                    break
-            if label_index is None:
-                raise RuntimeError("Alexa timer countdown layer is missing")
-            label = self._scaled_label(
-                group, text, 0xFFFFFF, clock_x, 7, scale=scale,
-            )
-            group.remove(label)
-            group.remove(old_label)
-            group.insert(label_index, label)
-            self._timer_label = label
-            self._timer_text = text
             changed = True
-        if eaten != self._timer_apples_eaten:
-            for index, apple in enumerate(self._timer_apples):
-                x = timer_apple_center(clock_x, index) - 4 if index >= eaten else -10
-                if apple.x != x:
-                    apple.x = x
+        if text != self._timer_clock_text:
+            # Scale changes rebuild the scene; within one scale reuse bitmap.
+            self._timer_clock_bitmap_fill(text)
+            self._timer_clock_text = text
+            changed = True
+        if not complete:
+            eaten = timer_apples_eaten(progress)
+            if eaten != self._timer_markers_eaten:
+                for i, tile in enumerate(self._timer_markers):
+                    x = (timer_apple_center(clock_x, i) -
+                         (4 if theme == "caterpillar" else 3)) if i >= eaten else -20
+                    y = 17 if theme == "caterpillar" else (21 if theme == "stars" else 28)
+                    if tile.x != x or tile.y != y:
+                        tile.x, tile.y = x, y
+                        changed = True
+                self._timer_markers_eaten = eaten
+            head_x = caterpillar_position(clock_x, progress)
+            x = head_x - (22 if theme == "caterpillar" else 11)
+            y = (14 + int(max(0.0, float(phase)) * 3) % 2 if theme == "caterpillar" and running
+                 else (14 if theme == "caterpillar" else 14 if theme == "race" else 10))
+            frame_index = 0
+        else:
+            frame_index, xshift, yshift = finish_pose(theme, elapsed)
+            if theme == "caterpillar":
+                x, y = clock_x - 44, 14 + yshift
+            elif theme == "race":
+                x, y = clock_x - (37 if frame_index % 2 == 0 else 30), (
+                    16 if frame_index % 2 == 0 else 8) + yshift
+            elif theme == "rocket":
+                x, y = clock_x - (47 if frame_index == 0 else 35), (
+                    11 if frame_index == 0 else 2) + yshift
+            else:
+                x, y = clock_x - 34, 12
+            x += xshift
+            positions = accent_positions(theme, elapsed)
+            for tile, pos in zip(self._timer_accents, positions):
+                if (tile.x, tile.y) != pos:
+                    tile.x, tile.y = pos
                     changed = True
-            self._timer_apples_eaten = eaten
-        if head_x != self._timer_x:
-            self._timer_body.x = head_x - 22
-            self._timer_x = head_x
-            changed = True
-        bob = int(max(0.0, float(phase)) * 3) % 2 if running else 0
-        if bob != self._timer_bob:
-            self._timer_body.y = 14 + bob
-            self._timer_bob = bob
-            changed = True
+        pose = (frame_index, x, y)
+        if pose != self._timer_pose:
+            for i, tile in enumerate(self._timer_actor_frames):
+                tx = x if i == frame_index else -100
+                if tile.x != tx or (i == frame_index and tile.y != y):
+                    tile.x = tx
+                    if i == frame_index:
+                        tile.y = y
+                    changed = True
+            self._timer_pose = pose
         if self.display.root_group is not self._timer_group:
             self._present(self._timer_group)
         elif changed:
@@ -5118,32 +5207,83 @@ class FixtureDisplay:
         kind = screen.get("kind")
         if kind == "alexa_timer":
             text = format_countdown(screen.get("remaining_seconds", 0))
-            scale = 3 if len(text) <= 5 else 2
-            clock_x = max(0, DISPLAY_WIDTH - len(text) * 6 * scale - 2)
-            progress = screen.get("progress", 0)
-            eaten = timer_apples_eaten(progress)
-            self._text(text, clock_x, 5, (255, 255, 255), scale=scale)
+            clock_x, clock_y, scale, _ = clock_layout(text)
+            progress = screen.get("progress") or 0
+            complete = screen.get("state") == "complete"
+            theme = screen.get("theme")
+            if theme not in TIMER_THEMES:
+                theme = theme_for_timer(screen.get("timer_id"))
+            elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
+            if complete:
+                colors = BACKGROUND_COLORS[theme]
+                for y in range(32):
+                    for x in range(SCENE_WIDTH):
+                        self._pixel(x, y, _rgb_tuple(colors[background_index(theme, x, y)]))
+                for x0, y0 in accent_positions(theme, elapsed):
+                    for dy, row in enumerate(ACCENT_ROWS[theme]):
+                        for dx, pixel in enumerate(row):
+                            if pixel != ".":
+                                color = (0xF46464 if pixel == "R"
+                                         else ACCENT_COLORS[theme])
+                                self._pixel(x0 + dx, y0 + dy, _rgb_tuple(color))
             if screen.get("upstream_stale"):
-                self._text("STALE", 0, 2, (136, 136, 136))
-            apple_colors = {1: (244, 81, 74), 2: (172, 44, 55), 3: (108, 229, 115)}
-            for index in range(eaten, TIMER_APPLE_COUNT):
-                x0 = timer_apple_center(clock_x, index) - 4
-                for dy, row in enumerate(TIMER_APPLE_ROWS):
-                    for dx, pixel in enumerate(row):
-                        code = TIMER_APPLE_PALETTE[pixel]
-                        if code:
-                            self._pixel(x0 + dx, 17 + dy, apple_colors[code])
-            head_x = caterpillar_position(clock_x, progress)
-            body_y = 14 + (int(max(0.0, float(phase)) * 3) % 2
-                           if screen.get("state") == "running" else 0)
-            body_colors = {1: (140, 238, 99), 2: (61, 169, 74), 3: (23, 46, 41)}
-            for dy, row in enumerate(TIMER_CATERPILLAR_ROWS):
-                for dx, pixel in enumerate(row):
-                    code = TIMER_CATERPILLAR_PALETTE[pixel]
-                    if code:
-                        self._pixel(head_x - 22 + dx, body_y + dy, body_colors[code])
-            if screen.get("state") == "complete":
-                self._text("YUM!", 7, 5, (255, 230, 106))
+                self._text("STALE", 0, 1, (136, 136, 136))
+            for index, char in enumerate(text):
+                for dy, row in enumerate(CLOCK_FONT[char]):
+                    for dx, digit in enumerate(row):
+                        if digit == "1":
+                            for yy in range(scale):
+                                for xx in range(scale):
+                                    self._pixel(clock_x + index * 4 * scale + dx * scale + xx,
+                                                clock_y + dy * scale + yy,
+                                                (178, 255, 189) if complete else (255, 255, 255))
+            if not complete:
+                eaten = timer_apples_eaten(progress)
+                for i in range(eaten, TIMER_APPLE_COUNT):
+                    if theme == "caterpillar":
+                        rows, symbols, colors = (TIMER_APPLE_ROWS, TIMER_APPLE_PALETTE,
+                                                 TIMER_APPLE_COLORS)
+                        mark_x, mark_y = timer_apple_center(clock_x, i) - 4, 17
+                    else:
+                        rows = (("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..")
+                                if theme == "stars" else ("YYYYYYY", "YYYYYYY"))
+                        symbols, colors = {".": 0, "Y": 1}, (0, 0xFFE36A)
+                        mark_x, mark_y = timer_apple_center(clock_x, i) - 3, (
+                            21 if theme == "stars" else 28)
+                    for dy, row in enumerate(rows):
+                        for dx, letter in enumerate(row):
+                            index = symbols[letter]
+                            if index:
+                                self._pixel(mark_x + dx, mark_y + dy, _rgb_tuple(colors[index]))
+                head = caterpillar_position(clock_x, progress)
+                pose, x, y = 0, head - (22 if theme == "caterpillar" else 11), (
+                    14 + int(max(0.0, float(phase)) * 3) % 2
+                    if theme == "caterpillar" and screen.get("state") == "running"
+                    else 14 if theme in ("caterpillar", "race") else 10)
+            else:
+                pose, xshift, yshift = finish_pose(theme, elapsed)
+                if theme == "caterpillar":
+                    x, y = clock_x - 44, 14 + yshift
+                elif theme == "race":
+                    x, y = clock_x - (37 if pose % 2 == 0 else 30), (
+                        16 if pose % 2 == 0 else 8) + yshift
+                elif theme == "rocket":
+                    x, y = clock_x - (47 if pose == 0 else 35), (
+                        11 if pose == 0 else 2) + yshift
+                else:
+                    x, y = clock_x - 34, 12
+                x += xshift
+            rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
+                    else rotate_sprite(SPRITE_ROWS[theme], pose))
+            colors = (TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                      else SPRITE_COLORS[theme])
+            symbols = (TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
+                       else SPRITE_SYMBOLS[theme])
+            for dy, row in enumerate(rows):
+                for dx, char in enumerate(row):
+                    index = symbols[char]
+                    if index:
+                        self._pixel(x + dx, y + dy, _rgb_tuple(colors[index]))
             return
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
