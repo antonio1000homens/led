@@ -76,14 +76,17 @@ Example pause and clear snapshots:
 }
 ```
 
-The board anchors `ends_at` to its monotonic clock when the snapshot arrives and
-animates the car at the configured board refresh cadence. If original duration is
-absent, it uses the first observed remaining time as the race baseline. A
-retained snapshot restores the timer after reconnect; no per-second MQTT
-messages are needed. Refresh a still-active retained snapshot at least every
-ten minutes; the board marks the timer `STALE` after ten minutes without an
-accepted snapshot. Reminder flashes may cover the timer briefly, after which
-the current timer state is rendered again.
+The board derives wall time from the screen API's HTTP `Date` header, then
+anchors `ends_at` to its monotonic clock when a timer snapshot arrives. The
+clock-anchor correction in progress captures the monotonic time at response
+header receipt, before parsing the screen body, so download and parse time do
+not make the timer clock lag. The board animates the car at the configured
+refresh cadence. If original duration is absent, it uses the first observed
+remaining time as the race baseline. A retained snapshot restores the timer
+after reconnect; no per-second MQTT messages are needed. Refresh a still-active
+retained snapshot at least every ten minutes; the board marks the timer `STALE`
+after ten minutes without an accepted snapshot. Reminder flashes may cover the
+timer briefly, after which the current timer state is rendered again.
 
 ## Deployment and live acceptance
 
@@ -100,18 +103,22 @@ a live Alexa timer created at 08:23:53.652 UTC produced a retained `upsert` at
 countdown and racing car, and that both updated. This verifies an Alexa
 start-to-board path; the first physical frame was not timestamped independently.
 
-Pausing that timer produced a `paused` snapshot with 75 seconds remaining. A
-snapshot one minute later still showed 75 seconds. A later three-minute timer
-had a new creation time, so it did not establish a same-ID resume. At natural
-expiry (`ends_at` 08:29:28.110 UTC), HA published a retained `clear` at
-08:29:35.947 UTC. During the completion observation the user said the animation
-had not started; the exact-zero screen and return to rotation are therefore not
-accepted as verified. In a later run, a new timer was published running at
-08:30:07.959 and paused at 08:30:23.335 with 175 seconds remaining; both
-snapshots had the same timer identity. HA published `clear` at 08:30:29.209
-while that timer had over two minutes remaining. The user has not confirmed
-whether they canceled or otherwise removed it. Alexa resume after pause,
-duration edit, concurrent timer handoff, and out-of-order recovery remain
-unverified. PR #319 holds the car one pixel short of the clock until
-completion; it must be reviewed, merged, and deployed before validating the
-corrected exact-zero behavior on hardware.
+Earlier lifecycle trials verified a same-ID pause snapshot with 75 seconds
+remaining and a later pause snapshot with 175 seconds remaining. A separate
+trial published `clear` while over two minutes remained, so it did not verify a
+same-ID resume. Duration edit, concurrent timer handoff, and recovery behavior
+remain unverified.
+
+On 2026-11-01, the merged LED #324 firmware was deployed and all 35 staged files
+passed SHA-256 readback. A fresh 90-second Alexa timer was published at
+11:07:21.115 UTC with `started_at` 11:07:20.619 and `ends_at` 11:08:50.328; the
+end matched `started_at + duration_seconds` within 0.3 seconds. The physical
+board entered the timer scene at 11:07:23, remained in it for 96.1 seconds, and
+returned to the normal `TODAY` screen at 11:09:00. HA published `clear` at
+11:09:00.147. No render exception appeared in the serial capture. The user
+observed Alexa's alarm while the board still appeared to count down its final
+seconds; the exact displayed value at the alarm is not yet known. Since the
+scene ended about 9.7 seconds after `ends_at`, the timer's final-second timing
+still needs physical confirmation. LED #324 fixed the render crash, but this
+run does not by itself prove exact-zero alignment or the visible completion
+hold.
