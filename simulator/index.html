@@ -45,6 +45,7 @@
       <button id="next" type="button">Next screen</button>
       <button id="bin-preview" type="button">Preview recycling screen</button>
       <button id="timer-preview" type="button">Preview Alexa timer</button>
+      <button id="hall-timer-preview" type="button">Preview Hall Alexa timer</button>
       <button id="football-preview" type="button">Preview football</button>
       <button id="sl7-preview" type="button">Preview SL7 buses</button>
       <button id="flash-preview" type="button">Preview reminder flash</button>
@@ -2246,12 +2247,21 @@
     });
     document.getElementById('timer-preview').addEventListener('click', () => {
       screens = [{id:'alexa-timer-preview', kind:'alexa_timer', source:'simulator',
-        timer_id:'preview-timer', state:'running', title:'Alexa timer',
+        timer_id:'preview-timer', device:'living-room-alexa', state:'running', title:'Alexa timer',
         duration_seconds:300}];
       screenOffset = 0;
       paused = false;
       pauseStarted = performance.now();
       status.dataset.detail = 'Alexa timer contract preview · 5:00';
+    });
+    document.getElementById('hall-timer-preview').addEventListener('click', () => {
+      screens = [{id:'alexa-timer-hall-preview', kind:'alexa_timer', source:'simulator',
+        timer_id:'hall-preview-timer', device:'hall-alexa', state:'running', title:'Hall Alexa timer',
+        duration_seconds:300}];
+      screenOffset = 0;
+      paused = false;
+      pauseStarted = performance.now();
+      status.dataset.detail = 'Hall Alexa timer contract preview · 5:00';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();

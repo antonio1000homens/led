@@ -58,7 +58,7 @@ from mqtt_screens import MqttScreenState, recycling_policy
 from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_post_expired,
 )
-from timer_state import TimerState
+from timer_state import TimerState, select_timer
 from presentation_priority import select_presentation
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
@@ -340,23 +340,7 @@ def _reminder_epoch(now):
 
 def _selected_timer(epoch_now, monotonic_now):
     """Select the most urgent timer across the supported Alexa devices."""
-    candidates = []
-    for device, state in timer_states.items():
-        timer = state.selected(epoch_now, monotonic_now)
-        if timer is not None:
-            timer = dict(timer)
-            timer["device"] = device
-            candidates.append(timer)
-    if not candidates:
-        return None
-    # Running/completion presentations take precedence over paused timers;
-    # among those choose the one nearest its end (or nearest paused timer).
-    candidates.sort(key=lambda timer: (
-        0 if timer["state"] in ("running", "complete") else 1,
-        timer.get("remaining_seconds", 0),
-        timer.get("device", ""),
-    ))
-    return candidates[0]
+    return select_timer(timer_states, epoch_now, monotonic_now)
 
 
 def _flash_started(now):
