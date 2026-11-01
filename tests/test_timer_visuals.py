@@ -16,6 +16,7 @@ from timer_visuals import (
     TIMER_THEMES, CLOCK_FONT, BACKGROUND_COLORS, SPRITE_ROWS,
     SPRITE_SYMBOLS, SPRITE_COLORS, ACCENT_ROWS, accent_positions,
     background_index, clock_layout, finish_pose, rotate_sprite, theme_for_timer,
+    TIMER_ACTOR_SCALE, TIMER_APPLE_SCALE, actor_size, actor_position,
 )
 
 
@@ -67,6 +68,39 @@ class TimerVisualTests(unittest.TestCase):
                 for turn in range(4):
                     rotated = rotate_sprite(rows, turn)
                     self.assertEqual(len(rotated), len(rows[0]) if turn % 2 else len(rows))
+
+    def test_large_icons_use_most_of_panel_and_fit_all_rotated_frames(self):
+        from display import TIMER_CATERPILLAR_ROWS, TIMER_APPLE_ROWS
+        self.assertEqual(TIMER_ACTOR_SCALE, 2)
+        self.assertEqual(TIMER_APPLE_SCALE, 2)
+        self.assertEqual((len(TIMER_CATERPILLAR_ROWS[0]),
+                          len(TIMER_CATERPILLAR_ROWS)), (28, 14))
+        self.assertEqual((len(TIMER_APPLE_ROWS[0]) * TIMER_APPLE_SCALE,
+                          len(TIMER_APPLE_ROWS) * TIMER_APPLE_SCALE), (16, 18))
+        for theme in TIMER_THEMES:
+            rows = TIMER_CATERPILLAR_ROWS if theme == "caterpillar" else SPRITE_ROWS[theme]
+            for turns in range(4):
+                rotated = rotate_sprite(rows, turns)
+                width, height = actor_size(theme, turns)
+                self.assertEqual(width, max(len(row) for row in rotated) * 2)
+                self.assertEqual(height, len(rotated) * 2)
+                self.assertGreaterEqual(height, 22)
+                self.assertLessEqual(height, 32)
+                self.assertLessEqual(width, 56)
+                for clock_x in (191, 195, 199):
+                    x, y = actor_position(theme, clock_x, 173,
+                                          complete=True, turns=turns,
+                                          vertical_offset=-7)
+                    self.assertGreaterEqual(x, 0)
+                    self.assertGreaterEqual(y, 0)
+                    self.assertLessEqual(x + width, clock_x - 2)
+                    self.assertLessEqual(y + height, 32)
+            for progress_head in (12, 80, 150, 173):
+                x, y = actor_position(theme, 195, progress_head, bob=1)
+                w, h = actor_size(theme)
+                self.assertLessEqual(x + w, 193)
+                self.assertGreaterEqual(y, 0)
+                self.assertLessEqual(y + h, 32)
 
     def test_rotate_sprite_pads_ragged_rows_without_string_ljust(self):
         self.assertEqual(rotate_sprite(("AB", "C"), 0), ("AB", "C."))
@@ -153,6 +187,16 @@ class TimerVisualTests(unittest.TestCase):
                     renderer._show_alexa_timer(screen, 0)
                     self.assertEqual(len(presentations), 1)
                     running_group = renderer.display.root_group
+                    active_actor = renderer._timer_actor_frames[0]
+                    expected_width, expected_height = actor_size(theme)
+                    self.assertEqual((active_actor.bitmap.width,
+                                      active_actor.bitmap.height),
+                                     (expected_width, expected_height))
+                    if theme == "caterpillar":
+                        self.assertEqual(
+                            (renderer._timer_markers[0].bitmap.width,
+                             renderer._timer_markers[0].bitmap.height), (16, 18))
+                        self.assertEqual(renderer._timer_markers[0].y, 12)
                     self.assertFalse(any(isinstance(item, Grid) and
                                          (item.bitmap.width, item.bitmap.height) == (194, 32)
                                          for item in running_group))
@@ -174,6 +218,23 @@ class TimerVisualTests(unittest.TestCase):
                     renderer._show_alexa_timer(screen, 0)
                     self.assertEqual(len(presentations), 3)
                     complete_group = renderer.display.root_group
+                    for turn, actor in enumerate(renderer._timer_actor_frames):
+                        width, height = actor_size(theme, turn)
+                        self.assertEqual((actor.bitmap.width, actor.bitmap.height),
+                                         (width, height))
+                    for moment in (0.3, 0.6, 0.95, 1.3, 1.5, 4.0):
+                        screen["completion_elapsed_seconds"] = moment
+                        renderer._show_alexa_timer(screen, moment)
+                        active = [actor for actor in renderer._timer_actor_frames
+                                  if actor.x != -100]
+                        self.assertEqual(len(active), 1)
+                        actor = active[0]
+                        self.assertGreaterEqual(actor.y, 0)
+                        self.assertLessEqual(actor.y + actor.bitmap.height, 32)
+                        self.assertLessEqual(actor.x + actor.bitmap.width,
+                                             renderer._timer_clock_grid.x - 2)
+                    screen["completion_elapsed_seconds"] = 0
+                    renderer._show_alexa_timer(screen, 0)
                     backgrounds = [item for item in complete_group
                                    if isinstance(item, Grid)
                                    and (item.bitmap.width, item.bitmap.height) == (194, 32)]
@@ -232,7 +293,10 @@ process.stdout.write(JSON.stringify({
   rocket: alexaTimerFinishPose('rocket',1.5),
   race: alexaTimerFinishPose('race',1.5),
   gardenIndex: alexaTimerBackgroundIndex('caterpillar',8,28),
-  accents: alexaTimerAccentPositions('rocket',1)
+  accents: alexaTimerAccentPositions('rocket',1),
+  iconSize: alexaTimerActorSize('race',1),
+  caterSize: alexaTimerActorSize('caterpillar',0),
+  actorAtFinish: alexaTimerActorPosition('rocket',195,173,true,3,7,0)
 }));
 """
         result = subprocess.run(["node", "-e", harness], capture_output=True,
@@ -247,6 +311,11 @@ process.stdout.write(JSON.stringify({
                          {"rotation": 0, "dy": finish_pose("race", 1.5)[2]})
         self.assertEqual(values["gardenIndex"], background_index("caterpillar",8,28))
         self.assertEqual(values["accents"], [list(pt) for pt in accent_positions("rocket",1)])
+        self.assertEqual(values["iconSize"], list(actor_size("race",1)))
+        self.assertEqual(values["caterSize"], list(actor_size("caterpillar",0)))
+        self.assertEqual(values["actorAtFinish"],
+                         list(actor_position("rocket",195,173,complete=True,
+                                             turns=3,vertical_offset=7)))
 
 
 if __name__ == "__main__":
