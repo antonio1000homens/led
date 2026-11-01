@@ -26,6 +26,8 @@ on:
       - 'tests/test_mqtt_safety.py'
       - 'tests/test_presentation_priority.py'
       - 'tests/test_queue_cycle.py'
+      - 'tests/test_mqtt_screen_update_batching.py'
+      - 'tests/test_reminder_clock_loop.py'
       - 'tests/test_screen_client.py'
       - 'tests/test_timer_state.py'
       - 'tests/test_upload_firmware_wifi.py'
@@ -46,6 +48,8 @@ on:
       - 'scripts/install-firmware.sh'
       - 'scripts/upload-firmware-wifi.py'
       - 'tests/test_presentation_priority.py'
+      - 'tests/test_mqtt_screen_update_batching.py'
+      - 'tests/test_reminder_clock_loop.py'
       - 'tests/test_timer_state.py'
   workflow_dispatch:
 
@@ -106,8 +110,10 @@ jobs:
             test_matrix_runtime.py
             test_matrix_todoist_performance.py
             test_mqtt_safety.py
+            test_mqtt_screen_update_batching.py
             test_presentation_priority.py
             test_queue_cycle.py
+            test_reminder_clock_loop.py
             test_screen_client.py
             test_timer_state.py
             test_upload_firmware_wifi.py
