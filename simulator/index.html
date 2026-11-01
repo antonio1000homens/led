@@ -1720,8 +1720,10 @@
       caterpillar:'#8eb6d4',race:'#f6f5ff',rocket:'#d1ecff',stars:'#f9c86e'
     };
     const alexaTimerBackgroundCache = {};
-    function alexaTimerTheme(timerId) {
-      const name = String(timerId || '');
+    function alexaTimerTheme(timerId, label) {
+      const normalizedLabel = String(label || '').trim().toLowerCase();
+      if (ALEXA_TIMER_THEMES.includes(normalizedLabel)) return normalizedLabel;
+      const name = normalizedLabel || String(timerId || '');
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash += (i + 1) * name.charCodeAt(i);
       return ALEXA_TIMER_THEMES[hash % 4];
@@ -1981,7 +1983,7 @@
         const seconds=remaining%60;
         const label=hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`:
           `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-        const theme=ALEXA_TIMER_THEMES.includes(screen.theme)?screen.theme:alexaTimerTheme(screen.timer_id);
+        const theme=ALEXA_TIMER_THEMES.includes(screen.theme)?screen.theme:alexaTimerTheme(screen.timer_id,screen.label);
         if(done){
           drawAlexaTimerBackground(theme);
           const positions=alexaTimerAccentPositions(theme,finishElapsed);

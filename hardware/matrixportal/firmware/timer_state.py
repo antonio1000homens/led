@@ -197,6 +197,7 @@ class TimerState:
         self.published_at = None
         self.timers = []
         self.completed_id = None
+        self.completed_label = ""
         self.completed_until = None
         self.completed_until_monotonic = None
         self.completed_at_epoch = None
@@ -253,6 +254,7 @@ class TimerState:
         if snapshot["event"] == "clear":
             self.observed_durations = {}
             self.completed_id = self.completed_until = self.completed_until_monotonic = None
+            self.completed_label = ""
             self.completed_at_epoch = self.completed_at_monotonic = None
         return True, "accepted"
 
@@ -266,6 +268,7 @@ class TimerState:
             if hold_until is not None and hold_now is not None and hold_now < hold_until:
                 result = self.selection
                 result["timer_id"] = self.completed_id
+                result["label"] = self.completed_label
                 result["state"] = "complete"
                 result["remaining_seconds"] = 0
                 result["duration_seconds"] = 1
@@ -277,6 +280,7 @@ class TimerState:
                 result["completion_elapsed_seconds"] = max(0.0, hold_now - origin)
                 return result
             self.completed_id = self.completed_until = self.completed_until_monotonic = None
+            self.completed_label = ""
             self.completed_at_epoch = self.completed_at_monotonic = None
 
         timer = None
@@ -294,6 +298,7 @@ class TimerState:
             remaining = max(0, running_end - current)
             if remaining == 0:
                 self.completed_id = timer["timer_id"]
+                self.completed_label = timer.get("label", "")
                 self.completed_at_epoch = now_epoch
                 self.completed_at_monotonic = now_monotonic
                 if now_monotonic is not None:
@@ -309,7 +314,7 @@ class TimerState:
                 result["remaining_seconds"] = 0
                 result["duration_seconds"] = timer.get("duration_seconds")
                 result["progress"] = 1.0
-                result["label"] = ""
+                result["label"] = self.completed_label
                 result["stale"] = stale
                 result["completion_elapsed_seconds"] = 0.0
                 return result

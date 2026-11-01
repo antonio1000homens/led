@@ -24,6 +24,14 @@ optional and is limited to 40 characters. The board rejects expired running
 timers, malformed fields, snapshots for a different device, and snapshots
 whose `published_at` is not newer than the last accepted snapshot.
 
+When a label is present, the LED uses its normalized value to choose a stable
+animation theme. Labels exactly matching `caterpillar`, `race`, `rocket`, or
+`stars` select that theme directly. Other labels consistently hash to a theme;
+unnamed timers keep the timer-ID-based fallback. Add an exact lower-case alias
+to `TIMER_LABEL_THEME_MAP` in `timer_visuals.py` when a specific named timer
+should always use a chosen animation. The simulator follows the same default
+selection behavior.
+
 Example running snapshot:
 
 ```json
