@@ -3523,7 +3523,10 @@ class MatrixDisplay:
         clock_x, clock_y, scale, clock_width = clock_layout(text)
         progress = screen.get("progress") or 0
         elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
-        key = (screen.get("timer_id"), state, theme, scale, bool(screen.get("upstream_stale")))
+        # Hour count changes can alter the text width without changing scale.
+        # Rebuild the bitmap and reposition the whole scene on those boundaries.
+        key = (screen.get("timer_id"), state, theme, scale, clock_width,
+               bool(screen.get("upstream_stale")))
         changed = False
         if getattr(self, "_timer_scene_key", None) != key:
             group = displayio.Group()
@@ -3605,7 +3608,8 @@ class MatrixDisplay:
             self._timer_accents = accent_tiles
             self._timer_markers_eaten = None
             self._timer_pose = None
-            self._present(group)
+            # Do not present yet: markers and the active actor still need
+            # their first positions. The final check publishes once ready.
             changed = True
         if text != self._timer_clock_text:
             # Scale changes rebuild the scene; within one scale reuse bitmap.
