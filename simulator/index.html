@@ -1652,6 +1652,143 @@
         }
       });
     }
+    // Keep the simulator's tiny 3x7 clock and finish-only scenery in
+    // parity with timer_visuals.py (no downloaded image files).
+    const ALEXA_TIMER_THEMES = ['caterpillar', 'race', 'rocket', 'stars'];
+    const ALEXA_TIMER_FONT = {
+      '0':['111','101','101','101','101','101','111'],
+      '1':['010','110','010','010','010','010','111'],
+      '2':['111','001','001','111','100','100','111'],
+      '3':['111','001','001','111','001','001','111'],
+      '4':['101','101','101','111','001','001','001'],
+      '5':['111','100','100','111','001','001','111'],
+      '6':['111','100','100','111','101','101','111'],
+      '7':['111','001','001','010','010','010','010'],
+      '8':['111','101','101','111','101','101','111'],
+      '9':['111','101','101','111','001','001','111'],
+      ':':['000','010','010','000','010','010','000']
+    };
+    const ALEXA_CAR_ROWS = [
+      '....................','.......RRRRRR.......','.....RRRRRRRRRR.....',
+      '....RRRBBRRRRRRRR...','...RRRRBBRRRRRRRRRR.','..RRRRRRRRRRRRRRRRR.',
+      '.RRRRRRRRRRRRRRRRRY.','RRRRRRRRRRRRRRRRRRR.','...DDDD.......DDDD.',
+      '...DDDD.......DDDD.','....DD.........DD..'
+    ];
+    const ALEXA_ROCKET_ROWS = [
+      '......................','..................RR..','.................RRRR.',
+      '....WWWWWWWWWWWWRRRRR','..WWWWWWWWWWWWWWRRRRR','WWWWWWBBBBWWWWWWRRRRR',
+      'WWWWWWBBBBWWWWWWRRRRR','..WWWWWWWWWWWWWWRRRRR',
+      '....WWWWWWWWWWWWRRRRR','.................RRRR.','..................RR..'
+    ];
+    const ALEXA_STAR_ROWS = [
+      '......Y......','......Y......','......Y......','......Y......',
+      '....YYYYY....','.....YYY.....','YYYYYYYYYYYYY','.....YYY.....',
+      '....YYYYY....','......Y......','......Y......','......Y......','......Y......'
+    ];
+    const ALEXA_BACKGROUND_PALETTE = {
+      caterpillar:['#142b47','#235137','#327344','#76c65b','#ffca63','#f184b9','#78a2c4','#416a49'],
+      race:['#222b46','#3e506c','#3a4355','#657487','#e1cc81','#ee9a9a','#8bd3a2','#94a9c0'],
+      rocket:['#0d1636','#233451','#426eb0','#4cb8ce','#68c793','#91bde7','#566f8f','#a8d0e2'],
+      stars:['#21173f','#32204f','#50346a','#a66ec1','#fad56f','#72d4ff','#d9a1d9','#6c599a']
+    };
+    const ALEXA_ACCENTS = {
+      caterpillar:['....SSSS....','.SSSSSSSSSS.','SSSSSSSSSSSS','..SSSSSSSS..'],
+      race:['RRRRWWWW','RRRRWWWW','WWWWRRRR','WWWWRRRR'],
+      rocket:['..S..','..S..','SSSSS','..S..','..S..'],
+      stars:['..S..','..S..','SSSSS','..S..','..S..']
+    };
+    const ALEXA_ACCENT_COLOR = {
+      caterpillar:'#8eb6d4',race:'#f6f5ff',rocket:'#d1ecff',stars:'#f9c86e'
+    };
+    const alexaTimerBackgroundCache = {};
+    function alexaTimerTheme(timerId) {
+      const name = String(timerId || '');
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash += (i + 1) * name.charCodeAt(i);
+      return ALEXA_TIMER_THEMES[hash % 4];
+    }
+    function alexaTimerClockLayout(text) {
+      const scale = text.length <= 5 ? 3 : 2;
+      return {x:Math.max(0,256-text.length*4*scale-1), y:scale===3?5:9, scale};
+    }
+    function alexaTimerFinishPose(theme, elapsed) {
+      const t = Math.max(0, Math.min(1, elapsed / 1.5));
+      if (theme === 'caterpillar') {
+        const lift = t < 0.5 ? 9 * Math.sin(Math.PI*2*t) : 5 * Math.sin(Math.PI*2*(t-0.5));
+        return {rotation:0,dy:-Math.round(lift)};
+      }
+      if (theme === 'race') return {rotation:t>=1?0:Math.min(3,Math.floor(t*4)),dy:-Math.round(7*Math.sin(Math.PI*t))};
+      if (theme === 'rocket') return {rotation:t<0.25?0:3,dy:Math.round(7*Math.max(0,(t-0.3)/0.7))};
+      return {rotation:t>=1?0:Math.min(3,Math.floor(t*4)),dy:0};
+    }
+    function alexaTimerRotateRows(rows, turns) {
+      let v = rows.map(s=>s.padEnd(Math.max(...rows.map(row=>row.length)),'.'));
+      for(let t=0;t<turns;t++){
+        const width=v[0].length;
+        v=Array.from({length:width},(_,x)=>v.slice().reverse().map(row=>row[x]).join(''));
+      }
+      return v;
+    }
+    function alexaTimerBackgroundIndex(theme,x,y) {
+      if(theme==='caterpillar'){
+        if(y>=28)return 2;
+        if(y>=21+Math.floor(x/29)%4){
+          if(x%27===5&&y<=26)return Math.floor(x/27)%2?4:5;
+          return y<26?1:7;
+        }
+        if(y>=20&&x%27===5)return 3;
+        return 0;
+      }
+      if(theme==='race'){
+        if(y>=20)return (y===27||y===28)&&x%20<9?4:(y<25?3:2);
+        if(y>=14)return 7;
+        if(y>=4&&y<=12&&(x%6===1||x%6===2))return [4,5,6][(Math.floor(x/6)+Math.floor(y/3))%3];
+        return y>=3?1:0;
+      }
+      if(theme==='rocket'){
+        if(x>=160&&(x-174)**2+(y-16)**2<133)return (x+y)%6<2?4:(y<18?3:2);
+        if(y>=29&&x>139)return 6;
+        return (x*19+y*13)%137===0?5:0;
+      }
+      if(y>=24)return x%15<7?2:1;
+      if((x*11+y*17)%89===0)return x%2?4:5;
+      return y<17?0:1;
+    }
+    function alexaTimerAccentPositions(theme, elapsed) {
+      const tick=Math.floor(Math.max(0,elapsed)*4);
+      if(theme==='caterpillar')return [[10+Math.floor(tick/2),5],[100+Math.floor(tick/3),10]];
+      if(theme==='race')return [[28,3+tick%3],[117,4+(tick+1)%3]];
+      if(theme==='rocket')return [[25+tick%7,7],[87,16+tick%3]];
+      return [[27+tick%5,6],[124-tick%5,17]];
+    }
+    function drawAlexaTimerClock(label, done) {
+      const layout=alexaTimerClockLayout(label);
+      for(let i=0;i<label.length;i++){
+        const glyph=ALEXA_TIMER_FONT[label[i]];
+        for(let y=0;y<7;y++)for(let x=0;x<3;x++)if(glyph[y][x]==='1'){
+          context.fillStyle=done?'#b2ffbd':'#ffffff';
+          context.fillRect((layout.x+(i*4+x)*layout.scale)*FONT_PIXEL_SCALE,
+            (layout.y+y*layout.scale)*FONT_PIXEL_SCALE,
+            layout.scale*FONT_PIXEL_SCALE,layout.scale*FONT_PIXEL_SCALE);
+        }
+      }
+      return layout.x;
+    }
+    function drawAlexaTimerBackground(theme) {
+      if(!alexaTimerBackgroundCache[theme]){
+        const canvas=document.createElement('canvas');
+        canvas.width=194;canvas.height=32;
+        const ctx=canvas.getContext('2d');
+        const palette=ALEXA_BACKGROUND_PALETTE[theme];
+        for(let y=0;y<32;y++)for(let x=0;x<194;x++){
+          ctx.fillStyle=palette[alexaTimerBackgroundIndex(theme,x,y)];
+          ctx.fillRect(x,y,1,1);
+        }
+        alexaTimerBackgroundCache[theme]=canvas;
+      }
+      context.imageSmoothingEnabled=false;
+      context.drawImage(alexaTimerBackgroundCache[theme],0,0,194*FONT_PIXEL_SCALE,32*FONT_PIXEL_SCALE);
+    }
     function drawCalendarDue(events, now, stale, clockX, source) {
       if (events.length === 0 || source === 'todoist') return;
       if (!events.length) return;
@@ -1813,34 +1950,60 @@
         }
         suppressHeader = true; status.dataset.detail = 'Today: current conditions';
       } else if (screen.kind === 'alexa_timer') {
-        const total = Math.max(1, Number(screen.duration_seconds) || 300);
-        const remaining = screen.state === 'complete' ? 0 :
-          screen.state === 'paused' ? Math.max(0, Number(screen.remaining_seconds) || 0) :
-          alexaTimerRemaining(total, rawPhase);
-        const hours = Math.floor(remaining / 3600);
-        const minutes = Math.floor((remaining % 3600) / 60);
-        const seconds = remaining % 60;
-        const label = hours ? `${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}` : `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-        const scale = label.length <= 5 ? 3 : 2;
-        const clockX = Math.max(0, 256 - label.length * 6 * scale - 2);
-        context.fillStyle = '#ffffff';
-        drawLedTextScaled(label, clockX * FONT_PIXEL_SCALE, 7 * FONT_PIXEL_SCALE, scale, true);
-        const eaten = alexaTimerApplesEaten(remaining, total);
-        for (let i = eaten; i < 10; i++) {
-          drawAlexaTimerSprite(ALEXA_APPLE_ROWS,
-            {R:'#f4514a',D:'#ac2c37',G:'#6ce573'},
-            alexaTimerAppleCenter(clockX, i) - 4, 17);
+        const total=Math.max(1,Number(screen.timer_duration_seconds || screen.duration_seconds)||300);
+        const done=screen.state==='complete' || (screen.source==='simulator' && rawPhase>=total);
+        const finishElapsed=screen.state==='complete' ?
+          Math.max(0,Number(screen.completion_elapsed_seconds)||0) : Math.max(0,rawPhase-total);
+        const remaining=done?0:screen.state==='paused' ?
+          Math.max(0,Number(screen.remaining_seconds)||0) : alexaTimerRemaining(total,rawPhase);
+        const progress=screen.progress!=null && screen.source!=='simulator' ?
+          Math.max(0,Math.min(1,Number(screen.progress))) : Math.max(0,Math.min(1,1-remaining/total));
+        const hours=Math.floor(remaining/3600),minutes=Math.floor((remaining%3600)/60);
+        const seconds=remaining%60;
+        const label=hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`:
+          `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        const theme=ALEXA_TIMER_THEMES.includes(screen.theme)?screen.theme:alexaTimerTheme(screen.timer_id);
+        if(done){
+          drawAlexaTimerBackground(theme);
+          const positions=alexaTimerAccentPositions(theme,finishElapsed);
+          for(const [x,y] of positions)drawAlexaTimerSprite(ALEXA_ACCENTS[theme],
+            {S:ALEXA_ACCENT_COLOR[theme],R:'#f46464',W:ALEXA_ACCENT_COLOR[theme]},x,y);
         }
-        const headX = alexaTimerCaterpillarPosition(clockX, remaining, total);
-        const bob = screen.state === 'paused' || screen.state === 'complete' ? 0 : Math.floor(rawPhase * 3) % 2;
-        drawAlexaTimerSprite(ALEXA_CATERPILLAR_ROWS,
-          {G:'#8cee63',D:'#3da94a',E:'#172e29'}, headX - 22, 14 + bob);
-        if (screen.state === 'complete') {
-          context.fillStyle = '#ffe66a';
-          drawLedText('YUM!', 7 * FONT_PIXEL_SCALE, 5 * FONT_PIXEL_SCALE);
+        const clockX=drawAlexaTimerClock(label,done);
+        if(!done){
+          const eaten=alexaTimerApplesEaten(remaining,total);
+          for(let i=eaten;i<10;i++){
+            if(theme==='caterpillar'){
+              drawAlexaTimerSprite(ALEXA_APPLE_ROWS,{R:'#f4514a',D:'#ac2c37',G:'#6ce573'},
+                alexaTimerAppleCenter(clockX,i)-4,17);
+            }else{
+              const mark=theme==='stars'?['..Y..','.YYY.','YYYYY','.YYY.','..Y..']:['YYYYYYY','YYYYYYY'];
+              drawAlexaTimerSprite(mark,{Y:'#ffe36a'},alexaTimerAppleCenter(clockX,i)-3,
+                theme==='stars'?21:28);
+            }
+          }
         }
-        suppressHeader = true;
-        status.dataset.detail = `Alexa timer · ${screen.state || 'running'} · ${label}`;
+        const head=alexaTimerCaterpillarPosition(clockX,remaining,total);
+        const pose=done?alexaTimerFinishPose(theme,finishElapsed):{rotation:0,dy:0};
+        if(theme==='caterpillar'){
+          const bob=!done && screen.state!=='paused'?Math.floor(rawPhase*3)%2:0;
+          drawAlexaTimerSprite(ALEXA_CATERPILLAR_ROWS,
+            {G:'#8cee63',D:'#3da94a',E:'#172e29'},
+            done?clockX-44:head-22,done?14+pose.dy:14+bob);
+        }else{
+          const rows=alexaTimerRotateRows(theme==='race'?ALEXA_CAR_ROWS:theme==='rocket'?ALEXA_ROCKET_ROWS:ALEXA_STAR_ROWS,pose.rotation);
+          const colors=theme==='race'?{R:'#f14e4b',B:'#65c5ff',D:'#222838',Y:'#ffe36a'}:
+            theme==='rocket'?{W:'#e9f2ff',B:'#59c4f4',R:'#f46872'}:{Y:'#ffe36a'};
+          let x=head-11,y=theme==='race'?14:10;
+          if(done){
+            if(theme==='race'){x=clockX-(pose.rotation%2===0?37:30);y=(pose.rotation%2===0?16:8)+pose.dy}
+            else if(theme==='rocket'){x=clockX-(pose.rotation===0?47:35);y=(pose.rotation===0?11:2)+pose.dy}
+            else{x=clockX-34;y=12}
+          }
+          drawAlexaTimerSprite(rows,colors,x,y);
+        }
+        suppressHeader=true;
+        status.dataset.detail=`Alexa timer · ${done?'complete':screen.state||'running'} · ${theme} · ${label}`;
       } else if (screen.kind === 'football_score') {
         drawFootball(screen, phase);
         suppressHeader = true;
@@ -2246,22 +2409,27 @@
       status.dataset.detail = 'Football fixture preview · PRE, UK-local kick-off and pinned ball';
     });
     document.getElementById('timer-preview').addEventListener('click', () => {
-      screens = [{id:'alexa-timer-preview', kind:'alexa_timer', source:'simulator',
-        timer_id:'preview-timer', device:'living-room-alexa', state:'running', title:'Alexa timer',
-        duration_seconds:300}];
-      screenOffset = 0;
-      paused = false;
-      pauseStarted = performance.now();
-      status.dataset.detail = 'Alexa timer contract preview · 5:00';
+      screens=ALEXA_TIMER_THEMES.map(theme=>({
+        id:'alexa-'+theme+'-preview',kind:'alexa_timer',source:'simulator',
+        timer_id:'preview-'+theme,device:'living-room-alexa',state:'running',
+        title:'Living room Alexa timer',
+        theme,duration_seconds:15,timer_duration_seconds:10
+      }));
+      screenOffset=0;
+      paused=false;
+      pauseStarted=performance.now();
+      status.dataset.detail='Living room Alexa · four timer themes · 10s countdown + 5s finish each';
     });
     document.getElementById('hall-timer-preview').addEventListener('click', () => {
-      screens = [{id:'alexa-timer-hall-preview', kind:'alexa_timer', source:'simulator',
-        timer_id:'hall-preview-timer', device:'hall-alexa', state:'running', title:'Hall Alexa timer',
-        duration_seconds:300}];
-      screenOffset = 0;
-      paused = false;
-      pauseStarted = performance.now();
-      status.dataset.detail = 'Hall Alexa timer contract preview · 5:00';
+      screens=ALEXA_TIMER_THEMES.map(theme=>({
+        id:'alexa-hall-'+theme+'-preview',kind:'alexa_timer',source:'simulator',
+        timer_id:'hall-preview-'+theme,device:'hall-alexa',state:'running',
+        title:'Hall Alexa timer',theme,duration_seconds:15,timer_duration_seconds:10
+      }));
+      screenOffset=0;
+      paused=false;
+      pauseStarted=performance.now();
+      status.dataset.detail='Hall Alexa · four timer themes · 10s countdown + 5s finish each';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();

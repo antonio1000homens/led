@@ -1418,8 +1418,10 @@ while True:
                 "state": active_timer["state"],
                 "upstream_stale": active_timer.get("stale", False),
                 "label": active_timer.get("label", ""),
+                "completion_elapsed_seconds": active_timer.get("completion_elapsed_seconds", 0),
             }
-            phase = float(now) if active_timer["state"] == "running" else 0.0
+            phase = (float(now) if active_timer["state"] == "running"
+                     else active_timer.get("completion_elapsed_seconds", 0))
         elif timer_rotation_resume is not None:
             rotation.resume(ticks_ms(), timer_rotation_resume[0], timer_rotation_resume[1])
             timer_rotation_resume = None
@@ -1776,7 +1778,7 @@ while True:
         or _smooth_today(screen)
         or _smooth_bin_collection(screen)
         or _smooth_christmas(screen)
-        or (screen.get("kind") == "alexa_timer" and screen.get("state") == "running")
+        or (screen.get("kind") == "alexa_timer" and screen.get("state") in ("running", "complete"))
     )
     if smooth_animation:
         desired_cadence = display.animation_cadence(screen, phase)

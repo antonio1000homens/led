@@ -104,7 +104,7 @@ class AlexaTimerStateTests(unittest.TestCase):
     def test_browser_simulator_keeps_last_apple_until_zero(self):
         html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
         self.assertIn('id="hall-timer-preview"', html)
-        self.assertIn("Hall Alexa timer contract preview", html)
+        self.assertIn("Hall Alexa · four timer themes", html)
         functions = html[html.index("function alexaTimerRemaining"):
                          html.index("function drawCalendarDue")]
         harness = functions + """
@@ -212,7 +212,8 @@ process.stdout.write(JSON.stringify([
         self.assertEqual(state.selected(None, 130.0)["remaining_seconds"], 30.0)
         self.assertEqual(state.selected(None, 160.0)["state"], "complete")
         self.assertEqual(state.selected(None, 162.0)["state"], "complete")
-        self.assertIsNone(state.selected(None, 163.0))
+        self.assertEqual(state.selected(None, 162.0)["completion_elapsed_seconds"], 2.0)
+        self.assertIsNone(state.selected(None, 165.0))
 
     def test_marks_upstream_stale_after_bounded_refresh_window(self):
         state = TimerState()
@@ -245,7 +246,9 @@ process.stdout.write(JSON.stringify([
         ]), now)[0])
         self.assertEqual(state.selected(now + 5)["state"], "complete")
         self.assertEqual(state.selected(now + 6)["state"], "complete")
-        self.assertEqual(state.selected(now + 9)["timer_id"], "next")
+        self.assertEqual(state.selected(now + 6)["completion_elapsed_seconds"], 1.0)
+        self.assertEqual(state.selected(now + 9)["state"], "complete")
+        self.assertEqual(state.selected(now + 10)["timer_id"], "next")
 
     def test_selects_earliest_running_timer_across_devices(self):
         now = iso_epoch("2026-10-31T15:00:00Z")

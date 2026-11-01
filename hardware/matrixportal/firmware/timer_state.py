@@ -5,7 +5,7 @@ MAX_TIMERS = 8
 MAX_LABEL_LENGTH = 40
 MAX_ID_LENGTH = 80
 MAX_DURATION_SECONDS = 7 * 24 * 60 * 60
-COMPLETION_HOLD_SECONDS = 3
+COMPLETION_HOLD_SECONDS = 5
 UPSTREAM_STALE_AFTER_SECONDS = 600
 MAX_PAYLOAD_CHARACTERS = 4096
 TIMER_ID_PUNCTUATION_CODES = (45, 46, 58, 95)  # - . : _
@@ -199,6 +199,8 @@ class TimerState:
         self.completed_id = None
         self.completed_until = None
         self.completed_until_monotonic = None
+        self.completed_at_epoch = None
+        self.completed_at_monotonic = None
         self.observed_durations = {}
         self.epoch_anchor = None
         self.monotonic_anchor = None
@@ -251,6 +253,7 @@ class TimerState:
         if snapshot["event"] == "clear":
             self.observed_durations = {}
             self.completed_id = self.completed_until = self.completed_until_monotonic = None
+            self.completed_at_epoch = self.completed_at_monotonic = None
         return True, "accepted"
 
     def selected(self, now_epoch, now_monotonic=None):
@@ -269,8 +272,12 @@ class TimerState:
                 result["progress"] = 1.0
                 result["label"] = ""
                 result["stale"] = stale
+                origin = (self.completed_at_monotonic if use_monotonic
+                          else self.completed_at_epoch)
+                result["completion_elapsed_seconds"] = max(0.0, hold_now - origin)
                 return result
             self.completed_id = self.completed_until = self.completed_until_monotonic = None
+            self.completed_at_epoch = self.completed_at_monotonic = None
 
         timer = None
         running_end = None
@@ -287,6 +294,8 @@ class TimerState:
             remaining = max(0, running_end - current)
             if remaining == 0:
                 self.completed_id = timer["timer_id"]
+                self.completed_at_epoch = now_epoch
+                self.completed_at_monotonic = now_monotonic
                 if now_monotonic is not None:
                     self.completed_until_monotonic = now_monotonic + COMPLETION_HOLD_SECONDS
                     self.completed_until = now_epoch
@@ -302,6 +311,7 @@ class TimerState:
                 result["progress"] = 1.0
                 result["label"] = ""
                 result["stale"] = stale
+                result["completion_elapsed_seconds"] = 0.0
                 return result
         else:
             for candidate in self.timers:
@@ -326,6 +336,7 @@ class TimerState:
         result = self.selection
         result["timer_id"] = timer["timer_id"]
         result["state"] = timer["state"]
+        result["completion_elapsed_seconds"] = 0.0
         result["remaining_seconds"] = remaining
         result["duration_seconds"] = duration
         progress = min(1.0, max(0.0, 1.0 - remaining / duration))
