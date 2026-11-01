@@ -7,8 +7,8 @@ from math import sin, pi
 
 SCENE_WIDTH = 194
 FINISH_MOTION_SECONDS = 1.5
-# Double-size actors fill 22–30 of the 32 LED rows, including rotated poses.
-# Characters are rasterized once when a scene is built, never every frame.
+# Double-size actors fill 22–30 of the 32 LED rows. Only the compact actors
+# rotate; the caterpillar remains horizontal. Rasterize once per scene.
 TIMER_ACTOR_SCALE = 2
 TIMER_APPLE_SCALE = 2
 TIMER_THEMES = ("caterpillar", "race", "rocket", "stars")
