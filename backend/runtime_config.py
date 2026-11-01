@@ -42,7 +42,7 @@ DEFAULT_BUS_INTRO_WORDS = "Beep! Beep!..."
 SCREEN_SCHEDULE_FEEDS = (
     "steam_train", "departures", "queue_times", "weather", "dad_joke",
     "random_fact", "quotes", "insult_of_hour", "today", "calendar",
-    "recycling", "sl7_bus", "christmas",
+    "recycling", "sl7_bus", "christmas", "football_fixtures",
 )
 MAX_SCHEDULE_WINDOWS = 16
 MAX_SCHEDULE_WINDOW_MINUTES = 31 * 24 * 60
@@ -68,6 +68,11 @@ MAX_DESTINATION_SCROLL_SPEED = 80
 MIN_CALENDAR_TASKS = 1
 MAX_CALENDAR_TASKS = 6
 DEFAULT_CALENDAR_TASKS = 6
+DEFAULT_FOOTBALL_LOOKAHEAD_DAYS = 45
+MAX_FOOTBALL_LOOKAHEAD_DAYS = 180
+MIN_FOOTBALL_ANIMATION_SPEED = 20
+MAX_FOOTBALL_ANIMATION_SPEED = 160
+DEFAULT_FOOTBALL_ANIMATION_SPEED = 80
 MIN_CUBS_EVENTS = 1
 MAX_CUBS_EVENTS = 12
 DEFAULT_CUBS_EVENTS = 6
@@ -273,6 +278,17 @@ FEED_REGISTRY = {
         "advanced_fields": ("visible_task_count",),
         "screen_duration": True,
     },
+    "football_fixtures": {
+        "label": "Football fixtures (Google Calendar)",
+        "provider": "google_calendar",
+        "display_group": "sports",
+        "mutable_fields": (
+            "enabled", "poll_seconds", "screen_duration_seconds", "lookahead_days", "animation_speed",
+            "sporting_cp_enabled", "millwall_enabled", "portugal_enabled", "england_enabled",
+        ),
+        "advanced_fields": ("lookahead_days", "animation_speed"),
+        "screen_duration": True,
+    },
     "cubs": {
         "label": "Cubs",
         "provider": "cubs_ics",
@@ -471,6 +487,21 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                     maximum=MAX_CALENDAR_TASKS,
                 ),
             },
+            "football_fixtures": {
+                # Provider source selection does not implicitly opt in to publishing.
+                # Keep migration/first deploy safe until the admin enables it.
+                "enabled": False,
+                "poll_seconds": _int_env(env, "LED_FOOTBALL_FIXTURE_CACHE_SECONDS", 900),
+                "screen_duration_seconds": _int_env(env, "LED_FOOTBALL_FIXTURE_DURATION_SECONDS", 20,
+                    minimum=MIN_SCREEN_DURATION_SECONDS, maximum=MAX_SCREEN_DURATION_SECONDS),
+                "lookahead_days": _int_env(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS",
+                    DEFAULT_FOOTBALL_LOOKAHEAD_DAYS, minimum=1, maximum=MAX_FOOTBALL_LOOKAHEAD_DAYS),
+                "animation_speed": DEFAULT_FOOTBALL_ANIMATION_SPEED,
+                "sporting_cp_enabled": True,
+                "millwall_enabled": True,
+                "portugal_enabled": False,
+                "england_enabled": False,
+            },
             "cubs": {
                 "enabled": False,
                 "poll_seconds": _int_env(env, "LED_CUBS_CACHE_SECONDS", 86400,
@@ -585,6 +616,14 @@ def schema_metadata() -> dict[str, Any]:
                     "minimum": metadata["minimum"],
                     "maximum": metadata["maximum"],
                 }
+        if feed_id == "football_fixtures":
+            for team in ("sporting_cp", "millwall", "portugal", "england"):
+                fields[team + "_enabled"] = {"type": "boolean"}
+            fields["lookahead_days"] = {"type": "integer", "minimum": 1, "maximum": MAX_FOOTBALL_LOOKAHEAD_DAYS}
+            fields["animation_speed"] = {
+                "type": "integer", "minimum": MIN_FOOTBALL_ANIMATION_SPEED,
+                "maximum": MAX_FOOTBALL_ANIMATION_SPEED,
+            }
         if feed_id == "recycling":
             fields["slide_speed"] = {"type": "integer", "minimum": MIN_RECYCLING_SCROLL_SPEED, "maximum": MAX_RECYCLING_SCROLL_SPEED}
         if feed_id == "sl7_bus":
@@ -727,12 +766,17 @@ def validate_feed_patch(
             MAX_FLASH_SCREEN_DURATION_SECONDS if FEED_REGISTRY[feed_id].get("flash") else MAX_SCREEN_DURATION_SECONDS,
         )
     if "animation_speed" in patch:
+        minimum, maximum = (
+            (MIN_FOOTBALL_ANIMATION_SPEED, MAX_FOOTBALL_ANIMATION_SPEED)
+            if feed_id == "football_fixtures"
+            else (MIN_STEAM_TRAIN_SPEED, MAX_STEAM_TRAIN_SPEED)
+        )
         result["animation_speed"] = _validate_integer(
             feed_id,
             "animation_speed",
             patch["animation_speed"],
-            MIN_STEAM_TRAIN_SPEED,
-            MAX_STEAM_TRAIN_SPEED,
+            minimum,
+            maximum,
         )
     if "words" in patch:
         words = patch["words"]
@@ -789,6 +833,17 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
+    if feed_id == "football_fixtures":
+        for team in ("sporting_cp", "millwall", "portugal", "england"):
+            field = team + "_enabled"
+            if field in patch:
+                if not isinstance(patch[field], bool):
+                    raise RuntimeConfigValidationError(f"{feed_id}.{field} must be boolean")
+                result[field] = patch[field]
+    if feed_id == "football_fixtures" and "lookahead_days" in patch:
+        result["lookahead_days"] = _validate_integer(
+            feed_id, "lookahead_days", patch["lookahead_days"], 1, MAX_FOOTBALL_LOOKAHEAD_DAYS
+        )
     if feed_id == "recycling":
         for field, minimum, maximum in (
             ("slide_speed", MIN_RECYCLING_SCROLL_SPEED, MAX_RECYCLING_SCROLL_SPEED),
@@ -906,6 +961,13 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw["upcoming_bus_count"] = min(
                 MAX_BUS_COUNT, raw.get("upcoming_bus_count", 3)
             ) if isinstance(raw.get("upcoming_bus_count"), int) and not isinstance(raw.get("upcoming_bus_count"), bool) else raw.get("upcoming_bus_count")
+        if feed_id == "football_fixtures":
+            # Version 100 predates this required field. Backfill only the new
+            # field; supplied values still pass normal strict validation.
+            raw.setdefault("animation_speed", DEFAULT_FOOTBALL_ANIMATION_SPEED)
+            for team in ("sporting_cp", "millwall", "portugal", "england"):
+                field = team + "_enabled"
+                raw.setdefault(field, default_feed[field])
         if feed_id == "insult_of_hour":
             # Older admins accepted a sub-hourly interval. Migrate that saved
             # setting without discarding the rest of the user configuration.

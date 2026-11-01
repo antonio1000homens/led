@@ -43,6 +43,7 @@ MQTT_TOPIC = "led/flash/reminder"
 MQTT_ASSISTANT_RESPONSE_TOPIC = "led/flash/assistant-response"
 MQTT_SCREENS_TOPIC = "led/screens/+"
 MQTT_FOOTBALL_TOPIC = "led/football/+"
+MQTT_TIMER_TOPIC = "led/timer/+"
 MQTT_FOOTBALL_ENABLED = True
 MQTT_BOARD_STATUS_TOPIC = "led/board/screen"
 MQTT_BOARD_HEALTH_TOPIC = "led/board/health"

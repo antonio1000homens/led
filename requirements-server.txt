@@ -1,2 +1,4 @@
 zeep==4.3.3
 PyJWT[crypto]==2.10.1
+icalendar==7.3.0
+recurring-ical-events==3.8.2

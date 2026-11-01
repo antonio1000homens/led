@@ -25,6 +25,20 @@ def _free_heap_bytes():
         return -1
 
 
+class _ScreenTLSContext:
+    """Proxy the public TLS interface to expose bounded setup diagnostics."""
+
+    def __init__(self, context, client):
+        self._context = context
+        self._client = client
+
+    def wrap_socket(self, *args, **kwargs):
+        self._client._fetch_stage = "tls_setup"
+        result = self._context.wrap_socket(*args, **kwargs)
+        self._client._fetch_stage = "connection_setup"
+        return result
+
+
 def _valid_rail_presentation(value):
     if not isinstance(value, dict):
         return False
@@ -315,6 +329,21 @@ class ScreenRotation:
             return followup is not None and self.is_bus_followup(screen, followup) and self._schedule_active(followup)
         return True
 
+    def schedule_state(self):
+        """Return bounded counts for diagnosing an idle post-fetch rotation."""
+        disabled = sum(1 for screen in self.screens if screen.get("schedule_enabled") is False)
+        windowed = sum(1 for screen in self.screens if bool(screen.get("schedule_windows")))
+        active = sum(1 for screen in self.screens if self._schedule_active(screen))
+        return {
+            "http": len(self.http_screens),
+            "mqtt": len(self.mqtt_screens),
+            "cycle": len(self.screens),
+            "active": active,
+            "disabled": disabled,
+            "windowed": windowed,
+            "idle": bool(self._schedule_idle),
+        }
+
     def _first_scheduled_index(self, start=0):
         for offset in range(len(self.screens)):
             index = (start + offset) % len(self.screens)
@@ -407,7 +436,30 @@ class ScreenRotation:
             if item.get("kind") != "bus_departures"
             and not str(item.get("id") or "").startswith("sl7-")
         }
-        available = [mqtt.pop(item.get("id"), item) for item in self.http_screens]
+        available = []
+        for item in self.http_screens:
+            selected = mqtt.pop(item.get("id"), None)
+            if selected is None:
+                selected = item
+            elif (
+                item.get("kind") == "football_score"
+                and selected.get("kind") == "football_score"
+                and selected.get("status") == "POST"
+                and item.get("status") == "PRE"
+                and selected.get("match_id")
+                and item.get("match_id")
+                and selected.get("match_id") != item.get("match_id")
+            ):
+                # Keep a final MQTT result available for its immediate event
+                # presentation, but let the separate fixtures feed put the
+                # team's next match back into the normal rotation.
+                selected = item
+            elif (item.get("kind") == "football_score"
+                  and selected.get("kind") == "football_score"
+                  and "animation_speed" in item):
+                selected = dict(selected)
+                selected.setdefault("animation_speed", item["animation_speed"])
+            available.append(selected)
         available.extend(mqtt[key] for key in sorted(mqtt))
         return available
 
@@ -448,6 +500,22 @@ class ScreenRotation:
             or (index + 1 < len(next_screens)
                 and self.is_bus_followup(item, next_screens[index + 1]))
         ]
+        # MQTT may populate a one-screen cycle before the first HTTP fetch,
+        # while a static maintenance page is temporarily inserted into it.
+        # If no scheduled normal screen remains, preserve neither that
+        # maintenance-only cycle nor its newly ineligible MQTT screen.
+        retained_scheduled_active = any(
+            self._schedule_active(item)
+            for item in next_screens if item.get("id") != "static-maintenance"
+        )
+        available_normal_active = any(
+            self._schedule_active(item) and not self.is_maintenance_screen(item)
+            for item in available if item.get("id") != "static-maintenance"
+        )
+        if (next_screens
+                and not retained_scheduled_active and available_normal_active):
+            next_screens = self._cycle_plan(available)
+            old_current = None
         if not next_screens:
             next_screens = self._cycle_plan(available)
         self.screens = next_screens
@@ -570,13 +638,13 @@ class ScreenRotation:
         return (
             (previous_id == "steam-train" and current.get("kind") == "rail_combined")
             or (previous_id == "christmas-tracker-intro" and current.get("kind") == "christmas_tracker")
-            or (current.get("kind") == "football_score"
-                and previous_id == "football-intro-" + str(current.get("team_key") or ""))
             or (current.get("kind") == "bus_departures"
                 and stop in ("heathrow", "new-malden")
                 and previous_id == "sl7-{}-intro".format(stop))
             or (current.get("kind") == "bus_departures_combined"
                 and previous_id == "sl7-combined-intro")
+            or (current.get("kind") == "football_score"
+                and str(previous_id or "").startswith("football-"))
         )
 
     def next_paired_rail_screen(self):
@@ -620,35 +688,53 @@ class ScreenRotation:
             and (item.get("kind") not in ("bus_departures", "bus_departures_combined", "bus_intro")
                  or self.cycle_number % max(1, int(item.get("display_every_cycles", 1))) == 0)
         ]
-        # Keep the Beep! Beep! introduction only when its matching stop's
-        # departures page is present and eligible for this rotation.
+        # Pull football entries aside *before* pairing screens. The provider
+        # may interleave a calendar fixture between an intro and its follow-up.
+        # Removing football first restores those pairs and prevents losing a
+        # bus intro to the orphan check. Insert the complete football block
+        # only at an existing block boundary.
+        football = [item for item in normal if item.get("kind") == "football_score"]
+        first_football = None
+        for index, item in enumerate(normal):
+            if item.get("kind") == "football_score":
+                first_football = index
+                break
+        anchor = None
+        if first_football is not None:
+            for item in normal[:first_football]:
+                if item.get("kind") != "football_score":
+                    anchor = item
+        normal = [item for item in normal if item.get("kind") != "football_score"]
+        # Keep Beep! Beep! only when its follow-up is still eligible.
         normal = [
             item for index, item in enumerate(normal)
             if item.get("kind") != "bus_intro"
             or (index + 1 < len(normal)
                 and self.is_bus_followup(item, normal[index + 1]))
         ]
-        normal = [
-            item for index, item in enumerate(normal)
-            if item.get("kind") != "football_intro"
-            or (index + 1 < len(normal)
-                and self.is_paired_transition(item.get("id", ""), normal[index + 1]))
-        ]
         static = [self._choose(item) for item in screens if self.is_static(item)]
-        # Do not separate the train from departures. Queue Times is already
-        # represented by one atomic screen.
+        # Build atomic train/bus/Christmas/weather pairs first.
         blocks = []
         for item in normal:
             if blocks and (
-                (blocks[-1][-1].get("kind") == "steam_train_intro" and item.get("kind") == "rail_combined")
-                or (blocks[-1][-1].get("kind") == "christmas_tracker_intro" and item.get("kind") == "christmas_tracker")
-                or self.is_paired_transition(blocks[-1][-1].get("id", ""), item)
+                (blocks[-1][-1].get("kind") == "steam_train_intro"
+                 and item.get("kind") == "rail_combined")
+                or (blocks[-1][-1].get("kind") == "christmas_tracker_intro"
+                    and item.get("kind") == "christmas_tracker")
                 or self.is_bus_followup(blocks[-1][-1], item)
                 or self.is_weather_followup(blocks[-1][-1], item)
             ):
                 blocks[-1].append(item)
             else:
                 blocks.append([item])
+        if football:
+            insert_at = 0
+            if anchor is not None:
+                for index, block in enumerate(blocks):
+                    if any(item is anchor for item in block):
+                        insert_at = index + 1
+                        break
+            blocks.insert(insert_at, football)
         for i in range(len(static) - 1, 0, -1):
             j = self.rng.randrange(i + 1)
             static[i], static[j] = static[j], static[i]
@@ -756,6 +842,16 @@ class ScreenRotation:
                 return
 
 
+def attach_shared_weather(screens, weather):
+    """Attach one payload-level weather dictionary to screens that need it."""
+    if not isinstance(screens, list) or not isinstance(weather, dict):
+        return screens
+    for screen in screens:
+        if isinstance(screen, dict) and not isinstance(screen.get("weather"), dict):
+            screen["weather"] = weather
+    return screens
+
+
 class ScreenClient:
     """Fetch `/api/screens` from the LAN backend using CircuitPython Wi-Fi."""
 
@@ -763,6 +859,11 @@ class ScreenClient:
         self.settings = settings
         self.session = session
         self._managed_session = session is None
+        self._socket_pool = None
+        self._ssl_context = None
+        self._fetch_stage = "session_setup"
+        self.last_error_stage = ""
+        self.last_error_class = ""
 
     def _ensure_session(self):
         if not self._managed_session:
@@ -779,8 +880,12 @@ class ScreenClient:
             import adafruit_connection_manager
             import adafruit_ntp
             import adafruit_requests
+            import socketpool
+            import ssl
 
-            pool = adafruit_connection_manager.get_radio_socketpool(wifi.radio)
+            # Keep HTTP and MQTT sockets in separate pools. The HTTP-owned
+            # pool can be force-closed during recovery without touching MQTT.
+            pool = self._socket_pool or socketpool.SocketPool(wifi.radio)
             # ESP32-S3 RTC time is lost on power removal. Set it before TLS
             # certificate validation, otherwise HTTPS fails with an mbedTLS
             # certificate-time error on a freshly powered board.
@@ -788,25 +893,81 @@ class ScreenClient:
                 print("Setting system time from NTP")
                 ntp = adafruit_ntp.NTP(pool, tz_offset=0, cache_seconds=3600)
                 rtc.RTC().datetime = ntp.datetime
-            ssl_context = adafruit_connection_manager.get_radio_ssl_context(wifi.radio)
+            ssl_context = ssl.create_default_context()
             try:
                 with open("/gtsr4.pem", "r") as certificate:
                     ssl_context.load_verify_locations(cadata=certificate.read())
                 print("Loaded GTS Root R4 certificate")
             except (AttributeError, OSError, TypeError) as error:
-                print("GTS Root R4 certificate unavailable:", error)
-            self.session = adafruit_requests.Session(pool, ssl_context)
+                print("GTS Root R4 certificate unavailable:", type(error).__name__)
+            self._socket_pool = pool
+            self._ssl_context = _ScreenTLSContext(ssl_context, self)
+            self.session = adafruit_requests.Session(pool, self._ssl_context)
+            manager = adafruit_connection_manager.get_connection_manager(pool)
+            if not getattr(manager, "_led_screen_instrumented", False):
+                original_get_socket = manager.get_socket
+
+                def tracked_get_socket(*args, **kwargs):
+                    self._fetch_stage = "connection_setup"
+                    result = original_get_socket(*args, **kwargs)
+                    self._fetch_stage = "response_headers"
+                    return result
+
+                manager.get_socket = tracked_get_socket
+                manager._led_screen_instrumented = True
+            print("SCREEN HTTP LIBRARIES requests={} connection_manager={}".format(
+                getattr(adafruit_requests, "__version__", "unknown"),
+                getattr(adafruit_connection_manager, "__version__", "unknown"),
+            ))
+
+    def _recover_request_memory_error(self):
+        """Recreate only this client's pool, TLS context and HTTP session."""
+        if self._managed_session and self._socket_pool is not None:
+            socket_pool = self._socket_pool
+            try:
+                import adafruit_connection_manager
+
+                adafruit_connection_manager.connection_manager_close_all(
+                    socket_pool=socket_pool,
+                    release_references=False,
+                )
+                print("SCREEN FETCH OWNED SOCKETS CLOSED")
+            except Exception as error:
+                print("SCREEN FETCH OWNED SOCKET CLEANUP FAILED:", type(error).__name__)
+            self.session = None
+            self._ssl_context = None
+        try:
+            import gc
+
+            gc.collect()
+        except (ImportError, AttributeError):
+            pass
 
     def fetch(self):
-        self._ensure_session()
         base = str(self.settings.SCREEN_API_URL).rstrip("/")
         if not base:
             raise ValueError("SCREEN_API_URL is required for api mode")
         response = None
-        stage = "request"
+        clock_response_received = None
+        self._fetch_stage = "session_setup"
         try:
+            self._ensure_session()
+            self._fetch_stage = "connection_setup"
             print("SCREEN FETCH REQUEST heap_free={}".format(_free_heap_bytes()))
-            response = self.session.get(base + "/api/screens")
+            url = base + "/api/screens"
+            import time
+
+            try:
+                response = self.session.get(url)
+                clock_response_received = time.monotonic()
+            except MemoryError:
+                print("SCREEN FETCH REQUEST MEMORYERROR; rebuilding owned HTTP session and retrying")
+                self._recover_request_memory_error()
+                self._ensure_session()
+                self._fetch_stage = "connection_setup"
+                response = self.session.get(url)
+                clock_response_received = time.monotonic()
+            self._fetch_stage = "response_headers"
             status_code = getattr(response, "status_code", None)
             headers = getattr(response, "headers", {}) or {}
             print("SCREEN FETCH RESPONSE status={} bytes={} heap_free={}".format(
@@ -820,7 +981,7 @@ class ScreenClient:
                 # Keep compatibility with the CPython test double and
                 # requests-like sessions that expose raise_for_status().
                 response.raise_for_status()
-            stage = "json"
+            self._fetch_stage = "response_body"
             payload = response.json()
             print("SCREEN FETCH JSON OK heap_free={}".format(_free_heap_bytes()))
             if not isinstance(payload, dict) or not isinstance(payload.get("screens"), list):
@@ -831,12 +992,33 @@ class ScreenClient:
             clock_at = _http_date_timestamp(headers.get("date") or headers.get("Date"))
             if clock_at:
                 payload["clock_at"] = clock_at
+                # Anchor ClockState when the response headers arrive. Anchoring
+                # after response.json() would include the whole body download
+                # and parse time, making the local clock lag by that duration.
+                payload["_clock_response_received_monotonic"] = clock_response_received
+                print("SCREEN CLOCK HTTP_DATE headers_to_json_seconds={:.3f}".format(
+                    max(0.0, time.monotonic() - clock_response_received)
+                ))
+            self.last_error_stage = ""
+            self.last_error_class = ""
             return payload
-        except MemoryError:
-            print("SCREEN FETCH MEMORYERROR stage={} heap_free={}".format(
-                stage, _free_heap_bytes(),
-            ))
+        except Exception as error:
+            if isinstance(error, MemoryError):
+                # The one retry has failed (or setup failed before a request).
+                # Release only this HTTP client's pool before returning to rotation.
+                self._recover_request_memory_error()
+            self.last_error_stage = self._fetch_stage
+            self.last_error_class = type(error).__name__
+            if isinstance(error, MemoryError):
+                print("SCREEN FETCH MEMORYERROR stage={} heap_free={}".format(
+                    self.last_error_stage, _free_heap_bytes(),
+                ))
             raise
         finally:
             if response is not None:
-                response.close()
+                try:
+                    response.close()
+                except Exception as error:
+                    print("SCREEN FETCH RESPONSE CLOSE FAILED class={}".format(
+                        type(error).__name__,
+                    ))

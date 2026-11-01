@@ -28,6 +28,8 @@ cp \
   "${ROOT_DIR}/backend/transitous_bus.py" \
   "${ROOT_DIR}/backend/departure_filter.py" \
   "${ROOT_DIR}/backend/todoist.py" \
+  "${ROOT_DIR}/backend/football_calendar.py" \
+  "${ROOT_DIR}/backend/feed_errors.py" \
   "${ROOT_DIR}/backend/cubs.py" \
   "${ROOT_DIR}/shared/formatting.py" \
   "${ROOT_DIR}/shared/fixtures.py" \

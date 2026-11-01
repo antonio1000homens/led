@@ -268,7 +268,21 @@ initialization before its first connection attempt. It subscribes at QoS 1 to
 the exact reminder topic and to the configured cycle-screen wildcard
 (`MQTT_SCREENS_TOPIC`, default `led/screens/+`). Cycle screens do not depend on
 the runtime Flash control from `/api/screens`; that control gates reminder
-overlays only.
+overlays only. The football integration also subscribes to
+`MQTT_FOOTBALL_TOPIC` (default `led/football/+`). Accepted newer snapshots
+prompt a pinned-ball match view; PRE shows only the fixture and Europe/London
+kick-off. See [`docs/football-mqtt.md`](../../docs/football-mqtt.md) for event,
+queue, and rotation behavior.
+
+Issue #52 adds a dedicated timer consumer on `MQTT_TIMER_TOPIC` (default
+`led/timer/+`). It validates complete retained per-device snapshots for Living
+room Alexa and Hall Alexa, keeps their timer stores independent, and pins the
+earliest running timer across both devices in a right-aligned countdown with a
+moving car. Reminder flash remains the only overlay above the timer. The
+contract is in
+[`docs/alexa-timer-mqtt.md`](../../docs/alexa-timer-mqtt.md). The live source
+shape is verified for running, paused, and natural completion; deploy and read
+back this consumer before enabling the HA publisher.
 
 Flash enablement and display duration are runtime values from `/api/screens`;
 they are not configured in `settings_local.py`. The board uses the safe

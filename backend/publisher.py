@@ -18,6 +18,7 @@ from runtime_config import (
     LEGACY_DEFAULT_CHESSINGTON_RIDES,
     MIN_INSULT_POLL_SECONDS,
     RuntimeConfigStore,
+    RuntimeConfigValidationError,
     default_runtime_config,
     validate_runtime_config,
 )
@@ -30,6 +31,9 @@ from random_facts import RandomFactProvider
 from insults import InsultProvider
 from zenquotes import MAX_QUOTE_CHOICES, ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
+from football_calendar import (
+    GoogleCalendarFixtureProvider, PublicICalFixtureProvider, TEAM_NAMES as FOOTBALL_TEAM_NAMES,
+)
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
 
@@ -56,6 +60,37 @@ def _parse_iso(value):
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (TypeError, ValueError):
         return None
+
+
+_SAFE_ERROR_CLASSES = {
+    "TimeoutError", "HTTPError", "URLError", "ConnectionError", "OSError",
+    "SSLError", "JSONDecodeError", "ValueError", "TypeError", "KeyError",
+    "RuntimeError", "ProviderFailure",
+}
+_SAFE_ERROR_STAGES = {
+    "download", "http_rejection", "parse", "normalize", "soap_connect",
+    "soap_request", "soap_normalize", "provider",
+}
+
+
+def _safe_failure_metadata(error, now):
+    cause = error.__cause__ or error
+    error_class = type(cause).__name__
+    if error_class not in _SAFE_ERROR_CLASSES:
+        error_class = "ProviderError"
+    stage = getattr(error, "stage", "provider")
+    if stage not in _SAFE_ERROR_STAGES:
+        stage = "provider"
+    status = getattr(error, "status_code", None)
+    if isinstance(status, bool) or not isinstance(status, int) or not 100 <= status <= 599:
+        status = None
+    source = getattr(error, "source", None)
+    metadata = {"error_class": error_class, "error_stage": stage, "error_at": _iso(now)}
+    if status is not None:
+        metadata["http_status"] = status
+    if source in ("sporting_cp", "millwall", "portugal", "england", "soap"):
+        metadata["error_source"] = source
+    return metadata
 
 
 def _public_cubs_events(cached, now, limit):
@@ -123,6 +158,8 @@ class PublisherConfig:
                  calendar_filter_query=DEFAULT_FILTER_QUERY, calendar_timezone=DEFAULT_TIMEZONE,
                  calendar_duration=10, calendar_page_seconds=5, runtime_config_table="",
                  chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES,
+                 football_fixture_source="off", football_fixture_parameter_name="/led/football/calendar",
+                 football_fixture_ttl=900, football_fixture_duration=20, football_fixture_lookahead_days=45,
                  cubs_programme_parameter="", cubs_events_parameter=""):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
@@ -147,8 +184,11 @@ class PublisherConfig:
         self.runtime_config_table = runtime_config_table
         self.chessington_ttl = chessington_ttl
         self.chessington_rides = tuple(chessington_rides)
-        self.cubs_programme_parameter = cubs_programme_parameter
-        self.cubs_events_parameter = cubs_events_parameter
+        self.football_fixture_source = football_fixture_source
+        self.football_fixture_parameter_name = football_fixture_parameter_name
+        self.football_fixture_ttl = football_fixture_ttl
+        self.football_fixture_duration = football_fixture_duration
+        self.football_fixture_lookahead_days = football_fixture_lookahead_days
 
     @classmethod
     def from_env(cls, env=None):
@@ -174,6 +214,12 @@ class PublisherConfig:
         calendar_source = env.get("LED_CALENDAR_SOURCE", "off").strip()
         if calendar_source not in ("off", "todoist"):
             raise ValueError("LED_CALENDAR_SOURCE must be off or todoist")
+        fixture_source = env.get("LED_FOOTBALL_FIXTURE_SOURCE", "off").strip()
+        if fixture_source not in ("off", "google_calendar", "public_ical"):
+            raise ValueError("LED_FOOTBALL_FIXTURE_SOURCE must be off, google_calendar or public_ical")
+        fixture_parameter = env.get("LED_FOOTBALL_FIXTURE_PARAMETER_NAME", "/led/football/calendar").strip()
+        if fixture_source == "google_calendar" and not fixture_parameter:
+            raise ValueError("LED_FOOTBALL_FIXTURE_PARAMETER_NAME is required")
         todoist_secret = env.get("TODOIST_OAUTH_SECRET_ARN", "").strip()
         if calendar_source == "todoist" and not todoist_secret:
             raise ValueError("TODOIST_OAUTH_SECRET_ARN is required when LED_CALENDAR_SOURCE=todoist")
@@ -195,6 +241,10 @@ class PublisherConfig:
             env.get("LED_TODOIST_TIMEZONE", DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE,
             calendar_duration, calendar_page_seconds, env.get("RUNTIME_CONFIG_TABLE", "").strip(),
             _env_int(env, "LED_CHESSINGTON_CACHE_SECONDS", 300), chessington_rides,
+            fixture_source, fixture_parameter,
+            _env_int(env, "LED_FOOTBALL_FIXTURE_CACHE_SECONDS", 900),
+            _env_int(env, "LED_FOOTBALL_FIXTURE_DURATION_SECONDS", 20, 2),
+            _env_int(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS", 45),
             env.get("CUBS_PROGRAMME_PARAMETER_NAME", ""), env.get("CUBS_EVENTS_PARAMETER_NAME", ""),
         )
 
@@ -212,6 +262,10 @@ def _runtime_defaults(config: PublisherConfig):
         "LED_CALENDAR_SOURCE": config.calendar_source,
         "LED_TODOIST_CACHE_SECONDS": str(config.calendar_ttl),
         "LED_CALENDAR_DURATION_SECONDS": str(config.calendar_duration),
+        "LED_FOOTBALL_FIXTURE_SOURCE": config.football_fixture_source,
+        "LED_FOOTBALL_FIXTURE_CACHE_SECONDS": str(config.football_fixture_ttl),
+        "LED_FOOTBALL_FIXTURE_DURATION_SECONDS": str(config.football_fixture_duration),
+        "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS": str(config.football_fixture_lookahead_days),
         "LED_CUBS_CACHE_SECONDS": "86400",
     }
     return default_runtime_config(env)
@@ -268,7 +322,7 @@ class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
                  fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None,
-                 cubs_provider=None):
+                 football_provider=None, cubs_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -291,11 +345,11 @@ class Publisher:
         self.insult_provider = insult_provider or InsultProvider()
         self.quotes_provider = quotes_provider or ZenQuotesProvider()
         self.bus_provider = bus_provider or TransitousBusProvider()
-        self.cubs_provider = cubs_provider
-        if self.cubs_provider is None:
-            self.cubs_provider = CubsCalendarProvider(
-                config.cubs_programme_parameter, config.cubs_events_parameter, utcnow=self.utcnow
-            )
+        self.football_provider = football_provider
+        if self.football_provider is None and config.football_fixture_source == "google_calendar":
+            self.football_provider = GoogleCalendarFixtureProvider(config.football_fixture_parameter_name)
+        elif self.football_provider is None and config.football_fixture_source == "public_ical":
+            self.football_provider = PublicICalFixtureProvider()
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -311,7 +365,13 @@ class Publisher:
         if not previous or previous.get("data") is None:
             return True
         last = _parse_iso(previous.get("last_attempt_at"))
-        return last is None or (now - last).total_seconds() >= ttl
+        if last is None:
+            return True
+        # Scheduled Lambda starts vary by milliseconds. Compare whole-second
+        # buckets so a call just before the TTL edge does not skip a poll and
+        # add an entire schedule interval to the retry delay.
+        elapsed_seconds = int(now.timestamp()) - int(last.timestamp())
+        return elapsed_seconds >= ttl
 
     def _refresh(self, name, previous, ttl, fetcher, now, force=False):
         previous = copy.deepcopy(previous or {})
@@ -320,13 +380,16 @@ class Publisher:
         attempted = _iso(now)
         try:
             data = fetcher()
-        except Exception:
+        except Exception as error:
             had_cache = previous.get("data") is not None
-            print(json.dumps({"event": "feed_refresh_failed", "feed": name, "had_cache": had_cache}))
+            diagnostics = _safe_failure_metadata(error, now)
+            print(json.dumps({"event": "feed_refresh_failed", "feed": name,
+                              "had_cache": had_cache, **diagnostics}))
             if had_cache:
-                previous.update(last_attempt_at=attempted, stale=True)
+                previous.update(last_attempt_at=attempted, stale=True, **diagnostics)
                 return previous
-            return {"last_attempt_at": attempted, "last_success_at": None, "stale": True, "data": None}
+            return {"last_attempt_at": attempted, "last_success_at": None,
+                    "stale": True, "data": None, **diagnostics}
         return {"last_attempt_at": attempted, "last_success_at": attempted, "stale": False, "data": data}
 
     def _fetch_rail(self, now):
@@ -368,6 +431,18 @@ class Publisher:
 
     def _fetch_queues(self, now, provider, park):
         return {"park": park, "source": "queue_times", "fetched_at": _iso(now), "rides": provider.fetch()}
+
+    def _fetch_football_fixtures(self, now, lookahead_days, enabled_teams):
+        source = ("public_ical" if self.config.football_fixture_source == "public_ical"
+                  else "google_calendar")
+        if not enabled_teams:
+            fixtures = []  # Never request a calendar when all teams are disabled.
+        else:
+            if self.football_provider is None:
+                raise RuntimeError("football fixture calendar provider is not configured")
+            fixtures = self.football_provider.fetch(
+                now, lookahead_days=lookahead_days, enabled_teams=enabled_teams)
+        return {"source": source, "fetched_at": _iso(now), "fixtures": fixtures}
 
     def _fetch_calendar(self, now):
         if self.calendar_provider is None:
@@ -568,6 +643,7 @@ class Publisher:
 
     def _screens(self, feeds, now, runtime):
         screens = []
+        shared_weather = None
         config_feeds = runtime["feeds"]
         departures_config = config_feeds["departures"]
         if departures_config["enabled"]:
@@ -693,6 +769,46 @@ class Publisher:
                 "page_seconds": self.config.calendar_page_seconds,
                 "events": copy.deepcopy(calendar_events[:task_count]),
             })
+        fixture_cfg = config_feeds["football_fixtures"]
+        if fixture_cfg["enabled"]:
+            fixture_state = feeds.get("football_fixtures") or {}
+            data = fixture_state.get("data") or {}
+            # Only publish explicitly selected, sanitized fixture fields. Expired
+            # cached fixtures disappear immediately, even during calendar outages.
+            seen_fixture_teams = set()
+            for fixture in data.get("fixtures") or []:
+                if not isinstance(fixture, dict):
+                    continue
+                team_key = fixture.get("team_key")
+                kickoff = _parse_iso(fixture.get("kickoff"))
+                if (team_key not in FOOTBALL_TEAM_NAMES or team_key in seen_fixture_teams
+                        or not fixture_cfg.get(team_key + "_enabled", False)
+                        or kickoff is None or kickoff.tzinfo is None or kickoff <= now):
+                    continue
+                if not isinstance(fixture.get("match_id"), str) or not fixture["match_id"]:
+                    continue
+                opponent = fixture.get("opponent_long_name")
+                if not isinstance(opponent, str) or not opponent:
+                    continue
+                team_name = FOOTBALL_TEAM_NAMES[team_key]
+                seen_fixture_teams.add(team_key)
+                screens.append({
+                    "id": "football-" + team_key,
+                    "kind": "football_score",
+                    "title": team_name,
+                    "team_key": team_key,
+                    "team_name": team_name,
+                    "status": "PRE",
+                    "opponent_long_name": opponent,
+                    "display_fixture": team_name + " vs " + opponent,
+                    "home_away": fixture.get("home_away") if fixture.get("home_away") in ("home", "away", "unknown") else "unknown",
+                    "kickoff": fixture["kickoff"],
+                    "match_id": fixture["match_id"],
+                    "source": data.get("source") if data.get("source") in ("google_calendar", "public_ical") else "unavailable",
+                    "stale": bool(fixture_state.get("stale")),
+                    "duration_seconds": fixture_cfg["screen_duration_seconds"],
+                    "animation_speed": fixture_cfg["animation_speed"],
+                })
         joke_cfg = config_feeds["dad_joke"]
         if config_feeds["cubs"]["enabled"]:
             cubs = feeds.get("cubs") or {}
@@ -773,8 +889,6 @@ class Publisher:
                 "id": "today", "kind": "today", "title": "TODAY",
                 "duration_seconds": config_feeds["today"]["screen_duration_seconds"],
                 "source": "open_meteo", "stale": bool(current_weather.get("stale", True)),
-                "weather": {key: value for key, value in (current_weather.get("data") or {}).items()
-                            if key in ("temperature_c", "weather_code", "icon", "is_day", "fetched_at")},
             })
         weather_config = config_feeds["weather"]
         if weather_config["enabled"]:
@@ -802,6 +916,7 @@ class Publisher:
                 source = "unavailable"
                 stale = True
             overlay["stale"] = stale
+            shared_weather = overlay
 
             if weather_config["sun_enabled"] and sunrise_time and sunset_time:
                 screens.append({
@@ -834,8 +949,14 @@ class Publisher:
                     "stale": stale,
                     "days": forecast,
                 })
-            for screen in screens:
-                screen["weather"] = copy.deepcopy(overlay)
+        elif config_feeds["today"]["enabled"]:
+            current_weather = feeds.get("weather") or {}
+            data = current_weather.get("data") or {}
+            if data:
+                shared_weather = {
+                    key: copy.deepcopy(value) for key, value in data.items()
+                    if key in ("temperature_c", "weather_code", "icon", "is_day", "fetched_at")
+                }
         for screen in screens:
             feed_id = screen.get("kind")
             if FEED_REGISTRY.get(feed_id, {}).get("display_group"):
@@ -880,6 +1001,7 @@ class Publisher:
             "bus_intro": "sl7_bus",
             "bus_departures": "sl7_bus",
             "bus_departures_combined": "sl7_bus",
+            "football_score": "football_fixtures",
             "christmas_tracker_intro": "christmas",
             "christmas_tracker": "christmas",
         }
@@ -887,7 +1009,7 @@ class Publisher:
             feed_id = schedule_feed_for_kind.get(screen.get("kind"))
             if feed_id:
                 screen["schedule_windows"] = copy.deepcopy(config_feeds[feed_id].get("schedule_windows", []))
-        return {
+        payload = {
             "fetched_at": _iso(now),
             "config_version": runtime["config_version"],
             "display": copy.deepcopy(runtime["display"]),
@@ -898,6 +1020,9 @@ class Publisher:
             "christmas": copy.deepcopy(config_feeds["christmas"]),
             "screens": screens,
         }
+        if shared_weather is not None:
+            payload["weather"] = shared_weather
+        return payload
 
     def _runtime(self):
         try:
@@ -908,8 +1033,14 @@ class Publisher:
             ):
                 runtime["feeds"]["chessington"]["rides"] = list(DEFAULT_CHESSINGTON_RIDES)
             return runtime
-        except Exception:
-            print(json.dumps({"event": "runtime_config_invalid", "fallback": "deployment_defaults"}))
+        except Exception as error:
+            validation_failed = isinstance(error, RuntimeConfigValidationError)
+            print(json.dumps({
+                "event": "runtime_config_invalid" if validation_failed else "runtime_config_access_failed",
+                "failure": "validation" if validation_failed else "access",
+                "reason": "invalid_config" if validation_failed else "store_unavailable",
+                "fallback": "deployment_defaults",
+            }))
             return _runtime_defaults(self.config)
 
     def run(self):
@@ -957,6 +1088,53 @@ class Publisher:
                 "calendar", feeds.get("calendar"), settings["calendar"]["poll_seconds"],
                 lambda: self._fetch_calendar(now), now,
             )
+        if settings["football_fixtures"]["enabled"]:
+            fixture_cfg = settings["football_fixtures"]
+            previous = feeds.get("football_fixtures") or {}
+            enabled_teams = [
+                team for team in FOOTBALL_TEAM_NAMES
+                if fixture_cfg.get(team + "_enabled", False)
+            ]
+            selection = {
+                "enabled_teams": enabled_teams,
+                "lookahead_days": fixture_cfg["lookahead_days"],
+                "source": self.config.football_fixture_source,
+            }
+            # Admin changes must take effect on the very next publish, even
+            # when the former selection is still within its cache TTL.
+            changed = previous.get("requested_selection") != selection
+            last_attempt = _parse_iso(previous.get("last_attempt_at"))
+            # Refresh as soon as a cached fixture reaches kickoff, instead of
+            # waiting for the regular calendar TTL to select the next match.
+            # A failed rollover is attempted only once until the normal retry,
+            # so an outage cannot trigger a request on every publisher run.
+            cached = (previous.get("data") or {}).get("fixtures") or []
+            rollover = False
+            for fixture in cached:
+                if not isinstance(fixture, dict) or fixture.get("team_key") not in enabled_teams:
+                    continue
+                kickoff = _parse_iso(fixture.get("kickoff"))
+                if (kickoff is not None and kickoff.tzinfo is not None and kickoff <= now
+                        and (last_attempt is None or last_attempt < kickoff)):
+                    rollover = True
+                    break
+            cold_throttled = (
+                previous.get("data") is None and not changed and last_attempt is not None
+                and (now - last_attempt).total_seconds() < fixture_cfg["poll_seconds"]
+            )
+            if cold_throttled:
+                feeds["football_fixtures"] = previous
+            else:
+                refreshed = self._refresh(
+                    "football_fixtures", previous, fixture_cfg["poll_seconds"],
+                    lambda: self._fetch_football_fixtures(
+                        now, fixture_cfg["lookahead_days"], enabled_teams
+                    ), now, force=changed or rollover,
+                )
+                # Record the attempted selection even if Google failed; otherwise
+                # a config edit would retry every Lambda minute despite its TTL.
+                refreshed["requested_selection"] = selection
+                feeds["football_fixtures"] = refreshed
         if settings["cubs"]["enabled"]:
             feeds["cubs"] = self._refresh_cubs(
                 feeds.get("cubs"), settings["cubs"]["poll_seconds"], now

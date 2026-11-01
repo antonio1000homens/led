@@ -11,7 +11,12 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("function departuresSectionHtml", admin)
         self.assertIn("Departures &amp; Steam Train", admin)
         self.assertIn("cardHtml('departures'", admin)
-        self.assertIn("cardHtml('steam_train'", admin)
+        self.assertIn("cardHtml('steam_train'", admin)  # Safe fallback if Rail schema is missing
+        self.assertIn('data-rail-group="true"', admin)
+        self.assertIn('data-rail-feed="', admin)
+        self.assertIn("data-save-rail", admin)
+        self.assertIn("railFeedFields('steam_train'", admin)
+        self.assertIn("collectRailCard(card)", admin)
         self.assertNotIn("function displayCardHtml", admin)
         self.assertNotIn("displayCardHtml(config.display", admin)
 
@@ -106,6 +111,11 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("drawClock(clock);", simulator)
         self.assertNotIn("weatherIcons", simulator)
 
+    def test_simulator_reuses_top_level_shared_weather_for_screens(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("const sharedWeather = payload.weather", simulator)
+        self.assertIn("screen.weather = sharedWeather", simulator)
+
     def test_simulator_has_three_fullscreen_weather_screens(self):
         simulator = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         self.assertIn("function drawWeeklyWeather(screen)", simulator)
@@ -190,7 +200,7 @@ class DeploymentStaticTests(unittest.TestCase):
         self.assertIn("[64, 128, 192].forEach", simulator)
         self.assertIn("const TODOIST_MARQUEE_SPEED = 7 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const TODOIST_MARQUEE_PAUSE_SECONDS = 1.5;", simulator)
-        self.assertIn("const CLOCK_X = 226 * FONT_PIXEL_SCALE;", simulator)
+        self.assertIn("const CLOCK_X = 231 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const STALE_X = 190 * FONT_PIXEL_SCALE;", simulator)
         self.assertIn("const RAIL_ROW_Y = [4, 12, 20, 28].map(value => value * FONT_PIXEL_SCALE);", simulator)
         self.assertIn("const CONTENT_FIRST_Y = 8 * FONT_PIXEL_SCALE;", simulator)
@@ -257,7 +267,8 @@ class DeploymentStaticTests(unittest.TestCase):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn('<link rel="icon" href="data:,">', admin)
         self.assertIn("window.location.replace(`${API}/session`);", admin)
-        self.assertIn("window.history.replaceState(null,'','/admin');", admin)
+        self.assertIn("window.history.replaceState(null,'','/admin'+restoredHash);", admin)
+        self.assertIn("window.sessionStorage.setItem('led-admin-return-hash'", admin)
         self.assertIn('<details class="feed-advanced"><summary>Advanced</summary>', admin)
 
 

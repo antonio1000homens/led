@@ -1,17 +1,65 @@
-"""Validation and rotation snapshots for retained Team Tracker football MQTT."""
+"""Validation and prompt snapshots for football MQTT providers."""
 
 import json
+import re
 
 from mqtt_screens import _epoch
 
 
 FOOTBALL_TEAMS = ("sporting_cp", "millwall")
 FOOTBALL_STATUSES = ("PRE", "IN", "POST", "BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")
-FOOTBALL_TEAM_NAMES = {"sporting_cp": "Sporting CP", "millwall": "Millwall FC"}
+FOOTBALL_TEAM_NAMES = {
+    "sporting_cp": "Sporting CP", "millwall": "Millwall FC",
+    "england": "England", "portugal": "Portugal",
+}
+FOOTBALL_TEAM_COLOUR_NAMES = {
+    "sporting_cp": "Sporting CP", "millwall": "Millwall FC",
+    "england": "England", "portugal": "Portugal",
+}
+# Full-intensity RGB primaries survive the MatrixPortal's one-bit-per-channel
+# output. Only the tracked team's name receives this color; the rest is white.
+FOOTBALL_TEAM_COLORS = {
+    "sporting_cp": (0, 255, 0),
+    "england": (255, 255, 255),
+    "millwall": (0, 0, 255),
+    "portugal": (255, 0, 0),
+}
+FOOTBALL_FIXTURE_TEXT_COLOR = (255, 255, 0)
+FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
+GOALAPI_LIVE_STALE_SECONDS = 4 * 60 * 60
 GOAL_FLASH_SECONDS = 8
 SCREEN_DURATION_SECONDS = 20
-FOOTBALL_INTRO_SECONDS = 6
+FOOTBALL_DEFAULT_ANIMATION_SPEED = 80
+FOOTBALL_PRE_CLEAR_SECONDS = 0.5
+FOOTBALL_MIN_ANIMATION_SPEED = 20
+FOOTBALL_MAX_ANIMATION_SPEED = 160
+FOOTBALL_START_X = 256
+FOOTBALL_END_X = 2
+FOOTBALL_BALL_WIDTH = 16
+FOOTBALL_TEXT_X = FOOTBALL_END_X + FOOTBALL_BALL_WIDTH + 4
+FOOTBALL_LIVE_RIGHT_X = 184
+FOOTBALL_LIVE_TEXT_MAX_CHARS = (FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X) // 6
+FOOTBALL_VS_COLUMN = 10
+
+
+def football_team_name_span(screen, line):
+    """Return the tracked team-name span in a row, or None if absent."""
+    team_key = screen.get("team_key")
+    name = FOOTBALL_TEAM_COLOUR_NAMES.get(
+        team_key, screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(team_key, "")
+    )
+    if not isinstance(name, str) or not name.strip():
+        return None
+    row = str(line)
+    row_upper = row.upper()
+    name = name.strip().upper()
+    candidates = (name, name.split(" ", 1)[0]) if " " in name else (name,)
+    for candidate in candidates:
+        start = row_upper.find(candidate)
+        if start >= 0:
+            return start, candidate, FOOTBALL_TEAM_COLORS.get(team_key)
+    return None
 
 
 def kickoff_countdown(kickoff, now_epoch):
@@ -37,89 +85,191 @@ def kickoff_countdown(kickoff, now_epoch):
     return "KICKOFF IN {}D {}H".format(days, hours)
 
 
-def kickoff_datetime_label(kickoff):
-    """Format a timezone-aware kickoff as the full UTC date and time."""
-    if not isinstance(kickoff, str) or len(kickoff) < 20:
-        return "FIXTURE TIME TBC"
+def _days_since_epoch(year, month, day):
+    prior = year - 1
+    ordinal = prior * 365 + prior // 4 - prior // 100 + prior // 400
+    month_days = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+                  31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    ordinal += sum(month_days[:month - 1]) + day - 1
+    epoch_prior = 1969
+    epoch_ordinal = epoch_prior * 365 + epoch_prior // 4 - epoch_prior // 100 + epoch_prior // 400
+    return ordinal - epoch_ordinal
+
+
+def _civil_from_days(days):
+    """Convert days since 1970-01-01 to Gregorian year/month/day."""
+    shifted = days + 719468
+    era = (shifted if shifted >= 0 else shifted - 146096) // 146097
+    day_of_era = shifted - era * 146097
+    year_of_era = (day_of_era - day_of_era // 1460 + day_of_era // 36524
+                   - day_of_era // 146096) // 365
+    year = year_of_era + era * 400
+    day_of_year = day_of_era - (365 * year_of_era + year_of_era // 4 - year_of_era // 100)
+    month_part = (5 * day_of_year + 2) // 153
+    day = day_of_year - (153 * month_part + 2) // 5 + 1
+    month = month_part + (3 if month_part < 10 else -9)
+    year += 1 if month <= 2 else 0
+    return year, month, day
+
+
+def _last_sunday(year, month):
+    month_days = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
+                  31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    last_day = month_days[month - 1]
+    weekday = (_days_since_epoch(year, month, last_day) + 3) % 7
+    return last_day - ((weekday + 1) % 7)
+
+
+def kickoff_local_label(kickoff):
+    """Format a timezone-aware kickoff in Europe/London without zoneinfo."""
     try:
-        year, month, day = int(kickoff[:4]), int(kickoff[5:7]), int(kickoff[8:10])
-        hour, minute = int(kickoff[11:13]), int(kickoff[14:16])
-        second = int(kickoff[17:19])
-        if (kickoff[4] != "-" or kickoff[7] != "-" or kickoff[10] != "T"
-                or kickoff[13] != ":" or kickoff[16] != ":"):
-            raise ValueError("timestamp")
-        days_in_month = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
-                         31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-        if not (1 <= month <= 12 and 1 <= day <= days_in_month[month - 1]
-                and year >= 1 and 0 <= hour <= 23 and 0 <= minute <= 59
-                and 0 <= second <= 59):
-            raise ValueError("timestamp")
-        suffix = kickoff[19:]
-        if suffix.startswith((".", ",")):
-            position = 1
-            while position < len(suffix) and suffix[position].isdigit():
-                position += 1
-            if position == 1:
-                raise ValueError("timestamp")
-            suffix = suffix[position:]
-        if suffix == "Z":
-            offset_minutes = 0
-        elif len(suffix) == 6 and suffix[0] in ("+", "-") and suffix[3] == ":":
-            offset_hour, offset_minute = int(suffix[1:3]), int(suffix[4:6])
-            if offset_hour > 23 or offset_minute > 59:
-                raise ValueError("timestamp")
-            offset_minutes = (offset_hour * 60 + offset_minute) * (1 if suffix[0] == "+" else -1)
-        else:
-            raise ValueError("timestamp")
-        utc_minutes = hour * 60 + minute - offset_minutes
-        while utc_minutes < 0:
-            utc_minutes += 1440
-            day -= 1
-            if day < 1:
-                month -= 1
-                if month < 1:
-                    month = 12
-                    year -= 1
-                days_in_month = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
-                                 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-                day = days_in_month[month - 1]
-        while utc_minutes >= 1440:
-            utc_minutes -= 1440
-            day += 1
-            days_in_month = (31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
-                             31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-            if day > days_in_month[month - 1]:
-                day = 1
-                month += 1
-                if month > 12:
-                    month = 1
-                    year += 1
-        months = ("January", "February", "March", "April", "May", "June",
-                  "July", "August", "September", "October", "November", "December")
-        utc_hour, utc_minute = divmod(utc_minutes, 60)
-        return "{} {} {}, {:02d}:{:02d} UTC".format(
-            day, months[month - 1], year, utc_hour, utc_minute
+        epoch_seconds = _epoch(kickoff) // 1000
+        utc_days = epoch_seconds // 86400
+        utc_year, _, _ = _civil_from_days(utc_days)
+        dst_start = _days_since_epoch(utc_year, 3, _last_sunday(utc_year, 3)) * 86400 + 3600
+        dst_end = _days_since_epoch(utc_year, 10, _last_sunday(utc_year, 10)) * 86400 + 3600
+        is_bst = dst_start <= epoch_seconds < dst_end
+        local_seconds = epoch_seconds + (3600 if is_bst else 0)
+        local_days, seconds_today = divmod(local_seconds, 86400)
+        year, month, day = _civil_from_days(local_days)
+        hour, seconds_today = divmod(seconds_today, 3600)
+        minute = seconds_today // 60
+        weekday = (local_days + 3) % 7
+        weekdays = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+        months = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+        return "{} {:02d} {} {:02d}:{:02d}".format(
+            weekdays[weekday], day, months[month - 1], hour, minute
         )
-    except (TypeError, ValueError, IndexError):
-        return "FIXTURE TIME TBC"
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return "TIME TBC"
+
+
+def football_slide_seconds(animation_speed=None):
+    """Return slide duration from the configured pixel-per-second speed."""
+    try:
+        speed = int(animation_speed)
+    except (TypeError, ValueError, OverflowError):
+        speed = FOOTBALL_DEFAULT_ANIMATION_SPEED
+    if not FOOTBALL_MIN_ANIMATION_SPEED <= speed <= FOOTBALL_MAX_ANIMATION_SPEED:
+        speed = FOOTBALL_DEFAULT_ANIMATION_SPEED
+    return FOOTBALL_START_X / float(speed)
+
+
+def football_presentation_position(phase, animate=True, animation_speed=None):
+    """Return the ball x coordinate and whether match text can be shown."""
+    if not animate:
+        return FOOTBALL_END_X, True
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    travel = FOOTBALL_START_X - FOOTBALL_END_X
+    duration = football_slide_seconds(animation_speed)
+    x = max(FOOTBALL_END_X, FOOTBALL_START_X - int(travel * elapsed / duration))
+    return x, x == FOOTBALL_END_X
+
+
+def football_entry_phase(phase, status):
+    """Leave a short clear gap before a PRE card starts sliding in."""
+    if status != "PRE":
+        return phase
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (TypeError, ValueError):
+        elapsed = 0.0
+    return max(0.0, elapsed - FOOTBALL_PRE_CLEAR_SECONDS)
+
+
+
+def football_due_in(kickoff, now_epoch):
+    """Compact absolute-time PRE countdown for the right side of the board.
+
+    Show whole days at or above 24 hours; below that, show the clock
+    countdown without days. Seconds appear only above 60 seconds.
+    """
+    if not kickoff or now_epoch is None:
+        return "TBC"
+    try:
+        remaining = max(0, (_epoch(kickoff) // 1000) - int(now_epoch))
+    except (ValueError, TypeError):
+        return "TBC"
+    if remaining == 0:
+        return "DUE NOW"
+    if remaining <= 60:
+        return "UNDER 1 MIN"
+    if remaining >= 86400:
+        days = remaining // 86400
+        return "{} {}".format(days, "DAY" if days == 1 else "DAYS")
+    if remaining > 3600:
+        hours, rest = divmod(remaining, 3600)
+        minutes, seconds = divmod(rest, 60)
+        return "{:02d}H {:02d}M {:02d}S".format(hours, minutes, seconds)
+    minutes, seconds = divmod(remaining, 60)
+    return "{:02d}M {:02d}S".format(minutes, seconds)
+
+
+def football_countdown_x(value, width=256, cell_width=6):
+    """Right-align countdown glyphs without a fixed x minimum.
+
+    Character cell width matches the display's 5x7 label font with its
+    one-pixel spacing. A large day count may reach further left, but must
+    never be clipped at the right edge.
+    """
+    return max(0, int(width) - len(str(value)) * int(cell_width))
+
+
+def football_slide_offset(phase, animation_speed=None):
+    """Translate whole 256x32 match scene from the right to x=0."""
+    x, settled = football_presentation_position(
+        phase, animate=True, animation_speed=animation_speed,
+    )
+    return x - FOOTBALL_END_X, settled
+
+
+def football_roll_frame(phase, animation_speed=None):
+    """Eight orientations, two full turns during the slide; frozen on arrival."""
+    _, settled = football_slide_offset(phase, animation_speed)
+    if settled:
+        return 0
+    try:
+        elapsed = max(0.0, float(phase or 0))
+    except (ValueError, TypeError):
+        elapsed = 0.0
+    return int(elapsed * 16 / football_slide_seconds(animation_speed)) % 8
+
+
+def _normalize_fixture_separator(fixture):
+    """Align VS at one character column and preserve a clear right-side gap."""
+    fixture = fixture.upper()
+    separator = re.search(r"\s*VS\s*", fixture)
+    if separator is None:
+        return fixture
+    left = fixture[:separator.start()].strip()
+    right = fixture[separator.end():].strip()
+    padding = max(1, FOOTBALL_VS_COLUMN - len(left))
+    return "{}{}VS {}".format(left, " " * padding, right)
 
 
 def football_screen_lines(screen, now_epoch):
-    """Return four compact rows suitable for the 256x32 display."""
+    """Return status-specific text rows for the 256x32 display."""
     team = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
     opponent = str(screen.get("opponent_long_name") or screen.get("opponent") or "").upper()
     fixture = screen.get("display_fixture")
     if not isinstance(fixture, str) or not fixture.strip():
         fixture = "{} VS {}".format(team, opponent) if opponent else team
+    fixture = _normalize_fixture_separator(fixture)
     status = screen.get("status")
     competition = str(screen.get("competition") or "")
     if status == "PRE":
-        return (
-            "PRE",
-            fixture,
-            "KICKOFF: " + kickoff_datetime_label(screen.get("kickoff")),
-            competition,
-        )
+        team_side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
+        if not isinstance(screen.get("display_fixture"), str) or not screen.get("display_fixture", "").strip():
+            if opponent:
+                fixture = ("{} VS {}".format(opponent, team) if team_side in ("away", "a")
+                           else "{} VS {}".format(team, opponent))
+            else:
+                fixture = team
+        return _normalize_fixture_separator(fixture), kickoff_local_label(screen.get("kickoff"))
     elif status in ("IN", "POST"):
         home = str(screen.get("home_team") or "HOME").upper()
         away = str(screen.get("away_team") or "AWAY").upper()
@@ -152,9 +302,41 @@ def _short_text(value, maximum=100):
     return isinstance(value, str) and 0 < len(value.strip()) <= maximum
 
 
+def _valid_team_key(value):
+    if not isinstance(value, str) or not 1 <= len(value) <= 48:
+        return False
+    for char in value:
+        if not ("a" <= char <= "z" or "0" <= char <= "9" or char in "_-"):
+            return False
+    return True
+
+
 def _score(value):
     return (value is None or
             (type(value) is int and 0 <= value <= 99))
+
+
+def _has_fixture_data(screen):
+    fixture = screen.get("display_fixture")
+    if isinstance(fixture, str) and fixture.strip():
+        return True
+    return bool(
+        isinstance(screen.get("team_name"), str) and screen["team_name"].strip()
+        and isinstance(screen.get("opponent_long_name") or screen.get("opponent"), str)
+        and (screen.get("opponent_long_name") or screen.get("opponent")).strip()
+    )
+
+
+def _live_stale(snapshot, now_ms):
+    if now_ms is None:
+        return True
+    source_updated = snapshot.get("_source_epoch")
+    if source_updated is None:
+        return True
+    stale_after = LIVE_STALE_SECONDS
+    if snapshot.get("source") == "nrwindsor" and snapshot.get("provider") == "goalapi":
+        stale_after = GOALAPI_LIVE_STALE_SECONDS
+    return now_ms - source_updated > stale_after * 1000
 
 
 def _normalize(topic, payload, prefix="led/football/"):
@@ -170,14 +352,20 @@ def _normalize(topic, payload, prefix="led/football/"):
             return None
     if not isinstance(payload, dict) or type(payload.get("schema_version")) is not int:
         return None
-    if payload.get("schema_version") != 1 or payload.get("source") != "homeassistant":
+    if payload.get("schema_version") != 1:
         return None
-    if payload.get("provider") != "teamtracker":
+    source = payload.get("source")
+    provider = payload.get("provider")
+    homeassistant_teamtracker = source == "homeassistant" and provider == "teamtracker"
+    nrwindsor_goalapi = source == "nrwindsor" and provider == "goalapi"
+    if not (homeassistant_teamtracker or nrwindsor_goalapi):
         return None
     if not isinstance(topic, str) or not topic.startswith(prefix):
         return None
     team_key = topic[len(prefix):]
-    if team_key not in FOOTBALL_TEAMS or payload.get("team_key") != team_key:
+    if not _valid_team_key(team_key) or payload.get("team_key") != team_key:
+        return None
+    if homeassistant_teamtracker and team_key not in FOOTBALL_TEAMS:
         return None
     status = payload.get("status")
     if status not in FOOTBALL_STATUSES:
@@ -190,13 +378,17 @@ def _normalize(topic, payload, prefix="led/football/"):
         kickoff = payload.get("kickoff")
         if kickoff is not None:
             _epoch(kickoff)
+        post_expires_at = payload.get("post_expires_at")
+        if post_expires_at is not None:
+            _epoch(post_expires_at)
     except (TypeError, ValueError):
         return None
     match_id = payload.get("match_id")
     if match_id is not None and not _short_text(match_id, 128):
         return None
     for name in ("team_name", "opponent", "opponent_long_name", "display_fixture",
-                 "home_team", "away_team", "competition", "clock"):
+                 "home_team", "away_team", "homeaway", "team_homeaway",
+                 "competition", "clock"):
         value = payload.get(name)
         if value is not None and (not isinstance(value, str) or len(value) > 120):
             return None
@@ -211,8 +403,19 @@ def _normalize(topic, payload, prefix="led/football/"):
     return result
 
 
+def football_post_expired(screen, now_epoch):
+    """Return whether a POST event has passed its optional local expiry."""
+    expiry = screen.get("post_expires_at")
+    if screen.get("status") != "POST" or expiry is None or now_epoch is None:
+        return False
+    try:
+        return int(now_epoch * 1000) >= _epoch(expiry)
+    except (TypeError, ValueError):
+        return True
+
+
 class FootballScreenState:
-    """Keep each club's latest valid snapshot without affecting MQTT cycle screens."""
+    """Keep each topic's latest valid snapshot without affecting MQTT cycle screens."""
 
     def __init__(self, topic_filter="led/football/+", enabled=True):
         if (not isinstance(topic_filter, str) or not topic_filter.endswith("/+")
@@ -223,17 +426,35 @@ class FootballScreenState:
         self._teams = {}
         self._dynamic_flags = {}
 
+    def _prune_goalapi(self, now_ms):
+        if now_ms is None:
+            return
+        for team_key, snapshot in tuple(self._teams.items()):
+            if snapshot.get("source") != "nrwindsor" or snapshot.get("provider") != "goalapi":
+                continue
+            updated = snapshot.get("_source_epoch") or snapshot.get("_published_epoch")
+            if updated is not None and now_ms - updated > GOALAPI_LIVE_STALE_SECONDS * 1000:
+                del self._teams[team_key]
+                self._dynamic_flags.pop(team_key, None)
+
     def accept(self, topic, payload):
         if not self.enabled or not isinstance(topic, str) or not topic.startswith(self.prefix):
             return False
         item = _normalize(topic, payload, self.prefix)
         if item is None:
             return False
+        self._prune_goalapi(item["_published_epoch"])
         team_key = item["team_key"]
         previous = self._teams.get(team_key)
         if previous is not None:
             if item["_published_epoch"] <= previous["_published_epoch"]:
                 return False
+        if item.get("status") == "POST":
+            # POST is a one-shot display event. Keep no per-team copy after
+            # handing it to the presentation queue.
+            self._teams.pop(team_key, None)
+            self._dynamic_flags.pop(team_key, None)
+            return True
         item["_goal_until"] = None
         item["_goal_side"] = None
         if previous is not None and (
@@ -260,65 +481,78 @@ class FootballScreenState:
         self._teams[team_key] = item
         return True
 
+    def accept_for_presentation(self, topic, payload, now_epoch=None):
+        """Accept a snapshot and return its display event without storing POST."""
+        item = _normalize(topic, payload, self.prefix)
+        if item is None or not self.accept(topic, payload):
+            return False, None
+        if item.get("status") == "POST":
+            screen = self._screen_from_snapshot(item, now_epoch)
+            return True, screen
+        return True, self.screen_for_team(item["team_key"], now_epoch)
+
+    @staticmethod
+    def _screen_from_snapshot(snapshot, now_epoch):
+        status = snapshot["status"]
+        if status not in ("PRE", "IN", "POST"):
+            return None
+        if status == "PRE" and not _has_fixture_data(snapshot):
+            return None
+        if football_post_expired(snapshot, now_epoch):
+            return None
+        now_ms = int(now_epoch * 1000) if now_epoch is not None else None
+        screen = {key: value for key, value in snapshot.items() if not key.startswith("_")}
+        stale_live = status == "IN" and _live_stale(snapshot, now_ms)
+        if stale_live:
+            screen["status"] = "UNAVAILABLE"
+            screen["home_score"] = None
+            screen["away_score"] = None
+            screen["clock"] = None
+            screen["stale"] = True
+            return None
+        screen["stale"] = False
+        goal_until = snapshot.get("_goal_until")
+        if goal_until is not None and now_ms is not None and now_ms < goal_until:
+            screen["goal_side"] = snapshot.get("_goal_side")
+            screen["goal_flash_active"] = True
+        screen.update({
+            "id": "football-" + snapshot["team_key"],
+            "kind": "football_score",
+            "title": screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(snapshot["team_key"], "FOOTBALL"),
+            "duration_seconds": SCREEN_DURATION_SECONDS,
+            "source": "{}_{}".format(screen.get("source"), screen.get("provider")),
+        })
+        return screen
+
     def screens(self, now_epoch):
         if not self.enabled:
             return []
         result = []
         now_ms = int(now_epoch * 1000) if now_epoch is not None else None
-        for team_key in FOOTBALL_TEAMS:
-            snapshot = self._teams.get(team_key)
-            if snapshot is None:
-                continue
-            screen = {key: value for key, value in snapshot.items() if not key.startswith("_")}
-            status = snapshot["status"]
-            source_epoch = snapshot.get("_source_epoch")
-            stale_live = (status == "IN" and (now_ms is None or source_epoch is None
-                          or now_ms - source_epoch > LIVE_STALE_SECONDS * 1000))
-            if stale_live:
-                screen["status"] = "UNAVAILABLE"
-                screen["home_score"] = None
-                screen["away_score"] = None
-                screen["clock"] = None
-                screen["stale"] = True
-            else:
-                screen["stale"] = False
-            goal_until = snapshot.get("_goal_until")
-            if goal_until is not None and now_ms is not None and now_ms < goal_until:
-                screen["goal_side"] = snapshot.get("_goal_side")
-                screen["goal_flash_active"] = True
-            screen.update({
-                "id": "football-" + team_key,
-                "kind": "football_score",
-                "title": screen.get("team_name") or FOOTBALL_TEAM_NAMES.get(team_key, "FOOTBALL"),
-                "duration_seconds": SCREEN_DURATION_SECONDS,
-                "source": "homeassistant_teamtracker",
-            })
-            if status == "PRE":
-                result.append({
-                    "id": "football-intro-" + team_key,
-                    "kind": "football_intro",
-                    "title": "FOOTBALL",
-                    "team_key": team_key,
-                    "team_name": screen["title"],
-                    "words": "MATCH DAY",
-                    "duration_seconds": FOOTBALL_INTRO_SECONDS,
-                    "source": "firmware",
-                })
-            result.append(screen)
+        self._prune_goalapi(now_ms)
+        for team_key, snapshot in self._teams.items():
+            screen = self._screen_from_snapshot(snapshot, now_epoch)
+            if screen is not None:
+                result.append(screen)
         return result
+
+    def screen_for_team(self, team_key, now_epoch):
+        for screen in self.screens(now_epoch):
+            if screen.get("team_key") == team_key:
+                return screen
+        return None
 
     def staleness_changed(self, now_epoch):
         """Signal only when a retained IN snapshot crosses the stale boundary."""
         if not self.enabled or now_epoch is None:
             return False
         now_ms = int(now_epoch * 1000)
+        self._prune_goalapi(now_ms)
         current = {}
         for team_key, snapshot in self._teams.items():
             stale = False
             if snapshot.get("status") == "IN":
-                source_epoch = snapshot.get("_source_epoch")
-                stale = (source_epoch is None
-                         or now_ms - source_epoch > LIVE_STALE_SECONDS * 1000)
+                stale = _live_stale(snapshot, now_ms)
             goal_until = snapshot.get("_goal_until")
             goal_active = goal_until is not None and now_ms < goal_until
             current[team_key] = (stale, goal_active)
@@ -326,4 +560,72 @@ class FootballScreenState:
             return False
         self._dynamic_flags = current
         return True
+
+
+class FootballPresentationQueue:
+    """Queue live team refreshes and one-shot POST screens deferred by a flash."""
+
+    def __init__(self):
+        self._pending = []
+
+    def accept_snapshot(self, state, topic, payload, now_epoch=None):
+        """Accept updates, retaining POST only until it is displayed or expires."""
+        accepted, screen = state.accept_for_presentation(topic, payload, now_epoch)
+        if not accepted:
+            return False
+        team_key = topic[len(state.prefix):]
+        if screen is None:
+            self.discard(team_key)
+        elif screen.get("status") == "POST":
+            self.schedule_screen(screen)
+        else:
+            self.schedule(team_key)
+        return True
+
+    def discard(self, team_key):
+        """Remove deferred prompts for a club whose fixture is unavailable."""
+        before = len(self._pending)
+        self._pending = [
+            pending for pending in self._pending
+            if (pending.get("team_key") if isinstance(pending, dict) else pending) != team_key
+        ]
+        return len(self._pending) != before
+
+    def schedule_screen(self, screen):
+        """Keep the latest pending result once per team/match until eligible."""
+        team_key = screen.get("team_key")
+        if not _valid_team_key(team_key):
+            return False
+        match_id = screen.get("match_id")
+        for index, pending in enumerate(self._pending):
+            if (isinstance(pending, dict)
+                    and pending.get("team_key") == team_key
+                    and pending.get("match_id") == match_id):
+                try:
+                    pending_epoch = _epoch(pending.get("published_at"))
+                    incoming_epoch = _epoch(screen.get("published_at"))
+                except (TypeError, ValueError):
+                    return False
+                if incoming_epoch >= pending_epoch:
+                    self._pending[index] = screen
+                return True
+        self._pending.append(screen)
+        return True
+
+    def schedule(self, team_key):
+        if not _valid_team_key(team_key):
+            return False
+        self._pending.append(team_key)
+        return True
+
+    def pop(self, now_epoch=None):
+        while self._pending:
+            pending = self._pending.pop(0)
+            if isinstance(pending, dict) and football_post_expired(pending, now_epoch):
+                continue
+            return pending
+        return None
+
+    def __len__(self):
+        return len(self._pending)
 

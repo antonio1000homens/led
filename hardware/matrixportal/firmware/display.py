@@ -29,6 +29,16 @@ from brightness import BrightnessState, pixel_is_blocked
 from bus_departures import normalise_bus_screen
 from flash_events import assistant_message_page
 from mqtt_screens import _epoch
+from timer_state import (caterpillar_position, timer_apples_eaten,
+                         timer_apple_center, TIMER_APPLE_COUNT, format_countdown)
+from timer_visuals import (
+    TIMER_THEMES, CLOCK_FONT, SCENE_WIDTH,
+    TIMER_ACTOR_SCALE, TIMER_APPLE_SCALE, actor_position,
+    theme_for_timer, clock_layout, finish_pose, rotate_sprite,
+    SPRITE_ROWS, SPRITE_COLORS, SPRITE_SYMBOLS,
+    BACKGROUND_COLORS, background_index,
+    ACCENT_ROWS, ACCENT_COLORS, accent_positions,
+)
 from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
@@ -52,6 +62,23 @@ from football_ball import (
     PALETTE_INDEX as FOOTBALL_BALL_PALETTE_INDEX,
     WIDTH as FOOTBALL_BALL_WIDTH,
     draw_indexed as draw_football_ball_indexed,
+    draw_rolling_indexed as draw_football_rolling_indexed,
+)
+from football_screens import (
+    FOOTBALL_END_X as FOOTBALL_RENDER_END_X,
+    FOOTBALL_START_X,
+    FOOTBALL_TEXT_X,
+    FOOTBALL_LIVE_RIGHT_X,
+    football_presentation_position,
+    football_entry_phase,
+    football_slide_offset,
+    football_roll_frame,
+    football_due_in,
+    football_countdown_x,
+    football_screen_lines,
+    football_team_name_span,
+    FOOTBALL_TEAM_COLORS,
+    FOOTBALL_FIXTURE_TEXT_COLOR,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
 from weather_sprites import PALETTE_RGB as WEATHER_SPRITE_PALETTE_RGB
@@ -96,6 +123,41 @@ from formatting import (
 
 
 DISPLAY_WIDTH = 256
+
+# Two tiny four-colour sprite definitions, stored once and reused by all
+# TileGrids. DisplayIO shares each Bitmap and Palette across the ten apples.
+TIMER_CATERPILLAR_ROWS = (
+    ".....................D......",
+    ".....................DG...D.",
+    "...................GGGGGGD..",
+    ".........G........GGGGGGGGG.",
+    "......GGGGGGG...DGGGGGGGGGGG",
+    "...D.GGGGGGGGDDDDGGGGGGGGEGG",
+    ".DDDDGGGGGGGDDDDDGGGGGGGGEEG",
+    "DDDDDGGGGGGGDDDDGGGGGGGGGGGG",
+    "DDDDGGGGGGGGDDDDDGGGGGGGGGGG",
+    "DDDDDGGGGGGDDDDDDGGGGGGGGGDG",
+    "DDDDDGGGGGGGDDDDDGGGGGGGGDGG",
+    "DDDDDGGGGGGGDDDDDDGGGGGGGGG.",
+    ".DDDDDGGGGGGDDDDDDDGGGGGGG..",
+    "...D.....D...DDDGDDD..G.....",
+)
+TIMER_APPLE_ROWS = (
+    "...G....",
+    "...GG...",
+    "...RRG..",
+    "..RRRR..",
+    ".RRRRRR.",
+    ".DRRRRR.",
+    ".RDRRRR.",
+    ".RRRRRR.",
+    "..RRRR..",
+)
+TIMER_CATERPILLAR_COLORS = (0, 0x8CEE63, 0x3DA94A, 0x172E29)
+TIMER_APPLE_COLORS = (0, 0xF4514A, 0xAC2C37, 0x6CE573)
+TIMER_CATERPILLAR_PALETTE = {".": 0, "G": 1, "D": 2, "E": 3}
+TIMER_APPLE_PALETTE = {".": 0, "R": 1, "D": 2, "G": 3}
+
 REMINDER_CLOCK_SIZE = 29
 REMINDER_TEXT_X = 37
 REMINDER_TEXT_SCALE = 3
@@ -206,7 +268,7 @@ BUS_VERTICAL_OFFSET = 1
 BUS_TEXT_GAP = 8
 SL7_TIME_COLUMN_X = 2
 SL7_DUE_COLUMN_X = 42
-CLOCK_X = 226
+CLOCK_X = 231
 HEADER_SLOT_X = 224
 STALE_X = 190
 QUEUE_FIRST_Y = 11
@@ -335,12 +397,12 @@ BIN_LORRY_SECONDS = 4.0
 BIN_LORRY_SPEED = 64.0
 BIN_LORRY_WIDTH = 84
 BIN_LORRY_HEIGHT = 28
-BIN_LORRY_Y = 2
+BIN_LORRY_Y = 4
 RAIL_ORDINAL_X = 0
 RAIL_TIME_X = 24
 RAIL_DESTINATION_X = 63
 RAIL_DESTINATION_TRACKING = 1
-RAIL_PLATFORM_X = 164
+RAIL_PLATFORM_X = 154
 RAIL_PLATFORM_WIDTH = 3 * WEATHER_FONT_WIDTH
 
 WEATHER_SPRITE_ALIASES = {
@@ -869,7 +931,7 @@ def _today_compact_date_label(clock_date):
 def _today_date_position(date_label, clock_time):
     date_width = _today_date_width(len(date_label))
     left = TODAY_HEADER_ICON_X + TODAY_HEADER_ICON_SIZE + 1
-    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
+    right = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 10)
     return left + max(0, (right - left - date_width) // 2)
 
 
@@ -1023,8 +1085,8 @@ class MatrixDisplay:
                 "weather_sun_slide",
                 "today_date",
                 "football_goal",
-                "football_countdown",
-                "football_intro",
+                "football_entry",
+                "football_team_color",
             )
         }
         print(
@@ -1068,10 +1130,18 @@ class MatrixDisplay:
         self._novelty_weather_group = None
         self._football_group = None
         self._football_labels = []
+        self._football_pregame_tiles = []
+        self._football_pregame_palettes = []
         self._football_key = None
-        self._football_intro_group = None
-        self._football_intro_motion = None
-        self._football_intro_team = None
+        self._football_info_group = None
+        self._football_ball_grid = None
+        self._football_slots = None
+        self._football_rotation_bitmaps = None
+        self._football_current = None
+        self._football_outgoing = None
+        self._football_screen_id = None
+        self._football_previous_phase = None
+        self._football_previous_animation_speed = None
 
         # Weather pages are static while visible. Keep their displayio trees
         # alive instead of allocating new icon bitmaps and palettes on every
@@ -1611,11 +1681,20 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "alexa_timer":
+            return "timer_car" if screen.get("state") in ("running", "complete") else None
         if kind == "football_score":
-            if screen.get("goal_flash_active"):
+            x, _ = football_presentation_position(
+                football_entry_phase(phase, screen.get("status")),
+                animate=screen.get("status") not in ("IN", "POST"),
+                animation_speed=screen.get("animation_speed")
+            )
+            if x > FOOTBALL_RENDER_END_X:
+                return "football_entry"
+            if screen.get("goal_flash_active") and screen.get("status") == "IN":
                 return "football_goal"
-        if kind == "football_intro":
-            return "football_intro"
+            if screen.get("status") in ("IN", "POST"):
+                return "football_team_color"
         if kind == "flash":
             return "queue_rows"
         if kind == "today":
@@ -1664,8 +1743,8 @@ class MatrixDisplay:
 
     def animation_cadence(self, screen, phase):
         """Return the desired update cadence for the active partial scene."""
-        if screen.get("kind") == "football_intro":
-            return MATRIX_ANIMATION_PROFILES[MATRIX_ANIMATION_PROFILE]["steam_train"]
+        if screen.get("kind") == "alexa_timer":
+            return MATRIX_REFRESH_FPS if screen.get("state") in ("running", "complete") else 0
         if screen.get("kind") == "today":
             return min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS)
         if screen.get("kind") == "christmas_tracker":
@@ -1690,9 +1769,11 @@ class MatrixDisplay:
             and self._animation_class(screen, phase) is None
         ):
             return 0
+        animation_class = self._animation_class(screen, phase)
+        if animation_class == "football_team_color":
+            return min(TODAY_DATE_ANIMATION_FPS, MATRIX_REFRESH_FPS)
         if MATRIX_ANIMATION_PROFILE == "baseline":
             return MATRIX_REFRESH_FPS
-        animation_class = self._animation_class(screen, phase)
         if animation_class is None:
             return 0
         return MATRIX_ANIMATION_PROFILES[MATRIX_ANIMATION_PROFILE][animation_class]
@@ -1706,8 +1787,15 @@ class MatrixDisplay:
         if not isinstance(screen, dict):
             return None
         kind = screen.get("kind")
+        if kind == "alexa_timer":
+            return (1.0 / max(1, MATRIX_REFRESH_FPS)
+                    if screen.get("state") in ("running", "complete") else 1.0)
         if kind == "today":
             return 1.0  # Update the clock without animating or rebuilding unchanged text.
+        if kind == "football_score" and screen.get("status") == "PRE":
+            return 1.0  # Wake for the next real-second countdown tick after arrival.
+        if kind == "football_score" and screen.get("status") in ("IN", "POST"):
+            return 1.0 / TODAY_DATE_ANIMATION_FPS
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes"):
             lines = _quote_lines(screen) if kind == "quotes" else _novelty_lines(screen)
             pages = max(1, (len(lines) + 2) // 3)
@@ -1966,96 +2054,413 @@ class MatrixDisplay:
         # display refresh scheduler rather than swapping a frame mid-cycle.
         self._last_present_refresh = self._refresh()
 
-    def _show_football(self, screen, phase, now_epoch):
-        from football_screens import football_screen_lines
+    def _new_football_scene(self):
+        """Allocate one persistent scene; two scenes support an in-place push."""
+        import displayio
 
+        group = displayio.Group()
+        # All eight indexed poses are precomputed once and shared across both
+        # scenes. Switching TileGrid.bitmap avoids 256 pixel writes and the
+        # resulting temporary integer objects during every moving frame.
+        palette = displayio.Palette(len(FOOTBALL_BALL_PALETTE_INDEX))
+        palette[0] = 0
+        palette.make_transparent(0)
+        for name, index in FOOTBALL_BALL_PALETTE_INDEX.items():
+            if name != ".":
+                red, green, blue = FOOTBALL_BALL_PALETTE[name]
+                palette[index] = (red << 16) | (green << 8) | blue
+        ball_grid = displayio.TileGrid(
+            self._football_rotation_bitmaps[0],
+            pixel_shader=palette, x=FOOTBALL_RENDER_END_X, y=8,
+        )
+        group.append(ball_grid)
+        text_group = displayio.Group(x=FOOTBALL_TEXT_X, y=0)
+        labels = [
+            self._label(text_group, "", 0xFFFFFF, 0, index * 8)
+            for index in range(4)
+        ]
+        fixture_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_TEXT_X, 27, 3)
+        fixture_palette = displayio.Palette(3)
+        fixture_palette[0] = 0x000000
+        fixture_palette.make_transparent(0)
+        fixture_palette[1] = 0xFFFFFF
+        fixture_palette[2] = 0xFFFFFF
+        fixture_grid = displayio.TileGrid(
+            fixture_bitmap, pixel_shader=fixture_palette
+        )
+        text_group.append(fixture_grid)
+        live_names_width = FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X
+        live_names_bitmap = displayio.Bitmap(live_names_width, 27, 1 + live_names_width * 4)
+        live_names_palette = displayio.Palette(1 + live_names_width * 4)
+        live_names_palette.make_transparent(0)
+        live_names_grid = displayio.TileGrid(live_names_bitmap, pixel_shader=live_names_palette)
+        text_group.append(live_names_grid)
+        group.append(text_group)
+        due_group = displayio.Group()
+        heading_text = "KICK-OFF"
+        heading_x = DISPLAY_WIDTH - len(heading_text) * 6
+        heading = self._label(due_group, heading_text, 0xFFAA00, heading_x, 18)
+        countdown = self._label(due_group, "", 0xFFFFFF, 256, 25)
+        group.append(due_group)
+        live_group = displayio.Group(x=FOOTBALL_LIVE_RIGHT_X, y=0)
+        live_group.hidden = True
+        clock_label = self._label(live_group, "", 0xFFAA00, 0, 5)
+        score_bitmap = displayio.Bitmap(DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X, 16, 2)
+        score_palette = displayio.Palette(2)
+        score_palette[0] = 0x000000
+        score_palette.make_transparent(0)
+        score_palette[1] = 0xFFFFFF
+        score_grid = displayio.TileGrid(score_bitmap, pixel_shader=score_palette, x=0, y=15)
+        live_group.append(score_grid)
+        group.append(live_group)
+        return {
+            "group": group, "ball_grid": ball_grid, "frame": 0,
+            "labels": labels,
+            "fixture_bitmap": fixture_bitmap,
+            "fixture_palette": fixture_palette,
+            "fixture_grid": fixture_grid,
+            "live_names_bitmap": live_names_bitmap,
+            "live_names_palette": live_names_palette,
+            "live_names_grid": live_names_grid,
+            "live_color_states": [-1] * live_names_width,
+            "text_group": text_group,
+            "due_group": due_group, "heading": heading,
+            "countdown": countdown, "countdown_text": None,
+            "live_group": live_group, "clock_label": clock_label,
+            "score_bitmap": score_bitmap, "score_palette": score_palette,
+            "score_text": None,
+            "key": None, "content_signature": None,
+        }
+
+    def _set_football_content(self, scene, screen, rows, colors, phase=0):
+        """Update cached PRE, live, or terminal football content."""
+        status = screen.get("status")
+        goal_active = screen.get("goal_flash_active") and status == "IN"
+        team_color = FOOTBALL_TEAM_COLORS.get(screen.get("team_key"))
+        key = (status, tuple(rows), tuple(colors), team_color)
+        if scene["key"] == key:
+            return False
+        labels = scene["labels"]
+        fixture_bitmap = scene["fixture_bitmap"]
+        fixture_bitmap.fill(0)
+        fixture_color = (FOOTBALL_FIXTURE_TEXT_COLOR[0] << 16
+                         | FOOTBALL_FIXTURE_TEXT_COLOR[1] << 8
+                         | FOOTBALL_FIXTURE_TEXT_COLOR[2])
+        if status == "PRE":
+            scene["text_group"].y = 5
+            scene["fixture_grid"].hidden = False
+            scene["live_names_grid"].hidden = True
+            scene["live_group"].hidden = True
+            # Enlarge the full fixture vertically while retaining its compact
+            # six-pixel character advance. The date sits lower on row two.
+            fixture_chars = (DISPLAY_WIDTH - FOOTBALL_TEXT_X) // 6
+            titles = (_clip(str(rows[0]), fixture_chars), _clip(str(rows[1]), 22), "", "")
+            for index, label in enumerate(labels):
+                label.y = 17 if index == 1 else 0
+                label.text = "" if index == 0 else titles[index]
+                label.color = colors[index]
+            span = football_team_name_span(screen, rows[0]) if rows else None
+            team_start, team_name, fixture_team_color = span if span else (-1, "", None)
+            fixture_team_color = fixture_team_color or team_color
+            scene["fixture_palette"][1] = fixture_color & 0xFFFFFF
+            scene["fixture_palette"][2] = (
+                ((fixture_team_color[0] << 16) | (fixture_team_color[1] << 8) | fixture_team_color[2])
+                if fixture_team_color else fixture_color
+            )
+            fixture = _clip(str(rows[0]), fixture_chars) if rows else ""
+            load_glyphs = getattr(self.font, "load_glyphs", None)
+            if load_glyphs is not None:
+                load_glyphs(fixture)
+            for char_index, character in enumerate(fixture):
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                color_index = (
+                    2 if fixture_team_color and team_start <= char_index < team_start + len(team_name)
+                    and character != " " else 1
+                )
+                for glyph_y in range(glyph.height):
+                    scaled_top = glyph_y * 11 // glyph.height
+                    scaled_bottom = (glyph_y + 1) * 11 // glyph.height
+                    for glyph_x in range(min(glyph.width, 5)):
+                        if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                            continue
+                        target_x = char_index * 6 + glyph_x
+                        for target_y in range(scaled_top, max(scaled_top + 1, scaled_bottom)):
+                            if 0 <= target_y < 11:
+                                fixture_bitmap[target_x, target_y] = color_index
+            labels[0].color = fixture_color
+            scene["live_group"].hidden = True
+        elif status in ("IN", "POST"):
+            scene["text_group"].y = 2
+            for label in labels:
+                label.text = ""
+            scene["live_names_bitmap"].fill(0)
+            tracked = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
+            opponent = str(screen.get("opponent_long_name") or screen.get("opponent") or "OPPONENT").upper()
+            side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
+            home = str(screen.get("home_team") or (opponent if side in ("away", "a") else tracked)).upper()
+            away = str(screen.get("away_team") or (tracked if side in ("away", "a") else opponent)).upper()
+            # Keep the two opponents together on one horizontal line. A compact
+            # "V" separator leaves room for both full names beside the score.
+            live_fixture = "{} V {}".format(home, away)
+            load_glyphs = getattr(self.font, "load_glyphs", None)
+            if load_glyphs is not None:
+                load_glyphs(live_fixture)
+            live_width = scene["live_names_bitmap"].width
+            char_advance = min(6, max(4, live_width // max(1, len(live_fixture))))
+            live_fixture = _clip(live_fixture, live_width // char_advance)
+            for char_index, character in enumerate(live_fixture):
+                glyph = self.font.get_glyph(ord(character))
+                if glyph is None:
+                    continue
+                for glyph_y in range(glyph.height):
+                    scaled_top = glyph_y * 11 // glyph.height
+                    scaled_bottom = (glyph_y + 1) * 11 // glyph.height
+                    for glyph_x in range(min(glyph.width, 5)):
+                        if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                            continue
+                        target_x = char_index * char_advance + glyph_x * char_advance // 5
+                        for target_y in range(
+                                8 + scaled_top,
+                                8 + max(scaled_top + 1, scaled_bottom)):
+                            if target_x < live_width and target_y < 27:
+                                scene["live_names_bitmap"][target_x, target_y] = (
+                                    1 + target_x * 4 + (target_y & 3)
+                                )
+            scene["fixture_grid"].hidden = True
+            scene["live_names_grid"].hidden = False
+            live_group = scene["live_group"]
+            live_group.hidden = False
+            clock = ("FULL TIME" if status == "POST" else
+                     _clip(str(screen.get("clock") or "LIVE").upper(), 12))
+            scene["clock_label"].text = clock
+            scene["clock_label"].x = max(
+                0, DISPLAY_WIDTH - FOOTBALL_LIVE_RIGHT_X - len(clock) * 6
+            )
+            scene["clock_label"].y = 7 if status == "POST" else 5
+            home_score, away_score = screen.get("home_score"), screen.get("away_score")
+            score = "{}-{}".format(home_score, away_score) if (
+                home_score is not None and away_score is not None
+            ) else "--"
+            scene["score_palette"][1] = colors[3] if goal_active else 0xFFFFFF
+            if scene["score_text"] != score:
+                score_bitmap = scene["score_bitmap"]
+                score_bitmap.fill(0)
+                if load_glyphs is not None:
+                    load_glyphs(score)
+                score_width = len(score) * 12 - 2
+                start_x = max(0, score_bitmap.width - score_width)
+                for char_index, character in enumerate(score):
+                    glyph = self.font.get_glyph(ord(character))
+                    if glyph is None:
+                        continue
+                    for glyph_y in range(glyph.height):
+                        for glyph_x in range(min(glyph.width, 5)):
+                            if glyph.bitmap[glyph_x, glyph_y] <= 0:
+                                continue
+                            target_x = start_x + char_index * 12 + glyph_x * 2
+                            target_y = 1 + glyph_y * 2
+                            for dy in range(2):
+                                for dx in range(2):
+                                    if target_x + dx < score_bitmap.width and target_y + dy < score_bitmap.height:
+                                        score_bitmap[target_x + dx, target_y + dy] = 1
+                scene["score_text"] = score
+        else:
+            scene["live_group"].hidden = True
+            scene["fixture_grid"].hidden = False
+            scene["live_names_grid"].hidden = True
+            scene["text_group"].y = 0
+            for index, label in enumerate(labels):
+                label.y = 8 * index
+                label.text = _clip(str(rows[index]), 38) if index < len(rows) else ""
+                label.color = colors[index]
+            span = football_team_name_span(screen, rows[0]) if rows else None
+            labels[0].color = (
+                (team_color[0] << 16) | (team_color[1] << 8) | team_color[2]
+                if team_color else 0xFFFFFF
+            )
+            fixture_span = football_team_name_span(screen, rows[1]) if len(rows) > 1 else None
+            if fixture_span:
+                labels[1].color = fixture_color
+        scene["due_group"].hidden = status != "PRE"
+        scene["key"] = key
+        return True
+
+    def _update_football_live_colors(self, scene, phase):
+        states = scene["live_color_states"]
+        width = len(states)
+        position = _today_date_sweep_position(phase, width)
+        palette = scene["live_names_palette"]
+        changed = False
+        for x in range(width):
+            state = _today_date_column_state(position, width, x)
+            if state == states[x]:
+                continue
+            states[x] = state
+            color = _today_date_blend_color(state)
+            for row in range(4):
+                index = 1 + x * 4 + row
+                value = _today_date_pixel_color(color, x, row)
+                if palette[index] != value:
+                    palette[index] = value
+                    changed = True
+        return changed
+
+    def _show_football(self, screen, phase, now_epoch):
+        """Roll the ball and fixture together; push the prior match to the left.
+
+        Two reusable displayio scenes are allocated once. Each entry reuses a
+        scene and changes only group coordinates and the 16x16 bitmap pixels.
+        """
         update_started = ticks_ms()
-        rows = list(football_screen_lines(screen, now_epoch))
-        goal_active = screen.get("goal_flash_active") and screen.get("status") == "IN"
-        if goal_active:
-            team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
-            rows[3] = "GOAL {}".format(str(team or "SCORED").upper())
-        colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
-        if goal_active:
-            colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
-        key = (tuple(rows), tuple(colors))
-        changed = self._football_key != key
+        phase = football_entry_phase(phase, screen.get("status"))
         if self._football_group is None:
             import displayio
 
             self._football_group = displayio.Group()
-            self._football_labels = [
-                self._label(self._football_group, "", colors[index], 0, index * 8)
-                for index in range(4)
-            ]
-        if changed:
-            for index, (label, text) in enumerate(zip(self._football_labels, rows)):
-                text = _fit_text_pixels(str(text), DISPLAY_WIDTH)
-                label.text = text
-                label.x = max(0, (DISPLAY_WIDTH - len(text) * WEATHER_FONT_WIDTH) // 2)
-                label.color = colors[index]
-            self._football_key = key
-            if self.display.root_group is self._football_group:
-                animation_class = "football_goal" if goal_active else (
-                    "football_countdown" if screen.get("status") == "PRE" else None
+            self._football_rotation_bitmaps = []
+            for pose in range(8):
+                bitmap = displayio.Bitmap(
+                    FOOTBALL_BALL_WIDTH, FOOTBALL_BALL_HEIGHT,
+                    len(FOOTBALL_BALL_PALETTE_INDEX),
                 )
-                self._refresh(animation_class=animation_class)
-        self._record_animation_update(
-            "football", changed,
-            elapsed_seconds(update_started),
-            "football_goal" if goal_active else (
-                "football_countdown" if screen.get("status") == "PRE" else None
-            ),
+                draw_football_rolling_indexed(bitmap, pose)
+                self._football_rotation_bitmaps.append(bitmap)
+            self._football_slots = (self._new_football_scene(), self._new_football_scene())
+            for item in self._football_slots:
+                item["group"].hidden = True
+                self._football_group.append(item["group"])
+
+        screen_id = screen.get("id")
+        previous = self._football_current
+        root_visible = self.display.root_group is self._football_group
+        phase_reset = (
+            self._football_previous_phase is not None
+            and phase + 0.25 < self._football_previous_phase
         )
-        if self.display.root_group is not self._football_group:
-            self._present(self._football_group)
-
-    def _football_intro_cache_matches(self, screen):
-        return (self._football_intro_group is not None
-                and self._football_intro_team == str(screen.get("team_name") or "FOOTBALL"))
-
-    def _build_football_intro_scene(self, screen):
-        import displayio
-
-        root = displayio.Group()
-        motion = displayio.Group(x=DISPLAY_WIDTH, y=8)
-        bitmap = displayio.Bitmap(
-            FOOTBALL_BALL_WIDTH, FOOTBALL_BALL_HEIGHT,
-            len(FOOTBALL_BALL_PALETTE_INDEX),
+        entering = (
+            previous is None or screen_id != self._football_screen_id
+            or not root_visible or phase_reset
         )
-        palette = displayio.Palette(len(FOOTBALL_BALL_PALETTE_INDEX))
-        palette[0] = 0x000000
-        palette.make_transparent(0)
-        for key, index in FOOTBALL_BALL_PALETTE_INDEX.items():
-            if key != ".":
-                red, green, blue = FOOTBALL_BALL_PALETTE[key]
-                palette[index] = (red << 16) | (green << 8) | blue
-        draw_football_ball_indexed(bitmap)
-        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        team = str(screen.get("team_name") or "FOOTBALL").upper()
-        self._scaled_label(motion, team, 0xFFAA00, FOOTBALL_BALL_WIDTH + 8, 4)
-        root.append(motion)
-        self._football_intro_group = root
-        self._football_intro_motion = motion
-        self._football_intro_team = str(screen.get("team_name") or "FOOTBALL")
+        animation_speed = screen.get("animation_speed")
+        if screen.get("status") in ("IN", "POST"):
+            offset, settled = 0, True
+        else:
+            offset, settled = football_slide_offset(phase, animation_speed)
+        changed = False
 
-    def _show_football_intro(self, screen, phase):
-        if not self._football_intro_cache_matches(screen):
-            self._build_football_intro_scene(screen)
-        update_started = ticks_ms()
-        elapsed = max(0.0, float(phase or 0))
-        x = max(0, DISPLAY_WIDTH - int(elapsed * 80))
-        changed = self._football_intro_motion.x != x
-        self._football_intro_motion.x = x
-        self._attach_brightness_overlay(self._football_intro_group)
-        if self.display.root_group is not self._football_intro_group:
-            self.display.root_group = self._football_intro_group
+        if entering:
+            use_first = previous is None or previous is self._football_slots[1]
+            scene = self._football_slots[0 if use_first else 1]
+            # Only a directly consecutive football screen pushes the previous
+            # one. A flash/other screen uses a fresh independent entry.
+            pushing = (
+                screen.get("status") not in ("IN", "POST") and previous is not None and root_visible
+                and screen_id != self._football_screen_id
+                and self._football_previous_phase is not None
+                and football_presentation_position(
+                    self._football_previous_phase,
+                    animation_speed=self._football_previous_animation_speed,
+                )[1]
+            )
+            self._football_outgoing = previous if pushing else None
+            if self._football_outgoing is not None:
+                # Clear a PRE kickoff label before the outgoing match starts
+                # moving, then slide the match scene by itself.
+                self._football_outgoing["due_group"].hidden = True
+            for item in self._football_slots:
+                item["group"].hidden = item is not scene and item is not self._football_outgoing
+            scene["key"] = None
+            scene["content_signature"] = None
+            scene["countdown_text"] = None
+            scene["score_text"] = None
+            scene["frame"] = -1
+            scene["due_group"].hidden = True
+            self._football_current = scene
+            self._football_screen_id = screen_id
             changed = True
-        self._record_animation_update(
-            "football_intro", changed, elapsed_seconds(update_started), "football_intro"
+        scene = self._football_current
+        self._football_previous_phase = phase
+        self._football_previous_animation_speed = animation_speed
+        # The tracked team name itself carries its club/country colour cycle.
+
+        goal_active = screen.get("goal_flash_active") and screen.get("status") == "IN"
+        # A PRE countdown changes independently of the fixture. Avoid
+        # reconstructing the fixture/score strings, row list and colour list
+        # on every 7 FPS animation tick or every 1 Hz countdown wakeup. An
+        # immutable key also handles MQTT snapshots replaced between frames.
+        content_signature = (
+            screen.get("status"), screen.get("team_key"),
+            screen.get("team_name"), screen.get("display_fixture"),
+            screen.get("opponent_long_name"), screen.get("opponent"),
+            screen.get("team_homeaway"), screen.get("homeaway"),
+            screen.get("kickoff"), screen.get("home_team"),
+            screen.get("away_team"), screen.get("home_score"),
+            screen.get("away_score"), screen.get("clock"),
+            screen.get("competition"), bool(screen.get("stale")),
+            bool(goal_active), screen.get("goal_side"),
+            int(phase * 4) % 2 if goal_active else 0,
         )
-        if changed:
-            self._refresh("football_intro")
+        if scene["content_signature"] != content_signature:
+            rows = list(football_screen_lines(screen, now_epoch))
+            if goal_active:
+                team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
+                rows[3] = "GOAL {}".format(str(team or "SCORED").upper())
+            colors = [0xFFAA00, 0xFFFFFF, 0xFFFFFF, 0xFF5555 if screen.get("stale") else 0xAAAAAA]
+            if goal_active:
+                colors[3] = 0xFFFFFF if int(phase * 4) % 2 == 0 else 0xFF3300
+            changed = self._set_football_content(scene, screen, rows, colors, phase) or changed
+            scene["content_signature"] = content_signature
+        if screen.get("status") in ("IN", "POST"):
+            changed = self._update_football_live_colors(scene, phase) or changed
+
+        # The fixture and date are *already populated* while their whole scene
+        # translates from x=254 to zero; only the Due In text waits to appear.
+        if scene["group"].x != offset:
+            scene["group"].x = offset
+            changed = True
+        frame = (0 if screen.get("status") in ("IN", "POST")
+                 else football_roll_frame(phase, animation_speed))
+        if scene["frame"] != frame:
+            scene["ball_grid"].bitmap = self._football_rotation_bitmaps[frame]
+            scene["frame"] = frame
+            changed = True
+
+        outgoing = self._football_outgoing
+        if outgoing is not None:
+            old_x = offset - (FOOTBALL_START_X - FOOTBALL_RENDER_END_X)
+            if outgoing["group"].x != old_x:
+                outgoing["group"].x = old_x
+                changed = True
+            if settled:
+                outgoing["group"].hidden = True
+                self._football_outgoing = None
+                changed = True
+
+        due_visible = screen.get("status") == "PRE" and settled
+        if scene["due_group"].hidden == due_visible:
+            scene["due_group"].hidden = not due_visible
+            changed = True
+        if due_visible:
+            # Absolute UTC epoch arithmetic; update the glyphs only when the
+            # displayed value changes. The football scene never restarts.
+            countdown = football_due_in(screen.get("kickoff"), now_epoch)
+            if scene["countdown_text"] != countdown:
+                label = scene["countdown"]
+                label.text = countdown
+                label.x = football_countdown_x(countdown)
+                scene["countdown_text"] = countdown
+                changed = True
+
+        animation_class = self._animation_class(screen, phase)
+        self._record_animation_update(
+            "football", changed, elapsed_seconds(update_started), animation_class,
+        )
+        if not root_visible:
+            self._present(self._football_group)
+        elif changed:
+            self._refresh(animation_class=animation_class)
 
     def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         """Show a cheap transition card before building a heavy screen."""
@@ -2084,14 +2489,11 @@ class MatrixDisplay:
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
-        status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
-        platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
+        status_x = (
+            max(0, CLOCK_X - HEADER_GAP - 10 - len(status) * WEATHER_FONT_WIDTH)
+            if status else int(right_edge)
+        )
         platform_x = RAIL_PLATFORM_X
-        # Keep the platform column fixed across refreshes and rows. Moving it
-        # left to make room for a long status also cuts the station name, and
-        # the available status area changes when the feed is marked stale.
-        if status and status_x < platform_x + platform_width + HEADER_GAP:
-            status = ""
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         if MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT and self._rail_service_bitmap(
             group,
@@ -3079,6 +3481,193 @@ class MatrixDisplay:
         if changed:
             self._refresh(self._animation_class(screen, phase))
 
+    def _timer_sprite(self, rows, colors, symbols, x=0, y=0, scale=1):
+        """Rasterize each sprite once at integer LED-pixel size.
+
+        The bitmap is shared by reused TileGrids; moving the sprite never
+        creates new pixels or asks DisplayIO to scale the entire scene.
+        """
+        import displayio
+        width = max(len(row) for row in rows) * scale
+        bitmap = displayio.Bitmap(width, len(rows) * scale, len(colors))
+        palette = displayio.Palette(len(colors))
+        for index, color in enumerate(colors):
+            palette[index] = color
+        palette.make_transparent(0)
+        for dy, row in enumerate(rows):
+            for dx, char in enumerate(row):
+                code = symbols[char]
+                if code:
+                    for yy in range(scale):
+                        for xx in range(scale):
+                            bitmap[dx * scale + xx, dy * scale + yy] = code
+        return displayio.TileGrid(bitmap, pixel_shader=palette, x=x, y=y)
+
+    def _timer_clock_bitmap_fill(self, text):
+        """Reuse a single 3x7 bitmap throughout the countdown."""
+        bitmap = self._timer_clock_bitmap
+        bitmap.fill(0)
+        scale = self._timer_clock_scale
+        for position, char in enumerate(text):
+            glyph = CLOCK_FONT[char]
+            for dy, row in enumerate(glyph):
+                for dx, pixel in enumerate(row):
+                    if pixel == "1":
+                        for sy in range(scale):
+                            for sx in range(scale):
+                                bitmap[position * 4 * scale + dx * scale + sx,
+                                       dy * scale + sy] = 1
+
+    def _show_alexa_timer(self, screen, phase):
+        """Only complete timers allocate animated scenery; no per-frame bitmaps."""
+        import displayio
+        state = screen.get("state")
+        complete = state == "complete"
+        running = state == "running"
+        theme = screen.get("theme")
+        if theme not in TIMER_THEMES:
+            theme = theme_for_timer(screen.get("timer_id"))
+        text = format_countdown(screen.get("remaining_seconds", 0))
+        clock_x, clock_y, scale, clock_width = clock_layout(text)
+        progress = screen.get("progress") or 0
+        elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
+        # Hour count changes can alter the text width without changing scale.
+        # Rebuild the bitmap and reposition the whole scene on those boundaries.
+        key = (screen.get("timer_id"), state, theme, scale, clock_width,
+               bool(screen.get("upstream_stale")))
+        changed = False
+        if getattr(self, "_timer_scene_key", None) != key:
+            group = displayio.Group()
+            accent_tiles = []
+            if complete:
+                # Static 194x32 background, built once when timer reaches zero.
+                bitmap = displayio.Bitmap(SCENE_WIDTH, 32, 8)
+                colors = BACKGROUND_COLORS[theme]
+                palette = displayio.Palette(8)
+                for i, color in enumerate(colors):
+                    palette[i] = color
+                for y in range(32):
+                    for x in range(SCENE_WIDTH):
+                        bitmap[x, y] = background_index(theme, x, y)
+                group.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+                # Moving only two small sprites keeps refresh/GC bounded.
+                rows = ACCENT_ROWS[theme]
+                symbols = {".": 0, "S": 1, "R": 2, "W": 1}
+                colors = (0, ACCENT_COLORS[theme], 0xF46464)
+                prototype = self._timer_sprite(rows, colors, symbols)
+                for i in range(2):
+                    pos = accent_positions(theme, elapsed)[i]
+                    if i == 0:
+                        tile = prototype
+                    else:
+                        tile = displayio.TileGrid(prototype.bitmap,
+                                                   pixel_shader=prototype.pixel_shader)
+                    tile.x, tile.y = pos
+                    group.append(tile)
+                    accent_tiles.append(tile)
+            if screen.get("upstream_stale"):
+                self._label(group, "STALE", 0x888888, 0, 1)
+            palette = displayio.Palette(2)
+            palette[0], palette[1] = 0, (0xB2FFBD if complete else 0xFFFFFF)
+            palette.make_transparent(0)
+            clock_bitmap = displayio.Bitmap(clock_width, 7 * scale, 2)
+            clock_grid = displayio.TileGrid(clock_bitmap, pixel_shader=palette,
+                                             x=clock_x, y=clock_y)
+            group.append(clock_grid)
+            self._timer_clock_bitmap = clock_bitmap
+            self._timer_clock_scale = scale
+            self._timer_clock_text = text
+            self._timer_clock_grid = clock_grid
+            self._timer_clock_bitmap_fill(text)
+            marker_tiles = []
+            if not complete:
+                if theme == "caterpillar":
+                    marker = self._timer_sprite(
+                        TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE,
+                        scale=TIMER_APPLE_SCALE)
+                else:
+                    rows = ("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..") if theme == "stars" else ("YYYYYYY", "YYYYYYY")
+                    marker = self._timer_sprite(rows, (0, 0xFFE36A),
+                                                {".": 0, "Y": 1})
+                for i in range(TIMER_APPLE_COUNT):
+                    if i == 0:
+                        tile = marker
+                    else:
+                        tile = displayio.TileGrid(marker.bitmap,
+                                                   pixel_shader=marker.pixel_shader)
+                    group.append(tile)
+                    marker_tiles.append(tile)
+            actor_rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
+                          else SPRITE_ROWS[theme])
+            actor_colors = (TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                            else SPRITE_COLORS[theme])
+            actor_symbols = (TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
+                             else SPRITE_SYMBOLS[theme])
+            actor_frames = []
+            for turns in range(4 if complete and theme != "caterpillar" else 1):
+                tile = self._timer_sprite(
+                    rotate_sprite(actor_rows, turns), actor_colors, actor_symbols,
+                    x=-100, y=0, scale=TIMER_ACTOR_SCALE)
+                group.append(tile)
+                actor_frames.append(tile)
+            self._timer_scene_key = key
+            self._timer_group = group
+            self._timer_actor_frames = actor_frames
+            self._timer_markers = marker_tiles
+            self._timer_accents = accent_tiles
+            self._timer_markers_eaten = None
+            self._timer_pose = None
+            # Do not present yet: markers and the active actor still need
+            # their first positions. The final check publishes once ready.
+            changed = True
+        if text != self._timer_clock_text:
+            # Scale changes rebuild the scene; within one scale reuse bitmap.
+            self._timer_clock_bitmap_fill(text)
+            self._timer_clock_text = text
+            changed = True
+        if not complete:
+            eaten = timer_apples_eaten(progress)
+            if eaten != self._timer_markers_eaten:
+                for i, tile in enumerate(self._timer_markers):
+                    x = (timer_apple_center(clock_x, i) -
+                         (4 * TIMER_APPLE_SCALE if theme == "caterpillar" else 3)
+                         if i >= eaten else -20)
+                    y = 12 if theme == "caterpillar" else (21 if theme == "stars" else 28)
+                    if tile.x != x or tile.y != y:
+                        tile.x, tile.y = x, y
+                        changed = True
+                self._timer_markers_eaten = eaten
+            head_x = caterpillar_position(clock_x, progress)
+            bob = (int(max(0.0, float(phase)) * 3) % 2
+                   if theme == "caterpillar" and running else 0)
+            frame_index = 0
+            x, y = actor_position(theme, clock_x, head_x, bob=bob)
+        else:
+            frame_index, xshift, yshift = finish_pose(theme, elapsed)
+            x, y = actor_position(
+                theme, clock_x, 0, complete=True, turns=frame_index,
+                vertical_offset=yshift)
+            x += xshift
+            positions = accent_positions(theme, elapsed)
+            for tile, pos in zip(self._timer_accents, positions):
+                if (tile.x, tile.y) != pos:
+                    tile.x, tile.y = pos
+                    changed = True
+        pose = (frame_index, x, y)
+        if pose != self._timer_pose:
+            for i, tile in enumerate(self._timer_actor_frames):
+                tx = x if i == frame_index else -100
+                if tile.x != tx or (i == frame_index and tile.y != y):
+                    tile.x = tx
+                    if i == frame_index:
+                        tile.y = y
+                    changed = True
+            self._timer_pose = pose
+        if self.display.root_group is not self._timer_group:
+            self._present(self._timer_group)
+        elif changed:
+            self._refresh("timer_car")
+
     def _todoist_cache_matches(self, screen, clock_date):
         weather = screen.get("weather")
         weather_icon = weather.get("icon") if isinstance(weather, dict) else None
@@ -3529,11 +4118,6 @@ class MatrixDisplay:
                 return False
             self._build_bus_intro_scene(screen)
             return True
-        if kind == "football_intro":
-            if self._football_intro_cache_matches(screen):
-                return False
-            self._build_football_intro_scene(screen)
-            return True
         if kind == "christmas_tracker":
             if self._christmas_group is not None:
                 return False
@@ -3565,7 +4149,7 @@ class MatrixDisplay:
         draw_christmas_sleigh_indexed(bitmap, 0, 0,
                                       CHRISTMAS_SLEIGH_WIDTH, CHRISTMAS_SLEIGH_HEIGHT)
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 88, 10)
+        self._scaled_label(motion, "HO HO HO...", 0xFFAA00, 88, 6)
         root.append(motion)
         self._christmas_intro_group = root
         self._christmas_intro_motion = motion
@@ -3621,9 +4205,9 @@ class MatrixDisplay:
         # Keep the message to the right of the 84px sleigh. The count's left
         # edge stays fixed so any extra digit grows to the right.
         countdown = self._scaled_label(
-            root, "{} DAYS".format(count_text), 0xFFFFFF, 103, 2, scale=2,
+            root, "{} DAYS".format(count_text), 0xFFFFFF, 103, 4, scale=2,
         )
-        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 103, 18, scale=1)
+        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 103, 20, scale=1)
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
@@ -4136,6 +4720,9 @@ class MatrixDisplay:
 
         empty_state = screen.get("empty_state")
         kind = screen.get("kind")
+        if not empty_state and kind == "alexa_timer":
+            self._show_alexa_timer(screen, phase)
+            return
         presentation_mode = getattr(self, "presentation_mode", MATRIX_PRESENTATION_MODE)
         if presentation_mode != "auto_refresh":
             use_rail_auto_refresh = (
@@ -4188,7 +4775,7 @@ class MatrixDisplay:
                         bitmap, pixel_shader=palette,
                         x=TODAY_HEADER_ICON_X, y=TODAY_HEADER_ICON_Y,
                     ))
-                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3)
+                    time_x = max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 10)
                     self._scaled_label(group, clock_time, 0xFFAA00, time_x,
                                        TODAY_TIME_Y, scale=TODAY_TIME_SCALE)
                     temperature_x = max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE)
@@ -4232,10 +4819,6 @@ class MatrixDisplay:
 
         if not empty_state and kind == "football_score":
             self._show_football(screen, phase, now_epoch)
-            return
-
-        if not empty_state and kind == "football_intro":
-            self._show_football_intro(screen, phase)
             return
 
         if not empty_state and kind == "steam_train_intro":
@@ -4368,7 +4951,8 @@ class FixtureDisplay:
         index = y * DISPLAY_WIDTH + (x if y % 2 == 0 else DISPLAY_WIDTH - 1 - x)
         self.pixels[index] = color
 
-    def _text(self, value, x, y, color, scale=1):
+    def _text(self, value, x, y, color, scale=1, x_scale=None, y_scale=None,
+              character_advance=None):
         glyphs = {
             " ": (0, 0, 0, 0, 0), "-": (0, 0, 1, 0, 0), ":": (0, 1, 0, 0, 1),
             "0": (1, 1, 1, 1, 1), "1": (0, 1, 1, 0, 0), "2": (1, 0, 1, 1, 1),
@@ -4377,6 +4961,8 @@ class FixtureDisplay:
         }
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         pixel_color = color if callable(color) else None
+        x_scale = scale if x_scale is None else x_scale
+        y_scale = scale if y_scale is None else y_scale
         x = int(x)
         y = int(y)
         for char in str(value).upper():
@@ -4388,11 +4974,11 @@ class FixtureDisplay:
             for column, bit in enumerate(bits):
                 if bit:
                     for row in range(5):
-                        for dx in range(scale):
-                            for dy in range(scale):
-                                px, py = x + column * scale + dx, y + row * scale + dy
+                        for dx in range(x_scale):
+                            for dy in range(y_scale):
+                                px, py = x + column * x_scale + dx, y + row * y_scale + dy
                                 self._pixel(px, py, pixel_color(px, py) if pixel_color else color)
-            x += WEATHER_FONT_WIDTH * scale
+            x += character_advance if character_advance is not None else WEATHER_FONT_WIDTH * x_scale
 
     def _text_scaled(self, value, x, y, color, scale=WEEKLY_WEATHER_TEXT_SCALE):
         for index, char in enumerate(str(value)):
@@ -4519,22 +5105,22 @@ class FixtureDisplay:
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
-        self._text("{} DAYS".format(count), 103, 2, white, scale=2)
-        self._text("UNTIL CHRISTMAS", 103, 18, white)
+        self._text("{} DAYS".format(count), 103, 4, white, scale=2)
+        self._text("UNTIL CHRISTMAS", 103, 20, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
         x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
         draw_christmas_sleigh(self._pixel, x, 4, DISPLAY_WIDTH, 32)
-        self._text("HO HO HO...", x + 88, 9, (255, 170, 0))
+        self._text("HO HO HO...", x + 88, 5, (255, 170, 0))
 
     def _rail_service(self, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
-        status_x = _right_aligned_x(status, right_edge) if status else int(right_edge)
-        platform_width = min(RAIL_PLATFORM_WIDTH, len(platform) * WEATHER_FONT_WIDTH)
+        status_x = (
+            max(0, CLOCK_X - HEADER_GAP - 10 - len(status) * WEATHER_FONT_WIDTH)
+            if status else int(right_edge)
+        )
         platform_x = RAIL_PLATFORM_X
-        if status and status_x < platform_x + platform_width + HEADER_GAP:
-            status = ""
         destination_width = max(0, platform_x - HEADER_GAP - RAIL_DESTINATION_X)
         self._text(ordinal_text, RAIL_ORDINAL_X + x_offset, y, color)
         self._text(time_text, RAIL_TIME_X + x_offset, y, color)
@@ -4626,6 +5212,89 @@ class FixtureDisplay:
 
     def _draw_screen(self, screen, phase, clock_date="", clock_time="--:--", now_epoch=None):
         kind = screen.get("kind")
+        if kind == "alexa_timer":
+            text = format_countdown(screen.get("remaining_seconds", 0))
+            clock_x, clock_y, scale, _ = clock_layout(text)
+            progress = screen.get("progress") or 0
+            complete = screen.get("state") == "complete"
+            theme = screen.get("theme")
+            if theme not in TIMER_THEMES:
+                theme = theme_for_timer(screen.get("timer_id"))
+            elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
+            if complete:
+                colors = BACKGROUND_COLORS[theme]
+                for y in range(32):
+                    for x in range(SCENE_WIDTH):
+                        self._pixel(x, y, _rgb_tuple(colors[background_index(theme, x, y)]))
+                for x0, y0 in accent_positions(theme, elapsed):
+                    for dy, row in enumerate(ACCENT_ROWS[theme]):
+                        for dx, pixel in enumerate(row):
+                            if pixel != ".":
+                                color = (0xF46464 if pixel == "R"
+                                         else ACCENT_COLORS[theme])
+                                self._pixel(x0 + dx, y0 + dy, _rgb_tuple(color))
+            if screen.get("upstream_stale"):
+                self._text("STALE", 0, 1, (136, 136, 136))
+            for index, char in enumerate(text):
+                for dy, row in enumerate(CLOCK_FONT[char]):
+                    for dx, digit in enumerate(row):
+                        if digit == "1":
+                            for yy in range(scale):
+                                for xx in range(scale):
+                                    self._pixel(clock_x + index * 4 * scale + dx * scale + xx,
+                                                clock_y + dy * scale + yy,
+                                                (178, 255, 189) if complete else (255, 255, 255))
+            if not complete:
+                eaten = timer_apples_eaten(progress)
+                for i in range(eaten, TIMER_APPLE_COUNT):
+                    if theme == "caterpillar":
+                        rows, symbols, colors = (TIMER_APPLE_ROWS, TIMER_APPLE_PALETTE,
+                                                 TIMER_APPLE_COLORS)
+                        mark_x, mark_y = timer_apple_center(clock_x, i) - 4 * TIMER_APPLE_SCALE, 12
+                    else:
+                        rows = (("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..")
+                                if theme == "stars" else ("YYYYYYY", "YYYYYYY"))
+                        symbols, colors = {".": 0, "Y": 1}, (0, 0xFFE36A)
+                        mark_x, mark_y = timer_apple_center(clock_x, i) - 3, (
+                            21 if theme == "stars" else 28)
+                    marker_scale = TIMER_APPLE_SCALE if theme == "caterpillar" else 1
+                    for dy, row in enumerate(rows):
+                        for dx, letter in enumerate(row):
+                            index = symbols[letter]
+                            if index:
+                                for yy in range(marker_scale):
+                                    for xx in range(marker_scale):
+                                        self._pixel(
+                                            mark_x + dx * marker_scale + xx,
+                                            mark_y + dy * marker_scale + yy,
+                                            _rgb_tuple(colors[index]))
+                head = caterpillar_position(clock_x, progress)
+                bob = (int(max(0.0, float(phase)) * 3) % 2
+                       if theme == "caterpillar" and screen.get("state") == "running" else 0)
+                pose = 0
+                x, y = actor_position(theme, clock_x, head, bob=bob)
+            else:
+                pose, xshift, yshift = finish_pose(theme, elapsed)
+                x, y = actor_position(theme, clock_x, 0, complete=True,
+                                      turns=pose, vertical_offset=yshift)
+                x += xshift
+            rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
+                    else rotate_sprite(SPRITE_ROWS[theme], pose))
+            colors = (TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                      else SPRITE_COLORS[theme])
+            symbols = (TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
+                       else SPRITE_SYMBOLS[theme])
+            for dy, row in enumerate(rows):
+                for dx, char in enumerate(row):
+                    index = symbols[char]
+                    if index:
+                        for yy in range(TIMER_ACTOR_SCALE):
+                            for xx in range(TIMER_ACTOR_SCALE):
+                                self._pixel(
+                                    x + dx * TIMER_ACTOR_SCALE + xx,
+                                    y + dy * TIMER_ACTOR_SCALE + yy,
+                                    _rgb_tuple(colors[index]))
+            return
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
                 weather = screen.get("weather") or {}
@@ -4661,7 +5330,7 @@ class FixtureDisplay:
                             )
                 temperature = _weather_text(weather) or "--C"
                 self._text(clock_time,
-                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 3),
+                           max(0, DISPLAY_WIDTH - len(clock_time) * 6 * TODAY_TIME_SCALE + 10),
                            TODAY_TIME_Y, (255, 170, 0), scale=TODAY_TIME_SCALE)
                 self._text(temperature,
                            max(0, DISPLAY_WIDTH - len(temperature) * 6 * TODAY_TIME_SCALE),
@@ -4683,21 +5352,6 @@ class FixtureDisplay:
             self._christmas_tracker_intro(screen, phase)
         elif kind == "bus_intro":
             self._bus_intro(screen, phase)
-        elif kind == "football_intro":
-            from football_ball import ROWS
-
-            x = max(0, DISPLAY_WIDTH - int(max(0.0, float(phase or 0)) * 80))
-            for row, pixels in enumerate(ROWS):
-                for column, pixel in enumerate(pixels):
-                    if pixel == "W":
-                        color = (245, 245, 245)
-                    elif pixel == "D":
-                        color = (48, 48, 48)
-                    else:
-                        continue
-                    self._pixel(x + column, 8 + row, color)
-            self._text(str(screen.get("team_name") or "FOOTBALL").upper(),
-                       x + FOOTBALL_BALL_WIDTH + 8, 12, (255, 170, 0))
         elif kind == "weather_weekly":
             self._weekly_weather(screen)
         elif kind == "weather_today":
@@ -4707,11 +5361,96 @@ class FixtureDisplay:
         elif kind == "bin_collection":
             self._bin_collection(screen, phase, clock_date)
         elif kind == "football_score":
-            from football_screens import football_screen_lines
+            from football_ball import ROWS as BALL_ROWS
 
-            for index, line in enumerate(football_screen_lines(screen, now_epoch)):
-                color = (255, 170, 0) if index == 0 else (255, 255, 255)
-                self._text(_fit_text_pixels(line, DISPLAY_WIDTH), 0, index * 8, color)
+            ball_x, info_visible = football_presentation_position(
+                football_entry_phase(phase, screen.get("status")),
+                screen.get("status") not in ("IN", "POST") and screen.get("ball_animation", False),
+                screen.get("animation_speed"),
+            )
+            for row, pixels in enumerate(BALL_ROWS):
+                for column, pixel in enumerate(pixels):
+                    if pixel == "W":
+                        color = (245, 245, 245)
+                    elif pixel == "D":
+                        color = (48, 48, 48)
+                    else:
+                        continue
+                    self._pixel(ball_x + column, 8 + row, color)
+            if info_visible:
+                max_chars = max(0, (DISPLAY_WIDTH - FOOTBALL_TEXT_X) // 6)
+                rows = football_screen_lines(screen, now_epoch)
+                if screen.get("goal_flash_active") and screen.get("status") == "IN":
+                    team = screen.get("home_team") if screen.get("goal_side") == "home" else screen.get("away_team")
+                    rows = rows[:3] + ("GOAL {}".format(str(team or "SCORED").upper()),)
+                if screen.get("status") in ("IN", "POST"):
+                    tracked = str(screen.get("team_name") or screen.get("team_key") or "FOOTBALL").upper()
+                    opponent = str(screen.get("opponent_long_name") or screen.get("opponent") or "OPPONENT").upper()
+                    side = str(screen.get("team_homeaway") or screen.get("homeaway") or "home").lower()
+                    home = str(screen.get("home_team") or (opponent if side in ("away", "a") else tracked)).upper()
+                    away = str(screen.get("away_team") or (tracked if side in ("away", "a") else opponent)).upper()
+                    width = FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X
+                    position = _today_date_sweep_position(phase, width)
+                    live_fixture = "{} V {}".format(home, away)
+                    char_advance = min(6, max(4, width // max(1, len(live_fixture))))
+                    live_fixture = _clip(live_fixture, width // char_advance)
+                    row_y = 10
+
+                    def color(px, py, position=position, width=width, row_y=row_y):
+                        column = max(0, min(width - 1, int(px) - FOOTBALL_TEXT_X))
+                        state = _today_date_column_state(position, width, column)
+                        value = _today_date_pixel_color(
+                            _today_date_blend_color(state), column, (int(py) - row_y) & 3
+                        )
+                        return _rgb_tuple(value)
+
+                    self._text(live_fixture, FOOTBALL_TEXT_X, row_y, color,
+                               x_scale=1, y_scale=2, character_advance=char_advance)
+                    clock = ("FULL TIME" if screen.get("status") == "POST" else
+                             _clip(str(screen.get("clock") or "LIVE").upper(), 12))
+                    post_offset = 2 if screen.get("status") == "POST" else 0
+                    self._text(clock, max(FOOTBALL_LIVE_RIGHT_X,
+                               DISPLAY_WIDTH - len(clock) * 6) + post_offset,
+                               5 + post_offset, (255, 170, 0))
+                    home_score, away_score = screen.get("home_score"), screen.get("away_score")
+                    score = "{}-{}".format(home_score, away_score) if (
+                        home_score is not None and away_score is not None
+                    ) else "--"
+                    score_color = (
+                        (255, 51, 0) if screen.get("status") == "IN" and screen.get("goal_flash_active") and int(phase * 4) % 2
+                        else (255, 255, 255)
+                    )
+                    self._text(score, max(FOOTBALL_LIVE_RIGHT_X,
+                               DISPLAY_WIDTH - len(score) * 12), 17, score_color, scale=2)
+                else:
+                    for index, line in enumerate(rows):
+                        line_text = _clip(str(line), max_chars)
+                        base_color = (255, 255, 255)
+                        if screen.get("status") == "PRE" and index < 2:
+                            y = 5 + index * 13
+                        else:
+                            y = index * 8
+                        if ((screen.get("status") == "PRE" and index == 0)
+                                or (screen.get("status") != "PRE" and index == 1)):
+                            base_color = FOOTBALL_FIXTURE_TEXT_COLOR
+                        color = base_color
+                        if index in (0, 1):
+                            span = football_team_name_span(screen, line_text)
+                            if span:
+                                start, name, team_color = span
+                                if team_color:
+                                    positions = {
+                                        char_index: team_color
+                                        for char_index, character in enumerate(name, start=start)
+                                        if character != " "
+                                    }
+
+                                    def color(px, _py, positions=positions, base=base_color):
+                                        char_index = int(px) // 6 - FOOTBALL_TEXT_X // 6
+                                        rgb = positions.get(char_index)
+                                        return rgb if rgb is not None else base
+
+                        self._text(line_text, FOOTBALL_TEXT_X, y, color)
         elif kind == "christmas_tracker":
             self._christmas_tracker(screen, phase, clock_date)
         elif kind == "rail_combined":
@@ -4902,7 +5641,7 @@ class FixtureDisplay:
         if self.pixels is not None:
             self.pixels.fill((0, 0, 0))
             self._draw_screen(screen, phase, clock_date, clock_time, now_epoch)
-            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "christmas_tracker_intro", "bus_intro", "football_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes", "christmas_tracker"):
+            if kind not in WEATHER_FULLSCREEN_KINDS and kind not in ("steam_train_intro", "christmas_tracker_intro", "bus_intro", "bus_departures_combined", "flash", "today", "insult_of_hour", "quotes", "christmas_tracker", "football_score", "alexa_timer"):
                 if due_text:
                     self._text(due_text, due_x, 0, (255, 255, 255))
                 if screen.get("stale"):
@@ -4924,8 +5663,6 @@ class FixtureDisplay:
             print("CHRISTMAS INTRO HO HO HO...")
         elif kind == "bus_intro":
             print("BUS {}".format(screen.get("words") or ""))
-        elif kind == "football_intro":
-            print("FOOTBALL INTRO {}".format(screen.get("team_name") or ""))
         elif kind == "bin_collection":
             for item in screen.get("collections") or []:
                 print(str(item.get("label") or ""))

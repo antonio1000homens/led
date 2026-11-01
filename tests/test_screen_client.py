@@ -1,5 +1,7 @@
 import unittest
 from unittest import mock
+from types import SimpleNamespace
+from datetime import datetime, timezone
 
 import screen_client
 from formatting import prepare_rail_presentation
@@ -57,6 +59,54 @@ class ClockTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
+    def test_rebuild_replans_when_the_only_retained_mqtt_screen_expires_by_schedule(self):
+        rotation = ScreenRotation(ticks_per_second=1000)
+        thursday_evening = int(datetime.fromisoformat(
+            "2026-10-29T21:36:00+00:00"
+        ).timestamp())
+        rotation.set_schedule_epoch(thursday_evening)
+        recycling = {
+            "id": "bin-recycling", "kind": "bin_collection",
+            "schedule_windows": [],
+        }
+        rotation.update_sources([], [recycling], 0)
+        self.assertEqual(len(rotation.screens), 1)
+        rotation.maintenance_slot(1000)
+        self.assertIn("static-maintenance", [screen["id"] for screen in rotation.screens])
+
+        recycling["schedule_windows"] = [{
+            "cron": "0 18 * * 0,1,2,3", "duration_minutes": 1440,
+        }]
+        rotation.update_sources([
+            {"id": "today", "kind": "today"},
+            {"id": "rail", "kind": "rail_combined"},
+        ], [recycling], 2000)
+
+        self.assertGreater(len(rotation.screens), 1)
+        self.assertIn("today", [screen["id"] for screen in rotation.screens])
+        self.assertIn("rail", [screen["id"] for screen in rotation.screens])
+        screen, _ = rotation.current(2000)
+        self.assertNotEqual(screen["id"], "schedule-idle")
+        self.assertFalse(rotation.schedule_state()["idle"])
+
+    def test_schedule_state_reports_active_and_disabled_cycle_counts(self):
+        rotation = ScreenRotation()
+        rotation.update_sources([
+            {"id": "active", "kind": "message"},
+            {"id": "disabled", "kind": "message", "schedule_enabled": False},
+            {"id": "active-two", "kind": "message", "schedule_windows": []},
+        ], [], 0)
+
+        self.assertEqual(rotation.schedule_state(), {
+            "http": 3,
+            "mqtt": 0,
+            "cycle": 3,
+            "active": 2,
+            "disabled": 1,
+            "windowed": 0,
+            "idle": False,
+        })
+
     def test_next_paired_rail_screen_finds_future_train_pair(self):
         rotation = ScreenRotation()
         rotation.update([
@@ -484,7 +534,148 @@ class FakeSession:
         return self.response
 
 
+class MemoryRetrySession(FakeSession):
+    def __init__(self, response):
+        super().__init__(response)
+        self.fail_first_request = True
+        self._connection_manager = type("Manager", (), {
+            "_free_sockets": lambda manager, force=False: setattr(
+                manager, "closed_sockets", getattr(manager, "closed_sockets", 0) + 1
+            )
+        })()
+
+
 class ClientTests(unittest.TestCase):
+    def test_shared_weather_is_attached_by_reference_and_legacy_values_are_kept(self):
+        shared = {"temperature_c": 17.4, "stale": False}
+        screens = [
+            {"id": "departures", "kind": "rail_combined"},
+            {"id": "legacy", "weather": {"temperature_c": 12}},
+        ]
+
+        result = screen_client.attach_shared_weather(screens, shared)
+
+        self.assertIs(result, screens)
+        self.assertIs(screens[0]["weather"], shared)
+        self.assertEqual(screens[1]["weather"], {"temperature_c": 12})
+
+    def test_request_memoryerror_retries_once_without_touching_injected_socket_manager(self):
+        response = CircuitPythonResponse({"screens": []})
+        session = MemoryRetrySession(response)
+
+        def get_with_one_memory_error(url):
+            session.urls.append(url)
+            if session.fail_first_request:
+                session.fail_first_request = False
+                raise MemoryError("simulated response setup allocation")
+            return response
+
+        session.get = get_with_one_memory_error
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+
+        payload = ScreenClient(settings, session=session).fetch()
+
+        self.assertEqual(payload["screens"], [])
+        self.assertEqual(len(session.urls), 2)
+        self.assertEqual(getattr(session._connection_manager, "closed_sockets", 0), 0)
+        self.assertTrue(response.closed)
+
+    def test_owned_recovery_closes_only_the_screen_pool_and_rebuilds_session_tls(self):
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings)
+        pool = object()
+        client.session = object()
+        client._socket_pool = pool
+        manager_module = type("ConnectionManagerModule", (), {})()
+        calls = []
+        def close_all(**kwargs):
+            if kwargs.get("release_references"):
+                raise KeyError(pool)
+            calls.append(kwargs)
+
+        manager_module.connection_manager_close_all = close_all
+        with mock.patch.dict("sys.modules", {"adafruit_connection_manager": manager_module}):
+            client._recover_request_memory_error()
+        self.assertEqual(calls, [{"socket_pool": pool, "release_references": False}])
+        self.assertIsNone(client.session)
+        self.assertIs(client._socket_pool, pool)
+        self.assertIsNone(client._ssl_context)
+
+    def test_managed_http_uses_a_dedicated_pool_and_instruments_only_once(self):
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings)
+        shared_mqtt_pool = object()
+        screen_pool = object()
+        closed_pools = []
+        base_calls = []
+
+        class Manager:
+            def get_socket(self):
+                base_calls.append(True)
+                return object()
+
+        manager = Manager()
+        shared_pool_lookups = []
+
+        class SSLContext:
+            def load_verify_locations(self, **_kwargs):
+                return None
+
+            def wrap_socket(self, *args, **_kwargs):
+                if args and args[0] == "fail":
+                    raise MemoryError("private allocation detail")
+                return "wrapped"
+
+        class Session:
+            def __init__(self, pool, context):
+                self.pool = pool
+                self.context = context
+
+        connection_manager = SimpleNamespace(
+            get_radio_socketpool=lambda radio: shared_pool_lookups.append(radio) or shared_mqtt_pool,
+            get_connection_manager=lambda _pool: manager,
+            connection_manager_close_all=lambda **kwargs: closed_pools.append(kwargs),
+        )
+        modules = {
+            "adafruit_connection_manager": connection_manager,
+            "adafruit_ntp": SimpleNamespace(),
+            "adafruit_requests": SimpleNamespace(Session=Session, __version__="4.1.17"),
+            "socketpool": SimpleNamespace(SocketPool=lambda _radio: screen_pool),
+            "ssl": SimpleNamespace(create_default_context=SSLContext),
+            "rtc": SimpleNamespace(),
+            "wifi": SimpleNamespace(radio=SimpleNamespace(connected=True)),
+        }
+        with mock.patch.dict("sys.modules", modules):
+            client._ensure_session()
+            self.assertIs(client.session.pool, screen_pool)
+            self.assertIsNot(client.session.pool, shared_mqtt_pool)
+            with self.assertRaises(MemoryError):
+                client._ssl_context.wrap_socket("fail")
+            self.assertEqual(client._fetch_stage, "tls_setup")
+            self.assertEqual(client._ssl_context.wrap_socket("socket"), "wrapped")
+            self.assertEqual(client._fetch_stage, "connection_setup")
+            manager.get_socket()
+            self.assertEqual(client._fetch_stage, "response_headers")
+            client._recover_request_memory_error()
+            self.assertEqual(closed_pools, [{"socket_pool": screen_pool, "release_references": False}])
+            client._ensure_session()
+            manager.get_socket()
+        self.assertEqual(len(base_calls), 2)
+        self.assertEqual(shared_pool_lookups, [])
+
+    def test_failed_recovery_retry_returns_to_caller_and_closes_any_response(self):
+        response = CircuitPythonResponse({"screens": []})
+        session = MemoryRetrySession(response)
+        session.get = lambda _url: (_ for _ in ()).throw(MemoryError("allocation"))
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings, session=session)
+        with mock.patch.object(client, "_recover_request_memory_error", wraps=client._recover_request_memory_error) as recover:
+            with self.assertRaises(MemoryError):
+                client.fetch()
+        self.assertEqual(recover.call_count, 2)
+        self.assertEqual(client.last_error_class, "MemoryError")
+        self.assertEqual(client.last_error_stage, "connection_setup")
+
     def test_current_http_date_sets_clock_without_changing_data_age(self):
         response = CircuitPythonResponse({"fetched_at": "2026-10-04T21:30:00Z", "screens": []})
         response.headers = {"date": "Sun, 04 Oct 2026 21:31:05 GMT"}
@@ -548,6 +739,17 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ScreenClient(Settings, session=FakeSession(response)).fetch()
         self.assertTrue(response.closed)
+
+    def test_json_failure_closes_response_and_records_body_stage(self):
+        response = CircuitPythonResponse({"screens": []})
+        response.json = lambda: (_ for _ in ()).throw(ValueError("private body"))
+        settings = type("Settings", (), {"SCREEN_API_URL": "https://led.example"})
+        client = ScreenClient(settings, session=FakeSession(response))
+        with self.assertRaisesRegex(ValueError, "private body"):
+            client.fetch()
+        self.assertTrue(response.closed)
+        self.assertEqual(client.last_error_stage, "response_body")
+        self.assertEqual(client.last_error_class, "ValueError")
 
 
 if __name__ == "__main__":

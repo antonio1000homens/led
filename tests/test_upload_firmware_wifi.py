@@ -146,6 +146,22 @@ class UploadFirmwareTests(unittest.TestCase):
         self.assertIn("Leave the board paused and retry", output)
         self.assertNotIn(password, output)
 
+    def test_password_stdin_supports_firmware_upload_without_prompting(self):
+        password = "super-secret-password"
+        error = HTTPError("http://board.local/fs/code.py", 401, "Unauthorized", None, None)
+        stderr = io.StringIO()
+        with (
+            patch.object(MODULE.getpass, "getpass", side_effect=AssertionError("unexpected prompt")),
+            patch.object(MODULE.sys, "stdin", io.StringIO(password + "\n")),
+            patch.object(MODULE, "stage_application"),
+            patch.object(MODULE, "upload", side_effect=error),
+            contextlib.redirect_stderr(stderr),
+        ):
+            self.assertEqual(
+                MODULE.main(["--host", "http://board.local", "--password-stdin"]), 1
+            )
+        self.assertNotIn(password, stderr.getvalue())
+
     def test_usb_conflict_returns_eject_guidance(self):
         error = HTTPError("http://board.local/fs/code.py", 409, "Conflict", None, None)
         primary, recovery = MODULE.failure_messages(error)

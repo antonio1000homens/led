@@ -1,7 +1,10 @@
 import copy
 from datetime import datetime, timedelta, timezone
 import unittest
+from contextlib import redirect_stdout
+import io
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
+from feed_errors import ProviderFailure
 from runtime_config import default_runtime_config
 from server import DepartureFeed, ScreenFeed
 
@@ -89,6 +92,69 @@ class PublisherTests(unittest.TestCase):
         self.assertTrue(screen["stale"])
         self.assertEqual(screen["services"], [])
         self.assertEqual(screen["empty_state"], "No Services")
+
+    def test_retry_at_ttl_edge_tolerates_scheduled_invocation_jitter(self):
+        self.now = self.now.replace(microsecond=228000)
+        rail = FakeProvider([
+            [{"time": "10:01", "destination": "Waterloo"}],
+            RuntimeError("temporary upstream failure"),
+            [{"time": "10:02", "destination": "Waterloo"}],
+        ])
+
+        Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        self.now += timedelta(seconds=60)
+        failed = Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        self.assertTrue(screen_by_id(failed, "departures")["stale"])
+        self.assertEqual(rail.calls, 2)
+
+        # A call 59 seconds after the failure remains too early. The next
+        # scheduled start is 59.982 seconds later, but crosses the 60-second
+        # wall-clock second bucket and must not miss this poll.
+        self.now += timedelta(seconds=59)
+        early = Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        self.assertTrue(screen_by_id(early, "departures")["stale"])
+        self.assertEqual(rail.calls, 2)
+
+        self.now += timedelta(milliseconds=982)
+        recovered = Publisher(self.config, self.store, rail_provider=rail, utcnow=self.utcnow).run()
+        screen = screen_by_id(recovered, "departures")
+        self.assertFalse(screen["stale"])
+        self.assertEqual(screen["services"][0]["time"], "10:02")
+        self.assertEqual(rail.calls, 3)
+
+    def test_refresh_failure_keeps_last_good_cache_and_records_safe_diagnostics(self):
+        publisher = Publisher(self.config, self.store, rail_provider=FakeProvider([]),
+                              utcnow=self.utcnow)
+        error = ProviderFailure("http_rejection", "millwall", 503)
+        error.__cause__ = RuntimeError("token=SECRET provider body=PRIVATE")
+        previous = {
+            "data": {"fixtures": ["last-good"]},
+            "last_success_at": "2026-09-13T06:00:00Z",
+            "stale": False,
+        }
+        output = io.StringIO()
+        with redirect_stdout(output):
+            failed = publisher._refresh(
+                "football_fixtures", previous, 900,
+                lambda: (_ for _ in ()).throw(error), self.now,
+            )
+        self.assertEqual(failed["data"], previous["data"])
+        self.assertEqual(failed["last_success_at"], previous["last_success_at"])
+        self.assertTrue(failed["stale"])
+        self.assertEqual(failed["error_class"], "RuntimeError")
+        self.assertEqual(failed["error_stage"], "http_rejection")
+        self.assertEqual(failed["http_status"], 503)
+        self.assertEqual(failed["error_source"], "millwall")
+        self.assertNotIn("SECRET", output.getvalue())
+        self.assertNotIn("PRIVATE", output.getvalue())
+
+        recovered = publisher._refresh(
+            "football_fixtures", failed, 900,
+            lambda: {"fixtures": []}, self.now, force=True,
+        )
+        self.assertFalse(recovered["stale"])
+        self.assertNotIn("error_class", recovered)
+        self.assertNotIn("error_stage", recovered)
     def test_cold_rail_failure_publishes_safe_unavailable_screen(self):
         payload=Publisher(self.config,self.store,rail_provider=FakeProvider([RuntimeError("sensitive response")]),utcnow=self.utcnow).run(); screen=screen_by_id(payload, "departures")
         self.assertEqual(screen["source"],"unavailable"); self.assertTrue(screen["stale"]); self.assertEqual(screen["services"],[])
@@ -269,11 +335,11 @@ class PublisherTests(unittest.TestCase):
         weekly=next(screen for screen in second["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(len(weekly["days"]),7)
         self.assertEqual([day["date"] for day in weekly["days"]],[day["date"] for day in weather_forecast()])
-        for screen in second["screens"]:
-            self.assertEqual(screen["weather"]["temperature_c"],17.4)
-            self.assertNotIn("forecast",screen["weather"])
-            self.assertNotIn("today_blocks",screen["weather"])
-            self.assertNotIn("sunrise_time",screen["weather"])
+        self.assertEqual(second["weather"]["temperature_c"],17.4)
+        self.assertNotIn("forecast",second["weather"])
+        self.assertNotIn("today_blocks",second["weather"])
+        self.assertNotIn("sunrise_time",second["weather"])
+        self.assertTrue(all("weather" not in screen for screen in second["screens"]))
     def test_all_closed_queue_pages_are_omitted_per_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_rides=("Hyperia",),weather_source="off")
         rail=FakeProvider([[{"time":"08:01","destination":"Waterloo"}]])
@@ -361,7 +427,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(weather.calls,1)
         weekly=next(screen for screen in payload["screens"] if screen["kind"]=="weather_weekly")
         self.assertEqual(weekly["days"],weather_forecast())
-        self.assertEqual(screen_by_id(payload, "departures")["weather"]["temperature_c"],18.0)
+        self.assertEqual(payload["weather"]["temperature_c"],18.0)
 
     def test_legacy_weather_cache_is_retained_stale_if_forced_upgrade_fails(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",thorpe_park_source="off")
@@ -382,8 +448,8 @@ class PublisherTests(unittest.TestCase):
         ).run()
 
         self.assertEqual(weather.calls,1)
-        self.assertTrue(screen_by_id(payload, "departures")["weather"]["stale"])
-        self.assertEqual(screen_by_id(payload, "departures")["weather"]["temperature_c"],17.4)
+        self.assertTrue(payload["weather"]["stale"])
+        self.assertEqual(payload["weather"]["temperature_c"],17.4)
         weekly=payload["screens"][-1]
         self.assertTrue(weekly["stale"])
         self.assertEqual(weekly["days"],[])
@@ -435,7 +501,7 @@ class PublisherTests(unittest.TestCase):
             runtime_config_store=StaticRuntimeConfigStore(runtime),
         ).run()
         self.assertFalse(any(screen["kind"].startswith("weather_") for screen in payload["screens"]))
-        self.assertIn("weather", screen_by_id(payload, "departures"))
+        self.assertIn("weather", payload)
 
     def test_standalone_today_toggle_preserves_weather_forecast_screens(self):
         config = PublisherConfig(
@@ -459,7 +525,7 @@ class PublisherTests(unittest.TestCase):
         enabled = publish()
         standalone = screen_by_id(enabled, "today")
         self.assertEqual((standalone["kind"], standalone["duration_seconds"]), ("today", 23))
-        self.assertEqual(standalone["weather"]["temperature_c"], 17.4)
+        self.assertEqual(enabled["weather"]["temperature_c"], 17.4)
         forecast_ids = [screen["id"] for screen in enabled["screens"] if screen["kind"].startswith("weather_")]
         self.assertEqual(forecast_ids, ["weather-sun", "weather-today", "weather-weekly"])
         self.assertEqual(screen_by_id(enabled, "weather-today")["duration_seconds"], 12)
@@ -473,7 +539,7 @@ class PublisherTests(unittest.TestCase):
         )
         self.assertEqual(screen_by_id(disabled, "weather-today")["duration_seconds"], 12)
         self.assertEqual(weather.calls, 1)  # Today visibility does not reset the shared cache.
-        self.assertIn("weather", screen_by_id(disabled, "departures"))
+        self.assertIn("weather", disabled)
 
     def test_standalone_today_uses_shared_weather_poll_when_forecast_is_disabled(self):
         config = PublisherConfig(

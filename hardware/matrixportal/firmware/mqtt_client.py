@@ -51,6 +51,15 @@ class FlashMqttClient:
             self._discard_client()
             self.next_attempt = 0
 
+    def _handle_message(self, client, topic, message):
+        """Keep application callback failures from tearing down MQTT transport."""
+        try:
+            self.on_message(topic, message)
+        except Exception as error:
+            # Do not log the payload: timer messages can contain user labels.
+            print("MQTT message handler failed type={}".format(
+                type(error).__name__))
+
     def _connect(self, now):
         if self.client is not None and self.connected:
             return
@@ -83,7 +92,7 @@ class FlashMqttClient:
                 )
             else:
                 self.client = self.mqtt_factory(self.settings)
-            self.client.on_message = lambda client, topic, message: self.on_message(topic, message)
+            self.client.on_message = self._handle_message
             self.client.connect()
             self.client.subscribe(self.settings.MQTT_TOPIC, qos=1)
             assistant_topic = getattr(
@@ -93,8 +102,10 @@ class FlashMqttClient:
             self.client.subscribe(assistant_topic, qos=1)
             screen_topic = getattr(self.settings, "MQTT_SCREENS_TOPIC", "led/screens/+")
             football_topic = getattr(self.settings, "MQTT_FOOTBALL_TOPIC", "led/football/+")
+            timer_topic = getattr(self.settings, "MQTT_TIMER_TOPIC", "led/timer/+")
             self.client.subscribe(screen_topic, qos=1)
             self.client.subscribe(football_topic, qos=1)
+            self.client.subscribe(timer_topic, qos=1)
             self.connected = True
             self.next_loop = now
             if self.pending_screen_status is not None:
@@ -113,8 +124,8 @@ class FlashMqttClient:
                     qos=0,
                 )
                 self.pending_health = None
-            print("MQTT subscribed reminder={} assistant={} screens={} football={}".format(
-                self.settings.MQTT_TOPIC, assistant_topic, screen_topic, football_topic))
+            print("MQTT subscribed reminder={} assistant={} screens={} football={} timer={}".format(
+                self.settings.MQTT_TOPIC, assistant_topic, screen_topic, football_topic, timer_topic))
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 30
@@ -189,4 +200,4 @@ class FlashMqttClient:
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 5
-            print("MQTT disconnected:", error)
+            print("MQTT disconnected type={}".format(type(error).__name__))

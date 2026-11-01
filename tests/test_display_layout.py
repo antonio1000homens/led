@@ -110,6 +110,45 @@ def today_blocks():
 
 
 class DisplayLayoutTests(unittest.TestCase):
+    def test_football_scene_uses_supported_group_constructor(self):
+        class Group(list):
+            def __init__(self, x=0, y=0):
+                super().__init__()
+                self.x, self.y, self.hidden = x, y, False
+
+        class Bitmap:
+            def __init__(self, width, height, colors):
+                self.width, self.height, self.colors = width, height, colors
+
+        class Palette(list):
+            def __init__(self, count):
+                super().__init__([0] * count)
+
+            def make_transparent(self, index):
+                self.transparent = index
+
+        class TileGrid:
+            def __init__(self, bitmap, pixel_shader, x=0, y=0):
+                self.bitmap, self.pixel_shader = bitmap, pixel_shader
+                self.x, self.y, self.hidden = x, y, False
+
+        class Label:
+            def __init__(self, font, **attributes):
+                self.__dict__.update(attributes)
+
+        displayio = types.SimpleNamespace(
+            Group=Group, Bitmap=Bitmap, Palette=Palette, TileGrid=TileGrid,
+        )
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.font = object()
+        display.label_type = Label
+        display._football_rotation_bitmaps = [object()]
+        with mock.patch.dict(sys.modules, {"displayio": displayio}):
+            scene = display._new_football_scene()
+
+        self.assertTrue(scene["live_group"].hidden)
+        self.assertEqual(scene["live_group"].x, led_display.FOOTBALL_LIVE_RIGHT_X)
+
     def test_combined_sl7_rows_hide_expired_departures_and_keep_upcoming_rows(self):
         now = int(datetime(2026, 10, 13, 15, 0, tzinfo=timezone.utc).timestamp())
         screen = {
@@ -854,6 +893,61 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertEqual(len(set(status_x)), 1)
         ordinals = [text for text, _x, _y, _color in display.drawn if text in ("1st", "2nd", "3rd", "4th")]
         self.assertEqual(ordinals[:4], ["1st", "2nd", "3rd", "4th"])
+
+    def test_departure_cancelled_status_fits_after_left_shifted_platform(self):
+        display = CapturingFixture()
+        display._draw_screen({
+            "kind": "rail_combined",
+            "services": [{
+                "time": "12:00", "destination": "Millwall FC", "platform": "2",
+                "cancelled": True, "status": "CANCELLED",
+            }],
+        }, phase=0, clock_date="2026-09-15")
+
+        platform = next(item for item in display.drawn if item[0] == "P2")
+        cancelled = next(item for item in display.drawn if item[0] == "CANCELLED")
+        self.assertEqual(platform[1], 154)
+        self.assertEqual(platform[2], cancelled[2])
+        self.assertGreaterEqual(cancelled[1], platform[1] + 3 * led_display.WEATHER_FONT_WIDTH)
+
+    def test_matrix_departure_cancelled_status_fits_after_left_shifted_platform(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        display.drawn = []
+        display.font = object()
+        display._text = lambda value, x, y, color: display.drawn.append(
+            (str(value), int(x), int(y), color)
+        )
+        display._label = lambda group, value, color, x, y: display.drawn.append(
+            (str(value), int(x), int(y), color)
+        )
+        service = {
+            "scheduled": "12:00", "destination": "London Waterloo",
+            "platform": "2", "cancelled": True, "status": "CANCELLED",
+        }
+        on_time = {
+            "scheduled": "12:10", "destination": "Wimbledon",
+            "platform": "3", "cancelled": False, "status": "On time",
+        }
+
+        with mock.patch.object(led_display, "MATRIX_RAIL_STATIC_ROW_BITMAP_EXPERIMENT", False):
+            display._rail_service([], service, (255, 255, 255), 0, 12, 250)
+            display._rail_service([], on_time, (255, 255, 255), 0, 20, 250, ordinal=2)
+
+        platforms = {item[0]: item for item in display.drawn if item[0] in ("P2", "P3")}
+        statuses = {item[0]: item for item in display.drawn if item[0] in ("CANCELLED", "On time")}
+        self.assertEqual(platforms["P2"][1], 154)
+        self.assertEqual(platforms["P3"][1], 154)
+        for status_name, platform_name in (("CANCELLED", "P2"), ("On time", "P3")):
+            self.assertEqual(platforms[platform_name][2], statuses[status_name][2])
+            self.assertGreaterEqual(
+                statuses[status_name][1],
+                platforms[platform_name][1] + 3 * led_display.WEATHER_FONT_WIDTH,
+            )
+        status_right_edges = {
+            statuses[name][1] + len(name) * led_display.WEATHER_FONT_WIDTH
+            for name in statuses
+        }
+        self.assertEqual(len(status_right_edges), 1)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,14 @@ Parameters:
   ChessingtonRides: {Type: String, Default: "Vampire,Dragon's Fury,Mandrill Mayhem,Rattlesnake,Croc Drop,ZUFARI"}
   CalendarSource: {Type: String, Default: 'off', AllowedValues: ['off', todoist]}
   TodoistOAuthParameterName: {Type: String, Default: /led/todoist/oauth}
+  FootballFixtureSource: {Type: String, Default: 'off', AllowedValues: ['off', google_calendar, public_ical]}
+  FootballFixtureParameterName:
+    Type: String
+    Default: /led/football/calendar
+    AllowedPattern: '^/led/football/[A-Za-z0-9_/-]+$'
+  FootballFixtureCacheSeconds: {Type: Number, Default: 900, MinValue: 60, MaxValue: 86400}
+  FootballFixtureDurationSeconds: {Type: Number, Default: 20, MinValue: 2, MaxValue: 300}
+  FootballFixtureLookaheadDays: {Type: Number, Default: 45, MinValue: 1, MaxValue: 180}
   CubsProgrammeParameterName: {Type: String, Default: /led/cubs/programme-ics-url}
   CubsEventsParameterName: {Type: String, Default: /led/cubs/events-ics-url}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
@@ -89,6 +97,10 @@ Resources:
                 Effect: Allow
                 Action: ['ssm:GetParameter', 'ssm:PutParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
+              - Sid: ReadFootballCalendarCredentials
+                Effect: Allow
+                Action: ['ssm:GetParameter']
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FootballFixtureParameterName}
               - Sid: ReadCubsIcsParameters
                 Effect: Allow
                 Action: ['ssm:GetParameter']
@@ -117,6 +129,11 @@ Resources:
           RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
           TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
+          LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
+          LED_FOOTBALL_FIXTURE_PARAMETER_NAME: !Ref FootballFixtureParameterName
+          LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
+          LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
+          LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
           CUBS_PROGRAMME_PARAMETER_NAME: !Ref CubsProgrammeParameterName
           CUBS_EVENTS_PARAMETER_NAME: !Ref CubsEventsParameterName
           LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
@@ -198,6 +215,10 @@ Resources:
           LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
           LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
           LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
+          LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
+          LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
+          LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
+          LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
           LED_WEATHER_SOURCE: !Ref WeatherSource
           LED_WEATHER_CACHE_SECONDS: !Ref WeatherCacheSeconds
 

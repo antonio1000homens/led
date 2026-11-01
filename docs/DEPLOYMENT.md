@@ -339,3 +339,8 @@ The three dedicated Weather screens are static full-canvas screens and suppress 
 ## Cost characteristics
 
 There is no always-on EC2, ECS/Fargate, App Runner, NAT Gateway, or Secrets Manager runtime dependency. Deployment secrets and Todoist OAuth state use SSM Parameter Store Standard `SecureString` parameters with the default AWS-managed SSM key. The dedicated Lambda code bucket stores only deployment packages. Lambda, Scheduler, S3, CloudFront and standard Parameter Store usage should remain very small at this project's scale, subject to the account's aggregate usage and current AWS pricing.
+
+
+## Public Google Calendar football fixtures
+
+The default fixture source is off. Set `LED_FOOTBALL_FIXTURE_SOURCE=public_ical` to read the four known public Google iCalendar endpoints without OAuth. Sporting and Millwall are enabled when the `football_fixtures` feed is turned on, while Portugal and England remain disabled test choices. See [the football source contract](football-mqtt.md#backend-sourced-pre-football-fixtures-275) for iCal URLs, matching rules, admin switches, and firmware/HA rollout. The alternate `google_calendar` source still requires a publisher-readable SSM OAuth SecureString at `/led/football/calendar`.

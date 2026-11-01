@@ -4,10 +4,16 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "hardware/matrixportal/firmware"))
-from board_health import BoardHealth, HEARTBEAT_SECONDS
+from board_health import BoardHealth, HEARTBEAT_SECONDS, safe_snapshot_timestamp
 
 
 class BoardHealthTests(unittest.TestCase):
+    def test_snapshot_timestamp_is_bounded_and_accepts_publisher_time(self):
+        timestamp = "2026-10-29T21:05:36.033878Z"
+        self.assertEqual(safe_snapshot_timestamp(timestamp), timestamp)
+        self.assertEqual(safe_snapshot_timestamp("https://private.example/?token=x"), "unknown")
+        self.assertEqual(safe_snapshot_timestamp("x" * 33), "unknown")
+
     def test_heartbeat_is_due_by_progress_time_and_payload_is_compact(self):
         health = BoardHealth("matrixportal-s3-abc1", "rev_42")
         self.assertTrue(health.due(0))
@@ -47,12 +53,15 @@ class BoardHealthTests(unittest.TestCase):
             {"source": "national_rail", "stale": False},
         ])
         self.assertTrue(health.state["last_fetch_successful"])
+        self.assertEqual(health.state["last_fetch_success_uptime_seconds"], 12)
         health.checkpoint("fetch", {"id": "calendar", "kind": "calendar_agenda", "source": "todoist"})
-        health.fetch_result(20, 2.1, error="Token leaked in URL")
+        health.fetch_result(20, 2.1, error="MemoryError", error_stage="connection_setup")
         payload = json.loads(health.payload(20, None, None))
         self.assertEqual(payload["fetch_failures"], 1)
         self.assertFalse(payload["last_fetch_successful"])
-        self.assertEqual(payload["last_fetch_error_class"], "other")
+        self.assertEqual(payload["last_fetch_error_class"], "MemoryError")
+        self.assertEqual(payload["last_fetch_error_stage"], "connection_setup")
+        self.assertEqual(payload["last_fetch_success_uptime_seconds"], 12)
         self.assertEqual(payload["attempted_screen_id"], "calendar")
         self.assertEqual(len(payload["feed_health"]), 2)
         self.assertLess(len(json.dumps(payload)), 2048)
