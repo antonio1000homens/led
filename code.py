@@ -1222,7 +1222,12 @@ while True:
                 break
             fetched_at = payload.get("clock_at") or payload.get("fetched_at")
             if fetched_at and (client is not None or not fixture_clock_synced):
-                clock.sync(fetched_at, fetch_completed)
+                clock_anchor = fetch_completed
+                if payload.get("clock_at"):
+                    clock_anchor = payload.get(
+                        "_clock_response_received_monotonic", fetch_completed
+                    )
+                clock.sync(fetched_at, clock_anchor)
                 fixture_clock_synced = True
             if board_health is not None:
                 board_health.fetch_result(fetch_completed, fetch_duration, screens)

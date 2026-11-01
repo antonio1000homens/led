@@ -948,20 +948,25 @@ class ScreenClient:
         if not base:
             raise ValueError("SCREEN_API_URL is required for api mode")
         response = None
+        clock_response_received = None
         self._fetch_stage = "session_setup"
         try:
             self._ensure_session()
             self._fetch_stage = "connection_setup"
             print("SCREEN FETCH REQUEST heap_free={}".format(_free_heap_bytes()))
             url = base + "/api/screens"
+            import time
+
             try:
                 response = self.session.get(url)
+                clock_response_received = time.monotonic()
             except MemoryError:
                 print("SCREEN FETCH REQUEST MEMORYERROR; rebuilding owned HTTP session and retrying")
                 self._recover_request_memory_error()
                 self._ensure_session()
                 self._fetch_stage = "connection_setup"
                 response = self.session.get(url)
+                clock_response_received = time.monotonic()
             self._fetch_stage = "response_headers"
             status_code = getattr(response, "status_code", None)
             headers = getattr(response, "headers", {}) or {}
@@ -987,6 +992,13 @@ class ScreenClient:
             clock_at = _http_date_timestamp(headers.get("date") or headers.get("Date"))
             if clock_at:
                 payload["clock_at"] = clock_at
+                # Anchor ClockState when the response headers arrive. Anchoring
+                # after response.json() would include the whole body download
+                # and parse time, making the local clock lag by that duration.
+                payload["_clock_response_received_monotonic"] = clock_response_received
+                print("SCREEN CLOCK HTTP_DATE headers_to_json_seconds={:.3f}".format(
+                    max(0.0, time.monotonic() - clock_response_received)
+                ))
             self.last_error_stage = ""
             self.last_error_class = ""
             return payload
