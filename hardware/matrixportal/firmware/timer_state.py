@@ -21,14 +21,41 @@ def format_countdown(remaining_seconds):
     return "{:02d}:{:02d}".format(minutes, seconds)
 
 
-def car_position(clock_left, car_width, progress):
-    progress = min(1.0, max(0.0, float(progress or 0)))
-    finish_x = max(0, int(clock_left) - int(car_width))
+# Ten apples are eaten at evenly spaced milestones of the actual timer.
+# The final apple is reserved for the explicit completed state.
+TIMER_APPLE_COUNT = 10
+TIMER_CATERPILLAR_START_X = 12
+TIMER_CATERPILLAR_CLOCK_GAP = 22
+
+
+def _timer_progress(progress):
+    return min(1.0, max(0.0, float(progress or 0)))
+
+
+def caterpillar_position(clock_left, progress):
+    progress = _timer_progress(progress)
+    start_x = TIMER_CATERPILLAR_START_X
+    finish_x = max(start_x, int(clock_left) - TIMER_CATERPILLAR_CLOCK_GAP)
     if progress >= 1.0:
         return finish_x
-    # Pixel rounding must not place the car at the clock before completion.
-    # Reserve the finish pixel for TimerState's explicit complete state.
-    return min(max(0, finish_x - 1), int(round(finish_x * progress)))
+    # Never allow pixel rounding to display the finish before expiry.
+    return min(max(start_x, finish_x - 1),
+               int(round(start_x + (finish_x - start_x) * progress)))
+
+
+def timer_apples_eaten(progress):
+    progress = _timer_progress(progress)
+    return min(TIMER_APPLE_COUNT, int(progress * TIMER_APPLE_COUNT))
+
+
+def timer_apple_center(clock_left, index):
+    # Each apple is located where the head reaches its next 10% milestone.
+    if not 0 <= index < TIMER_APPLE_COUNT:
+        raise ValueError("apple index outside range")
+    start_x = TIMER_CATERPILLAR_START_X
+    finish_x = max(start_x, int(clock_left) - TIMER_CATERPILLAR_CLOCK_GAP)
+    return int(round(start_x + (finish_x - start_x)
+                     * ((index + 1) / TIMER_APPLE_COUNT)))
 
 
 def _number(value, minimum, maximum, name):
