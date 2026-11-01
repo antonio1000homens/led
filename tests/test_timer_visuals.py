@@ -88,6 +88,10 @@ class TimerVisualTests(unittest.TestCase):
                 self.data = {}
 
             def __setitem__(self, pos, color):
+                x, y = pos
+                if not (0 <= x < self.width and 0 <= y < self.height):
+                    raise AssertionError("bitmap write out of bounds: {} in {}x{}".format(
+                        pos, self.width, self.height))
                 self.data[pos] = color
 
             def fill(self, color):
@@ -114,7 +118,19 @@ class TimerVisualTests(unittest.TestCase):
                 with self.subTest(theme=theme):
                     renderer = display.MatrixDisplay.__new__(display.MatrixDisplay)
                     renderer.display = types.SimpleNamespace(root_group=None)
-                    renderer._present = lambda group: setattr(renderer.display, "root_group", group)
+                    presentations = []
+
+                    def present_when_positioned(group):
+                        # A scene must not become visible while the active
+                        # sprite is still off-screen and markers overlap at 0,0.
+                        self.assertTrue(any(tile.x != -100
+                                            for tile in renderer._timer_actor_frames))
+                        self.assertFalse(any(tile.x == 0 and tile.y == 0
+                                             for tile in renderer._timer_markers))
+                        presentations.append(group)
+                        renderer.display.root_group = group
+
+                    renderer._present = present_when_positioned
                     renderer._refresh = lambda *_args: True
                     renderer.font = object()
                     renderer.label_type = lambda *_args, **kwargs: types.SimpleNamespace(**kwargs)
@@ -122,16 +138,19 @@ class TimerVisualTests(unittest.TestCase):
                               "theme": theme, "state": "running",
                               "remaining_seconds": 120, "progress": 0.0}
                     renderer._show_alexa_timer(screen, 0)
+                    self.assertEqual(len(presentations), 1)
                     running_group = renderer.display.root_group
                     self.assertFalse(any(isinstance(item, Grid) and
                                          (item.bitmap.width, item.bitmap.height) == (194, 32)
                                          for item in running_group))
                     screen["remaining_seconds"], screen["progress"] = 60, .5
                     renderer._show_alexa_timer(screen, 1)
+                    self.assertEqual(len(presentations), 1)
                     self.assertIs(renderer.display.root_group, running_group)
 
                     screen["state"] = "paused"
                     renderer._show_alexa_timer(screen, 1)
+                    self.assertEqual(len(presentations), 2)
                     paused_group = renderer.display.root_group
                     self.assertFalse(any(isinstance(item, Grid) and
                                          (item.bitmap.width, item.bitmap.height) == (194, 32)
@@ -140,6 +159,7 @@ class TimerVisualTests(unittest.TestCase):
                     screen.update(state="complete", remaining_seconds=0,
                                   progress=1, completion_elapsed_seconds=0)
                     renderer._show_alexa_timer(screen, 0)
+                    self.assertEqual(len(presentations), 3)
                     complete_group = renderer.display.root_group
                     backgrounds = [item for item in complete_group
                                    if isinstance(item, Grid)
@@ -156,6 +176,36 @@ class TimerVisualTests(unittest.TestCase):
                     screen["completion_elapsed_seconds"] = 4.0
                     renderer._show_alexa_timer(screen, 4)
                     self.assertIs(renderer.display.root_group, complete_group)
+                    self.assertEqual(len(presentations), 3)
+
+                    # 10:00:00 -> 9:59:59 shortens the clock by one glyph
+                    # without changing scale; the bitmap must be rebuilt.
+                    screen.update(state="running", remaining_seconds=36000,
+                                  progress=0)
+                    renderer._show_alexa_timer(screen, 0)
+                    ten_hours_group = renderer.display.root_group
+                    self.assertEqual(len(presentations), 4)
+                    self.assertEqual(renderer._timer_clock_bitmap.width, 64)
+                    self.assertEqual(renderer._timer_clock_grid.x, 191)
+                    screen["remaining_seconds"] = 35999
+                    renderer._show_alexa_timer(screen, 0)
+                    nine_hours_group = renderer.display.root_group
+                    self.assertIsNot(ten_hours_group, nine_hours_group)
+                    self.assertEqual(len(presentations), 5)
+                    self.assertEqual(renderer._timer_clock_bitmap.width, 56)
+                    self.assertEqual(renderer._timer_clock_grid.x, 199)
+                    # Same-length changes retain the new group and bitmap.
+                    screen["remaining_seconds"] = 35998
+                    renderer._show_alexa_timer(screen, 0)
+                    self.assertIs(renderer.display.root_group, nine_hours_group)
+                    self.assertEqual(len(presentations), 5)
+                    # An edited timer can gain an hour digit again.
+                    screen["remaining_seconds"] = 36000
+                    renderer._show_alexa_timer(screen, 0)
+                    self.assertIsNot(renderer.display.root_group, nine_hours_group)
+                    self.assertEqual(len(presentations), 6)
+                    self.assertEqual(renderer._timer_clock_bitmap.width, 64)
+                    self.assertEqual(renderer._timer_clock_grid.x, 191)
 
     @unittest.skipUnless(shutil.which("node"), "Node.js needed for simulator parity")
     def test_simulator_and_firmware_geometry_agree(self):
