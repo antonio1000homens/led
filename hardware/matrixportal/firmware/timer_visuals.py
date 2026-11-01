@@ -37,13 +37,15 @@ CLOCK_FONT = {
 
 
 def theme_for_timer(timer_id, label=None):
-    """Choose a stable theme from a label, falling back to native timer ID."""
+    """Choose a label theme, defaulting unnamed timers to the racing car."""
     normalized_label = str(label or "").strip().lower()
     mapped_theme = TIMER_LABEL_THEME_MAP.get(normalized_label)
     if mapped_theme in TIMER_THEMES:
         return mapped_theme
-    value = normalized_label or str(timer_id or "")
-    checksum = sum((index + 1) * ord(character) for index, character in enumerate(value))
+    if not normalized_label:
+        return "race"
+    checksum = sum((index + 1) * ord(character)
+                   for index, character in enumerate(normalized_label))
     return TIMER_THEMES[checksum % len(TIMER_THEMES)]
 
 

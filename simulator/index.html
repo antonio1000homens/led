@@ -1790,7 +1790,8 @@
     function alexaTimerTheme(timerId, label) {
       const normalizedLabel = String(label || '').trim().toLowerCase();
       if (ALEXA_TIMER_THEMES.includes(normalizedLabel)) return normalizedLabel;
-      const name = normalizedLabel || String(timerId || '');
+      if (!normalizedLabel) return 'race';
+      const name = normalizedLabel;
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash += (i + 1) * name.charCodeAt(i);
       return ALEXA_TIMER_THEMES[hash % 4];
