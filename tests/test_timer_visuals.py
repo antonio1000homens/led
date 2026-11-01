@@ -21,12 +21,18 @@ from timer_visuals import (
 
 
 class TimerVisualTests(unittest.TestCase):
-    def test_stable_theme_selection_uses_only_timer_id(self):
+    def test_label_selects_theme_and_unnamed_timer_falls_back_to_id(self):
         for timer_id in ("alexa-1", "timer/3", "morning", "a-longer-test-id"):
             self.assertEqual(theme_for_timer(timer_id), theme_for_timer(timer_id))
             self.assertIn(theme_for_timer(timer_id), TIMER_THEMES)
         self.assertEqual({theme_for_timer("child-{}".format(i)) for i in range(40)},
                          set(TIMER_THEMES))
+        for theme in TIMER_THEMES:
+            self.assertEqual(theme_for_timer("timer-id", theme), theme)
+            self.assertEqual(theme_for_timer("timer-id", " " + theme.upper() + " "),
+                             theme)
+        self.assertEqual(theme_for_timer("first-id", "Pasta"),
+                         theme_for_timer("second-id", " pasta "))
 
     def test_clock_uses_compact_font_and_rightmost_pixel(self):
         for label in ("00:00", "59:59", "1:00:00", "12:34:56"):
@@ -293,6 +299,8 @@ class TimerVisualTests(unittest.TestCase):
         harness = helpers + """
 process.stdout.write(JSON.stringify({
   theme: alexaTimerTheme('child-7'),
+  labelledTheme: alexaTimerTheme('first-id',' PaStA '),
+  explicitLabelTheme: alexaTimerTheme('timer-id','STARS'),
   clock: alexaTimerClockLayout('00:00'),
   rocket: alexaTimerFinishPose('rocket',1.5),
   race: alexaTimerFinishPose('race',1.5),
@@ -307,6 +315,8 @@ process.stdout.write(JSON.stringify({
                                 text=True, check=True)
         values = json.loads(result.stdout)
         self.assertEqual(values["theme"], theme_for_timer("child-7"))
+        self.assertEqual(values["labelledTheme"], theme_for_timer("second-id", "pasta"))
+        self.assertEqual(values["explicitLabelTheme"], theme_for_timer("other-id", "stars"))
         x, y, scale, _ = clock_layout("00:00")
         self.assertEqual(values["clock"], {"x": x, "y": y, "scale": scale})
         self.assertEqual(values["rocket"],
