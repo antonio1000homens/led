@@ -4,10 +4,13 @@ import shutil
 import subprocess
 import sys
 import unittest
+import types
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "hardware" / "matrixportal" / "firmware"))
+sys.path.insert(0, str(ROOT / "shared"))
 
 from timer_visuals import (
     TIMER_THEMES, CLOCK_FONT, BACKGROUND_COLORS, SPRITE_ROWS,
@@ -74,6 +77,85 @@ class TimerVisualTests(unittest.TestCase):
         self.assertNotIn('"YUM!"', render)
         self.assertNotIn('"WIN!"', render)
         self.assertNotIn('"LANDED!"', render)
+
+    def test_matrix_scene_is_reused_and_background_exists_only_when_complete(self):
+        class Group(list):
+            pass
+
+        class Bitmap:
+            def __init__(self, width, height, count):
+                self.width, self.height, self.count = width, height, count
+                self.data = {}
+
+            def __setitem__(self, pos, color):
+                self.data[pos] = color
+
+            def fill(self, color):
+                self.data.clear()
+
+        class Palette(list):
+            def __init__(self, count):
+                super().__init__([0] * count)
+
+            def make_transparent(self, index):
+                pass
+
+        class Grid:
+            def __init__(self, bitmap, pixel_shader=None, x=0, y=0):
+                self.bitmap, self.pixel_shader = bitmap, pixel_shader
+                self.x, self.y = x, y
+
+        fake_displayio = types.SimpleNamespace(
+            Group=Group, Bitmap=Bitmap, Palette=Palette, TileGrid=Grid)
+        sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
+        with patch.dict(sys.modules, {"displayio": fake_displayio}):
+            import display
+            for theme in TIMER_THEMES:
+                with self.subTest(theme=theme):
+                    renderer = display.MatrixDisplay.__new__(display.MatrixDisplay)
+                    renderer.display = types.SimpleNamespace(root_group=None)
+                    renderer._present = lambda group: setattr(renderer.display, "root_group", group)
+                    renderer._refresh = lambda *_args: True
+                    renderer.font = object()
+                    renderer.label_type = lambda *_args, **kwargs: types.SimpleNamespace(**kwargs)
+                    screen = {"kind": "alexa_timer", "timer_id": theme,
+                              "theme": theme, "state": "running",
+                              "remaining_seconds": 120, "progress": 0.0}
+                    renderer._show_alexa_timer(screen, 0)
+                    running_group = renderer.display.root_group
+                    self.assertFalse(any(isinstance(item, Grid) and
+                                         (item.bitmap.width, item.bitmap.height) == (194, 32)
+                                         for item in running_group))
+                    screen["remaining_seconds"], screen["progress"] = 60, .5
+                    renderer._show_alexa_timer(screen, 1)
+                    self.assertIs(renderer.display.root_group, running_group)
+
+                    screen["state"] = "paused"
+                    renderer._show_alexa_timer(screen, 1)
+                    paused_group = renderer.display.root_group
+                    self.assertFalse(any(isinstance(item, Grid) and
+                                         (item.bitmap.width, item.bitmap.height) == (194, 32)
+                                         for item in paused_group))
+
+                    screen.update(state="complete", remaining_seconds=0,
+                                  progress=1, completion_elapsed_seconds=0)
+                    renderer._show_alexa_timer(screen, 0)
+                    complete_group = renderer.display.root_group
+                    backgrounds = [item for item in complete_group
+                                   if isinstance(item, Grid)
+                                   and (item.bitmap.width, item.bitmap.height) == (194, 32)]
+                    self.assertEqual(len(backgrounds), 1)
+                    accent_positions_at_start = [(tile.x, tile.y)
+                                                 for tile in renderer._timer_accents]
+                    screen["completion_elapsed_seconds"] = 1.0
+                    renderer._show_alexa_timer(screen, 1)
+                    self.assertIs(renderer.display.root_group, complete_group)
+                    self.assertIs(renderer.display.root_group[0], backgrounds[0])
+                    self.assertNotEqual(accent_positions_at_start,
+                                        [(tile.x, tile.y) for tile in renderer._timer_accents])
+                    screen["completion_elapsed_seconds"] = 4.0
+                    renderer._show_alexa_timer(screen, 4)
+                    self.assertIs(renderer.display.root_group, complete_group)
 
     @unittest.skipUnless(shutil.which("node"), "Node.js needed for simulator parity")
     def test_simulator_and_firmware_geometry_agree(self):
