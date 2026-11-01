@@ -127,13 +127,23 @@ process.stdout.write(JSON.stringify([
              "duration_seconds": 120},
         ]), now)
         self.assertTrue(accepted)
-        self.assertEqual(state.selected(now)["remaining_seconds"], 60)
+        paused = state.selected(now + 60)
+        self.assertEqual(paused["remaining_seconds"], 60)
+        self.assertEqual(paused["progress"], 0.5)
         accepted, _ = state.accept(self.snapshot("2026-10-31T15:01:01Z", [
             {"timer_id": "same", "state": "running", "ends_at": "2026-10-31T15:02:01Z",
              "duration_seconds": 120},
-        ]), now)
+        ]), now + 61)
         self.assertTrue(accepted)
-        self.assertEqual(state.selected(now)["timer_id"], "same")
+        resumed = state.selected(now + 61)
+        self.assertEqual(resumed["timer_id"], "same")
+        self.assertEqual(resumed["state"], "running")
+        self.assertEqual(resumed["remaining_seconds"], 60)
+        self.assertEqual(resumed["progress"], 0.5)
+        advancing = state.selected(now + 91)
+        self.assertEqual(advancing["timer_id"], "same")
+        self.assertEqual(advancing["remaining_seconds"], 30)
+        self.assertEqual(advancing["progress"], 0.75)
 
     def test_duration_edit_recalculates_caterpillar_progress_without_changing_identity(self):
         state = TimerState()
