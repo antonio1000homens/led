@@ -46,6 +46,22 @@ class MqttScreenUpdateBatchingTests(unittest.TestCase):
         self.assertIn("mqtt_screens_changed", assigned_names)
         self.assertIn("mqtt_screens_update_pending", assigned_names)
 
+    def test_accepted_timer_snapshots_mark_the_static_sleep_wake_flag(self):
+        callback = next(
+            node for node in ast.walk(self.tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "receive_mqtt"
+        )
+        assignments = [
+            node for node in ast.walk(callback)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name)
+                    and target.id == "timer_update_pending"
+                    for target in node.targets)
+        ]
+        self.assertEqual(len(assignments), 1)
+        self.assertIsInstance(assignments[0].value, ast.Constant)
+        self.assertIs(assignments[0].value.value, True)
+
     def test_every_mqtt_poll_applies_one_coalesced_update_after_poll(self):
         poll_locations = []
         for node in ast.walk(self.tree):

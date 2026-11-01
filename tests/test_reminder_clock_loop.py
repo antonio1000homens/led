@@ -38,6 +38,7 @@ class ReminderClockLoopTests(unittest.TestCase):
             "buttons": None,
             "mqtt_screens": SimpleNamespace(expire=lambda epoch: []),
             "mqtt_screens_changed": False,
+            "timer_update_pending": False,
             "_apply_pending_mqtt_screen_updates": lambda now: False,
             "_BUTTON_POLL_SECONDS": 0.05, "_MQTT_SLEEP_POLL_SECONDS": 0.25,
         }
@@ -75,6 +76,27 @@ class ReminderClockLoopTests(unittest.TestCase):
         self.assertFalse(self.scope["_service_reminder_clock"](1.1))
         self.assertEqual(self.polls, [])
         self.assertEqual(self.pauses, [1000])
+
+    def test_static_sleep_wakes_immediately_for_an_accepted_timer_snapshot(self):
+        def accept_timer(now, allow_connect=False):
+            self.polls.append((now, allow_connect))
+            self.scope["timer_update_pending"] = True
+
+        self.scope["mqtt"].poll = accept_timer
+        self.scope["_sleep_interruptible"](30, service_mqtt=True)
+
+        self.assertGreater(self.now, 0)
+        self.assertLess(self.now, 0.1)
+        self.assertEqual(len(self.polls), 1)
+        self.assertFalse(self.scope["timer_update_pending"])
+
+    def test_pending_timer_snapshot_skips_static_sleep(self):
+        self.scope["timer_update_pending"] = True
+        self.scope["_sleep_interruptible"](30, service_mqtt=True)
+
+        self.assertEqual(self.now, 0)
+        self.assertEqual(self.polls, [])
+        self.assertFalse(self.scope["timer_update_pending"])
 
 
 if __name__ == "__main__":

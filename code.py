@@ -173,6 +173,7 @@ _BUTTON_POLL_SECONDS = 0.05
 _MQTT_SLEEP_POLL_SECONDS = 0.25
 mqtt_screens_changed = False
 mqtt_screens_update_pending = False
+timer_update_pending = False
 
 
 def _apply_pending_mqtt_screen_updates(now):
@@ -203,8 +204,13 @@ def _mqtt_connection_allowed(now):
 
 def _sleep_interruptible(seconds, service_mqtt=False):
     """Sleep without changing render cadence, servicing requested I/O while idle."""
-    global mqtt_screens_changed, mqtt_screens_update_pending
+    global mqtt_screens_changed, mqtt_screens_update_pending, timer_update_pending
     seconds = max(0.0, float(seconds or 0))
+    # A timer owns the display as soon as its retained snapshot is accepted.
+    # Do not finish a static page's long idle sleep before selecting it.
+    if timer_update_pending:
+        timer_update_pending = False
+        return
     if buttons is None and not service_mqtt:
         slice_ms = (
             float(getattr(settings, "STEAM_TRAIN_TEST_SLEEP_SLICE_MS", 0))
@@ -240,6 +246,9 @@ def _sleep_interruptible(seconds, service_mqtt=False):
             mqtt.poll(now, allow_connect=_mqtt_connection_allowed(now))
             _apply_pending_mqtt_screen_updates(now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
+            if timer_update_pending:
+                timer_update_pending = False
+                return
             if mqtt_screens_changed:
                 return
             if flash.active(now):
@@ -444,6 +453,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
     def receive_mqtt(topic, payload):
         global mqtt_screens_changed, mqtt_screens_update_pending
         global timer_rotation_resume, timer_visible_id, timer_pause_started
+        global timer_update_pending
         now = time.monotonic()
         assistant_topic = getattr(
             settings, "MQTT_ASSISTANT_RESPONSE_TOPIC",
@@ -473,6 +483,7 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             if not accepted:
                 print("TIMER snapshot rejected reason={}".format(reason))
                 return
+            timer_update_pending = True
             selected = _selected_timer(epoch_now, now)
             if selected is not None and timer_rotation_resume is None:
                 timer_rotation_resume = rotation.freeze(ticks_ms())
@@ -977,6 +988,11 @@ while True:
     maintenance_active = False
     timer_epoch_now = _reminder_epoch(now)
     active_timer = _selected_timer(timer_epoch_now, now)
+    # The normal main-loop path has already observed and will render this
+    # update in the same iteration; reserve the wake flag for callbacks that
+    # arrive later, while a static page is in its interruptible sleep.
+    if timer_update_pending:
+        timer_update_pending = False
     if active_timer is None and timer_pause_started is not None:
         if active_football_started is not None:
             pause_ended = ticks_ms()
