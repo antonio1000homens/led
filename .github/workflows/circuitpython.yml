@@ -24,8 +24,10 @@ on:
       - 'tests/test_matrix_runtime.py'
       - 'tests/test_matrix_todoist_performance.py'
       - 'tests/test_mqtt_safety.py'
+      - 'tests/test_presentation_priority.py'
       - 'tests/test_queue_cycle.py'
       - 'tests/test_screen_client.py'
+      - 'tests/test_timer_state.py'
       - 'tests/test_upload_firmware_wifi.py'
       - 'tests/test_wifi_startup.py'
   push:
@@ -43,6 +45,8 @@ on:
       - 'scripts/stage-firmware.sh'
       - 'scripts/install-firmware.sh'
       - 'scripts/upload-firmware-wifi.py'
+      - 'tests/test_presentation_priority.py'
+      - 'tests/test_timer_state.py'
   workflow_dispatch:
 
 permissions:
@@ -102,8 +106,10 @@ jobs:
             test_matrix_runtime.py
             test_matrix_todoist_performance.py
             test_mqtt_safety.py
+            test_presentation_priority.py
             test_queue_cycle.py
             test_screen_client.py
+            test_timer_state.py
             test_upload_firmware_wifi.py
             test_wifi_startup.py
           )
