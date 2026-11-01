@@ -1546,18 +1546,27 @@
     }
     function drawScoutsIntro(screen, phase) {
       const px = FONT_PIXEL_SCALE;
-      const x = Math.max(0, 256 - Math.floor(256 * Math.min(1, Math.max(0, Number(phase) || 0) / 3)));
-      const message = String(screen.intro_text || 'Be Prepared for...');
+      const x = Math.max(0, 256 - Math.floor(256 * Math.min(1, Math.max(0, Number(phase) || 0) / 2.4)));
+      const message = String(screen.intro_text || 'Be prepared...');
       drawScoutsTent(x, 2);
       context.fillStyle = '#f5cc58';
       drawLedText(message.slice(0,30), (x+48)*px, 12*px);
       if (message.length > 30) drawLedText(message.slice(30), (x+48)*px, 22*px);
       status.dataset.detail = 'Scouts camping-tent intro · ' + message;
     }
-    function scoutsFit(text) {
-      let value = String(text || '').toUpperCase();
-      while (value.length && measureLedText(value).width > 119*FONT_PIXEL_SCALE) value = value.slice(0, -1);
-      return value;
+    function scoutsTitleLines(title, maxChars = 21) {
+      const value = String(title || '').toUpperCase().trim().replace(/\s+/g,' ');
+      if (value.length <= maxChars) return [value, ''];
+      let cutoff = value.lastIndexOf(' ', maxChars);
+      if (cutoff < Math.floor(maxChars / 2)) cutoff = maxChars;
+      const first = value.slice(0,cutoff).trimEnd();
+      let second = value.slice(cutoff).trim();
+      if (second.length > maxChars) second = second.slice(0,maxChars-3).trimEnd() + '...';
+      return [first,second];
+    }
+    function scoutsEventWhen(event) {
+      return [String(event.date_text || '').slice(0,5),
+        event.all_day ? 'ALL DAY' : String(event.time_text || '').slice(0,5)].join(' ').trim();
     }
     function drawScoutsNextEvents(screen) {
       const px = FONT_PIXEL_SCALE;
@@ -1568,14 +1577,22 @@
         drawLedText(heading, x*px, 5*px);
         context.save();
         context.beginPath();
-        context.rect(x*px, 8*px, 120*px, 24*px);
+        context.rect(x*px, 0, 120*px, 32*px);
         context.clip();
         context.fillStyle = '#ffffff';
         const event = screen[key] && typeof screen[key] === 'object' ? screen[key] : null;
         if (event) {
-          const time = event.all_day ? 'ALL DAY' : String(event.time_text || '');
-          drawLedText(scoutsFit(String(event.date_text || '') + ' ' + time), x*px, 16*px);
-          drawLedText(scoutsFit(event.title), x*px, 25*px);
+          const when = scoutsEventWhen(event);
+          if (when) {
+            const headingWidth = measureLedText(heading).width;
+            const whenWidth = measureLedText(when).width;
+            const whenX = Math.max(x*px + headingWidth + 4*px,
+              (x+119)*px - whenWidth);
+            drawLedText(when, whenX, 5*px);
+          }
+          const [first, second] = scoutsTitleLines(event.title);
+          drawLedText(first, x*px, 16*px);
+          if (second) drawLedText(second, x*px, 25*px);
         } else if (screen[key+'_status'] === 'unavailable') {
           drawLedText('CALENDAR', x*px, 16*px);
           drawLedText('UNAVAILABLE', x*px, 25*px);
@@ -1587,7 +1604,7 @@
       }
       if (screen.stale) {
         context.fillStyle = '#ff3300';
-        drawLedText('STALE', 85*px, 5*px);
+        drawLedText('!', 127*px, 5*px);
       }
       status.dataset.detail = 'Next Beavers and Cubs events from independent ICS feeds';
     }

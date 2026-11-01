@@ -73,7 +73,7 @@ MAX_FOOTBALL_LOOKAHEAD_DAYS = 180
 MIN_FOOTBALL_ANIMATION_SPEED = 20
 MAX_FOOTBALL_ANIMATION_SPEED = 160
 DEFAULT_FOOTBALL_ANIMATION_SPEED = 80
-DEFAULT_SCOUTS_INTRO_TEXT = "Be Prepared for..."
+DEFAULT_SCOUTS_INTRO_TEXT = "Be prepared..."
 MAX_SCOUTS_INTRO_TEXT_LENGTH = 48
 MIN_CUBS_POLL_SECONDS = 3600
 MAX_CUBS_POLL_SECONDS = 604800
@@ -973,6 +973,9 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             # Accept earlier Cubs configuration and migrate to the new intro.
             raw.pop("visible_event_count", None)
             raw.setdefault("intro_text", DEFAULT_SCOUTS_INTRO_TEXT)
+            # Upgrade only the original default; leave custom taglines intact.
+            if raw["intro_text"] == "Be Prepared for...":
+                raw["intro_text"] = DEFAULT_SCOUTS_INTRO_TEXT
         if feed_id == "insult_of_hour":
             # Older admins accepted a sub-hourly interval. Migrate that saved
             # setting without discarding the rest of the user configuration.

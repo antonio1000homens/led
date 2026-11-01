@@ -24,6 +24,20 @@ class DeploymentStaticTests(unittest.TestCase):
             self.assertIn(value, stack)
         self.assertIn("MinValue: 3600", stack)
 
+    def test_scouts_intro_and_title_layout_are_paired_in_both_renderers(self):
+        simulator = (ROOT / "simulator" / "index.html").read_text()
+        firmware = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text()
+        publisher = (ROOT / "backend" / "publisher.py").read_text()
+        self.assertIn('duration_seconds": 4.0', publisher)
+        self.assertIn("SCOUTS_INTRO_SLIDE_SECONDS = 2.4", firmware)
+        self.assertIn("scouts_event_title_lines(event.get(\"title\"))", firmware)
+        self.assertIn("self._label(root, when, 0xFFFFFF", firmware)
+        self.assertIn("scoutsTitleLines(event.title)", simulator)
+        self.assertIn("scoutsEventWhen(event)", simulator)
+        self.assertIn("drawLedText(when, whenX, 5*px)", simulator)
+        self.assertIn("context.rect(x*px, 0, 120*px, 32*px)", simulator)
+        self.assertIn("scoutsFollowup(last[last.length - 1], screen)", simulator)
+
     def test_admin_groups_departures_and_steam_train_without_brightness_card(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn("function departuresSectionHtml", admin)

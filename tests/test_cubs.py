@@ -98,6 +98,30 @@ class FakeResponse:
 
 
 class CubsTests(unittest.TestCase):
+    def test_scouts_header_date_and_two_line_event_title(self):
+        from display import (
+            scouts_event_when, scouts_event_title_lines, SCOUTS_INTRO_SLIDE_SECONDS
+        )
+        self.assertEqual(SCOUTS_INTRO_SLIDE_SECONDS, 2.4)
+        event = {
+            "date_text": "05/11", "time_text": "18:30", "all_day": False,
+            "title": "Forest Adventure and Nature Games",
+        }
+        self.assertEqual(scouts_event_when(event), "05/11 18:30")
+        self.assertEqual(scouts_event_title_lines(event["title"]),
+                         ("FOREST ADVENTURE AND", "NATURE GAMES"))
+        self.assertEqual(scouts_event_when({
+            "date_text": "07/11", "all_day": True,
+        }), "07/11 ALL DAY")
+        first, second = scouts_event_title_lines(
+            "This super long pack event name is intentionally much too big"
+        )
+        self.assertLessEqual(len(first), 21)
+        self.assertLessEqual(len(second), 21)
+        self.assertTrue(second.endswith("..."))
+        self.assertEqual(scouts_event_title_lines("Short hike"), ("SHORT HIKE", ""))
+        self.assertEqual(scouts_event_title_lines(None), ("", ""))
+
     def test_ics_normalisation_and_privacy(self):
         rows = parse_cubs_events(ICS, now=NOW)
         self.assertEqual([row["title"] for row in rows], [
@@ -158,7 +182,7 @@ END:VCALENDAR"""
         cfg = default_runtime_config({})
         self.assertEqual(cfg["feeds"]["cubs"], {
             "enabled": False, "poll_seconds": 86400,
-            "screen_duration_seconds": 10, "intro_text": "Be Prepared for...",
+            "screen_duration_seconds": 10, "intro_text": "Be prepared...",
             "schedule_windows": [],
         })
         schema = schema_metadata()["feeds"]["cubs"]["fields"]
@@ -178,8 +202,10 @@ END:VCALENDAR"""
         legacy["feeds"]["cubs"].pop("intro_text")
         legacy["feeds"]["cubs"]["visible_event_count"] = 6
         migrated = validate_runtime_config(legacy)["feeds"]["cubs"]
-        self.assertEqual(migrated["intro_text"], "Be Prepared for...")
+        self.assertEqual(migrated["intro_text"], "Be prepared...")
         self.assertNotIn("visible_event_count", migrated)
+        legacy["feeds"]["cubs"]["intro_text"] = "Be Prepared for..."
+        self.assertEqual(validate_runtime_config(legacy)["feeds"]["cubs"]["intro_text"], "Be prepared...")
         del cfg["feeds"]["cubs"]
         self.assertEqual(validate_runtime_config(cfg)["feeds"]["cubs"]["poll_seconds"], 86400)
 
