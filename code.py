@@ -59,6 +59,7 @@ from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_post_expired,
 )
 from timer_state import TimerState
+from presentation_priority import select_presentation
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
@@ -1009,6 +1010,10 @@ while True:
             pending = football_presentations.pop(_reminder_epoch(now))
             if pending is not None:
                 _start_football_presentation(pending)
+    presentation_source = select_presentation(
+        flash.active(now), active_timer is not None,
+        active_football_screen is not None,
+    )
     if active_timer is not None:
         candidate = {
             "id": "alexa-timer-{}".format(active_timer["timer_id"]),
@@ -1356,7 +1361,7 @@ while True:
     last_recycling_date = recycling_date
 
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
-    if flash.active(now):
+    if presentation_source == "reminder":
         screen, phase = flash.screen(), elapsed_seconds(flash_started_ticks)
     else:
         if flash.event is not None:
@@ -1379,7 +1384,7 @@ while True:
                         active_football_screen.get("team_key"), epoch_now
                 ) is None:
                     _cancel_active_football()
-        if active_timer is not None:
+        if presentation_source == "timer":
             if timer_rotation_resume is None:
                 timer_rotation_resume = rotation.freeze(ticks_ms())
             if timer_visible_id != active_timer["timer_id"]:
@@ -1405,10 +1410,10 @@ while True:
             timer_visible_id = None
             last_render_key = None
             print("TIMER END")
-        if active_timer is None and active_football_screen is not None:
+        if presentation_source == "football":
             screen = active_football_screen
             phase = elapsed_seconds(active_football_started)
-        elif active_timer is None:
+        elif presentation_source == "rotation":
             rotation.set_schedule_time(clock.date_text(now), clock.text(now))
             rotation.set_schedule_epoch(clock.epoch(now))
             screen, phase = rotation.current(ticks_ms())
