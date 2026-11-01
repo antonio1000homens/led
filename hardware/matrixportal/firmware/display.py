@@ -1199,6 +1199,11 @@ class MatrixDisplay:
         self._bus_intro_speed = None
         self._christmas_intro_group = None
         self._christmas_intro_motion = None
+        self._scouts_intro_group = None
+        self._scouts_intro_motion = None
+        self._scouts_intro_text = None
+        self._scouts_events_group = None
+        self._scouts_events_key = None
         self._christmas_group = None
         self._christmas_snow_grid = None
         self._christmas_snow_bitmap = None
@@ -1714,6 +1719,8 @@ class MatrixDisplay:
         if kind == "christmas_tracker":
             return "christmas_tracker"
         if kind == "christmas_tracker_intro":
+            return "steam_train"
+        if kind == "scouts_intro":
             return "steam_train"
         if kind == "rail_combined":
             calling_seconds = screen.get("calling_seconds", RAIL_CALLING_SECONDS)
@@ -4128,7 +4135,122 @@ class MatrixDisplay:
                 return False
             self._build_christmas_intro_scene()
             return True
+        if kind == "scouts_intro":
+            intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+            if self._scouts_intro_group is not None and self._scouts_intro_text == intro_text:
+                return False
+            self._build_scouts_intro_scene(screen)
+            return True
         return False
+
+
+    def _build_scouts_intro_scene(self, screen):
+        """Christmas-style entrance with a compact Scouts camping-tent sprite."""
+        import displayio
+
+        root = displayio.Group()
+        motion = displayio.Group(x=DISPLAY_WIDTH, y=2)
+        bitmap = displayio.Bitmap(40, 26, 5)
+        palette = displayio.Palette(5)
+        palette[0] = 0x000000
+        palette.make_transparent(0)
+        palette[1] = 0x65C367
+        palette[2] = 0x22683F
+        palette[3] = 0x946237
+        palette[4] = 0xF5CC58
+        for y in range(2, 24):
+            half_width = (y - 2) * 17 // 21
+            for x in range(18 - half_width, 19 + half_width):
+                if 0 <= x < 40:
+                    bitmap[x, y] = 1 if x < 18 else 2
+        for x in range(2, 37):
+            bitmap[x, 24] = 3
+        for y in range(17, 24):
+            half_width = (y - 17) // 2
+            for x in range(18 - half_width, 19 + half_width):
+                bitmap[x, y] = 0
+        for y in range(0, 5):
+            bitmap[18, y] = 4
+        motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+        intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+        # Two compact lines ensure a configurable slogan fits the 256px bar.
+        self._label(motion, intro_text[:30], 0xF5CC58, 48, 12)
+        if len(intro_text) > 30:
+            self._label(motion, intro_text[30:], 0xF5CC58, 48, 22)
+        root.append(motion)
+        self._scouts_intro_group = root
+        self._scouts_intro_motion = motion
+        self._scouts_intro_text = intro_text
+
+    def _show_scouts_intro(self, screen, phase):
+        intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+        if self._scouts_intro_group is None or self._scouts_intro_text != intro_text:
+            self._build_scouts_intro_scene(screen)
+        update_started = ticks_ms()
+        elapsed = max(0.0, float(phase or 0))
+        x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
+        changed = self._scouts_intro_motion.x != x
+        self._scouts_intro_motion.x = x
+        self._attach_brightness_overlay(self._scouts_intro_group)
+        if self.display.root_group is not self._scouts_intro_group:
+            self.display.root_group = self._scouts_intro_group
+            changed = True
+        self._record_animation_update(
+            "scouts_intro", changed, elapsed_seconds(update_started), "steam_train"
+        )
+        if changed:
+            self._refresh("steam_train")
+
+    def _show_scouts_events(self, screen):
+        """A persistent two-column scene: Beavers (future) and genuine Cubs."""
+        import displayio
+
+        cubs = screen.get("cubs")
+        if not isinstance(cubs, dict):
+            cubs = None
+        key = (
+            screen.get("beavers_status"), screen.get("cubs_status"),
+            cubs.get("start") if cubs else None,
+            cubs.get("title") if cubs else None,
+            bool(screen.get("stale")),
+        )
+        if key != self._scouts_events_key:
+            root = displayio.Group()
+            divider = displayio.Bitmap(1, 32, 2)
+            divider_palette = displayio.Palette(2)
+            divider_palette[0] = 0x000000
+            divider_palette.make_transparent(0)
+            divider_palette[1] = 0x2E6E49
+            for y in range(32):
+                divider[0, y] = 1
+            root.append(displayio.TileGrid(
+                divider, pixel_shader=divider_palette, x=127, y=0
+            ))
+            self._label(root, "BEAVERS", 0xF5CC58, 3, 5)
+            self._label(root, "CUBS", 0xF5CC58, 132, 5)
+            self._label(root, "FEED PENDING", 0xFFFFFF, 3, 16)
+            self._label(root, "NOT ONLINE YET", 0x9FAF9F, 3, 25)
+            if cubs is not None:
+                date_text = str(cubs.get("date_text") or "")[:5]
+                time_text = "" if cubs.get("all_day") else str(cubs.get("time_text") or "")[:5]
+                when = date_text + (" ALL DAY" if cubs.get("all_day") else " " + time_text)
+                self._label(root, _fit_text_pixels(when.strip(), 119), 0xFFFFFF, 132, 16)
+                self._label(
+                    root, _fit_text_pixels(str(cubs.get("title") or "").upper(), 119),
+                    0xFFFFFF, 132, 25,
+                )
+            elif screen.get("cubs_status") == "unavailable":
+                self._label(root, "CALENDAR", 0xFFFFFF, 132, 16)
+                self._label(root, "UNAVAILABLE", 0xFFFFFF, 132, 25)
+            else:
+                self._label(root, "NO UPCOMING", 0xFFFFFF, 132, 16)
+                self._label(root, "EVENTS", 0xFFFFFF, 132, 25)
+            if screen.get("stale"):
+                self._label(root, "STALE", 0xFF3300, 85, 5)
+            self._scouts_events_key = key
+            self._scouts_events_group = root
+        if self.display.root_group is not self._scouts_events_group:
+            self._present(self._scouts_events_group)
 
     def _build_christmas_intro_scene(self):
         import displayio
@@ -4829,6 +4951,14 @@ class MatrixDisplay:
             self._show_christmas_intro(phase)
             return
 
+        if not empty_state and kind == "scouts_intro":
+            self._show_scouts_intro(screen, phase)
+            return
+
+        if not empty_state and kind == "scouts_next_events":
+            self._show_scouts_events(screen)
+            return
+
         if not empty_state and kind == "bus_intro":
             self._show_bus_intro(screen, phase)
             return
@@ -5350,6 +5480,21 @@ class FixtureDisplay:
             self._steam_train(screen, phase)
         elif kind == "christmas_tracker_intro":
             self._christmas_tracker_intro(screen, phase)
+        elif kind == "scouts_intro":
+            self._text(str(screen.get("intro_text") or "Be Prepared for..."), 0, 12, (245, 204, 88))
+        elif kind == "scouts_next_events":
+            self._text("BEAVERS", 0, 3, (245, 204, 88))
+            self._text("CUBS", 132, 3, (245, 204, 88))
+            self._text("FEED PENDING", 0, 13, (255, 255, 255))
+            self._text("NOT ONLINE YET", 0, 23, (160, 170, 160))
+            cubs = screen.get("cubs")
+            if isinstance(cubs, dict):
+                date = str(cubs.get("date_text") or "")[:5]
+                time = "ALL DAY" if cubs.get("all_day") else str(cubs.get("time_text") or "")[:5]
+                self._text(_fit_text_pixels(date + " " + time, 119), 132, 13, (255, 255, 255))
+                self._text(_fit_text_pixels(str(cubs.get("title") or ""), 119), 132, 23, (255, 255, 255))
+            else:
+                self._text("NO UPCOMING" if screen.get("cubs_status") != "unavailable" else "UNAVAILABLE", 132, 13, (255, 255, 255))
         elif kind == "bus_intro":
             self._bus_intro(screen, phase)
         elif kind == "weather_weekly":
@@ -5661,6 +5806,11 @@ class FixtureDisplay:
             print("STEAM TRAIN {}".format(screen.get("words") or ""))
         elif kind == "christmas_tracker_intro":
             print("CHRISTMAS INTRO HO HO HO...")
+        elif kind == "scouts_intro":
+            print("SCOUTS INTRO " + str(screen.get("intro_text") or ""))
+        elif kind == "scouts_next_events":
+            print("BEAVERS: feed not online yet")
+            print("CUBS: " + str((screen.get("cubs") or {}).get("title") or screen.get("cubs_status")))
         elif kind == "bus_intro":
             print("BUS {}".format(screen.get("words") or ""))
         elif kind == "bin_collection":

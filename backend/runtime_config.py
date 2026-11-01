@@ -42,7 +42,7 @@ DEFAULT_BUS_INTRO_WORDS = "Beep! Beep!..."
 SCREEN_SCHEDULE_FEEDS = (
     "steam_train", "departures", "queue_times", "weather", "dad_joke",
     "random_fact", "quotes", "insult_of_hour", "today", "calendar",
-    "recycling", "sl7_bus", "christmas", "football_fixtures",
+    "recycling", "sl7_bus", "christmas", "football_fixtures", "cubs",
 )
 MAX_SCHEDULE_WINDOWS = 16
 MAX_SCHEDULE_WINDOW_MINUTES = 31 * 24 * 60
@@ -73,9 +73,8 @@ MAX_FOOTBALL_LOOKAHEAD_DAYS = 180
 MIN_FOOTBALL_ANIMATION_SPEED = 20
 MAX_FOOTBALL_ANIMATION_SPEED = 160
 DEFAULT_FOOTBALL_ANIMATION_SPEED = 80
-MIN_CUBS_EVENTS = 1
-MAX_CUBS_EVENTS = 12
-DEFAULT_CUBS_EVENTS = 6
+DEFAULT_SCOUTS_INTRO_TEXT = "Be Prepared for..."
+MAX_SCOUTS_INTRO_TEXT_LENGTH = 48
 MIN_CUBS_POLL_SECONDS = 3600
 MAX_CUBS_POLL_SECONDS = 604800
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
@@ -290,10 +289,11 @@ FEED_REGISTRY = {
         "screen_duration": True,
     },
     "cubs": {
-        "label": "Cubs",
+        "label": "Scouts · Beavers & Cubs",
         "provider": "cubs_ics",
-        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds", "visible_event_count"),
-        "advanced_fields": ("visible_event_count",),
+        "display_group": "calendar",
+        "mutable_fields": ("enabled", "poll_seconds", "screen_duration_seconds", "intro_text"),
+        "advanced_fields": ("intro_text",),
         "screen_duration": True,
     },
     "flash": {
@@ -507,7 +507,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
                 "poll_seconds": _int_env(env, "LED_CUBS_CACHE_SECONDS", 86400,
                                          minimum=MIN_CUBS_POLL_SECONDS, maximum=MAX_CUBS_POLL_SECONDS),
                 "screen_duration_seconds": 10,
-                "visible_event_count": DEFAULT_CUBS_EVENTS,
+                "intro_text": DEFAULT_SCOUTS_INTRO_TEXT,
             },
             "flash": {
                 # This is deliberately disabled until Home Assistant issue #4
@@ -606,9 +606,7 @@ def schema_metadata() -> dict[str, Any]:
                 "maximum": MAX_SCREEN_DURATION_SECONDS,
             }
         if feed_id == "cubs":
-            fields["visible_event_count"] = {
-                "type": "integer", "minimum": MIN_CUBS_EVENTS, "maximum": MAX_CUBS_EVENTS,
-            }
+            fields["intro_text"] = {"type": "string", "maximumLength": MAX_SCOUTS_INTRO_TEXT_LENGTH}
         if feed_id == "calendar":
             for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
                 fields[field] = {
@@ -820,10 +818,13 @@ def validate_feed_patch(
                 metadata["minimum"],
                 metadata["maximum"],
             )
-    if feed_id == "cubs" and "visible_event_count" in patch:
-        result["visible_event_count"] = _validate_integer(
-            feed_id, "visible_event_count", patch["visible_event_count"], MIN_CUBS_EVENTS, MAX_CUBS_EVENTS
-        )
+    if feed_id == "cubs" and "intro_text" in patch:
+        intro_text = patch["intro_text"]
+        if not isinstance(intro_text, str) or not intro_text.strip():
+            raise RuntimeConfigValidationError("cubs.intro_text must be non-empty text")
+        if len(intro_text) > MAX_SCOUTS_INTRO_TEXT_LENGTH or any(ord(char) < 32 or ord(char) > 126 for char in intro_text):
+            raise RuntimeConfigValidationError("cubs.intro_text must be at most 48 printable ASCII characters")
+        result["intro_text"] = intro_text.strip()
     for field, metadata in CALENDAR_NUMERIC_FIELDS.items():
         if field in patch:
             result[field] = _validate_integer(
@@ -968,6 +969,10 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             for team in ("sporting_cp", "millwall", "portugal", "england"):
                 field = team + "_enabled"
                 raw.setdefault(field, default_feed[field])
+        if feed_id == "cubs":
+            # Accept earlier Cubs configuration and migrate to the new intro.
+            raw.pop("visible_event_count", None)
+            raw.setdefault("intro_text", DEFAULT_SCOUTS_INTRO_TEXT)
         if feed_id == "insult_of_hour":
             # Older admins accepted a sub-hourly interval. Migrate that saved
             # setting without discarding the rest of the user configuration.

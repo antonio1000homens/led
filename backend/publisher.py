@@ -813,21 +813,25 @@ class Publisher:
         if config_feeds["cubs"]["enabled"]:
             cubs = feeds.get("cubs") or {}
             cubs_data = cubs.get("data") or {}
-            cubs_events = _public_cubs_events(cubs_data.get("events"), now, config_feeds["cubs"]["visible_event_count"])
-            duration = todoist_effective_duration(
-                config_feeds["cubs"]["screen_duration_seconds"],
-                cubs_events,
-                page_seconds=self.config.calendar_page_seconds,
-                current_date=now.astimezone(ZoneInfo("Europe/London")).date().isoformat(),
-                visible_rows=3,
-                step_rows=1,
-            )
+            # The publisher keeps private ICS URLs and all non-display metadata off
+            # the board. Only the next genuine Cubs event appears in this layout.
+            cubs_events = _public_cubs_events(cubs_data.get("events"), now, 1)
             screens.append({
-                "id": "cubs", "kind": "calendar_agenda", "source": "cubs_ics",
-                "title": "CUBS", "stale": bool(cubs.get("stale")) or not cubs_data,
-                "duration_seconds": duration, "viewport_size": 3,
-                "page_step": 1, "page_seconds": self.config.calendar_page_seconds,
-                "events": cubs_events,
+                "id": "scouts-intro", "kind": "scouts_intro", "source": "local_animation",
+                "title": "SCOUTS", "duration_seconds": 3.5,
+                "intro_text": config_feeds["cubs"]["intro_text"], "stale": False,
+            })
+            screens.append({
+                "id": "cubs", "kind": "scouts_next_events", "source": "cubs_ics",
+                "title": "BEAVERS & CUBS",
+                "stale": bool(cubs.get("stale")) or not cubs_data,
+                "duration_seconds": config_feeds["cubs"]["screen_duration_seconds"],
+                # No Beavers ICS feed exists yet; do not substitute Cubs events.
+                "beavers": None, "beavers_status": "not_configured",
+                "cubs": cubs_events[0] if cubs_events else None,
+                "cubs_status": "unavailable" if not cubs_data else (
+                    "available" if cubs_events else "no_upcoming"
+                ),
             })
         if joke_cfg["enabled"]:
             cached_joke = feeds.get("dad_joke") or {}
@@ -990,6 +994,8 @@ class Publisher:
             "rail_combined": "departures",
             "theme_park_queues": "queue_times",
             "calendar_agenda": "calendar",
+            "scouts_intro": "cubs",
+            "scouts_next_events": "cubs",
             "dad_joke": "dad_joke",
             "random_fact": "random_fact",
             "quotes": "quotes",

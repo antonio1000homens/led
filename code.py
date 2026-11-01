@@ -718,7 +718,7 @@ def _smooth_bin_collection(screen):
 
 def _smooth_christmas(screen):
     return settings.DISPLAY_BACKEND == "matrix" and screen.get("kind") in (
-        "christmas_tracker_intro", "christmas_tracker"
+        "christmas_tracker_intro", "christmas_tracker", "scouts_intro"
     )
 
 
@@ -1237,7 +1237,8 @@ while True:
                     if (not isinstance(intro, dict)
                             or intro.get("kind") not in (
                                 "steam_train_intro", "bus_intro",
-                                "christmas_tracker_intro", "christmas_tracker"
+                                "christmas_tracker_intro", "christmas_tracker",
+                                "scouts_intro"
                             )):
                         continue
                     try:
@@ -1248,7 +1249,7 @@ while True:
                             else prepare_intro(intro)
                         )
                         if prepared:
-                            if intro.get("kind") in ("christmas_tracker_intro", "christmas_tracker"):
+                            if intro.get("kind") in ("christmas_tracker_intro", "christmas_tracker", "scouts_intro"):
                                 prepare_christmas_scene_gc(gc)
                             print(
                                 "INTRO SCENE PREPARED id={} kind={} heap_free={}".format(

@@ -736,6 +736,8 @@
       );
     const christmasFollowup = (intro, tracker) =>
       intro.kind === 'christmas_tracker_intro' && tracker.kind === 'christmas_tracker';
+    const scoutsFollowup = (intro, events) =>
+      intro.kind === 'scouts_intro' && events.kind === 'scouts_next_events';
     function makeCyclePlan() {
       let normal = screens.filter(screen => !staticScreen(screen));
       const football = normal.filter(screen => screen.kind === 'football_score');
@@ -750,8 +752,9 @@
       for (let index = 0; index < normal.length; index++) {
         const screen = normal[index];
         if (screen.kind === 'bus_intro' && !busFollowup(screen, normal[index + 1] || {})) continue;
+        if (screen.kind === 'scouts_intro' && !scoutsFollowup(screen, normal[index + 1] || {})) continue;
         const last = blocks[blocks.length - 1];
-        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
+        if (last && ((last[last.length - 1].kind === 'steam_train_intro' && screen.kind === 'rail_combined') || busFollowup(last[last.length - 1], screen) || christmasFollowup(last[last.length - 1], screen) || scoutsFollowup(last[last.length - 1], screen) || weatherFollowup(last[last.length - 1], screen))) last.push(screen);
         else blocks.push([screen]);
       }
       if (football.length) {
@@ -842,6 +845,7 @@
         if (!cronActive(screen, wallClock)) continue;
         if (screen.kind === 'steam_train_intro' && !(cyclePlan[index+1]?.kind === 'rail_combined' && cronActive(cyclePlan[index+1], wallClock))) continue;
         if (screen.kind === 'bus_intro' && !(busFollowup(screen, cyclePlan[index+1] || {}) && cronActive(cyclePlan[index+1], wallClock))) continue;
+        if (screen.kind === 'scouts_intro' && !(scoutsFollowup(screen, cyclePlan[index+1] || {}) && cronActive(cyclePlan[index+1], wallClock))) continue;
         return index;
       }
       return -1;
@@ -1524,6 +1528,72 @@
         }
       });
     }
+
+    function drawScoutsTent(x, y) {
+      const px = FONT_PIXEL_SCALE;
+      for (let dy = 2; dy < 24; dy += 1) {
+        const half = Math.floor((dy - 2) * 17 / 21);
+        for (let dx = 18 - half; dx <= 18 + half; dx += 1) {
+          if (dy >= 17 && Math.abs(dx - 18) <= Math.floor((dy - 17) / 2)) continue;
+          context.fillStyle = dx < 18 ? '#65c367' : '#22683f';
+          context.fillRect((x + dx)*px, (y + dy)*px, px, px);
+        }
+      }
+      context.fillStyle = '#946237';
+      context.fillRect((x+2)*px, (y+24)*px, 35*px, px);
+      context.fillStyle = '#f5cc58';
+      context.fillRect((x+18)*px, y*px, px, 5*px);
+    }
+    function drawScoutsIntro(screen, phase) {
+      const px = FONT_PIXEL_SCALE;
+      const x = Math.max(0, 256 - Math.floor(256 * Math.min(1, Math.max(0, Number(phase) || 0) / 3)));
+      const message = String(screen.intro_text || 'Be Prepared for...');
+      drawScoutsTent(x, 2);
+      context.fillStyle = '#f5cc58';
+      drawLedText(message.slice(0,30), (x+48)*px, 12*px);
+      if (message.length > 30) drawLedText(message.slice(30), (x+48)*px, 22*px);
+      status.dataset.detail = 'Scouts camping-tent intro · ' + message;
+    }
+    function scoutsFit(text) {
+      let value = String(text || '').toUpperCase();
+      while (value.length && measureLedText(value).width > 119*FONT_PIXEL_SCALE) value = value.slice(0, -1);
+      return value;
+    }
+    function drawScoutsNextEvents(screen) {
+      const px = FONT_PIXEL_SCALE;
+      context.fillStyle = '#2e6e49';
+      context.fillRect(127*px, 0, px, 32*px);
+      context.fillStyle = '#f5cc58';
+      drawLedText('BEAVERS', 3*px, 5*px);
+      drawLedText('CUBS', 132*px, 5*px);
+      context.fillStyle = '#ffffff';
+      drawLedText('FEED PENDING', 3*px, 16*px);
+      context.fillStyle = '#9faf9f';
+      drawLedText('NOT ONLINE YET', 3*px, 25*px);
+      const cubs = screen.cubs && typeof screen.cubs === 'object' ? screen.cubs : null;
+      context.fillStyle = '#ffffff';
+      context.save();
+      context.beginPath();
+      context.rect(131*px, 8*px, 123*px, 24*px);
+      context.clip();
+      if (cubs) {
+        const time = cubs.all_day ? 'ALL DAY' : String(cubs.time_text || '');
+        drawLedText(scoutsFit(String(cubs.date_text || '') + ' ' + time), 132*px, 16*px);
+        drawLedText(scoutsFit(cubs.title), 132*px, 25*px);
+      } else if (screen.cubs_status === 'unavailable') {
+        drawLedText('CALENDAR', 132*px, 16*px);
+        drawLedText('UNAVAILABLE', 132*px, 25*px);
+      } else {
+        drawLedText('NO UPCOMING', 132*px, 16*px);
+        drawLedText('EVENTS', 132*px, 25*px);
+      }
+      context.restore();
+      if (screen.stale) {
+        context.fillStyle = '#ff3300';
+        drawLedText('STALE', 85*px, 5*px);
+      }
+      status.dataset.detail = 'Next Beavers (not configured) / Cubs events';
+    }
     function drawChristmasIntro(screen, phase) {
       const elapsed = Math.max(0, Number(phase) || 0);
       const x = Math.max(0, CHRISTMAS_SLEIGH_START_X - Math.floor(256 * Math.min(1, elapsed / CHRISTMAS_SLEIGH_SECONDS)));
@@ -1938,7 +2008,7 @@
       let active = screenAt(elapsed);
       const screen = active.screen;
       const rawPhase = active.phase;
-      const phase = hardwarePreview && !['todoist', 'cubs_ics'].includes(screen.source) && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'football_score' && screen.kind !== 'alexa_timer' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
+      const phase = hardwarePreview && !['todoist', 'cubs_ics'].includes(screen.source) && screen.kind !== 'theme_park_queues' && screen.kind !== 'rail_combined' && screen.kind !== 'weather_sun' && screen.kind !== 'steam_train_intro' && screen.kind !== 'christmas_tracker_intro' && screen.kind !== 'scouts_intro' && screen.kind !== 'bus_intro' && screen.kind !== 'bin_collection' && screen.kind !== 'christmas_tracker' && screen.kind !== 'football_score' && screen.kind !== 'alexa_timer' && screen.kind !== 'flash' && screen.kind !== 'random_fact' && screen.kind !== 'dad_joke' && screen.kind !== 'insult_of_hour' && screen.kind !== 'quotes' && screen.kind !== 'today' ? 2 : rawPhase;
       const wallClock = new Date();
       const clock = clockLayout(wallClock);
       let suppressHeader = false;
@@ -2117,6 +2187,12 @@
         suppressHeader = true;
       } else if (screen.kind === 'christmas_tracker_intro') {
         drawChristmasIntro(screen, phase);
+        suppressHeader = true;
+      } else if (screen.kind === 'scouts_intro') {
+        drawScoutsIntro(screen, phase);
+        suppressHeader = true;
+      } else if (screen.kind === 'scouts_next_events') {
+        drawScoutsNextEvents(screen);
         suppressHeader = true;
       } else if (screen.kind === 'bus_departures_combined') {
         drawSplitSl7(screen);
