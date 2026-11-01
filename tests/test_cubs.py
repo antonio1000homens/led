@@ -204,6 +204,8 @@ END:VCALENDAR"""
         migrated = validate_runtime_config(legacy)["feeds"]["cubs"]
         self.assertEqual(migrated["intro_text"], "Be prepared...")
         self.assertNotIn("visible_event_count", migrated)
+        legacy["feeds"]["cubs"]["intro_text"] = "Be Prepared for..."
+        self.assertEqual(validate_runtime_config(legacy)["feeds"]["cubs"]["intro_text"], "Be prepared...")
         del cfg["feeds"]["cubs"]
         self.assertEqual(validate_runtime_config(cfg)["feeds"]["cubs"]["poll_seconds"], 86400)
 

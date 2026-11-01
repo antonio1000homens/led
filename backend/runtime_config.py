@@ -973,6 +973,9 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             # Accept earlier Cubs configuration and migrate to the new intro.
             raw.pop("visible_event_count", None)
             raw.setdefault("intro_text", DEFAULT_SCOUTS_INTRO_TEXT)
+            # Upgrade only the original default; leave custom taglines intact.
+            if raw["intro_text"] == "Be Prepared for...":
+                raw["intro_text"] = DEFAULT_SCOUTS_INTRO_TEXT
         if feed_id == "insult_of_hour":
             # Older admins accepted a sub-hourly interval. Migrate that saved
             # setting without discarding the rest of the user configuration.
