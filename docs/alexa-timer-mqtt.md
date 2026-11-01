@@ -1,18 +1,21 @@
 # Alexa timer MQTT contract
 
-The pinned timer scene uses a dedicated retained topic and does not join the
-normal screen rotation.
+The pinned timer scene uses dedicated retained topics and does not join the
+normal screen rotation. Home Assistant publishes one complete snapshot per
+Alexa device:
 
-- Topic: `led/timer/living-room-alexa`
+- Living room: `led/timer/living-room-alexa` (`living-room-alexa` device)
+- Hall: `led/timer/hall-alexa` (`hall-alexa` device)
 - QoS: 1
 - Retain: true
 - Schema version: 1
 
 Each `upsert` publication is a complete snapshot for that Alexa device. Use a
-stable native Alexa timer ID. The board chooses the earliest running timer;
-when none are running, it displays the paused timer with the least remaining
-time. When one finishes, it holds `00:00` briefly and then selects the next
-timer. A `clear` publication removes the device snapshot immediately.
+stable native Alexa timer ID. The board chooses the earliest running timer
+across both devices; when none are running, it displays the paused timer with
+the least remaining time. When one finishes, it holds `00:00` briefly and then
+selects the next timer. A `clear` publication removes only that device's
+snapshot. The separate Office Alexa is not supported.
 
 Running timers require an offset-bearing `ends_at`. Supply
 `duration_seconds` only when Alexa exposes the original duration. Paused timers
