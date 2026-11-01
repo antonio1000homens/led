@@ -182,7 +182,7 @@ END:VCALENDAR"""
         cfg = default_runtime_config({})
         self.assertEqual(cfg["feeds"]["cubs"], {
             "enabled": False, "poll_seconds": 86400,
-            "screen_duration_seconds": 10, "intro_text": "Be Prepared for...",
+            "screen_duration_seconds": 10, "intro_text": "Be prepared...",
             "schedule_windows": [],
         })
         schema = schema_metadata()["feeds"]["cubs"]["fields"]
@@ -202,7 +202,7 @@ END:VCALENDAR"""
         legacy["feeds"]["cubs"].pop("intro_text")
         legacy["feeds"]["cubs"]["visible_event_count"] = 6
         migrated = validate_runtime_config(legacy)["feeds"]["cubs"]
-        self.assertEqual(migrated["intro_text"], "Be Prepared for...")
+        self.assertEqual(migrated["intro_text"], "Be prepared...")
         self.assertNotIn("visible_event_count", migrated)
         del cfg["feeds"]["cubs"]
         self.assertEqual(validate_runtime_config(cfg)["feeds"]["cubs"]["poll_seconds"], 86400)

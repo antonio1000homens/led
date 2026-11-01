@@ -537,6 +537,37 @@ def _fit_text_pixels(text, width):
     return _clip(text, max(0, int(width) // WEATHER_FONT_WIDTH))
 
 
+# A 128x32 half-panel fits two event-title lines below its header.
+SCOUTS_INTRO_SLIDE_SECONDS = 2.4
+SCOUTS_COLUMN_TITLE_CHARS = 21
+
+
+def scouts_event_when(event):
+    """Render only the display-safe ICS date and time."""
+    if not isinstance(event, dict):
+        return ""
+    date = str(event.get("date_text") or "")[:5]
+    time = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
+    return (date + " " + time).strip()
+
+
+def scouts_event_title_lines(title, width=SCOUTS_COLUMN_TITLE_CHARS):
+    """Word-wrap event text across two bounded LED-font lines."""
+    text = " ".join(str(title or "").upper().split())
+    if not text:
+        return ("", "")
+    if len(text) <= width:
+        return (text, "")
+    cutoff = text.rfind(" ", 0, width + 1)
+    if cutoff < width // 2:
+        cutoff = width
+    first = text[:cutoff].rstrip()
+    second = text[cutoff:].strip()
+    if len(second) > width:
+        second = second[:max(0, width - 3)].rstrip() + "..."
+    return (first, second)
+
+
 def _weather_column_bounds(index, display_width=DISPLAY_WIDTH):
     """Return integer seven-column bounds without accumulating rounding error."""
     left = (int(index) * int(display_width)) // 7
@@ -4136,7 +4167,7 @@ class MatrixDisplay:
             self._build_christmas_intro_scene()
             return True
         if kind == "scouts_intro":
-            intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+            intro_text = str(screen.get("intro_text") or "Be prepared...")
             if self._scouts_intro_group is not None and self._scouts_intro_text == intro_text:
                 return False
             self._build_scouts_intro_scene(screen)
@@ -4172,7 +4203,7 @@ class MatrixDisplay:
         for y in range(0, 5):
             bitmap[18, y] = 4
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+        intro_text = str(screen.get("intro_text") or "Be prepared...")
         # Two compact lines ensure a configurable slogan fits the 256px bar.
         self._label(motion, intro_text[:30], 0xF5CC58, 48, 12)
         if len(intro_text) > 30:
@@ -4183,12 +4214,12 @@ class MatrixDisplay:
         self._scouts_intro_text = intro_text
 
     def _show_scouts_intro(self, screen, phase):
-        intro_text = str(screen.get("intro_text") or "Be Prepared for...")
+        intro_text = str(screen.get("intro_text") or "Be prepared...")
         if self._scouts_intro_group is None or self._scouts_intro_text != intro_text:
             self._build_scouts_intro_scene(screen)
         update_started = ticks_ms()
         elapsed = max(0.0, float(phase or 0))
-        x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SLEIGH_SLIDE_SECONDS)))
+        x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SCOUTS_INTRO_SLIDE_SECONDS)))
         changed = self._scouts_intro_motion.x != x
         self._scouts_intro_motion.x = x
         self._attach_brightness_overlay(self._scouts_intro_group)
@@ -4233,12 +4264,16 @@ class MatrixDisplay:
             ):
                 self._label(root, heading, 0xF5CC58, x, 5)
                 if event is not None:
-                    date_text = str(event.get("date_text") or "")[:5]
-                    time_text = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
-                    self._label(root, _fit_text_pixels((date_text + " " + time_text).strip(), 119),
-                                0xFFFFFF, x, 16)
-                    self._label(root, _fit_text_pixels(str(event.get("title") or "").upper(), 119),
-                                0xFFFFFF, x, 25)
+                    when = scouts_event_when(event)
+                    if when:
+                        # Heading and date/time share the top row.
+                        self._label(root, when, 0xFFFFFF,
+                                    x + max(len(heading) * WEATHER_FONT_WIDTH + 4,
+                                            119 - len(when) * WEATHER_FONT_WIDTH), 5)
+                    first, second = scouts_event_title_lines(event.get("title"))
+                    self._label(root, first, 0xFFFFFF, x, 16)
+                    if second:
+                        self._label(root, second, 0xFFFFFF, x, 25)
                 elif status == "unavailable":
                     self._label(root, "CALENDAR", 0xFFFFFF, x, 16)
                     self._label(root, "UNAVAILABLE", 0xFFFFFF, x, 25)
@@ -5482,16 +5517,21 @@ class FixtureDisplay:
         elif kind == "christmas_tracker_intro":
             self._christmas_tracker_intro(screen, phase)
         elif kind == "scouts_intro":
-            self._text(str(screen.get("intro_text") or "Be Prepared for..."), 0, 12, (245, 204, 88))
+            self._text(str(screen.get("intro_text") or "Be prepared..."), 0, 12, (245, 204, 88))
         elif kind == "scouts_next_events":
             for x, heading, field in ((0, "BEAVERS", "beavers"), (132, "CUBS", "cubs")):
                 self._text(heading, x, 3, (245, 204, 88))
                 event = screen.get(field)
                 if isinstance(event, dict):
-                    date = str(event.get("date_text") or "")[:5]
-                    time = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
-                    self._text(_fit_text_pixels(date + " " + time, 119), x, 13, (255, 255, 255))
-                    self._text(_fit_text_pixels(str(event.get("title") or ""), 119), x, 23, (255, 255, 255))
+                    when = scouts_event_when(event)
+                    if when:
+                        header_x = x + max(len(heading) * WEATHER_FONT_WIDTH + 4,
+                                           119 - len(when) * WEATHER_FONT_WIDTH)
+                        self._text(when, header_x, 3, (255, 255, 255))
+                    first, second = scouts_event_title_lines(event.get("title"))
+                    self._text(first, x, 13, (255, 255, 255))
+                    if second:
+                        self._text(second, x, 23, (255, 255, 255))
                 else:
                     self._text("NO UPCOMING" if screen.get(field + "_status") != "unavailable" else "UNAVAILABLE",
                                x, 13, (255, 255, 255))
