@@ -7,6 +7,10 @@ from math import sin, pi
 
 SCENE_WIDTH = 194
 FINISH_MOTION_SECONDS = 1.5
+# Double-size actors fill 22–30 of the 32 LED rows, including rotated poses.
+# Characters are rasterized once when a scene is built, never every frame.
+TIMER_ACTOR_SCALE = 2
+TIMER_APPLE_SCALE = 2
 TIMER_THEMES = ("caterpillar", "race", "rocket", "stars")
 # A compact 3x7 font, scaled to fill 21 pixels vertically for MM:SS.
 CLOCK_FONT = {
@@ -43,9 +47,9 @@ def finish_pose(theme, seconds):
     t = min(1.0, max(0.0, float(seconds or 0) / FINISH_MOTION_SECONDS))
     if theme == "caterpillar":
         if t < 0.5:
-            lift = 9 * sin(pi * 2 * t)
+            lift = 4 * sin(pi * 2 * t)
         else:
-            lift = 5 * sin(pi * 2 * (t - 0.5))
+            lift = 3 * sin(pi * 2 * (t - 0.5))
         return 0, 0, -int(round(lift))
     if theme == "race":
         if t >= 1:
@@ -78,31 +82,33 @@ def rotate_sprite(rows, turns):
     return rows
 
 
+# Slightly more compact source art: after 2x scaling even the 90° frames
+# fit wholly inside 32 rows without reducing their size during a flip/landing.
 CAR_ROWS = (
-    "....................",
-    ".......RRRRRR.......",
-    ".....RRRRRRRRRR.....",
-    "....RRRBBRRRRRRRR...",
-    "...RRRRBBRRRRRRRRRR.",
-    "..RRRRRRRRRRRRRRRRR.",
-    ".RRRRRRRRRRRRRRRRRY.",
-    "RRRRRRRRRRRRRRRRRRR.",
-    "...DDDD.......DDDD.",
-    "...DDDD.......DDDD.",
-    "....DD.........DD..",
+    "...............",
+    ".....RRRRRR....",
+    "...RRRRRRRR....",
+    "..RRRBBRRRRR...",
+    ".RRRRBBRRRRRR..",
+    "RRRRRRRRRRRRRR.",
+    "RRRRRRRRRRRRRRY",
+    "RRRRRRRRRRRRRR.",
+    "..DDDD...DDDD..",
+    "..DDDD...DDDD..",
+    "...DD.....DD...",
 )
 ROCKET_ROWS = (
-    "......................",
-    "..................RR..",
-    ".................RRRR.",
-    "....WWWWWWWWWWWWRRRRR",
-    "..WWWWWWWWWWWWWWRRRRR",
-    "WWWWWWBBBBWWWWWWRRRRR",
-    "WWWWWWBBBBWWWWWWRRRRR",
-    "..WWWWWWWWWWWWWWRRRRR",
-    "....WWWWWWWWWWWWRRRRR",
-    ".................RRRR.",
-    "..................RR..",
+    "...............",
+    "...........RR..",
+    "..........RRRR.",
+    "...WWWWWWWRRRRR",
+    ".WWWWWWWWWRRRRR",
+    "WWWWWBBWWWRRRRR",
+    "WWWWWBBWWWRRRRR",
+    ".WWWWWWWWWRRRRR",
+    "...WWWWWWWRRRRR",
+    "..........RRRR.",
+    "...........RR..",
 )
 STAR_ROWS = (
     "......Y......",
@@ -130,6 +136,44 @@ SPRITE_SYMBOLS = {
     "rocket": {".": 0, "W": 1, "B": 2, "R": 3},
     "stars": {".": 0, "Y": 1},
 }
+
+# The caterpillar is 28x14 source pixels (56x28 on the board); other
+# actors are 15x11 or 13x13. Keep this table explicit for CircuitPython.
+ACTOR_SOURCE_SIZES = {
+    "caterpillar": (28, 14),
+    "race": (15, 11),
+    "rocket": (15, 11),
+    "stars": (13, 13),
+}
+
+
+def actor_size(theme, turns=0):
+    width, height = ACTOR_SOURCE_SIZES[theme]
+    if turns % 2:
+        width, height = height, width
+    return width * TIMER_ACTOR_SCALE, height * TIMER_ACTOR_SCALE
+
+
+def actor_position(theme, clock_left, head_x, complete=False,
+                   turns=0, vertical_offset=0, bob=0):
+    """Screen coordinates for each enlarged frame; never overlap the clock.
+
+    The head follows the same progress path as before. Completion poses
+    reserve an eight-pixel clock gap. Vertical motion is bounded so even
+    rotating sprites remain fully visible on the 32-row matrix.
+    """
+    width, height = actor_size(theme, turns)
+    if complete:
+        x = int(clock_left) - width - 8
+    elif theme == "caterpillar":
+        x = int(head_x) - (width - 14)
+    else:
+        x = int(head_x) - width // 2
+    # Bottom-align the character, with enough headroom for small jumps.
+    bottom = 32 - height
+    y = bottom + int(vertical_offset) - (int(bob) if not complete else 0)
+    return min(x, int(clock_left) - width - 2), max(0, min(bottom, y))
+
 
 # Palettes are deliberately small (8 colours maximum); background is created
 # only when complete, and is never re-rasterized for subsequent animation ticks.
