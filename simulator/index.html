@@ -1622,7 +1622,7 @@
     function alexaTimerRemaining(totalSeconds, phaseSeconds) {
       return Math.max(0, totalSeconds - Math.floor(phaseSeconds));
     }
-    const ALEXA_CATERPILLAR_ROWS = [".....................D......",".....................DG...D.","...................GGGGGGD..",".........G........GGGGGGGGG.","......GGGGGGG...DGGGGGGGGGGG","...D.GGGGGGGGDDDDGGGGGGGGEGG",".DDDDGGGGGGGDDDDDGGGGGGGGEEG","DDDDDGGGGGGGDDDDGGGGGGGGGGGG","DDDDGGGGGGGGDDDDDGGGGGGGGGGG","DDDDDGGGGGGDDDDDDGGGGGGGGGDG","DDDDDGGGGGGGDDDDDGGGGGGGGDGG","DDDDDGGGGGGGDDDDDDGGGGGGGGG.",".DDDDDGGGGGGDDDDDDDGGGGGGG..","...D.....D...DDDGDDD..G.....","................D..........."];
+    const ALEXA_CATERPILLAR_ROWS = [".....................D......",".....................DG...D.","...................GGGGGGD..",".........G........GGGGGGGGG.","......GGGGGGG...DGGGGGGGGGGG","...D.GGGGGGGGDDDDGGGGGGGGEGG",".DDDDGGGGGGGDDDDDGGGGGGGGEEG","DDDDDGGGGGGGDDDDGGGGGGGGGGGG","DDDDGGGGGGGGDDDDDGGGGGGGGGGG","DDDDDGGGGGGDDDDDDGGGGGGGGGDG","DDDDDGGGGGGGDDDDDGGGGGGGGDGG","DDDDDGGGGGGGDDDDDDGGGGGGGGG.",".DDDDDGGGGGGDDDDDDDGGGGGGG..","...D.....D...DDDGDDD..G.....",];
     const ALEXA_APPLE_ROWS = ["...G....","...GG...","...RRG..","..RRRR..",".RRRRRR.",".DRRRRR.",".RDRRRR.",".RRRRRR.","..RRRR.."];
     function alexaTimerCaterpillarPosition(clockLeft, remainingSeconds, totalSeconds) {
       const finishX = Math.max(12, clockLeft - 22);
@@ -1639,15 +1639,15 @@
       const finishX = Math.max(12, clockLeft - 22);
       return Math.round(12 + (finishX - 12) * ((index + 1) / 10));
     }
-    function drawAlexaTimerSprite(rows, colors, x, y) {
+    function drawAlexaTimerSprite(rows, colors, x, y, scale = 1) {
       rows.forEach((row, dy) => {
         for (let dx = 0; dx < row.length; dx++) {
           const color = colors[row[dx]];
           if (color) {
             context.fillStyle = color;
-            context.fillRect((x + dx) * FONT_PIXEL_SCALE,
-                             (y + dy) * FONT_PIXEL_SCALE,
-                             FONT_PIXEL_SCALE, FONT_PIXEL_SCALE);
+            context.fillRect((x + dx * scale) * FONT_PIXEL_SCALE,
+                             (y + dy * scale) * FONT_PIXEL_SCALE,
+                             scale * FONT_PIXEL_SCALE, scale * FONT_PIXEL_SCALE);
           }
         }
       });
@@ -1655,6 +1655,25 @@
     // Keep the simulator's tiny 3x7 clock and finish-only scenery in
     // parity with timer_visuals.py (no downloaded image files).
     const ALEXA_TIMER_THEMES = ['caterpillar', 'race', 'rocket', 'stars'];
+    const ALEXA_TIMER_ACTOR_SCALE = 2;
+    const ALEXA_TIMER_APPLE_SCALE = 2;
+    const ALEXA_ACTOR_SOURCE_SIZES = {
+      caterpillar:[28,14], race:[15,11], rocket:[15,11], stars:[13,13]
+    };
+    function alexaTimerActorSize(theme, turns = 0) {
+      const [w,h] = ALEXA_ACTOR_SOURCE_SIZES[theme];
+      return turns % 2 ? [h*2,w*2] : [w*2,h*2];
+    }
+    function alexaTimerActorPosition(theme, clockX, headX, done = false,
+                                     turns = 0, verticalOffset = 0, bob = 0) {
+      const [width,height] = alexaTimerActorSize(theme,turns);
+      const x = done ? clockX-width-8 :
+        (theme==='caterpillar'?headX-(width-14):headX-Math.floor(width/2));
+      const bottom = 32-height;
+      const y = Math.max(0,Math.min(bottom,bottom+Math.trunc(verticalOffset)-
+                                   (done?0:Math.trunc(bob))));
+      return [Math.min(x,clockX-width-2),y];
+    }
     const ALEXA_TIMER_FONT = {
       '0':['111','101','101','101','101','101','111'],
       '1':['010','110','010','010','010','010','111'],
@@ -1669,16 +1688,16 @@
       ':':['000','010','010','000','010','010','000']
     };
     const ALEXA_CAR_ROWS = [
-      '....................','.......RRRRRR.......','.....RRRRRRRRRR.....',
-      '....RRRBBRRRRRRRR...','...RRRRBBRRRRRRRRRR.','..RRRRRRRRRRRRRRRRR.',
-      '.RRRRRRRRRRRRRRRRRY.','RRRRRRRRRRRRRRRRRRR.','...DDDD.......DDDD.',
-      '...DDDD.......DDDD.','....DD.........DD..'
+      '...............','.....RRRRRR....','...RRRRRRRR....',
+      '..RRRBBRRRRR...','.RRRRBBRRRRRR..','RRRRRRRRRRRRRR.',
+      'RRRRRRRRRRRRRRY','RRRRRRRRRRRRRR.','..DDDD...DDDD..',
+      '..DDDD...DDDD..','...DD.....DD...'
     ];
     const ALEXA_ROCKET_ROWS = [
-      '......................','..................RR..','.................RRRR.',
-      '....WWWWWWWWWWWWRRRRR','..WWWWWWWWWWWWWWRRRRR','WWWWWWBBBBWWWWWWRRRRR',
-      'WWWWWWBBBBWWWWWWRRRRR','..WWWWWWWWWWWWWWRRRRR',
-      '....WWWWWWWWWWWWRRRRR','.................RRRR.','..................RR..'
+      '...............','...........RR..','..........RRRR.',
+      '...WWWWWWWRRRRR','.WWWWWWWWWRRRRR','WWWWWBBWWWRRRRR',
+      'WWWWWBBWWWRRRRR','.WWWWWWWWWRRRRR','...WWWWWWWRRRRR',
+      '..........RRRR.','...........RR..'
     ];
     const ALEXA_STAR_ROWS = [
       '......Y......','......Y......','......Y......','......Y......',
@@ -1714,7 +1733,7 @@
     function alexaTimerFinishPose(theme, elapsed) {
       const t = Math.max(0, Math.min(1, elapsed / 1.5));
       if (theme === 'caterpillar') {
-        const lift = t < 0.5 ? 9 * Math.sin(Math.PI*2*t) : 5 * Math.sin(Math.PI*2*(t-0.5));
+        const lift = t < 0.5 ? 4 * Math.sin(Math.PI*2*t) : 3 * Math.sin(Math.PI*2*(t-0.5));
         return {rotation:0,dy:-Math.round(lift)};
       }
       if (theme === 'race') return {rotation:t>=1?0:Math.min(3,Math.floor(t*4)),dy:-Math.round(7*Math.sin(Math.PI*t))};
@@ -1975,7 +1994,8 @@
           for(let i=eaten;i<10;i++){
             if(theme==='caterpillar'){
               drawAlexaTimerSprite(ALEXA_APPLE_ROWS,{R:'#f4514a',D:'#ac2c37',G:'#6ce573'},
-                alexaTimerAppleCenter(clockX,i)-4,17);
+                alexaTimerAppleCenter(clockX,i)-4*ALEXA_TIMER_APPLE_SCALE,12,
+                ALEXA_TIMER_APPLE_SCALE);
             }else{
               const mark=theme==='stars'?['..Y..','.YYY.','YYYYY','.YYY.','..Y..']:['YYYYYYY','YYYYYYY'];
               drawAlexaTimerSprite(mark,{Y:'#ffe36a'},alexaTimerAppleCenter(clockX,i)-3,
@@ -1985,22 +2005,21 @@
         }
         const head=alexaTimerCaterpillarPosition(clockX,remaining,total);
         const pose=done?alexaTimerFinishPose(theme,finishElapsed):{rotation:0,dy:0};
+        const bob=!done && theme==='caterpillar' && screen.state!=='paused' ?
+          Math.floor(rawPhase*3)%2 : 0;
+        const [actorX,actorY]=alexaTimerActorPosition(
+          theme,clockX,head,done,pose.rotation,pose.dy,bob);
         if(theme==='caterpillar'){
-          const bob=!done && screen.state!=='paused'?Math.floor(rawPhase*3)%2:0;
           drawAlexaTimerSprite(ALEXA_CATERPILLAR_ROWS,
             {G:'#8cee63',D:'#3da94a',E:'#172e29'},
-            done?clockX-44:head-22,done?14+pose.dy:14+bob);
+            actorX,actorY,ALEXA_TIMER_ACTOR_SCALE);
         }else{
-          const rows=alexaTimerRotateRows(theme==='race'?ALEXA_CAR_ROWS:theme==='rocket'?ALEXA_ROCKET_ROWS:ALEXA_STAR_ROWS,pose.rotation);
+          const rows=alexaTimerRotateRows(
+            theme==='race'?ALEXA_CAR_ROWS:theme==='rocket'?ALEXA_ROCKET_ROWS:ALEXA_STAR_ROWS,
+            pose.rotation);
           const colors=theme==='race'?{R:'#f14e4b',B:'#65c5ff',D:'#222838',Y:'#ffe36a'}:
             theme==='rocket'?{W:'#e9f2ff',B:'#59c4f4',R:'#f46872'}:{Y:'#ffe36a'};
-          let x=head-11,y=theme==='race'?14:10;
-          if(done){
-            if(theme==='race'){x=clockX-(pose.rotation%2===0?37:30);y=(pose.rotation%2===0?16:8)+pose.dy}
-            else if(theme==='rocket'){x=clockX-(pose.rotation===0?47:35);y=(pose.rotation===0?11:2)+pose.dy}
-            else{x=clockX-34;y=12}
-          }
-          drawAlexaTimerSprite(rows,colors,x,y);
+          drawAlexaTimerSprite(rows,colors,actorX,actorY,ALEXA_TIMER_ACTOR_SCALE);
         }
         suppressHeader=true;
         status.dataset.detail=`Alexa timer · ${done?'complete':screen.state||'running'} · ${theme} · ${label}`;
