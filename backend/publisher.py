@@ -160,7 +160,8 @@ class PublisherConfig:
                  chessington_ttl=300, chessington_rides=DEFAULT_CHESSINGTON_RIDES,
                  football_fixture_source="off", football_fixture_parameter_name="/led/football/calendar",
                  football_fixture_ttl=900, football_fixture_duration=20, football_fixture_lookahead_days=45,
-                 cubs_programme_parameter="", cubs_events_parameter=""):
+                 cubs_programme_parameter="", cubs_events_parameter="",
+                 beavers_programme_parameter="", beavers_events_parameter=""):
         self.bucket = bucket
         self.national_rail_token = national_rail_token
         self.station = station
@@ -189,6 +190,10 @@ class PublisherConfig:
         self.football_fixture_ttl = football_fixture_ttl
         self.football_fixture_duration = football_fixture_duration
         self.football_fixture_lookahead_days = football_fixture_lookahead_days
+        self.cubs_programme_parameter = cubs_programme_parameter
+        self.cubs_events_parameter = cubs_events_parameter
+        self.beavers_programme_parameter = beavers_programme_parameter
+        self.beavers_events_parameter = beavers_events_parameter
 
     @classmethod
     def from_env(cls, env=None):
@@ -246,6 +251,7 @@ class PublisherConfig:
             _env_int(env, "LED_FOOTBALL_FIXTURE_DURATION_SECONDS", 20, 2),
             _env_int(env, "LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS", 45),
             env.get("CUBS_PROGRAMME_PARAMETER_NAME", ""), env.get("CUBS_EVENTS_PARAMETER_NAME", ""),
+            env.get("BEAVERS_PROGRAMME_PARAMETER_NAME", ""), env.get("BEAVERS_EVENTS_PARAMETER_NAME", ""),
         )
 
 
@@ -322,7 +328,7 @@ class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
                  fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None,
-                 football_provider=None, cubs_provider=None):
+                 football_provider=None, cubs_provider=None, beavers_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -350,6 +356,12 @@ class Publisher:
             self.football_provider = GoogleCalendarFixtureProvider(config.football_fixture_parameter_name)
         elif self.football_provider is None and config.football_fixture_source == "public_ical":
             self.football_provider = PublicICalFixtureProvider()
+        self.cubs_provider = cubs_provider or CubsCalendarProvider(
+            config.cubs_programme_parameter, config.cubs_events_parameter, utcnow=self.utcnow
+        )
+        self.beavers_provider = beavers_provider or CubsCalendarProvider(
+            config.beavers_programme_parameter, config.beavers_events_parameter, utcnow=self.utcnow
+        )
         self.calendar_provider = calendar_provider
         if self.calendar_provider is None and config.todoist_oauth_secret_arn:
             oauth = TodoistOAuthSession(SecretsManagerOAuthStore(config.todoist_oauth_secret_arn))
@@ -449,18 +461,23 @@ class Publisher:
             raise RuntimeError("calendar provider is not configured")
         return {"source": "todoist", "fetched_at": _iso(now), "events": self.calendar_provider.fetch()}
 
-    def _fetch_cubs(self, now):
-        return {"source": "cubs_ics", "fetched_at": _iso(now), "events": self.cubs_provider.fetch()}
+    def _fetch_scout_group(self, group, provider, now):
+        return {"source": group + "_ics", "fetched_at": _iso(now), "events": provider.fetch()}
 
-    def _refresh_cubs(self, previous, ttl, now):
-        # Retry a stale/empty feed after an hour, not on every scheduled minute.
+    def _refresh_scout_group(self, group, provider, previous, ttl, now):
+        # Independently retain the last good feed on failures. Do not retry
+        # failed credentials/URLs on every per-minute publisher invocation.
         previous = previous or {}
         last = _parse_iso(previous.get("last_attempt_at"))
         if last is not None and (now - last).total_seconds() < (
             min(ttl, 3600) if previous.get("stale") or previous.get("data") is None else ttl
         ):
             return copy.deepcopy(previous)
-        return self._refresh("cubs", previous, ttl, lambda: self._fetch_cubs(now), now, force=True)
+        return self._refresh(
+            group, previous, ttl,
+            lambda: self._fetch_scout_group(group, provider, now),
+            now, force=True,
+        )
 
     def _fetch_joke(self, now, previous=None):
         # Persist a bounded history in the existing S3 feed cache, so API
@@ -812,10 +829,13 @@ class Publisher:
         joke_cfg = config_feeds["dad_joke"]
         if config_feeds["cubs"]["enabled"]:
             cubs = feeds.get("cubs") or {}
+            beavers = feeds.get("beavers") or {}
             cubs_data = cubs.get("data") or {}
-            # The publisher keeps private ICS URLs and all non-display metadata off
-            # the board. Only the next genuine Cubs event appears in this layout.
+            beavers_data = beavers.get("data") or {}
+            # Keep each independent upstream in its own S3 cache. The display
+            # receives only the next event's title and date/time; never URLs.
             cubs_events = _public_cubs_events(cubs_data.get("events"), now, 1)
+            beavers_events = _public_cubs_events(beavers_data.get("events"), now, 1)
             screens.append({
                 "id": "scouts-intro", "kind": "scouts_intro", "source": "local_animation",
                 "title": "SCOUTS", "duration_seconds": 3.5,
@@ -824,10 +844,12 @@ class Publisher:
             screens.append({
                 "id": "cubs", "kind": "scouts_next_events", "source": "cubs_ics",
                 "title": "BEAVERS & CUBS",
-                "stale": bool(cubs.get("stale")) or not cubs_data,
+                "stale": bool(cubs.get("stale") or beavers.get("stale")) or not cubs_data or not beavers_data,
                 "duration_seconds": config_feeds["cubs"]["screen_duration_seconds"],
-                # No Beavers ICS feed exists yet; do not substitute Cubs events.
-                "beavers": None, "beavers_status": "not_configured",
+                "beavers": beavers_events[0] if beavers_events else None,
+                "beavers_status": "unavailable" if not beavers_data else (
+                    "available" if beavers_events else "no_upcoming"
+                ),
                 "cubs": cubs_events[0] if cubs_events else None,
                 "cubs_status": "unavailable" if not cubs_data else (
                     "available" if cubs_events else "no_upcoming"
@@ -1142,8 +1164,12 @@ class Publisher:
                 refreshed["requested_selection"] = selection
                 feeds["football_fixtures"] = refreshed
         if settings["cubs"]["enabled"]:
-            feeds["cubs"] = self._refresh_cubs(
-                feeds.get("cubs"), settings["cubs"]["poll_seconds"], now
+            ttl = settings["cubs"]["poll_seconds"]
+            feeds["cubs"] = self._refresh_scout_group(
+                "cubs", self.cubs_provider, feeds.get("cubs"), ttl, now
+            )
+            feeds["beavers"] = self._refresh_scout_group(
+                "beavers", self.beavers_provider, feeds.get("beavers"), ttl, now
             )
         if settings["dad_joke"]["enabled"]:
             feeds["dad_joke"] = self._refresh_static_pool(

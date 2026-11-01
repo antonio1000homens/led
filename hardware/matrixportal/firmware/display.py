@@ -4202,16 +4202,19 @@ class MatrixDisplay:
             self._refresh("steam_train")
 
     def _show_scouts_events(self, screen):
-        """A persistent two-column scene: Beavers (future) and genuine Cubs."""
+        """Retain a compact split scene; independently display Beavers and Cubs."""
         import displayio
 
+        beavers = screen.get("beavers")
+        if not isinstance(beavers, dict):
+            beavers = None
         cubs = screen.get("cubs")
         if not isinstance(cubs, dict):
             cubs = None
         key = (
             screen.get("beavers_status"), screen.get("cubs_status"),
-            cubs.get("start") if cubs else None,
-            cubs.get("title") if cubs else None,
+            tuple((event.get("start"), event.get("title")) if event else (None, None)
+                  for event in (beavers, cubs)),
             bool(screen.get("stale")),
         )
         if key != self._scouts_events_key:
@@ -4223,28 +4226,25 @@ class MatrixDisplay:
             divider_palette[1] = 0x2E6E49
             for y in range(32):
                 divider[0, y] = 1
-            root.append(displayio.TileGrid(
-                divider, pixel_shader=divider_palette, x=127, y=0
-            ))
-            self._label(root, "BEAVERS", 0xF5CC58, 3, 5)
-            self._label(root, "CUBS", 0xF5CC58, 132, 5)
-            self._label(root, "FEED PENDING", 0xFFFFFF, 3, 16)
-            self._label(root, "NOT ONLINE YET", 0x9FAF9F, 3, 25)
-            if cubs is not None:
-                date_text = str(cubs.get("date_text") or "")[:5]
-                time_text = "" if cubs.get("all_day") else str(cubs.get("time_text") or "")[:5]
-                when = date_text + (" ALL DAY" if cubs.get("all_day") else " " + time_text)
-                self._label(root, _fit_text_pixels(when.strip(), 119), 0xFFFFFF, 132, 16)
-                self._label(
-                    root, _fit_text_pixels(str(cubs.get("title") or "").upper(), 119),
-                    0xFFFFFF, 132, 25,
-                )
-            elif screen.get("cubs_status") == "unavailable":
-                self._label(root, "CALENDAR", 0xFFFFFF, 132, 16)
-                self._label(root, "UNAVAILABLE", 0xFFFFFF, 132, 25)
-            else:
-                self._label(root, "NO UPCOMING", 0xFFFFFF, 132, 16)
-                self._label(root, "EVENTS", 0xFFFFFF, 132, 25)
+            root.append(displayio.TileGrid(divider, pixel_shader=divider_palette, x=127, y=0))
+            for x, heading, event, status in (
+                (3, "BEAVERS", beavers, screen.get("beavers_status")),
+                (132, "CUBS", cubs, screen.get("cubs_status")),
+            ):
+                self._label(root, heading, 0xF5CC58, x, 5)
+                if event is not None:
+                    date_text = str(event.get("date_text") or "")[:5]
+                    time_text = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
+                    self._label(root, _fit_text_pixels((date_text + " " + time_text).strip(), 119),
+                                0xFFFFFF, x, 16)
+                    self._label(root, _fit_text_pixels(str(event.get("title") or "").upper(), 119),
+                                0xFFFFFF, x, 25)
+                elif status == "unavailable":
+                    self._label(root, "CALENDAR", 0xFFFFFF, x, 16)
+                    self._label(root, "UNAVAILABLE", 0xFFFFFF, x, 25)
+                else:
+                    self._label(root, "NO UPCOMING", 0xFFFFFF, x, 16)
+                    self._label(root, "EVENTS", 0xFFFFFF, x, 25)
             if screen.get("stale"):
                 self._label(root, "STALE", 0xFF3300, 85, 5)
             self._scouts_events_key = key
@@ -5483,18 +5483,17 @@ class FixtureDisplay:
         elif kind == "scouts_intro":
             self._text(str(screen.get("intro_text") or "Be Prepared for..."), 0, 12, (245, 204, 88))
         elif kind == "scouts_next_events":
-            self._text("BEAVERS", 0, 3, (245, 204, 88))
-            self._text("CUBS", 132, 3, (245, 204, 88))
-            self._text("FEED PENDING", 0, 13, (255, 255, 255))
-            self._text("NOT ONLINE YET", 0, 23, (160, 170, 160))
-            cubs = screen.get("cubs")
-            if isinstance(cubs, dict):
-                date = str(cubs.get("date_text") or "")[:5]
-                time = "ALL DAY" if cubs.get("all_day") else str(cubs.get("time_text") or "")[:5]
-                self._text(_fit_text_pixels(date + " " + time, 119), 132, 13, (255, 255, 255))
-                self._text(_fit_text_pixels(str(cubs.get("title") or ""), 119), 132, 23, (255, 255, 255))
-            else:
-                self._text("NO UPCOMING" if screen.get("cubs_status") != "unavailable" else "UNAVAILABLE", 132, 13, (255, 255, 255))
+            for x, heading, field in ((0, "BEAVERS", "beavers"), (132, "CUBS", "cubs")):
+                self._text(heading, x, 3, (245, 204, 88))
+                event = screen.get(field)
+                if isinstance(event, dict):
+                    date = str(event.get("date_text") or "")[:5]
+                    time = "ALL DAY" if event.get("all_day") else str(event.get("time_text") or "")[:5]
+                    self._text(_fit_text_pixels(date + " " + time, 119), x, 13, (255, 255, 255))
+                    self._text(_fit_text_pixels(str(event.get("title") or ""), 119), x, 23, (255, 255, 255))
+                else:
+                    self._text("NO UPCOMING" if screen.get(field + "_status") != "unavailable" else "UNAVAILABLE",
+                               x, 13, (255, 255, 255))
         elif kind == "bus_intro":
             self._bus_intro(screen, phase)
         elif kind == "weather_weekly":
@@ -5809,8 +5808,9 @@ class FixtureDisplay:
         elif kind == "scouts_intro":
             print("SCOUTS INTRO " + str(screen.get("intro_text") or ""))
         elif kind == "scouts_next_events":
-            print("BEAVERS: feed not online yet")
-            print("CUBS: " + str((screen.get("cubs") or {}).get("title") or screen.get("cubs_status")))
+            for group in ("beavers", "cubs"):
+                print(group.upper() + ": " +
+                      str((screen.get(group) or {}).get("title") or screen.get(group + "_status")))
         elif kind == "bus_intro":
             print("BUS {}".format(screen.get("words") or ""))
         elif kind == "bin_collection":

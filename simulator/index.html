@@ -1563,36 +1563,33 @@
       const px = FONT_PIXEL_SCALE;
       context.fillStyle = '#2e6e49';
       context.fillRect(127*px, 0, px, 32*px);
-      context.fillStyle = '#f5cc58';
-      drawLedText('BEAVERS', 3*px, 5*px);
-      drawLedText('CUBS', 132*px, 5*px);
-      context.fillStyle = '#ffffff';
-      drawLedText('FEED PENDING', 3*px, 16*px);
-      context.fillStyle = '#9faf9f';
-      drawLedText('NOT ONLINE YET', 3*px, 25*px);
-      const cubs = screen.cubs && typeof screen.cubs === 'object' ? screen.cubs : null;
-      context.fillStyle = '#ffffff';
-      context.save();
-      context.beginPath();
-      context.rect(131*px, 8*px, 123*px, 24*px);
-      context.clip();
-      if (cubs) {
-        const time = cubs.all_day ? 'ALL DAY' : String(cubs.time_text || '');
-        drawLedText(scoutsFit(String(cubs.date_text || '') + ' ' + time), 132*px, 16*px);
-        drawLedText(scoutsFit(cubs.title), 132*px, 25*px);
-      } else if (screen.cubs_status === 'unavailable') {
-        drawLedText('CALENDAR', 132*px, 16*px);
-        drawLedText('UNAVAILABLE', 132*px, 25*px);
-      } else {
-        drawLedText('NO UPCOMING', 132*px, 16*px);
-        drawLedText('EVENTS', 132*px, 25*px);
+      for (const [key, heading, x] of [['beavers','BEAVERS',3], ['cubs','CUBS',132]]) {
+        context.fillStyle = '#f5cc58';
+        drawLedText(heading, x*px, 5*px);
+        context.save();
+        context.beginPath();
+        context.rect(x*px, 8*px, 120*px, 24*px);
+        context.clip();
+        context.fillStyle = '#ffffff';
+        const event = screen[key] && typeof screen[key] === 'object' ? screen[key] : null;
+        if (event) {
+          const time = event.all_day ? 'ALL DAY' : String(event.time_text || '');
+          drawLedText(scoutsFit(String(event.date_text || '') + ' ' + time), x*px, 16*px);
+          drawLedText(scoutsFit(event.title), x*px, 25*px);
+        } else if (screen[key+'_status'] === 'unavailable') {
+          drawLedText('CALENDAR', x*px, 16*px);
+          drawLedText('UNAVAILABLE', x*px, 25*px);
+        } else {
+          drawLedText('NO UPCOMING', x*px, 16*px);
+          drawLedText('EVENTS', x*px, 25*px);
+        }
+        context.restore();
       }
-      context.restore();
       if (screen.stale) {
         context.fillStyle = '#ff3300';
         drawLedText('STALE', 85*px, 5*px);
       }
-      status.dataset.detail = 'Next Beavers (not configured) / Cubs events';
+      status.dataset.detail = 'Next Beavers and Cubs events from independent ICS feeds';
     }
     function drawChristmasIntro(screen, phase) {
       const elapsed = Math.max(0, Number(phase) || 0);

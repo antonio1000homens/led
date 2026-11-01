@@ -6,6 +6,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeploymentStaticTests(unittest.TestCase):
+    def test_scouts_navigation_and_split_screen_with_minimum_poll(self):
+        admin = (ROOT / "simulator" / "admin.html").read_text()
+        simulator = (ROOT / "simulator" / "index.html").read_text()
+        firmware = (ROOT / "hardware" / "matrixportal" / "firmware" / "display.py").read_text()
+        stack = (ROOT / "infrastructure" / "led-stack.yaml").read_text()
+        rotation = (ROOT / "hardware" / "matrixportal" / "firmware" / "screen_client.py").read_text()
+        self.assertIn("['cubs','Scouts · Beavers & Cubs']", admin)
+        self.assertIn("intro_text:['Scouts intro message'", admin)
+        for name in ("drawScoutsIntro", "drawScoutsNextEvents", "scoutsFollowup"):
+            self.assertIn(name, simulator)
+        for name in ("_show_scouts_intro", "_show_scouts_events"):
+            self.assertIn(name, firmware)
+        self.assertIn('item.get("kind") == "scouts_next_events"', rotation)
+        for value in ("BeaversProgrammeParameterName", "BeaversEventsParameterName",
+                      "CubsProgrammeParameterName", "CubsEventsParameterName"):
+            self.assertIn(value, stack)
+        self.assertIn("MinValue: 3600", stack)
+
     def test_admin_groups_departures_and_steam_train_without_brightness_card(self):
         admin = (ROOT / "simulator" / "admin.html").read_text(encoding="utf-8")
         self.assertIn("function departuresSectionHtml", admin)

@@ -1,75 +1,84 @@
-# Cubs agenda screen (#278)
+# Scouts next-events screen (#278 / PR #279)
 
-The **CUBS** screen is a separate calendar-agenda feed, styled like the Todoist screen.
-It is disabled by default. The LED publisher fetches the original OSM ICS feed
-independently; the Scouts application is neither queried nor granted access.
+The **Scouts · Beavers & Cubs** screen uses two independently fetched OSM ICS
+calendars. It is disabled by default. It appears in the admin navigation under
+**Calendar & events**, separate from Todoist and football.
 
-## Security and AWS account separation
+## Private feed configuration
 
-All commands below must run with credentials for the **LED AWS account**, not the
-Scouts AWS account. No cross-account roles, shared buckets, Lambda invocations,
-or CloudFormation imports are needed.
+Provision these four parameters as **SecureString** in the LED AWS account,
+not in the independent Scouts AWS account:
 
-The Scouts repo is a reference for the upstream feed **format** only. It defines
-two sources: **Cubs Programme** (primary) and **Cubs Events** (optional).
-Never copy values from Scouts Lambda configuration, paste a private URL into
-GitHub, put it in a deployment environment variable, or print the URL in logs.
+| Group | Primary programme | Supplemental events |
+| --- | --- | --- |
+| Beavers | `/led/beavers/programme-ics-url` | `/led/beavers/events-ics-url` |
+| Cubs | `/led/cubs/programme-ics-url` | `/led/cubs/events-ics-url` |
 
-Create these parameters in the LED AWS account using an appropriate confidential
-provisioning method (the commands below read the value interactively, rather than
-placing the URL directly in shell history):
+Each parameter contains the **full private HTTPS ICS URL**, never a calendar ID.
+The LED CloudFormation template passes **parameter names only** to the publisher
+environment and grants `ssm:GetParameter` on the four named SSM resources.
+The publisher decrypts those values internally; never copy URLs from the Scouts
+AWS account or expose them in repository files, logs, deployment variables,
+simulator or public HTTP screen responses.
 
-```bash
-# Run only against the LED account and verify your AWS identity first.
-aws sts get-caller-identity
-read -rs -p 'Cubs Programme private ICS URL: ' CUBS_URL; echo
-aws ssm put-parameter --name /led/cubs/programme-ics-url \
-  --type SecureString --value "$CUBS_URL" --overwrite
-unset CUBS_URL
-```
+The programme feed is the primary source for each group and the events feed
+is supplemental. Within a group, the provider combines and de-duplicates events
+before selecting the next upcoming event. If a configured upstream fails, the
+last successful data for **that group** is retained and marked stale. The other
+group remains independent.
 
-Repeat with parameter `/led/cubs/events-ics-url` to enable the optional
-Cubs Events feed. Creating only the Programme parameter is supported.
+For a non-default KMS key, grant the publisher role the narrowly scoped
+`kms:Decrypt` permission required for the parameter encryption context.
+Using the standard SSM-managed key needs no additional customer-managed key grant.
 
-The CloudFormation parameters `CubsProgrammeParameterName` and
-`CubsEventsParameterName` identify parameter **names**, not secrets.
-The publisher role has only `ssm:GetParameter` on the two LED-account parameters.
-If these parameters use a customer-managed KMS key rather than the default
-AWS-managed SSM key, explicitly grant the publisher role `kms:Decrypt`
-on that key, scoped to the required parameter encryption context.
+## Animation and layout
 
-The private ICS URL is fetched server-side and is absent from the runtime
-configuration, admin API, S3 screen payload, MatrixPortal firmware and simulator.
+The screen is a **paired transition** in the normal board rotation:
 
-**Privacy:** `/api/screens` and the simulator are publicly readable.
-Cubs event **titles and times are therefore public when this feed is enabled**.
-Only these fields are published, not location, description, attendee or email
-data. Inspect the feed titles before enabling it if titles themselves are sensitive.
+1. A camping tent slides in from the right, following the Christmas intro's
+   animation timing. The editable message defaults to **Be Prepared for...**.
+   It accepts a non-empty printable ASCII string of up to 48 characters.
+2. The next screen displays **two equally sized columns**: **Beavers** on the
+   left, **Cubs** on the right. Each shows its own next upcoming event's date,
+   time (or ALL DAY), and truncated title.
 
-## Configuration and refresh
+Unlike the old Todoist-style scrolling agenda, this shows **one next event per
+group**. Missing feeds display **Calendar unavailable**, and calendars with
+no future events display **No upcoming events**. Both columns are independent.
 
-Deploy the LED backend, CloudFormation stack and MatrixPortal firmware together.
-Create the parameter(s), then enable **Cubs** on the LED admin page.
-This is a separate feed from **Calendar / Todoist**; both can rotate independently.
+The MatrixPortal firmware, simulator and board rotation all use screen kinds
+`scouts_intro` and `scouts_next_events`. The paired screens share the Cubs
+feed's scheduling windows; they are treated as one atomic block in rotation.
+
+## Admin configuration
+
+Navigate to **Calendar & events → Scouts · Beavers & Cubs**. Enable the feed
+once the event titles have been approved for public display.
 
 | Setting | Default | Limits |
 | --- | --- | --- |
-| Enabled | No | independent from Todoist |
-| Provider refresh | 86,400 s (24 h) | 3,600–604,800 s (1 h–7 days) |
-| Screen duration | 10 s minimum | 2–300 s; pagination increases effective duration |
-| Visible event count | 6 | 1–12 events |
+| Enabled | No | Both groups together |
+| Provider refresh | 86,400 seconds (24 hours) | 3,600–604,800 seconds (1 hour–7 days) |
+| Screen duration | 10 seconds | 2–300 seconds (intro is additional) |
+| Scouts intro message | `Be Prepared for...` | 1–48 printable ASCII characters |
+| Schedule windows | Always | Optional Europe/London cron windows |
 
-The existing per-minute LED publisher uses its S3 last-successful feed cache.
-An enabled Cubs feed is refreshed only when due. Missing/upstream-failing feeds
-leave the last good data in place and are marked stale, with a bounded one-hour
-retry delay for stale or empty data. Disabling Cubs removes its screen and
-stops upstream polling.
+The shared **polling interval** applies to both groups but each source is
+refreshed and cached separately. The **one-hour minimum is enforced by the
+admin schema, API validation and CloudFormation parameter bounds**, not just
+the displayed form. Failed/stale feeds never retry more often than hourly.
 
-The MatrixPortal and simulator share Todoist's three-visible-row sliding
-pages, date/time column, long-title marquee and dynamic screen duration.
-Screen ID: `cubs`; kind: `calendar_agenda`; source: `cubs_ics`.
+## Publication and privacy
 
-Use synthetic ICS in tests. Verify the actual upstream calendar structure
-against the LED account's independently configured source. In particular,
-check any unsupported vendor-specific recurrence properties before enabling
-the screen in production.
+The publisher's per-minute invocation does **not** mean an ICS HTTP request
+every minute. It uses the existing S3 last-successful state cache and only
+fetches a group when its refresh interval is due. The payload contains only
+whitelisted event title/date/time data, stale flags, and admin display options.
+
+**Warning:** `/api/screens` and the simulator are publicly readable. **Event
+titles and dates are visible to anyone once the screen is enabled**, but private
+calendar URLs, descriptions, locations and attendees are never published.
+Inspect the real feeds before enabling them.
+
+Use synthetic ICS in tests; verify live feed recurrence/vendor-specific
+properties independently in the LED account before deploying the screen.

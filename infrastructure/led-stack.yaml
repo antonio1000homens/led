@@ -36,6 +36,8 @@ Parameters:
   FootballFixtureLookaheadDays: {Type: Number, Default: 45, MinValue: 1, MaxValue: 180}
   CubsProgrammeParameterName: {Type: String, Default: /led/cubs/programme-ics-url}
   CubsEventsParameterName: {Type: String, Default: /led/cubs/events-ics-url}
+  BeaversProgrammeParameterName: {Type: String, Default: /led/beavers/programme-ics-url}
+  BeaversEventsParameterName: {Type: String, Default: /led/beavers/events-ics-url}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   CubsCacheSeconds: {Type: Number, Default: 86400, MinValue: 3600, MaxValue: 604800}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
@@ -101,12 +103,14 @@ Resources:
                 Effect: Allow
                 Action: ['ssm:GetParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FootballFixtureParameterName}
-              - Sid: ReadCubsIcsParameters
+              - Sid: ReadScoutsIcsParameters
                 Effect: Allow
                 Action: ['ssm:GetParameter']
                 Resource:
                   - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CubsProgrammeParameterName}
                   - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CubsEventsParameterName}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${BeaversProgrammeParameterName}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${BeaversEventsParameterName}
               - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${PublisherLogGroup.Arn}:*'}
   PublisherLogGroup:
     Type: AWS::Logs::LogGroup
@@ -136,6 +140,8 @@ Resources:
           LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
           CUBS_PROGRAMME_PARAMETER_NAME: !Ref CubsProgrammeParameterName
           CUBS_EVENTS_PARAMETER_NAME: !Ref CubsEventsParameterName
+          BEAVERS_PROGRAMME_PARAMETER_NAME: !Ref BeaversProgrammeParameterName
+          BEAVERS_EVENTS_PARAMETER_NAME: !Ref BeaversEventsParameterName
           LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
@@ -370,6 +376,10 @@ Outputs:
     Value: !Ref CubsProgrammeParameterName
   CubsEventsParameterName:
     Value: !Ref CubsEventsParameterName
+  BeaversProgrammeParameterName:
+    Value: !Ref BeaversProgrammeParameterName
+  BeaversEventsParameterName:
+    Value: !Ref BeaversEventsParameterName
   DistributionId:
     Value: !Ref Distribution
   DistributionDomainName:

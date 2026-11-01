@@ -158,64 +158,125 @@ END:VCALENDAR"""
         cfg = default_runtime_config({})
         self.assertEqual(cfg["feeds"]["cubs"], {
             "enabled": False, "poll_seconds": 86400,
-            "screen_duration_seconds": 10, "visible_event_count": 6,
+            "screen_duration_seconds": 10, "intro_text": "Be Prepared for...",
+            "schedule_windows": [],
         })
-        self.assertEqual(schema_metadata()["feeds"]["cubs"]["fields"]["poll_seconds"]["maximum"], 604800)
-        self.assertEqual(validate_feed_patch("cubs", {"visible_event_count": 12, "poll_seconds": 3600}),
-                         {"visible_event_count": 12, "poll_seconds": 3600})
-        for invalid in (0, 13, True):
+        schema = schema_metadata()["feeds"]["cubs"]["fields"]
+        self.assertEqual(schema["poll_seconds"]["minimum"], 3600)
+        self.assertEqual(schema["poll_seconds"]["maximum"], 604800)
+        self.assertEqual(schema["intro_text"]["maximumLength"], 48)
+        self.assertEqual(validate_feed_patch("cubs", {
+            "intro_text": "Be Prepared for Adventure", "poll_seconds": 3600,
+        }), {"intro_text": "Be Prepared for Adventure", "poll_seconds": 3600})
+        for invalid in ("", "bad\\ntext", "x" * 49, True):
             with self.assertRaises(RuntimeConfigValidationError):
-                validate_feed_patch("cubs", {"visible_event_count": invalid})
-        for invalid in (3599, 604801):
+                validate_feed_patch("cubs", {"intro_text": invalid})
+        for invalid in (0, 3599, 604801, True):
             with self.assertRaises(RuntimeConfigValidationError):
                 validate_feed_patch("cubs", {"poll_seconds": invalid})
+        legacy = copy.deepcopy(cfg)
+        legacy["feeds"]["cubs"].pop("intro_text")
+        legacy["feeds"]["cubs"]["visible_event_count"] = 6
+        migrated = validate_runtime_config(legacy)["feeds"]["cubs"]
+        self.assertEqual(migrated["intro_text"], "Be Prepared for...")
+        self.assertNotIn("visible_event_count", migrated)
         del cfg["feeds"]["cubs"]
         self.assertEqual(validate_runtime_config(cfg)["feeds"]["cubs"]["poll_seconds"], 86400)
 
-    def test_independent_publisher_refresh_and_pagination(self):
+    def test_independent_publisher_refresh_and_two_column_next_events(self):
         cfg = default_runtime_config({})
         cfg["feeds"]["cubs"]["enabled"] = True
-        cfg["feeds"]["cubs"]["visible_event_count"] = 5
-        cfg["feeds"]["departures"]["enabled"] = False
-        cfg["feeds"]["weather"]["enabled"] = False
-        cfg["feeds"]["thorpe_park"]["enabled"] = False
-        cfg["feeds"]["chessington"]["enabled"] = False
+        cfg["feeds"]["cubs"]["intro_text"] = "Be Prepared for Adventure!"
+        for name in ("departures", "weather", "thorpe_park", "chessington"):
+            cfg["feeds"][name]["enabled"] = False
         store = MemoryStore()
-        events = [{
+        cubs_events = [{
             "start": (NOW + timedelta(days=n)).date().isoformat(),
-            "all_day": True, "date_text": "01/11", "time_text": "", "title": f"Meeting {n}",
-            "location": "Private meeting place", "description": "Private agenda content",
+            "all_day": True, "date_text": "01/11", "time_text": "",
+            "title": f"Cubs Meeting {n}",
+            "location": "Private place", "description": "Private content",
         } for n in range(8)]
-        provider = FakeProvider(events)
+        beavers_events = [{
+            "start": (NOW + timedelta(days=n)).date().isoformat(),
+            "all_day": True, "date_text": "01/11", "time_text": "",
+            "title": f"Beavers Meeting {n}",
+            "location": "Private place", "description": "Private content",
+        } for n in range(8)]
+        cubs_provider = FakeProvider(cubs_events)
+        beavers_provider = FakeProvider(beavers_events)
         current = [NOW]
         kwargs = dict(
             config=PublisherConfig(bucket="test", national_rail_token="dummy",
                                    thorpe_park_source="off", weather_source="off"),
-            store=store, cubs_provider=provider,
+            store=store, cubs_provider=cubs_provider, beavers_provider=beavers_provider,
             runtime_config_store=StaticRuntimeConfigStore(cfg),
             utcnow=lambda: current[0],
         )
         first = Publisher(**kwargs).run()
-        cubs = next(item for item in first["screens"] if item["id"] == "cubs")
-        self.assertEqual(cubs["source"], "cubs_ics")
-        self.assertEqual(cubs["title"], "CUBS")
-        self.assertEqual(cubs["viewport_size"], 3)
-        self.assertEqual(len(cubs["events"]), 5)
-        self.assertGreater(cubs["duration_seconds"], 10)
-        self.assertFalse(cubs["stale"])
+        scout_index = next(i for i, s in enumerate(first["screens"]) if s["id"] == "scouts-intro")
+        intro, board = first["screens"][scout_index:scout_index + 2]
+        self.assertEqual(intro["kind"], "scouts_intro")
+        self.assertEqual(intro["intro_text"], "Be Prepared for Adventure!")
+        self.assertEqual(board["id"], "cubs")
+        self.assertEqual(board["kind"], "scouts_next_events")
+        self.assertEqual(board["beavers"]["title"], "Beavers Meeting 0")
+        self.assertEqual(board["cubs"]["title"], "Cubs Meeting 0")
+        self.assertEqual(board["beavers_status"], "available")
+        self.assertEqual(board["cubs_status"], "available")
+        self.assertEqual(board["duration_seconds"], 10)
+        self.assertNotIn("events", board)
+        self.assertFalse(board["stale"])
         self.assertNotIn("calendar", store.state["feeds"])
-        self.assertEqual(provider.calls, 1)
+        self.assertEqual((cubs_provider.calls, beavers_provider.calls), (1, 1))
+        self.assertNotIn("Private place", str(first))
+        self.assertNotIn("Private content", str(first))
         current[0] += timedelta(hours=23)
-        updated = Publisher(**kwargs).run()
-        updated_rows = next(s for s in updated["screens"] if s["id"] == "cubs")["events"]
-        self.assertEqual(provider.calls, 1)
-        self.assertEqual(len(updated_rows), 5)
-        self.assertNotIn("Meeting 0", [e["title"] for e in updated_rows])
-        self.assertNotIn("Private meeting place", str(updated_rows))
-        self.assertNotIn("Private agenda content", str(updated_rows))
+        second = Publisher(**kwargs).run()
+        board = next(s for s in second["screens"] if s["id"] == "cubs")
+        self.assertEqual((cubs_provider.calls, beavers_provider.calls), (1, 1))
+        self.assertEqual(board["beavers"]["title"], "Beavers Meeting 1")
+        self.assertEqual(board["cubs"]["title"], "Cubs Meeting 1")
         current[0] += timedelta(hours=2)
         Publisher(**kwargs).run()
-        self.assertEqual(provider.calls, 2)
+        self.assertEqual((cubs_provider.calls, beavers_provider.calls), (2, 2))
+
+    def test_beavers_failure_does_not_hide_valid_cubs(self):
+        cfg = default_runtime_config({})
+        cfg["feeds"]["cubs"]["enabled"] = True
+        for name in ("departures", "weather", "thorpe_park", "chessington"):
+            cfg["feeds"][name]["enabled"] = False
+        class FailingProvider:
+            def fetch(self):
+                raise RuntimeError("Upstream URL intentionally not available")
+        cubs = FakeProvider([{
+            "start": (NOW + timedelta(days=1)).date().isoformat(),
+            "all_day": True, "date_text": "28/10",
+            "time_text": "", "title": "Cub hike",
+        }])
+        first = Publisher(
+            PublisherConfig(bucket="test", national_rail_token="dummy",
+                            thorpe_park_source="off", weather_source="off"),
+            MemoryStore(), cubs_provider=cubs, beavers_provider=FailingProvider(),
+            runtime_config_store=StaticRuntimeConfigStore(cfg), utcnow=lambda: NOW
+        ).run()
+        board = next(s for s in first["screens"] if s["kind"] == "scouts_next_events")
+        self.assertIsNone(board["beavers"])
+        self.assertEqual(board["beavers_status"], "unavailable")
+        self.assertEqual(board["cubs"]["title"], "Cub hike")
+        self.assertEqual(board["cubs_status"], "available")
+        self.assertTrue(board["stale"])
+
+    def test_publisher_default_beavers_parameter_names(self):
+        config = PublisherConfig.from_env({
+            "STATE_BUCKET": "test", "NATIONAL_RAIL_TOKEN": "dummy",
+            "CUBS_PROGRAMME_PARAMETER_NAME": "/led/cubs/programme-ics-url",
+            "CUBS_EVENTS_PARAMETER_NAME": "/led/cubs/events-ics-url",
+            "BEAVERS_PROGRAMME_PARAMETER_NAME": "/led/beavers/programme-ics-url",
+            "BEAVERS_EVENTS_PARAMETER_NAME": "/led/beavers/events-ics-url",
+        })
+        self.assertEqual(config.beavers_programme_parameter, "/led/beavers/programme-ics-url")
+        self.assertEqual(config.beavers_events_parameter, "/led/beavers/events-ics-url")
+        self.assertEqual(config.cubs_programme_parameter, "/led/cubs/programme-ics-url")
 
 
 if __name__ == "__main__":
