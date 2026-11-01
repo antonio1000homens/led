@@ -209,7 +209,8 @@ process.stdout.write(JSON.stringify([
         self.assertEqual(state.selected(None, 130.0)["remaining_seconds"], 30.0)
         self.assertEqual(state.selected(None, 160.0)["state"], "complete")
         self.assertEqual(state.selected(None, 162.0)["state"], "complete")
-        self.assertIsNone(state.selected(None, 163.0))
+        self.assertEqual(state.selected(None, 162.0)["completion_elapsed_seconds"], 2.0)
+        self.assertIsNone(state.selected(None, 165.0))
 
     def test_marks_upstream_stale_after_bounded_refresh_window(self):
         state = TimerState()
@@ -242,7 +243,9 @@ process.stdout.write(JSON.stringify([
         ]), now)[0])
         self.assertEqual(state.selected(now + 5)["state"], "complete")
         self.assertEqual(state.selected(now + 6)["state"], "complete")
-        self.assertEqual(state.selected(now + 9)["timer_id"], "next")
+        self.assertEqual(state.selected(now + 6)["completion_elapsed_seconds"], 1.0)
+        self.assertEqual(state.selected(now + 9)["state"], "complete")
+        self.assertEqual(state.selected(now + 10)["timer_id"], "next")
 
 
 if __name__ == "__main__":
