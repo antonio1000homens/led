@@ -70,7 +70,8 @@ class CapturingFootballFixture(FixtureDisplay):
         if 0 <= x < 256 and 0 <= y < 32:
             self.pixels.append((x, y, color))
 
-    def _text(self, value, x, y, color, scale=1):
+    def _text(self, value, x, y, color, scale=1, x_scale=1, y_scale=1,
+              character_advance=None):
         self.text.append((value, x, y, color))
 
 
@@ -138,15 +139,15 @@ class FootballScreenTests(unittest.TestCase):
         self.assertIsNotNone(screen)
         self.assertEqual(
             football_screen_lines(screen, self.now),
-            ("MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00"),
+            ("MILLWALL  VS DERBY COUNTY", "SAT 31 OCT 15:00"),
         )
 
     def test_fixture_separator_aligns_vs_for_club_names(self):
         fixtures = (
             ("millwall", "Millwall FC", "Millwall FCVS Derby County",
-             "MILLWALL FC   VS  DERBY COUNTY"),
+             "MILLWALL FC VS DERBY COUNTY"),
             ("sporting_cp", "Sporting CP", "Sporting CPVS Benfica",
-             "SPORTING CP   VS  BENFICA"),
+             "SPORTING CP VS BENFICA"),
         )
         for team_key, team_name, display_fixture, expected in fixtures:
             with self.subTest(team_key=team_key):
@@ -170,8 +171,13 @@ class FootballScreenTests(unittest.TestCase):
             value = snapshot(published="2026-10-26T20:{:02d}:00Z".format(index), status=status)
             if status in ("IN", "POST"):
                 value.update(home_score=2, away_score=1, clock="72'")
-            self.assertTrue(self.state.accept("led/football/sporting_cp", value))
-            screen = score_screen(self.state, self.now)
+            if status == "POST":
+                value["post_expires_at"] = "2026-10-26T20:30:00Z"
+            accepted, screen = self.state.accept_for_presentation(
+                "led/football/sporting_cp", value, self.now
+            )
+            self.assertTrue(accepted)
+            self.assertIsNotNone(screen)
             rows = football_screen_lines(screen, self.now)
             self.assertTrue(rows[0])
             self.assertTrue(rows[1])
@@ -224,10 +230,13 @@ class FootballScreenTests(unittest.TestCase):
         live, final = render("IN"), render("POST")
         self.assertEqual(min(pixel[0] for pixel in live.pixels), 2)
         self.assertEqual(min(pixel[0] for pixel in final.pixels), 2)
-        for value in ("SPORTING CP", "BENFICA", "2-1"):
-            live_row = next(row for row in live.text if row[0] == value)
-            final_row = next(row for row in final.text if row[0] == value)
-            self.assertEqual(live_row[1:3], final_row[1:3])
+        live_fixture = next(row for row in live.text if row[0] == "SPORTING CP V BENFICA")
+        final_fixture = next(row for row in final.text if row[0] == "SPORTING CP V BENFICA")
+        self.assertEqual(live_fixture[1:3], final_fixture[1:3])
+        self.assertEqual(
+            next(row[1:3] for row in live.text if row[0] == "2-1"),
+            next(row[1:3] for row in final.text if row[0] == "2-1"),
+        )
         self.assertIn("92'", [row[0] for row in live.text])
         self.assertIn("FULL TIME", [row[0] for row in final.text])
         self.assertNotIn("92'", [row[0] for row in final.text])
@@ -285,7 +294,7 @@ console.log(JSON.stringify(calls));
         screen = self.state.screen_for_team("millwall", self.now)
         self.assertEqual(screen["status"], "PRE")
         self.assertEqual(football_screen_lines(screen, self.now), (
-            "MILLWALL      VS  DERBY COUNTY", "MON 26 OCT 22:00"
+            "MILLWALL  VS DERBY COUNTY", "MON 26 OCT 22:00"
         ))
         no_fixture = snapshot(
             "millwall", published="2026-10-26T20:01:00Z",
@@ -335,7 +344,7 @@ console.log(JSON.stringify(calls));
                 self.assertTrue(state.accept("led/football/millwall", value))
                 screen = score_screen(state, self.now)
                 rows = football_screen_lines(screen, self.now)
-                self.assertEqual(rows, ("MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00"))
+                self.assertEqual(rows, ("MILLWALL  VS DERBY COUNTY", "SAT 31 OCT 15:00"))
                 self.assertEqual(screen["home_score"], scores[0])
                 self.assertEqual(screen["away_score"], scores[1])
 
@@ -361,7 +370,7 @@ console.log(JSON.stringify(calls));
             "kickoff": "2026-10-31T15:00:00Z",
         }
         self.assertEqual(football_screen_lines(screen, self.now)[0],
-                         "DERBY COUNTY  VS  MILLWALL FC")
+                         "DERBY COUNTY VS MILLWALL FC")
 
     def test_ball_slides_from_offscreen_to_left_and_stays_pinned(self):
         self.assertEqual(football_presentation_position(0), (256, False))
@@ -526,7 +535,7 @@ process.stdout.write(JSON.stringify(output));
     def test_simulator_uses_solid_team_colors_and_white_fixture_text(self):
         html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
         self.assertIn("const FOOTBALL_TEAM_COLORS = {", html)
-        self.assertIn("function drawFootballTeamLine(screen, value, x, y, color)", html)
+        self.assertIn("function drawFootballTeamLine(screen, value, x, y, color, phase = 0)", html)
         self.assertIn("FOOTBALL_TEAM_COLORS[key]", html)
         self.assertIn("sporting_cp: 'SPORTING CP'", html)
         self.assertIn("millwall: 'MILLWALL FC'", html)
@@ -545,11 +554,11 @@ process.stdout.write(JSON.stringify(output));
         display._draw_screen(screen, phase=0)
         self.assertEqual(display.text, [])
         self.assertEqual(display.pixels, [])
-        display._draw_screen(screen, phase=3.2)
+        display._draw_screen(screen, phase=3.7)
         self.assertTrue(display.pixels)
         self.assertTrue(all(2 <= x < 18 for x, _, _ in display.pixels))
         self.assertEqual([row[0] for row in display.text], [
-            "MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00",
+            "MILLWALL  VS DERBY COUNTY", "SAT 31 OCT 15:00",
         ])
         self.assertTrue(all(x >= 22 for _, x, _, _ in display.text))
         self.assertEqual([row[2] for row in display.text], [5, 18])
@@ -557,9 +566,9 @@ process.stdout.write(JSON.stringify(output));
     def test_matrix_display_aligns_vs_for_both_clubs(self):
         cases = (
             ("millwall", "Millwall FC", "Millwall FCvs Derby County",
-             "MILLWALL FC   VS  DERBY COUNTY"),
+             "MILLWALL FC VS DERBY COUNTY"),
             ("sporting_cp", "Sporting CP", "Sporting CPvs Benfica",
-             "SPORTING CP   VS  BENFICA"),
+             "SPORTING CP VS BENFICA"),
         )
         for team_key, team_name, display_fixture, expected in cases:
             with self.subTest(team_key=team_key):
@@ -569,7 +578,7 @@ process.stdout.write(JSON.stringify(output));
                     "team_name": team_name, "display_fixture": display_fixture,
                     "kickoff": "2026-10-31T15:00:00Z", "ball_animation": False,
                 }
-                display._draw_screen(screen, phase=3.2)
+                display._draw_screen(screen, phase=3.7)
                 self.assertEqual(display.text[0][0], expected)
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
@@ -590,6 +599,9 @@ function drawLedText(value, x, y) { drawn.push([value, x / FONT_PIXEL_SCALE, y /
 // Keep this layout-contract test focused on coordinates. Solid team colors
 // are checked separately by test_simulator_uses_solid_team_colors_and_white_fixture_text.
 function drawFootballTeamLine(screen, value, x, y) { drawLedText(value, x, y); }
+function drawFootballLargeTeamLine(screen, value, x, y) {
+  drawLedText(value, x * FONT_PIXEL_SCALE, y * FONT_PIXEL_SCALE);
+}
 function drawFootballPregameText(value, x, y) { drawLedText(value, x * FONT_PIXEL_SCALE, y * FONT_PIXEL_SCALE); }
 const sample = {status:'PRE', team_key:'millwall', team_name:'Millwall FC',
   opponent_long_name:'Derby County', display_fixture:'Millwall vs Derby County',
@@ -602,7 +614,7 @@ const results = [
   footballDueIn(sample.kickoff, Date.parse('2026-10-28T09:45:51Z'))
 ];
 drawFootball(sample, 0); results.push(drawn.slice());
-drawFootball(sample, 3.2); results.push(drawn.slice());
+drawFootball(sample, 3.7); results.push(drawn.slice());
 results.push(footballLines({...sample, display_fixture:'Millwall FCvs Derby County'}));
 results.push(footballLines({...sample, team_key:'sporting_cp', team_name:'Sporting CP',
   display_fixture:'Sporting CPvs Benfica'}));
@@ -610,7 +622,7 @@ process.stdout.write(JSON.stringify(results));
 """
         result = subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
         output = json.loads(result.stdout)
-        self.assertEqual(output[0], ["MILLWALL      VS  DERBY COUNTY", "SAT 31 OCT 15:00"])
+        self.assertEqual(output[0], ["MILLWALL  VS DERBY COUNTY", "SAT 31 OCT 15:00"])
         self.assertEqual(output[1], "TIME TBC")
         self.assertEqual(output[2], "SUN 29 MAR 02:30")
         self.assertEqual(output[3], "SUN 25 OCT 01:30")
@@ -621,17 +633,17 @@ process.stdout.write(JSON.stringify(results));
         # Both rows are laid out while entering; their x is initially off
         # screen and then reaches the original left-column coordinates.
         self.assertEqual(output[8], [
-            ["MILLWALL      VS  DERBY COUNTY", 276, 5],
-            ["SAT 31 OCT 15:00", 276, 18],
+            ["MILLWALL  VS DERBY COUNTY", 276, 5],
+            ["SAT 31 OCT 15:00", 276, 22],
         ])
         self.assertEqual(output[9][:3], [
-            ["MILLWALL      VS  DERBY COUNTY", 276, 5],
-            ["SAT 31 OCT 15:00", 276, 18],
-            ["MILLWALL      VS  DERBY COUNTY", 22, 5],
+            ["MILLWALL  VS DERBY COUNTY", 276, 5],
+            ["SAT 31 OCT 15:00", 276, 22],
+            ["MILLWALL  VS DERBY COUNTY", 22, 5],
         ])
         self.assertIn(["KICK-OFF", 208, 18], output[9])
-        self.assertEqual(output[10][0], "MILLWALL FC   VS  DERBY COUNTY")
-        self.assertEqual(output[11][0], "SPORTING CP   VS  BENFICA")
+        self.assertEqual(output[10][0], "MILLWALL FC VS DERBY COUNTY")
+        self.assertEqual(output[11][0], "SPORTING CP VS BENFICA")
         self.assertIn("screen.kind === 'football_score'", html)
         self.assertIn("document.getElementById('football-preview')", html)
 
@@ -640,7 +652,7 @@ process.stdout.write(JSON.stringify(results));
         self.assertTrue(queue.schedule("millwall"))
         self.assertTrue(queue.schedule("millwall"))
         self.assertTrue(queue.schedule("sporting_cp"))
-        self.assertFalse(queue.schedule("unknown"))
+        self.assertFalse(queue.schedule("unknown/team"))
         self.assertEqual(len(queue), 3)
         self.assertEqual(queue.pop(), "millwall")
         self.assertTrue(queue.schedule("millwall"))

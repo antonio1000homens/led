@@ -34,7 +34,12 @@ Parameters:
   FootballFixtureCacheSeconds: {Type: Number, Default: 900, MinValue: 60, MaxValue: 86400}
   FootballFixtureDurationSeconds: {Type: Number, Default: 20, MinValue: 2, MaxValue: 300}
   FootballFixtureLookaheadDays: {Type: Number, Default: 45, MinValue: 1, MaxValue: 180}
+  CubsProgrammeParameterName: {Type: String, Default: /led/cubs/programme-ics-url}
+  CubsEventsParameterName: {Type: String, Default: /led/cubs/events-ics-url}
+  BeaversProgrammeParameterName: {Type: String, Default: /led/beavers/programme-ics-url}
+  BeaversEventsParameterName: {Type: String, Default: /led/beavers/events-ics-url}
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
+  CubsCacheSeconds: {Type: Number, Default: 86400, MinValue: 3600, MaxValue: 604800}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
   TodoistFilterQuery: {Type: String, Default: 'due before: tomorrow | due after: yesterday'}
   TodoistTimezone: {Type: String, Default: Europe/London}
@@ -98,6 +103,14 @@ Resources:
                 Effect: Allow
                 Action: ['ssm:GetParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${FootballFixtureParameterName}
+              - Sid: ReadScoutsIcsParameters
+                Effect: Allow
+                Action: ['ssm:GetParameter']
+                Resource:
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CubsProgrammeParameterName}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CubsEventsParameterName}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${BeaversProgrammeParameterName}
+                  - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${BeaversEventsParameterName}
               - {Sid: WriteLogs, Effect: Allow, Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: !Sub '${PublisherLogGroup.Arn}:*'}
   PublisherLogGroup:
     Type: AWS::Logs::LogGroup
@@ -125,6 +138,11 @@ Resources:
           LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
           LED_FOOTBALL_FIXTURE_DURATION_SECONDS: !Ref FootballFixtureDurationSeconds
           LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: !Ref FootballFixtureLookaheadDays
+          CUBS_PROGRAMME_PARAMETER_NAME: !Ref CubsProgrammeParameterName
+          CUBS_EVENTS_PARAMETER_NAME: !Ref CubsEventsParameterName
+          BEAVERS_PROGRAMME_PARAMETER_NAME: !Ref BeaversProgrammeParameterName
+          BEAVERS_EVENTS_PARAMETER_NAME: !Ref BeaversEventsParameterName
+          LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
           LED_STATION_CRS: !Ref StationCrs
           LED_MAX_ROWS: !Ref MaxRows
           LED_CACHE_SECONDS: !Ref RailCacheSeconds
@@ -201,6 +219,7 @@ Resources:
           LED_CHESSINGTON_RIDES: !Ref ChessingtonRides
           LED_CALENDAR_SOURCE: !Ref CalendarSource
           LED_TODOIST_CACHE_SECONDS: !Ref TodoistCacheSeconds
+          LED_CUBS_CACHE_SECONDS: !Ref CubsCacheSeconds
           LED_CALENDAR_DURATION_SECONDS: !Ref CalendarDurationSeconds
           LED_FOOTBALL_FIXTURE_SOURCE: !Ref FootballFixtureSource
           LED_FOOTBALL_FIXTURE_CACHE_SECONDS: !Ref FootballFixtureCacheSeconds
@@ -353,6 +372,14 @@ Outputs:
     Value: !Ref ControlApi
   TodoistOAuthParameterName:
     Value: !Ref TodoistOAuthParameterName
+  CubsProgrammeParameterName:
+    Value: !Ref CubsProgrammeParameterName
+  CubsEventsParameterName:
+    Value: !Ref CubsEventsParameterName
+  BeaversProgrammeParameterName:
+    Value: !Ref BeaversProgrammeParameterName
+  BeaversEventsParameterName:
+    Value: !Ref BeaversEventsParameterName
   DistributionId:
     Value: !Ref Distribution
   DistributionDomainName:

@@ -30,6 +30,7 @@ cp \
   "${ROOT_DIR}/backend/todoist.py" \
   "${ROOT_DIR}/backend/football_calendar.py" \
   "${ROOT_DIR}/backend/feed_errors.py" \
+  "${ROOT_DIR}/backend/cubs.py" \
   "${ROOT_DIR}/shared/formatting.py" \
   "${ROOT_DIR}/shared/fixtures.py" \
   "${ROOT_DIR}/shared/cron_schedule.py" \
