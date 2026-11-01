@@ -29,7 +29,8 @@ from brightness import BrightnessState, pixel_is_blocked
 from bus_departures import normalise_bus_screen
 from flash_events import assistant_message_page
 from mqtt_screens import _epoch
-from timer_state import car_position, format_countdown
+from timer_state import (caterpillar_position, timer_apples_eaten,
+                         timer_apple_center, TIMER_APPLE_COUNT, format_countdown)
 from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
@@ -114,6 +115,42 @@ from formatting import (
 
 
 DISPLAY_WIDTH = 256
+
+# Two tiny four-colour sprite definitions, stored once and reused by all
+# TileGrids. DisplayIO shares each Bitmap and Palette across the ten apples.
+TIMER_CATERPILLAR_ROWS = (
+    ".....................D......",
+    ".....................DG...D.",
+    "...................GGGGGGD..",
+    ".........G........GGGGGGGGG.",
+    "......GGGGGGG...DGGGGGGGGGGG",
+    "...D.GGGGGGGGDDDDGGGGGGGGEGG",
+    ".DDDDGGGGGGGDDDDDGGGGGGGGEEG",
+    "DDDDDGGGGGGGDDDDGGGGGGGGGGGG",
+    "DDDDGGGGGGGGDDDDDGGGGGGGGGGG",
+    "DDDDDGGGGGGDDDDDDGGGGGGGGGDG",
+    "DDDDDGGGGGGGDDDDDGGGGGGGGDGG",
+    "DDDDDGGGGGGGDDDDDDGGGGGGGGG.",
+    ".DDDDDGGGGGGDDDDDDDGGGGGGG..",
+    "...D.....D...DDDGDDD..G.....",
+    "................D...........",
+)
+TIMER_APPLE_ROWS = (
+    "...G....",
+    "...GG...",
+    "...RRG..",
+    "..RRRR..",
+    ".RRRRRR.",
+    ".DRRRRR.",
+    ".RDRRRR.",
+    ".RRRRRR.",
+    "..RRRR..",
+)
+TIMER_CATERPILLAR_COLORS = (0, 0x8CEE63, 0x3DA94A, 0x172E29)
+TIMER_APPLE_COLORS = (0, 0xF4514A, 0xAC2C37, 0x6CE573)
+TIMER_CATERPILLAR_PALETTE = {".": 0, "G": 1, "D": 2, "E": 3}
+TIMER_APPLE_PALETTE = {".": 0, "R": 1, "D": 2, "G": 3}
+
 REMINDER_CLOCK_SIZE = 29
 REMINDER_TEXT_X = 37
 REMINDER_TEXT_SCALE = 3
@@ -3437,11 +3474,15 @@ class MatrixDisplay:
             self._refresh(self._animation_class(screen, phase))
 
     def _show_alexa_timer(self, screen, phase):
+        """Update small shared sprites rather than repaint the matrix each tick."""
         import displayio
         text = format_countdown(screen.get("remaining_seconds", 0))
         scale = 3 if len(text) <= 5 else 2
         clock_x = max(0, DISPLAY_WIDTH - len(text) * 6 * scale - 2)
-        car_x = car_position(clock_x, 10, screen.get("progress"))
+        progress = screen.get("progress", 0)
+        head_x = caterpillar_position(clock_x, progress)
+        eaten = timer_apples_eaten(progress)
+        running = screen.get("state") == "running"
         key = (screen.get("timer_id"), screen.get("state"), scale,
                bool(screen.get("upstream_stale")))
         changed = False
@@ -3450,23 +3491,45 @@ class MatrixDisplay:
             if screen.get("upstream_stale"):
                 self._label(group, "STALE", 0x888888, 0, 7)
             label = self._scaled_label(group, text, 0xFFFFFF, clock_x, 7, scale=scale)
-            bitmap = displayio.Bitmap(10, 6, 4)
-            palette = displayio.Palette(4)
-            palette[0] = 0x000000
-            palette.make_transparent(0)
-            palette[1], palette[2], palette[3] = 0xFF2400, 0x111111, 0xFFD000
-            rows = ("..........", "..RRRRR...", ".RRRRRRRR.", "..RRRRRYYY", "WW..WW....", "WW..WW....")
-            for y, row in enumerate(rows):
-                for x, char in enumerate(row):
-                    bitmap[x, y] = 1 if char == "R" else 2 if char == "W" else 3 if char == "Y" else 0
-            car = displayio.TileGrid(bitmap, pixel_shader=palette, x=car_x, y=16)
-            group.append(car)
+
+            def sprite(rows, color_values, color_indices):
+                bitmap = displayio.Bitmap(len(rows[0]), len(rows), 4)
+                palette = displayio.Palette(4)
+                for index, color in enumerate(color_values):
+                    palette[index] = color
+                palette.make_transparent(0)
+                for y, row in enumerate(rows):
+                    for x, char in enumerate(row):
+                        bitmap[x, y] = color_indices[char]
+                return bitmap, palette
+
+            apple_bitmap, apple_palette = sprite(
+                TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE)
+            apples = []
+            for index in range(TIMER_APPLE_COUNT):
+                x = timer_apple_center(clock_x, index) - 4 if index >= eaten else -10
+                apple = displayio.TileGrid(apple_bitmap, pixel_shader=apple_palette,
+                                           x=x, y=17)
+                group.append(apple)
+                apples.append(apple)
+
+            body_bitmap, body_palette = sprite(
+                TIMER_CATERPILLAR_ROWS, TIMER_CATERPILLAR_COLORS,
+                TIMER_CATERPILLAR_PALETTE)
+            body = displayio.TileGrid(body_bitmap, pixel_shader=body_palette,
+                                      x=head_x - 22, y=14)
+            group.append(body)
+            if screen.get("state") == "complete":
+                self._label(group, "YUM!", 0xFFE66A, 7, 5)
             self._timer_scene_key = key
-            self._timer_group, self._timer_label, self._timer_car = group, label, car
-            self._timer_palette, self._timer_bitmap = palette, bitmap
-            self._timer_text, self._timer_x = text, car_x
-            self._timer_wheel_pose = None
-            self._timer_exhaust_pose = None
+            self._timer_group = group
+            self._timer_label = label
+            self._timer_body = body
+            self._timer_apples = apples
+            self._timer_text = text
+            self._timer_x = head_x
+            self._timer_apples_eaten = eaten
+            self._timer_bob = 0
             self._present(group)
             return
         if text != self._timer_text:
@@ -3488,21 +3551,22 @@ class MatrixDisplay:
             self._timer_label = label
             self._timer_text = text
             changed = True
-        if car_x != self._timer_x:
-            self._timer_car.x = car_x
-            self._timer_x = car_x
+        if eaten != self._timer_apples_eaten:
+            for index, apple in enumerate(self._timer_apples):
+                x = timer_apple_center(clock_x, index) - 4 if index >= eaten else -10
+                if apple.x != x:
+                    apple.x = x
+                    changed = True
+            self._timer_apples_eaten = eaten
+        if head_x != self._timer_x:
+            self._timer_body.x = head_x - 22
+            self._timer_x = head_x
             changed = True
-        if screen.get("state") == "running":
-            wheel_pose = int(max(0.0, float(phase)) * 4) % 2
-            if wheel_pose != self._timer_wheel_pose:
-                self._timer_palette[2] = 0x666666 if wheel_pose else 0x111111
-                self._timer_wheel_pose = wheel_pose
-                changed = True
-            exhaust_pose = int(max(0.0, float(phase)) * 6) % 2
-            if exhaust_pose != self._timer_exhaust_pose:
-                self._timer_bitmap[0, 2] = 3 if exhaust_pose else 0
-                self._timer_exhaust_pose = exhaust_pose
-                changed = True
+        bob = int(max(0.0, float(phase)) * 3) % 2 if running else 0
+        if bob != self._timer_bob:
+            self._timer_body.y = 14 + bob
+            self._timer_bob = bob
+            changed = True
         if self.display.root_group is not self._timer_group:
             self._present(self._timer_group)
         elif changed:
@@ -5056,19 +5120,30 @@ class FixtureDisplay:
             text = format_countdown(screen.get("remaining_seconds", 0))
             scale = 3 if len(text) <= 5 else 2
             clock_x = max(0, DISPLAY_WIDTH - len(text) * 6 * scale - 2)
-            car_x = car_position(clock_x, 10, screen.get("progress"))
+            progress = screen.get("progress", 0)
+            eaten = timer_apples_eaten(progress)
             self._text(text, clock_x, 5, (255, 255, 255), scale=scale)
             if screen.get("upstream_stale"):
                 self._text("STALE", 0, 2, (136, 136, 136))
-            for dx, dy in ((2, 0), (3, 0), (4, 0), (5, 0), (6, 0), (7, 0),
-                           (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1), (8, 1),
-                           (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2), (8, 2)):
-                self._pixel(car_x + dx, 21 + dy, (255, 36, 0))
-            for dx in (2, 7):
-                self._pixel(car_x + dx, 24, (15, 15, 15))
-            self._pixel(car_x + 9, 22, (255, 208, 0))
-            if int(max(0.0, float(phase)) * 6) % 2:
-                self._pixel(car_x, 23, (255, 154, 0))
+            apple_colors = {1: (244, 81, 74), 2: (172, 44, 55), 3: (108, 229, 115)}
+            for index in range(eaten, TIMER_APPLE_COUNT):
+                x0 = timer_apple_center(clock_x, index) - 4
+                for dy, row in enumerate(TIMER_APPLE_ROWS):
+                    for dx, pixel in enumerate(row):
+                        code = TIMER_APPLE_PALETTE[pixel]
+                        if code:
+                            self._pixel(x0 + dx, 17 + dy, apple_colors[code])
+            head_x = caterpillar_position(clock_x, progress)
+            body_y = 14 + (int(max(0.0, float(phase)) * 3) % 2
+                           if screen.get("state") == "running" else 0)
+            body_colors = {1: (140, 238, 99), 2: (61, 169, 74), 3: (23, 46, 41)}
+            for dy, row in enumerate(TIMER_CATERPILLAR_ROWS):
+                for dx, pixel in enumerate(row):
+                    code = TIMER_CATERPILLAR_PALETTE[pixel]
+                    if code:
+                        self._pixel(head_x - 22 + dx, body_y + dy, body_colors[code])
+            if screen.get("state") == "complete":
+                self._text("YUM!", 7, 5, (255, 230, 106))
             return
         if kind in ("dad_joke", "random_fact", "insult_of_hour", "quotes", "today"):
             if kind == "today":
