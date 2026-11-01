@@ -193,7 +193,7 @@ def accent_positions(theme, seconds):
     if theme == "caterpillar":
         return ((10 + tick // 2, 5), (100 + tick // 3, 10))
     if theme == "race":
-        return ((28, 3 + tick % 2), (117, 4 + (tick + 1) % 2))
+        return ((28, 3 + tick % 3), (117, 4 + (tick + 1) % 3))
     if theme == "rocket":
         return ((25 + tick % 7, 7), (87, 16 + tick % 3))
     return ((27 + tick % 5, 6), (124 - tick % 5, 17))

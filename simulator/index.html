@@ -45,6 +45,7 @@
       <button id="next" type="button">Next screen</button>
       <button id="bin-preview" type="button">Preview recycling screen</button>
       <button id="timer-preview" type="button">Preview Alexa timer</button>
+      <button id="hall-timer-preview" type="button">Preview Hall Alexa timer</button>
       <button id="football-preview" type="button">Preview football</button>
       <button id="sl7-preview" type="button">Preview SL7 buses</button>
       <button id="flash-preview" type="button">Preview reminder flash</button>
@@ -1756,7 +1757,7 @@
     function alexaTimerAccentPositions(theme, elapsed) {
       const tick=Math.floor(Math.max(0,elapsed)*4);
       if(theme==='caterpillar')return [[10+Math.floor(tick/2),5],[100+Math.floor(tick/3),10]];
-      if(theme==='race')return [[28,3+tick%2],[117,4+(tick+1)%2]];
+      if(theme==='race')return [[28,3+tick%3],[117,4+(tick+1)%3]];
       if(theme==='rocket')return [[25+tick%7,7],[87,16+tick%3]];
       return [[27+tick%5,6],[124-tick%5,17]];
     }
@@ -2410,13 +2411,25 @@
     document.getElementById('timer-preview').addEventListener('click', () => {
       screens=ALEXA_TIMER_THEMES.map(theme=>({
         id:'alexa-'+theme+'-preview',kind:'alexa_timer',source:'simulator',
-        timer_id:'preview-'+theme,state:'running',title:'Alexa timer',
+        timer_id:'preview-'+theme,device:'living-room-alexa',state:'running',
+        title:'Living room Alexa timer',
         theme,duration_seconds:15,timer_duration_seconds:10
       }));
       screenOffset=0;
       paused=false;
       pauseStarted=performance.now();
-      status.dataset.detail='Four Alexa timer themes · 10s countdown + 5s finish each';
+      status.dataset.detail='Living room Alexa · four timer themes · 10s countdown + 5s finish each';
+    });
+    document.getElementById('hall-timer-preview').addEventListener('click', () => {
+      screens=ALEXA_TIMER_THEMES.map(theme=>({
+        id:'alexa-hall-'+theme+'-preview',kind:'alexa_timer',source:'simulator',
+        timer_id:'hall-preview-'+theme,device:'hall-alexa',state:'running',
+        title:'Hall Alexa timer',theme,duration_seconds:15,timer_duration_seconds:10
+      }));
+      screenOffset=0;
+      paused=false;
+      pauseStarted=performance.now();
+      status.dataset.detail='Hall Alexa · four timer themes · 10s countdown + 5s finish each';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();

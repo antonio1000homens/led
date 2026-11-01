@@ -9,13 +9,14 @@ FIRMWARE = Path(__file__).resolve().parents[1] / "hardware" / "matrixportal" / "
 sys.path.insert(0, str(FIRMWARE))
 
 from timer_state import (TimerState, caterpillar_position, timer_apples_eaten,
-                         timer_apple_center, format_countdown, iso_epoch, validate_snapshot)
+                         timer_apple_center, format_countdown, iso_epoch,
+                         select_timer, validate_snapshot)
 
 
 class AlexaTimerStateTests(unittest.TestCase):
-    def snapshot(self, published, timers):
+    def snapshot(self, published, timers, device="living-room-alexa"):
         return {"schema_version": 1, "event": "upsert", "source": "homeassistant",
-                "device": "living-room-alexa", "published_at": published, "timers": timers}
+                "device": device, "published_at": published, "timers": timers}
 
     def test_offset_and_fractional_timestamps_normalize(self):
         self.assertEqual(iso_epoch("2026-10-31T16:00:00+01:00"),
@@ -102,6 +103,8 @@ class AlexaTimerStateTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
     def test_browser_simulator_keeps_last_apple_until_zero(self):
         html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        self.assertIn('id="hall-timer-preview"', html)
+        self.assertIn("Hall Alexa · four timer themes", html)
         functions = html[html.index("function alexaTimerRemaining"):
                          html.index("function drawCalendarDue")]
         harness = functions + """
@@ -246,6 +249,70 @@ process.stdout.write(JSON.stringify([
         self.assertEqual(state.selected(now + 6)["completion_elapsed_seconds"], 1.0)
         self.assertEqual(state.selected(now + 9)["state"], "complete")
         self.assertEqual(state.selected(now + 10)["timer_id"], "next")
+
+    def test_selects_earliest_running_timer_across_devices(self):
+        now = iso_epoch("2026-10-31T15:00:00Z")
+        living_room = TimerState("living-room-alexa")
+        hall = TimerState("hall-alexa")
+        self.assertTrue(living_room.accept(self.snapshot(
+            "2026-10-31T15:00:01Z", [
+                {"timer_id": "living-later", "state": "running",
+                 "ends_at": "2026-10-31T15:02:00Z"},
+            ], "living-room-alexa"), now, 100.0)[0])
+        self.assertTrue(hall.accept(self.snapshot(
+            "2026-10-31T15:00:01Z", [
+                {"timer_id": "hall-sooner", "state": "running",
+                 "ends_at": "2026-10-31T15:01:00Z"},
+            ], "hall-alexa"), now, 100.0)[0])
+
+        selected = select_timer({"living-room-alexa": living_room,
+                                 "hall-alexa": hall}, now, 100.0)
+        self.assertEqual((selected["device"], selected["timer_id"]),
+                         ("hall-alexa", "hall-sooner"))
+
+    def test_clear_from_one_device_preserves_other_device_timer(self):
+        now = iso_epoch("2026-10-31T15:00:00Z")
+        living_room = TimerState("living-room-alexa")
+        hall = TimerState("hall-alexa")
+        stores = {"living-room-alexa": living_room, "hall-alexa": hall}
+        self.assertTrue(living_room.accept(self.snapshot(
+            "2026-10-31T15:00:01Z", [
+                {"timer_id": "living", "state": "running",
+                 "ends_at": "2026-10-31T15:03:00Z"},
+            ], "living-room-alexa"), now)[0])
+        self.assertTrue(hall.accept(self.snapshot(
+            "2026-10-31T15:00:01Z", [
+                {"timer_id": "hall", "state": "running",
+                 "ends_at": "2026-10-31T15:02:00Z"},
+            ], "hall-alexa"), now)[0])
+        self.assertEqual(select_timer(stores, now)["device"], "hall-alexa")
+
+        clear = {"schema_version": 1, "event": "clear",
+                 "source": "homeassistant", "device": "hall-alexa",
+                 "published_at": "2026-10-31T15:00:02Z"}
+        self.assertTrue(hall.accept(clear, now + 1)[0])
+        selected = select_timer(stores, now + 1)
+        self.assertEqual((selected["device"], selected["timer_id"]),
+                         ("living-room-alexa", "living"))
+
+    def test_running_timer_wins_over_paused_timer_across_devices(self):
+        now = iso_epoch("2026-10-31T15:00:00Z")
+        living_room = TimerState("living-room-alexa")
+        hall = TimerState("hall-alexa")
+        self.assertTrue(living_room.accept(self.snapshot(
+            "2026-10-31T15:00:01Z", [
+                {"timer_id": "paused", "state": "paused",
+                 "remaining_seconds": 10},
+            ], "living-room-alexa"), now)[0])
+        self.assertTrue(hall.accept(self.snapshot(
+            "2026-10-31T15:00:01Z", [
+                {"timer_id": "running", "state": "running",
+                 "ends_at": "2026-10-31T15:01:00Z"},
+            ], "hall-alexa"), now)[0])
+        selected = select_timer({"living-room-alexa": living_room,
+                                 "hall-alexa": hall}, now)
+        self.assertEqual((selected["device"], selected["state"]),
+                         ("hall-alexa", "running"))
 
 
 if __name__ == "__main__":

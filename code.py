@@ -58,7 +58,7 @@ from mqtt_screens import MqttScreenState, recycling_policy
 from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_post_expired,
 )
-from timer_state import TimerState
+from timer_state import TimerState, select_timer
 from presentation_priority import select_presentation
 from matrix_config import (
     MATRIX_PRESENTATION_MODE,
@@ -313,7 +313,10 @@ football_rotation_resume = None
 football_pause_started = None
 football_presentation_sequence = 0
 last_recycling_date = None
-timer_state = TimerState()
+timer_states = {
+    "living-room-alexa": TimerState("living-room-alexa"),
+    "hall-alexa": TimerState("hall-alexa"),
+}
 timer_rotation_resume = None
 timer_visible_id = None
 timer_pause_started = None
@@ -333,6 +336,11 @@ def _reminder_epoch(now):
         system_epoch = time.time()
         epoch_now = system_epoch if system_epoch >= 1000000000 else None
     return epoch_now
+
+
+def _selected_timer(epoch_now, monotonic_now):
+    """Select the most urgent timer across the supported Alexa devices."""
+    return select_timer(timer_states, epoch_now, monotonic_now)
 
 
 def _flash_started(now):
@@ -457,17 +465,20 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
         if topic.startswith(timer_prefix):
             epoch_now = _reminder_epoch(now)
             device = topic[len(timer_prefix):]
-            if device != timer_state.device or "/" in device:
+            timer_store = timer_states.get(device)
+            if timer_store is None or "/" in device:
                 print("TIMER ignored: unsupported device")
                 return
-            accepted, reason = timer_state.accept(payload, epoch_now, now)
+            accepted, reason = timer_store.accept(payload, epoch_now, now)
             if not accepted:
                 print("TIMER snapshot rejected reason={}".format(reason))
                 return
-            selected = timer_state.selected(epoch_now, now)
+            selected = _selected_timer(epoch_now, now)
             if selected is not None and timer_rotation_resume is None:
                 timer_rotation_resume = rotation.freeze(ticks_ms())
-                timer_visible_id = selected["timer_id"]
+                timer_visible_id = "{}:{}".format(
+                    selected["device"], selected["timer_id"]
+                )
                 if active_football_screen is not None and timer_pause_started is None:
                     timer_pause_started = ticks_ms()
                 print("TIMER START id={}".format(timer_visible_id))
@@ -899,7 +910,7 @@ while True:
             if display.animation_active(flash_screen, elapsed_seconds(flash_started_ticks)):
                 mqtt_animation_active = True
                 mqtt_allow_connect = False
-        timer_state_for_mqtt = timer_state.selected(_reminder_epoch(now), now)
+        timer_state_for_mqtt = _selected_timer(_reminder_epoch(now), now)
         if (timer_state_for_mqtt is not None
                 and timer_state_for_mqtt.get("state") in ("running", "complete")):
             mqtt_animation_active = True
@@ -965,7 +976,7 @@ while True:
     maintenance_resume = None
     maintenance_active = False
     timer_epoch_now = _reminder_epoch(now)
-    active_timer = timer_state.selected(timer_epoch_now, now)
+    active_timer = _selected_timer(timer_epoch_now, now)
     if active_timer is None and timer_pause_started is not None:
         if active_football_started is not None:
             pause_ended = ticks_ms()
@@ -1016,7 +1027,9 @@ while True:
     )
     if active_timer is not None:
         candidate = {
-            "id": "alexa-timer-{}".format(active_timer["timer_id"]),
+            "id": "alexa-timer-{}-{}".format(
+                active_timer["device"], active_timer["timer_id"]
+            ),
             "kind": "alexa_timer",
             "state": active_timer["state"],
         }
@@ -1387,13 +1400,16 @@ while True:
         if presentation_source == "timer":
             if timer_rotation_resume is None:
                 timer_rotation_resume = rotation.freeze(ticks_ms())
-            if timer_visible_id != active_timer["timer_id"]:
-                timer_visible_id = active_timer["timer_id"]
+            active_timer_key = "{}:{}".format(
+                active_timer["device"], active_timer["timer_id"]
+            )
+            if timer_visible_id != active_timer_key:
+                timer_visible_id = active_timer_key
                 print("TIMER SELECT id={}".format(timer_visible_id))
             remaining = active_timer.get("remaining_seconds", 0)
             duration = active_timer.get("duration_seconds")
             screen = {
-                "id": "alexa-timer-{}".format(active_timer["timer_id"]),
+                "id": "alexa-timer-{}".format(active_timer_key),
                 "kind": "alexa_timer",
                 "timer_id": active_timer["timer_id"],
                 "remaining_seconds": remaining,

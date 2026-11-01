@@ -275,9 +275,11 @@ kick-off. See [`docs/football-mqtt.md`](../../docs/football-mqtt.md) for event,
 queue, and rotation behavior.
 
 Issue #52 adds a dedicated timer consumer on `MQTT_TIMER_TOPIC` (default
-`led/timer/+`). It validates complete retained per-device snapshots and pins
-the earliest running timer in a right-aligned countdown with a moving car.
-Reminder flash remains the only overlay above the timer. The contract is in
+`led/timer/+`). It validates complete retained per-device snapshots for Living
+room Alexa and Hall Alexa, keeps their timer stores independent, and pins the
+earliest running timer across both devices in a right-aligned countdown with a
+moving car. Reminder flash remains the only overlay above the timer. The
+contract is in
 [`docs/alexa-timer-mqtt.md`](../../docs/alexa-timer-mqtt.md). The live source
 shape is verified for running, paused, and natural completion; deploy and read
 back this consumer before enabling the HA publisher.

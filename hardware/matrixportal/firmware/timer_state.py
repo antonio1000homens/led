@@ -348,3 +348,24 @@ class TimerState:
         result["label"] = timer.get("label", "")
         result["stale"] = stale
         return result
+
+
+def select_timer(timer_states, now_epoch, now_monotonic=None):
+    """Select a visible timer across independent device snapshot stores."""
+    candidates = []
+    for device, state in timer_states.items():
+        timer = state.selected(now_epoch, now_monotonic)
+        if timer is not None:
+            timer = dict(timer)
+            timer["device"] = device
+            candidates.append(timer)
+    if not candidates:
+        return None
+    # Running timers and their completion holds take precedence over paused
+    # timers. Within each group, show the timer closest to its end.
+    candidates.sort(key=lambda timer: (
+        0 if timer["state"] in ("running", "complete") else 1,
+        timer.get("remaining_seconds", 0),
+        timer["device"],
+    ))
+    return candidates[0]
