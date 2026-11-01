@@ -28,6 +28,7 @@ on:
       - 'tests/test_queue_cycle.py'
       - 'tests/test_screen_client.py'
       - 'tests/test_timer_state.py'
+      - 'tests/test_timer_visuals.py'
       - 'tests/test_upload_firmware_wifi.py'
       - 'tests/test_wifi_startup.py'
   push:
@@ -47,6 +48,7 @@ on:
       - 'scripts/upload-firmware-wifi.py'
       - 'tests/test_presentation_priority.py'
       - 'tests/test_timer_state.py'
+      - 'tests/test_timer_visuals.py'
   workflow_dispatch:
 
 permissions:
@@ -110,6 +112,7 @@ jobs:
             test_queue_cycle.py
             test_screen_client.py
             test_timer_state.py
+            test_timer_visuals.py
             test_upload_firmware_wifi.py
             test_wifi_startup.py
           )

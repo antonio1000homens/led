@@ -69,7 +69,7 @@ class TimerVisualTests(unittest.TestCase):
                     rotated = rotate_sprite(rows, turn)
                     self.assertEqual(len(rotated), len(rows[0]) if turn % 2 else len(rows))
 
-    def test_large_icons_use_most_of_panel_and_fit_all_rotated_frames(self):
+    def test_large_icons_fit_all_frames_rendered_on_the_panel(self):
         sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
         from display import TIMER_CATERPILLAR_ROWS, TIMER_APPLE_ROWS
         self.assertEqual(TIMER_ACTOR_SCALE, 2)
@@ -80,7 +80,10 @@ class TimerVisualTests(unittest.TestCase):
                           len(TIMER_APPLE_ROWS) * TIMER_APPLE_SCALE), (16, 18))
         for theme in TIMER_THEMES:
             rows = TIMER_CATERPILLAR_ROWS if theme == "caterpillar" else SPRITE_ROWS[theme]
-            for turns in range(4):
+            # The renderer keeps the wide caterpillar horizontal and rotates
+            # only the compact themed actors during their completion pose.
+            turns_to_check = range(1) if theme == "caterpillar" else range(4)
+            for turns in turns_to_check:
                 rotated = rotate_sprite(rows, turns)
                 width, height = actor_size(theme, turns)
                 self.assertEqual(width, max(len(row) for row in rotated) * 2)
