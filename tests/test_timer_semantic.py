@@ -1,6 +1,8 @@
 """Regression checks for semantic Alexa timer themes and fixed right-side objects."""
 import unittest
 import sys
+import types
+from unittest.mock import patch
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "hardware" / "matrixportal" / "firmware"))
@@ -49,6 +51,70 @@ class SemanticTimerTests(unittest.TestCase):
                 for x in range(194):
                     self.assertIn(semantic_background_index(theme, x, y), range(8))
             self.assertEqual(finish_pose(theme, 1.5), finish_pose(theme, 5))
+
+    def test_matrix_renderer_transitions_without_clock_or_destination_overlap(self):
+        class Bitmap:
+            def __init__(self, w, h, n):
+                self.width, self.height = w, h
+                self.values = {}
+            def __setitem__(self, key, value):
+                x, y = key
+                assert 0 <= x < self.width and 0 <= y < self.height
+                self.values[key] = value
+            def fill(self, n):
+                self.values.clear()
+        class Palette(list):
+            def __init__(self, n):
+                super().__init__([0] * n)
+            def make_transparent(self, index):
+                pass
+        class Grid:
+            def __init__(self, bitmap, pixel_shader, x=0, y=0):
+                self.bitmap, self.pixel_shader = bitmap, pixel_shader
+                self.x, self.y = x, y
+        fake = types.SimpleNamespace(
+            Group=list, Bitmap=Bitmap, Palette=Palette, TileGrid=Grid)
+        sys.modules.setdefault("board", types.SimpleNamespace(GP0=0))
+        with patch.dict(sys.modules, {"displayio": fake}):
+            from display import MatrixDisplay
+            for theme in SEMANTIC_THEMES:
+                with self.subTest(theme=theme):
+                    renderer = MatrixDisplay.__new__(MatrixDisplay)
+                    renderer.display = types.SimpleNamespace(root_group=None)
+                    renderer._present = lambda group: setattr(renderer.display, "root_group", group)
+                    renderer._refresh = lambda *_args: True
+                    renderer.font = object()
+                    renderer.label_type = lambda *_args, **kwargs: types.SimpleNamespace(**kwargs)
+                    screen = {"kind": "alexa_timer", "timer_id": "abc",
+                              "theme_status": "pending", "remaining_seconds": 120,
+                              "state": "running", "progress": 0.0}
+                    renderer._show_alexa_timer(screen, 0)
+                    self.assertFalse(renderer._timer_actor_frames)
+                    self.assertIsNotNone(renderer._timer_pending_label)
+                    self.assertEqual(renderer._timer_clock_grid.x, 195)
+                    screen.update(theme_status="ready", theme=theme,
+                                  remaining_seconds=60, progress=.5)
+                    renderer._show_alexa_timer(screen, 1)
+                    self.assertEqual(renderer._timer_pending_label, None)
+                    self.assertEqual(len(renderer._timer_actor_frames), 1)
+                    actor = renderer._timer_actor_frames[0]
+                    self.assertEqual((actor.x, actor.y),
+                                     semantic_character_position(theme, 195, .5))
+                    dx, dy = destination_position(theme, 195)
+                    destination_tiles = [item for item in renderer.display.root_group
+                                         if isinstance(item, Grid) and item.x == dx and item.y == dy]
+                    self.assertTrue(destination_tiles)
+                    self.assertFalse(any(isinstance(item, Grid)
+                        and (item.bitmap.width, item.bitmap.height) == (194, 32)
+                        for item in renderer.display.root_group))
+                    ready_group = renderer.display.root_group
+                    screen.update(state="complete", remaining_seconds=0,
+                                  progress=1.0, completion_elapsed_seconds=0)
+                    renderer._show_alexa_timer(screen, 0)
+                    self.assertIsNot(renderer.display.root_group, ready_group)
+                    self.assertTrue(any(isinstance(item, Grid) and
+                        (item.bitmap.width, item.bitmap.height) == (194, 32)
+                        for item in renderer.display.root_group))
 
     @staticmethod
     def snapshot(timestamp, timers):
