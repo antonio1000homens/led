@@ -144,3 +144,49 @@ before the then-current `ends_at`, followed by a fresh `Stars` timer at
 the HA repository's `docs/alexa-timer-led-mqtt.md` for the corresponding
 producer timestamps. Pause/resume, duration edit, timer replacement, and a
 live Hall Alexa timer remain unverified against current device selection.
+
+## Semantic bedtime / leaving / timeout themes and loading handoff
+
+This branch adds a **backwards-compatible** optional per-timer v1 extension.
+Do not change the retained MQTT topics or top-level event fields.
+
+- `theme_status: pending`: show **Timer Started:** with stepped, eight-colour
+  cycling on the left and the actual countdown on the right; omit `theme`.
+- `theme_status: ready`: require
+  `theme: bedtime|leaving|timeout|generic`. `theme` without status is also
+  allowed for publisher compatibility. No theme metadata retains older
+  firmware's label/ID theme choice.
+- New explicit semantic destinations are **bed** (bedtime), **door** (leaving)
+  and **tablet/iPad** (timeout), fixed immediately left of the right-edge clock.
+  Generic resolves to one of the pre-existing caterpillar/car/rocket/stars
+  visual variations. The incoming `theme` is a category, not a text caption.
+- The character starts at **current progress** when pending becomes ready;
+  neither the timer deadline nor progress is reset by that change.
+- A locally timed five-second pending ceiling falls back to generic even when
+  the Home Assistant AI task is unavailable. Completion always shows the
+  `00:00` finish hold. The scenery animates **only after completion**, not
+  during the running countdown.
+- Both Semantic and legacy themes use 2× actor sprites; semantic source
+  palettes are restricted to values whose RGB channels are either 0 or 255,
+  matching `MATRIX_BIT_DEPTH = 1` (eight available colour combinations).
+  The browser simulator mirrors the indexed artwork and position helpers.
+
+Example pending then ready records in successive **complete** upserts:
+
+```json
+{"timer_id":"abc123","state":"running","ends_at":"2026-11-02T20:05:00+00:00",
+ "duration_seconds":300,"label":"Brush teeth","theme_status":"pending"}
+```
+
+```json
+{"timer_id":"abc123","state":"running","ends_at":"2026-11-02T20:05:00+00:00",
+ "duration_seconds":300,"label":"Brush teeth","theme_status":"ready",
+ "theme":"bedtime"}
+```
+
+Deploy this LED firmware **before** enabling
+[Home Assistant PR #68](https://github.com/antonio1000homens/homeassistant/pull/68)
+and issue [homeassistant#67](https://github.com/antonio1000homens/homeassistant/issues/67).
+The Home Assistant switch is disabled by default and should publish the old
+contract until explicitly enabled after board deployment.
+
