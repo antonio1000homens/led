@@ -5478,7 +5478,8 @@ class FixtureDisplay:
                             for xx in range(7):
                                 self._pixel(mx + xx, 28 + yy, _rgb_tuple(0xFFFF00))
                 else:
-                    for ax, ay in semantic_accent_positions(theme, elapsed):
+                    elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
+                    for ax, ay in semantic_accent_positions(theme, elapsed)
                         for yy, row in enumerate(SEMANTIC_ACCENT_ROWS[theme]):
                             for xx, char in enumerate(row):
                                 if char == "S":
