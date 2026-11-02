@@ -5438,6 +5438,64 @@ class FixtureDisplay:
             progress = screen.get("progress") or 0
             complete = screen.get("state") == "complete"
             theme = screen.get("theme")
+            pending = screen.get("theme_status") == "pending" and not complete
+            semantic = theme in SEMANTIC_THEMES
+            if pending or semantic:
+                if complete and semantic:
+                    colors = SEMANTIC_BACKGROUND_COLORS[theme]
+                    for yy in range(32):
+                        for xx in range(SCENE_WIDTH):
+                            self._pixel(xx, yy, _rgb_tuple(colors[
+                                semantic_background_index(theme, xx, yy)]))
+                if semantic and not pending:
+                    bx, by = destination_position(theme, clock_x)
+                    for yy, line in enumerate(DESTINATION_ROWS[theme]):
+                        for xx, letter in enumerate(line):
+                            index = DESTINATION_SYMBOLS[theme][letter]
+                            if index:
+                                for dy in range(2):
+                                    for dx in range(2):
+                                        self._pixel(bx + xx * 2 + dx, by + yy * 2 + dy,
+                                            _rgb_tuple(DESTINATION_COLORS[theme][index]))
+                for ci, digit in enumerate(text):
+                    for yy, row in enumerate(CLOCK_FONT[digit]):
+                        for xx, p in enumerate(row):
+                            if p == "1":
+                                for dy in range(scale):
+                                    for dx in range(scale):
+                                        self._pixel(clock_x + (ci * 4 + xx) * scale + dx,
+                                            clock_y + yy * scale + dy, (255, 255, 255))
+                if pending:
+                    color = (0x00FFFF, 0xFFFFFF, 0xFFFF00, 0x00FF00)[
+                        int(max(0.0, float(phase)) * 3) % 4]
+                    self._text("Timer Started:", 5, 17, _rgb_tuple(color))
+                    return
+                if not complete:
+                    eaten = timer_apples_eaten(progress)
+                    for i in range(eaten, TIMER_APPLE_COUNT):
+                        mx = semantic_marker_x(theme, clock_x, i)
+                        for yy in range(2):
+                            for xx in range(7):
+                                self._pixel(mx + xx, 28 + yy, _rgb_tuple(0xFFFF00))
+                else:
+                    for ax, ay in semantic_accent_positions(theme, elapsed):
+                        for yy, row in enumerate(SEMANTIC_ACCENT_ROWS[theme]):
+                            for xx, char in enumerate(row):
+                                if char == "S":
+                                    self._pixel(ax + xx, ay + yy,
+                                        _rgb_tuple(SEMANTIC_ACCENT_COLORS[theme]))
+                dy = finish_pose(theme, elapsed)[2] if complete else 0
+                px, py = semantic_character_position(theme, clock_x, progress,
+                                                       completed=complete, vertical_offset=dy)
+                for yy, row in enumerate(CHARACTER_ROWS[theme]):
+                    for xx, char in enumerate(row):
+                        index = CHARACTER_SYMBOLS[theme][char]
+                        if index:
+                            for sy in range(2):
+                                for sx in range(2):
+                                    self._pixel(px + xx * 2 + sx, py + yy * 2 + sy,
+                                        _rgb_tuple(CHARACTER_COLORS[theme][index]))
+                return
             if theme not in TIMER_THEMES:
                 theme = theme_for_timer(screen.get("timer_id"), screen.get("label"))
             elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
