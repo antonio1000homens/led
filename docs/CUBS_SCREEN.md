@@ -35,8 +35,10 @@ Using the standard SSM-managed key needs no additional customer-managed key gran
 
 The screen is a **paired transition** in the normal board rotation:
 
-1. A camping tent and its tagline slide in from the right over 2.4
-   seconds, then hold for 1.6 seconds before the next-events screen. The editable message defaults to **Be prepared...**.
+1. A colourful **Scouts fleur-de-lis** (gold centre, cyan and magenta petals,
+   purple band, green flourishes) and its tagline slide in together **from the right**
+   over 2.4 seconds, then hold for 1.6 seconds before the next-events screen.
+   The sprite is 40 × 26 LED pixels and is shared visually with the simulator. The editable message defaults to **Be prepared...**.
    It accepts a non-empty printable ASCII string of up to 48 characters.
 2. The next screen displays **two equally sized columns**: **Beavers** on the
    left, **Cubs** on the right. Each heading shares its top row with the

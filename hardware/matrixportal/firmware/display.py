@@ -539,6 +539,42 @@ def _fit_text_pixels(text, width):
 
 # A 128x32 half-panel fits two event-title lines below its header.
 SCOUTS_INTRO_SLIDE_SECONDS = 2.4
+# Original low-resolution fleur-de-lis: gold central lily, cyan/magenta
+# petals, purple collar and green lower flourishes. Each cell is one LED.
+SCOUTS_FLEUR_SYMBOLS = ".CcMmGWOLlPH"
+SCOUTS_FLEUR_PALETTE = (
+    0x000000, 0x16C6E0, 0x0B7EAC, 0xF04BAA,
+    0xAE287C, 0xFCD34D, 0xFFF2A6, 0xEC9420,
+    0x78D66E, 0x229C67, 0x9453D9, 0xDCB3FC,
+)
+SCOUTS_FLEUR_ROWS = (
+    "...................GGG..................",
+    "..................GWWG..................",
+    "..................GWWOG.................",
+    ".................GWWWOG.................",
+    "......C..........GWWWOOG.........M......",
+    "....CCCCCC......GWWWWOOG......MMMMMM....",
+    "....CcCCCCC.....GWWWWOOO.....MMMMMmM....",
+    "...CCcCCCCC....GGWWWGOOOG....MMMMMmMM...",
+    "...CccCCCCCC...GWWWWGOOOG...MMMMMMmmM...",
+    "...CccCC.CCC..GGWWWWGOOOOG..MMM.MMmmM...",
+    "....CccC..CC..GWWWWWGOOOOG..MM..MmmM....",
+    "....CccCC..C.GGWWWWWGOOOOOG.M..MMmmM....",
+    ".....CccCC...GGWWWWWGOOOOOG...MMmmM.....",
+    "......ccccCCCCWWWWWGGOOOOGMMMMmmmm......",
+    ".......ccccCCCGGWWWGGOOOOGMMMmmmm.......",
+    ".........ccccccGGWGGGOOOGmmmmmm.........",
+    "..........cPPPPPPPPPPPPPPPPPPm..........",
+    "..........PPPHHHHHHHHHHHHHHPPP..........",
+    "...........PPPPPPPPPPPPPPPPPP...........",
+    "...........PPPPPPPPPPPPPPPPPP...........",
+    "............LLLLGGGGGGGGLLLL............",
+    "...........LLLLLLGGGGGGLLLLLL...........",
+    "..........LLLllllGGGGGGllllLLL..........",
+    "..........LLllllllGGGGllllllLL..........",
+    ".........LLLllLL..GGGG..LLllLLL.........",
+    ".........LLlLL.....GG.....LLlLL.........",
+)
 SCOUTS_COLUMN_TITLE_CHARS = 21
 
 
@@ -4176,35 +4212,23 @@ class MatrixDisplay:
 
 
     def _build_scouts_intro_scene(self, screen):
-        """Christmas-style entrance with a compact Scouts camping-tent sprite."""
+        """Cache the colourful Scouts fleur-de-lis and tagline once per text change."""
         import displayio
 
         root = displayio.Group()
         motion = displayio.Group(x=DISPLAY_WIDTH, y=2)
-        bitmap = displayio.Bitmap(40, 26, 5)
-        palette = displayio.Palette(5)
-        palette[0] = 0x000000
+        bitmap = displayio.Bitmap(40, 26, len(SCOUTS_FLEUR_PALETTE))
+        palette = displayio.Palette(len(SCOUTS_FLEUR_PALETTE))
+        for index, rgb in enumerate(SCOUTS_FLEUR_PALETTE):
+            palette[index] = rgb
         palette.make_transparent(0)
-        palette[1] = 0x65C367
-        palette[2] = 0x22683F
-        palette[3] = 0x946237
-        palette[4] = 0xF5CC58
-        for y in range(2, 24):
-            half_width = (y - 2) * 17 // 21
-            for x in range(18 - half_width, 19 + half_width):
-                if 0 <= x < 40:
-                    bitmap[x, y] = 1 if x < 18 else 2
-        for x in range(2, 37):
-            bitmap[x, 24] = 3
-        for y in range(17, 24):
-            half_width = (y - 17) // 2
-            for x in range(18 - half_width, 19 + half_width):
-                bitmap[x, y] = 0
-        for y in range(0, 5):
-            bitmap[18, y] = 4
+        for y, row in enumerate(SCOUTS_FLEUR_ROWS):
+            for x, symbol in enumerate(row):
+                if symbol != ".":
+                    bitmap[x, y] = SCOUTS_FLEUR_SYMBOLS.find(symbol)
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
         intro_text = str(screen.get("intro_text") or "Be prepared...")
-        # Two compact lines ensure a configurable slogan fits the 256px bar.
+        # Retain the established right-to-left motion and configurable tagline.
         self._label(motion, intro_text[:30], 0xF5CC58, 48, 12)
         if len(intro_text) > 30:
             self._label(motion, intro_text[30:], 0xF5CC58, 48, 22)

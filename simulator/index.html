@@ -1529,30 +1529,65 @@
       });
     }
 
-    function drawScoutsTent(x, y) {
+    // Keep this 40x26 palette sprite in sync with SCOUTS_FLEUR_ROWS in display.py.
+    const SCOUTS_FLEUR_ROWS = [
+      '...................GGG..................',
+      '..................GWWG..................',
+      '..................GWWOG.................',
+      '.................GWWWOG.................',
+      '......C..........GWWWOOG.........M......',
+      '....CCCCCC......GWWWWOOG......MMMMMM....',
+      '....CcCCCCC.....GWWWWOOO.....MMMMMmM....',
+      '...CCcCCCCC....GGWWWGOOOG....MMMMMmMM...',
+      '...CccCCCCCC...GWWWWGOOOG...MMMMMMmmM...',
+      '...CccCC.CCC..GGWWWWGOOOOG..MMM.MMmmM...',
+      '....CccC..CC..GWWWWWGOOOOG..MM..MmmM....',
+      '....CccCC..C.GGWWWWWGOOOOOG.M..MMmmM....',
+      '.....CccCC...GGWWWWWGOOOOOG...MMmmM.....',
+      '......ccccCCCCWWWWWGGOOOOGMMMMmmmm......',
+      '.......ccccCCCGGWWWGGOOOOGMMMmmmm.......',
+      '.........ccccccGGWGGGOOOGmmmmmm.........',
+      '..........cPPPPPPPPPPPPPPPPPPm..........',
+      '..........PPPHHHHHHHHHHHHHHPPP..........',
+      '...........PPPPPPPPPPPPPPPPPP...........',
+      '...........PPPPPPPPPPPPPPPPPP...........',
+      '............LLLLGGGGGGGGLLLL............',
+      '...........LLLLLLGGGGGGLLLLLL...........',
+      '..........LLLllllGGGGGGllllLLL..........',
+      '..........LLllllllGGGGllllllLL..........',
+      '.........LLLllLL..GGGG..LLllLLL.........',
+      '.........LLlLL.....GG.....LLlLL.........',
+    ];
+    const SCOUTS_FLEUR_COLORS = {
+      C:'#16c6e0', c:'#0b7eac', M:'#f04baa', m:'#ae287c',
+      G:'#fcd34d', W:'#fff2a6', O:'#ec9420',
+      L:'#78d66e', l:'#229c67', P:'#9453d9', H:'#dcb3fc'
+    };
+    function drawScoutsFleur(x, y) {
       const px = FONT_PIXEL_SCALE;
-      for (let dy = 2; dy < 24; dy += 1) {
-        const half = Math.floor((dy - 2) * 17 / 21);
-        for (let dx = 18 - half; dx <= 18 + half; dx += 1) {
-          if (dy >= 17 && Math.abs(dx - 18) <= Math.floor((dy - 17) / 2)) continue;
-          context.fillStyle = dx < 18 ? '#65c367' : '#22683f';
-          context.fillRect((x + dx)*px, (y + dy)*px, px, px);
+      SCOUTS_FLEUR_ROWS.forEach((row, dy) => {
+        let start = 0;
+        while (start < row.length) {
+          const color = row[start];
+          let end = start + 1;
+          while (end < row.length && row[end] === color) end += 1;
+          if (color !== '.') {
+            context.fillStyle = SCOUTS_FLEUR_COLORS[color];
+            context.fillRect((x + start)*px, (y + dy)*px, (end - start)*px, px);
+          }
+          start = end;
         }
-      }
-      context.fillStyle = '#946237';
-      context.fillRect((x+2)*px, (y+24)*px, 35*px, px);
-      context.fillStyle = '#f5cc58';
-      context.fillRect((x+18)*px, y*px, px, 5*px);
+      });
     }
     function drawScoutsIntro(screen, phase) {
       const px = FONT_PIXEL_SCALE;
       const x = Math.max(0, 256 - Math.floor(256 * Math.min(1, Math.max(0, Number(phase) || 0) / 2.4)));
       const message = String(screen.intro_text || 'Be prepared...');
-      drawScoutsTent(x, 2);
+      drawScoutsFleur(x, 2);
       context.fillStyle = '#f5cc58';
       drawLedText(message.slice(0,30), (x+48)*px, 12*px);
       if (message.length > 30) drawLedText(message.slice(30), (x+48)*px, 22*px);
-      status.dataset.detail = 'Scouts camping-tent intro · ' + message;
+      status.dataset.detail = 'Scouts fleur-de-lis intro · ' + message;
     }
     function scoutsTitleLines(title, maxChars = 21) {
       const value = String(title || '').toUpperCase().trim().replace(/\s+/g,' ');
