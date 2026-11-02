@@ -7,6 +7,8 @@ MAX_ID_LENGTH = 80
 MAX_DURATION_SECONDS = 7 * 24 * 60 * 60
 COMPLETION_HOLD_SECONDS = 5
 UPSTREAM_STALE_AFTER_SECONDS = 600
+THEME_PENDING_TIMEOUT_SECONDS = 5
+SEMANTIC_THEMES = ("bedtime", "leaving", "timeout", "generic")
 MAX_PAYLOAD_CHARACTERS = 4096
 TIMER_ID_PUNCTUATION_CODES = (45, 46, 58, 95)  # - . : _
 
@@ -152,7 +154,7 @@ def validate_snapshot(payload, topic_device):
     for item in timers:
         if not isinstance(item, dict):
             raise ValueError("timer must be an object")
-        if not set(item).issubset({"timer_id", "state", "ends_at", "started_at", "remaining_seconds", "duration_seconds", "label"}):
+        if not set(item).issubset({"timer_id", "state", "ends_at", "started_at", "remaining_seconds", "duration_seconds", "label", "theme", "theme_status"}):
             raise ValueError("unexpected timer field")
         timer_id = item.get("timer_id")
         if not isinstance(timer_id, str) or not timer_id or len(timer_id) > MAX_ID_LENGTH:
@@ -172,6 +174,21 @@ def validate_snapshot(payload, topic_device):
         if not isinstance(label, str) or len(label) > MAX_LABEL_LENGTH:
             raise ValueError("invalid timer label")
         timer["label"] = label
+        theme_status = item.get("theme_status")
+        theme = item.get("theme")
+        if theme_status is not None and theme_status not in ("pending", "ready"):
+            raise ValueError("invalid theme status")
+        if theme is not None and (not isinstance(theme, str) or
+                                  theme not in SEMANTIC_THEMES):
+            raise ValueError("invalid timer theme")
+        if theme_status == "pending" and theme is not None:
+            raise ValueError("pending timer must not include theme")
+        if theme_status == "ready" and theme is None:
+            raise ValueError("ready timer requires theme")
+        if theme is not None:
+            timer["theme"] = theme
+        if theme_status is not None:
+            timer["theme_status"] = theme_status
         duration = item.get("duration_seconds")
         if duration is not None:
             timer["duration_seconds"] = _number(duration, 1, MAX_DURATION_SECONDS, "duration_seconds")
@@ -198,6 +215,7 @@ class TimerState:
         self.timers = []
         self.completed_id = None
         self.completed_label = ""
+        self.completed_theme = None
         self.completed_until = None
         self.completed_until_monotonic = None
         self.completed_at_epoch = None
@@ -207,6 +225,7 @@ class TimerState:
         self.monotonic_anchor = None
         self.received_at = None
         self.selection = {}
+        self.pending_started = {}
 
     def accept(self, payload, now_epoch, now_monotonic=None):
         import json
@@ -243,6 +262,16 @@ class TimerState:
         self.published_at = snapshot["published_at"]
         self.timers = snapshot["timers"]
         self.received_at = now_monotonic
+        # Reconciliations must not restart the initial pending timeout.
+        self.pending_started = {
+            timer_id: t for timer_id, t in self.pending_started.items()
+            if any(entry["timer_id"] == timer_id and
+                   entry.get("theme_status") == "pending" for entry in self.timers)
+        }
+        for entry in self.timers:
+            if (entry.get("theme_status") == "pending" and
+                    entry["timer_id"] not in self.pending_started):
+                self.pending_started[entry["timer_id"]] = now_monotonic
         active_ids = {timer["timer_id"] for timer in self.timers}
         self.observed_durations = {
             timer_id: duration for timer_id, duration in self.observed_durations.items()
@@ -255,6 +284,7 @@ class TimerState:
             self.observed_durations = {}
             self.completed_id = self.completed_until = self.completed_until_monotonic = None
             self.completed_label = ""
+            self.completed_theme = None
             self.completed_at_epoch = self.completed_at_monotonic = None
         return True, "accepted"
 
@@ -269,6 +299,8 @@ class TimerState:
                 result = self.selection
                 result["timer_id"] = self.completed_id
                 result["label"] = self.completed_label
+                result["theme"] = self.completed_theme
+                result["theme_status"] = "ready"
                 result["state"] = "complete"
                 result["remaining_seconds"] = 0
                 result["duration_seconds"] = 1
@@ -281,6 +313,7 @@ class TimerState:
                 return result
             self.completed_id = self.completed_until = self.completed_until_monotonic = None
             self.completed_label = ""
+            self.completed_theme = None
             self.completed_at_epoch = self.completed_at_monotonic = None
 
         timer = None
@@ -299,6 +332,7 @@ class TimerState:
             if remaining == 0:
                 self.completed_id = timer["timer_id"]
                 self.completed_label = timer.get("label", "")
+                self.completed_theme = timer.get("theme") or "generic"
                 self.completed_at_epoch = now_epoch
                 self.completed_at_monotonic = now_monotonic
                 if now_monotonic is not None:
@@ -315,6 +349,8 @@ class TimerState:
                 result["duration_seconds"] = timer.get("duration_seconds")
                 result["progress"] = 1.0
                 result["label"] = self.completed_label
+                result["theme"] = self.completed_theme
+                result["theme_status"] = "ready"
                 result["stale"] = stale
                 result["completion_elapsed_seconds"] = 0.0
                 return result
@@ -351,6 +387,18 @@ class TimerState:
             progress = min(progress, 0.999999)
         result["progress"] = progress
         result["label"] = timer.get("label", "")
+        status = timer.get("theme_status")
+        if status == "pending":
+            started = self.pending_started.get(timer["timer_id"])
+            if (started is None or now_monotonic is None or
+                    now_monotonic - started >= THEME_PENDING_TIMEOUT_SECONDS):
+                status = "ready"
+                result["theme"] = "generic"
+            else:
+                result["theme"] = None
+        else:
+            result["theme"] = timer.get("theme")
+        result["theme_status"] = status
         result["stale"] = stale
         return result
 
