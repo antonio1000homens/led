@@ -4,6 +4,12 @@ The destinations remain pinned just left of the right-aligned clock; no
 full-frame animation buffers, floating point gradients or runtime rotations.
 """
 SEMANTIC_THEMES = ("bedtime", "leaving", "timeout")
+# Eight distinct frames, restricted to the seven *visible* 1-bit RGB colours.
+# Black is omitted because black text on a black panel disappears.
+PENDING_COLOURS = (
+    0x00FFFF, 0x0000FF, 0xFF00FF, 0xFF0000,
+    0xFFFF00, 0x00FF00, 0xFFFFFF, 0xFFFFFF,
+)
 # All character frames are 13x13 source pixels and rendered at 2x.
 CHARACTER_ROWS = {
     "bedtime": (
@@ -47,8 +53,8 @@ DESTINATION_ROWS = {
     ),
 }
 CHARACTER_COLORS = {
-    "bedtime": (0, 0xFFFF00, 0xFFFFFF, 0x0000FF, 0xFF0000),
-    "leaving": (0, 0xFF0000, 0xFFFF00, 0x0000FF, 0xFF00FF, 0xFFFFFF),
+    "bedtime": (0, 0xFFFF00, 0xFFFFFF, 0x0000FF, 0xFF0000, 0x000000),
+    "leaving": (0, 0xFF0000, 0xFFFF00, 0x0000FF, 0xFF00FF, 0xFFFFFF, 0x000000),
     "timeout": (0, 0xFFFFFF, 0x00FFFF),
 }
 DESTINATION_COLORS = {
@@ -57,8 +63,8 @@ DESTINATION_COLORS = {
     "timeout": (0, 0xFFFFFF, 0x0000FF, 0x00FFFF),
 }
 CHARACTER_SYMBOLS = {
-    "bedtime": {".": 0, "Y": 1, "K": 0, "B": 3, "R": 4},
-    "leaving": {".": 0, "R": 1, "Y": 2, "K": 0, "B": 3, "M": 4, "W": 5},
+    "bedtime": {".": 0, "Y": 1, "K": 5, "B": 3, "R": 4},
+    "leaving": {".": 0, "R": 1, "Y": 2, "K": 6, "B": 3, "M": 4, "W": 5},
     "timeout": {".": 0, "W": 1, "C": 2},
 }
 DESTINATION_SYMBOLS = {
