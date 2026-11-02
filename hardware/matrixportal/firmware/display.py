@@ -39,6 +39,13 @@ from timer_visuals import (
     BACKGROUND_COLORS, background_index,
     ACCENT_ROWS, ACCENT_COLORS, accent_positions,
 )
+from timer_semantic import (
+    SEMANTIC_THEMES, CHARACTER_ROWS, CHARACTER_COLORS, CHARACTER_SYMBOLS,
+    DESTINATION_ROWS, DESTINATION_COLORS, DESTINATION_SYMBOLS,
+    SEMANTIC_BACKGROUND_COLORS, SEMANTIC_ACCENT_COLORS,
+    SEMANTIC_ACCENT_ROWS, destination_position, semantic_character_position,
+    semantic_marker_x, semantic_background_index, semantic_accent_positions,
+)
 from christmas_tracker import (
     SLEIGH_SLIDE_SECONDS, SLEIGH_START_X, SNOW_FLAKE_X,
     SNOW_FLAKE_SPEED, SNOW_FLAKE_START_Y, days_until_christmas,
@@ -3563,15 +3570,19 @@ class MatrixDisplay:
         complete = state == "complete"
         running = state == "running"
         theme = screen.get("theme")
-        if theme not in TIMER_THEMES:
+        if theme not in SEMANTIC_THEMES:
+            # "generic" retains the existing four-artwork selection, while
+            # old publishers lacking a theme remain fully compatible.
             theme = theme_for_timer(screen.get("timer_id"), screen.get("label"))
+        semantic = theme in SEMANTIC_THEMES
+        pending = (screen.get("theme_status") == "pending" and not complete)
         text = format_countdown(screen.get("remaining_seconds", 0))
         clock_x, clock_y, scale, clock_width = clock_layout(text)
         progress = screen.get("progress") or 0
         elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
         # Hour count changes can alter the text width without changing scale.
         # Rebuild the bitmap and reposition the whole scene on those boundaries.
-        key = (screen.get("timer_id"), state, theme, scale, clock_width,
+        key = (screen.get("timer_id"), state, theme, pending, scale, clock_width,
                bool(screen.get("upstream_stale")))
         changed = False
         if getattr(self, "_timer_scene_key", None) != key:
@@ -3580,21 +3591,26 @@ class MatrixDisplay:
             if complete:
                 # Static 194x32 background, built once when timer reaches zero.
                 bitmap = displayio.Bitmap(SCENE_WIDTH, 32, 8)
-                colors = BACKGROUND_COLORS[theme]
+                colors = (SEMANTIC_BACKGROUND_COLORS[theme] if semantic
+                          else BACKGROUND_COLORS[theme])
                 palette = displayio.Palette(8)
                 for i, color in enumerate(colors):
                     palette[i] = color
                 for y in range(32):
                     for x in range(SCENE_WIDTH):
-                        bitmap[x, y] = background_index(theme, x, y)
+                        bitmap[x, y] = (semantic_background_index(theme, x, y) if semantic
+                                        else background_index(theme, x, y))
                 group.append(displayio.TileGrid(bitmap, pixel_shader=palette))
                 # Moving only two small sprites keeps refresh/GC bounded.
-                rows = ACCENT_ROWS[theme]
+                rows = (SEMANTIC_ACCENT_ROWS[theme] if semantic
+                        else ACCENT_ROWS[theme])
                 symbols = {".": 0, "S": 1, "R": 2, "W": 1}
-                colors = (0, ACCENT_COLORS[theme], 0xF46464)
+                colors = (0, SEMANTIC_ACCENT_COLORS[theme] if semantic
+                          else ACCENT_COLORS[theme], 0xF46464)
                 prototype = self._timer_sprite(rows, colors, symbols)
                 for i in range(2):
-                    pos = accent_positions(theme, elapsed)[i]
+                    pos = (semantic_accent_positions(theme, elapsed) if semantic
+                           else accent_positions(theme, elapsed))[i]
                     if i == 0:
                         tile = prototype
                     else:
@@ -3603,6 +3619,17 @@ class MatrixDisplay:
                     tile.x, tile.y = pos
                     group.append(tile)
                     accent_tiles.append(tile)
+            if semantic and not pending:
+                # Fixed destination next to the countdown in every live frame:
+                # bedtime -> BED, leaving -> DOOR, timeout -> TABLET.
+                bx, by = destination_position(theme, clock_x)
+                group.append(self._timer_sprite(
+                    DESTINATION_ROWS[theme], DESTINATION_COLORS[theme],
+                    DESTINATION_SYMBOLS[theme], x=bx, y=by, scale=2))
+            pending_label = None
+            if pending:
+                pending_label = self._label(
+                    group, "Timer Started:", 0x00FFFF, 5, 17)
             if screen.get("upstream_stale"):
                 self._label(group, "STALE", 0x888888, 0, 1)
             palette = displayio.Palette(2)
@@ -3618,7 +3645,7 @@ class MatrixDisplay:
             self._timer_clock_grid = clock_grid
             self._timer_clock_bitmap_fill(text)
             marker_tiles = []
-            if not complete:
+            if not complete and not pending:
                 if theme == "caterpillar":
                     marker = self._timer_sprite(
                         TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE,
@@ -3635,19 +3662,24 @@ class MatrixDisplay:
                                                    pixel_shader=marker.pixel_shader)
                     group.append(tile)
                     marker_tiles.append(tile)
-            actor_rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
-                          else SPRITE_ROWS[theme])
-            actor_colors = (TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
-                            else SPRITE_COLORS[theme])
-            actor_symbols = (TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
-                             else SPRITE_SYMBOLS[theme])
             actor_frames = []
-            for turns in range(4 if complete and theme != "caterpillar" else 1):
-                tile = self._timer_sprite(
-                    rotate_sprite(actor_rows, turns), actor_colors, actor_symbols,
-                    x=-100, y=0, scale=TIMER_ACTOR_SCALE)
-                group.append(tile)
-                actor_frames.append(tile)
+            if not pending:
+                actor_rows = (CHARACTER_ROWS[theme] if semantic else
+                              TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
+                              else SPRITE_ROWS[theme])
+                actor_colors = (CHARACTER_COLORS[theme] if semantic else
+                                TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                                else SPRITE_COLORS[theme])
+                actor_symbols = (CHARACTER_SYMBOLS[theme] if semantic else
+                                 TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
+                                 else SPRITE_SYMBOLS[theme])
+                for turns in range(4 if complete and not semantic and
+                                   theme != "caterpillar" else 1):
+                    tile = self._timer_sprite(
+                        rotate_sprite(actor_rows, turns), actor_colors, actor_symbols,
+                        x=-100, y=0, scale=TIMER_ACTOR_SCALE)
+                    group.append(tile)
+                    actor_frames.append(tile)
             self._timer_scene_key = key
             self._timer_group = group
             self._timer_actor_frames = actor_frames
@@ -3655,6 +3687,8 @@ class MatrixDisplay:
             self._timer_accents = accent_tiles
             self._timer_markers_eaten = None
             self._timer_pose = None
+            self._timer_pending_label = pending_label
+            self._timer_pending_color = None
             # Do not present yet: markers and the active actor still need
             # their first positions. The final check publishes once ready.
             changed = True
@@ -3663,7 +3697,16 @@ class MatrixDisplay:
             self._timer_clock_bitmap_fill(text)
             self._timer_clock_text = text
             changed = True
-        if not complete:
+        if pending:
+            # Palette-stepped colour animation is legible at 1-bit/channel.
+            steps = (0x00FFFF, 0xFFFFFF, 0xFFFF00, 0x00FF00)
+            color = steps[int(max(0.0, float(phase)) * 3) % len(steps)]
+            if color != self._timer_pending_color:
+                self._timer_pending_label.color = color
+                self._timer_pending_color = color
+                changed = True
+            frame_index, x, y = 0, 0, 0
+        elif not complete:
             eaten = timer_apples_eaten(progress)
             if eaten != self._timer_markers_eaten:
                 for i, tile in enumerate(self._timer_markers):
@@ -3675,18 +3718,28 @@ class MatrixDisplay:
                         tile.x, tile.y = x, y
                         changed = True
                 self._timer_markers_eaten = eaten
-            head_x = caterpillar_position(clock_x, progress)
-            bob = (int(max(0.0, float(phase)) * 3) % 2
-                   if theme == "caterpillar" and running else 0)
-            frame_index = 0
-            x, y = actor_position(theme, clock_x, head_x, bob=bob)
+            if semantic:
+                frame_index = 0
+                x, y = semantic_character_position(theme, clock_x, progress)
+            else:
+                head_x = caterpillar_position(clock_x, progress)
+                bob = (int(max(0.0, float(phase)) * 3) % 2
+                       if theme == "caterpillar" and running else 0)
+                frame_index = 0
+                x, y = actor_position(theme, clock_x, head_x, bob=bob)
         else:
             frame_index, xshift, yshift = finish_pose(theme, elapsed)
-            x, y = actor_position(
-                theme, clock_x, 0, complete=True, turns=frame_index,
-                vertical_offset=yshift)
-            x += xshift
-            positions = accent_positions(theme, elapsed)
+            if semantic:
+                frame_index = 0
+                x, y = semantic_character_position(
+                    theme, clock_x, 1.0, completed=True, vertical_offset=yshift)
+            else:
+                x, y = actor_position(
+                    theme, clock_x, 0, complete=True, turns=frame_index,
+                    vertical_offset=yshift)
+                x += xshift
+            positions = (semantic_accent_positions(theme, elapsed) if semantic
+                         else accent_positions(theme, elapsed))
             for tile, pos in zip(self._timer_accents, positions):
                 if (tile.x, tile.y) != pos:
                     tile.x, tile.y = pos
