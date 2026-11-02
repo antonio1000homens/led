@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "hardware" / "matrixportal" / "firmware"))
 from timer_state import TimerState, validate_snapshot
 from timer_visuals import finish_pose, clock_layout
 from timer_semantic import (
-    SEMANTIC_THEMES, CHARACTER_ROWS, DESTINATION_ROWS,
+    SEMANTIC_THEMES, PENDING_COLOURS, CHARACTER_ROWS, DESTINATION_ROWS,
     CHARACTER_COLORS, CHARACTER_SYMBOLS, DESTINATION_COLORS,
     DESTINATION_SYMBOLS, destination_position, semantic_character_position,
     semantic_marker_x, semantic_background_index,
@@ -18,6 +18,14 @@ from timer_semantic import (
 
 class SemanticTimerTests(unittest.TestCase):
     def test_destinations_and_characters_fit_all_clock_widths(self):
+        self.assertEqual(len(PENDING_COLOURS), 8)
+        self.assertNotIn(0, PENDING_COLOURS)  # black text would disappear
+        self.assertEqual(len(set(PENDING_COLOURS)), 7)  # seven visible colours
+        for theme in ("bedtime", "leaving"):
+            # The K eyes are real opaque black pixels, not index-zero holes.
+            black_index = CHARACTER_SYMBOLS[theme]["K"]
+            self.assertGreater(black_index, 0)
+            self.assertEqual(CHARACTER_COLORS[theme][black_index], 0)
         for theme in SEMANTIC_THEMES:
             self.assertEqual(len(CHARACTER_ROWS[theme]), 13)
             self.assertTrue(all(len(row) == 13 for row in CHARACTER_ROWS[theme]))
@@ -97,6 +105,10 @@ class SemanticTimerTests(unittest.TestCase):
                     renderer._show_alexa_timer(screen, 1)
                     self.assertEqual(renderer._timer_pending_label, None)
                     self.assertEqual(len(renderer._timer_actor_frames), 1)
+                    self.assertEqual(sum(tile.x == -20
+                                         for tile in renderer._timer_markers), 5)
+                    marker_color = renderer._timer_markers[0].pixel_shader[1]
+                    self.assertEqual(marker_color, 0xFFFF00)
                     actor = renderer._timer_actor_frames[0]
                     self.assertEqual((actor.x, actor.y),
                                      semantic_character_position(theme, 195, .5))
@@ -115,6 +127,38 @@ class SemanticTimerTests(unittest.TestCase):
                     self.assertTrue(any(isinstance(item, Grid) and
                         (item.bitmap.width, item.bitmap.height) == (194, 32)
                         for item in renderer.display.root_group))
+
+    def test_software_fallback_completion_and_pending_stale_marker(self):
+        # Exercise both early-return branches; completion must initialize
+        # elapsed and show the green clock without breaking STALE status.
+        import display
+        for theme in SEMANTIC_THEMES:
+            for state in ("pending", "complete"):
+                with self.subTest(theme=theme, state=state):
+                    renderer = display.MatrixDisplay.__new__(display.MatrixDisplay)
+                    pixels, labels = [], []
+                    renderer._pixel = lambda x, y, rgb: pixels.append((x, y, rgb))
+                    renderer._text = lambda text, x, y, rgb: labels.append((text, rgb))
+                    screen = {"kind": "alexa_timer", "theme": theme,
+                              "timer_id": "abc", "state": ("running" if state == "pending"
+                                                          else "complete"),
+                              "theme_status": state, "remaining_seconds": 0,
+                              "progress": 1.0, "completion_elapsed_seconds": .5,
+                              "upstream_stale": True}
+                    renderer._draw_screen(screen, .5)
+                    self.assertIn("STALE", [label for label, _ in labels])
+                    if state == "pending":
+                        self.assertIn("Timer Started:", [label for label, _ in labels])
+                    else:
+                        self.assertIn((0, 255, 0), [rgb for _, _, rgb in pixels])
+
+    def test_simulator_loading_and_rounding_match_hardware(self):
+        simulator = (ROOT / "simulator/index.html").read_text()
+        self.assertIn("function timerPythonRound(n)", simulator)
+        self.assertIn("timerPythonRound(-width+(target+width)", simulator)
+        self.assertIn("return timerPythonRound(13+(end-13)", simulator)
+        self.assertIn("done,semantic)", simulator)
+        self.assertIn("'#0000ff','#ff00ff','#ff0000'", simulator)
 
     @staticmethod
     def snapshot(timestamp, timers):
