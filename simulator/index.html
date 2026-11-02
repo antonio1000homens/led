@@ -1773,16 +1773,21 @@
       const rows=SEMANTIC_DESTINATIONS[theme],width=rows[0].length*2,height=rows.length*2;
       return [Math.max(0,clockX-width-4),Math.floor((32-height)/2)];
     }
+    // CircuitPython uses Python's round-to-even, unlike JavaScript's Math.round.
+    function timerPythonRound(n) {
+      const lower=Math.floor(n);
+      return n-lower===0.5 ? (lower%2===0?lower:lower+1) : Math.round(n);
+    }
     function semanticActorPosition(theme,clockX,progress,completed=false,dy=0){
       const rows=SEMANTIC_CHARACTERS[theme],width=rows[0].length*2,height=rows.length*2;
       const dest=semanticDestPosition(theme,clockX)[0];
       const target=dest-width-3;
-      const x=completed?target:Math.round(-width+(target+width)*Math.max(0,Math.min(1,progress)));
+      const x=completed?target:timerPythonRound(-width+(target+width)*Math.max(0,Math.min(1,progress)));
       return [x,Math.max(0,Math.min(32-height,32-height+Math.trunc(dy)))];
     }
     function semanticMarkerX(theme,clockX,index){
       const end=semanticDestPosition(theme,clockX)[0]-6;
-      return Math.round(13+(end-13)*(index+1)/10)-3;
+      return timerPythonRound(13+(end-13)*(index+1)/10)-3;
     }
     function semanticBackground(theme,t){
       const cols={bedtime:['#000000','#0000ff','#000000','#0000ff','#ffff00','#ffffff','#0000ff','#000000'],
@@ -1819,7 +1824,9 @@
       drawAlexaTimerSprite(SEMANTIC_CHARACTERS[theme],SEMANTIC_CHAR_COLORS[theme],x,y,2);
     }
     function drawTimerPending(t){
-      const steps=['#00ffff','#ffffff','#ffff00','#00ff00'];
+      // Black is a valid LED colour but not a readable text colour on black.
+      const steps=['#00ffff','#0000ff','#ff00ff','#ff0000',
+        '#ffff00','#00ff00','#ffffff','#ffffff'];
       context.fillStyle=steps[Math.floor(Math.max(0,t)*3)%steps.length];
       drawLedText('Timer Started:',5*FONT_PIXEL_SCALE,17*FONT_PIXEL_SCALE);
     }
@@ -1951,12 +1958,12 @@
       if(theme==='rocket')return [[25+tick%7,7],[87,16+tick%3]];
       return [[27+tick%5,6],[124-tick%5,17]];
     }
-    function drawAlexaTimerClock(label, done) {
+    function drawAlexaTimerClock(label, done, semantic = false) {
       const layout=alexaTimerClockLayout(label);
       for(let i=0;i<label.length;i++){
         const glyph=ALEXA_TIMER_FONT[label[i]];
         for(let y=0;y<7;y++)for(let x=0;x<3;x++)if(glyph[y][x]==='1'){
-          context.fillStyle=done?'#b2ffbd':'#ffffff';
+          context.fillStyle=done?(semantic?'#00ff00':'#b2ffbd'):'#ffffff';
           context.fillRect((layout.x+(i*4+x)*layout.scale)*FONT_PIXEL_SCALE,
             (layout.y+y*layout.scale)*FONT_PIXEL_SCALE,
             layout.scale*FONT_PIXEL_SCALE,layout.scale*FONT_PIXEL_SCALE);
@@ -2159,7 +2166,7 @@
         if(pending||semantic){
           if(pending)drawTimerPending(rawPhase);
           else drawSemanticTimer(theme,progress,done,finishElapsed,alexaTimerClockLayout(label).x);
-          drawAlexaTimerClock(label,done);
+          drawAlexaTimerClock(label,done,semantic);
           suppressHeader=true;
           status.dataset.detail='Alexa timer · '+(pending?'classifying':theme)+' · '+label;
         }else{
