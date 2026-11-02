@@ -40,7 +40,7 @@ from timer_visuals import (
     ACCENT_ROWS, ACCENT_COLORS, accent_positions,
 )
 from timer_semantic import (
-    SEMANTIC_THEMES, CHARACTER_ROWS, CHARACTER_COLORS, CHARACTER_SYMBOLS,
+    SEMANTIC_THEMES, PENDING_COLOURS, CHARACTER_ROWS, CHARACTER_COLORS, CHARACTER_SYMBOLS,
     DESTINATION_ROWS, DESTINATION_COLORS, DESTINATION_SYMBOLS,
     SEMANTIC_BACKGROUND_COLORS, SEMANTIC_ACCENT_COLORS,
     SEMANTIC_ACCENT_ROWS, destination_position, semantic_character_position,
@@ -3633,7 +3633,8 @@ class MatrixDisplay:
             if screen.get("upstream_stale"):
                 self._label(group, "STALE", 0x888888, 0, 1)
             palette = displayio.Palette(2)
-            palette[0], palette[1] = 0, (0xB2FFBD if complete else 0xFFFFFF)
+            palette[0], palette[1] = 0, (0x00FF00 if semantic and complete else
+                                         0xB2FFBD if complete else 0xFFFFFF)
             palette.make_transparent(0)
             clock_bitmap = displayio.Bitmap(clock_width, 7 * scale, 2)
             clock_grid = displayio.TileGrid(clock_bitmap, pixel_shader=palette,
@@ -3652,7 +3653,7 @@ class MatrixDisplay:
                         scale=TIMER_APPLE_SCALE)
                 else:
                     rows = ("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..") if theme == "stars" else ("YYYYYYY", "YYYYYYY")
-                    marker = self._timer_sprite(rows, (0, 0xFFE36A),
+                    marker = self._timer_sprite(rows, (0, 0xFFFF00 if semantic else 0xFFE36A),
                                                 {".": 0, "Y": 1})
                 for i in range(TIMER_APPLE_COUNT):
                     if i == 0:
@@ -3699,8 +3700,7 @@ class MatrixDisplay:
             changed = True
         if pending:
             # Palette-stepped colour animation is legible at 1-bit/channel.
-            steps = (0x00FFFF, 0xFFFFFF, 0xFFFF00, 0x00FF00)
-            color = steps[int(max(0.0, float(phase)) * 3) % len(steps)]
+            color = PENDING_COLOURS[int(max(0.0, float(phase)) * 3) % len(PENDING_COLOURS)]
             if color != self._timer_pending_color:
                 self._timer_pending_label.color = color
                 self._timer_pending_color = color
@@ -3710,10 +3710,10 @@ class MatrixDisplay:
             eaten = timer_apples_eaten(progress)
             if eaten != self._timer_markers_eaten:
                 for i, tile in enumerate(self._timer_markers):
-                    x = (semantic_marker_x(theme, clock_x, i) if semantic
-                         else timer_apple_center(clock_x, i) -
-                         (4 * TIMER_APPLE_SCALE if theme == "caterpillar" else 3)
-                         if i >= eaten else -20)
+                    x = (-20 if i < eaten else
+                         semantic_marker_x(theme, clock_x, i) if semantic else
+                         timer_apple_center(clock_x, i) -
+                         (4 * TIMER_APPLE_SCALE if theme == "caterpillar" else 3))
                     y = 12 if theme == "caterpillar" else (21 if theme == "stars" else 28)
                     if tile.x != x or tile.y != y:
                         tile.x, tile.y = x, y
@@ -5438,6 +5438,7 @@ class FixtureDisplay:
             progress = screen.get("progress") or 0
             complete = screen.get("state") == "complete"
             theme = screen.get("theme")
+            elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
             pending = screen.get("theme_status") == "pending" and not complete
             semantic = theme in SEMANTIC_THEMES
             if pending or semantic:
@@ -5464,13 +5465,14 @@ class FixtureDisplay:
                                 for dy in range(scale):
                                     for dx in range(scale):
                                         self._pixel(clock_x + (ci * 4 + xx) * scale + dx,
-                                            clock_y + yy * scale + dy, (255, 255, 255))
+                                            clock_y + yy * scale + dy,
+                                            (0, 255, 0) if complete else (255, 255, 255))
+                if screen.get("upstream_stale"):
+                    self._text("STALE", 0, 1, (136, 136, 136))
                 if pending:
-                    color = (0x00FFFF, 0xFFFFFF, 0xFFFF00, 0x00FF00)[
-                        int(max(0.0, float(phase)) * 3) % 4]
+                    color = PENDING_COLOURS[
+                        int(max(0.0, float(phase)) * 3) % len(PENDING_COLOURS)]
                     self._text("Timer Started:", 5, 17, _rgb_tuple(color))
-                    if screen.get("upstream_stale"):
-                        self._text("STALE", 0, 1, (136, 136, 136))
                     return
                 if not complete:
                     eaten = timer_apples_eaten(progress)
@@ -5481,7 +5483,7 @@ class FixtureDisplay:
                                 self._pixel(mx + xx, 28 + yy, _rgb_tuple(0xFFFF00))
                 else:
                     elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
-                    for ax, ay in semantic_accent_positions(theme, elapsed)
+                    for ax, ay in semantic_accent_positions(theme, elapsed):
                         for yy, row in enumerate(SEMANTIC_ACCENT_ROWS[theme]):
                             for xx, char in enumerate(row):
                                 if char == "S":
