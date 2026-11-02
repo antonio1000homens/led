@@ -155,8 +155,9 @@ Do not change the retained MQTT topics or top-level event fields.
   cycling on the left and the actual countdown on the right; omit `theme`.
 - `theme_status: ready`: require
   `theme: bedtime|leaving|timeout|generic`. `theme` without status is also
-  allowed for publisher compatibility. No theme metadata retains older
-  firmware's label/ID theme choice.
+  allowed for publisher compatibility. Without theme metadata, named timers
+  keep label-based theme selection and unnamed timers use the racing-car
+  default.
 - New explicit semantic destinations are **bed** (bedtime), **door** (leaving)
   and **tablet/iPad** (timeout), fixed immediately left of the right-edge clock.
   Generic resolves to one of the pre-existing caterpillar/car/rocket/stars
@@ -190,4 +191,18 @@ Deploy this LED firmware **before** enabling
 and issue [homeassistant#67](https://github.com/antonio1000homens/homeassistant/issues/67).
 The Home Assistant switch is disabled by default and should publish the old
 contract until explicitly enabled after board deployment.
+
+## Latest firmware deployment (2 November 2026)
+
+LED `master` at `c79db3bb` (including PR #334) was uploaded to the MatrixPortal
+S3, UID `86EEF87F7005`. The uploader verified SHA-256 readback for all 36
+application files and uploaded `code.py` last. After reload, the same board
+identity responded; serial showed successful screen fetches (`FETCH OK
+screens=18`) and normal rotation. The user confirmed the physical board looked
+normal after reload. This verifies firmware startup and ordinary rotation, not
+an Alexa timer scene or the semantic-theme handoff.
+
+This deployment preceded the unnamed race-car default fix in this change. A
+fresh timer run after the fix is merged and deployed is still needed to verify
+the physical racing-car theme.
 
