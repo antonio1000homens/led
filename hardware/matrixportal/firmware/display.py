@@ -5469,6 +5469,8 @@ class FixtureDisplay:
                     color = (0x00FFFF, 0xFFFFFF, 0xFFFF00, 0x00FF00)[
                         int(max(0.0, float(phase)) * 3) % 4]
                     self._text("Timer Started:", 5, 17, _rgb_tuple(color))
+                    if screen.get("upstream_stale"):
+                        self._text("STALE", 0, 1, (136, 136, 136))
                     return
                 if not complete:
                     eaten = timer_apples_eaten(progress)
