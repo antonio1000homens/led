@@ -305,7 +305,8 @@ class TimerState:
                 result["remaining_seconds"] = 0
                 result["duration_seconds"] = 1
                 result["progress"] = 1.0
-                result["label"] = ""
+                # Preserve the label to keep legacy artwork stable at zero.
+                result["label"] = self.completed_label
                 result["stale"] = stale
                 origin = (self.completed_at_monotonic if use_monotonic
                           else self.completed_at_epoch)
