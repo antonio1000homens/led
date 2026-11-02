@@ -44,8 +44,8 @@
       <button id="previous" type="button">Previous screen</button>
       <button id="next" type="button">Next screen</button>
       <button id="bin-preview" type="button">Preview recycling screen</button>
-      <button id="timer-preview" type="button">Preview Alexa timer</button>
-      <button id="hall-timer-preview" type="button">Preview Hall Alexa timer</button>
+      <button id="timer-preview" type="button">Preview themed Alexa timers</button>
+      <button id="hall-timer-preview" type="button">Preview Hall themed timers</button>
       <button id="football-preview" type="button">Preview football</button>
       <button id="sl7-preview" type="button">Preview SL7 buses</button>
       <button id="flash-preview" type="button">Preview reminder flash</button>
@@ -2152,7 +2152,7 @@
         const seconds=remaining%60;
         const label=hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`:
           `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-        const pending=screen.theme_status==='pending'&&!done;
+        const pending=(screen.theme_status==='pending' || (screen.preview_ai_pending && rawPhase<2))&&!done;
         const semantic=SEMANTIC_TIMER_THEMES.includes(screen.theme);
         const theme=semantic?screen.theme:
           ALEXA_TIMER_THEMES.includes(screen.theme)?screen.theme:alexaTimerTheme(screen.timer_id,screen.label);
@@ -2616,27 +2616,27 @@
       status.dataset.detail = 'Football fixture preview · PRE, UK-local kick-off and pinned ball';
     });
     document.getElementById('timer-preview').addEventListener('click', () => {
-      screens=ALEXA_TIMER_THEMES.map(theme=>({
+      screens=['bedtime','leaving','timeout','generic'].map(theme=>({
         id:'alexa-'+theme+'-preview',kind:'alexa_timer',source:'simulator',
         timer_id:'preview-'+theme,device:'living-room-alexa',state:'running',
         title:'Living room Alexa timer',
-        theme,duration_seconds:15,timer_duration_seconds:10
+        theme,preview_ai_pending:true,duration_seconds:15,timer_duration_seconds:10
       }));
       screenOffset=0;
       paused=false;
       pauseStarted=performance.now();
-      status.dataset.detail='Living room Alexa · four timer themes · 10s countdown + 5s finish each';
+      status.dataset.detail='Living room Alexa · four semantic themes · 2s pending, 10s countdown, 5s finish';
     });
     document.getElementById('hall-timer-preview').addEventListener('click', () => {
-      screens=ALEXA_TIMER_THEMES.map(theme=>({
+      screens=['bedtime','leaving','timeout','generic'].map(theme=>({
         id:'alexa-hall-'+theme+'-preview',kind:'alexa_timer',source:'simulator',
         timer_id:'hall-preview-'+theme,device:'hall-alexa',state:'running',
-        title:'Hall Alexa timer',theme,duration_seconds:15,timer_duration_seconds:10
+        title:'Hall Alexa timer',theme,preview_ai_pending:true,duration_seconds:15,timer_duration_seconds:10
       }));
       screenOffset=0;
       paused=false;
       pauseStarted=performance.now();
-      status.dataset.detail='Hall Alexa · four timer themes · 10s countdown + 5s finish each';
+      status.dataset.detail='Hall Alexa · four semantic themes · 2s pending, 10s countdown, 5s finish';
     });
     document.getElementById('sl7-preview').addEventListener('click', () => {
       const now = Date.now();
