@@ -3710,7 +3710,8 @@ class MatrixDisplay:
             eaten = timer_apples_eaten(progress)
             if eaten != self._timer_markers_eaten:
                 for i, tile in enumerate(self._timer_markers):
-                    x = (timer_apple_center(clock_x, i) -
+                    x = (semantic_marker_x(theme, clock_x, i) if semantic
+                         else timer_apple_center(clock_x, i) -
                          (4 * TIMER_APPLE_SCALE if theme == "caterpillar" else 3)
                          if i >= eaten else -20)
                     y = 12 if theme == "caterpillar" else (21 if theme == "stars" else 28)
