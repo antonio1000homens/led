@@ -3570,7 +3570,7 @@ class MatrixDisplay:
         complete = state == "complete"
         running = state == "running"
         theme = screen.get("theme")
-        if theme not in SEMANTIC_THEMES:
+        if theme not in SEMANTIC_THEMES and theme not in TIMER_THEMES:
             # "generic" retains the existing four-artwork selection, while
             # old publishers lacking a theme remain fully compatible.
             theme = theme_for_timer(screen.get("timer_id"), screen.get("label"))
