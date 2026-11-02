@@ -135,7 +135,7 @@ class SemanticTimerTests(unittest.TestCase):
         for theme in SEMANTIC_THEMES:
             for state in ("pending", "complete"):
                 with self.subTest(theme=theme, state=state):
-                    renderer = display.MatrixDisplay.__new__(display.MatrixDisplay)
+                    renderer = display.FixtureDisplay.__new__(display.FixtureDisplay)
                     pixels, labels = [], []
                     renderer._pixel = lambda x, y, rgb: pixels.append((x, y, rgb))
                     renderer._text = lambda text, x, y, rgb: labels.append((text, rgb))
