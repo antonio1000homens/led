@@ -8,14 +8,14 @@ SEMANTIC_THEMES = ("bedtime", "leaving", "timeout")
 CHARACTER_ROWS = {
     "bedtime": (
         "...YY...YY...", "..YYYYYYYYY..", ".YYYYYYYYYYY.",
-        ".YYKYYYYKYY.", ".YYYYYYYYYYY.", "..YYYRRYYY..",
+        ".YYKYYYYKYY..", ".YYYYYYYYYYY.", "..YYYRRYYY...",
         "...YYYYYYY...", "...BBBBBBB...", "..BBBBBBBBB..",
         "..BBBBBBBBB..", "...BB...BB...", "...BB...BB...",
         "..YYY...YYY..",
     ),
     "leaving": (
         "....RRRRR....", "...RRRRRRR...", "...YYYYYYY...",
-        "...YKYKY...", "...YYYYYYY...", "....YYY......",
+        "...YKYKY.....", "...YYYYYYY...", "....YYY......",
         "..MMBBBBBB...", "..MMBBBBBB...", "..MMBBBBBB...",
         "....BBBB.....", "....B..B.....", "...WW..WW....",
         "...WW..WW....",
