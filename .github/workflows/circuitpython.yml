@@ -31,6 +31,7 @@ on:
       - 'tests/test_screen_client.py'
       - 'tests/test_timer_state.py'
       - 'tests/test_timer_visuals.py'
+      - 'tests/test_timer_semantic.py'
       - 'tests/test_upload_firmware_wifi.py'
       - 'tests/test_wifi_startup.py'
   push:
@@ -53,6 +54,7 @@ on:
       - 'tests/test_reminder_clock_loop.py'
       - 'tests/test_timer_state.py'
       - 'tests/test_timer_visuals.py'
+      - 'tests/test_timer_semantic.py'
   workflow_dispatch:
 
 permissions:
@@ -119,6 +121,7 @@ jobs:
             test_screen_client.py
             test_timer_state.py
             test_timer_visuals.py
+            test_timer_semantic.py
             test_upload_firmware_wifi.py
             test_wifi_startup.py
           )

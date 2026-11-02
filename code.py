@@ -1440,6 +1440,8 @@ while True:
                 "state": active_timer["state"],
                 "upstream_stale": active_timer.get("stale", False),
                 "label": active_timer.get("label", ""),
+                "theme": active_timer.get("theme"),
+                "theme_status": active_timer.get("theme_status"),
                 "completion_elapsed_seconds": active_timer.get("completion_elapsed_seconds", 0),
             }
             phase = (float(now) if active_timer["state"] == "running"

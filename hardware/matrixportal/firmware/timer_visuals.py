@@ -57,6 +57,10 @@ def clock_layout(text):
 def finish_pose(theme, seconds):
     """Return rotation quarter-turns, x offset, y offset (negative rises)."""
     t = min(1.0, max(0.0, float(seconds or 0) / FINISH_MOTION_SECONDS))
+    if theme in ("bedtime", "leaving", "timeout"):
+        # These actors reach the fixed bed/door/tablet; remain upright.
+        lift = max(0, int(round(3 * sin(pi * t)))) if t < 1 else 0
+        return 0, 0, -lift
     if theme == "caterpillar":
         if t < 0.5:
             lift = 4 * sin(pi * 2 * t)
