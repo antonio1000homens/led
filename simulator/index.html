@@ -1738,6 +1738,91 @@
     }
     // Keep the simulator's tiny 3x7 clock and finish-only scenery in
     // parity with timer_visuals.py (no downloaded image files).
+    const SEMANTIC_TIMER_THEMES=['bedtime','leaving','timeout'];
+    // Identical 2x indexed-pixel source rows to timer_semantic.py.
+    const SEMANTIC_CHARACTERS={
+      bedtime:['...YY...YY...','..YYYYYYYYY..','.YYYYYYYYYYY.','.YYKYYYYKYY.',
+        '.YYYYYYYYYYY.','..YYYRRYYY..','...YYYYYYY...','...BBBBBBB...',
+        '..BBBBBBBBB..','..BBBBBBBBB..','...BB...BB...','...BB...BB...','..YYY...YYY..'],
+      leaving:['....RRRRR....','...RRRRRRR...','...YYYYYYY...','...YKYKY...',
+        '...YYYYYYY...','....YYY......','..MMBBBBBB...','..MMBBBBBB...',
+        '..MMBBBBBB...','....BBBB.....','....B..B.....','...WW..WW....','...WW..WW....'],
+      timeout:['..WWWWWWWWW..','...W.....W...','....WCCCW....','.....WCW.....',
+        '......W......','.....WWW.....','....WCCCW....','.....WWW.....',
+        '......W......','.....WCW.....','....WCCCW....','...W.....W...','..WWWWWWWWW..']
+    };
+    const SEMANTIC_DESTINATIONS={
+      bedtime:['........','...WWW..','...WWWW.','YYYYYYYY','YYYYYYYY',
+        'YYYYYYYY','WWWWWWWW','W......W','W......W'],
+      leaving:['.WWWWW.','.W...W.','.W...W.','.W...W.','.W...W.',
+        '.W...W.','.W...Y.','.W...W.','.W...W.','.W...W.','.W...W.','WWWWWWW'],
+      timeout:['.WWWWWW.','WBBBBBBW','WBCCCCBW','WBCCCCBW','WBCCCCBW',
+        'WBCCCCBW','WBCCCCBW','WBCCCCBW','WBBBBBBW','WBBBBBBW','.WWWWWW.']
+    };
+    const SEMANTIC_CHAR_COLORS={
+      bedtime:{Y:'#ffff00',K:'#000000',B:'#0000ff',R:'#ff0000'},
+      leaving:{R:'#ff0000',Y:'#ffff00',K:'#000000',B:'#0000ff',M:'#ff00ff',W:'#ffffff'},
+      timeout:{W:'#ffffff',C:'#00ffff'}
+    };
+    const SEMANTIC_DEST_COLORS={
+      bedtime:{W:'#ffffff',Y:'#ffff00'},
+      leaving:{W:'#ffffff',Y:'#ffff00'},
+      timeout:{W:'#ffffff',B:'#0000ff',C:'#00ffff'}
+    };
+    function semanticDestPosition(theme,clockX){
+      const rows=SEMANTIC_DESTINATIONS[theme],width=rows[0].length*2,height=rows.length*2;
+      return [Math.max(0,clockX-width-4),Math.floor((32-height)/2)];
+    }
+    function semanticActorPosition(theme,clockX,progress,completed=false,dy=0){
+      const rows=SEMANTIC_CHARACTERS[theme],width=rows[0].length*2,height=rows.length*2;
+      const dest=semanticDestPosition(theme,clockX)[0];
+      const target=dest-width-3;
+      const x=completed?target:Math.round(-width+(target+width)*Math.max(0,Math.min(1,progress)));
+      return [x,Math.max(0,Math.min(32-height,32-height+Math.trunc(dy)))];
+    }
+    function semanticMarkerX(theme,clockX,index){
+      const end=semanticDestPosition(theme,clockX)[0]-6;
+      return Math.round(13+(end-13)*(index+1)/10)-3;
+    }
+    function semanticBackground(theme,t){
+      const cols={bedtime:['#000000','#0000ff','#000000','#0000ff','#ffff00','#ffffff','#0000ff','#000000'],
+        leaving:['#000000','#0000ff','#00ff00','#00ff00','#ffff00','#ff0000','#00ffff','#ffffff'],
+        timeout:['#000000','#0000ff','#000000','#0000ff','#00ffff','#ffffff','#0000ff','#000000']};
+      const bg=cols[theme];
+      for(let y=0;y<32;y++)for(let x=0;x<194;x++){
+        let idx=0;
+        if(theme==='bedtime')idx=y>=29?6:(x*11+y*17)%113===0?5:1;
+        else if(theme==='leaving')idx=y>=27?2:y>=5&&y<=25&&(x%55===0||x%55===1)?7:y>=22?3:1;
+        else idx=y>=29?6:(x*17+y*11)%127===0?4:1;
+        context.fillStyle=bg[idx];context.fillRect(x*FONT_PIXEL_SCALE,y*FONT_PIXEL_SCALE,FONT_PIXEL_SCALE,FONT_PIXEL_SCALE);
+      }
+      const tick=Math.floor(t*4);
+      const positions=theme==='bedtime'?[[19+tick%7,5],[92+tick%5,13]]:
+        theme==='leaving'?[[26+tick%10,8],[103+tick%10,14]]:
+        [[26+tick%7,10],[107-tick%7,17]];
+      const accents=theme==='leaving'?['SSSS','SSSS']:['..S..','.SSS.','SSSSS','.SSS.','..S..'];
+      for(const [x,y] of positions)drawAlexaTimerSprite(accents,{S:theme==='bedtime'?'#ffffff':'#00ffff'},x,y);
+    }
+    function drawSemanticTimer(theme,progress,done,finishElapsed,clockX){
+      if(done)semanticBackground(theme,finishElapsed);
+      const [dx,dy]=semanticDestPosition(theme,clockX);
+      drawAlexaTimerSprite(SEMANTIC_DESTINATIONS[theme],SEMANTIC_DEST_COLORS[theme],dx,dy,2);
+      if(!done){
+        const eaten=Math.floor(progress*10);
+        for(let i=eaten;i<10;i++){
+          const x=semanticMarkerX(theme,clockX,i);
+          drawAlexaTimerSprite(['YYYYYYY','YYYYYYY'],{Y:'#ffff00'},x,28);
+        }
+      }
+      const lift=done&&finishElapsed<1.5?-Math.max(0,Math.round(3*Math.sin(Math.PI*finishElapsed/1.5))):0;
+      const [x,y]=semanticActorPosition(theme,clockX,progress,done,lift);
+      drawAlexaTimerSprite(SEMANTIC_CHARACTERS[theme],SEMANTIC_CHAR_COLORS[theme],x,y,2);
+    }
+    function drawTimerPending(t){
+      const steps=['#00ffff','#ffffff','#ffff00','#00ff00'];
+      context.fillStyle=steps[Math.floor(Math.max(0,t)*3)%steps.length];
+      drawLedText('Timer Started:',5*FONT_PIXEL_SCALE,17*FONT_PIXEL_SCALE);
+    }
     const ALEXA_TIMER_THEMES = ['caterpillar', 'race', 'rocket', 'stars'];
     const ALEXA_TIMER_ACTOR_SCALE = 2;
     const ALEXA_TIMER_APPLE_SCALE = 2;
@@ -2067,7 +2152,17 @@
         const seconds=remaining%60;
         const label=hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`:
           `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-        const theme=ALEXA_TIMER_THEMES.includes(screen.theme)?screen.theme:alexaTimerTheme(screen.timer_id,screen.label);
+        const pending=screen.theme_status==='pending'&&!done;
+        const semantic=SEMANTIC_TIMER_THEMES.includes(screen.theme);
+        const theme=semantic?screen.theme:
+          ALEXA_TIMER_THEMES.includes(screen.theme)?screen.theme:alexaTimerTheme(screen.timer_id,screen.label);
+        if(pending||semantic){
+          if(pending)drawTimerPending(rawPhase);
+          else drawSemanticTimer(theme,progress,done,finishElapsed,alexaTimerClockLayout(label).x);
+          drawAlexaTimerClock(label,done);
+          suppressHeader=true;
+          status.dataset.detail='Alexa timer · '+(pending?'classifying':theme)+' · '+label;
+        }else{
         if(done){
           drawAlexaTimerBackground(theme);
           const positions=alexaTimerAccentPositions(theme,finishElapsed);
@@ -2109,6 +2204,7 @@
         }
         suppressHeader=true;
         status.dataset.detail=`Alexa timer · ${done?'complete':screen.state||'running'} · ${theme} · ${label}`;
+        }
       } else if (screen.kind === 'football_score') {
         drawFootball(screen, phase);
         suppressHeader = true;
