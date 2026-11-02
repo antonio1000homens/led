@@ -72,6 +72,19 @@ PALETTES_1BIT = {
     },
 }
 
+def _quantize_2bit(value):
+    """Round one RGB channel to a representable two-bit output level."""
+    return min(255, ((int(value) + 42) // 85) * 85)
+
+
+PALETTES_2BIT = {
+    kind: {
+        key: tuple(_quantize_2bit(channel) for channel in rgb)
+        for key, rgb in colors.items()
+    }
+    for kind, colors in PALETTES.items()
+}
+
 ROWS = {
     'paper': (
         '....................................................................................',
@@ -143,14 +156,16 @@ INDEX = {'.': 0, 'O': 1, 'N': 2, 'K': 3, 'W': 4,
 
 
 def draw(plot_pixel, x, y=DEFAULT_Y, kind='paper',
-         display_width=256, display_height=32, limited_palette=False):
+         display_width=256, display_height=32, limited_palette=False,
+         two_bit_palette=False):
     """Plot a clipped sprite. plot_pixel(px, py, (r,g,b)).
 
     Works with an existing RGB framebuffer and pixel callback. Does NOT
     clear previously drawn pixels; clear/rebuild the frame before calling.
     """
     data = ROWS[kind]
-    colors = PALETTES_1BIT[kind] if limited_palette else PALETTES[kind]
+    colors = (PALETTES_1BIT[kind] if limited_palette else
+              PALETTES_2BIT[kind] if two_bit_palette else PALETTES[kind])
     start_x = max(0, -x)
     stop_x = min(WIDTH, display_width - x)
     start_y = max(0, -y)
@@ -189,7 +204,7 @@ def draw_indexed(bitmap, x, y=DEFAULT_Y, kind='paper',
                 bitmap[x + dx, py] = INDEX[key]
 
 
-def palette_for(kind='paper', limited_palette=False):
+def palette_for(kind='paper', limited_palette=False, two_bit_palette=False):
     """Create a displayio.Palette with index 0 as black background.
 
     Use with a displayio.Bitmap(256, 32, len(INDEX)) in an RGB LED matrix.
@@ -197,7 +212,8 @@ def palette_for(kind='paper', limited_palette=False):
     import displayio
     palette = displayio.Palette(len(INDEX))
     palette[0] = 0x000000
-    colors = PALETTES_1BIT[kind] if limited_palette else PALETTES[kind]
+    colors = (PALETTES_1BIT[kind] if limited_palette else
+              PALETTES_2BIT[kind] if two_bit_palette else PALETTES[kind])
     for key in colors:
         r,g,b = colors[key]
         palette[INDEX[key]] = (r << 16) | (g << 8) | b

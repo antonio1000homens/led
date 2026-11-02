@@ -147,6 +147,11 @@ SPRITE_COLORS = {
     "rocket": (0, 0xE9F2FF, 0x59C4F4, 0xF46872),
     "stars": (0, 0xFFE36A),
 }
+SPRITE_COLORS_2BIT = {
+    "race": (0, 0xFF5555, 0x55AAFF, 0x000055, 0xFFAA00),
+    "rocket": (0, 0xFFFFFF, 0x00AAFF, 0xFF5555),
+    "stars": (0, 0xFFAA00),
+}
 SPRITE_SYMBOLS = {
     "race": {".": 0, "R": 1, "B": 2, "D": 3, "Y": 4},
     "rocket": {".": 0, "W": 1, "B": 2, "R": 3},
@@ -204,6 +209,19 @@ BACKGROUND_COLORS = {
               0xFAD56F, 0x72D4FF, 0xD9A1D9, 0x6C599A),
 }
 
+# Muted, intentional palettes tuned to the 4 x 4 x 4 output cube of the
+# 2-bit-per-channel panel. BACKGROUND_COLORS remains the legacy set.
+BACKGROUND_COLORS_2BIT = {
+    "caterpillar": (0x000055, 0x005500, 0x00AA00, 0x55FF55,
+                    0xFFAA00, 0xFF55AA, 0x55AAFF, 0x005500),
+    "race": (0x000055, 0x555555, 0x555555, 0xAAAAAA,
+             0xFFAA00, 0xFF5555, 0x55FFAA, 0x55AAFF),
+    "rocket": (0x000055, 0x000055, 0x0055AA, 0x00AAFF,
+               0x55AA55, 0x55AAFF, 0x555555, 0xAAFFFF),
+    "stars": (0x550055, 0x550055, 0x5500AA, 0xAA55FF,
+              0xFFAA00, 0x55AAFF, 0xFFAAFF, 0x5555AA),
+}
+
 
 def background_index(theme, x, y):
     """Index into the theme's 8-colour background palette."""
@@ -251,6 +269,12 @@ ACCENT_COLORS = {
     "race": 0xF6F5FF,
     "rocket": 0xD1ECFF,
     "stars": 0xF9C86E,
+}
+ACCENT_COLORS_2BIT = {
+    "caterpillar": 0x55AAFF,
+    "race": 0xFFFFFF,
+    "rocket": 0xAAFFFF,
+    "stars": 0xFFAA00,
 }
 
 

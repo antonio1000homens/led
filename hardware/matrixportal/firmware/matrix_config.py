@@ -101,9 +101,19 @@ try:
 except KeyError:
     raise ValueError("Unknown MATRIX_EXPERIMENT_PRESET: {}".format(MATRIX_EXPERIMENT_PRESET))
 
-# One bit per RGB channel keeps maximum refresh headroom across four chained
-# panels while retaining the board's eight required colours.
-MATRIX_BIT_DEPTH = 1
+# Two bits per RGB channel are the default for enhanced imagery. This remains
+# one board-level Protomatter setting; settings_local.py can select 1 to retain
+# the original palette and lower-depth fallback across the full panel chain.
+MATRIX_BIT_DEPTH = 2
+try:
+    import settings_local as _bit_depth_settings_local
+    MATRIX_BIT_DEPTH = int(getattr(
+        _bit_depth_settings_local, "MATRIX_BIT_DEPTH", MATRIX_BIT_DEPTH
+    ))
+except ImportError:
+    pass
+if MATRIX_BIT_DEPTH not in (1, 2):
+    raise ValueError("MATRIX_BIT_DEPTH must be 1 or 2")
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
 # Use the speed delivered in the screen payload. A board-local override here
 # would silently defeat the Departures configuration and make long station

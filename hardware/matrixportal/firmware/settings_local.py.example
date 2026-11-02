@@ -6,6 +6,11 @@ POLL_SECONDS = 30
 ANIMATE = True
 FRAME_SECONDS = 0.2
 
+# Protomatter colour depth applies to the whole chained panel. Use 2 for the
+# enhanced palettes, or 1 to restore the original 8-colour compatible palette.
+# The artwork and enhanced palettes remain in the firmware in either mode.
+MATRIX_BIT_DEPTH = 2
+
 # Optional issue #94 override for a board-local comparison: adaptive,
 # transition_15, transition_20, or baseline. The checked-in default is
 # baseline; this changes transition cadence only and does not change

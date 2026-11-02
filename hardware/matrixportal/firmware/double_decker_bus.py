@@ -40,6 +40,21 @@ PALETTE_8 = {
     "G": (0, 0, 0),
 }
 
+# Four-level-per-channel colours give the existing detailed bus art softer
+# body highlights and window shadows at bit_depth=2.
+PALETTE_64 = {
+    "K": (0, 0, 0),
+    "R": (255, 0, 0),
+    "D": (170, 0, 0),
+    "H": (255, 85, 85),
+    "C": (85, 170, 255),
+    "B": (0, 85, 170),
+    "W": (255, 255, 255),
+    "Y": (255, 170, 0),
+    "S": (170, 170, 170),
+    "G": (85, 85, 85),
+}
+
 ROWS = (
     '......DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD.......',
     '......KHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHK.....',
@@ -96,8 +111,9 @@ ROWS_BLANK_SIGN = (
 
 # Works even when sprite x is negative or partly off-screen.
 def draw(plot_pixel, x, y, *, display_width=256, display_height=32,
-         limited_palette=False, blank_sign=False):
-    palette = PALETTE_8 if limited_palette else PALETTE
+         limited_palette=False, two_bit_palette=False, blank_sign=False):
+    palette = (PALETTE_8 if limited_palette else
+               PALETTE_64 if two_bit_palette else PALETTE)
     data = ROWS_BLANK_SIGN if blank_sign else ROWS
     for dy, row in enumerate(data):
         py = y + dy

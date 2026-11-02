@@ -856,8 +856,8 @@ class DisplayLayoutTests(unittest.TestCase):
 
         self.assertEqual(len(led_display._celestial_sprite_rows("clear_day")), 21)
         self.assertEqual(len(led_display._celestial_sprite_rows("clear_night")), 21)
-        self.assertEqual(led_display.WEATHER_SPRITE_PALETTE["Y"], 0xFFFF00)
-        self.assertEqual(led_display.WEATHER_SPRITE_PALETTE["B"], 0x0000FF)
+        self.assertEqual(led_display.WEATHER_SPRITE_PALETTE["Y"], 0xFFAA00)
+        self.assertEqual(led_display.WEATHER_SPRITE_PALETTE["B"], 0x0055FF)
 
         for phase in (
             led_display.SUN_WEATHER_TOTAL_ANIMATION_SECONDS,

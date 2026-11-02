@@ -3,6 +3,49 @@
 This folder contains a deliberately small CircuitPython smoke test for the
 physical HUB75 panels.
 
+## Enhanced 2-bit production application
+
+The production application defaults to Protomatter `bit_depth=2` across the
+entire four-panel chain. Weather sprites, football, the London bus/train art,
+recycling lorries, and child timer scenes use palettes chosen for the 64
+possible RGB combinations at two bits per channel. Their earlier one-bit
+palettes remain in the source and are selected by setting
+`MATRIX_BIT_DEPTH = 1` in the board-local `settings_local.py`; this is a
+whole-panel hardware setting, not a per-screen option.
+
+Create the uploadable application bundle with:
+
+```sh
+bash scripts/package-matrixportal-app.sh
+```
+
+The ZIP is written to
+`.build/artifacts/matrixportal-s3-circuitpython-app-2bit.zip`. Unzip its files
+directly onto the board's `CIRCUITPY` drive (or use the existing installer).
+It contains the project's `code.py`, firmware modules, font, certificate and
+shared helpers. It is an application payload, not a CircuitPython runtime
+`.uf2`; the board must already run a compatible CircuitPython build. It omits
+Wi-Fi settings, MQTT broker credentials and `lib/` dependencies so it cannot
+overwrite board-local configuration. Install runtime libraries listed in
+`requirements.txt` as usual.
+
+For a board-local rollback to one bit, use this setting before installing or
+restarting the application:
+
+```python
+MATRIX_BIT_DEPTH = 1
+```
+
+Delete that line or set it back to `2` to restore the enhanced 2-bit palette.
+The original palette data remains bundled in either mode. The default B8
+application presentation, screen layouts and animations, MQTT logic, and
+panel address/clock wiring are unchanged. `bit_depth=2` does increase
+Protomatter's colour-plane work and may affect available RAM, scan headroom,
+brightness and observed flicker; the exact margin depends on CircuitPython
+build options, panel hardware and power. Confirm normal brightness, stable
+four-panel scanning and no new flashes on the physical board before adopting
+it. The software build cannot validate those electrical results.
+
 ## Safe first connection
 
 Start with one panel:

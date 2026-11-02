@@ -81,6 +81,7 @@ class BusIntroAnimationTests(unittest.TestCase):
                 display._pixel, led_display.DISPLAY_WIDTH,
                 led_display.BUS_VERTICAL_OFFSET,
                 limited_palette=led_display.MATRIX_BIT_DEPTH == 1,
+                two_bit_palette=led_display.MATRIX_BIT_DEPTH == 2,
             )
             self.assertEqual(
                 display._text.call_args,

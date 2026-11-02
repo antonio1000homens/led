@@ -57,10 +57,20 @@ CHARACTER_COLORS = {
     "leaving": (0, 0xFF0000, 0xFFFF00, 0x0000FF, 0xFF00FF, 0xFFFFFF, 0x000000),
     "timeout": (0, 0xFFFFFF, 0x00FFFF),
 }
+CHARACTER_COLORS_2BIT = {
+    "bedtime": (0, 0xFFAA00, 0xFFFFFF, 0x0000AA, 0xFF5555, 0x000000),
+    "leaving": (0, 0xFF5555, 0xFFAA00, 0x0000AA, 0xAA00AA, 0xFFFFFF, 0x000000),
+    "timeout": (0, 0xFFFFFF, 0x00AAFF),
+}
 DESTINATION_COLORS = {
     "bedtime": (0, 0xFFFFFF, 0xFFFF00),
     "leaving": (0, 0xFFFFFF, 0xFFFF00),
     "timeout": (0, 0xFFFFFF, 0x0000FF, 0x00FFFF),
+}
+DESTINATION_COLORS_2BIT = {
+    "bedtime": (0, 0xFFFFFF, 0xFFAA00),
+    "leaving": (0, 0xFFFFFF, 0xFFAA00),
+    "timeout": (0, 0xFFFFFF, 0x0000AA, 0x00AAFF),
 }
 CHARACTER_SYMBOLS = {
     "bedtime": {".": 0, "Y": 1, "K": 5, "B": 3, "R": 4},
@@ -80,10 +90,23 @@ SEMANTIC_BACKGROUND_COLORS = {
     "timeout": (0x000000, 0x0000FF, 0x000000, 0x0000FF,
                 0x00FFFF, 0xFFFFFF, 0x0000FF, 0x000000),
 }
+SEMANTIC_BACKGROUND_COLORS_2BIT = {
+    "bedtime": (0x000000, 0x000055, 0x000000, 0x000055,
+                0xFFAA00, 0xFFFFFF, 0x0000AA, 0x000000),
+    "leaving": (0x000000, 0x000055, 0x005500, 0x00AA00,
+                0xFFAA00, 0xFF0000, 0x00AAFF, 0xFFFFFF),
+    "timeout": (0x000000, 0x000055, 0x000000, 0x000055,
+                0x00AAFF, 0xFFFFFF, 0x0000AA, 0x000000),
+}
 SEMANTIC_ACCENT_COLORS = {
     "bedtime": 0xFFFFFF,
     "leaving": 0x00FFFF,
     "timeout": 0x00FFFF,
+}
+SEMANTIC_ACCENT_COLORS_2BIT = {
+    "bedtime": 0xFFFFFF,
+    "leaving": 0x00AAFF,
+    "timeout": 0x00AAFF,
 }
 SEMANTIC_ACCENT_ROWS = {
     "bedtime": ("..S..", ".SSS.", "SSSSS", ".SSS.", "..S.."),
