@@ -521,15 +521,28 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             epoch_now = _reminder_epoch(now)
             team_key = topic[len(football_prefix):]
             accepted = football_presentations.accept_snapshot(
-                football_screens, topic, payload, epoch_now
+                football_screens, topic, payload, epoch_now,
+                presenting_screen=active_football_screen,
             )
             if accepted and not flash.active(now) and flash.event is None:
                 pending = football_presentations.pop(epoch_now)
                 if pending is not None:
                     _start_football_presentation(pending)
             if accepted:
-                print("FOOTBALL UPDATE ACCEPTED team={} pending={}".format(
-                    team_key, len(football_presentations)
+                live_state = football_screens._teams.get(team_key, {})
+                goal_pending = (
+                    live_state.get("_goal_score_until") is not None
+                    and epoch_now is not None
+                    and epoch_now * 1000 < live_state.get("_goal_score_until")
+                )
+                print("FOOTBALL UPDATE ACCEPTED team={} update={} pending={}".format(
+                    team_key,
+                    "{} score_source={} score_pending={}".format(
+                        football_presentations.last_update,
+                        live_state.get("_score_source", "unknown"),
+                        goal_pending,
+                    ),
+                    len(football_presentations)
                 ))
             return
         epoch_now = _reminder_epoch(now)

@@ -9,99 +9,41 @@ The producer contract, field meanings, and upstream freshness behavior are
 documented in the [Home Assistant football LED contract](https://github.com/antonio1000homens/homeassistant/blob/master/docs/football-led-mqtt.md).
 The board accepts schema version 1 snapshots from either Home Assistant
 Team Tracker (`source: homeassistant`, `provider: teamtracker`) or Node-RED
-Goal API (`source: nrwindsor`, `provider: goalapi`). The topic's final segment
-must match `team_key`. Home Assistant remains limited to the tracked club keys;
-Node-RED may use any lowercase topic-safe key. Each topic has independent
-live state. MQTT does not replay snapshots on boot or reconnect; an incoming
-update requests a presentation, and malformed or out-of-order live snapshots
+Goal API (`source: nrwindsor`, `provider: goalapi`). Both producers publish
+tracked clubs to the same club topic. The topic's final segment must match
+`team_key`. `fixture_key=<team_key>|<UTC match date>|<normalized opponent>`
+joins provider-specific match IDs while keeping separate same-day opponents
+apart. Each topic keeps one merged live state.
+MQTT does not replay snapshots on boot or reconnect; malformed or older events
 leave the current state untouched.
 
 ## Goal API to Node-RED MQTT
 
-Use a match-specific topic of the form
-`led/football/goalapi_<fixtureId>`, with the exact suffix copied to
-`payload.team_key`. This avoids restricting matches to a team allowlist and
-keeps simultaneous fixtures in separate state slots. Each accepted update
-interrupts the current screen to show that fixture/score.
+The checked-in Node-RED function maps a Goal API event to each followed team in
+the match. It publishes `led/football/<team_key>` and a shared
+`fixture_key=<team_key>|<UTC match date>|<normalized opponent>`, while retaining Goal API's fixture
+ID in `match_id`/`provider_match_id`. It preserves the webhook event `id`,
+`event`, `createdAt`, `previousScore`, and processing time separately. This
+keeps Goal API retries idempotent while matching Team Tracker snapshots on the
+same topic. If both teams are followed, Node-RED emits one snapshot per team.
+Unknown teams or events without fixture ID/date are discarded.
 
-In a Node-RED **Change** node, add these rules:
-
-1. Set `msg.payload` (JSONata) to the expression below. It maps the
-   `event` / `data` body observed in the Goal API test delivery into the board's
-   snapshot contract.
-
-2. Then set `msg.topic` (JSONata) to this expression. Put this rule **after**
-   the payload rule so it reads the normalized `payload.match_id`:
-
-   ```jsonata
-   (
-     $id := $substring($replace($lowercase($string(payload.match_id)), /[^a-z0-9_-]/, "_"), 0, 40);
-     "led/football/goalapi_" & $id
-   )
-   ```
-
-```jsonata
-(
-  $d := payload.data;
-  $homeRaw := $exists($d.homeTeam) ? $d.homeTeam : $d.home_team;
-  $awayRaw := $exists($d.awayTeam) ? $d.awayTeam : $d.away_team;
-  $home := $exists($homeRaw.name) ? $string($homeRaw.name) :
-           ($exists($homeRaw) ? $string($homeRaw) : "HOME");
-  $away := $exists($awayRaw.name) ? $string($awayRaw.name) :
-           ($exists($awayRaw) ? $string($awayRaw) : "AWAY");
-  $score := $d.score;
-  $fixtureId := $d.fixtureId;
-  $id := $exists($fixtureId)
-    ? $substring($replace($lowercase($string($fixtureId)), /[^a-z0-9_-]/, "_"), 0, 40)
-    : "unknown";
-  $homeScoreRaw := $score.home;
-  $awayScoreRaw := $score.away;
-  $finished := payload.event = "match.finished" or
-               ($exists($d.status) and $lowercase($string($d.status)) = "finished");
-  $stamp := $now();
-  {
-    "schema_version": 1,
-    "source": "nrwindsor",
-    "provider": "goalapi",
-    "team_key": "goalapi_" & $id,
-    "status": $finished ? "POST" : "IN",
-    "match_id": $exists($fixtureId) ? $string($fixtureId) : null,
-    "team_name": $home,
-    "opponent": $away,
-    "opponent_long_name": $away,
-    "display_fixture": $home & " VS " & $away,
-    "home_team": $home,
-    "away_team": $away,
-    "home_score": $exists($homeScoreRaw) ? $number($homeScoreRaw) : null,
-    "away_score": $exists($awayScoreRaw) ? $number($awayScoreRaw) : null,
-    "homeaway": "home",
-    "team_homeaway": "home",
-    "clock": $exists($d.clock.minute) ? $string($d.clock.minute) : null,
-    "competition": $exists($d.league.name) ? $string($d.league.name) : "",
-    "published_at": $stamp,
-    "source_updated_at": $stamp
-  }
-)
-```
-
-The test delivery confirms `payload.event`, `payload.createdAt`, and
-`payload.data.{fixtureId,homeTeam,awayTeam,score:{home,away},league.name,status}`.
-The normalized `match_id` uses `data.fixtureId`, not the outer webhook delivery
-`id`, so all updates for the same fixture share a topic. The board allows Goal API live
-snapshots to remain current for up to four hours between event-driven updates;
-the ten-minute stale limit remains in place for Home Assistant's polling
-snapshots. The official [Goal API webhook docs](https://goal-api.com/documentation)
-describe the signed event/data envelope and delivery types.
+The [Node-RED producer notes](https://github.com/antonio1000homens/nrwindsor/blob/main/docs/football-led-mqtt.md)
+describe the payload, mapping and focused validation command. Goal API defines
+`goal.scored` as a score increase and `score.changed` as a correction; the
+[official webhook reference](https://goal-api.com/documentation) lists both.
 
 ## Screen behavior
 
-Every accepted, displayable MQTT snapshot immediately interrupts the current
-screen for a football prompt, including score and clock updates for the same
-match. Each update restarts the prompt timer and animation from its latest
-snapshot. Once the prompt finishes, the board starts the next normal rotation
-screen with its full duration. POST is never retained in firmware state or made
-a member of the normal rotation, so it does not reappear unless a later MQTT
-update requests another prompt. PRE
+New fixtures, status changes, and score changes can request a football prompt.
+Duplicate payloads and clock-only refreshes update state without requesting a
+new presentation. When the same fixture is already visible, score and clock
+changes update its existing scene and keep the same animation phase and prompt
+deadline. Deferred updates for the same team are coalesced. Once the prompt
+finishes, the board starts the next normal rotation screen with its full
+duration. POST is never retained in firmware state or made a member of the
+normal rotation, so it does not reappear unless a later MQTT update requests
+another prompt. PRE
 fixtures supplied by the calendar continue to appear in the ordinary screen
 rotation and animate
 the 16×16 football with visible rotation from the right to the left over 3.2
@@ -116,10 +58,15 @@ left; both opponent names appear together in large type beside it, with the
 live match clock (IN) or `FULL TIME` (POST) at the top right and the live or
 final score at the bottom right. Both names use the same sweeping colour
 gradient as the Today screen. The tracked team is not repeated as a screen
-title. Live clocks and scores update when fresh snapshots arrive. Goal
-highlights only change the score colour while IN; POST never replays a goal
-highlight. Prompts deferred behind a flash reminder are shown in arrival order
-after the flash finishes. The already connected MQTT client continues polling
+title. Live clocks and scores update when fresh snapshots arrive. A Goal API
+`goal.scored` event applies its absolute score and flashes it once. The board
+holds that score for up to 120 seconds while Team Tracker catches up, merging
+its newer clock without rolling back the score; a matching score confirms it.
+Goal API `score.changed` applies corrections without a goal flash, including
+legitimate decreases. Team Tracker-only score increases retain the existing
+single-point highlight heuristic. POST never replays a goal highlight. Prompts
+deferred behind a flash reminder are shown in arrival order after the flash
+finishes. The already connected MQTT client continues polling
 during active animations every 1.5 seconds with a 10 ms socket timeout.
 Connection handshakes and non-football rotation rebuilds wait for an idle
 window. Home Assistant republishes POST during the finish-day window. Each POST
@@ -198,15 +145,14 @@ BYE, NOT_FOUND, UNKNOWN, and UNAVAILABLE each have a distinct safe label. A
 live snapshot whose `source_updated_at` is missing or more than ten minutes
 old is shown as UNAVAILABLE and its score and clock are hidden.
 
-Score changes are considered for a short goal highlight only when both
-snapshots are IN for the same non-empty `match_id`, both prior and current
-scores are numeric, `source_updated_at` advances, and exactly one side's score
-increases by one while the other stays unchanged. Fixture changes, startup
-score initialization, null scores, decreases, and multi-point corrections do
-not trigger the highlight. The MQTT contract has no explicit goal event, so a
-single-point upward correction is indistinguishable from a goal in the data;
-the highlight is a conservative score-delta heuristic, not a verified goal
-notification.
+Goal API score events are deduplicated by event ID and ordered by original
+event time. A 120-second confirmation window prevents a lagging Team Tracker
+snapshot from undoing a goal or an explicit Goal API correction. If no
+confirmation arrives before the window ends, the next valid Team Tracker score
+is allowed through; a later correction is therefore not permanently blocked.
+Team Tracker-only feeds use a conservative same-fixture, newer-source-time,
+single-point-increase highlight heuristic because they do not carry an explicit
+goal event type.
 
 ## Board settings
 

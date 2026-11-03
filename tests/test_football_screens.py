@@ -647,58 +647,195 @@ process.stdout.write(JSON.stringify(results));
         self.assertIn("screen.kind === 'football_score'", html)
         self.assertIn("document.getElementById('football-preview')", html)
 
-    def test_prompt_presentation_queue_preserves_each_deferred_update(self):
+    def test_prompt_presentation_queue_coalesces_redundant_team_updates(self):
         queue = FootballPresentationQueue()
         self.assertTrue(queue.schedule("millwall"))
         self.assertTrue(queue.schedule("millwall"))
         self.assertTrue(queue.schedule("sporting_cp"))
         self.assertFalse(queue.schedule("unknown/team"))
-        self.assertEqual(len(queue), 3)
+        self.assertEqual(len(queue), 2)
         self.assertEqual(queue.pop(), "millwall")
         self.assertTrue(queue.schedule("millwall"))
-        self.assertEqual(queue.pop(), "millwall")
         self.assertEqual(queue.pop(), "sporting_cp")
         self.assertEqual(queue.pop(), "millwall")
         self.assertIsNone(queue.pop())
 
-    def test_each_accepted_newer_snapshot_requests_prompt_presentation(self):
+    def test_unchanged_snapshot_and_clock_refresh_do_not_request_new_presentation(self):
         queue = FootballPresentationQueue()
-        first = snapshot("millwall", team_name="Millwall FC")
+        first = snapshot("millwall", team_name="Millwall FC", status="IN",
+                         home_score=0, away_score=0, fixture_key="millwall|2026-10-26")
         self.assertTrue(queue.accept_snapshot(
-            self.state, "led/football/millwall", first
+            self.state, "led/football/millwall", first, epoch(first["published_at"])
         ))
         self.assertEqual(len(queue), 1)
+        self.assertEqual(queue.pop(), "millwall")
         self.assertFalse(queue.accept_snapshot(
-            self.state, "led/football/millwall", first
+            self.state, "led/football/millwall", first, epoch(first["published_at"])
         ))
         invalid = dict(first, status="INVALID")
         self.assertFalse(queue.accept_snapshot(
-            self.state, "led/football/millwall", invalid
+            self.state, "led/football/millwall", invalid, epoch(invalid["published_at"])
         ))
-        self.assertEqual(len(queue), 1)
+        self.assertEqual(len(queue), 0)
         newer = snapshot("millwall", published="2026-10-26T20:01:00Z",
-                         team_name="Millwall FC")
+                         team_name="Millwall FC", status="IN", home_score=0,
+                         away_score=0, fixture_key="millwall|2026-10-26")
         self.assertTrue(queue.accept_snapshot(
-            self.state, "led/football/millwall", newer
+            self.state, "led/football/millwall", newer, epoch(newer["published_at"])
         ))
-        self.assertEqual(len(queue), 2)
-        self.assertEqual(queue.pop(), "millwall")
+        self.assertEqual(len(queue), 0)
         same_fixture_update = snapshot(
-            "millwall", published="2026-10-26T20:02:00Z", team_name="Millwall FC"
+            "millwall", published="2026-10-26T20:02:00Z", team_name="Millwall FC",
+            status="IN", home_score=0, away_score=0, clock="31",
+            fixture_key="millwall|2026-10-26"
         )
         self.assertTrue(queue.accept_snapshot(
-            self.state, "led/football/millwall", same_fixture_update
+            self.state, "led/football/millwall", same_fixture_update,
+            epoch(same_fixture_update["published_at"])
         ))
-        self.assertEqual(len(queue), 2)
-        self.assertEqual(queue.pop(), "millwall")
+        self.assertEqual(len(queue), 0)
+        scored = snapshot("millwall", published="2026-10-26T20:02:10Z",
+                          team_name="Millwall FC", status="IN", home_score=1,
+                          away_score=0, fixture_key="millwall|2026-10-26")
+        self.assertTrue(queue.accept_snapshot(
+            self.state, "led/football/millwall", scored, epoch(scored["published_at"]),
+            presenting_screen={"team_key": "millwall",
+                               "fixture_key": "millwall|2026-10-26",
+                               "id": "football-event-7"},
+        ))
+        self.assertEqual(len(queue), 0)
         next_fixture = snapshot(
             "millwall", published="2026-10-26T20:03:00Z", team_name="Millwall FC",
             match_id="event-456", kickoff="2026-11-07T15:00:00Z",
+            fixture_key="millwall|2026-11-07", status="IN", home_score=0,
+            away_score=0,
         )
         self.assertTrue(queue.accept_snapshot(
-            self.state, "led/football/millwall", next_fixture
+            self.state, "led/football/millwall", next_fixture,
+            epoch(next_fixture["published_at"])
         ))
         self.assertEqual(queue.pop(), "millwall")
+
+    def test_goal_api_score_survives_lagging_teamtracker_and_merges_its_clock(self):
+        key = "millwall"
+        fixture_key = "millwall|2026-10-26"
+        initial = snapshot(
+            key, status="IN", fixture_key=fixture_key,
+            source_updated_at="2026-10-26T20:00:00Z", home_score=0,
+            away_score=0, clock="30",
+        )
+        self.assertTrue(self.state.accept("led/football/" + key, initial))
+        goal = snapshot(
+            key, source="nrwindsor", provider="goalapi", match_id="api-99",
+            provider_match_id="api-99", event_id="event-goal-1",
+            event_type="goal.scored", fixture_key=fixture_key,
+            published="2026-10-26T20:00:05Z",
+            source_updated_at="2026-10-26T20:00:05Z", status="IN",
+            home_score=1, away_score=0, clock=None,
+        )
+        self.assertTrue(self.state.accept("led/football/" + key, goal))
+        screen = score_screen(self.state, epoch("2026-10-26T20:00:06Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (1, 0))
+        self.assertEqual(screen["clock"], "30")
+        self.assertTrue(screen["goal_flash_active"])
+
+        behind = snapshot(
+            key, fixture_key=fixture_key, match_id="tracker-99",
+            published="2026-10-26T20:00:10Z",
+            source_updated_at="2026-10-26T20:00:10Z", status="IN",
+            home_score=0, away_score=0, clock="31",
+        )
+        self.assertTrue(self.state.accept("led/football/" + key, behind))
+        screen = score_screen(self.state, epoch("2026-10-26T20:00:11Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (1, 0))
+        self.assertEqual(screen["clock"], "31")
+
+        confirmed = snapshot(
+            key, fixture_key=fixture_key, match_id="tracker-99",
+            published="2026-10-26T20:00:20Z",
+            source_updated_at="2026-10-26T20:00:20Z", status="IN",
+            home_score=1, away_score=0, clock="32",
+        )
+        self.assertTrue(self.state.accept("led/football/" + key, confirmed))
+        screen = score_screen(self.state, epoch("2026-10-26T20:00:21Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (1, 0))
+        self.assertEqual(screen["clock"], "32")
+
+        retry = dict(goal, published_at="2026-10-26T20:00:22Z")
+        self.assertFalse(self.state.accept("led/football/" + key, retry))
+        correction = dict(
+            goal, event_id="score-correction-1", event_type="score.changed",
+            published_at="2026-10-26T20:00:30Z",
+            source_updated_at="2026-10-26T20:00:30Z", home_score=0, away_score=0,
+        )
+        self.assertTrue(self.state.accept("led/football/" + key, correction))
+        screen = score_screen(self.state, epoch("2026-10-26T20:00:31Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (0, 0))
+        self.assertNotIn("goal_flash_active", screen)
+
+    def test_interleaved_goal_api_retry_is_deduplicated_after_a_later_event(self):
+        state = FootballScreenState()
+        first = snapshot(
+            "millwall", source="nrwindsor", provider="goalapi",
+            fixture_key="millwall|2026-10-26|derby-county", event_id="goal-a",
+            event_type="goal.scored", status="IN", home_score=1, away_score=0,
+            published="2026-10-26T20:00:05Z", source_updated_at="2026-10-26T20:00:05Z",
+        )
+        second = dict(
+            first, event_id="goal-b", home_score=2,
+            published_at="2026-10-26T20:00:10Z",
+            source_updated_at="2026-10-26T20:00:10Z",
+        )
+        self.assertTrue(state.accept("led/football/millwall", first))
+        self.assertTrue(state.accept("led/football/millwall", second))
+        replay = dict(first, published_at="2026-10-26T20:00:15Z")
+        self.assertFalse(state.accept("led/football/millwall", replay))
+        screen = score_screen(state, epoch("2026-10-26T20:00:16Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (2, 0))
+
+    def test_different_opponent_on_same_date_is_a_new_fixture(self):
+        state = FootballScreenState()
+        original = snapshot(
+            "millwall", fixture_key="millwall|2026-10-26|derby-county",
+            status="IN", home_score=0, away_score=0, clock="12",
+        )
+        next_match = snapshot(
+            "millwall", fixture_key="millwall|2026-10-26|leeds-united",
+            status="IN", home_score=0, away_score=0, clock="1",
+            published="2026-10-26T20:01:00Z",
+        )
+        self.assertTrue(state.accept("led/football/millwall", original))
+        self.assertTrue(state.accept("led/football/millwall", next_match))
+        self.assertEqual(
+            state.screen_for_team("millwall", epoch("2026-10-26T20:01:01Z"))["clock"],
+            "1",
+        )
+
+    def test_goal_api_first_event_uses_previous_score_and_guards_tracker_rollback(self):
+        state = FootballScreenState()
+        goal = snapshot(
+            "millwall", source="nrwindsor", provider="goalapi", match_id="api-99",
+            provider_match_id="api-99", fixture_key="millwall|2026-10-26",
+            event_id="goal-event-first", event_type="goal.scored",
+            previous_home_score=0, previous_away_score=0,
+            status="IN", home_score=1, away_score=0,
+            published="2026-10-26T20:00:05Z",
+            source_updated_at="2026-10-26T20:00:05Z", clock=None,
+        )
+        self.assertTrue(state.accept("led/football/millwall", goal))
+        screen = score_screen(state, epoch("2026-10-26T20:00:06Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (1, 0))
+        self.assertTrue(screen["goal_flash_active"])
+        tracker = snapshot(
+            "millwall", match_id="tracker-99", fixture_key="millwall|2026-10-26",
+            status="IN", home_score=0, away_score=0, clock="31",
+            published="2026-10-26T20:00:10Z",
+            source_updated_at="2026-10-26T20:00:10Z",
+        )
+        self.assertTrue(state.accept("led/football/millwall", tracker))
+        screen = score_screen(state, epoch("2026-10-26T20:00:11Z"))
+        self.assertEqual((screen["home_score"], screen["away_score"]), (1, 0))
+        self.assertEqual(screen["clock"], "31")
 
     def test_unavailable_update_discards_pending_event_and_valid_pregame_recovers(self):
         queue = FootballPresentationQueue()
