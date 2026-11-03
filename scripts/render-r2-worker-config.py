@@ -8,8 +8,8 @@ from pathlib import Path
 import re
 
 WORKER_DIR = Path(__file__).resolve().parents[1] / "workers" / "led-live-data"
-BUCKET_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\\Z")
-HOST_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\\Z")
+BUCKET_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\Z")
+HOST_PATTERN = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+\Z")
 
 
 def render(bucket: str, domain: str, zone: str) -> str:
