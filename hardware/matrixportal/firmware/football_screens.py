@@ -524,6 +524,21 @@ class FootballScreenState:
         })
         return screen
 
+    def has_live_match(self, now_epoch):
+        """Use fresh IN snapshots from any team to choose the fast MQTT cadence.
+
+        PRE is not live; POST clears the team's retained snapshot. Stale
+        snapshots must not leave the device polling quickly indefinitely.
+        """
+        if not self.enabled or now_epoch is None:
+            return False
+        now_ms = int(now_epoch * 1000)
+        self._prune_goalapi(now_ms)
+        return any(
+            item.get("status") == "IN" and not _live_stale(item, now_ms)
+            for item in self._teams.values()
+        )
+
     def screens(self, now_epoch):
         if not self.enabled:
             return []
