@@ -57,6 +57,7 @@ from cron_schedule import cron_matches_local
 from mqtt_screens import MqttScreenState, recycling_policy
 from football_screens import (
     FootballPresentationQueue, FootballScreenState, football_post_expired,
+    football_presentation_expired,
 )
 from timer_state import TimerState, select_timer
 from presentation_priority import select_presentation
@@ -239,6 +240,11 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         time.sleep(min(_BUTTON_POLL_SECONDS, remaining))
         now = time.monotonic()
         epoch_now = _reminder_epoch(now)
+        football_state = globals().get("football_screens")
+        if (football_state is not None
+                and football_state.staleness_changed(epoch_now)):
+            mqtt_screens_update_pending = True
+            mqtt_screens_changed = True
         if epoch_now is not None and mqtt_screens.expire(epoch_now):
             mqtt_screens_changed = True
             mqtt_screens_update_pending = True
@@ -351,9 +357,11 @@ timer_pause_started = None
 def _effective_mqtt_screens(epoch_now):
     if epoch_now is None:
         return []
-    return mqtt_screens.effective_screens(
+    screens = mqtt_screens.effective_screens(
         epoch_now, clock.date_text(time.monotonic())
     )
+    screens.extend(football_screens.rotation_screens(epoch_now))
+    return screens
 
 
 def _reminder_epoch(now):
@@ -458,8 +466,9 @@ def _start_football_presentation(pending):
     active_football_screen = next_screen
     active_football_started = now_ticks
     football_pause_started = None
-    print("FOOTBALL PRESENTATION START team={} pending={}".format(
-        team_key, len(football_presentations)
+    print("FOOTBALL PRESENTATION START team={} status={} match_id={} fixture_key={} pending={}".format(
+        team_key, next_screen.get("status"), next_screen.get("match_id"),
+        next_screen.get("fixture_key"), len(football_presentations)
     ))
     return True
 
@@ -529,6 +538,8 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
                 if pending is not None:
                     _start_football_presentation(pending)
             if accepted:
+                mqtt_screens_update_pending = True
+                mqtt_screens_changed = True
                 live_state = football_screens._teams.get(team_key, {})
                 goal_pending = (
                     live_state.get("_goal_score_until") is not None
@@ -543,6 +554,10 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
                         goal_pending,
                     ),
                     len(football_presentations)
+                ))
+            else:
+                print("FOOTBALL UPDATE IGNORED team={} update={}".format(
+                    team_key, football_presentations.last_update
                 ))
             return
         epoch_now = _reminder_epoch(now)
@@ -896,6 +911,11 @@ def _screen_status_payload(screen, now):
 
 while True:
     now = time.monotonic()
+    epoch_now = _reminder_epoch(now)
+    if football_screens.staleness_changed(epoch_now):
+        mqtt_screens_update_pending = True
+        mqtt_screens_changed = True
+    _apply_pending_mqtt_screen_updates(now)
     loop_started = ticks_ms()
     if HEAP_DIAGNOSTICS_ENABLED:
         heap_free_now = _memory_free()
@@ -1083,19 +1103,27 @@ while True:
                 if latest_football is None:
                     _cancel_active_football()
                 else:
+                    previous_status = active_football_screen.get("status")
                     latest_football["id"] = active_football_screen.get("id")
                     latest_football["ball_animation"] = active_football_screen.get(
                         "ball_animation", False
                     )
                     active_football_screen = latest_football
+                    if latest_football.get("status") != previous_status:
+                        active_football_started = ticks_ms()
+                        print("FOOTBALL STATUS team={} status={}".format(
+                            latest_football.get("team_key"),
+                            latest_football.get("status"),
+                        ))
             active_elapsed = (elapsed_seconds(active_football_started)
                               if active_football_screen is not None else 0)
-            active_duration = (float(active_football_screen.get("duration_seconds") or 20)
-                               if active_football_screen is not None else 0)
             if (active_football_screen is not None
-                    and active_elapsed >= active_duration):
-                print("FOOTBALL PRESENTATION END team={}".format(
-                    active_football_screen.get("team_key")
+                    and football_presentation_expired(active_football_screen, active_elapsed)):
+                print("FOOTBALL PRESENTATION END team={} status={} match_id={} fixture_key={}".format(
+                    active_football_screen.get("team_key"),
+                    active_football_screen.get("status"),
+                    active_football_screen.get("match_id"),
+                    active_football_screen.get("fixture_key"),
                 ))
                 active_football_screen = None
                 active_football_started = None

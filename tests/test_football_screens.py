@@ -14,7 +14,7 @@ from football_screens import (
     football_screen_lines, kickoff_countdown, kickoff_local_label,
     football_due_in, football_slide_offset, football_roll_frame,
     football_countdown_x, FOOTBALL_TEAM_COLORS,
-    football_team_name_span,
+    football_team_name_span, football_presentation_expired,
 )
 from screen_client import ScreenRotation
 
@@ -91,18 +91,95 @@ class FootballScreenTests(unittest.TestCase):
         self.assertTrue(rebooted.accept("led/football/sporting_cp", sporting))
         self.assertEqual(len(rebooted.screens(self.now)), 1)
 
-    def test_football_snapshots_are_not_part_of_the_normal_screen_rotation(self):
-        self.state.accept("led/football/sporting_cp", snapshot())
-        self.state.accept("led/football/millwall", snapshot("millwall", team_name="Millwall FC"))
+    def test_live_match_and_unexpired_final_join_the_normal_rotation(self):
+        final = snapshot(
+            "sporting_cp", status="POST", home_score=2, away_score=1,
+            post_expires_at="2026-10-27T00:00:00Z",
+        )
+        self.state.accept("led/football/sporting_cp", final)
+        live = snapshot("millwall", team_name="Millwall FC", status="IN",
+                        source_updated_at="2026-10-26T20:00:00Z")
+        self.state.accept("led/football/millwall", live)
         http = [{"id": "departures", "kind": "rail_combined", "duration_seconds": 30}]
         mqtt = [{"id": "recycling", "kind": "bin_collection", "duration_seconds": 20}]
         rotation = ScreenRotation(rng=random.Random(1))
-        rotation.update_sources(http, mqtt, 1000)
+        rotation.update_sources(
+            http, mqtt + self.state.rotation_screens(self.now), 1000
+        )
         kinds = [screen["kind"] for screen in rotation.screens]
         self.assertIn("rail_combined", kinds)
         self.assertIn("bin_collection", kinds)
-        self.assertEqual(kinds.count("football_score"), 0)
+        self.assertEqual(kinds.count("football_score"), 2)
+        self.assertEqual(
+            {screen["id"] for screen in rotation.screens if screen["kind"] == "football_score"},
+            {"football-result-sporting_cp", "football-live-millwall"},
+        )
         self.assertEqual(kinds.count("football_intro"), 0)
+        self.assertTrue(self.state.has_live_match(self.now))
+
+    def test_final_result_stays_in_rotation_until_its_expiry(self):
+        final = snapshot(
+            "millwall", status="POST", home_score=4, away_score=1,
+            post_expires_at="2026-10-27T00:00:00Z",
+        )
+        self.assertTrue(self.state.accept("led/football/millwall", final))
+        self.assertEqual(self.state.rotation_screens(self.now)[0]["status"], "POST")
+        self.assertTrue(self.state.staleness_changed(self.now))
+        expired = epoch("2026-10-27T00:00:00Z")
+        self.assertTrue(self.state.staleness_changed(expired))
+        self.assertEqual(self.state.rotation_screens(expired), [])
+
+    def test_live_rotation_entry_expires_when_teamtracker_source_goes_stale(self):
+        live = snapshot("millwall", team_name="Millwall FC", status="IN",
+                        source_updated_at="2026-10-26T20:00:00Z")
+        self.assertTrue(self.state.accept("led/football/millwall", live))
+        self.state.staleness_changed(self.now)
+        self.assertEqual(len(self.state.rotation_screens(self.now)), 1)
+        stale_at = self.now + 601
+        self.assertTrue(self.state.staleness_changed(stale_at))
+        self.assertEqual(self.state.rotation_screens(stale_at), [])
+
+    def test_active_live_match_stays_presented_but_post_card_ends(self):
+        live = {"status": "IN", "duration_seconds": 20}
+        post = {"status": "POST", "duration_seconds": 20}
+        self.assertFalse(football_presentation_expired(live, 21))
+        self.assertFalse(football_presentation_expired(live, 3600))
+        self.assertFalse(football_presentation_expired(post, 19.9))
+        self.assertTrue(football_presentation_expired(post, 20))
+
+    def test_clock_refresh_updates_live_rotation_entry_without_restarting_phase(self):
+        state = FootballScreenState()
+        first = snapshot("millwall", team_name="Millwall FC", status="IN",
+                         source_updated_at="2026-10-26T20:00:00Z", clock="30")
+        self.assertTrue(state.accept("led/football/millwall", first))
+        rotation = ScreenRotation(ticks_per_second=1000)
+        rotation.update_sources([], state.rotation_screens(self.now), 1000)
+        updated = snapshot("millwall", team_name="Millwall FC", status="IN",
+                           published="2026-10-26T20:00:05Z",
+                           source_updated_at="2026-10-26T20:00:05Z", clock="31")
+        self.assertTrue(state.accept("led/football/millwall", updated))
+        rotation.update_sources([], state.rotation_screens(self.now + 5), 4000)
+        screen, phase = rotation.current(4000)
+        self.assertEqual(screen["id"], "football-live-millwall")
+        self.assertEqual(screen["clock"], "31")
+        self.assertEqual(phase, 3)
+
+    def test_live_match_added_mid_cycle_joins_after_existing_screens(self):
+        rotation = ScreenRotation(ticks_per_second=1000)
+        existing = [
+            {"id": "one", "kind": "message", "duration_seconds": 10},
+            {"id": "two", "kind": "message", "duration_seconds": 10},
+        ]
+        rotation.update_sources([], existing, 1000)
+        rotation.current(4000)
+        live = {"id": "football-live-millwall", "kind": "football_score",
+                "status": "IN", "duration_seconds": 20}
+        rotation.update_sources([], existing + [live], 4000)
+        current, phase = rotation.current(4000)
+        self.assertEqual(current["id"], "one")
+        self.assertEqual(phase, 3)
+        self.assertEqual([screen["id"] for screen in rotation.screens],
+                         ["one", "two", "football-live-millwall"])
 
     def test_validates_topic_team_schema_shape_and_timestamps(self):
         valid = snapshot()
@@ -715,6 +792,134 @@ process.stdout.write(JSON.stringify(results));
             epoch(next_fixture["published_at"])
         ))
         self.assertEqual(queue.pop(), "millwall")
+
+    def test_post_from_another_or_older_fixture_cannot_clear_live_match(self):
+        state = FootballScreenState()
+        live = snapshot(
+            "millwall", status="IN", match_id="current-event",
+            fixture_key="millwall|2026-10-26|current-opponent",
+            source_updated_at="2026-10-26T20:10:00Z",
+        )
+        self.assertTrue(state.accept("led/football/millwall", live))
+        old_post = snapshot(
+            "millwall", status="POST", match_id="previous-event",
+            fixture_key="millwall|2026-10-19|previous-opponent",
+            published="2026-10-26T20:11:00Z",
+            source_updated_at="2026-10-19T22:00:00Z",
+            post_expires_at="2026-10-27T00:00:00Z",
+            home_score=2, away_score=1,
+        )
+        queue = FootballPresentationQueue()
+        accepted = queue.accept_snapshot(
+            state, "led/football/millwall", old_post,
+            epoch(old_post["published_at"]),
+            presenting_screen={"team_key": "millwall", "fixture_key": live["fixture_key"]},
+        )
+        self.assertFalse(accepted)
+        self.assertEqual(len(queue), 0)
+        current = score_screen(state, self.now)
+        self.assertEqual(current["status"], "IN")
+        self.assertEqual(current["match_id"], "current-event")
+
+    def test_matching_fresh_post_replaces_active_match_with_final_card(self):
+        state = FootballScreenState()
+        live = snapshot(
+            "millwall", status="IN", match_id="current-event",
+            fixture_key="millwall|2026-10-26|current-opponent",
+            source_updated_at="2026-10-26T20:10:00Z",
+        )
+        self.assertTrue(state.accept("led/football/millwall", live))
+        final = snapshot(
+            "millwall", status="POST", match_id="current-event",
+            fixture_key=live["fixture_key"],
+            published="2026-10-26T21:00:00Z",
+            source_updated_at="2026-10-26T20:59:00Z",
+            post_expires_at="2026-10-27T00:00:00Z",
+            home_score=2, away_score=1,
+        )
+        queue = FootballPresentationQueue()
+        self.assertTrue(queue.accept_snapshot(
+            state, "led/football/millwall", final,
+            epoch(final["published_at"]),
+            presenting_screen={"team_key": "millwall", "fixture_key": live["fixture_key"]},
+        ))
+        self.assertEqual(queue.last_update, "post_event")
+        self.assertEqual(len(queue), 1)
+        self.assertEqual(queue.pop()["status"], "POST")
+        self.assertEqual(state.screen_for_team("millwall", self.now)["status"], "POST")
+
+    def test_repeated_post_refresh_does_not_restart_its_card(self):
+        state = FootballScreenState()
+        queue = FootballPresentationQueue()
+        first = snapshot(
+            "millwall", status="POST", home_score=4, away_score=1,
+            post_expires_at="2026-10-27T00:00:00Z",
+        )
+        self.assertTrue(queue.accept_snapshot(
+            state, "led/football/millwall", first, self.now
+        ))
+        self.assertEqual(queue.pop()["status"], "POST")
+        refresh = dict(first, published_at="2026-10-26T20:05:00Z")
+        self.assertTrue(queue.accept_snapshot(
+            state, "led/football/millwall", refresh,
+            epoch(refresh["published_at"]),
+        ))
+        self.assertEqual(queue.last_update, "post_refresh")
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(state.rotation_screens(self.now)[0]["status"], "POST")
+
+    def test_active_match_rejects_terminal_updates_without_cached_live_state(self):
+        state = FootballScreenState()
+        live = snapshot(
+            "millwall", status="IN", match_id="current-event",
+            fixture_key="millwall|2026-10-26|current-opponent",
+            source_updated_at="2026-10-26T20:10:00Z",
+        )
+        self.assertTrue(state.accept("led/football/millwall", live))
+        active = state.screen_for_team("millwall", self.now)
+        state._teams.clear()  # Simulate a board state-cache reset during the match.
+        queue = FootballPresentationQueue()
+
+        unavailable = snapshot(
+            "millwall", status="NOT_FOUND", match_id=None,
+            fixture_key=None, source_updated_at=None,
+            published="2026-10-26T20:11:00Z",
+        )
+        self.assertFalse(queue.accept_snapshot(
+            state, "led/football/millwall", unavailable, self.now,
+            presenting_screen=active,
+        ))
+        self.assertEqual(queue.last_update, "rejected_active_match_transition")
+        self.assertEqual(len(queue), 0)
+
+        unrelated_post = snapshot(
+            "millwall", status="POST", match_id="previous-event",
+            fixture_key="millwall|2026-10-19|previous-opponent",
+            published="2026-10-26T20:12:00Z",
+            source_updated_at="2026-10-26T20:11:00Z",
+            post_expires_at="2026-10-27T00:00:00Z",
+            home_score=2, away_score=1,
+        )
+        self.assertFalse(queue.accept_snapshot(
+            state, "led/football/millwall", unrelated_post,
+            epoch(unrelated_post["published_at"]), presenting_screen=active,
+        ))
+        self.assertEqual(len(queue), 0)
+
+        final = snapshot(
+            "millwall", status="POST", match_id="current-event",
+            fixture_key=live["fixture_key"],
+            published="2026-10-26T21:00:00Z",
+            source_updated_at="2026-10-26T20:59:00Z",
+            post_expires_at="2026-10-27T00:00:00Z",
+            home_score=2, away_score=1,
+        )
+        self.assertTrue(queue.accept_snapshot(
+            state, "led/football/millwall", final,
+            epoch(final["published_at"]), presenting_screen=active,
+        ))
+        self.assertEqual(queue.pop()["status"], "POST")
+        self.assertEqual(state.screen_for_team("millwall", self.now)["status"], "POST")
 
     def test_goal_api_score_survives_lagging_teamtracker_and_merges_its_clock(self):
         key = "millwall"

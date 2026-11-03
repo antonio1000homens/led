@@ -123,7 +123,7 @@ class UploadFirmwareTests(unittest.TestCase):
             MODULE.pause_application("http://board.local", "secret", timeout=2)
         self.assertEqual(len(instances), 2)
         self.assertEqual(instances[0].sent, b"\x03")
-        self.assertFalse(hasattr(instances[1], "sent"))
+        self.assertEqual(instances[1].sent, b"\x03")
 
     def test_empty_stage_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

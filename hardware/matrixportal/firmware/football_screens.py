@@ -44,6 +44,19 @@ FOOTBALL_LIVE_TEXT_MAX_CHARS = (FOOTBALL_LIVE_RIGHT_X - FOOTBALL_TEXT_X) // 6
 FOOTBALL_VS_COLUMN = 10
 
 
+def football_presentation_expired(screen, elapsed_seconds):
+    """Hold a fresh in-progress match until it ends or its snapshot goes stale."""
+    if isinstance(screen, dict) and screen.get("status") == "IN":
+        return False
+    duration = 20
+    if isinstance(screen, dict):
+        try:
+            duration = float(screen.get("duration_seconds") or duration)
+        except (TypeError, ValueError):
+            pass
+    return elapsed_seconds >= duration
+
+
 def football_team_name_span(screen, line):
     """Return the tracked team-name span in a row, or None if absent."""
     team_key = screen.get("team_key")
@@ -481,9 +494,28 @@ class FootballScreenState:
                     and source_epoch < latest_epoch):
                 return False
         if incoming.get("status") == "POST":
-            # POST is a one-shot display event. Keep no per-team copy after
-            # handing it to the presentation queue.
-            self._teams.pop(team_key, None)
+            if previous is not None and previous.get("status") == "IN":
+                previous_ids = {
+                    previous.get(name) for name in (
+                        "fixture_key", "match_id", "provider_match_id", "event_id"
+                    ) if previous.get(name)
+                }
+                incoming_ids = {
+                    incoming.get(name) for name in (
+                        "fixture_key", "match_id", "provider_match_id", "event_id"
+                    ) if incoming.get(name)
+                }
+                if not previous_ids.intersection(incoming_ids):
+                    return False
+                previous_source_epoch = previous.get("_source_epoch")
+                incoming_source_epoch = incoming.get("_source_epoch")
+                if (previous_source_epoch is not None
+                        and (incoming_source_epoch is None
+                             or incoming_source_epoch < previous_source_epoch)):
+                    return False
+            # Keep the final result as a normal-cycle screen until its local
+            # expiry so it remains available across later rotations/restarts.
+            self._teams[team_key] = incoming
             self._dynamic_flags.pop(team_key, None)
             return True
         same_fixture = bool(
@@ -613,15 +645,12 @@ class FootballScreenState:
         return True
 
     def accept_for_presentation(self, topic, payload, now_epoch=None):
-        """Accept a snapshot and return its display event without storing POST."""
+        """Accept a snapshot and return its display event or state refresh."""
         item = _normalize(topic, payload, self.prefix)
         team_key = item["team_key"] if item is not None else None
         previous = self._teams.get(team_key) if team_key is not None else None
         if item is None or not self.accept(topic, payload):
             return False, None
-        if item.get("status") == "POST":
-            screen = self._screen_from_snapshot(item, now_epoch)
-            return True, screen
         screen = self.screen_for_team(item["team_key"], now_epoch)
         if screen is None:
             return True, None
@@ -675,8 +704,8 @@ class FootballScreenState:
     def has_live_match(self, now_epoch):
         """Use fresh IN snapshots from any team to choose the fast MQTT cadence.
 
-        PRE is not live; POST clears the team's retained snapshot. Stale
-        snapshots must not leave the device polling quickly indefinitely.
+        PRE is not live; POST stays in the normal rotation until its local
+        expiry. Stale snapshots must not leave the device polling quickly.
         """
         if not self.enabled or now_epoch is None:
             return False
@@ -699,6 +728,23 @@ class FootballScreenState:
                 result.append(screen)
         return result
 
+    def rotation_screens(self, now_epoch):
+        """Return fresh live matches and unexpired finals as cycle screens.
+
+        PRE fixtures are supplied by the calendar feed. IN and POST snapshots
+        belong in the recurring rotation; POST is filtered by its local expiry.
+        Use distinct IDs so a current match can coexist with its next fixture.
+        """
+        result = []
+        for screen in self.screens(now_epoch):
+            if screen.get("status") not in ("IN", "POST"):
+                continue
+            screen = dict(screen)
+            prefix = "football-live" if screen["status"] == "IN" else "football-result"
+            screen["id"] = "{}-{}".format(prefix, screen["team_key"])
+            result.append(screen)
+        return result
+
     def screen_for_team(self, team_key, now_epoch):
         for screen in self.screens(now_epoch):
             if screen.get("team_key") == team_key:
@@ -706,7 +752,7 @@ class FootballScreenState:
         return None
 
     def staleness_changed(self, now_epoch):
-        """Signal only when a retained IN snapshot crosses the stale boundary."""
+        """Signal on live staleness, goal expiry, or final-result expiry changes."""
         if not self.enabled or now_epoch is None:
             return False
         now_ms = int(now_epoch * 1000)
@@ -718,7 +764,8 @@ class FootballScreenState:
                 stale = _live_stale(snapshot, now_ms)
             goal_until = snapshot.get("_goal_until")
             goal_active = goal_until is not None and now_ms < goal_until
-            current[team_key] = (stale, goal_active)
+            post_expired = football_post_expired(snapshot, now_epoch)
+            current[team_key] = (stale, goal_active, post_expired)
         if current == self._dynamic_flags:
             return False
         self._dynamic_flags = current
@@ -726,7 +773,7 @@ class FootballScreenState:
 
 
 class FootballPresentationQueue:
-    """Queue live team refreshes and one-shot POST screens deferred by a flash."""
+    """Queue live team refreshes and new POST screens deferred by a flash."""
 
     def __init__(self):
         self._pending = []
@@ -734,7 +781,40 @@ class FootballPresentationQueue:
 
     def accept_snapshot(self, state, topic, payload, now_epoch=None,
                         presenting_screen=None):
-        """Accept updates, retaining POST only until it is displayed or expires."""
+        """Accept updates, keeping POST in state through its local expiry."""
+        item = _normalize(topic, payload, state.prefix)
+        if item is None:
+            self.last_update = "rejected"
+            return False
+        # Protect the screen currently on the matrix as well as the state cache.
+        # A POST may arrive after a reconnect or state-cache reset, when
+        # FootballScreenState no longer has the IN snapshot to compare against.
+        if (presenting_screen is not None
+                and presenting_screen.get("team_key") == item.get("team_key")
+                and presenting_screen.get("status") == "IN"
+                and item.get("status") != "IN"):
+            live_ids = {
+                presenting_screen.get(name) for name in (
+                    "fixture_key", "match_id", "provider_match_id", "event_id"
+                ) if presenting_screen.get(name)
+            }
+            incoming_ids = {
+                item.get(name) for name in (
+                    "fixture_key", "match_id", "provider_match_id", "event_id"
+                ) if item.get(name)
+            }
+            live_source = presenting_screen.get("source_updated_at")
+            incoming_source = item.get("_source_epoch")
+            try:
+                live_source = _epoch(live_source) if live_source is not None else None
+            except (TypeError, ValueError):
+                live_source = None
+            if (item.get("status") != "POST"
+                    or not live_ids.intersection(incoming_ids)
+                    or live_source is None or incoming_source is None
+                    or incoming_source <= live_source):
+                self.last_update = "rejected_active_match_transition"
+                return False
         accepted, screen = state.accept_for_presentation(topic, payload, now_epoch)
         if not accepted:
             self.last_update = "rejected"
@@ -744,8 +824,11 @@ class FootballPresentationQueue:
             self.last_update = "unavailable"
             self.discard(team_key)
         elif screen.get("status") == "POST":
-            self.last_update = "post_event"
-            self.schedule_screen(screen)
+            if screen.get("presentation_update") == "data_refresh":
+                self.last_update = "post_refresh"
+            else:
+                self.last_update = "post_event"
+                self.schedule_screen(screen)
         elif (screen.get("presentation_update") != "data_refresh"
               and not (presenting_screen is not None
                        and presenting_screen.get("team_key") == team_key

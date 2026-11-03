@@ -504,6 +504,18 @@ class ScreenRotation:
             or (index + 1 < len(next_screens)
                 and self.is_bus_followup(item, next_screens[index + 1]))
         ]
+        # A live match may begin while this cycle is already in progress.
+        # Add it after the existing cycle so it appears without restarting the
+        # current screen or waiting for every unrelated source to refresh.
+        if old_screens:
+            next_ids = {item.get("id") for item in next_screens}
+            for item in available:
+                screen_id = item.get("id")
+                if (screen_id not in next_ids
+                        and str(screen_id or "").startswith("football-live-")
+                        and item.get("status") == "IN"):
+                    next_screens.append(item)
+                    next_ids.add(screen_id)
         # MQTT may populate a one-screen cycle before the first HTTP fetch,
         # while a static maintenance page is temporarily inserted into it.
         # If no scheduled normal screen remains, preserve neither that

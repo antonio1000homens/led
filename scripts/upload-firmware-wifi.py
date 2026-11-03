@@ -227,35 +227,34 @@ def upload(stage: Path, client: WebWorkflowClient) -> list[str]:
 
 
 def pause_application(host: str, password: str, timeout: float = 8.0) -> None:
-    """Interrupt code.py and confirm the REPL, reconnecting if Ctrl-C drops serial."""
-    serial = WebWorkflowSerial(host, password)
-    try:
-        serial.send_text(b"\x03")
-        try:
-            messages = serial.read_text(min(1.0, timeout))
-        except ConnectionError:
-            messages = []
-    finally:
-        serial.close()
-    if any(">>>" in message for message in messages):
-        print("Board application paused at the CircuitPython REPL.")
-        return
-    deadline = time.monotonic() + max(0.0, timeout - 1.0)
+    """Interrupt code.py until the REPL appears, reconnecting if Ctrl-C drops serial."""
+    serial = None
+    repl_output = ""
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        serial = None
+        if serial is None:
+            try:
+                serial = WebWorkflowSerial(host, password)
+            except (ConnectionError, OSError, RuntimeError, ValueError):
+                time.sleep(0.2)
+                continue
         try:
-            serial = WebWorkflowSerial(host, password)
+            serial.send_text(b"\x03")
             remaining = max(0.1, deadline - time.monotonic())
-            messages = serial.read_text(min(1.0, remaining))
-            if any(">>>" in message for message in messages):
+            messages = serial.read_text(min(0.8, remaining))
+            repl_output += "".join(messages)
+            if ">>>" in repl_output:
+                serial.close()
+                serial = None
                 print("Board application paused at the CircuitPython REPL.")
                 return
         except (ConnectionError, OSError, RuntimeError, ValueError):
-            pass
-        finally:
             if serial is not None:
                 serial.close()
+                serial = None
         time.sleep(0.2)
+    if serial is not None:
+        serial.close()
     raise RuntimeError("Board did not reach the CircuitPython REPL prompt")
 
 

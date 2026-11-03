@@ -37,13 +37,15 @@ describe the payload, mapping and focused validation command. Goal API defines
 
 New fixtures, status changes, and score changes can request a football prompt.
 Duplicate payloads and clock-only refreshes update state without requesting a
-new presentation. When the same fixture is already visible, score and clock
-changes update its existing scene and keep the same animation phase and prompt
-deadline. Deferred updates for the same team are coalesced. Once the prompt
-finishes, the board starts the next normal rotation screen with its full
-duration. POST is never retained in firmware state or made a member of the
-normal rotation, so it does not reappear unless a later MQTT update requests
-another prompt. PRE
+new prompt. A fresh `IN` match takes over the board and stays visible until its
+status changes or its source snapshot becomes stale. MQTT clock and score
+updates refresh the existing scene without restarting its animation phase.
+When the same fixture is already visible, score and clock changes update that
+scene directly. Deferred updates for the same team are coalesced. A transition
+to POST starts a 20-second full-time card, then keeps the final result in the
+normal rotation until `post_expires_at` (normally local midnight).
+Stale IN snapshots cancel the live presentation and resume the normal rotation.
+PRE
 fixtures supplied by the calendar continue to appear in the ordinary screen
 rotation and animate
 the 16×16 football with visible rotation from the right to the left over 3.2
@@ -69,13 +71,15 @@ deferred behind a flash reminder are shown in arrival order after the flash
 finishes. The already connected MQTT client continues polling
 during active animations every 1.5 seconds with a 10 ms socket timeout.
 Connection handshakes and non-football rotation rebuilds wait for an idle
-window. Home Assistant republishes POST during the finish-day window. Each POST
-is a one-shot event: the firmware does not store it in per-team football state
-or put it in the normal rotation. It is displayed when eligible, then discarded.
-If a flash reminder delays it, the firmware keeps at most the newest queued
-snapshot for that team and match, and drops it if `post_expires_at` has passed.
-The five-minute producer update can request another prompt while the match-day
-window remains active; a reconnect does not replay missed messages.
+window. Home Assistant republishes POST during the finish-day window. The
+firmware stores the latest final per team and includes it in the normal
+rotation until `post_expires_at`; an expired result is removed locally. The
+first POST starts a 20-second full-time card, while later five-minute refreshes
+update its data without interrupting the current screen. If a flash reminder
+delays a new POST card, the firmware keeps at most the newest queued snapshot
+for that team and match, and drops it if `post_expires_at` has passed. MQTT
+messages are non-retained, so reconnect recovery depends on Home Assistant
+publishing the current snapshot.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
@@ -97,14 +101,15 @@ countdown update or HTTP feed refresh cannot cause repeated GC pauses. The
 existing startup/maintenance/rail GC paths remain unchanged. When heap
 diagnostics are enabled, `FOOTBALL GC settled` reports collector duration
 and free heap before/after; track those alongside `FRAME PACE` during the
-physical board soak test. Football snapshots are prompt-only and never enter
-the ordinary rotation. A flash reminder keeps priority; football updates
+physical board soak test. Fresh IN snapshots are recurring screens in the
+ordinary rotation; new fixtures, status changes, and score changes can also
+request a one-shot prompt. A flash reminder keeps priority; football updates
 received during it are queued and shown afterward. Pending POSTs are deduplicated
-per team/match and expire locally. POST is removed from per-team state as soon
-as it is queued; after display, only a later MQTT message can request another
-prompt. Live IN state remains available for score/clock refresh and stale-live
-handling. Since messages are non-retained, no snapshot hydrates football state
-at boot or reconnect. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
+per team/match and expire locally. Unexpired POST snapshots remain in per-team
+state and the normal rotation until their expiry. Live IN state remains
+available for score/clock refresh and stale-live handling. Since messages are
+non-retained, reconnect recovery depends on the publisher sending a fresh
+snapshot after the board reconnects. Set `MQTT_FOOTBALL_ENABLED = False` in board-local
 `settings_local.py` to hide both football screens; the MQTT connection and its
 other subscriptions continue to work.
 
