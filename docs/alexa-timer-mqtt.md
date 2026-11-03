@@ -27,9 +27,10 @@ whose `published_at` is not newer than the last accepted snapshot.
 When a label is present, the LED uses its normalized value to choose a stable
 animation theme. Labels exactly matching `caterpillar`, `race`, `rocket`, or
 `stars` select that theme directly. Other labels consistently hash to a theme;
-unnamed timers keep the timer-ID-based fallback. Add an exact lower-case alias
-to `TIMER_LABEL_THEME_MAP` in `timer_visuals.py` when a specific named timer
-should always use a chosen animation. The simulator follows the same default
+unnamed timers always use the racing-car theme, matching the original timer
+display behavior regardless of their native Alexa ID. Add an exact lower-case
+alias to `TIMER_LABEL_THEME_MAP` in `timer_visuals.py` when a specific named
+timer should always use a chosen animation. The simulator follows the same
 selection behavior.
 
 Example running snapshot:
@@ -154,8 +155,9 @@ Do not change the retained MQTT topics or top-level event fields.
   cycling on the left and the actual countdown on the right; omit `theme`.
 - `theme_status: ready`: require
   `theme: bedtime|leaving|timeout|generic`. `theme` without status is also
-  allowed for publisher compatibility. No theme metadata retains older
-  firmware's label/ID theme choice.
+  allowed for publisher compatibility. Without theme metadata, named timers
+  keep label-based theme selection and unnamed timers use the racing-car
+  default.
 - New explicit semantic destinations are **bed** (bedtime), **door** (leaving)
   and **tablet/iPad** (timeout), fixed immediately left of the right-edge clock.
   Generic resolves to one of the pre-existing caterpillar/car/rocket/stars
@@ -189,4 +191,18 @@ Deploy this LED firmware **before** enabling
 and issue [homeassistant#67](https://github.com/antonio1000homens/homeassistant/issues/67).
 The Home Assistant switch is disabled by default and should publish the old
 contract until explicitly enabled after board deployment.
+
+## Latest firmware deployment (2 November 2026)
+
+LED `master` at `c79db3bb` (including PR #334) was uploaded to the MatrixPortal
+S3, UID `86EEF87F7005`. The uploader verified SHA-256 readback for all 36
+application files and uploaded `code.py` last. After reload, the same board
+identity responded; serial showed successful screen fetches (`FETCH OK
+screens=18`) and normal rotation. The user confirmed the physical board looked
+normal after reload. This verifies firmware startup and ordinary rotation, not
+an Alexa timer scene or the semantic-theme handoff.
+
+This deployment preceded the unnamed race-car default fix in this change. A
+fresh timer run after the fix is merged and deployed is still needed to verify
+the physical racing-car theme.
 

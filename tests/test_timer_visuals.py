@@ -21,12 +21,18 @@ from timer_visuals import (
 
 
 class TimerVisualTests(unittest.TestCase):
-    def test_label_selects_theme_and_unnamed_timer_falls_back_to_id(self):
+    def test_unnamed_timers_always_use_racing_car_theme(self):
         for timer_id in ("alexa-1", "timer/3", "morning", "a-longer-test-id"):
-            self.assertEqual(theme_for_timer(timer_id), theme_for_timer(timer_id))
-            self.assertIn(theme_for_timer(timer_id), TIMER_THEMES)
-        self.assertEqual({theme_for_timer("child-{}".format(i)) for i in range(40)},
-                         set(TIMER_THEMES))
+            self.assertEqual(theme_for_timer(timer_id), "race")
+        self.assertEqual(theme_for_timer(""), "race")
+
+    def test_unmapped_labels_choose_a_stable_theme_from_the_label(self):
+        self.assertEqual({theme_for_timer("child-{}".format(i), "label-{}".format(i))
+                          for i in range(40)}, set(TIMER_THEMES))
+        for label in ("Laundry", "  laundry  ", "Kitchen timer"):
+            self.assertEqual(theme_for_timer("first-id", label),
+                             theme_for_timer("different-id", label))
+            self.assertIn(theme_for_timer("first-id", label), TIMER_THEMES)
         for theme in TIMER_THEMES:
             self.assertEqual(theme_for_timer("timer-id", theme), theme)
             self.assertEqual(theme_for_timer("timer-id", " " + theme.upper() + " "),
@@ -315,6 +321,10 @@ process.stdout.write(JSON.stringify({
                                 text=True, check=True)
         values = json.loads(result.stdout)
         self.assertEqual(values["theme"], theme_for_timer("child-7"))
+        self.assertEqual(values["theme"], "race")
+        self.assertEqual(values["labelledTheme"],
+                         theme_for_timer("first-id", "Pasta"))
+        self.assertEqual(values["explicitLabelTheme"], "stars")
         self.assertEqual(values["labelledTheme"], theme_for_timer("second-id", "pasta"))
         self.assertEqual(values["explicitLabelTheme"], theme_for_timer("other-id", "stars"))
         x, y, scale, _ = clock_layout("00:00")
