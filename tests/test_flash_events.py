@@ -456,7 +456,10 @@ class MqttTransportTests(unittest.TestCase):
         transport.poll(1.499)
         self.assertEqual(client.loop_calls, 1)
         self.assertEqual(MQTT_LOOP_INTERVAL_SECONDS, 1.5)
+        self.assertEqual(transport.effective_poll_seconds(), 5)
         transport.poll(1.5)
+        self.assertEqual(client.loop_calls, 1)
+        transport.poll(5)
         self.assertEqual(client.loop_calls, 2)
         self.assertEqual(client.subscriptions, [("led/flash/reminder", 1), ("led/flash/assistant-response", 1), ("led/screens/+", 1), ("led/football/+", 1), ("led/timer/+", 1)])
 

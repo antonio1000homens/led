@@ -55,7 +55,7 @@ class ScoutsFleurTests(unittest.TestCase):
 
     def test_simulator_uses_identical_palette_pixel_art(self):
         html = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        match = re.search(r"const SCOUTS_FLEUR_ROWS = \\[(.*?)\\];", html, flags=re.S)
+        match = re.search(r"const SCOUTS_FLEUR_ROWS = \[(.*?)\];", html, flags=re.S)
         self.assertIsNotNone(match)
         js_rows = tuple(re.findall(r"'([.CcMmGWOLlPH]{40})'", match.group(1)))
         self.assertEqual(js_rows, led_display.SCOUTS_FLEUR_ROWS)

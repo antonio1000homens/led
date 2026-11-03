@@ -636,6 +636,26 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(payload["flash"], {"enabled": True, "screen_duration_seconds": 10})
         self.assertNotIn("event", payload["flash"])
 
+    def test_adaptive_mqtt_display_settings_reach_board_payload(self):
+        runtime = default_runtime_config({"LED_WEATHER_SOURCE": "off"})
+        runtime["config_version"] = 17
+        runtime["display"].update({
+            "mqtt_adaptive_enabled": True,
+            "mqtt_idle_poll_seconds": 10,
+            "mqtt_live_poll_seconds": 1.5,
+        })
+        payload = Publisher(
+            self.config, self.store,
+            rail_provider=FakeProvider([[{"time": "08:01"}]]),
+            utcnow=self.utcnow,
+            runtime_config_store=StaticRuntimeConfigStore(runtime),
+        ).run()
+        self.assertEqual(payload["config_version"], 17)
+        self.assertEqual(payload["display"]["mqtt_idle_poll_seconds"], 10)
+        self.assertEqual(payload["display"]["mqtt_live_poll_seconds"], 1.5)
+        self.assertTrue(payload["display"]["mqtt_adaptive_enabled"])
+        self.assertNotIn("MQTT_BROKER", payload["display"])
+
     def test_disappeared_ride_is_flagged_without_breaking_park(self):
         config=PublisherConfig(bucket="test-bucket",national_rail_token="test-token",weather_source="off")
         runtime=default_runtime_config({"LED_WEATHER_SOURCE":"off"})

@@ -21,6 +21,7 @@ class ReminderClockLoopTests(unittest.TestCase):
         }, 0, self.due - 1)
         self.pauses = []
         self.polls = []
+        self.reports = []
         self.scope = {
             "time": SimpleNamespace(monotonic=lambda: self.now, sleep=self.sleep),
             "ticks_ms": lambda: round(self.now * 1000),
@@ -33,7 +34,8 @@ class ReminderClockLoopTests(unittest.TestCase):
             ),
             "display": SimpleNamespace(animation_active=lambda screen, phase: False),
             "mqtt": SimpleNamespace(
-                poll=lambda now, allow_connect=False: self.polls.append((now, allow_connect))
+                poll=lambda now, allow_connect=False: self.polls.append((now, allow_connect)),
+                report_if_due=lambda now: self.reports.append(now),
             ),
             "buttons": None,
             "mqtt_screens": SimpleNamespace(expire=lambda epoch: []),
@@ -63,6 +65,7 @@ class ReminderClockLoopTests(unittest.TestCase):
         self.assertGreaterEqual(self.now, 1)
         self.assertLess(self.now, 1.06)
         self.assertEqual(len(self.pauses), 1)
+        self.assertTrue(self.reports)
         self.assertEqual(self.scope["flash_resume"], ("departures", 2.5))
         self.assertTrue(self.flash.active(self.now))
         self.assertIsNone(self.scope["last_render_key"])

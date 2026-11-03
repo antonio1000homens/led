@@ -246,9 +246,17 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         if service_mqtt and _service_reminder_clock(now):
             return
         if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
+            if hasattr(mqtt, "set_live_match"):
+                mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             mqtt.poll(now, allow_connect=_mqtt_connection_allowed(now))
             _apply_pending_mqtt_screen_updates(now)
+            if hasattr(mqtt, "set_live_match"):
+                mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
+            # Diagnostic mode spends most of its time in this servicing loop,
+            # so keep aggregate MQTT telemetry on schedule here too.
+            if hasattr(mqtt, "report_if_due"):
+                mqtt.report_if_due(now)
             if timer_update_pending:
                 timer_update_pending = False
                 return
@@ -946,9 +954,9 @@ while True:
         if timer_rotation_resume is not None:
             mqtt_animation_active = True
             mqtt_allow_connect = False
-        # Keep the already-connected MiniMQTT client serviced between animation
-        # frames. Its 10 ms loop timeout stays below one frame; never start a
-        # Wi-Fi/broker connection handshake in the middle of an animation.
+        # Match-dependent polling changes application service cadence, not the
+        # Protomatter electrical scan. Stale IN matches revert to idle.
+        mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
         mqtt.poll(now, allow_connect=mqtt_allow_connect)
         # Apply accepted updates during animations too. The update callback only
         # stages payloads; rebuilding is guarded against the rail GC window by
@@ -956,6 +964,9 @@ while True:
         # newly requested football card on its next frame instead of waiting
         # for the current animation to finish.
         _apply_pending_mqtt_screen_updates(time.monotonic())
+        mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
+        if hasattr(mqtt, "report_if_due"):
+            mqtt.report_if_due(time.monotonic())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
@@ -1247,6 +1258,12 @@ while True:
                     scheduled_screen["schedule_windows"] = christmas_policy.get("schedule_windows", [])
                     scheduled_screen["schedule_enabled"] = christmas_policy.get("enabled", True)
             display_config = payload.get("display")
+            if mqtt is not None:
+                mqtt.configure_polling(display_config, time.monotonic())
+                mqtt.set_live_match(
+                    football_screens.has_live_match(_reminder_epoch(time.monotonic())),
+                    time.monotonic(),
+                )
             if (
                 isinstance(display_config, dict)
                 and "brightness_percent" in display_config

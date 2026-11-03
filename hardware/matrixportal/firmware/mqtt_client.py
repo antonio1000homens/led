@@ -8,6 +8,9 @@ from diagnostic_counter import event as diagnostic_event
 from monotonic_clock import ticks_ms
 
 MQTT_LOOP_INTERVAL_SECONDS = 1.5
+MQTT_IDLE_INTERVAL_SECONDS = 5.0
+MQTT_POLL_INTERVAL_CHOICES = (1.5, 2, 3, 5, 10, 15, 30)
+MQTT_STATS_INTERVAL_SECONDS = 60
 MQTT_KEEP_ALIVE_SECONDS = 180
 MQTT_SOCKET_TIMEOUT_SECONDS = 0.01
 
@@ -43,6 +46,82 @@ class FlashMqttClient:
         self.pending_screen_status = None
         self.pending_health = None
         self.on_connecting = on_connecting
+        self.adaptive_polling = True
+        self.idle_poll_seconds = MQTT_IDLE_INTERVAL_SECONDS
+        self.live_poll_seconds = MQTT_LOOP_INTERVAL_SECONDS
+        self.live_match = False
+        self.poll_count = 0
+        self.poll_max_ms = 0
+        self.message_count = 0
+        self.connect_successes = 0
+        self.connect_failures = 0
+        self._last_report_at = None
+
+    def effective_poll_seconds(self):
+        return self.live_poll_seconds if self.adaptive_polling and self.live_match else self.idle_poll_seconds
+
+    def configure_polling(self, display_config, now):
+        """Apply backend settings without reconnecting; ignore invalid/legacy payloads."""
+        if not isinstance(display_config, dict):
+            return False
+        keys = ("mqtt_adaptive_enabled", "mqtt_idle_poll_seconds", "mqtt_live_poll_seconds")
+        if not all(key in display_config for key in keys):
+            return False
+        adaptive, idle, live = (display_config[key] for key in keys)
+        if type(adaptive) is not bool:
+            return False
+        if any(type(value) not in (int, float) or value not in MQTT_POLL_INTERVAL_CHOICES
+               for value in (idle, live)):
+            return False
+        previous = self.effective_poll_seconds()
+        changed = (adaptive != self.adaptive_polling or idle != self.idle_poll_seconds
+                   or live != self.live_poll_seconds)
+        self.adaptive_polling = adaptive
+        self.idle_poll_seconds = float(idle)
+        self.live_poll_seconds = float(live)
+        if changed:
+            self._reschedule_for_policy(now, previous)
+        return changed
+
+    def set_live_match(self, active, now):
+        active = bool(active)
+        if self.live_match == active:
+            return False
+        previous = self.effective_poll_seconds()
+        self.live_match = active
+        self._reschedule_for_policy(now, previous)
+        return True
+
+    def _reschedule_for_policy(self, now, previous_interval):
+        interval = self.effective_poll_seconds()
+        if self.connected:
+            due = float(now) + interval
+            # Never enqueue catch-up polls. Shorten the deadline for live
+            # updates, lengthen it after POST or stale match expiry.
+            self.next_loop = min(self.next_loop, due) if interval < previous_interval else max(self.next_loop, due)
+        print("MQTT POLL POLICY mode={} interval_s={} adaptive={}".format(
+            "live" if self.adaptive_polling and self.live_match else "idle",
+            interval, self.adaptive_polling,
+        ))
+
+    def report_if_due(self, now):
+        """Low-volume aggregate telemetry; avoid printing on every poll."""
+        if self._last_report_at is None:
+            self._last_report_at = float(now)
+        if float(now) - self._last_report_at < MQTT_STATS_INTERVAL_SECONDS:
+            return
+        print("MQTT POLL STATS interval_s={} live={} polls={} max_poll_ms={} messages={} connects={} connect_failures={}".format(
+            self.effective_poll_seconds(),
+            self.adaptive_polling and self.live_match,
+            self.poll_count, self.poll_max_ms, self.message_count,
+            self.connect_successes, self.connect_failures,
+        ))
+        self._last_report_at = float(now)
+        self.poll_count = 0
+        self.poll_max_ms = 0
+        self.message_count = 0
+        self.connect_successes = 0
+        self.connect_failures = 0
 
     def set_enabled(self, enabled):
         """Apply the admin runtime gate and close the connection when disabled."""
@@ -56,6 +135,7 @@ class FlashMqttClient:
 
     def _handle_message(self, client, topic, message):
         """Keep application callback failures from tearing down MQTT transport."""
+        self.message_count += 1
         try:
             self.on_message(topic, message)
         except Exception as error:
@@ -110,6 +190,7 @@ class FlashMqttClient:
             self.client.subscribe(football_topic, qos=1)
             self.client.subscribe(timer_topic, qos=1)
             self.connected = True
+            self.connect_successes += 1
             self.next_loop = now
             if self.pending_screen_status is not None:
                 self.client.publish(
@@ -130,6 +211,7 @@ class FlashMqttClient:
             print("MQTT subscribed reminder={} assistant={} screens={} football={} timer={}".format(
                 self.settings.MQTT_TOPIC, assistant_topic, screen_topic, football_topic, timer_topic))
         except Exception as error:
+            self.connect_failures += 1
             self._discard_client()
             self.next_attempt = now + 30
             print("MQTT unavailable:", error)
@@ -206,7 +288,9 @@ class FlashMqttClient:
                     "MQTT_POLL", "DONE",
                     "timeout_ms=10 duration_ms={}".format(ticks_ms() - poll_started),
                 )
-            self.next_loop = now + MQTT_LOOP_INTERVAL_SECONDS
+            self.next_loop = now + self.effective_poll_seconds()
+            self.poll_count += 1
+            self.poll_max_ms = max(self.poll_max_ms, ticks_ms() - poll_started)
         except Exception as error:
             self._discard_client()
             self.next_attempt = now + 5
