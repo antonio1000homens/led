@@ -11,6 +11,8 @@ on:
       - 'scripts/bootstrap-deployment-role.sh'
       - 'scripts/bootstrap-ssm-migration.sh'
       - 'scripts/bootstrap-todoist-oauth.py'
+      - 'scripts/bootstrap-r2-credentials.sh'
+      - 'scripts/migrate-r2-live-data.py'
       - 'scripts/deploy-stack.sh'
       - 'scripts/deploy.sh'
       - 'scripts/load-ssm-secrets.sh'
@@ -44,6 +46,8 @@ on:
       - 'shared/**'
       - 'requirements-server.txt'
       - 'infrastructure/led-stack.yaml'
+      - 'workers/led-live-data/**'
+      - 'scripts/migrate-r2-live-data.py'
       - 'scripts/deploy-stack.sh'
       - 'scripts/load-ssm-secrets.sh'
       - 'scripts/package-lambda.sh'
@@ -84,6 +88,11 @@ env:
   LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS: "${{ vars.LED_FOOTBALL_FIXTURE_LOOKAHEAD_DAYS || '45' }}"
   LED_CHESSINGTON_CACHE_SECONDS: "${{ vars.LED_CHESSINGTON_CACHE_SECONDS || '300' }}"
   LED_CHESSINGTON_RIDES: "${{ vars.LED_CHESSINGTON_RIDES }}"
+  LED_STATE_STORAGE_BACKEND: "${{ vars.LED_STATE_STORAGE_BACKEND || 's3' }}"
+  LED_STATE_STORAGE_MIRROR: "${{ vars.LED_STATE_STORAGE_MIRROR || 'none' }}"
+  LED_R2_BUCKET_NAME: "${{ vars.LED_R2_BUCKET_NAME || 'led-live-state' }}"
+  LED_R2_CREDENTIALS_PARAMETER_NAME: "${{ vars.LED_R2_CREDENTIALS_PARAMETER_NAME || '/led/deploy/cloudflare/r2-s3-credentials' }}"
+  LED_R2_SCREEN_ROUTE_ENABLED: "${{ vars.LED_R2_SCREEN_ROUTE_ENABLED || 'false' }}"
 
 jobs:
   test:
@@ -94,8 +103,12 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: python -m pip install -r requirements-server.txt
       - run: python -m unittest discover -s tests -v
+      - run: node --test workers/led-live-data/src/index.test.js
 
   deploy:
     needs: test
@@ -145,6 +158,14 @@ jobs:
               raise SystemExit("LED_FOOTBALL_FIXTURE_SOURCE must be off, google_calendar or public_ical")
           if not re.fullmatch(r"/led/football/[A-Za-z0-9_/-]+", os.environ.get("LED_FOOTBALL_FIXTURE_PARAMETER_NAME", "")):
               raise SystemExit("football fixture SSM parameter must be under /led/football/")
+          if os.environ.get("LED_STATE_STORAGE_BACKEND") not in ("s3", "r2"):
+              raise SystemExit("LED_STATE_STORAGE_BACKEND must be s3 or r2")
+          if os.environ.get("LED_STATE_STORAGE_MIRROR") not in ("none", "s3", "r2"):
+              raise SystemExit("LED_STATE_STORAGE_MIRROR must be none, s3 or r2")
+          if os.environ.get("LED_STATE_STORAGE_MIRROR") == os.environ.get("LED_STATE_STORAGE_BACKEND"):
+              raise SystemExit("LED_STATE_STORAGE_MIRROR must differ from the active backend")
+          if os.environ.get("LED_R2_SCREEN_ROUTE_ENABLED") not in ("true", "false"):
+              raise SystemExit("LED_R2_SCREEN_ROUTE_ENABLED must be true or false")
           PY
 
       - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
@@ -155,6 +176,28 @@ jobs:
 
       - name: Load deployment secrets from SSM
         run: bash scripts/load-ssm-secrets.sh
+
+      - name: Verify R2 credentials parameter is provisioned
+        if: env.LED_STATE_STORAGE_BACKEND == 'r2' || env.LED_STATE_STORAGE_MIRROR == 'r2'
+        run: |
+          parameter_type="$(aws ssm get-parameter --region "${AWS_REGION}" --name "${LED_R2_CREDENTIALS_PARAMETER_NAME}" --query 'Parameter.Type' --output text)"
+          test "${parameter_type}" = 'SecureString' || {
+            echo "${LED_R2_CREDENTIALS_PARAMETER_NAME} must be an SSM SecureString" >&2
+            exit 1
+          }
+
+      - name: Load R2 Worker deployment token from SSM
+        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
+        run: |
+          value="$(aws ssm get-parameter --region "${AWS_REGION}" --name '/led/deploy/cloudflare/r2-worker-api-token' --with-decryption --query 'Parameter.Value' --output text)"
+          test -n "${value}" && test "${value}" != 'None'
+          echo "::add-mask::${value}"
+          {
+            echo 'CLOUDFLARE_API_TOKEN<<__R2_WORKER_TOKEN__'
+            printf '%s\n' "${value}"
+            echo '__R2_WORKER_TOKEN__'
+          } >> "${GITHUB_ENV}"
+          unset value
 
       - name: Verify AWS identity and select dedicated code bucket
         run: |
@@ -246,7 +289,11 @@ jobs:
       - name: Verify Todoist screen is live
         if: env.LED_CALENDAR_SOURCE == 'todoist'
         run: |
-          aws s3 cp "s3://${{ steps.stack.outputs.hosting_bucket }}/api/screens" /tmp/led-screens.json --only-show-errors
+          if [[ "${LED_STATE_STORAGE_BACKEND}" == "r2" ]]; then
+            curl --fail --silent --show-error "https://${DOMAIN_NAME}/api/screens" -o /tmp/led-screens.json
+          else
+            aws s3 cp "s3://${{ steps.stack.outputs.hosting_bucket }}/api/screens" /tmp/led-screens.json --only-show-errors
+          fi
           python - <<'PY'
           import json
           with open('/tmp/led-screens.json', encoding='utf-8') as handle:
@@ -260,6 +307,19 @@ jobs:
               raise SystemExit('Todoist calendar was published stale; check Lambda logs and OAuth state')
           print(f"Todoist calendar live with {len(calendar.get('events') or [])} upcoming event(s)")
           PY
+
+      - name: Deploy private R2 screen route
+        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Publish R2 screen Worker route
+        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
+        working-directory: workers/led-live-data
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.157.0 deploy
 
       - name: Configure LED hostname in Windsor Cloudflare
         env:

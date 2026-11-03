@@ -36,6 +36,7 @@ from football_calendar import (
 )
 from formatting import prepare_rail_presentation, todoist_effective_duration
 from departure_filter import filter_train_services
+from object_storage import create_json_object_store
 
 STATE_KEY = "state/feed-cache.json"
 SCREENS_KEY = "api/screens"
@@ -289,43 +290,21 @@ class StaticRuntimeConfigStore:
 
 
 class S3StateStore:
-    def __init__(self, bucket, client=None):
+    def __init__(self, bucket, client=None, object_store=None):
         self.bucket = bucket
-        if client is None:
-            import boto3
-            from botocore.config import Config
-
-            client = boto3.client("s3", config=Config(signature_version="s3v4"))
-        self.client = client
-
-    def _get_json(self, key, default):
-        try:
-            response = self.client.get_object(Bucket=self.bucket, Key=key)
-        except Exception as error:
-            meta = getattr(error, "response", {}) or {}
-            if str((meta.get("Error") or {}).get("Code") or "") in ("NoSuchKey", "404", "NotFound"):
-                return copy.deepcopy(default)
-            raise
-        with response["Body"] as body:
-            return json.loads(body.read().decode("utf-8"))
+        self.object_store = object_store or create_json_object_store(
+            bucket, s3_client=client
+        )
 
     def load(self):
-        payload = self._get_json(STATE_KEY, {"version": 2, "feeds": {}})
+        payload = self.object_store.get_json(STATE_KEY, {"version": 2, "feeds": {}})
         return payload if isinstance(payload, dict) and isinstance(payload.get("feeds"), dict) else {"version": 2, "feeds": {}}
 
     def save(self, state):
-        self.client.put_object(
-            Bucket=self.bucket, Key=STATE_KEY,
-            Body=json.dumps(state, separators=(",", ":")).encode(),
-            ContentType="application/json", CacheControl="no-store", ServerSideEncryption="AES256",
-        )
+        self.object_store.put_json(STATE_KEY, state, cache_control="no-store")
 
     def publish(self, payload):
-        self.client.put_object(
-            Bucket=self.bucket, Key=SCREENS_KEY,
-            Body=json.dumps(payload, separators=(",", ":")).encode(),
-            ContentType="application/json", CacheControl="no-store, max-age=0", ServerSideEncryption="AES256",
-        )
+        self.object_store.put_json(SCREENS_KEY, payload, cache_control="no-store, max-age=0")
 
 class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
@@ -1256,6 +1235,10 @@ def lambda_handler(event, context):
             if config.runtime_config_table
             else StaticRuntimeConfigStore(_runtime_defaults(config))
         )
-        _PUBLISHER = Publisher(config, S3StateStore(config.bucket), runtime_config_store=runtime_store)
+        _PUBLISHER = Publisher(
+            config,
+            S3StateStore(config.bucket, object_store=create_json_object_store(config.bucket)),
+            runtime_config_store=runtime_store,
+        )
     payload = _PUBLISHER.run()
     return {"published": True, "screen_count": len(payload.get("screens") or []), "config_version": payload.get("config_version")}
