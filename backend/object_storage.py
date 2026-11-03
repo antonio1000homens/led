@@ -5,10 +5,8 @@ from __future__ import annotations
 import json
 import os
 import copy
+import time
 from typing import Any
-
-_R2_CLIENTS: dict[tuple[str, str, str], Any] = {}
-
 
 class JsonObjectStore:
     def __init__(self, bucket: str, client: Any, *, server_side_encryption: bool):
@@ -91,38 +89,77 @@ def _r2_credentials(parameter_name: str, ssm_client: Any = None) -> tuple[str, s
     return access_key_id, secret_access_key
 
 
+class RefreshingR2Client:
+    """Refresh credentials in warm Lambda containers and retry once on auth errors."""
+
+    AUTH_ERROR_CODES = {"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "ExpiredToken", "InvalidToken"}
+
+    def __init__(self, account_id: str, parameter_name: str, *, ssm_client: Any = None,
+                 refresh_seconds: int = 300, clock=None, client_factory=None):
+        self.account_id = account_id
+        self.parameter_name = parameter_name
+        self.ssm_client = ssm_client
+        self.refresh_seconds = refresh_seconds
+        self.clock = clock or time.monotonic
+        self.client_factory = client_factory
+        self._client = None
+        self._refresh_at = 0.0
+
+    def _current_client(self, *, force: bool = False):
+        now = self.clock()
+        if force or self._client is None or now >= self._refresh_at:
+            access_key_id, secret_access_key = _r2_credentials(self.parameter_name, self.ssm_client)
+            if self.client_factory is not None:
+                client = self.client_factory(access_key_id, secret_access_key)
+            else:
+                import boto3
+                from botocore.config import Config
+
+                config_args = {"signature_version": "s3v4"}
+                try:
+                    config = Config(
+                        **config_args,
+                        request_checksum_calculation="when_required",
+                        response_checksum_validation="when_required",
+                    )
+                except TypeError:
+                    config = Config(**config_args)
+                client = boto3.client(
+                    "s3",
+                    endpoint_url=f"https://{self.account_id}.r2.cloudflarestorage.com",
+                    region_name="auto",
+                    aws_access_key_id=access_key_id,
+                    aws_secret_access_key=secret_access_key,
+                    config=config,
+                )
+            self._client = client
+            self._refresh_at = now + self.refresh_seconds
+        return self._client
+
+    def _call(self, operation: str, **kwargs):
+        client = self._current_client()
+        try:
+            return getattr(client, operation)(**kwargs)
+        except Exception as error:
+            response = getattr(error, "response", {}) or {}
+            code = str((response.get("Error") or {}).get("Code") or "")
+            if code not in self.AUTH_ERROR_CODES:
+                raise
+            # Credentials may have been revoked before the periodic refresh.
+            # Retry once using the latest value; do not log credential material.
+            return getattr(self._current_client(force=True), operation)(**kwargs)
+
+    def get_object(self, **kwargs):
+        return self._call("get_object", **kwargs)
+
+    def put_object(self, **kwargs):
+        return self._call("put_object", **kwargs)
+
+
 def _r2_client(account_id: str, parameter_name: str, ssm_client: Any = None, r2_client: Any = None):
     if r2_client is not None:
         return r2_client
-    key = (account_id, parameter_name, os.environ.get("AWS_REGION", "eu-west-2"))
-    if key in _R2_CLIENTS:
-        return _R2_CLIENTS[key]
-    import boto3
-    from botocore.config import Config
-
-    access_key_id, secret_access_key = _r2_credentials(parameter_name, ssm_client)
-    config_args = {"signature_version": "s3v4"}
-    # R2 does not implement AWS's optional checksum request headers. Recent
-    # botocore versions expose these switches; older Lambda runtimes do not
-    # auto-add those headers and accept the smaller configuration.
-    try:
-        config = Config(
-            **config_args,
-            request_checksum_calculation="when_required",
-            response_checksum_validation="when_required",
-        )
-    except TypeError:
-        config = Config(**config_args)
-    client = boto3.client(
-        "s3",
-        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
-        region_name="auto",
-        aws_access_key_id=access_key_id,
-        aws_secret_access_key=secret_access_key,
-        config=config,
-    )
-    _R2_CLIENTS[key] = client
-    return client
+    return RefreshingR2Client(account_id, parameter_name, ssm_client=ssm_client)
 
 
 def create_json_object_store(

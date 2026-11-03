@@ -4,6 +4,7 @@ import unittest
 from backend.object_storage import (
     JsonObjectStore,
     MirroredJsonObjectStore,
+    RefreshingR2Client,
     create_json_object_store,
 )
 
@@ -86,3 +87,56 @@ class ObjectStorageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class RefreshingR2ClientTests(unittest.TestCase):
+    class FakeSSM:
+        def __init__(self):
+            self.access_key_id = "old"
+
+        def get_parameter(self, **_kwargs):
+            return {"Parameter": {"Value": json.dumps({
+                "access_key_id": self.access_key_id,
+                "secret_access_key": "test-secret",
+            })}}
+
+    def test_refresh_after_ttl_without_lambda_restart(self):
+        ssm, now, used = self.FakeSSM(), [0.0], []
+        class Client:
+            def __init__(self, key):
+                self.key = key
+            def put_object(self, **_kwargs):
+                used.append(self.key)
+        client = RefreshingR2Client(
+            "test-account", "/led/deploy/test",
+            ssm_client=ssm, refresh_seconds=60, clock=lambda: now[0],
+            client_factory=lambda key, secret: Client(key),
+        )
+        client.put_object(Bucket="test", Key="a", Body=b"{}")
+        ssm.access_key_id = "rotated"
+        now[0] = 61.0
+        client.put_object(Bucket="test", Key="a", Body=b"{}")
+        self.assertEqual(used, ["old", "rotated"])
+
+    def test_auth_failure_immediately_reloads_and_retries_once(self):
+        ssm, used = self.FakeSSM(), []
+        class AuthError(Exception):
+            response = {"Error": {"Code": "InvalidAccessKeyId"}}
+        class Client:
+            def __init__(self, key):
+                self.key = key
+            def put_object(self, **_kwargs):
+                used.append(self.key)
+                if self.key == "old":
+                    raise AuthError()
+        client = RefreshingR2Client(
+            "test-account", "/led/deploy/test",
+            ssm_client=ssm, client_factory=lambda key, secret: Client(key),
+        )
+        # First request loads old credentials. A rotation during a warm
+        # container is detected by the next failed request.
+        client._current_client()
+        ssm.access_key_id = "rotated"
+        client.put_object(Bucket="test", Key="a", Body=b"{}")
+        self.assertEqual(used, ["old", "rotated"])
