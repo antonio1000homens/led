@@ -206,8 +206,8 @@ class QueueAwareDisplay:
             return self.base.set_brightness_percent(percent)
         return None
 
-    def show_diagnostic(self, color):
-        return self.base.show_diagnostic(color)
+    def show_diagnostic(self, color, counter=None, color_index=None):
+        return self.base.show_diagnostic(color, counter, color_index)
 
     def show_loading(self, title="UPCOMING", message="Loading...", clock_time="--:--"):
         if hasattr(self.base, "show_loading"):

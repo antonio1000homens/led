@@ -114,6 +114,10 @@ except ImportError:
     pass
 if MATRIX_BIT_DEPTH not in (1, 2):
     raise ValueError("MATRIX_BIT_DEPTH must be 1 or 2")
+# Temporary diagnostic: show a numbered counter on darker two-bit RGB colours.
+MATRIX_DIAGNOSTIC_COLOR_COUNTER = False
+# Keep MQTT active during this comparison run on normal screens.
+MATRIX_MQTT_TEMPORARILY_DISABLED = False
 TODOIST_MARQUEE_PAUSE_SECONDS = 1.5
 # Use the speed delivered in the screen payload. A board-local override here
 # would silently defeat the Departures configuration and make long station
