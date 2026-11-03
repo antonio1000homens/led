@@ -14,6 +14,7 @@ on:
       - 'settings.toml.example'
       - 'scripts/stage-firmware.sh'
       - 'scripts/install-firmware.sh'
+      - 'scripts/package-matrixportal-app.sh'
       - 'scripts/upload-firmware-wifi.py'
       - 'tests/test_button_control.py'
       - 'tests/test_display_layout.py'
@@ -32,6 +33,7 @@ on:
       - 'tests/test_timer_state.py'
       - 'tests/test_timer_visuals.py'
       - 'tests/test_timer_semantic.py'
+      - 'tests/test_matrix_colour_palettes.py'
       - 'tests/test_upload_firmware_wifi.py'
       - 'tests/test_wifi_startup.py'
   push:
@@ -48,6 +50,7 @@ on:
       - 'settings.toml.example'
       - 'scripts/stage-firmware.sh'
       - 'scripts/install-firmware.sh'
+      - 'scripts/package-matrixportal-app.sh'
       - 'scripts/upload-firmware-wifi.py'
       - 'tests/test_presentation_priority.py'
       - 'tests/test_mqtt_screen_update_batching.py'
@@ -55,6 +58,7 @@ on:
       - 'tests/test_timer_state.py'
       - 'tests/test_timer_visuals.py'
       - 'tests/test_timer_semantic.py'
+      - 'tests/test_matrix_colour_palettes.py'
   workflow_dispatch:
 
 permissions:
@@ -87,6 +91,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/stage-firmware.sh
           bash -n scripts/install-firmware.sh
+          bash -n scripts/package-matrixportal-app.sh
           python -m py_compile scripts/upload-firmware-wifi.py
           bash scripts/stage-firmware.sh /tmp/circuitpy
           test -f /tmp/circuitpy/code.py
@@ -122,9 +127,21 @@ jobs:
             test_timer_state.py
             test_timer_visuals.py
             test_timer_semantic.py
+            test_matrix_colour_palettes.py
             test_upload_firmware_wifi.py
             test_wifi_startup.py
           )
           for test_file in "${tests[@]}"; do
             python -m unittest discover -s tests -p "${test_file}" -v
           done
+
+      - name: Package uploadable MatrixPortal application
+        run: bash scripts/package-matrixportal-app.sh
+
+      - name: Publish validated application bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: matrixportal-s3-circuitpython-app-2bit
+          path: .build/artifacts/matrixportal-s3-circuitpython-app-2bit.zip
+          if-no-files-found: error
+          retention-days: 30

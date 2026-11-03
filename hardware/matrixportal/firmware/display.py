@@ -33,17 +33,20 @@ from mqtt_screens import _epoch
 from timer_state import (caterpillar_position, timer_apples_eaten,
                          timer_apple_center, TIMER_APPLE_COUNT, format_countdown)
 from timer_visuals import (
-    TIMER_THEMES, CLOCK_FONT, SCENE_WIDTH,
+    TIMER_THEMES, CLOCK_FONT, SCENE_WIDTH, BACKGROUND_COLORS_2BIT,
+    ACCENT_COLORS_2BIT,
     TIMER_ACTOR_SCALE, TIMER_APPLE_SCALE, actor_position,
     theme_for_timer, clock_layout, finish_pose, rotate_sprite,
-    SPRITE_ROWS, SPRITE_COLORS, SPRITE_SYMBOLS,
+    SPRITE_ROWS, SPRITE_COLORS, SPRITE_COLORS_2BIT, SPRITE_SYMBOLS,
     BACKGROUND_COLORS, background_index,
     ACCENT_ROWS, ACCENT_COLORS, accent_positions,
 )
 from timer_semantic import (
-    SEMANTIC_THEMES, PENDING_COLOURS, CHARACTER_ROWS, CHARACTER_COLORS, CHARACTER_SYMBOLS,
-    DESTINATION_ROWS, DESTINATION_COLORS, DESTINATION_SYMBOLS,
-    SEMANTIC_BACKGROUND_COLORS, SEMANTIC_ACCENT_COLORS,
+    SEMANTIC_THEMES, PENDING_COLOURS, CHARACTER_ROWS, CHARACTER_COLORS,
+    CHARACTER_COLORS_2BIT, CHARACTER_SYMBOLS,
+    DESTINATION_ROWS, DESTINATION_COLORS, DESTINATION_COLORS_2BIT, DESTINATION_SYMBOLS,
+    SEMANTIC_BACKGROUND_COLORS, SEMANTIC_BACKGROUND_COLORS_2BIT,
+    SEMANTIC_ACCENT_COLORS, SEMANTIC_ACCENT_COLORS_2BIT,
     SEMANTIC_ACCENT_ROWS, destination_position, semantic_character_position,
     semantic_marker_x, semantic_background_index, semantic_accent_positions,
 )
@@ -57,8 +60,8 @@ from christmas_sleigh import PALETTE_INDEX as CHRISTMAS_SLEIGH_PALETTE_INDEX
 from christmas_sleigh import WIDTH as CHRISTMAS_SLEIGH_WIDTH
 from christmas_sleigh import draw as draw_christmas_sleigh
 from christmas_sleigh import draw_indexed as draw_christmas_sleigh_indexed
-from double_decker_bus import PALETTE as DOUBLE_DECKER_BUS_PALETTE
 from double_decker_bus import PALETTE_8 as DOUBLE_DECKER_BUS_PALETTE_8
+from double_decker_bus import PALETTE_64 as DOUBLE_DECKER_BUS_PALETTE_64
 from double_decker_bus import PALETTE_INDEX as DOUBLE_DECKER_BUS_PALETTE_INDEX
 from double_decker_bus import WIDTH as BUS_WIDTH
 from double_decker_bus import HEIGHT as BUS_HEIGHT
@@ -67,6 +70,7 @@ from double_decker_bus import draw as draw_double_decker_bus
 from football_ball import (
     HEIGHT as FOOTBALL_BALL_HEIGHT,
     PALETTE as FOOTBALL_BALL_PALETTE,
+    PALETTE_2BIT as FOOTBALL_BALL_PALETTE_2BIT,
     PALETTE_INDEX as FOOTBALL_BALL_PALETTE_INDEX,
     WIDTH as FOOTBALL_BALL_WIDTH,
     draw_indexed as draw_football_ball_indexed,
@@ -89,7 +93,7 @@ from football_screens import (
     FOOTBALL_FIXTURE_TEXT_COLOR,
 )
 from weather_sprites import PALETTE_8 as WEATHER_SPRITE_PALETTE_8
-from weather_sprites import PALETTE_RGB as WEATHER_SPRITE_PALETTE_RGB
+from weather_sprites import PALETTE_64 as WEATHER_SPRITE_PALETTE_64
 from weather_sprites import WEATHER_14 as WEATHER_SPRITES_14
 from weather_sprites import CELESTIAL_21 as WEATHER_CELESTIAL_21
 
@@ -162,7 +166,9 @@ TIMER_APPLE_ROWS = (
     "..RRRR..",
 )
 TIMER_CATERPILLAR_COLORS = (0, 0x8CEE63, 0x3DA94A, 0x172E29)
+TIMER_CATERPILLAR_COLORS_2BIT = (0, 0x55FF55, 0x00AA00, 0x005500)
 TIMER_APPLE_COLORS = (0, 0xF4514A, 0xAC2C37, 0x6CE573)
+TIMER_APPLE_COLORS_2BIT = (0, 0xFF5555, 0xAA0000, 0x55FF55)
 TIMER_CATERPILLAR_PALETTE = {".": 0, "G": 1, "D": 2, "E": 3}
 TIMER_APPLE_PALETTE = {".": 0, "R": 1, "D": 2, "G": 3}
 
@@ -270,7 +276,7 @@ STEAM_TRAIN_VERTICAL_OFFSET = 1
 STEAM_TRAIN_TEXT_GAP = 8
 BUS_PALETTE = (
     DOUBLE_DECKER_BUS_PALETTE_8 if MATRIX_BIT_DEPTH == 1
-    else DOUBLE_DECKER_BUS_PALETTE
+    else DOUBLE_DECKER_BUS_PALETTE_64
 )
 BUS_VERTICAL_OFFSET = 1
 BUS_TEXT_GAP = 8
@@ -420,7 +426,8 @@ WEATHER_SPRITE_ALIASES = {
     "storm": "thunderstorm",
 }
 WEATHER_SPRITE_PALETTE = (
-    WEATHER_SPRITE_PALETTE_8 if MATRIX_BIT_DEPTH == 1 else WEATHER_SPRITE_PALETTE_RGB
+    WEATHER_SPRITE_PALETTE_8 if MATRIX_BIT_DEPTH == 1
+    else WEATHER_SPRITE_PALETTE_64
 )
 WEATHER_SPRITE_CHAR_INDEX = {".": 0, "Y": 1, "O": 2, "W": 3, "C": 4, "B": 5, "D": 6, "R": 7, "M": 8}
 
@@ -2150,9 +2157,11 @@ class MatrixDisplay:
         palette = displayio.Palette(len(FOOTBALL_BALL_PALETTE_INDEX))
         palette[0] = 0
         palette.make_transparent(0)
+        ball_palette = (FOOTBALL_BALL_PALETTE_2BIT if MATRIX_BIT_DEPTH == 2
+                        else FOOTBALL_BALL_PALETTE)
         for name, index in FOOTBALL_BALL_PALETTE_INDEX.items():
             if name != ".":
-                red, green, blue = FOOTBALL_BALL_PALETTE[name]
+                red, green, blue = ball_palette[name]
                 palette[index] = (red << 16) | (green << 8) | blue
         ball_grid = displayio.TileGrid(
             self._football_rotation_bitmaps[0],
@@ -3661,8 +3670,12 @@ class MatrixDisplay:
             if complete:
                 # Static 194x32 background, built once when timer reaches zero.
                 bitmap = displayio.Bitmap(SCENE_WIDTH, 32, 8)
-                colors = (SEMANTIC_BACKGROUND_COLORS[theme] if semantic
-                          else BACKGROUND_COLORS[theme])
+                colors = (
+                    SEMANTIC_BACKGROUND_COLORS_2BIT[theme] if semantic and MATRIX_BIT_DEPTH == 2
+                    else SEMANTIC_BACKGROUND_COLORS[theme] if semantic
+                    else BACKGROUND_COLORS_2BIT[theme] if MATRIX_BIT_DEPTH == 2
+                    else BACKGROUND_COLORS[theme]
+                )
                 palette = displayio.Palette(8)
                 for i, color in enumerate(colors):
                     palette[i] = color
@@ -3675,8 +3688,13 @@ class MatrixDisplay:
                 rows = (SEMANTIC_ACCENT_ROWS[theme] if semantic
                         else ACCENT_ROWS[theme])
                 symbols = {".": 0, "S": 1, "R": 2, "W": 1}
-                colors = (0, SEMANTIC_ACCENT_COLORS[theme] if semantic
-                          else ACCENT_COLORS[theme], 0xF46464)
+                accent = (
+                    SEMANTIC_ACCENT_COLORS_2BIT[theme] if semantic and MATRIX_BIT_DEPTH == 2
+                    else SEMANTIC_ACCENT_COLORS[theme] if semantic
+                    else ACCENT_COLORS_2BIT[theme] if MATRIX_BIT_DEPTH == 2
+                    else ACCENT_COLORS[theme]
+                )
+                colors = (0, accent, 0xFF5555 if MATRIX_BIT_DEPTH == 2 else 0xF46464)
                 prototype = self._timer_sprite(rows, colors, symbols)
                 for i in range(2):
                     pos = (semantic_accent_positions(theme, elapsed) if semantic
@@ -3693,8 +3711,11 @@ class MatrixDisplay:
                 # Fixed destination next to the countdown in every live frame:
                 # bedtime -> BED, leaving -> DOOR, timeout -> TABLET.
                 bx, by = destination_position(theme, clock_x)
+                destination_colors = (DESTINATION_COLORS_2BIT[theme]
+                                      if MATRIX_BIT_DEPTH == 2 else
+                                      DESTINATION_COLORS[theme])
                 group.append(self._timer_sprite(
-                    DESTINATION_ROWS[theme], DESTINATION_COLORS[theme],
+                    DESTINATION_ROWS[theme], destination_colors,
                     DESTINATION_SYMBOLS[theme], x=bx, y=by, scale=2))
             pending_label = None
             if pending:
@@ -3719,7 +3740,9 @@ class MatrixDisplay:
             if not complete and not pending:
                 if theme == "caterpillar":
                     marker = self._timer_sprite(
-                        TIMER_APPLE_ROWS, TIMER_APPLE_COLORS, TIMER_APPLE_PALETTE,
+                        TIMER_APPLE_ROWS,
+                        TIMER_APPLE_COLORS_2BIT if MATRIX_BIT_DEPTH == 2 else TIMER_APPLE_COLORS,
+                        TIMER_APPLE_PALETTE,
                         scale=TIMER_APPLE_SCALE)
                 else:
                     rows = ("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..") if theme == "stars" else ("YYYYYYY", "YYYYYYY")
@@ -3738,9 +3761,14 @@ class MatrixDisplay:
                 actor_rows = (CHARACTER_ROWS[theme] if semantic else
                               TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
                               else SPRITE_ROWS[theme])
-                actor_colors = (CHARACTER_COLORS[theme] if semantic else
-                                TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
-                                else SPRITE_COLORS[theme])
+                actor_colors = (
+                    CHARACTER_COLORS_2BIT[theme] if semantic and MATRIX_BIT_DEPTH == 2
+                    else CHARACTER_COLORS[theme] if semantic
+                    else TIMER_CATERPILLAR_COLORS_2BIT if theme == "caterpillar" and MATRIX_BIT_DEPTH == 2
+                    else TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                    else SPRITE_COLORS_2BIT[theme] if MATRIX_BIT_DEPTH == 2
+                    else SPRITE_COLORS[theme]
+                )
                 actor_symbols = (CHARACTER_SYMBOLS[theme] if semantic else
                                  TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
                                  else SPRITE_SYMBOLS[theme])
@@ -4821,7 +4849,10 @@ class MatrixDisplay:
 
         bitmap = displayio.Bitmap(BIN_LORRY_WIDTH, BIN_LORRY_HEIGHT + BIN_LORRY_Y, len(INDEX))
         draw_indexed(bitmap, 0, BIN_LORRY_Y, kind=kind)
-        palette = palette_for(kind, limited_palette=MATRIX_BIT_DEPTH == 1)
+        palette = palette_for(
+            kind, limited_palette=MATRIX_BIT_DEPTH == 1,
+            two_bit_palette=MATRIX_BIT_DEPTH == 2,
+        )
         palette.make_transparent(0)
         return displayio.TileGrid(bitmap, pixel_shader=palette, x=DISPLAY_WIDTH, y=0)
 
@@ -5335,6 +5366,7 @@ class FixtureDisplay:
         draw_double_decker_bus(
             self._pixel, x, BUS_VERTICAL_OFFSET,
             limited_palette=MATRIX_BIT_DEPTH == 1,
+            two_bit_palette=MATRIX_BIT_DEPTH == 2,
         )
         words = str(screen.get("words") or "")
         if words:
@@ -5359,6 +5391,7 @@ class FixtureDisplay:
             BIN_LORRY_Y,
             kind=_bin_collection_lorry_kind(screen),
             limited_palette=MATRIX_BIT_DEPTH == 1,
+            two_bit_palette=MATRIX_BIT_DEPTH == 2,
         )
         self._text(_clip(str(screen.get("title") or "NEXT COLLECTION"), 40), 0, 3, (255, 170, 0))
         due_label = _bin_collection_due_label(screen.get("collection_date"), clock_date)
@@ -5501,7 +5534,8 @@ class FixtureDisplay:
             semantic = theme in SEMANTIC_THEMES
             if pending or semantic:
                 if complete and semantic:
-                    colors = SEMANTIC_BACKGROUND_COLORS[theme]
+                    colors = (SEMANTIC_BACKGROUND_COLORS_2BIT[theme]
+                              if MATRIX_BIT_DEPTH == 2 else SEMANTIC_BACKGROUND_COLORS[theme])
                     for yy in range(32):
                         for xx in range(SCENE_WIDTH):
                             self._pixel(xx, yy, _rgb_tuple(colors[
@@ -5515,7 +5549,9 @@ class FixtureDisplay:
                                 for dy in range(2):
                                     for dx in range(2):
                                         self._pixel(bx + xx * 2 + dx, by + yy * 2 + dy,
-                                            _rgb_tuple(DESTINATION_COLORS[theme][index]))
+                                        _rgb_tuple((DESTINATION_COLORS_2BIT[theme]
+                                                    if MATRIX_BIT_DEPTH == 2 else
+                                                    DESTINATION_COLORS[theme])[index]))
                 for ci, digit in enumerate(text):
                     for yy, row in enumerate(CLOCK_FONT[digit]):
                         for xx, p in enumerate(row):
@@ -5546,7 +5582,9 @@ class FixtureDisplay:
                             for xx, char in enumerate(row):
                                 if char == "S":
                                     self._pixel(ax + xx, ay + yy,
-                                        _rgb_tuple(SEMANTIC_ACCENT_COLORS[theme]))
+                                        _rgb_tuple(SEMANTIC_ACCENT_COLORS_2BIT[theme]
+                                                   if MATRIX_BIT_DEPTH == 2 else
+                                                   SEMANTIC_ACCENT_COLORS[theme]))
                 dy = finish_pose(theme, elapsed)[2] if complete else 0
                 px, py = semantic_character_position(theme, clock_x, progress,
                                                        completed=complete, vertical_offset=dy)
@@ -5557,13 +5595,16 @@ class FixtureDisplay:
                             for sy in range(2):
                                 for sx in range(2):
                                     self._pixel(px + xx * 2 + sx, py + yy * 2 + sy,
-                                        _rgb_tuple(CHARACTER_COLORS[theme][index]))
+                                        _rgb_tuple((CHARACTER_COLORS_2BIT[theme]
+                                                    if MATRIX_BIT_DEPTH == 2 else
+                                                    CHARACTER_COLORS[theme])[index]))
                 return
             if theme not in TIMER_THEMES:
                 theme = theme_for_timer(screen.get("timer_id"), screen.get("label"))
             elapsed = max(0.0, float(screen.get("completion_elapsed_seconds", 0) or 0))
             if complete:
-                colors = BACKGROUND_COLORS[theme]
+                colors = (BACKGROUND_COLORS_2BIT[theme] if MATRIX_BIT_DEPTH == 2
+                          else BACKGROUND_COLORS[theme])
                 for y in range(32):
                     for x in range(SCENE_WIDTH):
                         self._pixel(x, y, _rgb_tuple(colors[background_index(theme, x, y)]))
@@ -5571,7 +5612,9 @@ class FixtureDisplay:
                     for dy, row in enumerate(ACCENT_ROWS[theme]):
                         for dx, pixel in enumerate(row):
                             if pixel != ".":
-                                color = (0xF46464 if pixel == "R"
+                                color = (0xFF5555 if pixel == "R" and MATRIX_BIT_DEPTH == 2
+                                         else 0xF46464 if pixel == "R" else
+                                         ACCENT_COLORS_2BIT[theme] if MATRIX_BIT_DEPTH == 2
                                          else ACCENT_COLORS[theme])
                                 self._pixel(x0 + dx, y0 + dy, _rgb_tuple(color))
             if screen.get("upstream_stale"):
@@ -5589,8 +5632,11 @@ class FixtureDisplay:
                 eaten = timer_apples_eaten(progress)
                 for i in range(eaten, TIMER_APPLE_COUNT):
                     if theme == "caterpillar":
-                        rows, symbols, colors = (TIMER_APPLE_ROWS, TIMER_APPLE_PALETTE,
-                                                 TIMER_APPLE_COLORS)
+                        rows, symbols, colors = (
+                            TIMER_APPLE_ROWS, TIMER_APPLE_PALETTE,
+                            TIMER_APPLE_COLORS_2BIT if MATRIX_BIT_DEPTH == 2
+                            else TIMER_APPLE_COLORS,
+                        )
                         mark_x, mark_y = timer_apple_center(clock_x, i) - 4 * TIMER_APPLE_SCALE, 12
                     else:
                         rows = (("..Y..", ".YYY.", "YYYYY", ".YYY.", "..Y..")
@@ -5621,7 +5667,9 @@ class FixtureDisplay:
                 x += xshift
             rows = (TIMER_CATERPILLAR_ROWS if theme == "caterpillar"
                     else rotate_sprite(SPRITE_ROWS[theme], pose))
-            colors = (TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+            colors = (TIMER_CATERPILLAR_COLORS_2BIT if theme == "caterpillar" and MATRIX_BIT_DEPTH == 2
+                      else TIMER_CATERPILLAR_COLORS if theme == "caterpillar"
+                      else SPRITE_COLORS_2BIT[theme] if MATRIX_BIT_DEPTH == 2
                       else SPRITE_COLORS[theme])
             symbols = (TIMER_CATERPILLAR_PALETTE if theme == "caterpillar"
                        else SPRITE_SYMBOLS[theme])

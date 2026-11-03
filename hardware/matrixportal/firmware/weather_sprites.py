@@ -30,6 +30,21 @@ PALETTE_8 = {
     'M': 0xFF00FF,
 }
 
+# Palette values are aligned to the four output levels (0, 85, 170, 255)
+# available per channel at bit_depth=2. The original one-bit palette above is
+# retained unchanged for boards that need the lower scan/RAM configuration.
+PALETTE_64 = {
+    '.': None,
+    'Y': 0xFFAA00,  # warm gold
+    'O': 0xAA5500,  # amber shade
+    'W': 0xFFFFFF,
+    'C': 0x55AAFF,  # cool cloud highlight
+    'B': 0x0055FF,
+    'D': 0x000055,  # deep rain shadow
+    'R': 0xFF5555,
+    'M': 0xAA55FF,
+}
+
 SMALL_WIDTH = 14
 SMALL_HEIGHT = 14
 LARGE_WIDTH = 21
@@ -377,7 +392,7 @@ def icon_for_wmo(code, is_day=True):
 
 
 def draw_sprite(plot_pixel, name, x, y, *, size=14, limited_palette=True,
-                clip_width=256, clip_height=32):
+                two_bit_palette=False, clip_width=256, clip_height=32):
     """Render directly using plot_pixel(x, y, rgb_int).
 
     Drawing is clipped to the display rectangle; '.' never overwrites pixels.
@@ -387,7 +402,8 @@ def draw_sprite(plot_pixel, name, x, y, *, size=14, limited_palette=True,
              draw_sprite(my_plot_pixel, 'moon', 5, 5, size=21)
     """
     sprites = WEATHER_14 if size == 14 else CELESTIAL_21
-    palette = PALETTE_8 if limited_palette else PALETTE_RGB
+    palette = (PALETTE_8 if limited_palette else
+               PALETTE_64 if two_bit_palette else PALETTE_RGB)
     bitmap = sprites[name]
     for iy, row in enumerate(bitmap):
         py = y + iy
