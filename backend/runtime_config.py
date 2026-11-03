@@ -79,6 +79,10 @@ MIN_CUBS_POLL_SECONDS = 3600
 MAX_CUBS_POLL_SECONDS = 604800
 DISPLAY_BRIGHTNESS_LEVELS = (25, 50, 75, 100)
 DEFAULT_DISPLAY_BRIGHTNESS_PERCENT = 100
+MQTT_POLL_INTERVAL_CHOICES = (1.5, 2, 3, 5, 10, 15, 30)
+DEFAULT_MQTT_ADAPTIVE_ENABLED = True
+DEFAULT_MQTT_IDLE_POLL_SECONDS = 5
+DEFAULT_MQTT_LIVE_POLL_SECONDS = 1.5
 DEFAULT_RECYCLING_DURATION_SECONDS = 20
 DEFAULT_RECYCLING_SCROLL_SPEED = 15
 DEFAULT_RECYCLING_DAYS_BEFORE = 2
@@ -375,7 +379,12 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
     thorpe_poll = _int_env(env, "LED_THORPE_PARK_CACHE_SECONDS", 300)
     result = {
         "config_version": 0,
-        "display": {"brightness_percent": DEFAULT_DISPLAY_BRIGHTNESS_PERCENT},
+        "display": {
+            "brightness_percent": DEFAULT_DISPLAY_BRIGHTNESS_PERCENT,
+            "mqtt_adaptive_enabled": DEFAULT_MQTT_ADAPTIVE_ENABLED,
+            "mqtt_idle_poll_seconds": DEFAULT_MQTT_IDLE_POLL_SECONDS,
+            "mqtt_live_poll_seconds": DEFAULT_MQTT_LIVE_POLL_SECONDS,
+        },
         "feeds": {
             "steam_train": {
                 "enabled": True,
@@ -664,25 +673,48 @@ def schema_metadata() -> dict[str, Any]:
         "display": {
             "label": "Display",
             "provider": "MatrixPortal",
-            "mutable_fields": ["brightness_percent"],
+            "mutable_fields": [
+                "brightness_percent", "mqtt_adaptive_enabled",
+                "mqtt_idle_poll_seconds", "mqtt_live_poll_seconds",
+            ],
             "fields": {
-                "brightness_percent": {
-                    "type": "select",
-                    "values": list(DISPLAY_BRIGHTNESS_LEVELS),
-                },
+                "brightness_percent": {"type": "select", "values": list(DISPLAY_BRIGHTNESS_LEVELS)},
+                "mqtt_adaptive_enabled": {"type": "boolean"},
+                "mqtt_idle_poll_seconds": {"type": "select", "values": list(MQTT_POLL_INTERVAL_CHOICES)},
+                "mqtt_live_poll_seconds": {"type": "select", "values": list(MQTT_POLL_INTERVAL_CHOICES)},
             },
         },
     }
 
 
-def validate_display_patch(patch: Any) -> dict[str, int]:
-    if not isinstance(patch, dict) or set(patch) != {"brightness_percent"}:
-        raise RuntimeConfigValidationError("display patch must contain brightness_percent only")
-    percent = patch["brightness_percent"]
-    if isinstance(percent, bool) or not isinstance(percent, int) or percent not in DISPLAY_BRIGHTNESS_LEVELS:
-        allowed = ", ".join(str(value) for value in DISPLAY_BRIGHTNESS_LEVELS)
-        raise RuntimeConfigValidationError(f"display.brightness_percent must be one of {allowed}")
-    return {"brightness_percent": percent}
+def validate_display_patch(patch: Any) -> dict[str, Any]:
+    """Validate partial display updates; never accept broker credentials here."""
+    allowed = {
+        "brightness_percent", "mqtt_adaptive_enabled",
+        "mqtt_idle_poll_seconds", "mqtt_live_poll_seconds",
+    }
+    if not isinstance(patch, dict) or not patch or set(patch) - allowed:
+        raise RuntimeConfigValidationError("display patch contains missing or unknown fields")
+    result = {}
+    if "brightness_percent" in patch:
+        percent = patch["brightness_percent"]
+        if isinstance(percent, bool) or not isinstance(percent, int) or percent not in DISPLAY_BRIGHTNESS_LEVELS:
+            raise RuntimeConfigValidationError("display.brightness_percent must be 25, 50, 75 or 100")
+        result["brightness_percent"] = percent
+    if "mqtt_adaptive_enabled" in patch:
+        if type(patch["mqtt_adaptive_enabled"]) is not bool:
+            raise RuntimeConfigValidationError("display.mqtt_adaptive_enabled must be boolean")
+        result["mqtt_adaptive_enabled"] = patch["mqtt_adaptive_enabled"]
+    for field in ("mqtt_idle_poll_seconds", "mqtt_live_poll_seconds"):
+        if field not in patch:
+            continue
+        value = patch[field]
+        if type(value) not in (int, float) or value not in MQTT_POLL_INTERVAL_CHOICES:
+            raise RuntimeConfigValidationError(
+                f"display.{field} must be one of {MQTT_POLL_INTERVAL_CHOICES}"
+            )
+        result[field] = value
+    return result
 
 
 def _normalize_number(value: Any) -> Any:
@@ -902,8 +934,10 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise RuntimeConfigValidationError("runtime configuration must be an object")
     defaults = default_runtime_config({})
-    raw_display = value.get("display", copy.deepcopy(defaults["display"]))
-    display = validate_display_patch(raw_display)
+    raw_display = value.get("display", {})
+    if not isinstance(raw_display, dict):
+        raise RuntimeConfigValidationError("display must be an object")
+    display = validate_display_patch({**defaults["display"], **raw_display})
     raw_feeds = value.get("feeds")
     if not isinstance(raw_feeds, dict):
         raise RuntimeConfigValidationError("feeds must be an object")
