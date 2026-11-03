@@ -253,6 +253,10 @@ def _sleep_interruptible(seconds, service_mqtt=False):
             if hasattr(mqtt, "set_live_match"):
                 mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
+            # Diagnostic mode spends most of its time in this servicing loop,
+            # so keep aggregate MQTT telemetry on schedule here too.
+            if hasattr(mqtt, "report_if_due"):
+                mqtt.report_if_due(now)
             if timer_update_pending:
                 timer_update_pending = False
                 return
@@ -961,7 +965,8 @@ while True:
         # for the current animation to finish.
         _apply_pending_mqtt_screen_updates(time.monotonic())
         mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
-        mqtt.report_if_due(time.monotonic())
+        if hasattr(mqtt, "report_if_due"):
+            mqtt.report_if_due(time.monotonic())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
