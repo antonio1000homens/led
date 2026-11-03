@@ -246,7 +246,9 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         if service_mqtt and _service_reminder_clock(now):
             return
         if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
+            mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             mqtt.poll(now, allow_connect=_mqtt_connection_allowed(now))
+            mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             _apply_pending_mqtt_screen_updates(now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
             if timer_update_pending:
@@ -946,10 +948,12 @@ while True:
         if timer_rotation_resume is not None:
             mqtt_animation_active = True
             mqtt_allow_connect = False
-        # Keep the already-connected MiniMQTT client serviced between animation
-        # frames. Its 10 ms loop timeout stays below one frame; never start a
-        # Wi-Fi/broker connection handshake in the middle of an animation.
+        # Match-dependent polling changes application service cadence, not the
+        # Protomatter electrical scan. Stale IN matches revert to idle.
+        mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
         mqtt.poll(now, allow_connect=mqtt_allow_connect)
+        mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
+        mqtt.report_if_due(time.monotonic())
         # Apply accepted updates during animations too. The update callback only
         # stages payloads; rebuilding is guarded against the rail GC window by
         # _apply_pending_mqtt_screen_updates. This lets the main loop select a
@@ -1247,6 +1251,12 @@ while True:
                     scheduled_screen["schedule_windows"] = christmas_policy.get("schedule_windows", [])
                     scheduled_screen["schedule_enabled"] = christmas_policy.get("enabled", True)
             display_config = payload.get("display")
+            if mqtt is not None:
+                mqtt.configure_polling(display_config, time.monotonic())
+                mqtt.set_live_match(
+                    football_screens.has_live_match(_reminder_epoch(time.monotonic())),
+                    time.monotonic(),
+                )
             if (
                 isinstance(display_config, dict)
                 and "brightness_percent" in display_config
