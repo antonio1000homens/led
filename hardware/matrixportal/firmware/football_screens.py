@@ -29,6 +29,7 @@ FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
 GOALAPI_LIVE_STALE_SECONDS = 4 * 60 * 60
 GOAL_FLASH_SECONDS = 8
+GOAL_SCORE_CONFIRM_SECONDS = 120
 SCREEN_DURATION_SECONDS = 20
 FOOTBALL_DEFAULT_ANIMATION_SPEED = 80
 FOOTBALL_PRE_CLEAR_SECONDS = 0.5
@@ -386,6 +387,13 @@ def _normalize(topic, payload, prefix="led/football/"):
     match_id = payload.get("match_id")
     if match_id is not None and not _short_text(match_id, 128):
         return None
+    fixture_key = payload.get("fixture_key")
+    if fixture_key is not None and not _short_text(fixture_key, 128):
+        return None
+    for name in ("provider_match_id", "event_id", "event_type"):
+        value = payload.get(name)
+        if value is not None and not _short_text(value, 128):
+            return None
     for name in ("team_name", "opponent", "opponent_long_name", "display_fixture",
                  "home_team", "away_team", "homeaway", "team_homeaway",
                  "competition", "clock"):
@@ -400,6 +408,7 @@ def _normalize(topic, payload, prefix="led/football/"):
     result["_published_epoch"] = published
     result["_source_epoch"] = _epoch(source_updated) if source_updated is not None else None
     result["_kickoff_epoch"] = _epoch(kickoff) if kickoff is not None else None
+    result["fixture_key"] = fixture_key or match_id
     return result
 
 
@@ -425,10 +434,19 @@ class FootballScreenState:
         self.enabled = bool(enabled)
         self._teams = {}
         self._dynamic_flags = {}
+        self._goal_events = {}
 
     def _prune_goalapi(self, now_ms):
         if now_ms is None:
             return
+        for team_key, events in tuple(self._goal_events.items()):
+            recent = [event for event in events
+                      if event[1] is None
+                      or now_ms - event[1] <= GOALAPI_LIVE_STALE_SECONDS * 1000]
+            if recent:
+                self._goal_events[team_key] = recent
+            else:
+                del self._goal_events[team_key]
         for team_key, snapshot in tuple(self._teams.items()):
             if snapshot.get("source") != "nrwindsor" or snapshot.get("provider") != "goalapi":
                 continue
@@ -440,56 +458,186 @@ class FootballScreenState:
     def accept(self, topic, payload):
         if not self.enabled or not isinstance(topic, str) or not topic.startswith(self.prefix):
             return False
-        item = _normalize(topic, payload, self.prefix)
-        if item is None:
+        incoming = _normalize(topic, payload, self.prefix)
+        if incoming is None:
             return False
-        self._prune_goalapi(item["_published_epoch"])
-        team_key = item["team_key"]
+        self._prune_goalapi(incoming["_published_epoch"])
+        team_key = incoming["team_key"]
         previous = self._teams.get(team_key)
         if previous is not None:
-            if item["_published_epoch"] <= previous["_published_epoch"]:
+            if incoming["_published_epoch"] <= previous["_published_epoch"]:
                 return False
-        if item.get("status") == "POST":
+        is_goal_api = (incoming.get("source") == "nrwindsor"
+                       and incoming.get("provider") == "goalapi")
+        if is_goal_api:
+            recent_events = self._goal_events.get(team_key, ())
+            event_id = incoming.get("event_id")
+            source_epoch = incoming.get("_source_epoch")
+            if event_id and any(event_id == prior_id for prior_id, _ in recent_events):
+                return False
+            latest_epoch = max((epoch for _, epoch in recent_events if epoch is not None),
+                               default=None)
+            if (source_epoch is not None and latest_epoch is not None
+                    and source_epoch < latest_epoch):
+                return False
+        if incoming.get("status") == "POST":
             # POST is a one-shot display event. Keep no per-team copy after
             # handing it to the presentation queue.
             self._teams.pop(team_key, None)
             self._dynamic_flags.pop(team_key, None)
             return True
-        item["_goal_until"] = None
-        item["_goal_side"] = None
-        if previous is not None and (
-            previous.get("status") == "IN"
-            and item.get("status") == "IN"
-            and previous.get("match_id")
-            and item.get("match_id") == previous.get("match_id")
-            and previous.get("home_score") is not None
-            and previous.get("away_score") is not None
-            and item.get("home_score") is not None
-            and item.get("away_score") is not None
-            and item.get("_source_epoch") is not None
-            and previous.get("_source_epoch") is not None
-            and item["_source_epoch"] > previous["_source_epoch"]
-        ):
-            home_delta = item["home_score"] - previous["home_score"]
-            away_delta = item["away_score"] - previous["away_score"]
-            if home_delta == 1 and away_delta == 0:
-                item["_goal_until"] = item["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
-                item["_goal_side"] = "home"
-            elif away_delta == 1 and home_delta == 0:
-                item["_goal_until"] = item["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
-                item["_goal_side"] = "away"
+        same_fixture = bool(
+            previous is not None
+            and previous.get("fixture_key")
+            and incoming.get("fixture_key") == previous.get("fixture_key")
+            and incoming.get("status") == previous.get("status") == "IN"
+        )
+        item = dict(previous) if same_fixture else {}
+        item.update(incoming)
+        if same_fixture:
+            for name in ("event_id", "event_type", "event_created_at",
+                         "previous_home_score", "previous_away_score"):
+                if incoming.get(name) is None:
+                    item.pop(name, None)
+            if incoming.get("_source_epoch") is None and previous.get("_source_epoch") is not None:
+                item["_source_epoch"] = previous["_source_epoch"]
+                item["source_updated_at"] = previous.get("source_updated_at")
+            # Live providers frequently omit values held by the other feed.
+            for name in ("clock", "home_score", "away_score", "competition",
+                         "team_name", "opponent", "opponent_long_name",
+                         "display_fixture", "home_team", "away_team",
+                         "homeaway", "team_homeaway", "kickoff"):
+                if incoming.get(name) is None and previous.get(name) is not None:
+                    item[name] = previous[name]
+
+            pending_until = previous.get("_goal_score_until")
+            pending_score = previous.get("_goal_score")
+            is_goal_api = (incoming.get("source") == "nrwindsor"
+                           and incoming.get("provider") == "goalapi")
+            event_type = str(incoming.get("event_type") or "").lower()
+            incoming_score = (incoming.get("home_score"), incoming.get("away_score"))
+            previous_score = (previous.get("home_score"), previous.get("away_score"))
+            valid_incoming_score = all(type(value) is int for value in incoming_score)
+            if (is_goal_api and valid_incoming_score
+                    and event_type in ("goal.scored", "score.changed")
+                    and incoming_score != previous_score):
+                item["_goal_score"] = incoming_score
+                item["_goal_score_until"] = (
+                    incoming["_published_epoch"]
+                    + GOAL_SCORE_CONFIRM_SECONDS * 1000
+                )
+            elif (is_goal_api and pending_until is not None
+                    and incoming_score == previous_score):
+                item["_goal_score"] = pending_score
+                item["_goal_score_until"] = pending_until
+            elif (not is_goal_api and pending_until is not None
+                    and incoming["_published_epoch"] < pending_until
+                    and incoming_score != pending_score):
+                item["home_score"], item["away_score"] = pending_score
+                item["_goal_score_until"] = pending_until
+                item["_goal_score"] = pending_score
+                item["_score_source"] = "goalapi_pending_confirmation"
+            else:
+                item.pop("_goal_score_until", None)
+                item.pop("_goal_score", None)
+                item["_score_source"] = incoming.get("provider")
+
+            if not is_goal_api and incoming_score == pending_score:
+                item.pop("_goal_score_until", None)
+                item.pop("_goal_score", None)
+
+            if (event_type == "goal.scored" and valid_incoming_score
+                    and (all(type(value) is int for value in previous_score)
+                         or all(type(value) is int for value in (
+                             incoming.get("previous_home_score"),
+                             incoming.get("previous_away_score"))))):
+                goal_previous = previous_score
+                if all(type(value) is int for value in (
+                        incoming.get("previous_home_score"),
+                        incoming.get("previous_away_score"))):
+                    goal_previous = (incoming["previous_home_score"],
+                                     incoming["previous_away_score"])
+                home_delta = incoming_score[0] - goal_previous[0]
+                away_delta = incoming_score[1] - goal_previous[1]
+                if home_delta == 1 and away_delta == 0:
+                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                    item["_goal_side"] = "home"
+                elif away_delta == 1 and home_delta == 0:
+                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                    item["_goal_side"] = "away"
+            elif (not is_goal_api and valid_incoming_score
+                  and all(type(value) is int for value in previous_score)
+                  and incoming["_source_epoch"] is not None
+                  and previous.get("_source_epoch") is not None
+                  and incoming["_source_epoch"] > previous["_source_epoch"]
+                  and incoming_score != previous_score):
+                home_delta = incoming_score[0] - previous_score[0]
+                away_delta = incoming_score[1] - previous_score[1]
+                if home_delta == 1 and away_delta == 0:
+                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                    item["_goal_side"] = "home"
+                elif away_delta == 1 and home_delta == 0:
+                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                    item["_goal_side"] = "away"
+        else:
+            item["_goal_until"] = None
+            item["_goal_side"] = None
+            item["_score_source"] = incoming.get("provider")
+            if (is_goal_api and incoming.get("status") == "IN"
+                    and incoming.get("event_type") in ("goal.scored", "score.changed")
+                    and all(type(value) is int for value in (
+                        incoming.get("home_score"), incoming.get("away_score")))):
+                item["_goal_score"] = (incoming["home_score"], incoming["away_score"])
+                item["_goal_score_until"] = (
+                    incoming["_published_epoch"]
+                    + GOAL_SCORE_CONFIRM_SECONDS * 1000
+                )
+                if (incoming.get("event_type") == "goal.scored"
+                        and all(type(value) is int for value in (
+                            incoming.get("previous_home_score"),
+                            incoming.get("previous_away_score")))):
+                    home_delta = incoming["home_score"] - incoming["previous_home_score"]
+                    away_delta = incoming["away_score"] - incoming["previous_away_score"]
+                    if home_delta == 1 and away_delta == 0:
+                        item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                        item["_goal_side"] = "home"
+                    elif away_delta == 1 and home_delta == 0:
+                        item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                        item["_goal_side"] = "away"
+        if is_goal_api:
+            recent_events = self._goal_events.setdefault(team_key, [])
+            recent_events.append((incoming.get("event_id"), incoming.get("_source_epoch")))
+            if len(recent_events) > 64:
+                del recent_events[:-64]
         self._teams[team_key] = item
         return True
 
     def accept_for_presentation(self, topic, payload, now_epoch=None):
         """Accept a snapshot and return its display event without storing POST."""
         item = _normalize(topic, payload, self.prefix)
+        team_key = item["team_key"] if item is not None else None
+        previous = self._teams.get(team_key) if team_key is not None else None
         if item is None or not self.accept(topic, payload):
             return False, None
         if item.get("status") == "POST":
             screen = self._screen_from_snapshot(item, now_epoch)
             return True, screen
-        return True, self.screen_for_team(item["team_key"], now_epoch)
+        screen = self.screen_for_team(item["team_key"], now_epoch)
+        if screen is None:
+            return True, None
+        current = self._teams.get(item["team_key"], item)
+        same_fixture = (previous is not None
+                        and previous.get("fixture_key") == current.get("fixture_key")
+                        and previous.get("status") == current.get("status"))
+        score_changed = same_fixture and (
+            (previous.get("home_score"), previous.get("away_score"))
+            != (current.get("home_score"), current.get("away_score"))
+        )
+        screen["presentation_update"] = (
+            "new_fixture_or_status" if not same_fixture
+            else ("score_changed" if score_changed else "data_refresh")
+        )
+        return True, screen
 
     @staticmethod
     def _screen_from_snapshot(snapshot, now_epoch):
@@ -582,19 +730,38 @@ class FootballPresentationQueue:
 
     def __init__(self):
         self._pending = []
+        self.last_update = "none"
 
-    def accept_snapshot(self, state, topic, payload, now_epoch=None):
+    def accept_snapshot(self, state, topic, payload, now_epoch=None,
+                        presenting_screen=None):
         """Accept updates, retaining POST only until it is displayed or expires."""
         accepted, screen = state.accept_for_presentation(topic, payload, now_epoch)
         if not accepted:
+            self.last_update = "rejected"
             return False
         team_key = topic[len(state.prefix):]
         if screen is None:
+            self.last_update = "unavailable"
             self.discard(team_key)
         elif screen.get("status") == "POST":
+            self.last_update = "post_event"
             self.schedule_screen(screen)
-        else:
+        elif (screen.get("presentation_update") != "data_refresh"
+              and not (presenting_screen is not None
+                       and presenting_screen.get("team_key") == team_key
+                       and presenting_screen.get("fixture_key") == screen.get("fixture_key"))):
+            self.last_update = screen.get("presentation_update", "score_changed")
             self.schedule(team_key)
+        elif (presenting_screen is not None
+              and presenting_screen.get("team_key") == team_key
+              and presenting_screen.get("fixture_key") == screen.get("fixture_key")):
+            self.last_update = (
+                "active_score_refresh"
+                if screen.get("presentation_update") == "score_changed"
+                else "active_data_refresh"
+            )
+        else:
+            self.last_update = screen.get("presentation_update", "data_refresh")
         return True
 
     def discard(self, team_key):
@@ -630,6 +797,8 @@ class FootballPresentationQueue:
     def schedule(self, team_key):
         if not _valid_team_key(team_key):
             return False
+        if team_key in self._pending:
+            return True
         self._pending.append(team_key)
         return True
 
