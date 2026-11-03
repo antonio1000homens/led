@@ -717,6 +717,17 @@ def validate_display_patch(patch: Any) -> dict[str, Any]:
     return result
 
 
+def _dynamodb_compatible(value: Any) -> Any:
+    """Boto3 DynamoDB forbids floats; encode fractional seconds as Decimal."""
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {key: _dynamodb_compatible(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_dynamodb_compatible(item) for item in value]
+    return value
+
+
 def _normalize_number(value: Any) -> Any:
     if isinstance(value, Decimal):
         if value % 1 == 0:
@@ -1090,7 +1101,7 @@ class RuntimeConfigStore:
         upgraded["feeds"]["chessington"]["rides"] = list(DEFAULT_CHESSINGTON_RIDES)
         upgraded["config_version"] = current["config_version"] + 1
         upgraded["updated_at"] = _iso_now(self.utcnow)
-        item = {"config_id": CONFIG_ID, **upgraded}
+        item = _dynamodb_compatible({"config_id": CONFIG_ID, **upgraded})
         try:
             self.table.put_item(
                 Item=item,
@@ -1111,7 +1122,7 @@ class RuntimeConfigStore:
         seeded["config_version"] = 1
         seeded["updated_at"] = _iso_now(self.utcnow)
         seeded["updated_by"] = "system:defaults"
-        item = {"config_id": CONFIG_ID, **seeded}
+        item = _dynamodb_compatible({"config_id": CONFIG_ID, **seeded})
         try:
             self.table.put_item(Item=item, ConditionExpression="attribute_not_exists(config_id)")
             return seeded
@@ -1140,7 +1151,7 @@ class RuntimeConfigStore:
         next_config["config_version"] = expected_version + 1
         next_config["updated_at"] = _iso_now(self.utcnow)
         next_config["updated_by"] = updated_by
-        item = {"config_id": CONFIG_ID, **next_config}
+        item = _dynamodb_compatible({"config_id": CONFIG_ID, **next_config})
         try:
             if expected_version == 0:
                 self.table.put_item(Item=item, ConditionExpression="attribute_not_exists(config_id)")
@@ -1174,7 +1185,7 @@ class RuntimeConfigStore:
         next_config["config_version"] = expected_version + 1
         next_config["updated_at"] = _iso_now(self.utcnow)
         next_config["updated_by"] = updated_by
-        item = {"config_id": CONFIG_ID, **next_config}
+        item = _dynamodb_compatible({"config_id": CONFIG_ID, **next_config})
         try:
             if expected_version == 0:
                 self.table.put_item(Item=item, ConditionExpression="attribute_not_exists(config_id)")
