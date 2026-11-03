@@ -8,6 +8,7 @@ from matrix_config import (
     MATRIX_ANIMATION_PROFILE,
     MATRIX_ANIMATION_PROFILES,
     MATRIX_BIT_DEPTH,
+    MATRIX_DIAGNOSTIC_COLOR_COUNTER,
     MATRIX_EXPERIMENT_PRESET,
     MATRIX_RAIL_AUTO_REFRESH_EXPERIMENT,
     MATRIX_RAIL_POST_BUILD_GC_EXPERIMENT,
@@ -1092,6 +1093,9 @@ class MatrixDisplay:
         self._refresh_misses = 0
         self._rail_first_refresh_pending = False
         self._rail_build_started_ms = None
+        self._diagnostic_group = None
+        self._diagnostic_palette = None
+        self._diagnostic_counter_label = None
 
         self._brightness = BrightnessState(brightness_percent)
         self._brightness_bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 2)
@@ -2556,17 +2560,47 @@ class MatrixDisplay:
         self._label(group, clock_time, 0xFFAA00, CLOCK_X, 3)
         self._present(group)
 
-    def show_diagnostic(self, color):
-        """Fill the complete physical matrix with one moderate test colour."""
+    def show_diagnostic(self, color, counter=None, color_index=None):
+        """Show a solid diagnostic colour and optional numbered frame."""
         import displayio
 
-        bitmap = displayio.Bitmap(DISPLAY_WIDTH, 32, 1)
-        palette = displayio.Palette(1)
-        palette[0] = int(color)
-        group = displayio.Group()
-        group.append(displayio.TileGrid(bitmap, pixel_shader=palette))
-        self._present(group)
-        print("DIAGNOSTIC 0x{:06X}".format(int(color)))
+        if self._diagnostic_group is None:
+            background = displayio.Bitmap(DISPLAY_WIDTH, 32, 1)
+            self._diagnostic_palette = displayio.Palette(1)
+            self._diagnostic_palette[0] = int(color)
+            group = displayio.Group()
+            group.append(displayio.TileGrid(
+                background, pixel_shader=self._diagnostic_palette
+            ))
+            if MATRIX_DIAGNOSTIC_COLOR_COUNTER:
+                counter_backing = displayio.Bitmap(76, 20, 1)
+                counter_palette = displayio.Palette(1)
+                counter_palette[0] = 0x000000
+                group.append(displayio.TileGrid(
+                    counter_backing, pixel_shader=counter_palette, x=90, y=6
+                ))
+                self._diagnostic_counter_label = self.label_type(
+                    self.font, text="000000", color=0xFFFFFF,
+                    x=92, y=23, scale=2,
+                )
+                group.append(self._diagnostic_counter_label)
+            self._diagnostic_group = group
+        self._diagnostic_palette[0] = int(color)
+        if self._diagnostic_counter_label is not None and counter is not None:
+            self._diagnostic_counter_label.text = "{:06d}".format(int(counter) % 1000000)
+        if self.display.root_group is not self._diagnostic_group:
+            self._present(self._diagnostic_group)
+        else:
+            self._refresh()
+        if counter is not None:
+            import diagnostic_counter
+            diagnostic_counter.set_frame(
+                counter,
+                color_index if color_index is not None else 0,
+                color,
+            )
+        else:
+            print("DIAGNOSTIC 0x{:06X}".format(int(color)))
 
     def _rail_service(self, group, service, color, x_offset, y, right_edge, ordinal=1):
         ordinal_text, time_text, destination, platform, status = _rail_columns(service, ordinal)
@@ -6071,12 +6105,19 @@ class FixtureDisplay:
         self._text(clock_time, CLOCK_X, 0, (255, 100, 0))
         self.pixels.show()
 
-    def show_diagnostic(self, color):
+    def show_diagnostic(self, color, counter=None, color_index=None):
         """Keep fixture mode observable when the hardware path is unavailable."""
         if self.pixels is not None:
             self.pixels.fill(_rgb_tuple(int(color)))
             self.pixels.show()
-        print("DIAGNOSTIC 0x{:06X}".format(int(color)))
+        if counter is None:
+            print("DIAGNOSTIC 0x{:06X}".format(int(color)))
+        else:
+            print(
+                "DIAG FRAME count={} colour_index={} rgb={:06X}".format(
+                    int(counter), int(color_index or 0), int(color)
+                )
+            )
 
 
 def create(settings):

@@ -4,6 +4,9 @@ This module is intentionally not imported unless both local opt-in flags are
 enabled. It contains no credentials or broker defaults.
 """
 
+from diagnostic_counter import event as diagnostic_event
+from monotonic_clock import ticks_ms
+
 MQTT_LOOP_INTERVAL_SECONDS = 1.5
 MQTT_KEEP_ALIVE_SECONDS = 180
 MQTT_SOCKET_TIMEOUT_SECONDS = 0.01
@@ -195,7 +198,14 @@ class FlashMqttClient:
         try:
             # Keep MiniMQTT's blocking read below one 8 FPS display frame.
             # Service transient events promptly while keeping reads below one frame.
-            self.client.loop(timeout=MQTT_SOCKET_TIMEOUT_SECONDS)
+            poll_started = ticks_ms()
+            try:
+                self.client.loop(timeout=MQTT_SOCKET_TIMEOUT_SECONDS)
+            finally:
+                diagnostic_event(
+                    "MQTT_POLL", "DONE",
+                    "timeout_ms=10 duration_ms={}".format(ticks_ms() - poll_started),
+                )
             self.next_loop = now + MQTT_LOOP_INTERVAL_SECONDS
         except Exception as error:
             self._discard_client()

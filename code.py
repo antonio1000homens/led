@@ -61,6 +61,8 @@ from football_screens import (
 from timer_state import TimerState, select_timer
 from presentation_priority import select_presentation
 from matrix_config import (
+    MATRIX_DIAGNOSTIC_COLOR_COUNTER,
+    MATRIX_MQTT_TEMPORARILY_DISABLED,
     MATRIX_PRESENTATION_MODE,
     MATRIX_RAIL_PREBUILD_EXPERIMENT,
     MATRIX_RAIL_PREBUILD_MAX_SCENE_BYTES,
@@ -70,6 +72,7 @@ from matrix_config import (
     MATRIX_STATS_INTERVAL_SECONDS,
     MATRIX_TELEMETRY_ENABLED,
 )
+from diagnostic_counter import colour_at, collect as diagnostic_collect
 
 
 if settings.SCREEN_SOURCE not in ("fixture", "api"):
@@ -271,6 +274,12 @@ prepared_task = None
 transport_stale = False
 fixture_clock_synced = False
 runtime_mode = RuntimeMode()
+diagnostic_counter_started = ticks_ms()
+diagnostic_counter_last = None
+diagnostic_gc_next_seconds = 30.0
+if MATRIX_DIAGNOSTIC_COLOR_COUNTER and settings.DISPLAY_BACKEND == "matrix":
+    runtime_mode.mode = "diagnostic"
+    print("DIAG COUNTER enabled bit_depth=2 colour_count=8 dark_rgb=true step_seconds=1 gc_probe_seconds=30")
 flash = FlashState(
     # Flash events stay gated until the screen payload enables Flash in the
     # admin control plane. Cycle screens use the independent MQTT source.
@@ -535,6 +544,9 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
             time.monotonic(),
         ),
     )
+    if MATRIX_MQTT_TEMPORARILY_DISABLED:
+        mqtt.set_enabled(False)
+        print("MQTT temporary diagnostic override: disabled; normal screens continue")
 rendered_diagnostic_index = None
 last_render_key = None
 last_logged_screen_key = None
@@ -966,20 +978,51 @@ while True:
         _pending_button_events.clear()
 
     if runtime_mode.mode == "diagnostic":
-        if rendered_diagnostic_index != runtime_mode.diagnostic_index:
-            name, color = runtime_mode.diagnostic()
-            diagnostic_screen = {"id": "diagnostic", "kind": "diagnostic", "source": "local"}
-            _checkpoint_board_health("diagnostic", diagnostic_screen, now)
+        if MATRIX_DIAGNOSTIC_COLOR_COUNTER and settings.DISPLAY_BACKEND == "matrix":
+            diagnostic_screen = {
+                "id": "diagnostic-full-colour-counter",
+                "kind": "diagnostic",
+                "source": "local",
+            }
             if board_health is not None:
                 board_health.set_mode("diagnostic")
-            print("DIAGNOSTIC", name)
-            display.show_diagnostic(color)
-            if board_health is not None:
-                board_health.completed_render(
-                    diagnostic_screen, time.monotonic(), clock.epoch(time.monotonic()), _memory_free(),
-                )
-            rendered_diagnostic_index = runtime_mode.diagnostic_index
-        _sleep_interruptible(settings.FRAME_SECONDS)
+            diagnostic_elapsed = elapsed_seconds(diagnostic_counter_started)
+            counter = int(diagnostic_elapsed)
+            if diagnostic_counter_last != counter:
+                colour_index = counter % 8
+                colour = colour_at(colour_index)
+                _checkpoint_board_health("diagnostic", diagnostic_screen, now)
+                display.show_diagnostic(colour, counter, colour_index)
+                if board_health is not None:
+                    board_health.completed_render(
+                        diagnostic_screen, time.monotonic(),
+                        clock.epoch(time.monotonic()), _memory_free(),
+                    )
+                diagnostic_counter_last = counter
+            if diagnostic_elapsed >= diagnostic_gc_next_seconds:
+                diagnostic_collect(gc, "scheduled_probe")
+                while diagnostic_gc_next_seconds <= diagnostic_elapsed:
+                    diagnostic_gc_next_seconds += 30.0
+            seconds_to_next_count = 1.0 - (diagnostic_elapsed % 1.0)
+            _sleep_interruptible(
+                min(0.25, max(0.05, seconds_to_next_count)),
+                service_mqtt=True,
+            )
+        else:
+            if rendered_diagnostic_index != runtime_mode.diagnostic_index:
+                name, color = runtime_mode.diagnostic()
+                diagnostic_screen = {"id": "diagnostic", "kind": "diagnostic", "source": "local"}
+                _checkpoint_board_health("diagnostic", diagnostic_screen, now)
+                if board_health is not None:
+                    board_health.set_mode("diagnostic")
+                print("DIAGNOSTIC", name)
+                display.show_diagnostic(color)
+                if board_health is not None:
+                    board_health.completed_render(
+                        diagnostic_screen, time.monotonic(), clock.epoch(time.monotonic()), _memory_free(),
+                    )
+                rendered_diagnostic_index = runtime_mode.diagnostic_index
+            _sleep_interruptible(settings.FRAME_SECONDS)
         _publish_board_health(time.monotonic())
         continue
 
