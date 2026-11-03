@@ -246,10 +246,12 @@ def _sleep_interruptible(seconds, service_mqtt=False):
         if service_mqtt and _service_reminder_clock(now):
             return
         if service_mqtt and mqtt is not None and now >= next_mqtt_poll:
-            mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
+            if hasattr(mqtt, "set_live_match"):
+                mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             mqtt.poll(now, allow_connect=_mqtt_connection_allowed(now))
-            mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             _apply_pending_mqtt_screen_updates(now)
+            if hasattr(mqtt, "set_live_match"):
+                mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
             next_mqtt_poll = now + _MQTT_SLEEP_POLL_SECONDS
             if timer_update_pending:
                 timer_update_pending = False
@@ -952,14 +954,14 @@ while True:
         # Protomatter electrical scan. Stale IN matches revert to idle.
         mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
         mqtt.poll(now, allow_connect=mqtt_allow_connect)
-        mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
-        mqtt.report_if_due(time.monotonic())
         # Apply accepted updates during animations too. The update callback only
         # stages payloads; rebuilding is guarded against the rail GC window by
         # _apply_pending_mqtt_screen_updates. This lets the main loop select a
         # newly requested football card on its next frame instead of waiting
         # for the current animation to finish.
         _apply_pending_mqtt_screen_updates(time.monotonic())
+        mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
+        mqtt.report_if_due(time.monotonic())
     if MATRIX_TELEMETRY_ENABLED:
         stage_durations["mqtt"] = elapsed_seconds(stage_started)
     stage_started = ticks_ms() if MATRIX_TELEMETRY_ENABLED else None
