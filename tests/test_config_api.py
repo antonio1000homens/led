@@ -210,7 +210,12 @@ class ConfigApiTests(unittest.TestCase):
             "rawPath": "/api/control/v1/display",
             "requestContext": {"http": {"method": "PATCH"}, "requestId": "req-display"},
             "headers": {"If-Match": '"4"'},
-            "body": json.dumps({"brightness_percent": 75}),
+            "body": json.dumps({
+                "brightness_percent": 75,
+                "mqtt_adaptive_enabled": True,
+                "mqtt_idle_poll_seconds": 5,
+                "mqtt_live_poll_seconds": 1.5,
+            }),
         }
         env = {
             "RUNTIME_CONFIG_TABLE": "table",
@@ -227,6 +232,9 @@ class ConfigApiTests(unittest.TestCase):
         payload = json.loads(response["body"])
         self.assertEqual(payload["config_version"], 5)
         self.assertEqual(payload["display"]["brightness_percent"], 75)
+        self.assertEqual(payload["display"]["mqtt_idle_poll_seconds"], 5)
+        self.assertEqual(payload["display"]["mqtt_live_poll_seconds"], 1.5)
+        self.assertTrue(payload["display"]["mqtt_adaptive_enabled"])
         self.assertEqual(runtime.calls[0][0], "display")
         self.assertEqual(FakeInvoker.calls, 1)
 
