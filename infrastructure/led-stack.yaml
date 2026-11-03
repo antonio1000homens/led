@@ -38,6 +38,14 @@ Parameters:
   CubsEventsParameterName: {Type: String, Default: /led/cubs/events-ics-url}
   BeaversProgrammeParameterName: {Type: String, Default: /led/beavers/programme-ics-url}
   BeaversEventsParameterName: {Type: String, Default: /led/beavers/events-ics-url}
+  StateStorageBackend: {Type: String, Default: s3, AllowedValues: [s3, r2]}
+  StateStorageMirror: {Type: String, Default: none, AllowedValues: [none, s3, r2]}
+  R2BucketName: {Type: String, Default: led-live-state, MinLength: 3, MaxLength: 64}
+  CloudflareAccountId: {Type: String, Default: ''}
+  R2CredentialsParameterName:
+    Type: String
+    Default: /led/deploy/cloudflare/r2-s3-credentials
+    AllowedPattern: '^/led/deploy/[A-Za-z0-9_./-]+$'
   TodoistCacheSeconds: {Type: Number, Default: 300, MinValue: 60}
   CubsCacheSeconds: {Type: Number, Default: 86400, MinValue: 3600, MaxValue: 604800}
   TodoistMaxEvents: {Type: Number, Default: 6, MinValue: 1, MaxValue: 20}
@@ -99,6 +107,18 @@ Resources:
                 Effect: Allow
                 Action: ['ssm:GetParameter', 'ssm:PutParameter']
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TodoistOAuthParameterName}
+              - Sid: ReadR2StorageCredentials
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${R2CredentialsParameterName}
+              - Sid: DecryptR2StorageCredentials
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+                    kms:EncryptionContext:PARAMETER_ARN: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${R2CredentialsParameterName}
               - Sid: ReadFootballCalendarCredentials
                 Effect: Allow
                 Action: ['ssm:GetParameter']
@@ -130,6 +150,11 @@ Resources:
       Environment:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
+          STATE_STORAGE_BACKEND: !Ref StateStorageBackend
+          STATE_STORAGE_MIRROR: !Ref StateStorageMirror
+          R2_BUCKET_NAME: !Ref R2BucketName
+          CLOUDFLARE_ACCOUNT_ID: !Ref CloudflareAccountId
+          R2_CREDENTIALS_PARAMETER_NAME: !Ref R2CredentialsParameterName
           RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
           NATIONAL_RAIL_TOKEN: !Ref NationalRailToken
           TODOIST_OAUTH_SECRET_ARN: !Ref TodoistOAuthParameterName
@@ -185,6 +210,18 @@ Resources:
                 Resource:
                   - !Sub ${HostingBucket.Arn}/state/feed-cache.json
                   - !Sub ${HostingBucket.Arn}/api/screens
+              - Sid: ReadR2StorageCredentials
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${R2CredentialsParameterName}
+              - Sid: DecryptR2StorageCredentials
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+                    kms:EncryptionContext:PARAMETER_ARN: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${R2CredentialsParameterName}
               - Sid: TriggerPublisher
                 Effect: Allow
                 Action: ['lambda:InvokeFunction']
@@ -207,6 +244,11 @@ Resources:
       Environment:
         Variables:
           STATE_BUCKET: !Ref HostingBucket
+          STATE_STORAGE_BACKEND: !Ref StateStorageBackend
+          STATE_STORAGE_MIRROR: !Ref StateStorageMirror
+          R2_BUCKET_NAME: !Ref R2BucketName
+          CLOUDFLARE_ACCOUNT_ID: !Ref CloudflareAccountId
+          R2_CREDENTIALS_PARAMETER_NAME: !Ref R2CredentialsParameterName
           RUNTIME_CONFIG_TABLE: !Ref RuntimeConfigTable
           PUBLISHER_FUNCTION_NAME: !Ref PublisherFunction
           CF_ACCESS_TEAM_DOMAIN: !Ref CloudflareAccessTeamDomain

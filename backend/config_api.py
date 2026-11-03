@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from queue_times import QueueTimesProvider
+from object_storage import create_json_object_store
 from runtime_config import (
     FEED_REGISTRY,
     RuntimeConfigConflict,
@@ -34,32 +35,19 @@ class AuthenticationError(RuntimeError):
 class StatusStore:
     """Read-only access to publisher state required by status/options endpoints."""
 
-    def __init__(self, bucket: str, client=None):
+    def __init__(self, bucket: str, client=None, object_store=None):
         self.bucket = bucket
-        if client is None:
-            import boto3
-
-            client = boto3.client("s3")
-        self.client = client
-
-    def _load(self, key: str, default: Any) -> Any:
-        try:
-            response = self.client.get_object(Bucket=self.bucket, Key=key)
-        except Exception as error:
-            response = getattr(error, "response", {}) or {}
-            code = str((response.get("Error") or {}).get("Code") or "")
-            if code in ("NoSuchKey", "404", "NotFound"):
-                return copy.deepcopy(default)
-            raise
-        return json.loads(response["Body"].read().decode("utf-8"))
+        self.object_store = object_store or create_json_object_store(
+            bucket, s3_client=client
+        )
 
     def feed_state(self) -> dict[str, Any]:
-        payload = self._load(STATE_KEY, {"feeds": {}})
+        payload = self.object_store.get_json(STATE_KEY, {"feeds": {}})
         feeds = payload.get("feeds") if isinstance(payload, dict) else None
         return feeds if isinstance(feeds, dict) else {}
 
     def screens_state(self) -> dict[str, Any]:
-        payload = self._load(SCREENS_KEY, {})
+        payload = self.object_store.get_json(SCREENS_KEY, {})
         return payload if isinstance(payload, dict) else {}
 
 

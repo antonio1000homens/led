@@ -1,0 +1,12 @@
+name = "led-live-screens"
+main = "src/index.js"
+compatibility_date = "2026-11-03"
+workers_dev = false
+
+[[r2_buckets]]
+binding = "LIVE_DATA"
+bucket_name = "led-live-state"
+
+[[routes]]
+pattern = "led.alf-broadcast.co.uk/api/screens"
+zone_name = "alf-broadcast.co.uk"

@@ -1,0 +1,172 @@
+"""JSON object storage for the publisher's small live state objects."""
+
+from __future__ import annotations
+
+import json
+import os
+import copy
+from typing import Any
+
+_R2_CLIENTS: dict[tuple[str, str, str], Any] = {}
+
+
+class JsonObjectStore:
+    def __init__(self, bucket: str, client: Any, *, server_side_encryption: bool):
+        self.bucket = bucket
+        self.client = client
+        self.server_side_encryption = server_side_encryption
+
+    def get_json(self, key: str, default: Any) -> Any:
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+        except Exception as error:
+            response = getattr(error, "response", {}) or {}
+            code = str((response.get("Error") or {}).get("Code") or "")
+            if code in ("NoSuchKey", "404", "NotFound"):
+                return copy.deepcopy(default)
+            raise
+        with response["Body"] as body:
+            return json.loads(body.read().decode("utf-8"))
+
+    def get_bytes(self, key: str) -> tuple[bytes, dict[str, str]]:
+        response = self.client.get_object(Bucket=self.bucket, Key=key)
+        with response["Body"] as body:
+            data = body.read()
+        metadata = {}
+        for source, target in (("ContentType", "ContentType"), ("CacheControl", "CacheControl")):
+            if response.get(source):
+                metadata[target] = str(response[source])
+        return data, metadata
+
+    def put_bytes(self, key: str, data: bytes, metadata: dict[str, str] | None = None) -> None:
+        args = {"Bucket": self.bucket, "Key": key, "Body": data}
+        args.update(metadata or {})
+        if self.server_side_encryption:
+            args["ServerSideEncryption"] = "AES256"
+        self.client.put_object(**args)
+
+    def put_json(self, key: str, payload: Any, *, cache_control: str) -> None:
+        self.put_bytes(
+            key,
+            json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            {"ContentType": "application/json", "CacheControl": cache_control},
+        )
+
+
+class MirroredJsonObjectStore:
+    """Read from the primary and best-effort mirror each successful write."""
+
+    def __init__(self, primary: JsonObjectStore, mirror: JsonObjectStore, mirror_name: str):
+        self.primary = primary
+        self.mirror = mirror
+        self.mirror_name = mirror_name
+
+    def get_json(self, key: str, default: Any) -> Any:
+        return self.primary.get_json(key, default)
+
+    def put_json(self, key: str, payload: Any, *, cache_control: str) -> None:
+        self.primary.put_json(key, payload, cache_control=cache_control)
+        try:
+            self.mirror.put_json(key, payload, cache_control=cache_control)
+        except Exception as error:
+            # A mirror outage must not stop the active publisher or screen API.
+            print(json.dumps({
+                "event": "object_store_mirror_failed",
+                "backend": self.mirror_name,
+                "key": key,
+                "error_class": type(error).__name__,
+            }, separators=(",", ":")))
+
+
+def _r2_credentials(parameter_name: str, ssm_client: Any = None) -> tuple[str, str]:
+    if ssm_client is None:
+        import boto3
+        ssm_client = boto3.client("ssm")
+    response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=True)
+    value = json.loads(response["Parameter"]["Value"])
+    access_key_id = str(value.get("access_key_id", "")).strip()
+    secret_access_key = str(value.get("secret_access_key", "")).strip()
+    if not access_key_id or not secret_access_key:
+        raise ValueError("R2 S3 credentials parameter is missing required fields")
+    return access_key_id, secret_access_key
+
+
+def _r2_client(account_id: str, parameter_name: str, ssm_client: Any = None, r2_client: Any = None):
+    if r2_client is not None:
+        return r2_client
+    key = (account_id, parameter_name, os.environ.get("AWS_REGION", "eu-west-2"))
+    if key in _R2_CLIENTS:
+        return _R2_CLIENTS[key]
+    import boto3
+    from botocore.config import Config
+
+    access_key_id, secret_access_key = _r2_credentials(parameter_name, ssm_client)
+    config_args = {"signature_version": "s3v4"}
+    # R2 does not implement AWS's optional checksum request headers. Recent
+    # botocore versions expose these switches; older Lambda runtimes do not
+    # auto-add those headers and accept the smaller configuration.
+    try:
+        config = Config(
+            **config_args,
+            request_checksum_calculation="when_required",
+            response_checksum_validation="when_required",
+        )
+    except TypeError:
+        config = Config(**config_args)
+    client = boto3.client(
+        "s3",
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        region_name="auto",
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        config=config,
+    )
+    _R2_CLIENTS[key] = client
+    return client
+
+
+def create_json_object_store(
+    bucket: str,
+    env: dict[str, str] | None = None,
+    *,
+    s3_client: Any = None,
+    ssm_client: Any = None,
+    r2_client: Any = None,
+):
+    env = dict(os.environ if env is None else env)
+    primary_name = env.get("STATE_STORAGE_BACKEND", "s3").strip().lower()
+    mirror_name = env.get("STATE_STORAGE_MIRROR", "none").strip().lower()
+    r2_bucket = env.get("R2_BUCKET_NAME", "led-live-state").strip()
+    account_id = env.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
+    parameter_name = env.get(
+        "R2_CREDENTIALS_PARAMETER_NAME", "/led/deploy/cloudflare/r2-s3-credentials"
+    ).strip()
+
+    if primary_name not in ("s3", "r2"):
+        raise ValueError("STATE_STORAGE_BACKEND must be s3 or r2")
+    if mirror_name not in ("none", "s3", "r2"):
+        raise ValueError("STATE_STORAGE_MIRROR must be none, s3 or r2")
+    if mirror_name == primary_name:
+        raise ValueError("STATE_STORAGE_MIRROR must differ from STATE_STORAGE_BACKEND")
+
+    if s3_client is None:
+        import boto3
+        s3_client = boto3.client("s3")
+
+    def backend(name: str) -> JsonObjectStore:
+        if name == "s3":
+            return JsonObjectStore(bucket, s3_client, server_side_encryption=True)
+        if not account_id:
+            raise ValueError("CLOUDFLARE_ACCOUNT_ID is required for R2 storage")
+        if not r2_bucket:
+            raise ValueError("R2_BUCKET_NAME is required for R2 storage")
+        return JsonObjectStore(
+            r2_bucket,
+            _r2_client(account_id, parameter_name, ssm_client, r2_client),
+            server_side_encryption=False,
+        )
+
+    primary = backend(primary_name)
+    if mirror_name == "none":
+        return primary
+    return MirroredJsonObjectStore(primary, backend(mirror_name), mirror_name)

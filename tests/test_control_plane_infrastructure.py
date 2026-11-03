@@ -27,7 +27,9 @@ class ControlPlaneInfrastructureTests(unittest.TestCase):
         self.assertIn("dynamodb:GetItem", control)
         self.assertIn("dynamodb:PutItem", control)
         self.assertIn("lambda:InvokeFunction", control)
-        self.assertNotIn("ssm:GetParameter", control)
+        self.assertIn("ssm:GetParameter", control)
+        self.assertIn("R2CredentialsParameterName", control)
+        self.assertNotIn("/led/todoist/oauth", control)
         self.assertNotIn("NATIONAL_RAIL_TOKEN", control)
         control_function = self.template.split("ControlFunction:", 1)[1].split("ControlApi:", 1)[0]
         self.assertNotIn("NATIONAL_RAIL_TOKEN", control_function)
