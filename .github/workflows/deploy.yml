@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/deploy.yml'
       - 'backend/**'
+      - 'workers/led-live-data/**'
       - 'shared/**'
       - 'requirements-server.txt'
       - 'infrastructure/**'
@@ -164,6 +165,9 @@ jobs:
               raise SystemExit("LED_STATE_STORAGE_MIRROR must be none, s3 or r2")
           if os.environ.get("LED_STATE_STORAGE_MIRROR") == os.environ.get("LED_STATE_STORAGE_BACKEND"):
               raise SystemExit("LED_STATE_STORAGE_MIRROR must differ from the active backend")
+          bucket = os.environ.get("LED_R2_BUCKET_NAME", "")
+          if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", bucket):
+              raise SystemExit("LED_R2_BUCKET_NAME must be 3-63 lowercase letters, digits, and hyphens, starting/ending alphanumeric")
           if os.environ.get("LED_R2_SCREEN_ROUTE_ENABLED") not in ("true", "false"):
               raise SystemExit("LED_R2_SCREEN_ROUTE_ENABLED must be true or false")
           PY
@@ -286,6 +290,29 @@ jobs:
           print('Initial LED screen snapshot published')
           PY
 
+      - name: Deploy private R2 screen route
+        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate R2 Worker configuration from deployment settings
+        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
+        run: |
+          python scripts/render-r2-worker-config.py \
+            --bucket "${LED_R2_BUCKET_NAME}" \
+            --domain "${DOMAIN_NAME}" \
+            --zone "${ZONE_NAME}"
+
+      - name: Publish R2 screen Worker route
+        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
+        working-directory: workers/led-live-data
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          trap 'rm -f wrangler.generated.toml' EXIT
+          npx --yes wrangler@4.157.0 deploy --config wrangler.generated.toml
+
       - name: Verify Todoist screen is live
         if: env.LED_CALENDAR_SOURCE == 'todoist'
         run: |
@@ -307,19 +334,6 @@ jobs:
               raise SystemExit('Todoist calendar was published stale; check Lambda logs and OAuth state')
           print(f"Todoist calendar live with {len(calendar.get('events') or [])} upcoming event(s)")
           PY
-
-      - name: Deploy private R2 screen route
-        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Publish R2 screen Worker route
-        if: vars.LED_R2_SCREEN_ROUTE_ENABLED == 'true'
-        working-directory: workers/led-live-data
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@4.157.0 deploy
 
       - name: Configure LED hostname in Windsor Cloudflare
         env:

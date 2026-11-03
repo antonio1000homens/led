@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 
 KEYS = ("state/feed-cache.json", "api/screens")
@@ -56,12 +57,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("seed", "verify", "restore"))
     parser.add_argument("--s3-bucket", default=os.environ.get("STATE_BUCKET"))
-    parser.add_argument("--r2-bucket", default=os.environ.get("R2_BUCKET_NAME", "led-live-state"))
+    parser.add_argument("--r2-bucket", default=os.environ.get("LED_R2_BUCKET_NAME") or os.environ.get("R2_BUCKET_NAME", "led-live-state"))
     parser.add_argument("--account-id", default=os.environ.get("CLOUDFLARE_ACCOUNT_ID"))
     parser.add_argument("--aws-region", default=os.environ.get("AWS_REGION", "eu-west-2"))
     parser.add_argument("--credentials-parameter", default=os.environ.get(
         "R2_CREDENTIALS_PARAMETER_NAME", "/led/deploy/cloudflare/r2-s3-credentials"))
     args = parser.parse_args()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", args.r2_bucket):
+        parser.error("R2 bucket must be 3-63 lowercase letters, digits and hyphens, starting/ending alphanumeric")
     if not args.s3_bucket or not args.account_id:
         parser.error("--s3-bucket/STATE_BUCKET and --account-id/CLOUDFLARE_ACCOUNT_ID are required")
     s3, r2 = make_clients(args)
