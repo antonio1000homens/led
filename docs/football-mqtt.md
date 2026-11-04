@@ -42,8 +42,10 @@ status changes or its source snapshot becomes stale. MQTT clock and score
 updates refresh the existing scene without restarting its animation phase.
 When the same fixture is already visible, score and clock changes update that
 scene directly. Deferred updates for the same team are coalesced. A transition
-to POST starts a 20-second full-time card, then keeps the final result in the
-normal rotation until `post_expires_at` (normally local midnight).
+to POST starts a 20-second full-time card. POST is an event-only presentation:
+once accepted and queued, the board does not keep the final in its per-team
+state or recurring rotation. `post_expires_at` prevents an already expired
+event from being shown.
 Stale IN snapshots cancel the live presentation and resume the normal rotation.
 PRE
 fixtures supplied by the calendar continue to appear in the ordinary screen
@@ -71,15 +73,12 @@ deferred behind a flash reminder are shown in arrival order after the flash
 finishes. The already connected MQTT client continues polling
 during active animations every 1.5 seconds with a 10 ms socket timeout.
 Connection handshakes and non-football rotation rebuilds wait for an idle
-window. Home Assistant republishes POST during the finish-day window. The
-firmware stores the latest final per team and includes it in the normal
-rotation until `post_expires_at`; an expired result is removed locally. The
-first POST starts a 20-second full-time card, while later five-minute refreshes
-update its data without interrupting the current screen. If a flash reminder
-delays a new POST card, the firmware keeps at most the newest queued snapshot
-for that team and match, and drops it if `post_expires_at` has passed. MQTT
-messages are non-retained, so reconnect recovery depends on Home Assistant
-publishing the current snapshot.
+window. Home Assistant republishes POST during the finish-day window; each
+accepted publication is a new one-shot presentation. If a flash reminder
+delays a POST card, the firmware keeps at most the newest queued snapshot for
+that team and match, and drops it if `post_expires_at` has passed. MQTT messages
+are non-retained, so reconnect recovery depends on Home Assistant publishing
+the current snapshot.
 Two persistent displayio scenes share **eight precomputed 16×16 indexed
 sprite poses** (around 512 bytes of bitmap pixels before object overhead);
 the renderer changes only TileGrid bitmap references and Group positions while
@@ -105,8 +104,8 @@ physical board soak test. Fresh IN snapshots are recurring screens in the
 ordinary rotation; new fixtures, status changes, and score changes can also
 request a one-shot prompt. A flash reminder keeps priority; football updates
 received during it are queued and shown afterward. Pending POSTs are deduplicated
-per team/match and expire locally. Unexpired POST snapshots remain in per-team
-state and the normal rotation until their expiry. Live IN state remains
+per team/match and expire locally. POST snapshots are not kept in per-team
+state after acceptance and never enter the normal rotation. Live IN state remains
 available for score/clock refresh and stale-live handling. Since messages are
 non-retained, reconnect recovery depends on the publisher sending a fresh
 snapshot after the board reconnects. Set `MQTT_FOOTBALL_ENABLED = False` in board-local

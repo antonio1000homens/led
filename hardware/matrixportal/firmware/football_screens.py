@@ -426,10 +426,12 @@ def _normalize(topic, payload, prefix="led/football/"):
 
 
 def football_post_expired(screen, now_epoch):
-    """Return whether a POST event has passed its optional local expiry."""
-    expiry = screen.get("post_expires_at")
-    if screen.get("status") != "POST" or expiry is None or now_epoch is None:
+    """Fail closed when a POST event lacks a verifiable local expiry."""
+    if screen.get("status") != "POST":
         return False
+    expiry = screen.get("post_expires_at")
+    if expiry is None or now_epoch is None:
+        return True
     try:
         return int(now_epoch * 1000) >= _epoch(expiry)
     except (TypeError, ValueError):
@@ -513,9 +515,10 @@ class FootballScreenState:
                         and (incoming_source_epoch is None
                              or incoming_source_epoch < previous_source_epoch)):
                     return False
-            # Keep the final result as a normal-cycle screen until its local
-            # expiry so it remains available across later rotations/restarts.
-            self._teams[team_key] = incoming
+            # A final result is an MQTT event, not durable board state. Show
+            # it through the presentation queue, then forget it so it cannot
+            # reappear on later rotation cycles or after reconnects.
+            self._teams.pop(team_key, None)
             self._dynamic_flags.pop(team_key, None)
             return True
         same_fixture = bool(
@@ -651,6 +654,10 @@ class FootballScreenState:
         previous = self._teams.get(team_key) if team_key is not None else None
         if item is None or not self.accept(topic, payload):
             return False, None
+        if item.get("status") == "POST":
+            # POST is intentionally not retained in _teams. The accepted MQTT
+            # payload itself is the one-shot presentation.
+            return True, self._screen_from_snapshot(item, now_epoch)
         screen = self.screen_for_team(item["team_key"], now_epoch)
         if screen is None:
             return True, None
@@ -729,19 +736,17 @@ class FootballScreenState:
         return result
 
     def rotation_screens(self, now_epoch):
-        """Return fresh live matches and unexpired finals as cycle screens.
+        """Return fresh live matches as cycle screens.
 
-        PRE fixtures are supplied by the calendar feed. IN and POST snapshots
-        belong in the recurring rotation; POST is filtered by its local expiry.
-        Use distinct IDs so a current match can coexist with its next fixture.
+        PRE fixtures are supplied by the calendar feed. POST results are
+        one-shot MQTT presentations and are never stored in the rotation.
         """
         result = []
         for screen in self.screens(now_epoch):
-            if screen.get("status") not in ("IN", "POST"):
+            if screen.get("status") != "IN":
                 continue
             screen = dict(screen)
-            prefix = "football-live" if screen["status"] == "IN" else "football-result"
-            screen["id"] = "{}-{}".format(prefix, screen["team_key"])
+            screen["id"] = "football-live-{}".format(screen["team_key"])
             result.append(screen)
         return result
 
@@ -781,7 +786,7 @@ class FootballPresentationQueue:
 
     def accept_snapshot(self, state, topic, payload, now_epoch=None,
                         presenting_screen=None):
-        """Accept updates, keeping POST in state through its local expiry."""
+        """Accept updates and queue one-shot POST presentations."""
         item = _normalize(topic, payload, state.prefix)
         if item is None:
             self.last_update = "rejected"
