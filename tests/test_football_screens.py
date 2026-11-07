@@ -91,7 +91,7 @@ class FootballScreenTests(unittest.TestCase):
         self.assertTrue(rebooted.accept("led/football/sporting_cp", sporting))
         self.assertEqual(len(rebooted.screens(self.now)), 1)
 
-    def test_live_match_and_unexpired_final_join_the_normal_rotation(self):
+    def test_live_match_joins_rotation_but_post_result_does_not(self):
         final = snapshot(
             "sporting_cp", status="POST", home_score=2, away_score=1,
             post_expires_at="2026-10-27T00:00:00Z",
@@ -109,25 +109,22 @@ class FootballScreenTests(unittest.TestCase):
         kinds = [screen["kind"] for screen in rotation.screens]
         self.assertIn("rail_combined", kinds)
         self.assertIn("bin_collection", kinds)
-        self.assertEqual(kinds.count("football_score"), 2)
+        self.assertEqual(kinds.count("football_score"), 1)
         self.assertEqual(
             {screen["id"] for screen in rotation.screens if screen["kind"] == "football_score"},
-            {"football-result-sporting_cp", "football-live-millwall"},
+            {"football-live-millwall"},
         )
         self.assertEqual(kinds.count("football_intro"), 0)
         self.assertTrue(self.state.has_live_match(self.now))
 
-    def test_final_result_stays_in_rotation_until_its_expiry(self):
+    def test_final_result_is_not_kept_in_team_state_or_rotation(self):
         final = snapshot(
             "millwall", status="POST", home_score=4, away_score=1,
             post_expires_at="2026-10-27T00:00:00Z",
         )
         self.assertTrue(self.state.accept("led/football/millwall", final))
-        self.assertEqual(self.state.rotation_screens(self.now)[0]["status"], "POST")
-        self.assertTrue(self.state.staleness_changed(self.now))
-        expired = epoch("2026-10-27T00:00:00Z")
-        self.assertTrue(self.state.staleness_changed(expired))
-        self.assertEqual(self.state.rotation_screens(expired), [])
+        self.assertIsNone(self.state.screen_for_team("millwall", self.now))
+        self.assertEqual(self.state.rotation_screens(self.now), [])
 
     def test_live_rotation_entry_expires_when_teamtracker_source_goes_stale(self):
         live = snapshot("millwall", team_name="Millwall FC", status="IN",
@@ -845,10 +842,10 @@ process.stdout.write(JSON.stringify(results));
         ))
         self.assertEqual(queue.last_update, "post_event")
         self.assertEqual(len(queue), 1)
-        self.assertEqual(queue.pop()["status"], "POST")
-        self.assertEqual(state.screen_for_team("millwall", self.now)["status"], "POST")
+        self.assertEqual(queue.pop(self.now)["status"], "POST")
+        self.assertIsNone(state.screen_for_team("millwall", self.now))
 
-    def test_repeated_post_refresh_does_not_restart_its_card(self):
+    def test_republished_post_is_a_new_one_shot_and_is_not_cached(self):
         state = FootballScreenState()
         queue = FootballPresentationQueue()
         first = snapshot(
@@ -858,15 +855,16 @@ process.stdout.write(JSON.stringify(results));
         self.assertTrue(queue.accept_snapshot(
             state, "led/football/millwall", first, self.now
         ))
-        self.assertEqual(queue.pop()["status"], "POST")
+        self.assertEqual(queue.pop(self.now)["status"], "POST")
         refresh = dict(first, published_at="2026-10-26T20:05:00Z")
         self.assertTrue(queue.accept_snapshot(
             state, "led/football/millwall", refresh,
             epoch(refresh["published_at"]),
         ))
-        self.assertEqual(queue.last_update, "post_refresh")
-        self.assertEqual(len(queue), 0)
-        self.assertEqual(state.rotation_screens(self.now)[0]["status"], "POST")
+        self.assertEqual(queue.last_update, "post_event")
+        self.assertEqual(queue.pop(self.now)["status"], "POST")
+        self.assertIsNone(state.screen_for_team("millwall", self.now))
+        self.assertEqual(state.rotation_screens(self.now), [])
 
     def test_active_match_rejects_terminal_updates_without_cached_live_state(self):
         state = FootballScreenState()
@@ -918,8 +916,8 @@ process.stdout.write(JSON.stringify(results));
             state, "led/football/millwall", final,
             epoch(final["published_at"]), presenting_screen=active,
         ))
-        self.assertEqual(queue.pop()["status"], "POST")
-        self.assertEqual(state.screen_for_team("millwall", self.now)["status"], "POST")
+        self.assertEqual(queue.pop(self.now)["status"], "POST")
+        self.assertIsNone(state.screen_for_team("millwall", self.now))
 
     def test_goal_api_score_survives_lagging_teamtracker_and_merges_its_clock(self):
         key = "millwall"
