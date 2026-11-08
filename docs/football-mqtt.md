@@ -12,8 +12,11 @@ Team Tracker (`source: homeassistant`, `provider: teamtracker`) or Node-RED
 Goal API (`source: nrwindsor`, `provider: goalapi`). Both producers publish
 tracked clubs to the same club topic. The topic's final segment must match
 `team_key`. `fixture_key=<team_key>|<UTC match date>|<normalized opponent>`
-joins provider-specific match IDs while keeping separate same-day opponents
-apart. Each topic keeps one merged live state.
+is diagnostic metadata. The board keeps one current match session per team and
+reconciles provider updates by that team; fixture keys and provider match IDs
+are not cross-provider join requirements. Kick-off/date, opponent, and source
+time identify session rollovers and reject delayed updates from an older match,
+including separate same-day fixtures. Ambiguous session changes fail closed.
 MQTT does not replay snapshots on boot or reconnect; malformed or older events
 leave the current state untouched.
 
@@ -40,7 +43,7 @@ Duplicate payloads and clock-only refreshes update state without requesting a
 new prompt. A fresh `IN` match takes over the board and stays visible until its
 status changes or its source snapshot becomes stale. MQTT clock and score
 updates refresh the existing scene without restarting its animation phase.
-When the same fixture is already visible, score and clock changes update that
+When the same team match session is already visible, score and clock changes update that
 scene directly. Deferred updates for the same team are coalesced. A transition
 to POST starts a 20-second full-time card. POST is an event-only presentation:
 once accepted and queued, the board does not keep the final in its per-team
@@ -62,13 +65,18 @@ left; both opponent names appear together in large type beside it, with the
 live match clock (IN) or `FULL TIME` (POST) at the top right and the live or
 final score at the bottom right. Both names use the same sweeping colour
 gradient as the Today screen. The tracked team is not repeated as a screen
-title. Live clocks and scores update when fresh snapshots arrive. A Goal API
-`goal.scored` event applies its absolute score and flashes it once. The board
-holds that score for up to 120 seconds while Team Tracker catches up, merging
-its newer clock without rolling back the score; a matching score confirms it.
-Goal API `score.changed` applies corrections without a goal flash, including
-legitimate decreases. Team Tracker-only score increases retain the existing
-single-point highlight heuristic. POST never replays a goal highlight. Prompts
+title. Live clocks and scores update when fresh snapshots arrive, including
+when the providers use different fixture IDs or opponent slugs. A Goal API
+`goal.scored` event applies its absolute score and flashes it once. A lower
+Team Tracker snapshot cannot roll that score back after 120 seconds or at any
+later point; the board continues to merge the newer clock. A matching score
+confirms the Goal API score, while a newer Team Tracker score increase can
+represent the next goal and is accepted. Goal API `score.changed` applies an
+ordered correction without a goal flash, including legitimate decreases;
+late or duplicate Goal API events cannot undo a newer accepted score. The
+accepted score source and reconciliation decision are included in serial
+diagnostics. Team Tracker-only score increases retain the existing single-point
+highlight heuristic. POST never replays a goal highlight. Prompts
 deferred behind a flash reminder are shown in arrival order after the flash
 finishes. The already connected MQTT client continues polling
 during active animations every 1.5 seconds with a 10 ms socket timeout.
@@ -157,13 +165,15 @@ live snapshot whose `source_updated_at` is missing or more than ten minutes
 old is shown as UNAVAILABLE and its score and clock are hidden.
 
 Goal API score events are deduplicated by event ID and ordered by original
-event time. A 120-second confirmation window prevents a lagging Team Tracker
-snapshot from undoing a goal or an explicit Goal API correction. If no
-confirmation arrives before the window ends, the next valid Team Tracker score
-is allowed through; a later correction is therefore not permanently blocked.
-Team Tracker-only feeds use a conservative same-fixture, newer-source-time,
-single-point-increase highlight heuristic because they do not carry an explicit
-goal event type.
+event time. The latest accepted Goal API score remains protected for the active
+match session until a later Goal API event explicitly changes it or a newer
+Team Tracker score confirms or advances it. There is no time-based score
+rollback. Score provenance is tracked separately from the latest clock and
+freshness timestamps. Team Tracker-only feeds use a conservative same-session,
+newer-source-time, single-point-increase highlight heuristic because they do
+not carry an explicit goal event type. Team Tracker live data is stale after
+ten minutes; Goal API live data is stale after four hours. A session rollover
+clears the previous match's score protection and event IDs.
 
 ## Board settings
 

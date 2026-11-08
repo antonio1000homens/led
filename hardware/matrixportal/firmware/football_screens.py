@@ -29,7 +29,6 @@ FOOTBALL_TEAM_NAME_MAX_LENGTH = 16
 LIVE_STALE_SECONDS = 600
 GOALAPI_LIVE_STALE_SECONDS = 4 * 60 * 60
 GOAL_FLASH_SECONDS = 8
-GOAL_SCORE_CONFIRM_SECONDS = 120
 SCREEN_DURATION_SECONDS = 20
 FOOTBALL_DEFAULT_ANIMATION_SPEED = 80
 FOOTBALL_PRE_CLEAR_SECONDS = 0.5
@@ -344,6 +343,15 @@ def _has_fixture_data(screen):
 def _live_stale(snapshot, now_ms):
     if now_ms is None:
         return True
+    providers = snapshot.get("_provider_source_epochs")
+    if isinstance(providers, dict) and providers:
+        for provider, source_updated in providers.items():
+            stale_after = (GOALAPI_LIVE_STALE_SECONDS
+                           if provider == "goalapi" else LIVE_STALE_SECONDS)
+            if (source_updated is not None
+                    and now_ms - source_updated <= stale_after * 1000):
+                return False
+        return True
     source_updated = snapshot.get("_source_epoch")
     if source_updated is None:
         return True
@@ -351,6 +359,108 @@ def _live_stale(snapshot, now_ms):
     if snapshot.get("source") == "nrwindsor" and snapshot.get("provider") == "goalapi":
         stale_after = GOALAPI_LIVE_STALE_SECONDS
     return now_ms - source_updated > stale_after * 1000
+
+
+def _session_details(snapshot):
+    kickoff = snapshot.get("_kickoff_epoch")
+    if kickoff is None and snapshot.get("kickoff") is not None:
+        try:
+            kickoff = _epoch(snapshot.get("kickoff"))
+        except (TypeError, ValueError):
+            kickoff = None
+    fixture_date = snapshot.get("fixture_date")
+    fixture_key = snapshot.get("fixture_key")
+    if (not isinstance(fixture_date, str) and isinstance(fixture_key, str)):
+        parts = fixture_key.split("|")
+        if len(parts) >= 2:
+            fixture_date = parts[1]
+    if not isinstance(fixture_date, str) or not re.match(r"^\d{4}-\d{2}-\d{2}$", fixture_date):
+        fixture_date = None
+    if fixture_date is None and kickoff is not None:
+        fixture_date = _epoch_date(kickoff)
+    opponent = snapshot.get("opponent_long_name") or snapshot.get("opponent")
+    if isinstance(opponent, str):
+        opponent = re.sub(r"\b(football club|fc|afc)\b", " ", opponent.lower())
+        opponent = re.sub(r"[^a-z0-9]+", " ", opponent).strip()
+    else:
+        opponent = None
+    ids = tuple(snapshot.get(name) for name in
+                ("fixture_key", "match_id", "provider_match_id") if snapshot.get(name))
+    return fixture_date, kickoff, opponent, ids
+
+
+def _epoch_date(epoch):
+    # Keep this compatible with CircuitPython's small datetime implementation.
+    try:
+        from time import gmtime
+        value = gmtime(int(epoch / 1000))
+        return "%04d-%02d-%02d" % (value.tm_year, value.tm_mon, value.tm_mday)
+    except (ImportError, AttributeError, OverflowError, ValueError):
+        return None
+
+
+def _same_match_session(previous, incoming):
+    """Compare match lifecycle evidence; provider IDs are hints, not join keys."""
+    if previous is None or incoming is None:
+        return False
+    old_date, old_kickoff, old_opponent, old_ids = _session_details(previous)
+    new_date, new_kickoff, new_opponent, new_ids = _session_details(incoming)
+    close_kickoff = (old_kickoff is not None and new_kickoff is not None
+                     and abs(old_kickoff - new_kickoff) <= 15 * 60 * 1000)
+    if old_date and new_date and old_date != new_date and not close_kickoff:
+        return False
+    if old_kickoff is not None and new_kickoff is not None:
+        # Provider kickoff values for one match should be close. A different
+        # kickoff is a session rollover even when it is a same-day doubleheader.
+        if abs(old_kickoff - new_kickoff) > 15 * 60 * 1000:
+            return False
+    if old_opponent and new_opponent and old_opponent != new_opponent:
+        return False
+    if old_ids and new_ids and set(old_ids).intersection(new_ids):
+        return True
+    if (old_kickoff is not None and new_kickoff is not None
+            and abs(old_kickoff - new_kickoff) <= 15 * 60 * 1000):
+        return True
+    if old_date and new_date and old_date == new_date and old_opponent and new_opponent:
+        return True
+    # If one provider omits the stable fixture metadata, only overlap the
+    # current team session when its source event time is near the active event.
+    old_source, new_source = previous.get("_source_epoch"), incoming.get("_source_epoch")
+    return (old_source is not None and new_source is not None
+            and abs(old_source - new_source) <= 4 * 60 * 60 * 1000)
+
+
+def _strong_same_match_session(previous, incoming):
+    old_date, old_kickoff, old_opponent, old_ids = _session_details(previous)
+    new_date, new_kickoff, new_opponent, new_ids = _session_details(incoming)
+    close_kickoff = (old_kickoff is not None and new_kickoff is not None
+                     and abs(old_kickoff - new_kickoff) <= 15 * 60 * 1000)
+    if old_date and new_date and old_date != new_date and not close_kickoff:
+        return False
+    if (old_kickoff is not None and new_kickoff is not None and not close_kickoff):
+        return False
+    if old_opponent and new_opponent and old_opponent != new_opponent:
+        return False
+    if old_ids and new_ids and set(old_ids).intersection(new_ids):
+        return True
+    if close_kickoff:
+        return True
+    return bool(old_date and old_date == new_date and old_opponent and new_opponent
+                and old_opponent == new_opponent)
+
+
+def _is_later_match(previous, incoming):
+    old_date, old_kickoff, old_opponent, _ = _session_details(previous)
+    new_date, new_kickoff, new_opponent, _ = _session_details(incoming)
+    if old_date and new_date and new_date > old_date:
+        return True
+    if (old_kickoff is not None and new_kickoff is not None
+            and new_kickoff - old_kickoff > 15 * 60 * 1000):
+        return True
+    old_source, new_source = previous.get("_source_epoch"), incoming.get("_source_epoch")
+    return bool(old_opponent and new_opponent and old_opponent != new_opponent
+                and old_source is not None and new_source is not None
+                and new_source > old_source)
 
 
 def _normalize(topic, payload, prefix="led/football/"):
@@ -438,6 +548,19 @@ def football_post_expired(screen, now_epoch):
         return True
 
 
+def _valid_final(snapshot):
+    try:
+        expiry = _epoch(snapshot.get("post_expires_at"))
+    except (TypeError, ValueError):
+        return False
+    return (snapshot.get("status") == "POST"
+            and type(snapshot.get("home_score")) is int
+            and type(snapshot.get("away_score")) is int
+            and snapshot.get("_source_epoch") is not None
+            and snapshot.get("_published_epoch") is not None
+            and expiry > snapshot.get("_published_epoch"))
+
+
 class FootballScreenState:
     """Keep each topic's latest valid snapshot without affecting MQTT cycle screens."""
 
@@ -450,6 +573,8 @@ class FootballScreenState:
         self._teams = {}
         self._dynamic_flags = {}
         self._goal_events = {}
+        self._finished_sessions = {}
+        self.last_decision = "none"
 
     def _prune_goalapi(self, now_ms):
         if now_ms is None:
@@ -465,186 +590,329 @@ class FootballScreenState:
         for team_key, snapshot in tuple(self._teams.items()):
             if snapshot.get("source") != "nrwindsor" or snapshot.get("provider") != "goalapi":
                 continue
-            updated = snapshot.get("_source_epoch") or snapshot.get("_published_epoch")
-            if updated is not None and now_ms - updated > GOALAPI_LIVE_STALE_SECONDS * 1000:
+            if _live_stale(snapshot, now_ms):
                 del self._teams[team_key]
                 self._dynamic_flags.pop(team_key, None)
 
     def accept(self, topic, payload):
+        self.last_decision = "rejected"
         if not self.enabled or not isinstance(topic, str) or not topic.startswith(self.prefix):
+            self.last_decision = "invalid_topic_or_disabled"
             return False
         incoming = _normalize(topic, payload, self.prefix)
         if incoming is None:
+            self.last_decision = "invalid_snapshot"
             return False
         self._prune_goalapi(incoming["_published_epoch"])
         team_key = incoming["team_key"]
         previous = self._teams.get(team_key)
-        if previous is not None:
-            if incoming["_published_epoch"] <= previous["_published_epoch"]:
-                return False
         is_goal_api = (incoming.get("source") == "nrwindsor"
                        and incoming.get("provider") == "goalapi")
+        event_id = incoming.get("event_id")
+        event_type = str(incoming.get("event_type") or "").lower()
+        source_epoch = incoming.get("_source_epoch")
+        finished = self._finished_sessions.get(team_key)
+        if incoming.get("status") == "IN" and finished is not None:
+            if (_same_match_session(finished, incoming)
+                    or not _is_later_match(finished, incoming)):
+                self.last_decision = "late_live_after_post_rejected"
+                return False
         if is_goal_api:
             recent_events = self._goal_events.get(team_key, ())
-            event_id = incoming.get("event_id")
-            source_epoch = incoming.get("_source_epoch")
             if event_id and any(event_id == prior_id for prior_id, _ in recent_events):
+                self.last_decision = "duplicate_goalapi_event"
                 return False
             latest_epoch = max((epoch for _, epoch in recent_events if epoch is not None),
                                default=None)
             if (source_epoch is not None and latest_epoch is not None
-                    and source_epoch < latest_epoch):
+                    and source_epoch <= latest_epoch):
+                self.last_decision = "out_of_order_goalapi_event"
+                return False
+        same_session = previous is not None and _same_match_session(previous, incoming)
+        incoming_score = (incoming.get("home_score"), incoming.get("away_score"))
+        valid_incoming_score = all(type(value) is int for value in incoming_score)
+        if (same_session and is_goal_api and incoming.get("status") == "IN"
+                and event_type in ("goal.scored", "score.changed")
+                and valid_incoming_score and source_epoch is not None
+                and incoming_score != (previous.get("home_score"),
+                                       previous.get("away_score"))
+                and previous.get("_accepted_score_epoch") is not None
+                and source_epoch <= previous.get("_accepted_score_epoch")
+                and ((event_type == "goal.scored"
+                         and sum(incoming_score) < sum((previous.get("home_score"),
+                                                        previous.get("away_score"))))
+                     or (event_type == "score.changed"
+                         and previous.get("_teamtracker_score") is not None
+                         and sum(previous.get("_teamtracker_score"))
+                             > sum(previous.get("_goal_authoritative_score") or
+                                   (previous.get("home_score"), previous.get("away_score")))
+                         and previous.get("_teamtracker_source_epoch") is not None
+                         and source_epoch <= previous.get("_teamtracker_source_epoch")))):
+            self.last_decision = "out_of_order_goalapi_score"
+            return False
+        if previous is not None and previous.get("status") == "IN":
+            old_kickoff = previous.get("_kickoff_epoch")
+            old_session_start = previous.get("_session_started_epoch")
+            incoming_kickoff = incoming.get("_kickoff_epoch")
+            # A delayed event carrying the previous fixture's kickoff or source
+            # timestamp must not roll a newer live team session backwards.
+            if (incoming.get("status") == "IN" and old_kickoff is not None
+                    and incoming_kickoff is not None and incoming_kickoff < old_kickoff):
+                self.last_decision = "stale_fixture_session"
+                return False
+            if (incoming.get("status") == "IN" and old_session_start is not None
+                    and source_epoch is not None and source_epoch < old_session_start
+                    and not same_session and incoming_kickoff == old_kickoff):
+                self.last_decision = "stale_fixture_event"
+                return False
+            if incoming.get("status") == "POST":
+                if (not same_session
+                        or (source_epoch is not None
+                            and previous.get("_source_epoch") is not None
+                            and source_epoch <= previous.get("_source_epoch"))):
+                    self.last_decision = "post_wrong_or_stale_session"
+                    return False
+            elif (incoming.get("status") != "IN"
+                  and not _live_stale(previous, incoming["_published_epoch"])):
+                self.last_decision = "live_status_regression_rejected"
+                return False
+            session_source = previous.get("_session_started_source_epoch")
+            kickoff_epoch = previous.get("_kickoff_epoch")
+            if (incoming.get("status") == "IN" and source_epoch is not None
+                    and session_source is not None and source_epoch < session_source
+                    and not _strong_same_match_session(previous, incoming)
+                    and (kickoff_epoch is None or source_epoch < kickoff_epoch)):
+                self.last_decision = "ambiguous_old_event_rejected"
                 return False
         if incoming.get("status") == "POST":
-            if previous is not None and previous.get("status") == "IN":
-                previous_ids = {
-                    previous.get(name) for name in (
-                        "fixture_key", "match_id", "provider_match_id", "event_id"
-                    ) if previous.get(name)
-                }
-                incoming_ids = {
-                    incoming.get(name) for name in (
-                        "fixture_key", "match_id", "provider_match_id", "event_id"
-                    ) if incoming.get(name)
-                }
-                if not previous_ids.intersection(incoming_ids):
-                    return False
-                previous_source_epoch = previous.get("_source_epoch")
-                incoming_source_epoch = incoming.get("_source_epoch")
-                if (previous_source_epoch is not None
-                        and (incoming_source_epoch is None
-                             or incoming_source_epoch < previous_source_epoch)):
-                    return False
-            # A final result is an MQTT event, not durable board state. Show
-            # it through the presentation queue, then forget it so it cannot
-            # reappear on later rotation cycles or after reconnects.
+            if not _valid_final(incoming):
+                self.last_decision = "invalid_final_result"
+                return False
+            # A final result is a one-shot presentation, never a retained live
+            # snapshot. It is accepted only for the current team session.
+            self._finished_sessions[team_key] = {
+                name: incoming.get(name) for name in (
+                    "team_key", "fixture_key", "match_id", "provider_match_id",
+                    "kickoff", "_kickoff_epoch", "fixture_date", "opponent",
+                    "opponent_long_name", "_source_epoch", "_published_epoch",
+                    "source_updated_at",
+                )
+            }
             self._teams.pop(team_key, None)
             self._dynamic_flags.pop(team_key, None)
+            self.last_decision = "post_accepted"
             return True
-        same_fixture = bool(
-            previous is not None
-            and previous.get("fixture_key")
-            and incoming.get("fixture_key") == previous.get("fixture_key")
-            and incoming.get("status") == previous.get("status") == "IN"
-        )
-        item = dict(previous) if same_fixture else {}
-        item.update(incoming)
-        if same_fixture:
-            for name in ("event_id", "event_type", "event_created_at",
-                         "previous_home_score", "previous_away_score"):
-                if incoming.get(name) is None:
-                    item.pop(name, None)
-            if incoming.get("_source_epoch") is None and previous.get("_source_epoch") is not None:
-                item["_source_epoch"] = previous["_source_epoch"]
-                item["source_updated_at"] = previous.get("source_updated_at")
-            # Live providers frequently omit values held by the other feed.
-            for name in ("clock", "home_score", "away_score", "competition",
-                         "team_name", "opponent", "opponent_long_name",
-                         "display_fixture", "home_team", "away_team",
-                         "homeaway", "team_homeaway", "kickoff"):
-                if incoming.get(name) is None and previous.get(name) is not None:
-                    item[name] = previous[name]
+        if previous is not None and previous.get("status") == "IN" and not same_session:
+            # A genuinely later live fixture starts a fresh, bounded session.
+            previous_stale = _live_stale(previous, incoming["_published_epoch"])
+            if incoming.get("status") != "IN" and not previous_stale:
+                self.last_decision = "session_transition_rejected"
+                return False
+            if (incoming.get("status") == "IN" and source_epoch is not None
+                    and previous.get("_session_started_epoch") is not None
+                    and source_epoch < previous["_session_started_epoch"]
+                    and (old_kickoff is None or incoming_kickoff is None
+                         or incoming_kickoff <= old_kickoff)):
+                self.last_decision = "stale_fixture_event"
+                return False
+            previous = None
+            self._goal_events.pop(team_key, None)
 
-            pending_until = previous.get("_goal_score_until")
-            pending_score = previous.get("_goal_score")
-            is_goal_api = (incoming.get("source") == "nrwindsor"
-                           and incoming.get("provider") == "goalapi")
-            event_type = str(incoming.get("event_type") or "").lower()
+        if same_session:
+            provider = "goalapi" if is_goal_api else "teamtracker"
+            provider_epochs = dict(previous.get("_provider_source_epochs") or {})
+            prior_provider_epoch = provider_epochs.get(provider)
+            if (source_epoch is not None and prior_provider_epoch is not None
+                    and source_epoch <= prior_provider_epoch):
+                self.last_decision = "out_of_order_provider_update"
+                return False
+            item = dict(previous)
+            item.pop("_last_score_decision", None)
+            clear_fixture_data = (incoming.get("status") == "PRE"
+                                  and not _has_fixture_data(incoming))
+            if clear_fixture_data:
+                for name in ("team_name", "opponent", "opponent_long_name",
+                             "display_fixture", "kickoff"):
+                    item[name] = None
+            item.update({key: value for key, value in incoming.items()
+                         if not key.startswith("_") and value is not None})
+            # Preserve richer fixture metadata from the other feed when a
+            # snapshot omits those values or supplies only a short alias.
+            for name in ("clock", "competition", "team_name", "opponent",
+                         "opponent_long_name", "display_fixture", "home_team",
+                         "away_team", "homeaway", "team_homeaway", "kickoff",
+                         "fixture_date"):
+                if (not clear_fixture_data and incoming.get(name) is None
+                        and previous.get(name) is not None):
+                    item[name] = previous[name]
+            provider_epochs[provider] = source_epoch
+            item["_provider_source_epochs"] = provider_epochs
+            if (source_epoch is not None
+                    and (previous.get("_source_epoch") is None
+                         or source_epoch >= previous.get("_source_epoch"))):
+                item["_source_epoch"] = source_epoch
+                item["source_updated_at"] = incoming.get("source_updated_at")
+            else:
+                item["_source_epoch"] = previous.get("_source_epoch")
+                item["source_updated_at"] = previous.get("source_updated_at")
+            item["_published_epoch"] = max(
+                previous.get("_published_epoch", 0), incoming["_published_epoch"])
+            item["published_at"] = incoming.get("published_at")
             incoming_score = (incoming.get("home_score"), incoming.get("away_score"))
             previous_score = (previous.get("home_score"), previous.get("away_score"))
-            valid_incoming_score = all(type(value) is int for value in incoming_score)
-            if (is_goal_api and valid_incoming_score
-                    and event_type in ("goal.scored", "score.changed")
-                    and incoming_score != previous_score):
+            valid_score = all(type(value) is int for value in incoming_score)
+            goal_score = previous.get("_goal_score")
+            authoritative_score = previous.get("_goal_authoritative_score")
+            if is_goal_api and valid_score and event_type in ("goal.scored", "score.changed"):
+                item["home_score"], item["away_score"] = incoming_score
+                item["_goal_authoritative_score"] = incoming_score
                 item["_goal_score"] = incoming_score
-                item["_goal_score_until"] = (
-                    incoming["_published_epoch"]
-                    + GOAL_SCORE_CONFIRM_SECONDS * 1000
-                )
-            elif (is_goal_api and pending_until is not None
-                    and incoming_score == previous_score):
-                item["_goal_score"] = pending_score
-                item["_goal_score_until"] = pending_until
-            elif (not is_goal_api and pending_until is not None
-                    and incoming["_published_epoch"] < pending_until
-                    and incoming_score != pending_score):
-                item["home_score"], item["away_score"] = pending_score
-                item["_goal_score_until"] = pending_until
-                item["_goal_score"] = pending_score
-                item["_score_source"] = "goalapi_pending_confirmation"
-            else:
-                item.pop("_goal_score_until", None)
-                item.pop("_goal_score", None)
-                item["_score_source"] = incoming.get("provider")
-
-            if not is_goal_api and incoming_score == pending_score:
-                item.pop("_goal_score_until", None)
-                item.pop("_goal_score", None)
-
-            if (event_type == "goal.scored" and valid_incoming_score
-                    and (all(type(value) is int for value in previous_score)
-                         or all(type(value) is int for value in (
-                             incoming.get("previous_home_score"),
-                             incoming.get("previous_away_score"))))):
-                goal_previous = previous_score
-                if all(type(value) is int for value in (
-                        incoming.get("previous_home_score"),
-                        incoming.get("previous_away_score"))):
-                    goal_previous = (incoming["previous_home_score"],
-                                     incoming["previous_away_score"])
-                home_delta = incoming_score[0] - goal_previous[0]
-                away_delta = incoming_score[1] - goal_previous[1]
-                if home_delta == 1 and away_delta == 0:
-                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
-                    item["_goal_side"] = "home"
-                elif away_delta == 1 and home_delta == 0:
-                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
-                    item["_goal_side"] = "away"
-            elif (not is_goal_api and valid_incoming_score
-                  and all(type(value) is int for value in previous_score)
-                  and incoming["_source_epoch"] is not None
-                  and previous.get("_source_epoch") is not None
-                  and incoming["_source_epoch"] > previous["_source_epoch"]
-                  and incoming_score != previous_score):
-                home_delta = incoming_score[0] - previous_score[0]
-                away_delta = incoming_score[1] - previous_score[1]
-                if home_delta == 1 and away_delta == 0:
-                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
-                    item["_goal_side"] = "home"
-                elif away_delta == 1 and home_delta == 0:
-                    item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
-                    item["_goal_side"] = "away"
-        else:
-            item["_goal_until"] = None
-            item["_goal_side"] = None
-            item["_score_source"] = incoming.get("provider")
-            if (is_goal_api and incoming.get("status") == "IN"
-                    and incoming.get("event_type") in ("goal.scored", "score.changed")
-                    and all(type(value) is int for value in (
-                        incoming.get("home_score"), incoming.get("away_score")))):
-                item["_goal_score"] = (incoming["home_score"], incoming["away_score"])
-                item["_goal_score_until"] = (
-                    incoming["_published_epoch"]
-                    + GOAL_SCORE_CONFIRM_SECONDS * 1000
-                )
-                if (incoming.get("event_type") == "goal.scored"
-                        and all(type(value) is int for value in (
-                            incoming.get("previous_home_score"),
-                            incoming.get("previous_away_score")))):
-                    home_delta = incoming["home_score"] - incoming["previous_home_score"]
-                    away_delta = incoming["away_score"] - incoming["previous_away_score"]
+                item["_score_source"] = "goalapi"
+                if (item.get("_accepted_score_epoch") is None
+                        or source_epoch is None
+                        or source_epoch >= item.get("_accepted_score_epoch")):
+                    item["_accepted_score_epoch"] = source_epoch
+                    item["_accepted_score_source"] = "goalapi"
+                if event_type == "goal.scored":
+                    old_score = (incoming.get("previous_home_score"),
+                                 incoming.get("previous_away_score"))
+                    if not all(type(value) is int for value in old_score):
+                        old_score = previous_score
+                    if (old_score[0] is not None and incoming_score[0] == old_score[0] + 1
+                            and incoming_score[1] == old_score[1]):
+                        item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                        item["_goal_side"] = "home"
+                    elif (old_score[1] is not None and incoming_score[1] == old_score[1] + 1
+                          and incoming_score[0] == old_score[0]):
+                        item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                        item["_goal_side"] = "away"
+                else:
+                    item["_goal_until"] = None
+                    item["_goal_side"] = None
+            elif not is_goal_api and valid_score:
+                if incoming_score != previous_score:
+                    item["_goal_until"] = None
+                    item["_goal_side"] = None
+                if (incoming_score == previous_score
+                        and (incoming_score == authoritative_score
+                             or incoming_score == goal_score)):
+                    item["_goal_score_confirmed"] = True
+                    item["_score_source"] = "teamtracker"
+                    item.pop("_goal_score", None)
+                    if (source_epoch is not None
+                            and (item.get("_accepted_score_epoch") is None
+                                 or source_epoch > item["_accepted_score_epoch"])):
+                        item["_accepted_score_epoch"] = source_epoch
+                        item["_accepted_score_source"] = "teamtracker"
+                elif authoritative_score is not None:
+                    old_tracker = previous.get("_teamtracker_score")
+                    old_tracker_epoch = previous.get("_teamtracker_source_epoch")
+                    advanced = (old_tracker is not None and source_epoch is not None
+                                and old_tracker_epoch is not None
+                                and source_epoch > old_tracker_epoch
+                                and (incoming_score[0] > old_tracker[0]
+                                     or incoming_score[1] > old_tracker[1]))
+                    if advanced:
+                        item["home_score"], item["away_score"] = incoming_score
+                        item["_score_source"] = "teamtracker"
+                        if (item.get("_accepted_score_epoch") is None
+                                or source_epoch > item["_accepted_score_epoch"]):
+                            item["_accepted_score_epoch"] = source_epoch
+                            item["_accepted_score_source"] = "teamtracker"
+                    else:
+                        item["home_score"], item["away_score"] = previous_score
+                        item["_score_source"] = previous.get("_score_source") or "goalapi_protected"
+                        item["_last_score_decision"] = "teamtracker_rollback_ignored"
+                else:
+                    item["home_score"], item["away_score"] = incoming_score
+                    item["_score_source"] = "teamtracker"
+                    if (source_epoch is not None
+                            and (item.get("_accepted_score_epoch") is None
+                                 or source_epoch > item["_accepted_score_epoch"])):
+                        item["_accepted_score_epoch"] = source_epoch
+                        item["_accepted_score_source"] = "teamtracker"
+                item["_teamtracker_score"] = incoming_score
+                item["_teamtracker_source_epoch"] = source_epoch
+                if (incoming_score != previous_score
+                        and all(type(value) is int for value in previous_score)
+                        and item.get("_score_source") == "teamtracker"
+                        and source_epoch is not None):
+                    home_delta = incoming_score[0] - (previous_score[0] or 0)
+                    away_delta = incoming_score[1] - (previous_score[1] or 0)
                     if home_delta == 1 and away_delta == 0:
                         item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
                         item["_goal_side"] = "home"
                     elif away_delta == 1 and home_delta == 0:
                         item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
                         item["_goal_side"] = "away"
+            else:
+                # No score in this update: preserve both feeds' accepted score.
+                item["home_score"], item["away_score"] = previous_score
+            item["_session_started_epoch"] = previous.get("_session_started_epoch")
+            item["_session_started_source_epoch"] = (
+                previous.get("_session_started_source_epoch") or
+                (source_epoch if incoming.get("status") == "IN" else None))
+        else:
+            item = dict(incoming)
+            provider = "goalapi" if is_goal_api else "teamtracker"
+            item["_provider_source_epochs"] = {provider: source_epoch}
+            item["_session_started_epoch"] = (
+                incoming.get("_kickoff_epoch") or source_epoch)
+            item["_session_started_source_epoch"] = (
+                source_epoch if incoming.get("status") == "IN" else None)
+            item["_score_source"] = provider
+            if all(type(value) is int for value in (
+                    incoming.get("home_score"), incoming.get("away_score"))):
+                item["_accepted_score_epoch"] = source_epoch
+                item["_accepted_score_source"] = provider
+            if is_goal_api and incoming.get("status") == "IN":
+                initial_score = (incoming.get("home_score"), incoming.get("away_score"))
+                if (event_type in ("goal.scored", "score.changed")
+                        and all(type(value) is int for value in initial_score)):
+                    item["_goal_authoritative_score"] = initial_score
+                    item["_goal_score"] = initial_score
+                    item["_accepted_score_epoch"] = source_epoch
+                    item["_accepted_score_source"] = "goalapi"
+                    if event_type == "goal.scored":
+                        old_score = (incoming.get("previous_home_score"),
+                                     incoming.get("previous_away_score"))
+                        if (all(type(value) is int for value in old_score)
+                                and initial_score[0] == old_score[0] + 1
+                                and initial_score[1] == old_score[1]):
+                            item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                            item["_goal_side"] = "home"
+                        elif (all(type(value) is int for value in old_score)
+                              and initial_score[1] == old_score[1] + 1
+                              and initial_score[0] == old_score[0]):
+                            item["_goal_until"] = incoming["_published_epoch"] + GOAL_FLASH_SECONDS * 1000
+                            item["_goal_side"] = "away"
+            elif not is_goal_api:
+                item["_teamtracker_score"] = (incoming.get("home_score"),
+                                               incoming.get("away_score"))
+                item["_teamtracker_source_epoch"] = source_epoch
         if is_goal_api:
             recent_events = self._goal_events.setdefault(team_key, [])
-            recent_events.append((incoming.get("event_id"), incoming.get("_source_epoch")))
+            recent_events.append((event_id, source_epoch))
             if len(recent_events) > 64:
                 del recent_events[:-64]
         self._teams[team_key] = item
+        if not same_session:
+            self.last_decision = "new_match_session"
+        elif is_goal_api and event_type == "score.changed":
+            self.last_decision = "goalapi_score_correction"
+        elif is_goal_api and event_type == "goal.scored":
+            self.last_decision = "goalapi_goal_applied"
+        elif not is_goal_api and valid_incoming_score:
+            if item.get("_last_score_decision"):
+                self.last_decision = item["_last_score_decision"]
+            elif item.get("_score_source") == "goalapi_protected":
+                self.last_decision = "teamtracker_rollback_ignored"
+            elif item.get("_goal_score_confirmed"):
+                self.last_decision = "teamtracker_score_confirmed"
+            else:
+                self.last_decision = "teamtracker_score_applied"
+        else:
+            self.last_decision = "match_snapshot_merged"
         return True
 
     def accept_for_presentation(self, topic, payload, now_epoch=None):
@@ -662,15 +930,15 @@ class FootballScreenState:
         if screen is None:
             return True, None
         current = self._teams.get(item["team_key"], item)
-        same_fixture = (previous is not None
-                        and previous.get("fixture_key") == current.get("fixture_key")
-                        and previous.get("status") == current.get("status"))
-        score_changed = same_fixture and (
+        same_session = (previous is not None
+                        and previous.get("status") == current.get("status")
+                        and _same_match_session(previous, current))
+        score_changed = same_session and (
             (previous.get("home_score"), previous.get("away_score"))
             != (current.get("home_score"), current.get("away_score"))
         )
         screen["presentation_update"] = (
-            "new_fixture_or_status" if not same_fixture
+            "new_fixture_or_status" if not same_session
             else ("score_changed" if score_changed else "data_refresh")
         )
         return True, screen
@@ -680,12 +948,15 @@ class FootballScreenState:
         status = snapshot["status"]
         if status not in ("PRE", "IN", "POST"):
             return None
+        if status == "POST" and not _valid_final(snapshot):
+            return None
         if status == "PRE" and not _has_fixture_data(snapshot):
             return None
         if football_post_expired(snapshot, now_epoch):
             return None
         now_ms = int(now_epoch * 1000) if now_epoch is not None else None
         screen = {key: value for key, value in snapshot.items() if not key.startswith("_")}
+        screen["score_source"] = snapshot.get("_score_source")
         stale_live = status == "IN" and _live_stale(snapshot, now_ms)
         if stale_live:
             screen["status"] = "UNAVAILABLE"
@@ -809,16 +1080,6 @@ class FootballPresentationQueue:
                 and presenting_screen.get("team_key") == item.get("team_key")
                 and presenting_screen.get("status") == "IN"
                 and item.get("status") != "IN"):
-            live_ids = {
-                presenting_screen.get(name) for name in (
-                    "fixture_key", "match_id", "provider_match_id", "event_id"
-                ) if presenting_screen.get(name)
-            }
-            incoming_ids = {
-                item.get(name) for name in (
-                    "fixture_key", "match_id", "provider_match_id", "event_id"
-                ) if item.get(name)
-            }
             live_source = presenting_screen.get("source_updated_at")
             incoming_source = item.get("_source_epoch")
             try:
@@ -826,14 +1087,14 @@ class FootballPresentationQueue:
             except (TypeError, ValueError):
                 live_source = None
             if (item.get("status") != "POST"
-                    or not live_ids.intersection(incoming_ids)
+                    or not _same_match_session(presenting_screen, item)
                     or live_source is None or incoming_source is None
                     or incoming_source <= live_source):
                 self.last_update = "rejected_active_match_transition"
                 return False
         accepted, screen = state.accept_for_presentation(topic, payload, now_epoch)
         if not accepted:
-            self.last_update = "rejected"
+            self.last_update = state.last_decision
             return False
         team_key = topic[len(state.prefix):]
         if screen is None:
@@ -845,15 +1106,30 @@ class FootballPresentationQueue:
             else:
                 self.last_update = "post_event"
                 self.schedule_screen(screen)
+        elif screen.get("status") == "IN" and screen.get("presentation_update") == "new_fixture_or_status":
+            self._pending = [
+                pending for pending in self._pending
+                if not (isinstance(pending, dict)
+                        and pending.get("team_key") == team_key
+                        and pending.get("status") == "POST"
+                        and not _same_match_session(pending, screen))
+            ]
+            if not (presenting_screen is not None
+                    and presenting_screen.get("team_key") == team_key
+                    and _same_match_session(presenting_screen, screen)):
+                self.last_update = screen.get("presentation_update")
+                self.schedule(team_key)
+            else:
+                self.last_update = "active_data_refresh"
         elif (screen.get("presentation_update") != "data_refresh"
               and not (presenting_screen is not None
                        and presenting_screen.get("team_key") == team_key
-                       and presenting_screen.get("fixture_key") == screen.get("fixture_key"))):
+                       and _same_match_session(presenting_screen, screen))):
             self.last_update = screen.get("presentation_update", "score_changed")
             self.schedule(team_key)
         elif (presenting_screen is not None
               and presenting_screen.get("team_key") == team_key
-              and presenting_screen.get("fixture_key") == screen.get("fixture_key")):
+              and _same_match_session(presenting_screen, screen)):
             self.last_update = (
                 "active_score_refresh"
                 if screen.get("presentation_update") == "score_changed"
@@ -891,11 +1167,11 @@ class FootballPresentationQueue:
         team_key = screen.get("team_key")
         if not _valid_team_key(team_key):
             return False
-        match_id = screen.get("match_id")
         for index, pending in enumerate(self._pending):
             if (isinstance(pending, dict)
                     and pending.get("team_key") == team_key
-                    and pending.get("match_id") == match_id):
+                    and pending.get("status") == "POST"
+                    and _same_match_session(pending, screen)):
                 try:
                     pending_epoch = _epoch(pending.get("published_at"))
                     incoming_epoch = _epoch(screen.get("published_at"))

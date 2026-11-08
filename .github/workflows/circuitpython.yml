@@ -113,12 +113,14 @@ jobs:
             test_display_layout.py
             test_today_date_animation.py
             test_deployment_static.py
+            test_football_screens.py
             test_flash_events.py
             test_formatting.py
             test_issue41_dashboard.py
             test_matrix_runtime.py
             test_matrix_todoist_performance.py
             test_mqtt_safety.py
+            test_mqtt_adaptive.py
             test_mqtt_screen_update_batching.py
             test_presentation_priority.py
             test_queue_cycle.py

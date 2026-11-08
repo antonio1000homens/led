@@ -546,22 +546,22 @@ if settings.MQTT_ENABLED and settings.MQTT_ENABLE_EXPERIMENTAL and not steam_tra
                 mqtt_screens_changed = True
                 live_state = football_screens._teams.get(team_key, {})
                 goal_pending = (
-                    live_state.get("_goal_score_until") is not None
-                    and epoch_now is not None
-                    and epoch_now * 1000 < live_state.get("_goal_score_until")
+                    live_state.get("_goal_score") is not None
                 )
-                print("FOOTBALL UPDATE ACCEPTED team={} update={} pending={}".format(
+                print("FOOTBALL UPDATE ACCEPTED team={} update={} decision={} "
+                      "score_source={} score_pending={} pending={} session={}".format(
                     team_key,
-                    "{} score_source={} score_pending={}".format(
-                        football_presentations.last_update,
-                        live_state.get("_score_source", "unknown"),
-                        goal_pending,
-                    ),
-                    len(football_presentations)
+                    football_presentations.last_update,
+                    football_screens.last_decision,
+                    live_state.get("_score_source", "unknown"),
+                    goal_pending,
+                    len(football_presentations),
+                    live_state.get("fixture_key") or live_state.get("match_id", "unknown"),
                 ))
             else:
-                print("FOOTBALL UPDATE IGNORED team={} update={}".format(
-                    team_key, football_presentations.last_update
+                print("FOOTBALL UPDATE IGNORED team={} update={} decision={}".format(
+                    team_key, football_presentations.last_update,
+                    football_screens.last_decision,
                 ))
             return
         epoch_now = _reminder_epoch(now)
@@ -1025,6 +1025,7 @@ while True:
         # Protomatter electrical scan. Stale IN matches revert to idle.
         mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
         mqtt.poll(now, allow_connect=mqtt_allow_connect)
+        _apply_pending_mqtt_screen_updates(time.monotonic())
         if mqtt.connected:
             mqtt_disconnected_since = None
             mqtt_disconnected_live_cleared = False
@@ -1034,7 +1035,6 @@ while True:
         # _apply_pending_mqtt_screen_updates. This lets the main loop select a
         # newly requested football card on its next frame instead of waiting
         # for the current animation to finish.
-        _apply_pending_mqtt_screen_updates(time.monotonic())
         mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
         if hasattr(mqtt, "report_if_due"):
             mqtt.report_if_due(time.monotonic())

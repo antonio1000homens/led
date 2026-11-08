@@ -1,7 +1,13 @@
 """Regression tests for adaptive MQTT polling on MatrixPortal S3."""
 
 from datetime import datetime, timezone
+from pathlib import Path
+import sys
 import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "hardware" / "matrixportal" / "firmware"))
+sys.path.insert(0, str(ROOT / "shared"))
 
 from mqtt_client import FlashMqttClient
 from football_screens import FootballScreenState
@@ -15,8 +21,8 @@ class FakeTransport:
         self.calls += 1
 
 
-def snapshot(team, status, published):
-    return {
+def snapshot(team, status, published, **changes):
+    value = {
         "schema_version": 1,
         "source": "nrwindsor",
         "provider": "goalapi",
@@ -25,9 +31,15 @@ def snapshot(team, status, published):
         "match_id": "game-1",
         "published_at": published,
         "source_updated_at": published,
+        "home_score": 1,
+        "away_score": 0,
         "team_name": team,
         "opponent": "Other",
+        **({"post_expires_at": "2026-11-04T00:00:00Z"}
+           if status == "POST" else {}),
     }
+    value.update(changes)
+    return value
 
 
 class AdaptiveMqttTests(unittest.TestCase):
@@ -84,15 +96,31 @@ class AdaptiveMqttTests(unittest.TestCase):
         now = int(datetime(2026, 11, 3, 12, tzinfo=timezone.utc).timestamp())
         self.assertTrue(state.accept("led/football/millwall", snapshot("millwall", "PRE", t0)))
         self.assertFalse(state.has_live_match(now))
-        self.assertTrue(state.accept("led/football/millwall", snapshot("millwall", "IN", t1)))
+        self.assertTrue(state.accept("led/football/millwall", snapshot(
+            "millwall", "IN", t1, kickoff="2026-11-03T11:00:00Z",
+            fixture_key="millwall|2026-11-03|other",
+        )))
         self.assertTrue(state.has_live_match(now + 301))
-        self.assertTrue(state.accept("led/football/sporting_cp", snapshot("sporting_cp", "IN", t1)))
+        self.assertTrue(state.accept("led/football/sporting_cp", snapshot(
+            "sporting_cp", "IN", t1, kickoff="2026-11-03T11:00:00Z",
+            fixture_key="sporting_cp|2026-11-03|other",
+        )))
         self.assertTrue(state.has_live_match(now + 301))
-        self.assertTrue(state.accept("led/football/millwall", snapshot("millwall", "POST", "2026-11-03T12:06:00Z")))
+        self.assertTrue(state.accept("led/football/millwall", snapshot(
+            "millwall", "POST", "2026-11-03T12:06:00Z",
+            kickoff="2026-11-03T11:00:00Z", fixture_key="millwall|2026-11-03|other",
+        )))
         self.assertTrue(state.has_live_match(now + 361))
-        self.assertTrue(state.accept("led/football/sporting_cp", snapshot("sporting_cp", "POST", "2026-11-03T12:07:00Z")))
+        self.assertTrue(state.accept("led/football/sporting_cp", snapshot(
+            "sporting_cp", "POST", "2026-11-03T12:07:00Z",
+            kickoff="2026-11-03T11:00:00Z", fixture_key="sporting_cp|2026-11-03|other",
+        )))
         self.assertFalse(state.has_live_match(now + 421))
-        self.assertTrue(state.accept("led/football/sporting_cp", snapshot("sporting_cp", "IN", "2026-11-03T12:08:00Z")))
+        self.assertTrue(state.accept("led/football/sporting_cp", snapshot(
+            "sporting_cp", "IN", "2026-11-03T12:08:00Z", match_id="next-game",
+            kickoff="2026-11-03T12:08:00Z", fixture_key="sporting_cp|2026-11-03|new-opponent",
+            opponent="New Opponent",
+        )))
         self.assertFalse(state.has_live_match(now + 5 * 60 * 60))
 
     def test_late_message_does_not_keep_stale_team_live(self):
