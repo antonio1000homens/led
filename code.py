@@ -75,6 +75,9 @@ from matrix_config import (
 )
 from diagnostic_counter import colour_at, collect as diagnostic_collect
 
+MQTT_RECONNECT_ANIMATION_DEFERRAL_SECONDS = 30
+MQTT_LIVE_CACHE_OUTAGE_CLEAR_SECONDS = 120
+
 
 if settings.SCREEN_SOURCE not in ("fixture", "api"):
     raise ValueError("SCREEN_SOURCE must be fixture or api")
@@ -352,6 +355,9 @@ timer_states = {
 timer_rotation_resume = None
 timer_visible_id = None
 timer_pause_started = None
+mqtt_disconnected_since = None
+mqtt_disconnected_live_cleared = False
+mqtt_reconnect_override_logged = False
 
 
 def _effective_mqtt_screens(epoch_now):
@@ -420,7 +426,7 @@ def _resume_after_football():
     return True
 
 
-def _cancel_active_football():
+def _cancel_active_football(reason="fixture_unavailable"):
     """Cancel a football prompt whose source is no longer presentable."""
     global active_football_screen, active_football_started
     global football_rotation_resume, football_pause_started, flash_resume
@@ -435,9 +441,7 @@ def _cancel_active_football():
     football_pause_started = None
     flash_resume = None
     last_render_key = None
-    print("FOOTBALL PRESENTATION CANCEL team={} reason=fixture_unavailable".format(
-        team_key
-    ))
+    print("FOOTBALL PRESENTATION CANCEL team={} reason={}".format(team_key, reason))
     return True
 
 
@@ -987,10 +991,44 @@ while True:
         if timer_rotation_resume is not None:
             mqtt_animation_active = True
             mqtt_allow_connect = False
+        if mqtt.connected:
+            mqtt_disconnected_since = None
+            mqtt_disconnected_live_cleared = False
+            mqtt_reconnect_override_logged = False
+        else:
+            if mqtt_disconnected_since is None:
+                mqtt_disconnected_since = now
+            outage_seconds = max(0, now - mqtt_disconnected_since)
+            if outage_seconds >= MQTT_RECONNECT_ANIMATION_DEFERRAL_SECONDS:
+                # Do not let a continuous football animation prevent every
+                # reconnect attempt. This is only reached after an outage has
+                # already lasted long enough to justify a brief frame pause.
+                mqtt_allow_connect = True
+                if not mqtt_reconnect_override_logged:
+                    print("MQTT RECONNECT OVERRIDE reason=outage_during_animation outage_s={}".format(
+                        int(outage_seconds)
+                    ))
+                    mqtt_reconnect_override_logged = True
+            if (outage_seconds >= MQTT_LIVE_CACHE_OUTAGE_CLEAR_SECONDS
+                    and not mqtt_disconnected_live_cleared):
+                cleared_teams = football_screens.clear_live()
+                for team_key in cleared_teams:
+                    football_presentations.discard_live(team_key)
+                if cleared_teams:
+                    mqtt_screens_changed = True
+                    mqtt_screens_update_pending = True
+                print("FOOTBALL LIVE CACHE CLEAR reason=mqtt_disconnected outage_s={} teams={}".format(
+                    int(outage_seconds), len(cleared_teams)
+                ))
+                mqtt_disconnected_live_cleared = True
         # Match-dependent polling changes application service cadence, not the
         # Protomatter electrical scan. Stale IN matches revert to idle.
         mqtt.set_live_match(football_screens.has_live_match(_reminder_epoch(now)), now)
         mqtt.poll(now, allow_connect=mqtt_allow_connect)
+        if mqtt.connected:
+            mqtt_disconnected_since = None
+            mqtt_disconnected_live_cleared = False
+            mqtt_reconnect_override_logged = False
         # Apply accepted updates during animations too. The update callback only
         # stages payloads; rebuilding is guarded against the rail GC window by
         # _apply_pending_mqtt_screen_updates. This lets the main loop select a
@@ -1101,7 +1139,10 @@ while True:
                     active_football_screen.get("team_key"), epoch_now
                 )
                 if latest_football is None:
-                    _cancel_active_football()
+                    _cancel_active_football(
+                        "mqtt_disconnected" if mqtt_disconnected_live_cleared
+                        else "fixture_unavailable"
+                    )
                 else:
                     previous_status = active_football_screen.get("status")
                     latest_football["id"] = active_football_screen.get("id")

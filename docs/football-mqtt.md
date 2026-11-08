@@ -72,8 +72,15 @@ single-point highlight heuristic. POST never replays a goal highlight. Prompts
 deferred behind a flash reminder are shown in arrival order after the flash
 finishes. The already connected MQTT client continues polling
 during active animations every 1.5 seconds with a 10 ms socket timeout.
-Connection handshakes and non-football rotation rebuilds wait for an idle
-window. Home Assistant republishes POST during the finish-day window; each
+Connection handshakes normally wait for an idle window. If MQTT stays
+disconnected for 30 seconds, the firmware permits a reconnect attempt during
+an animation so a continuous live football presentation cannot suppress
+recovery indefinitely. If the outage reaches 120 seconds, cached `IN`
+snapshots and queued live prompts are discarded and the board returns to its
+normal rotation; queued `POST` results are kept. A successful reconnect resets
+the outage timers, and newly received live snapshots can enter rotation again.
+Non-football rotation rebuilds continue to wait for an idle window. Home
+Assistant republishes POST during the finish-day window; each
 accepted publication is a new one-shot presentation. If a flash reminder
 delays a POST card, the firmware keeps at most the newest queued snapshot for
 that team and match, and drops it if `post_expires_at` has passed. MQTT messages

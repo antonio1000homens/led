@@ -756,6 +756,17 @@ class FootballScreenState:
                 return screen
         return None
 
+    def clear_live(self):
+        """Forget cached live snapshots after a prolonged MQTT outage."""
+        removed = []
+        for team_key, snapshot in tuple(self._teams.items()):
+            if snapshot.get("status") == "IN":
+                removed.append(team_key)
+                del self._teams[team_key]
+                self._dynamic_flags.pop(team_key, None)
+                self._goal_events.pop(team_key, None)
+        return removed
+
     def staleness_changed(self, now_epoch):
         """Signal on live staleness, goal expiry, or final-result expiry changes."""
         if not self.enabled or now_epoch is None:
@@ -858,6 +869,20 @@ class FootballPresentationQueue:
         self._pending = [
             pending for pending in self._pending
             if (pending.get("team_key") if isinstance(pending, dict) else pending) != team_key
+        ]
+        return len(self._pending) != before
+
+    def discard_live(self, team_key):
+        """Remove a deferred live prompt without dropping a queued final result."""
+        before = len(self._pending)
+        self._pending = [
+            pending for pending in self._pending
+            if not (
+                (pending.get("team_key") == team_key
+                 and pending.get("status") == "IN")
+                if isinstance(pending, dict)
+                else pending == team_key
+            )
         ]
         return len(self._pending) != before
 
