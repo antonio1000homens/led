@@ -158,3 +158,35 @@ its generated commit, and be removed when it is no longer needed.
 
 `.github/workflows/workflow-policy.yml` enforces the skip-marker rule for any
 checked-in workflow containing a direct `git commit` command.
+
+
+## Immutable GitHub Actions references
+
+External `uses:` references are pinned to a **verified 40-character commit
+SHA**, not a mutable major-version tag. The preceding version remains readable
+in an inline comment (for example, `# v6`). Local `./` actions are exempt;
+Docker actions must use a SHA-256 image digest. The `Workflow / Policy` workflow
+runs `scripts/check_action_pins.py` when workflows, composite actions, this
+script or the weekly Dependabot config changes.
+
+This guard checks SHA syntax and version comments, not upstream provenance.
+When adding/updating an action, verify the SHA against the publisher's upstream
+release/tag and review the publisher before approval.
+
+Pinned refs verified from GitHub's upstream `git/ref/tags` endpoints on
+9 November 2026:
+
+| Action | Existing release | Verified immutable SHA |
+| --- | --- | --- |
+| `actions/setup-python` | `v6` | `ece7cb06caefa5fff74198d8649806c4678c61a1` |
+| `actions/setup-node` | `v4` | `49933ea5288caeca8642d1e84afbd3f7d6820020` |
+| `actions/upload-artifact` | `v7` | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` |
+
+Previously SHA-pinned `actions/checkout` and
+`aws-actions/configure-aws-credentials` stay unchanged, including their version
+comments. `.github/dependabot.yml` checks `github-actions` every week and
+proposes reviewable action upgrades. Production deploy triggers and permissions
+remain unchanged; workflow-only security updates are validation-only.
+
+Python package dependency reproducibility is not changed; lockfile/hash
+decisions should be addressed separately.
