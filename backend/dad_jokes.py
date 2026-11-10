@@ -22,4 +22,8 @@ class DadJokeProvider:
         joke = unicodedata.normalize("NFKD", joke)
         joke = joke.replace("\u2019", "'").replace("\u2018", "'").replace("\u201c", '"').replace("\u201d", '"')
         joke = joke.encode("ascii", "ignore").decode("ascii")
-        return " ".join(joke.split())[:126]
+        joke = " ".join(joke.split())
+        # A joke can span multiple pages, but never truncate its punchline.
+        if len(joke) > 300:
+            raise ValueError("Dad joke exceeds the 300-character display limit")
+        return joke
