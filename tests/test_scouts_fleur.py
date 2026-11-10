@@ -63,6 +63,30 @@ class ScoutsFleurTests(unittest.TestCase):
         self.assertNotIn("drawScoutsTent", html)
         self.assertIn("Scouts fleur-de-lis intro", html)
 
+    def test_selected_artwork_palette_and_shape_match_simulator(self):
+        """The chosen design must remain gold-centred with vivid asymmetric petals."""
+        html = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
+        colors_match = re.search(
+            r"const SCOUTS_FLEUR_COLORS = \\{(.*?)\\};", html, re.S
+        )
+        self.assertIsNotNone(colors_match)
+        swatches = dict(re.findall(r"([CcMmGWOLlPH]):'#([0-9a-f]{6})'", colors_match.group(1)))
+        for symbol in led_display.SCOUTS_FLEUR_SYMBOLS[1:]:
+            index = led_display.SCOUTS_FLEUR_SYMBOLS.index(symbol)
+            self.assertEqual(led_display.SCOUTS_FLEUR_PALETTE[index],
+                             int(swatches[symbol], 16))
+
+        rows = led_display.SCOUTS_FLEUR_ROWS
+        # Cropped from the user-selected gold spear / teal curl / pink curl /
+        # purple belt / lime flourishes graphic (not the previous thin lily).
+        self.assertTrue(set("Cc").intersection("".join(row[:18] for row in rows[8:16])))
+        self.assertTrue(set("Mm").intersection("".join(row[22:] for row in rows[8:16])))
+        self.assertIn("P", "".join(rows[16:20]))
+        self.assertIn("L", "".join(rows[20:25]))
+        self.assertIn("W", "".join(row[16:24] for row in rows[:14]))
+        self.assertEqual(rows[0][19:21], "OO")
+        self.assertEqual(rows[25][19:21], "ll")
+
     def test_full_sprite_slides_from_right_and_holds_without_rebuild(self):
         fake_displayio = types.SimpleNamespace(
             Group=FakeGroup, Bitmap=FakeBitmap, Palette=FakePalette,

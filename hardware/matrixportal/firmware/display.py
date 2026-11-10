@@ -554,41 +554,42 @@ def _fit_text_pixels(text, width):
 
 # A 128x32 half-panel fits two event-title lines below its header.
 SCOUTS_INTRO_SLIDE_SECONDS = 2.4
-# Original low-resolution fleur-de-lis: gold central lily, cyan/magenta
-# petals, purple collar and green lower flourishes. Each cell is one LED.
+# 40x26 LED-grid interpretation of the user-selected colourful fleur-de-lis.
+# The gold spear, cyan/magenta curls, purple band and green leaves are kept
+# recognisable at matrix resolution. One symbol is exactly one LED pixel.
 SCOUTS_FLEUR_SYMBOLS = ".CcMmGWOLlPH"
 SCOUTS_FLEUR_PALETTE = (
-    0x000000, 0x16C6E0, 0x0B7EAC, 0xF04BAA,
-    0xAE287C, 0xFCD34D, 0xFFF2A6, 0xEC9420,
-    0x78D66E, 0x229C67, 0x9453D9, 0xDCB3FC,
+    0x000000, 0x00D0F0, 0x007AB3, 0xF42DA3,
+    0x910A69, 0xFFCE14, 0xFFED6C, 0xFF8B10,
+    0x69DE1E, 0x27951E, 0x6E00B7, 0xCC89FF,
 )
 SCOUTS_FLEUR_ROWS = (
-    "...................GGG..................",
+    "...................OO...................",
+    "..................GGGG..................",
     "..................GWWG..................",
-    "..................GWWOG.................",
-    ".................GWWWOG.................",
-    "......C..........GWWWOOG.........M......",
-    "....CCCCCC......GWWWWOOG......MMMMMM....",
-    "....CcCCCCC.....GWWWWOOO.....MMMMMmM....",
-    "...CCcCCCCC....GGWWWGOOOG....MMMMMmMM...",
-    "...CccCCCCCC...GWWWWGOOOG...MMMMMMmmM...",
-    "...CccCC.CCC..GGWWWWGOOOOG..MMM.MMmmM...",
-    "....CccC..CC..GWWWWWGOOOOG..MM..MmmM....",
-    "....CccCC..C.GGWWWWWGOOOOOG.M..MMmmM....",
-    ".....CccCC...GGWWWWWGOOOOOG...MMmmM.....",
-    "......ccccCCCCWWWWWGGOOOOGMMMMmmmm......",
-    ".......ccccCCCGGWWWGGOOOOGMMMmmmm.......",
-    ".........ccccccGGWGGGOOOGmmmmmm.........",
-    "..........cPPPPPPPPPPPPPPPPPPm..........",
-    "..........PPPHHHHHHHHHHHHHHPPP..........",
-    "...........PPPPPPPPPPPPPPPPPP...........",
-    "...........PPPPPPPPPPPPPPPPPP...........",
-    "............LLLLGGGGGGGGLLLL............",
-    "...........LLLLLLGGGGGGLLLLLL...........",
-    "..........LLLllllGGGGGGllllLLL..........",
-    "..........LLllllllGGGGllllllLL..........",
-    ".........LLLllLL..GGGG..LLllLLL.........",
-    ".........LLlLL.....GG.....LLlLL.........",
+    ".................GGWWGG.................",
+    "................lGGWWGGl................",
+    "...............lGGGWWWGGl...............",
+    "..............mOGGWWWWGGOm..............",
+    "..............OOGGWWWWGGOO..............",
+    "........cCCC..OOOGGWWGGOOO..MMMm........",
+    "......CCCCCCCl.mOGGWWGGOm.mMMMMMMM......",
+    "....lCCCCCCGGGOmOOGWWGOOmOGGGMMMMMM.....",
+    "....CCCCCCLLGGGOOOGWWGOOOGGGOOMMMMMM....",
+    "....CCCcccccLOGGOOGWWGOGGGOOmmmmmMMM....",
+    "....CCcccccccOOGGOOGGOOGGOOmmmmmmmMM....",
+    "....cCccc....cOOOGOGGOGOOOm.....mmM.....",
+    ".....cCcccc....OOGOGGOGOOm...mmmMMm.....",
+    "......ccccc..PmmmmmmmmmmmmP..mmmmm......",
+    "............PPHHHHPGGPHHHHPP............",
+    "............PPPPPPPOOPPPPPPP............",
+    ".............mmm..mMMm..mmm.............",
+    "...........lll..LLGWGGLL..lll...........",
+    "..........LLlL.LLLGWWGLLL.LlLL..........",
+    "..........LLl.LLllGWGGllLL.lLL..........",
+    "..........lLLLLl..OGGO..lLLLLl..........",
+    "..................lGGl..................",
+    "...................ll...................",
 )
 SCOUTS_COLUMN_TITLE_CHARS = 21
 
