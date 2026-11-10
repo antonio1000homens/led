@@ -328,6 +328,8 @@ TODAY_TEMPERATURE_Y = 18
 WEATHER_FULLSCREEN_KINDS = ("weather_weekly", "weather_today", "weather_sun")
 NOVELTY_HEADING_Y = 3
 NOVELTY_FIRST_LINE_Y = 12
+# font5x7.pcf advances 5 pixels per character; use all four 64px panels.
+NOVELTY_LINE_CHARS = DISPLAY_WIDTH // 5
 
 
 def _novelty_lines(screen):
@@ -337,16 +339,16 @@ def _novelty_lines(screen):
     lines, current = [], ""
     for word in message.split():
         # Split unusually long uninterrupted words rather than silently clipping.
-        while len(word) > 42:
+        while len(word) > NOVELTY_LINE_CHARS:
             if current:
                 lines.append(current)
                 current = ""
-            lines.append(word[:42])
-            word = word[42:]
+            lines.append(word[:NOVELTY_LINE_CHARS])
+            word = word[NOVELTY_LINE_CHARS:]
         if not word:
             continue
         candidate = (current + " " + word).strip()
-        if len(candidate) > 42 and current:
+        if len(candidate) > NOVELTY_LINE_CHARS and current:
             lines.append(current)
             current = word
         else:
