@@ -11,6 +11,11 @@ Today disabled, so adding this feature does not silently enable another feed.
 
 - The backend maintains up to five jokes and five facts. It grows each pool
   gradually, downloading at most two new items per feed per publisher run.
+- Dad jokes now accept up to 300 characters without truncating the punchline.
+  Longer provider results are rejected in favour of another joke. The 5-pixel
+  text font wraps at 51 characters across the full 256-pixel board, then
+  automatically displays subsequent pages during the configured reading slot.
+  Random facts, insults and quotes use the same full-width line wrapping.
 - The board chooses locally once per slot, not once per animation frame or
   HTTP poll. Items may repeat; the pool refreshes on its configured TTL, and
   exhausted/offline pools remain usable instead of leaving a blank screen.

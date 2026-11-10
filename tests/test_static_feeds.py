@@ -15,6 +15,7 @@ import types
 import unittest
 from unittest.mock import Mock, patch
 
+from dad_jokes import DadJokeTooLongError
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
 from runtime_config import default_runtime_config, schema_metadata, validate_runtime_config
 from screen_client import ScreenClient, ScreenRotation
@@ -62,6 +63,14 @@ class StaticFeedTests(unittest.TestCase):
         self.assertEqual(provider.calls,7)
         self.assertLessEqual(len(self.store.state["feeds"]["dad_joke"]["items"]),5)
         self.assertNotEqual(self.store.state["feeds"]["dad_joke"]["items"],refreshed)
+
+    def test_oversized_jokes_are_skipped_without_discarding_good_content(self):
+        self.runtime["feeds"]["dad_joke"]["enabled"] = True
+        provider = FakeProvider([DadJokeTooLongError("oversized"), "Short joke", "Another joke"])
+        self.publisher(joke_provider=provider).run()
+        items = self.store.state["feeds"]["dad_joke"]["items"]
+        self.assertEqual([item["joke"] for item in items], ["Short joke", "Another joke"])
+        self.assertEqual(provider.calls, 3)
 
     def test_failed_replenishment_keeps_entire_pool_and_retries_are_bounded(self):
         self.runtime["feeds"]["dad_joke"]["enabled"] = True

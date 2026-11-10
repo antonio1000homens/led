@@ -19,7 +19,7 @@ from zenquotes import ZenQuotesProvider
 from publisher import Publisher, PublisherConfig, StaticRuntimeConfigStore
 from runtime_config import default_runtime_config, schema_metadata, validate_feed_patch, validate_runtime_config
 from screen_client import ScreenRotation
-from display import _quote_lines, _quote_page, FixtureDisplay
+from display import _quote_lines, _quote_page, FixtureDisplay, NOVELTY_LINE_CHARS
 
 
 class MemoryStore:
@@ -213,7 +213,7 @@ class ZenQuotesTests(unittest.TestCase):
                   "author": "An author with an unusually long name " * 3}
         lines = _quote_lines(screen)
         self.assertGreater(len(lines), 3)
-        self.assertTrue(all(len(line) <= 42 for line in lines))
+        self.assertTrue(all(len(line) <= NOVELTY_LINE_CHARS for line in lines))
         pages = (len(lines) + 2) // 3
         gathered = []
         for page in range(pages):

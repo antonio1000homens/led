@@ -1,4 +1,5 @@
 """Contract tests for the optional dad joke screen."""
+import json
 import pathlib
 import sys
 import unittest
@@ -42,6 +43,17 @@ class DadJokesTests(unittest.TestCase):
             self.assertEqual(DadJokeProvider().fetch(), "Hello dad!")
             self.assertEqual(urlopen.call_args.kwargs["timeout"], 5)
             self.assertEqual(urlopen.call_args.args[0].get_header("Accept"), "application/json")
+
+    def test_long_joke_keeps_its_punchline_and_has_a_sensible_limit(self):
+        joke = "This " + "very " * 50 + "funny punchline."
+        self.assertTrue(126 < len(joke) <= 300)
+        with patch("dad_jokes.urlopen", return_value=BytesIO(json.dumps({"joke": joke}).encode())):
+            self.assertEqual(DadJokeProvider().fetch(), joke)
+
+        too_long = "x" * 301
+        with patch("dad_jokes.urlopen", return_value=BytesIO(json.dumps({"joke": too_long}).encode())):
+            with self.assertRaisesRegex(ValueError, "300-character"):
+                DadJokeProvider().fetch()
 
 
 if __name__ == "__main__":
