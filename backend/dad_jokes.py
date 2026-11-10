@@ -5,6 +5,10 @@ import unicodedata
 from urllib.request import Request, urlopen
 
 
+class DadJokeTooLongError(ValueError):
+    """The returned joke cannot fit within the configured display budget."""
+
+
 class DadJokeProvider:
     URL = "https://icanhazdadjoke.com/"
 
@@ -25,5 +29,5 @@ class DadJokeProvider:
         joke = " ".join(joke.split())
         # A joke can span multiple pages, but never truncate its punchline.
         if len(joke) > 300:
-            raise ValueError("Dad joke exceeds the 300-character display limit")
+            raise DadJokeTooLongError("Dad joke exceeds the 300-character display limit")
         return joke
