@@ -1529,39 +1529,39 @@
       });
     }
 
-    // Keep this 40x26 palette sprite in sync with SCOUTS_FLEUR_ROWS in display.py.
+    // Match the firmware's user-selected 40x26 fleur sprite exactly.
     const SCOUTS_FLEUR_ROWS = [
-      '...................GGG..................',
+      '...................OO...................',
+      '..................GGGG..................',
       '..................GWWG..................',
-      '..................GWWOG.................',
-      '.................GWWWOG.................',
-      '......C..........GWWWOOG.........M......',
-      '....CCCCCC......GWWWWOOG......MMMMMM....',
-      '....CcCCCCC.....GWWWWOOO.....MMMMMmM....',
-      '...CCcCCCCC....GGWWWGOOOG....MMMMMmMM...',
-      '...CccCCCCCC...GWWWWGOOOG...MMMMMMmmM...',
-      '...CccCC.CCC..GGWWWWGOOOOG..MMM.MMmmM...',
-      '....CccC..CC..GWWWWWGOOOOG..MM..MmmM....',
-      '....CccCC..C.GGWWWWWGOOOOOG.M..MMmmM....',
-      '.....CccCC...GGWWWWWGOOOOOG...MMmmM.....',
-      '......ccccCCCCWWWWWGGOOOOGMMMMmmmm......',
-      '.......ccccCCCGGWWWGGOOOOGMMMmmmm.......',
-      '.........ccccccGGWGGGOOOGmmmmmm.........',
-      '..........cPPPPPPPPPPPPPPPPPPm..........',
-      '..........PPPHHHHHHHHHHHHHHPPP..........',
-      '...........PPPPPPPPPPPPPPPPPP...........',
-      '...........PPPPPPPPPPPPPPPPPP...........',
-      '............LLLLGGGGGGGGLLLL............',
-      '...........LLLLLLGGGGGGLLLLLL...........',
-      '..........LLLllllGGGGGGllllLLL..........',
-      '..........LLllllllGGGGllllllLL..........',
-      '.........LLLllLL..GGGG..LLllLLL.........',
-      '.........LLlLL.....GG.....LLlLL.........',
+      '.................GGWWGG.................',
+      '................lGGWWGGl................',
+      '...............lGGGWWWGGl...............',
+      '..............mOGGWWWWGGOm..............',
+      '..............OOGGWWWWGGOO..............',
+      '........cCCC..OOOGGWWGGOOO..MMMm........',
+      '......CCCCCCCl.mOGGWWGGOm.mMMMMMMM......',
+      '....lCCCCCCGGGOmOOGWWGOOmOGGGMMMMMM.....',
+      '....CCCCCCLLGGGOOOGWWGOOOGGGOOMMMMMM....',
+      '....CCCcccccLOGGOOGWWGOGGGOOmmmmmMMM....',
+      '....CCcccccccOOGGOOGGOOGGOOmmmmmmmMM....',
+      '....cCccc....cOOOGOGGOGOOOm.....mmM.....',
+      '.....cCcccc....OOGOGGOGOOm...mmmMMm.....',
+      '......ccccc..PmmmmmmmmmmmmP..mmmmm......',
+      '............PPHHHHPGGPHHHHPP............',
+      '............PPPPPPPOOPPPPPPP............',
+      '.............mmm..mMMm..mmm.............',
+      '...........lll..LLGWGGLL..lll...........',
+      '..........LLlL.LLLGWWGLLL.LlLL..........',
+      '..........LLl.LLllGWGGllLL.lLL..........',
+      '..........lLLLLl..OGGO..lLLLLl..........',
+      '..................lGGl..................',
+      '...................ll...................',
     ];
     const SCOUTS_FLEUR_COLORS = {
-      C:'#16c6e0', c:'#0b7eac', M:'#f04baa', m:'#ae287c',
-      G:'#fcd34d', W:'#fff2a6', O:'#ec9420',
-      L:'#78d66e', l:'#229c67', P:'#9453d9', H:'#dcb3fc'
+      C:'#00d0f0', c:'#007ab3', M:'#f42da3', m:'#910a69',
+      G:'#ffce14', W:'#ffed6c', O:'#ff8b10',
+      L:'#69de1e', l:'#27951e', P:'#6e00b7', H:'#cc89ff'
     };
     function drawScoutsFleur(x, y) {
       const px = FONT_PIXEL_SCALE;
