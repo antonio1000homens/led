@@ -26,7 +26,7 @@ from server import DEFAULT_THORPE_PARK_RIDES, NationalRailProvider
 from todoist import DEFAULT_FILTER_QUERY, DEFAULT_TIMEZONE, SecretsManagerOAuthStore, TodoistOAuthSession, TodoistProvider
 from cubs import CubsCalendarProvider
 from weather import OpenMeteoProvider
-from dad_jokes import DadJokeProvider
+from dad_jokes import DadJokeProvider, DadJokeTooLongError
 from random_facts import RandomFactProvider
 from insults import InsultProvider
 from zenquotes import MAX_QUOTE_CHOICES, ZenQuotesProvider
@@ -469,11 +469,15 @@ class Publisher:
         if old.get("joke") and old["joke"] not in history:
             history.append(old["joke"])
         for _ in range(3):
-            joke = self.joke_provider.fetch()
+            try:
+                joke = self.joke_provider.fetch()
+            except DadJokeTooLongError:
+                # Skip oversized jokes instead of failing the whole refresh.
+                continue
             if joke not in history:
                 return {"source": "icanhazdadjoke", "fetched_at": _iso(now),
                         "joke": joke, "history": (history + [joke])[-100:]}
-        raise ValueError("Dad joke API returned only previously cached jokes")
+        raise ValueError("Dad joke API returned only duplicate or oversized jokes")
 
     def _fetch_fact(self, now, previous=None):
         # Store recent displayed fact text in the same durable S3 feed cache as jokes.
