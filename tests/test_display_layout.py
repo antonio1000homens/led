@@ -504,6 +504,20 @@ class DisplayLayoutTests(unittest.TestCase):
         self.assertFalse(display._rail_prebuilt_pending)
         display._refresh.assert_called_once_with("departures_calling")
 
+    def test_dad_jokes_wrap_across_full_width_and_advance_pages(self):
+        self.assertEqual(led_display.NOVELTY_LINE_CHARS, 51)
+        screen = {"kind": "dad_joke", "joke": "A" * 51 + " " + "B" * 51}
+        self.assertEqual(led_display._novelty_lines(screen), ["A" * 51, "B" * 51])
+
+        screen = {"kind": "dad_joke", "joke": " ".join(["punchline"] * 28),
+                  "duration_seconds": 15}
+        lines = led_display._novelty_lines(screen)
+        self.assertGreater(len(lines), 3)
+        self.assertTrue(all(len(line) <= 51 for line in lines))
+        self.assertEqual(led_display._novelty_page(screen, 0), lines[:3])
+        last_page_start = ((len(lines) - 1) // 3) * 3
+        self.assertEqual(led_display._novelty_page(screen, 14.9), lines[last_page_start:])
+
     def test_novelty_screens_are_shifted_up_two_pixels(self):
         for kind, heading, field in (
             ("dad_joke", "DAD JOKE", "joke"),
