@@ -67,7 +67,7 @@ class ScoutsFleurTests(unittest.TestCase):
         """The chosen design must remain gold-centred with vivid asymmetric petals."""
         html = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
         colors_match = re.search(
-            r"const SCOUTS_FLEUR_COLORS = \\{(.*?)\\};", html, re.S
+            r"const SCOUTS_FLEUR_COLORS = [{](.*?)[}];", html, re.S
         )
         self.assertIsNotNone(colors_match)
         swatches = dict(re.findall(r"([CcMmGWOLlPH]):'#([0-9a-f]{6})'", colors_match.group(1)))
