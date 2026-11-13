@@ -32,6 +32,7 @@ GOAL_FLASH_SECONDS = 8
 SCREEN_DURATION_SECONDS = 20
 FOOTBALL_DEFAULT_ANIMATION_SPEED = 80
 FOOTBALL_PRE_CLEAR_SECONDS = 0.5
+FOOTBALL_SETTLED_ROLL_SECONDS = 6.0
 FOOTBALL_MIN_ANIMATION_SPEED = 20
 FOOTBALL_MAX_ANIMATION_SPEED = 160
 FOOTBALL_START_X = 256
@@ -243,14 +244,18 @@ def football_slide_offset(phase, animation_speed=None):
 def football_roll_frame(phase, animation_speed=None):
     """Return the rolling ball orientation throughout a PRE presentation.
 
-    Keep the original two-turn slide cadence, then continue rolling at the
-    same rate while the settled kickoff countdown is visible.
+    Keep the entrance roll, then turn once every six seconds while the
+    settled kickoff countdown is visible.
     """
     try:
         elapsed = max(0.0, float(phase or 0))
     except (ValueError, TypeError):
         elapsed = 0.0
-    return int(elapsed * 16 / football_slide_seconds(animation_speed)) % 8
+    slide_duration = football_slide_seconds(animation_speed)
+    if elapsed < slide_duration:
+        return int(elapsed * 16 / slide_duration) % 8
+    settled_elapsed = elapsed - slide_duration
+    return int(settled_elapsed * 8 / FOOTBALL_SETTLED_ROLL_SECONDS) % 8
 
 
 def _normalize_fixture_separator(fixture):
