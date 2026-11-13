@@ -2302,20 +2302,23 @@
       } else if (screen.kind === 'dad_joke' || screen.kind === 'random_fact' || screen.kind === 'insult_of_hour') {
         const fact = screen.kind === 'random_fact';
         const insult = screen.kind === 'insult_of_hour';
-        const words = String(fact ? screen.fact : insult ? screen.insult : screen.joke || '').split(/\s+/).filter(Boolean);
+        let message = String(fact ? screen.fact : insult ? screen.insult : screen.joke || '');
+        if (!fact && !insult) message = message.replace(/\?\s+/g, '?\n');
         const lines = [];
-        let line = '';
-        for (let word of words) {
-          while (word.length > NOVELTY_LINE_CHARS) {
-            if (line) { lines.push(line); line = ''; }
-            lines.push(word.slice(0, NOVELTY_LINE_CHARS));
-            word = word.slice(NOVELTY_LINE_CHARS);
+        for (const paragraph of message.split(/\n/)) {
+          let line = '';
+          for (let word of paragraph.split(/\s+/).filter(Boolean)) {
+            while (word.length > NOVELTY_LINE_CHARS) {
+              if (line) { lines.push(line); line = ''; }
+              lines.push(word.slice(0, NOVELTY_LINE_CHARS));
+              word = word.slice(NOVELTY_LINE_CHARS);
+            }
+            const next = (line + ' ' + word).trim();
+            if (next.length > NOVELTY_LINE_CHARS && line) { lines.push(line); line = word; }
+            else line = next;
           }
-          const next = (line + ' ' + word).trim();
-          if (next.length > NOVELTY_LINE_CHARS && line) { lines.push(line); line = word; }
-          else line = next;
+          if (line) lines.push(line);
         }
-        if (line) lines.push(line);
         const pages = Math.max(1, Math.ceil(lines.length / 3));
         const duration = Math.max(1, Number(screen.duration_seconds) || 15);
         const page = Math.min(pages - 1, Math.floor(Math.max(0, phase) * pages / duration));
