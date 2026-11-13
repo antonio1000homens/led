@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class FakeGroup(list):
     def __init__(self, x=0, y=0):
         super().__init__()
-        self.x, self.y = y * 0 + x, y
+        self.x, self.y = x, y
 
 
 class FakeBitmap:
@@ -58,11 +58,11 @@ class ScoutsFleurTests(unittest.TestCase):
 
     def test_firmware_and_simulator_use_exact_mask_and_colour_wheel(self):
         html = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        rows_match = re.search(r"const SCOUTS_FLEUR_ROWS = \\[(.*?)\\];", html, flags=re.S)
+        rows_match = re.search(r"const SCOUTS_FLEUR_ROWS = \[(.*?)\];", html, flags=re.S)
         self.assertIsNotNone(rows_match)
         js_rows = tuple(re.findall(r"'([.X]{40})'", rows_match.group(1)))
         self.assertEqual(js_rows, led_display.SCOUTS_FLEUR_ROWS)
-        wheel_match = re.search(r"const SCOUTS_FLEUR_GRADIENT_WHEEL = \\[(.*?)\\];", html, flags=re.S)
+        wheel_match = re.search(r"const SCOUTS_FLEUR_GRADIENT_WHEEL = \[(.*?)\];", html, flags=re.S)
         self.assertIsNotNone(wheel_match)
         js_wheel = tuple(int(color, 16) for color in re.findall(
             r"'#([0-9a-f]{6})'", wheel_match.group(1)
@@ -126,7 +126,7 @@ class ScoutsFleurTests(unittest.TestCase):
             calls = display._refresh.call_count
             display._show_scouts_intro(screen, led_display.SCOUTS_INTRO_SLIDE_SECONDS + 0.4)
             self.assertEqual(display._refresh.call_count, calls)
-            self.assertEqual(led_display.SCOUTS_INTRO_DURATION_SECONDS, 7.2)
+            self.assertAlmostEqual(led_display.SCOUTS_INTRO_DURATION_SECONDS, 7.2)
             self.assertEqual(led_display.SCOUTS_FLEUR_GRADIENT_STEP_SECONDS, 0.20)
 
 
