@@ -35,13 +35,17 @@ Using the standard SSM-managed key needs no additional customer-managed key gran
 
 The screen is a **paired transition** in the normal board rotation:
 
-1. A colourful **Scouts fleur-de-lis** (gold centre, cyan and magenta petals,
-   purple band, green flourishes) and its tagline slide in together **from the right**
-   over 2.4 seconds, then hold for 1.6 seconds before the next-events screen.
-   The sprite is a **40 × 26 LED-pixel adaptation of the newly selected rainbow artwork**
-   (gold centre, blue curl on the left, magenta curl on the right, broad purple
-   band and lime-green lower scrolls) and is rendered identically in the simulator. The editable message defaults to **Be prepared...**.
-   It accepts a non-empty printable ASCII string of up to 48 characters.
+1. A compact, faithful **outline of the Scouts fleur-de-lis** and its tagline
+   slide in together **from the right** over **4.8 seconds**, then hold for
+   **2.4 seconds** before the next-events screen. The outline is derived from
+   the supplied purple Scouts emblem (central pointed lily, two curved side
+   petals, horizontal band and lower loop), rasterised to a transparent
+   **40 × 26 LED-pixel mask**. The MatrixPortal uses a 10-band horizontal
+   rainbow gradient that shifts through a 48-step colour wheel every
+   200 ms (9.6-second seamless cycle); only the retained scene's palette is
+   updated, so no per-frame bitmap allocations are needed. The simulator
+   uses the same mask, wheel and timing. The configurable tagline defaults
+   to **Be prepared...** and accepts 1–48 printable ASCII characters.
 2. The next screen displays **two equally sized columns**: **Beavers** on the
    left, **Cubs** on the right. Each heading shares its top row with the
    upcoming event's date/time (or ALL DAY), leaving two rows for a word-wrapped
