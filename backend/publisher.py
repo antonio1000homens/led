@@ -31,6 +31,7 @@ from random_facts import RandomFactProvider
 from insults import InsultProvider
 from zenquotes import MAX_QUOTE_CHOICES, ZenQuotesProvider
 from transitous_bus import TransitousBusProvider
+from tfl_bus import TflBusProvider
 from football_calendar import (
     GoogleCalendarFixtureProvider, PublicICalFixtureProvider, TEAM_NAMES as FOOTBALL_TEAM_NAMES,
 )
@@ -310,7 +311,7 @@ class Publisher:
     def __init__(self, config, store, rail_provider=None, queue_provider=None, weather_provider=None, utcnow=None,
                  calendar_provider=None, chessington_provider=None, runtime_config_store=None, joke_provider=None,
                  fact_provider=None, insult_provider=None, bus_provider=None, quotes_provider=None,
-                 football_provider=None, cubs_provider=None, beavers_provider=None):
+                 football_provider=None, cubs_provider=None, beavers_provider=None, tfl_bus_provider=None):
         self.config = config
         self.store = store
         self.utcnow = utcnow or (lambda: datetime.now(timezone.utc))
@@ -333,6 +334,7 @@ class Publisher:
         self.insult_provider = insult_provider or InsultProvider()
         self.quotes_provider = quotes_provider or ZenQuotesProvider()
         self.bus_provider = bus_provider or TransitousBusProvider()
+        self.tfl_bus_provider = tfl_bus_provider or TflBusProvider()
         self.football_provider = football_provider
         if self.football_provider is None and config.football_fixture_source == "google_calendar":
             self.football_provider = GoogleCalendarFixtureProvider(config.football_fixture_parameter_name)
@@ -530,7 +532,30 @@ class Publisher:
         return result
 
     def _fetch_buses(self, now):
-        return self.bus_provider.fetch(now=now)
+        return self._fetch_buses_from("transitous", now)
+
+    def _fetch_buses_from(self, provider_name, now):
+        if provider_name == "tfl":
+            try:
+                data = self.tfl_bus_provider.fetch(now=now)
+            except Exception as error:
+                print(json.dumps({
+                    "event": "sl7_provider_fallback", "from": "tfl", "to": "transitous",
+                    **_safe_failure_metadata(error, now),
+                }))
+                data = self.bus_provider.fetch(now=now)
+                for stop in data.values():
+                    stop["fallback_from"] = "tfl"
+            else:
+                for stop in data.values():
+                    stop["source"] = "tfl"
+        else:
+            data = self.bus_provider.fetch(now=now)
+            for stop in data.values():
+                stop.setdefault("source", "transitous")
+        for stop in data.values():
+            stop["requested_provider"] = provider_name
+        return data
 
     @staticmethod
     def _bus_screen(stop_key, data, config, feed_stale=False, now=None):
@@ -564,7 +589,8 @@ class Publisher:
             "id": f"sl7-{stop_key}", "kind": "bus_departures", "route": "SL7",
             "stop_key": stop_key, "stop_name": data.get("stop_name", stop_key.title()),
             "title": f"SL7 {data.get('stop_name', stop_key).upper()}",
-            "source": "transitous", "stale": stale, "status": status,
+            "source": data.get("source", "transitous"),
+            "fallback_from": data.get("fallback_from"), "stale": stale, "status": status,
             "duration_seconds": config["screen_duration_seconds"] if departures else config["no_services_duration_seconds"],
             "observed_at": observed_at, "departures": departures,
             "destination_scroll_speed": config["destination_scroll_speed"],
@@ -584,6 +610,7 @@ class Publisher:
             normal = Publisher._bus_screen(key, source, config, feed_stale, now)
             directions[key] = {
                 "enabled": True, "status": normal["status"], "stale": normal["stale"],
+                "source": normal["source"], "fallback_from": normal["fallback_from"],
                 "departures": normal["departures"],
             }
         active = [value for value in directions.values() if value["enabled"]]
@@ -591,7 +618,8 @@ class Publisher:
         return {
             "id": "sl7-combined", "kind": "bus_departures_combined",
             "title": "SL7 Heathrow / New Malden", "route": "SL7",
-            "source": "transitous", "stale": any(value["stale"] for value in active),
+            "source": (active[0].get("source", "transitous") if len({value.get("source", "transitous") for value in active}) <= 1 else "mixed"),
+            "stale": any(value["stale"] for value in active),
             "duration_seconds": (config["screen_duration_seconds"] if has_departures
                                  else config["no_services_duration_seconds"]),
             "directions": directions,
@@ -1203,9 +1231,15 @@ class Publisher:
                 force=needs_weather_contract_upgrade,
             )
         if settings["sl7_bus"]["enabled"]:
+            bus_previous = feeds.get("sl7_bus") or {}
+            previous_data = bus_previous.get("data") or {}
+            previous_request = next((item.get("requested_provider") for item in previous_data.values()
+                                     if isinstance(item, dict) and item.get("requested_provider")), None)
+            selected_provider = settings["sl7_bus"].get("provider", "transitous")
             feeds["sl7_bus"] = self._refresh(
-                "sl7_bus", feeds.get("sl7_bus"), settings["sl7_bus"].get("poll_seconds", 60),
-                lambda: self._fetch_buses(now), now,
+                "sl7_bus", bus_previous, settings["sl7_bus"].get("poll_seconds", 60),
+                lambda: self._fetch_buses_from(selected_provider, now), now,
+                force=bool(previous_data) and previous_request != selected_provider,
             )
 
         next_state = {

@@ -61,11 +61,11 @@ and pass `--settings` if `settings_local.py` is not at the script's default
 mounted-board path. The test event uses the production topic and QoS, is
 non-retained, and expires after 120 seconds.
 
-SL7 bus departures are polled by the backend from Transitous and arrive in the
+SL7 bus arrivals are polled by the backend from the selected Transitous or TfL provider and arrive in the
 same HTTP `/api/screens` payload as the other feeds; they do not use Home
 Assistant or MQTT. SL7 MQTT slots are ignored so a retained local message
 cannot replace either HTTPS-backed page. The MatrixPortal does not hold National Rail, Todoist,
-Transitous, Queue-Times or weather-provider credentials. It only needs Wi-Fi
+Transitous, TfL, Queue-Times or weather-provider credentials. TfL is initially queried anonymously. It only needs Wi-Fi
 access to the backend. Feed authentication, polling, caching and stale handling
 remain server-side.
 

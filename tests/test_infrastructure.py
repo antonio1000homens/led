@@ -6,6 +6,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InfrastructureContractTests(unittest.TestCase):
+    def test_r2_bucket_allowed_pattern_is_a_closed_yaml_string(self):
+        template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
+        self.assertIn("AllowedPattern: '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'", template)
+        for section in ("Parameters:", "Resources:", "Outputs:"):
+            self.assertEqual(template.count(f"\n{section}\n"), 1, section)
+
     def test_cloudfront_uses_private_oac_and_does_not_expose_state_prefix(self):
         template = (ROOT / "infrastructure" / "led-stack.yaml").read_text(encoding="utf-8")
         self.assertIn("AWS::CloudFront::OriginAccessControl", template)
