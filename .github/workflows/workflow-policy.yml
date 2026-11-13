@@ -4,12 +4,20 @@ on:
   pull_request:
     paths:
       - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/dependabot.yml'
+      - 'scripts/check_action_pins.py'
+      - 'tests/test_action_pins.py'
       - 'docs/WORKFLOWS.md'
   push:
     branches:
       - master
     paths:
       - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/dependabot.yml'
+      - 'scripts/check_action_pins.py'
+      - 'tests/test_action_pins.py'
       - 'docs/WORKFLOWS.md'
   workflow_dispatch:
 
@@ -50,6 +58,13 @@ jobs:
           done < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
 
           exit "$status"
+
+      - name: Enforce SHA-pinned external GitHub Actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_action_pins.py
+          python3 -m unittest discover -s tests -p 'test_action_pins.py' -v
 
       - name: Protect enclosure validation from generated-commit loops
         shell: bash
