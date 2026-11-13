@@ -336,25 +336,30 @@ def _novelty_lines(screen):
     """Wrap cached content without scrolling or clipping long words."""
     kind = screen.get("kind")
     message = str(screen.get("joke") if kind == "dad_joke" else screen.get("fact") if kind == "random_fact" else screen.get("insult") or "")
-    lines, current = [], ""
-    for word in message.split():
-        # Split unusually long uninterrupted words rather than silently clipping.
-        while len(word) > NOVELTY_LINE_CHARS:
-            if current:
+    # Put the punchline after a question on its own line for dad jokes.
+    if kind == "dad_joke":
+        message = message.replace("? ", "?\n")
+    lines = []
+    for paragraph in message.splitlines() or [message]:
+        current = ""
+        for word in paragraph.split():
+            # Split unusually long uninterrupted words rather than silently clipping.
+            while len(word) > NOVELTY_LINE_CHARS:
+                if current:
+                    lines.append(current)
+                    current = ""
+                lines.append(word[:NOVELTY_LINE_CHARS])
+                word = word[NOVELTY_LINE_CHARS:]
+            if not word:
+                continue
+            candidate = (current + " " + word).strip()
+            if len(candidate) > NOVELTY_LINE_CHARS and current:
                 lines.append(current)
-                current = ""
-            lines.append(word[:NOVELTY_LINE_CHARS])
-            word = word[NOVELTY_LINE_CHARS:]
-        if not word:
-            continue
-        candidate = (current + " " + word).strip()
-        if len(candidate) > NOVELTY_LINE_CHARS and current:
+                current = word
+            else:
+                current = candidate
+        if current:
             lines.append(current)
-            current = word
-        else:
-            current = candidate
-    if current:
-        lines.append(current)
     return lines
 
 

@@ -200,6 +200,24 @@ class FootballScreenTests(unittest.TestCase):
                 self.assertFalse(self.state.accept(topic, payload))
         self.assertEqual(self.state.screens(self.now), [])
 
+    def test_accepts_home_assistant_team_tracker_snapshots_for_all_followed_teams(self):
+        for team_key in ("sporting_cp", "millwall", "portugal", "england"):
+            with self.subTest(team_key=team_key):
+                state = FootballScreenState()
+                value = snapshot(
+                    team_key=team_key,
+                    status="IN",
+                    team_score=0,
+                    opponent_score=0,
+                    home_score=0,
+                    away_score=0,
+                    source_updated_at="2026-10-26T20:00:00Z",
+                )
+                self.assertTrue(
+                    state.accept("led/football/" + team_key, value)
+                )
+                self.assertTrue(state.has_live_match(self.now))
+
     def test_accepts_exact_home_assistant_team_tracker_timestamp_formats(self):
         # Captured HA representation: `date` is minute precision and
         # `last_update` is serialized with a space before its time.

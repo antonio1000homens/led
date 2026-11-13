@@ -4,6 +4,8 @@ The board subscribes to non-retained Home Assistant Team Tracker snapshots at
 
 - `led/football/sporting_cp`
 - `led/football/millwall`
+- `led/football/portugal`
+- `led/football/england`
 
 The producer contract, field meanings, and upstream freshness behavior are
 documented in the [Home Assistant football LED contract](https://github.com/antonio1000homens/homeassistant/blob/master/docs/football-led-mqtt.md).

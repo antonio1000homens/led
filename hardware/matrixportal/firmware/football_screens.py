@@ -6,7 +6,7 @@ import re
 from mqtt_screens import _epoch
 
 
-FOOTBALL_TEAMS = ("sporting_cp", "millwall")
+FOOTBALL_TEAMS = ("sporting_cp", "millwall", "portugal", "england")
 FOOTBALL_STATUSES = ("PRE", "IN", "POST", "BYE", "NOT_FOUND", "UNKNOWN", "UNAVAILABLE")
 FOOTBALL_TEAM_NAMES = {
     "sporting_cp": "Sporting CP", "millwall": "Millwall FC",

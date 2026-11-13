@@ -42,8 +42,9 @@ and never modify reminder snapshot state. The flash extends as needed to show ev
 expires if it arrives more than 120 seconds after publication. Reminders take
 priority over assistant replies. See [LED issue #251](https://github.com/antonio1000homens/led/issues/251)
 and the [Home Assistant publisher issue #41](https://github.com/antonio1000homens/homeassistant/issues/41).
-Retained football snapshots on `led/football/sporting_cp` and
-`led/football/millwall` trigger a coalesced, prompt match presentation: the
+Non-retained football snapshots on `led/football/sporting_cp`,
+`led/football/millwall`, `led/football/portugal`, and `led/football/england`
+trigger a coalesced, prompt match presentation: the
 football slides in from the right and remains pinned at the left of the match
 text. PRE fixtures show only the teams and Europe/London kick-off time. Flash
 reminders keep priority, and football snapshots also remain in the normal
