@@ -109,9 +109,11 @@ class ChristmasTrackerTests(unittest.TestCase):
             bitmap = renderer._christmas_snow_bitmap
             countdown = renderer._christmas_countdown
             self.assertEqual(countdown.text, "1 DAYS")
-            self.assertEqual((countdown.x, countdown.y), (103, 13))
-            self.assertEqual(group[3].text, "UNTIL CHRISTMAS")
-            self.assertEqual((group[3].x, group[3].y), (103, 29))
+            self.assertEqual((countdown.x, countdown.y), (85, 16))
+            self.assertEqual(group[3].text, "UNTIL")
+            self.assertEqual((group[3].x, group[3].y), (211, 20))
+            self.assertEqual(group[4].text, "CHRISTMAS")
+            self.assertEqual((group[4].x, group[4].y), (211, 30))
             renderer._update_christmas_scene(0, "2026-12-24")
             self.assertFalse(renderer._christmas_snow_grid.hidden)
             first_positions = tuple(flake[2] for flake in flakes)
@@ -174,8 +176,8 @@ process.stdout.write(JSON.stringify(results));
         self.assertEqual(output, '[1,0,364,["christmas_tracker_intro","christmas_tracker"]]')
         self.assertIn("drawChristmasIntro(screen, phase)", html)
         self.assertIn("drawChristmasTracker(screen, phase, wallClock)", html)
-        self.assertIn("drawLedTextScaled(`${days} DAYS`, 103 * px, 4 * px, 2)", functions)
-        self.assertIn("drawLedText('UNTIL CHRISTMAS', 103 * px, 20 * px)", functions)
+        self.assertIn("drawLedTextScaled(`${days} DAYS`, 85 * px, 7 * px, countScale, true)", functions)
+        self.assertIn("drawLedText('CHRISTMAS', 211 * px, 21 * px)", functions)
 
 
 if __name__ == "__main__":

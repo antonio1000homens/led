@@ -69,6 +69,20 @@ class BusIntroAnimationTests(unittest.TestCase):
             self.assertIs(scene, display.display.root_group)
             display._scaled_label.assert_called_once()
 
+    def test_vehicle_wobble_updates_even_when_horizontal_position_is_unchanged(self):
+        display = led_display.MatrixDisplay.__new__(led_display.MatrixDisplay)
+        for name, base_y in (("steam_train", 3), ("bus_intro", 0)):
+            motion = Group(x=led_display.DISPLAY_WIDTH - 1)
+            motion.append(types.SimpleNamespace(y=base_y))
+            setattr(display, "_{}_motion_group".format(name), motion)
+            setattr(display, "_{}_speed".format(name), 8)
+            update = getattr(display, "_update_{}_scene".format(name))
+            self.assertTrue(update(0.2))
+            self.assertEqual(motion[0].y, base_y - 1)
+            self.assertTrue(update(led_display.DISPLAY_WIDTH / 8))
+            self.assertEqual((motion.x, motion[0].y), (0, base_y))
+            self.assertFalse(update(led_display.DISPLAY_WIDTH / 8 + 1))
+
     def test_fallback_fixture_bus_stops_at_left_edge(self):
         display = led_display.FixtureDisplay.__new__(led_display.FixtureDisplay)
         display.pixels = None

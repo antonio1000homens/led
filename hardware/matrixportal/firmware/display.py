@@ -272,6 +272,11 @@ def split_sl7_rows(screen, now_epoch=None):
 
 STEAM_TRAIN_WIDTH = 52
 STEAM_TRAIN_HEIGHT = 26
+def _vehicle_wobble(elapsed, x):
+    """Bounce the vehicle by one pixel while it is sliding into view."""
+    return -1 if x > 0 and int(elapsed * 5) % 2 else 0
+
+
 STEAM_TRAIN_VERTICAL_OFFSET = 1
 STEAM_TRAIN_TEXT_GAP = 8
 BUS_PALETTE = (
@@ -4277,10 +4282,12 @@ class MatrixDisplay:
         except (TypeError, ValueError):
             elapsed = 0.0
         next_x = max(0, DISPLAY_WIDTH - int(elapsed * self._steam_train_speed))
-        if self._steam_train_motion_group.x == next_x:
-            return False
+        sprite = self._steam_train_motion_group[0]
+        next_y = 3 + _vehicle_wobble(elapsed, next_x)
+        changed = self._steam_train_motion_group.x != next_x or sprite.y != next_y
         self._steam_train_motion_group.x = next_x
-        return True
+        sprite.y = next_y
+        return changed
 
     def _show_steam_train(self, screen, phase):
         if not self._steam_train_cache_matches(screen):
@@ -4508,12 +4515,13 @@ class MatrixDisplay:
         root.append(displayio.TileGrid(sleigh_bitmap, pixel_shader=sleigh_palette, x=0, y=4))
 
         count_text = "--" if days is None else str(days)
-        # Keep the message to the right of the 84px sleigh. The count's left
-        # edge stays fixed so any extra digit grows to the right.
+        # Three-digit counts need the smaller scale to leave room for the label.
+        count_scale = 2 if len(count_text) > 2 else 3
         countdown = self._scaled_label(
-            root, "{} DAYS".format(count_text), 0xFFFFFF, 103, 4, scale=2,
+            root, "{} DAYS".format(count_text), 0xFFFFFF, 85, 7, scale=count_scale,
         )
-        self._scaled_label(root, "UNTIL CHRISTMAS", 0xFFFFFF, 103, 20, scale=1)
+        self._scaled_label(root, "UNTIL", 0xFFFFFF, 211, 11, scale=1)
+        self._scaled_label(root, "CHRISTMAS", 0xFFFFFF, 211, 21, scale=1)
         self._christmas_group = root
         self._christmas_snow_bitmap = snow_bitmap
         self._christmas_snow_grid = snow_grid
@@ -4549,7 +4557,8 @@ class MatrixDisplay:
                 if countdown_index is None:
                     raise RuntimeError("Christmas countdown layer is missing")
                 countdown = self._scaled_label(
-                    group, text, 0xFFFFFF, 103, 2, scale=2,
+                    group, text, 0xFFFFFF, 85, 7,
+                    scale=2 if len("--" if days is None else str(days)) > 2 else 3,
                 )
                 group.remove(countdown)
                 group.remove(old_countdown)
@@ -4637,10 +4646,12 @@ class MatrixDisplay:
         except (TypeError, ValueError):
             elapsed = 0.0
         next_x = max(0, DISPLAY_WIDTH - int(elapsed * self._bus_intro_speed))
-        if self._bus_intro_motion_group.x == next_x:
-            return False
+        sprite = self._bus_intro_motion_group[0]
+        next_y = 0 + _vehicle_wobble(elapsed, next_x)
+        changed = self._bus_intro_motion_group.x != next_x or sprite.y != next_y
         self._bus_intro_motion_group.x = next_x
-        return True
+        sprite.y = next_y
+        return changed
 
     def _show_bus_intro(self, screen, phase):
         if not self._bus_intro_cache_matches(screen):
@@ -5333,7 +5344,7 @@ class FixtureDisplay:
         except (TypeError, ValueError):
             elapsed = 0.0
         x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
-        offset = STEAM_TRAIN_VERTICAL_OFFSET
+        offset = STEAM_TRAIN_VERTICAL_OFFSET + _vehicle_wobble(elapsed, x)
 
         def fill_rect(px, py, width, height, color):
             self._fill_rect(px, py + offset, width, height, color)
@@ -5359,7 +5370,7 @@ class FixtureDisplay:
         words = str(screen.get("words") or "")
         if words:
             self._text(words, x + STEAM_TRAIN_WIDTH + STEAM_TRAIN_TEXT_GAP,
-                       12 + offset, (255, 170, 0))
+                       12 + STEAM_TRAIN_VERTICAL_OFFSET, (255, 170, 0))
 
     def _bus_intro(self, screen, phase):
         try:
@@ -5372,7 +5383,7 @@ class FixtureDisplay:
             elapsed = 0.0
         x = max(0, DISPLAY_WIDTH - int(elapsed * speed))
         draw_double_decker_bus(
-            self._pixel, x, BUS_VERTICAL_OFFSET,
+            self._pixel, x, BUS_VERTICAL_OFFSET + _vehicle_wobble(elapsed, x),
             limited_palette=MATRIX_BIT_DEPTH == 1,
             two_bit_palette=MATRIX_BIT_DEPTH == 2,
         )
@@ -5424,8 +5435,10 @@ class FixtureDisplay:
         days = days_until_christmas(clock_date)
         count = "--" if days is None else str(days)
         draw_christmas_sleigh(self._pixel, 0, 4, DISPLAY_WIDTH, 32)
-        self._text("{} DAYS".format(count), 103, 4, white, scale=2)
-        self._text("UNTIL CHRISTMAS", 103, 20, white)
+        self._text("{} DAYS".format(count), 85, 7, white,
+                   scale=2 if len(count) > 2 else 3)
+        self._text("UNTIL", 211, 11, white)
+        self._text("CHRISTMAS", 211, 21, white)
 
     def _christmas_tracker_intro(self, screen, phase):
         elapsed = max(0.0, float(phase or 0))
