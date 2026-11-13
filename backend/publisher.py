@@ -852,7 +852,7 @@ class Publisher:
             beavers_events = _public_cubs_events(beavers_data.get("events"), now, 1)
             screens.append({
                 "id": "scouts-intro", "kind": "scouts_intro", "source": "local_animation",
-                "title": "SCOUTS", "duration_seconds": 4.0,
+                "title": "SCOUTS", "duration_seconds": 7.2,
                 "intro_text": config_feeds["cubs"]["intro_text"], "stale": False,
             })
             screens.append({
