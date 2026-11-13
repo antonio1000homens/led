@@ -79,5 +79,5 @@ class TransitousBusProvider:
                     seen.add(departure["trip_id"])
                 departures.append(departure)
             departures.sort(key=lambda row: row["estimated"] or row["planned"])
-            result[key] = {"stop_name": definition["name"], "stop_id": definition["stop_id"], "route": ROUTE, "observed_at": observed_at, "departures": departures}
+            result[key] = {"stop_name": definition["name"], "stop_id": definition["stop_id"], "route": ROUTE, "source": "transitous", "observed_at": observed_at, "departures": departures}
         return result

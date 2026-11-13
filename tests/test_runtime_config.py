@@ -132,6 +132,14 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(bus["words"], DEFAULT_BUS_INTRO_WORDS)
         self.assertEqual(bus["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
         self.assertEqual(bus["layout_mode"], "split_columns")
+        self.assertEqual(bus["provider"], "transitous")
+        self.assertEqual(
+            validate_feed_patch("sl7_bus", {"provider": "tfl"}),
+            {"provider": "tfl"},
+        )
+        for wrong_provider in ("unknown", 123, None):
+            with self.subTest(provider=wrong_provider), self.assertRaises(RuntimeConfigValidationError):
+                validate_feed_patch("sl7_bus", {"provider": wrong_provider})
         self.assertEqual(
             validate_feed_patch("sl7_bus", {"layout_mode":"separate_stops"}),
             {"layout_mode":"separate_stops"},
@@ -140,7 +148,7 @@ class RuntimeConfigTests(unittest.TestCase):
             with self.subTest(mode=wrong), self.assertRaises(RuntimeConfigValidationError):
                 validate_feed_patch("sl7_bus", {"layout_mode":wrong})
         schema = schema_metadata()["feeds"]["sl7_bus"]
-        for field in ("bus_intro_enabled", "animation_speed", "words", "layout_mode"):
+        for field in ("bus_intro_enabled", "animation_speed", "words", "layout_mode", "provider"):
             self.assertIn(field, schema["mutable_fields"])
             self.assertIn(field, schema["fields"])
         self.assertEqual(schema["fields"]["words"]["maximumLength"], 80)
@@ -161,13 +169,14 @@ class RuntimeConfigTests(unittest.TestCase):
 
         # Older persisted SL7 records gain defaults without changing existing selections.
         config["feeds"]["sl7_bus"].update({"heathrow_enabled": False, "display_every_cycles": 4})
-        for field in ("bus_intro_enabled", "animation_speed", "words", "layout_mode"):
+        for field in ("bus_intro_enabled", "animation_speed", "words", "layout_mode", "provider"):
             del config["feeds"]["sl7_bus"][field]
         migrated = validate_runtime_config(config)["feeds"]["sl7_bus"]
         self.assertTrue(migrated["bus_intro_enabled"])
         self.assertEqual(migrated["animation_speed"], DEFAULT_STEAM_TRAIN_SPEED)
         self.assertEqual(migrated["words"], DEFAULT_BUS_INTRO_WORDS)
         self.assertEqual(migrated["layout_mode"], "split_columns")
+        self.assertEqual(migrated["provider"], "transitous")
         self.assertFalse(migrated["heathrow_enabled"])
         self.assertEqual(migrated["display_every_cycles"], 4)
 
