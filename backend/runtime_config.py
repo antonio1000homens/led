@@ -322,10 +322,10 @@ FEED_REGISTRY = {
     },
     "sl7_bus": {
         "label": "SL7 bus departures",
-        "provider": "transitous",
+        "provider": "Transitous / TfL (selectable)",
         "display_group": "transit",
         "mutable_fields": (
-            "enabled", "heathrow_enabled", "new_malden_enabled",
+            "enabled", "provider", "heathrow_enabled", "new_malden_enabled",
             "bus_intro_enabled", "animation_speed", "words", "layout_mode",
             "screen_duration_seconds", "no_services_duration_seconds",
             "display_every_cycles", "upcoming_bus_count",
@@ -536,6 +536,7 @@ def default_runtime_config(env: dict[str, str] | None = None) -> dict[str, Any]:
             "christmas": {"enabled": True},
             "sl7_bus": {
                 "enabled": False,
+                "provider": "transitous",
                 "heathrow_enabled": True,
                 "new_malden_enabled": True,
                 "bus_intro_enabled": True,
@@ -634,6 +635,7 @@ def schema_metadata() -> dict[str, Any]:
         if feed_id == "recycling":
             fields["slide_speed"] = {"type": "integer", "minimum": MIN_RECYCLING_SCROLL_SPEED, "maximum": MAX_RECYCLING_SCROLL_SPEED}
         if feed_id == "sl7_bus":
+            fields["provider"] = {"type": "select", "values": ["transitous", "tfl"]}
             fields["heathrow_enabled"] = {"type": "boolean"}
             fields["new_malden_enabled"] = {"type": "boolean"}
             fields["bus_intro_enabled"] = {"type": "boolean"}
@@ -895,6 +897,10 @@ def validate_feed_patch(
             if field in patch:
                 result[field] = _validate_integer(feed_id, field, patch[field], minimum, maximum)
     if feed_id == "sl7_bus":
+        if "provider" in patch:
+            if patch["provider"] not in ("transitous", "tfl") or not isinstance(patch["provider"], str):
+                raise RuntimeConfigValidationError("sl7_bus.provider must be transitous or tfl")
+            result["provider"] = patch["provider"]
         if "layout_mode" in patch:
             if patch["layout_mode"] not in ("split_columns", "separate_stops") or not isinstance(patch["layout_mode"], str):
                 raise RuntimeConfigValidationError("sl7_bus.layout_mode must be split_columns or separate_stops")
@@ -1002,6 +1008,9 @@ def validate_runtime_config(value: Any) -> dict[str, Any]:
             raw.setdefault("animation_speed", DEFAULT_STEAM_TRAIN_SPEED)
             raw.setdefault("words", DEFAULT_BUS_INTRO_WORDS)
             raw.setdefault("layout_mode", "split_columns")
+            # Existing saved configurations stay on Transitous until the TfL
+            # live-arrival feed has been accepted and explicitly selected.
+            raw.setdefault("provider", "transitous")
             # Previous versions allowed up to five rows, but the actual
             # 32-pixel matrix can show at most three legible rows.
             raw["upcoming_bus_count"] = min(
