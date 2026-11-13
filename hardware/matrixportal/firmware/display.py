@@ -560,43 +560,57 @@ def _fit_text_pixels(text, width):
 
 
 # A 128x32 half-panel fits two event-title lines below its header.
-SCOUTS_INTRO_SLIDE_SECONDS = 2.4
-# 40x26 LED-grid interpretation of the user-selected colourful fleur-de-lis.
-# The gold spear, cyan/magenta curls, purple band and green leaves are kept
-# recognisable at matrix resolution. One symbol is exactly one LED pixel.
-SCOUTS_FLEUR_SYMBOLS = ".CcMmGWOLlPH"
-SCOUTS_FLEUR_PALETTE = (
-    0x000000, 0x00D0F0, 0x007AB3, 0xF42DA3,
-    0x910A69, 0xFFCE14, 0xFFED6C, 0xFF8B10,
-    0x69DE1E, 0x27951E, 0x6E00B7, 0xCC89FF,
-)
+SCOUTS_INTRO_SLIDE_SECONDS = 4.8
+SCOUTS_INTRO_HOLD_SECONDS = 2.4
+SCOUTS_INTRO_DURATION_SECONDS = SCOUTS_INTRO_SLIDE_SECONDS + SCOUTS_INTRO_HOLD_SECONDS
+# Advance one subtle hue step every 200ms: a 9.6s seamless colour cycle.
+SCOUTS_FLEUR_GRADIENT_STEP_SECONDS = 0.20
+SCOUTS_FLEUR_GRADIENT_BANDS = 10
+SCOUTS_FLEUR_GRADIENT_SPACING = 4
+# Quantised directly from the user's purple Scouts fleur-de-lis outline.
+# X is a foreground LED; '.' is transparent (white source background removed).
+# Compact horizontal gradient bands are assigned when the scene is built.
 SCOUTS_FLEUR_ROWS = (
-    "...................OO...................",
-    "..................GGGG..................",
-    "..................GWWG..................",
-    ".................GGWWGG.................",
-    "................lGGWWGGl................",
-    "...............lGGGWWWGGl...............",
-    "..............mOGGWWWWGGOm..............",
-    "..............OOGGWWWWGGOO..............",
-    "........cCCC..OOOGGWWGGOOO..MMMm........",
-    "......CCCCCCCl.mOGGWWGGOm.mMMMMMMM......",
-    "....lCCCCCCGGGOmOOGWWGOOmOGGGMMMMMM.....",
-    "....CCCCCCLLGGGOOOGWWGOOOGGGOOMMMMMM....",
-    "....CCCcccccLOGGOOGWWGOGGGOOmmmmmMMM....",
-    "....CCcccccccOOGGOOGGOOGGOOmmmmmmmMM....",
-    "....cCccc....cOOOGOGGOGOOOm.....mmM.....",
-    ".....cCcccc....OOGOGGOGOOm...mmmMMm.....",
-    "......ccccc..PmmmmmmmmmmmmP..mmmmm......",
-    "............PPHHHHPGGPHHHHPP............",
-    "............PPPPPPPOOPPPPPPP............",
-    ".............mmm..mMMm..mmm.............",
-    "...........lll..LLGWGGLL..lll...........",
-    "..........LLlL.LLLGWWGLLL.LlLL..........",
-    "..........LLl.LLllGWGGllLL.lLL..........",
-    "..........lLLLLl..OGGO..lLLLLl..........",
-    "..................lGGl..................",
-    "...................ll...................",
+    "...................XX...................",
+    "..................XXXX..................",
+    ".................XXXXXX.................",
+    "................XX....XX................",
+    "...............XX......XX...............",
+    "...............XX......XX...............",
+    "...............X........X...............",
+    "..............XX........XX..............",
+    ".......XXXXX...XX......XX...XXXXX.......",
+    "......XXXXXXX..XX......XX..XXXXXXX......",
+    ".....XXX....XX.XX......XX.XX....XXX.....",
+    ".....XX......XX.XX....XX.XX......XX.....",
+    ".....XX......XX.XX....XX.XX......XX.....",
+    ".....X........XX.XX..XX.XX........X.....",
+    "..............XX.XX..XX.XX..............",
+    "........................................",
+    "...........XXXXXXXXXXXXXXXXXX...........",
+    "...........XXXXXXXXXXXXXXXXXX...........",
+    "........................................",
+    ".................XX..XX.................",
+    ".................XX..XX.................",
+    "................XX....XX................",
+    "................XX....XX................",
+    "................XXX..XXX................",
+    ".................XXXXXX.................",
+    "...................XX...................",
+)
+# Static 48-step colour wheel for predictable low-GC CircuitPython updates.
+SCOUTS_FLEUR_GRADIENT_WHEEL = (
+    0x9719FA, 0xB319FA, 0xCF19FA, 0xEB19FA, 0xFA19EC, 0xFA19D0, 0xFA19B4, 0xFA1998,
+    0xFA197C, 0xFA1960, 0xFA1944, 0xFA1928, 0xFA2619, 0xFA4319, 0xFA5F19, 0xFA7B19,
+    0xFA9719, 0xFAB319, 0xFACF19, 0xFAEB19, 0xECFA19, 0xD0FA19, 0xB4FA19, 0x98FA19,
+    0x7CFA19, 0x60FA19, 0x44FA19, 0x28FA19, 0x19FA26, 0x19FA43, 0x19FA5F, 0x19FA7B,
+    0x19FA97, 0x19FAB3, 0x19FACF, 0x19FAEB, 0x19ECFA, 0x19D0FA, 0x19B4FA, 0x1998FA,
+    0x197CFA, 0x1960FA, 0x1944FA, 0x1928FA, 0x2619FA, 0x4319FA, 0x5F19FA, 0x7B19FA,
+)
+SCOUTS_FLEUR_PALETTE = (0x000000,) + tuple(
+    SCOUTS_FLEUR_GRADIENT_WHEEL[(index * SCOUTS_FLEUR_GRADIENT_SPACING) %
+                                len(SCOUTS_FLEUR_GRADIENT_WHEEL)]
+    for index in range(SCOUTS_FLEUR_GRADIENT_BANDS)
 )
 SCOUTS_COLUMN_TITLE_CHARS = 21
 
@@ -1295,6 +1309,8 @@ class MatrixDisplay:
         self._scouts_intro_group = None
         self._scouts_intro_motion = None
         self._scouts_intro_text = None
+        self._scouts_intro_palette = None
+        self._scouts_intro_gradient_step = None
         self._scouts_events_group = None
         self._scouts_events_key = None
         self._christmas_group = None
@@ -4348,8 +4364,8 @@ class MatrixDisplay:
         palette.make_transparent(0)
         for y, row in enumerate(SCOUTS_FLEUR_ROWS):
             for x, symbol in enumerate(row):
-                if symbol != ".":
-                    bitmap[x, y] = SCOUTS_FLEUR_SYMBOLS.find(symbol)
+                if symbol == "X":
+                    bitmap[x, y] = 1 + x // 4
         motion.append(displayio.TileGrid(bitmap, pixel_shader=palette))
         intro_text = str(screen.get("intro_text") or "Be prepared...")
         # Retain the established right-to-left motion and configurable tagline.
@@ -4359,6 +4375,8 @@ class MatrixDisplay:
         root.append(motion)
         self._scouts_intro_group = root
         self._scouts_intro_motion = motion
+        self._scouts_intro_palette = palette
+        self._scouts_intro_gradient_step = None
         self._scouts_intro_text = intro_text
 
     def _show_scouts_intro(self, screen, phase):
@@ -4370,6 +4388,15 @@ class MatrixDisplay:
         x = max(0, DISPLAY_WIDTH - int(elapsed * (DISPLAY_WIDTH / SCOUTS_INTRO_SLIDE_SECONDS)))
         changed = self._scouts_intro_motion.x != x
         self._scouts_intro_motion.x = x
+        # Update only ten existing palette entries; no new bitmap, scene,
+        # strings or frame buffers allocated during the gradient animation.
+        step = int(elapsed / SCOUTS_FLEUR_GRADIENT_STEP_SECONDS) % len(SCOUTS_FLEUR_GRADIENT_WHEEL)
+        if step != self._scouts_intro_gradient_step:
+            for band in range(SCOUTS_FLEUR_GRADIENT_BANDS):
+                color_index = (step + band * SCOUTS_FLEUR_GRADIENT_SPACING) % len(SCOUTS_FLEUR_GRADIENT_WHEEL)
+                self._scouts_intro_palette[band + 1] = SCOUTS_FLEUR_GRADIENT_WHEEL[color_index]
+            self._scouts_intro_gradient_step = step
+            changed = True
         self._attach_brightness_overlay(self._scouts_intro_group)
         if self.display.root_group is not self._scouts_intro_group:
             self.display.root_group = self._scouts_intro_group
