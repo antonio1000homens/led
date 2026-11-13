@@ -1531,50 +1531,60 @@
       });
     }
 
-    // Match the firmware's user-selected 40x26 fleur sprite exactly.
+    // Matching firmware: original uploaded Scouts outline, 40x26 LEDs.
+    const SCOUTS_INTRO_SLIDE_SECONDS = 4.8;
+    const SCOUTS_FLEUR_GRADIENT_STEP_SECONDS = 0.20;
+    const SCOUTS_FLEUR_GRADIENT_SPACING = 4;
     const SCOUTS_FLEUR_ROWS = [
-      '...................OO...................',
-      '..................GGGG..................',
-      '..................GWWG..................',
-      '.................GGWWGG.................',
-      '................lGGWWGGl................',
-      '...............lGGGWWWGGl...............',
-      '..............mOGGWWWWGGOm..............',
-      '..............OOGGWWWWGGOO..............',
-      '........cCCC..OOOGGWWGGOOO..MMMm........',
-      '......CCCCCCCl.mOGGWWGGOm.mMMMMMMM......',
-      '....lCCCCCCGGGOmOOGWWGOOmOGGGMMMMMM.....',
-      '....CCCCCCLLGGGOOOGWWGOOOGGGOOMMMMMM....',
-      '....CCCcccccLOGGOOGWWGOGGGOOmmmmmMMM....',
-      '....CCcccccccOOGGOOGGOOGGOOmmmmmmmMM....',
-      '....cCccc....cOOOGOGGOGOOOm.....mmM.....',
-      '.....cCcccc....OOGOGGOGOOm...mmmMMm.....',
-      '......ccccc..PmmmmmmmmmmmmP..mmmmm......',
-      '............PPHHHHPGGPHHHHPP............',
-      '............PPPPPPPOOPPPPPPP............',
-      '.............mmm..mMMm..mmm.............',
-      '...........lll..LLGWGGLL..lll...........',
-      '..........LLlL.LLLGWWGLLL.LlLL..........',
-      '..........LLl.LLllGWGGllLL.lLL..........',
-      '..........lLLLLl..OGGO..lLLLLl..........',
-      '..................lGGl..................',
-      '...................ll...................',
+      '...................XX...................',
+      '..................XXXX..................',
+      '.................XXXXXX.................',
+      '................XX....XX................',
+      '...............XX......XX...............',
+      '...............XX......XX...............',
+      '...............X........X...............',
+      '..............XX........XX..............',
+      '.......XXXXX...XX......XX...XXXXX.......',
+      '......XXXXXXX..XX......XX..XXXXXXX......',
+      '.....XXX....XX.XX......XX.XX....XXX.....',
+      '.....XX......XX.XX....XX.XX......XX.....',
+      '.....XX......XX.XX....XX.XX......XX.....',
+      '.....X........XX.XX..XX.XX........X.....',
+      '..............XX.XX..XX.XX..............',
+      '........................................',
+      '...........XXXXXXXXXXXXXXXXXX...........',
+      '...........XXXXXXXXXXXXXXXXXX...........',
+      '........................................',
+      '.................XX..XX.................',
+      '.................XX..XX.................',
+      '................XX....XX................',
+      '................XX....XX................',
+      '................XXX..XXX................',
+      '.................XXXXXX.................',
+      '...................XX...................',
     ];
-    const SCOUTS_FLEUR_COLORS = {
-      C:'#00d0f0', c:'#007ab3', M:'#f42da3', m:'#910a69',
-      G:'#ffce14', W:'#ffed6c', O:'#ff8b10',
-      L:'#69de1e', l:'#27951e', P:'#6e00b7', H:'#cc89ff'
-    };
-    function drawScoutsFleur(x, y) {
+    const SCOUTS_FLEUR_GRADIENT_WHEEL = [
+      '#9719fa', '#b319fa', '#cf19fa', '#eb19fa', '#fa19ec', '#fa19d0', '#fa19b4', '#fa1998',
+      '#fa197c', '#fa1960', '#fa1944', '#fa1928', '#fa2619', '#fa4319', '#fa5f19', '#fa7b19',
+      '#fa9719', '#fab319', '#facf19', '#faeb19', '#ecfa19', '#d0fa19', '#b4fa19', '#98fa19',
+      '#7cfa19', '#60fa19', '#44fa19', '#28fa19', '#19fa26', '#19fa43', '#19fa5f', '#19fa7b',
+      '#19fa97', '#19fab3', '#19facf', '#19faeb', '#19ecfa', '#19d0fa', '#19b4fa', '#1998fa',
+      '#197cfa', '#1960fa', '#1944fa', '#1928fa', '#2619fa', '#4319fa', '#5f19fa', '#7b19fa',
+    ];
+    function drawScoutsFleur(x, y, phase) {
       const px = FONT_PIXEL_SCALE;
+      const step = Math.floor(Math.max(0, Number(phase) || 0) /
+                              SCOUTS_FLEUR_GRADIENT_STEP_SECONDS) % SCOUTS_FLEUR_GRADIENT_WHEEL.length;
       SCOUTS_FLEUR_ROWS.forEach((row, dy) => {
         let start = 0;
         while (start < row.length) {
-          const color = row[start];
+          const band = Math.floor(start / 4);
+          const foreground = row[start] === 'X';
           let end = start + 1;
-          while (end < row.length && row[end] === color) end += 1;
-          if (color !== '.') {
-            context.fillStyle = SCOUTS_FLEUR_COLORS[color];
+          while (end < row.length && row[end] === row[start] && Math.floor(end / 4) === band) end++;
+          if (foreground) {
+            const colorIndex = (step + band * SCOUTS_FLEUR_GRADIENT_SPACING) % SCOUTS_FLEUR_GRADIENT_WHEEL.length;
+            context.fillStyle = SCOUTS_FLEUR_GRADIENT_WHEEL[colorIndex];
             context.fillRect((x + start)*px, (y + dy)*px, (end - start)*px, px);
           }
           start = end;
@@ -1583,13 +1593,14 @@
     }
     function drawScoutsIntro(screen, phase) {
       const px = FONT_PIXEL_SCALE;
-      const x = Math.max(0, 256 - Math.floor(256 * Math.min(1, Math.max(0, Number(phase) || 0) / 2.4)));
+      const elapsed = Math.max(0, Number(phase) || 0);
+      const x = Math.max(0, 256 - Math.floor(256 * Math.min(1, elapsed / SCOUTS_INTRO_SLIDE_SECONDS)));
       const message = String(screen.intro_text || 'Be prepared...');
-      drawScoutsFleur(x, 2);
+      drawScoutsFleur(x, 2, elapsed);
       context.fillStyle = '#f5cc58';
       drawLedText(message.slice(0,30), (x+48)*px, 12*px);
       if (message.length > 30) drawLedText(message.slice(30), (x+48)*px, 22*px);
-      status.dataset.detail = 'Scouts fleur-de-lis intro · ' + message;
+      status.dataset.detail = 'Scouts outline rainbow-gradient intro · ' + message;
     }
     function scoutsTitleLines(title, maxChars = 21) {
       const value = String(title || '').toUpperCase().trim().replace(/\s+/g,' ');
