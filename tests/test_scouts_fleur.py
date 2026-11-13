@@ -1,4 +1,4 @@
-"""Pixel-art and animation regression tests for the Scouts intro fleur-de-lis."""
+"""Scouts outline sprite and low-allocation gradient/slide regression tests."""
 import re
 import sys
 import types
@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class FakeGroup(list):
     def __init__(self, x=0, y=0):
         super().__init__()
-        self.x, self.y = x, y
+        self.x, self.y = y * 0 + x, y
 
 
 class FakeBitmap:
@@ -43,51 +43,44 @@ class FakeTileGrid:
 
 
 class ScoutsFleurTests(unittest.TestCase):
-    def test_sprite_is_colourful_bounded_and_contains_no_tent(self):
+    def test_uploaded_scouts_outline_keeps_five_distinct_shapes(self):
         rows = led_display.SCOUTS_FLEUR_ROWS
-        symbols = led_display.SCOUTS_FLEUR_SYMBOLS
         self.assertEqual(len(rows), 26)
         self.assertTrue(all(len(row) == 40 for row in rows))
-        self.assertEqual(len(symbols), len(led_display.SCOUTS_FLEUR_PALETTE))
-        self.assertEqual(symbols[0], ".")
-        self.assertEqual(set("".join(rows)) - set(symbols), set())
-        self.assertGreaterEqual(len(set("".join(rows)) - {"."}), 7)
+        self.assertEqual(set("".join(rows)), {".", "X"})
+        self.assertEqual(rows[0][19:21], "XX")  # central point
+        self.assertTrue(rows[4][15:17] == "XX")  # hollow centre
+        self.assertEqual(rows[8][7:12], "XXXXX")  # left petal
+        self.assertEqual(rows[8][28:33], "XXXXX")  # right petal
+        self.assertEqual(rows[16][11:29], "X" * 18)  # horizontal bar
+        self.assertEqual(rows[25][19:21], "XX")  # lower loop
+        self.assertLess(sum(row.count("X") for row in rows), 250)
 
-    def test_simulator_uses_identical_palette_pixel_art(self):
+    def test_firmware_and_simulator_use_exact_mask_and_colour_wheel(self):
         html = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        match = re.search(r"const SCOUTS_FLEUR_ROWS = \[(.*?)\];", html, flags=re.S)
-        self.assertIsNotNone(match)
-        js_rows = tuple(re.findall(r"'([.CcMmGWOLlPH]{40})'", match.group(1)))
+        rows_match = re.search(r"const SCOUTS_FLEUR_ROWS = \\[(.*?)\\];", html, flags=re.S)
+        self.assertIsNotNone(rows_match)
+        js_rows = tuple(re.findall(r"'([.X]{40})'", rows_match.group(1)))
         self.assertEqual(js_rows, led_display.SCOUTS_FLEUR_ROWS)
-        self.assertIn("drawScoutsFleur(x, 2);", html)
+        wheel_match = re.search(r"const SCOUTS_FLEUR_GRADIENT_WHEEL = \\[(.*?)\\];", html, flags=re.S)
+        self.assertIsNotNone(wheel_match)
+        js_wheel = tuple(int(color, 16) for color in re.findall(
+            r"'#([0-9a-f]{6})'", wheel_match.group(1)
+        ))
+        self.assertEqual(js_wheel, led_display.SCOUTS_FLEUR_GRADIENT_WHEEL)
+        self.assertEqual(len(js_wheel), 48)
+        self.assertEqual(len(led_display.SCOUTS_FLEUR_PALETTE), 11)
+        for band in range(led_display.SCOUTS_FLEUR_GRADIENT_BANDS):
+            self.assertEqual(
+                led_display.SCOUTS_FLEUR_PALETTE[band + 1],
+                js_wheel[(band * led_display.SCOUTS_FLEUR_GRADIENT_SPACING) % 48],
+            )
+        self.assertIn("drawScoutsFleur(x, 2, elapsed);", html)
         self.assertNotIn("drawScoutsTent", html)
-        self.assertIn("Scouts fleur-de-lis intro", html)
+        self.assertIn("const SCOUTS_INTRO_SLIDE_SECONDS = 4.8", html)
+        self.assertIn("const SCOUTS_FLEUR_GRADIENT_STEP_SECONDS = 0.20", html)
 
-    def test_selected_artwork_palette_and_shape_match_simulator(self):
-        """The chosen design must remain gold-centred with vivid asymmetric petals."""
-        html = (ROOT / "simulator" / "index.html").read_text(encoding="utf-8")
-        colors_match = re.search(
-            r"const SCOUTS_FLEUR_COLORS = [{](.*?)[}];", html, re.S
-        )
-        self.assertIsNotNone(colors_match)
-        swatches = dict(re.findall(r"([CcMmGWOLlPH]):'#([0-9a-f]{6})'", colors_match.group(1)))
-        for symbol in led_display.SCOUTS_FLEUR_SYMBOLS[1:]:
-            index = led_display.SCOUTS_FLEUR_SYMBOLS.index(symbol)
-            self.assertEqual(led_display.SCOUTS_FLEUR_PALETTE[index],
-                             int(swatches[symbol], 16))
-
-        rows = led_display.SCOUTS_FLEUR_ROWS
-        # Cropped from the user-selected gold spear / teal curl / pink curl /
-        # purple belt / lime flourishes graphic (not the previous thin lily).
-        self.assertTrue(set("Cc").intersection("".join(row[:18] for row in rows[8:16])))
-        self.assertTrue(set("Mm").intersection("".join(row[22:] for row in rows[8:16])))
-        self.assertIn("P", "".join(rows[16:20]))
-        self.assertIn("L", "".join(rows[20:25]))
-        self.assertIn("W", "".join(row[16:24] for row in rows[:14]))
-        self.assertEqual(rows[0][19:21], "OO")
-        self.assertEqual(rows[25][19:21], "ll")
-
-    def test_full_sprite_slides_from_right_and_holds_without_rebuild(self):
+    def test_slow_right_to_left_slide_palette_cycles_during_hold_without_rebuild(self):
         fake_displayio = types.SimpleNamespace(
             Group=FakeGroup, Bitmap=FakeBitmap, Palette=FakePalette,
             TileGrid=FakeTileGrid,
@@ -101,29 +94,40 @@ class ScoutsFleurTests(unittest.TestCase):
         display._record_animation_update = mock.Mock()
         display._refresh = mock.Mock()
         screen = {"kind": "scouts_intro", "intro_text": "Be prepared..."}
+
         with mock.patch.dict(sys.modules, {"displayio": fake_displayio}):
             display._show_scouts_intro(screen, 0)
             root = display.display.root_group
             motion = display._scouts_intro_motion
+            sprite = motion[0]
+            palette = sprite.pixel_shader
             self.assertIs(root[0], motion)
             self.assertEqual(motion.x, led_display.DISPLAY_WIDTH)
             self.assertEqual(motion.y, 2)
-            sprite = motion[0]
             self.assertEqual((sprite.bitmap.width, sprite.bitmap.height), (40, 26))
-            self.assertEqual(sprite.pixel_shader.transparent, 0)
-            self.assertTrue(set(sprite.bitmap.pixels.values()) - {0})
-            self.assertEqual(len(set(sprite.bitmap.pixels.values())), 11)
+            self.assertEqual(palette.transparent, 0)
+            self.assertEqual(len(sprite.bitmap.pixels),
+                             sum(row.count("X") for row in led_display.SCOUTS_FLEUR_ROWS))
+            self.assertEqual(sprite.bitmap.pixels[(19, 0)], 1 + 19 // 4)
+            self.assertEqual(palette[1], led_display.SCOUTS_FLEUR_GRADIENT_WHEEL[0])
 
             display._show_scouts_intro(screen, led_display.SCOUTS_INTRO_SLIDE_SECONDS / 2)
             self.assertEqual(motion.x, led_display.DISPLAY_WIDTH // 2)
             display._show_scouts_intro(screen, led_display.SCOUTS_INTRO_SLIDE_SECONDS)
             self.assertEqual(motion.x, 0)
-            display._show_scouts_intro(screen, led_display.SCOUTS_INTRO_SLIDE_SECONDS + 1.6)
+            before = list(palette)
+            display._show_scouts_intro(screen, led_display.SCOUTS_INTRO_SLIDE_SECONDS + 0.4)
             self.assertEqual(motion.x, 0)
+            self.assertNotEqual(list(palette), before)
             self.assertIs(display.display.root_group, root)
-            self.assertIs(display._scouts_intro_motion, motion)
+            self.assertIs(motion[0], sprite)
+            self.assertIs(display._scouts_intro_palette, palette)
             self.assertEqual(display._label.call_count, 1)
-            self.assertEqual(display._refresh.call_count, 3)
+            calls = display._refresh.call_count
+            display._show_scouts_intro(screen, led_display.SCOUTS_INTRO_SLIDE_SECONDS + 0.4)
+            self.assertEqual(display._refresh.call_count, calls)
+            self.assertEqual(led_display.SCOUTS_INTRO_DURATION_SECONDS, 7.2)
+            self.assertEqual(led_display.SCOUTS_FLEUR_GRADIENT_STEP_SECONDS, 0.20)
 
 
 if __name__ == "__main__":
