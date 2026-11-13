@@ -102,7 +102,7 @@ class CubsTests(unittest.TestCase):
         from display import (
             scouts_event_when, scouts_event_title_lines, SCOUTS_INTRO_SLIDE_SECONDS
         )
-        self.assertEqual(SCOUTS_INTRO_SLIDE_SECONDS, 2.4)
+        self.assertEqual(SCOUTS_INTRO_SLIDE_SECONDS, 4.8)
         event = {
             "date_text": "05/11", "time_text": "18:30", "all_day": False,
             "title": "Forest Adventure and Nature Games",
