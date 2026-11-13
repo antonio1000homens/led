@@ -241,10 +241,11 @@ def football_slide_offset(phase, animation_speed=None):
 
 
 def football_roll_frame(phase, animation_speed=None):
-    """Eight orientations, two full turns during the slide; frozen on arrival."""
-    _, settled = football_slide_offset(phase, animation_speed)
-    if settled:
-        return 0
+    """Return the rolling ball orientation throughout a PRE presentation.
+
+    Keep the original two-turn slide cadence, then continue rolling at the
+    same rate while the settled kickoff countdown is visible.
+    """
     try:
         elapsed = max(0.0, float(phase or 0))
     except (ValueError, TypeError):

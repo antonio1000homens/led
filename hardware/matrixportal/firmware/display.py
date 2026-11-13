@@ -5778,6 +5778,8 @@ class FixtureDisplay:
             self._bin_collection(screen, phase, clock_date)
         elif kind == "football_score":
             from football_ball import ROWS as BALL_ROWS
+            ball_palette = (FOOTBALL_BALL_PALETTE_2BIT if MATRIX_BIT_DEPTH == 2
+                            else FOOTBALL_BALL_PALETTE)
 
             ball_x, info_visible = football_presentation_position(
                 football_entry_phase(phase, screen.get("status")),
@@ -5787,9 +5789,9 @@ class FixtureDisplay:
             for row, pixels in enumerate(BALL_ROWS):
                 for column, pixel in enumerate(pixels):
                     if pixel == "W":
-                        color = (245, 245, 245)
+                        color = ball_palette["W"]
                     elif pixel == "D":
-                        color = (48, 48, 48)
+                        color = ball_palette["D"]
                     else:
                         continue
                     self._pixel(ball_x + column, 8 + row, color)

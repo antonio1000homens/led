@@ -27,10 +27,10 @@ _ROLL_SIN = (0, 724, 1024, 724, 0, -724, -1024, -724)
 
 
 PALETTE_INDEX = {".": 0, "W": 1, "D": 2}
-PALETTE = {"W": (245, 245, 245), "D": (48, 48, 48)}
-# Deliberate two-bit values keep the ball's panels legible as soft white and
-# charcoal instead of clipping both original RGB565 colours to extremes.
-PALETTE_2BIT = {"W": (170, 170, 170), "D": (85, 85, 85)}
+PALETTE = {"W": (255, 255, 255), "D": (20, 24, 32)}
+# Use crisp white panels against near-black charcoal at 2-bit depth. The
+# stronger separation keeps the tiny rolling pattern legible on the panel.
+PALETTE_2BIT = {"W": (255, 255, 255), "D": (0, 0, 0)}
 
 
 def draw_indexed(bitmap, x=0, y=0):
