@@ -481,10 +481,11 @@ console.log(JSON.stringify(calls));
         self.assertEqual(football_due_in(kickoff, base - (2*86400 + 5*3600 + 14*60 + 9)),
                          "2 DAYS")
         self.assertEqual(football_due_in(kickoff, base - 172800), "2 DAYS")
-        self.assertEqual(football_due_in(kickoff, base - 172799), "1 DAY")
+        self.assertEqual(football_due_in(kickoff, base - 172799), "2 DAYS")
         self.assertEqual(football_due_in(kickoff, base - 86401), "1 DAY")
         self.assertEqual(football_due_in(kickoff, base - 86400), "1 DAY")
-        self.assertEqual(football_due_in(kickoff, base - 86399), "23H 59M 59S")
+        same_day = epoch("2026-10-31T00:00:00Z")
+        self.assertEqual(football_due_in(kickoff, same_day), "15H 00M 00S")
         self.assertEqual(football_due_in(kickoff, base - 3601), "01H 00M 01S")
         self.assertEqual(football_due_in(kickoff, base - 3600), "60M 00S")
         self.assertEqual(football_due_in(kickoff, base - 61), "01M 01S")
@@ -494,6 +495,18 @@ console.log(JSON.stringify(calls));
         self.assertEqual(football_due_in(kickoff, base + 100), "DUE NOW")
         self.assertEqual(football_due_in("invalid", base), "TBC")
         self.assertEqual(football_due_in(kickoff, None), "TBC")
+
+    def test_due_uses_london_calendar_dates_across_midnight_and_dst(self):
+        self.assertEqual(football_due_in("2026-11-02T01:00:00Z",
+                                         epoch("2026-11-01T23:00:00Z")), "1 DAY")
+        # The clocks differ by an hour across the autumn transition, but both
+        # instants are on 25 October in London and must use a time countdown.
+        self.assertEqual(football_due_in("2026-10-25T01:30:00Z",
+                                         epoch("2026-10-25T00:30:00Z")),
+                         "60M 00S")
+        # A short interval across the DST boundary still crosses a local date.
+        self.assertEqual(football_due_in("2026-10-25T00:00:00Z",
+                                         epoch("2026-10-24T22:00:00Z")), "1 DAY")
 
     @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
     def test_simulator_countdown_matches_firmware_across_day_transition(self):
@@ -514,6 +527,25 @@ console.log(JSON.stringify(remaining.map(seconds =>
         output = json.loads(subprocess.check_output(["node", "-e", harness], text=True))
         self.assertEqual(output, [football_due_in(kickoff, base - seconds)
                                   for seconds in remaining])
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed for simulator parity")
+    def test_simulator_countdown_matches_firmware_for_local_date_boundaries(self):
+        html = (Path(__file__).resolve().parents[1] / "simulator/index.html").read_text()
+        start = html.index("    function footballDueIn")
+        function = html[start:html.index("    function drawFootballCompactText", start)]
+        cases = [
+            ("2026-11-02T01:00:00Z", "2026-11-01T23:00:00Z"),
+            ("2026-10-25T01:30:00Z", "2026-10-25T00:30:00Z"),
+            ("2026-10-25T00:00:00Z", "2026-10-24T22:00:00Z"),
+            ("2026-10-31T15:00:00Z", "2026-10-31T00:00:00Z"),
+        ]
+        harness = function + "\nconst cases = " + json.dumps(cases) + ";\n" + """
+console.log(JSON.stringify(cases.map(([kickoff, now]) =>
+  footballDueIn(kickoff, Date.parse(now)))));
+"""
+        output = json.loads(subprocess.check_output(["node", "-e", harness], text=True))
+        expected = [football_due_in(kickoff, epoch(now)) for kickoff, now in cases]
+        self.assertEqual(output, expected)
 
     def test_rolling_scene_positions_and_frames(self):
         self.assertEqual(football_slide_offset(0), (254, False))

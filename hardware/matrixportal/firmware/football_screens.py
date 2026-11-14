@@ -134,6 +134,15 @@ def _last_sunday(year, month):
     return last_day - ((weekday + 1) % 7)
 
 
+def _london_date_ordinal(epoch_seconds):
+    """Return the Europe/London calendar date as days since the epoch."""
+    utc_year, _, _ = _civil_from_days(epoch_seconds // 86400)
+    dst_start = _days_since_epoch(utc_year, 3, _last_sunday(utc_year, 3)) * 86400 + 3600
+    dst_end = _days_since_epoch(utc_year, 10, _last_sunday(utc_year, 10)) * 86400 + 3600
+    is_bst = dst_start <= epoch_seconds < dst_end
+    return (epoch_seconds + (3600 if is_bst else 0)) // 86400
+
+
 def kickoff_local_label(kickoff):
     """Format a timezone-aware kickoff in Europe/London without zoneinfo."""
     try:
@@ -199,8 +208,9 @@ def football_entry_phase(phase, status):
 def football_due_in(kickoff, now_epoch):
     """Compact absolute-time PRE countdown for the right side of the board.
 
-    Show whole days at or above 24 hours; below that, show the clock
-    countdown without days. Seconds appear only above 60 seconds.
+    Show the number of Europe/London calendar days until kickoff when it is
+    on a later local date. Same-date fixtures use a clock countdown.
+    Seconds appear only above 60 seconds.
     """
     if not kickoff or now_epoch is None:
         return "TBC"
@@ -212,8 +222,14 @@ def football_due_in(kickoff, now_epoch):
         return "DUE NOW"
     if remaining <= 60:
         return "UNDER 1 MIN"
-    if remaining >= 86400:
-        days = remaining // 86400
+    try:
+        now_seconds = int(now_epoch)
+        kickoff_seconds = _epoch(kickoff) // 1000
+        days = (_london_date_ordinal(kickoff_seconds)
+                - _london_date_ordinal(now_seconds))
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return "TBC"
+    if days > 0:
         return "{} {}".format(days, "DAY" if days == 1 else "DAYS")
     if remaining > 3600:
         hours, rest = divmod(remaining, 3600)
